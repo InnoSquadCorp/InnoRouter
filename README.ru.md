@@ -90,7 +90,7 @@ SwiftUI host рендерит его как `.sheet`, потому что `.full
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.1")
 ]
 ```
 

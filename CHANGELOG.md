@@ -4,6 +4,17 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
+## 4.2.1 - 2026-05-12
+
+### Fixed
+
+- `Package.swift` no longer uses `SwiftSetting.treatAllWarnings(as:)`.
+  SwiftPM accepts that setting, but current Tuist external package conversion
+  fails while decoding the Swift 6.3 manifest JSON when InnoRouter is linked as
+  an external dependency. The package keeps `.swiftLanguageMode(.v6)`, and
+  warnings-as-errors remain a repository gate through CI and release scripts
+  instead of being imposed through the consumer-facing manifest.
+
 ## 4.2.0 - 2026-05-07
 
 4.2.0 is the privacy manifest release. It keeps the 4.x public API

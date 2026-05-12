@@ -87,7 +87,7 @@ SwiftUI의 네이티브 시각 badge를 생략한다는 뜻입니다. `❌`는 �
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.1")
 ]
 ```
 

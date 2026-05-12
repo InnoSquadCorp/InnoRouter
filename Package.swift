@@ -75,7 +75,7 @@ private func exampleTarget(
         path: "Examples",
         exclude: exampleSources.filter { $0 != source } + ["README.md"],
         sources: [source],
-        swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     )
 }
 
@@ -92,7 +92,7 @@ private func soloSmokeTarget(
         path: "ExamplesSmoke",
         exclude: smokeSources.filter { $0 != source } + ["README.md"],
         sources: [source],
-        swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+        swiftSettings: [.swiftLanguageMode(.v6)]
     )
 }
 
@@ -178,7 +178,7 @@ let package = Package(
         .target(
             name: "InnoRouterCore",
             resources: privacyManifestResources,
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
         // MARK: - DeepLink Target
@@ -186,7 +186,7 @@ let package = Package(
             name: "InnoRouterDeepLink",
             dependencies: ["InnoRouterCore"],
             resources: privacyManifestResources,
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
         // MARK: - SwiftUI Target
@@ -194,7 +194,7 @@ let package = Package(
             name: "InnoRouterSwiftUI",
             dependencies: ["InnoRouterCore"],
             resources: privacyManifestResources,
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
         // MARK: - Umbrella Target
@@ -203,7 +203,7 @@ let package = Package(
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterDeepLink"],
             path: "Sources/InnoRouterUmbrella",
             resources: privacyManifestResources,
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
         // MARK: - Effects Target
@@ -214,7 +214,7 @@ let package = Package(
             ],
             path: "Sources/InnoRouterNavigationEffects",
             resources: privacyManifestResources,
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .target(
             name: "InnoRouterDeepLinkEffects",
@@ -225,7 +225,7 @@ let package = Package(
             ],
             path: "Sources/InnoRouterDeepLinkEffects",
             resources: privacyManifestResources,
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .target(
             name: "InnoRouterEffects",
@@ -235,7 +235,7 @@ let package = Package(
             ],
             path: "Sources/InnoRouterEffects",
             resources: privacyManifestResources,
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
         // MARK: - Executable Target
@@ -243,19 +243,19 @@ let package = Package(
             name: "NavigationEnvironmentFailFastProbe",
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
             path: "Sources/NavigationEnvironmentFailFastProbe",
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .executableTarget(
             name: "ChildCoordinatorFailFastProbe",
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
             path: "Sources/ChildCoordinatorFailFastProbe",
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .executableTarget(
             name: "InnoRouterPerformanceSmoke",
             dependencies: ["InnoRouter", "InnoRouterDeepLinkEffects"],
             path: "Sources/InnoRouterPerformanceSmoke",
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
         // MARK: - Example Build Gates (human-facing Examples/*.swift)
@@ -292,7 +292,7 @@ let package = Package(
             path: "ExamplesSmoke",
             exclude: soloSmokeSources + ["README.md"],
             sources: smokeSources.filter { !soloSmokeSources.contains($0) },
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         soloSmokeTarget(name: "InnoRouterStandaloneExampleSmoke",  source: "StandaloneSmoke.swift"),
         soloSmokeTarget(name: "InnoRouterCoordinatorExampleSmoke", source: "CoordinatorSmoke.swift"),
@@ -302,7 +302,7 @@ let package = Package(
             name: "InnoRouterMacros",
             dependencies: ["InnoRouterCore", "InnoRouterMacrosPlugin"],
             resources: privacyManifestResources,
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
         // MARK: - Test Harness Target
@@ -314,7 +314,7 @@ let package = Package(
             name: "InnoRouterTesting",
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
             resources: privacyManifestResources,
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
         // MARK: - Macro Implementation (Compiler Plugin)
@@ -327,19 +327,19 @@ let package = Package(
                 .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
                 .product(name: "SwiftDiagnostics", package: "swift-syntax"),
             ],
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
         // MARK: - Tests
         .testTarget(
             name: "InnoRouterTests",
             dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterSwiftUI"],
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "InnoRouterPlatformTests",
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         // InnoRouterMacrosPlugin is a CompilerPlugin built host-only
         // (macOS). Restricting this test target's dependencies to macOS
@@ -355,7 +355,7 @@ let package = Package(
                 .target(name: "InnoRouterMacrosPlugin", condition: .when(platforms: [.macOS])),
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax", condition: .when(platforms: [.macOS])),
             ],
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "InnoRouterMacrosBehaviorTests",
@@ -373,7 +373,7 @@ let package = Package(
             // target; it is human-facing only and must not be packaged
             // as a test resource.
             exclude: ["README.md"],
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "InnoRouterTestingTests",
@@ -382,7 +382,7 @@ let package = Package(
                 "InnoRouter",
                 "InnoRouterSwiftUI",
             ],
-            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]
 )

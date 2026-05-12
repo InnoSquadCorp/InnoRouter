@@ -91,7 +91,7 @@ das Symbol auf dieser Plattform nicht deklariert ist; bauen Sie es hinter
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.1")
 ]
 ```
 

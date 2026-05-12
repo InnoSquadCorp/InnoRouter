@@ -82,7 +82,7 @@ badge。`❌` 表示该符号在该平台上未声明;请用 `#if !os(...)` 包�
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.1")
 ]
 ```
 
