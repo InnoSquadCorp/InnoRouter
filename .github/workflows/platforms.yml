@@ -35,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # This build job is compile-only. The authoritative macOS
       # correctness gate remains the `gates` workflow; these jobs catch
@@ -105,7 +105,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Select pinned Xcode
         uses: maxim-lobanov/setup-xcode@v1

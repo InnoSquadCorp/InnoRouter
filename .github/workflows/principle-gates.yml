@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install lint tools
         run: brew install ripgrep swiftformat swiftlint
@@ -38,7 +38,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # The check needs both BASE_REF and HEAD reachable so it
           # can diff the touched paths.
@@ -55,7 +55,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # Xcode is pinned (rather than a floating latest channel) so runs of this
       # workflow are reproducible across the lifetime of a release.
