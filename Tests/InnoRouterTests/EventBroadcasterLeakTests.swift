@@ -102,9 +102,36 @@ struct EventBroadcasterLeakTests {
         #expect(secondB == .ping(2))
         #expect(thirdB == .ping(2))
     }
+
+    @Test("Deallocating broadcaster finishes active streams")
+    @MainActor
+    func deallocatingBroadcasterFinishesActiveStreams() async throws {
+        var broadcaster: EventBroadcaster<LeakSmokeEvent>? = makeBroadcaster()
+        let stream: AsyncStream<LeakSmokeEvent>
+        do {
+            let activeBroadcaster = try #require(broadcaster)
+            stream = activeBroadcaster.stream()
+            #expect(activeBroadcaster.subscriberCount == 1)
+        }
+
+        broadcaster = nil
+
+        let result = await nextValue(from: stream, timeout: .seconds(1))
+        switch result {
+        case .completed(let event):
+            #expect(event == nil)
+        case .timedOut:
+            Issue.record("Timed out waiting for broadcaster deallocation to finish the stream")
+        }
+    }
 }
 
 // MARK: - Helpers
+
+private enum TimedNextValue<Value: Sendable>: Sendable {
+    case completed(Value?)
+    case timedOut
+}
 
 @MainActor
 private func withSubscribedConsume(
@@ -133,5 +160,25 @@ private func waitUntil(
             return
         }
         try await Task.sleep(for: interval)
+    }
+}
+
+private func nextValue(
+    from stream: AsyncStream<LeakSmokeEvent>,
+    timeout: Duration
+) async -> TimedNextValue<LeakSmokeEvent> {
+    return await withTaskGroup(of: TimedNextValue<LeakSmokeEvent>.self) { group in
+        group.addTask {
+            var iterator = stream.makeAsyncIterator()
+            return await .completed(iterator.next())
+        }
+        group.addTask {
+            try? await Task.sleep(for: timeout)
+            return .timedOut
+        }
+
+        let result = await group.next() ?? .timedOut
+        group.cancelAll()
+        return result
     }
 }

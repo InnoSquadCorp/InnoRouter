@@ -259,7 +259,7 @@ resolve_platform_frameworks_dir() {
   if [[ -n "$sdk_name" ]]; then
     sdk_platform_path="$(xcrun --sdk "$sdk_name" --show-sdk-platform-path 2>/dev/null || true)"
   else
-    sdk_platform_path="$(xcrun --show-sdk-platform-path 2>/dev/null || true)"
+    sdk_platform_path="$(xcrun --sdk macosx --show-sdk-platform-path 2>/dev/null || true)"
   fi
 
   if [[ -z "$sdk_platform_path" ]]; then
@@ -295,7 +295,7 @@ check_sendable_contracts "$ROOT_DIR"
 HOST_BUILD_BIN_DIR="$(swift build --show-bin-path)"
 HOST_MODULES_DIR="$HOST_BUILD_BIN_DIR/Modules"
 HOST_MODULE_CACHE_DIR="$HOST_BUILD_BIN_DIR/ModuleCache"
-HOST_SDK_PATH="$(xcrun --show-sdk-path)"
+HOST_SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 HOST_PLATFORM_FRAMEWORKS_DIR="$(resolve_platform_frameworks_dir)"
 IFS=$'\t' read -r HOST_TARGET_TRIPLE HOST_RESOURCE_DIR <<< "$(read_target_context)"
 

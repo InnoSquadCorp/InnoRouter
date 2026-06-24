@@ -83,10 +83,12 @@ than the broadcaster.
 
 Each subscriber owns one `AsyncStream`. When the subscriber's
 iterator goes out of scope, `AsyncStream.Continuation.onTermination`
-fires and the broadcaster releases its slot. Stores also finish all
-outstanding continuations on `isolated deinit`, so `for await` loops
-terminate naturally when their store is released — no manual cleanup
-required.
+fires and the broadcaster removes that slot from its private
+continuation storage. When a store releases its broadcaster, that
+storage deinitializes, snapshots any outstanding continuations, and
+finishes them outside the broadcaster's actor-isolated deinitializer.
+As a result, `for await` loops terminate naturally when their store is
+released - no manual cleanup required.
 
 ## Related
 
