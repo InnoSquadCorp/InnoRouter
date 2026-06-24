@@ -90,7 +90,7 @@ no está declarado en esa plataforma; constrúyalo detrás de `#if !os(...)`.
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.1")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.3.0")
 ]
 ```
 
@@ -116,7 +116,7 @@ _ = compileCheckedStack.path
 
 `4.0.0` es el primer release OSS de InnoRouter y la primera versión cubierta por
 el contrato público de SemVer. Los nuevos adoptantes deberían instalar desde
-`4.2.0` o más reciente. Las instantáneas privadas/internas anteriores no son
+`4.3.0` o más reciente. Las instantáneas privadas/internas anteriores no son
 parte de la línea de compatibilidad OSS; los equipos que las probaron deberían
 validar el uso de la API pública contra los documentos 4.x como una migración
 de fuente única.
@@ -919,7 +919,7 @@ DocC se construye por módulo y se publica a GitHub Pages.
 Estructura publicada:
 
 - `/InnoRouter/latest/`
-- `/InnoRouter/4.2.0/`
+- `/InnoRouter/4.3.0/`
 - `/InnoRouter/` portal raíz
 
 ### CI

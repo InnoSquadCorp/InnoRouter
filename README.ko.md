@@ -87,7 +87,7 @@ SwiftUI의 네이티브 시각 badge를 생략한다는 뜻입니다. `❌`는 �
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.1")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.3.0")
 ]
 ```
 
@@ -112,7 +112,7 @@ _ = compileCheckedStack.path
 ## 4.0.0 OSS 릴리즈 계약
 
 `4.0.0`은 InnoRouter의 첫 OSS 릴리즈이며, public SemVer 계약이 적용되는 첫 버전입니다.
-신규 채택자는 `4.2.0` 이상에서 시작해야 합니다. 이전의 비공개/내부 패키지 스냅샷은
+신규 채택자는 `4.3.0` 이상에서 시작해야 합니다. 이전의 비공개/내부 패키지 스냅샷은
 OSS 호환성 라인의 일부가 아닙니다. 이전 버전을 테스트한 팀은 4.x 문서에 맞춰 public API
 사용을 일회성 source migration으로 검증해야 합니다.
 
@@ -874,7 +874,7 @@ DocC는 모듈별로 빌드되어 GitHub Pages에 게시됩니다.
 게시 구조:
 
 - `/InnoRouter/latest/`
-- `/InnoRouter/4.2.0/`
+- `/InnoRouter/4.3.0/`
 - `/InnoRouter/` 루트 포털
 
 ### CI

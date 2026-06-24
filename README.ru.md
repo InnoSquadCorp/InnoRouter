@@ -90,7 +90,7 @@ SwiftUI host рендерит его как `.sheet`, потому что `.full
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.1")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.3.0")
 ]
 ```
 
@@ -116,7 +116,7 @@ _ = compileCheckedStack.path
 
 `4.0.0` — это первый OSS-релиз InnoRouter и первая версия, покрытая
 публичным контрактом SemVer. Новые усыновители должны устанавливать с
-`4.2.0` или новее. Более ранние приватные/внутренние снимки пакета не
+`4.3.0` или новее. Более ранние приватные/внутренние снимки пакета не
 являются частью линии OSS-совместимости; команды, которые их тестировали,
 должны проверить использование публичного API относительно документов 4.x
 как одноразовую миграцию исходного кода.
@@ -936,7 +936,7 @@ DocC собирается по модулю и публикуется на GitHu
 Опубликованная структура:
 
 - `/InnoRouter/latest/`
-- `/InnoRouter/4.2.0/`
+- `/InnoRouter/4.3.0/`
 - `/InnoRouter/` корневой портал
 
 ### CI

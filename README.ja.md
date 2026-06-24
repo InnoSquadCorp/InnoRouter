@@ -91,7 +91,7 @@ SwiftUI ホストが `.fullScreenCover` を利用できないため `.sheet` と
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.1")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.3.0")
 ]
 ```
 
@@ -116,7 +116,7 @@ _ = compileCheckedStack.path
 ## 4.0.0 OSS リリース契約
 
 `4.0.0` は InnoRouter の最初の OSS リリースであり、パブリック SemVer
-契約でカバーされる最初のバージョンです。新しい採用者は `4.2.0` 以降から
+契約でカバーされる最初のバージョンです。新しい採用者は `4.3.0` 以降から
 インストールするべきです。以前のプライベート/内部パッケージスナップショットは
 OSS 互換性ラインの一部ではありません。それらをテストしたチームは、
 4.x ドキュメントに対するパブリック API 使用法を一回限りのソース移行として
@@ -926,7 +926,7 @@ DocC はモジュールごとにビルドされ、GitHub Pages に公開され�
 公開された構造:
 
 - `/InnoRouter/latest/`
-- `/InnoRouter/4.2.0/`
+- `/InnoRouter/4.3.0/`
 - `/InnoRouter/` ルートポータル
 
 ### CI

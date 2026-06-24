@@ -4,6 +4,31 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
+## 4.3.0 - 2026-06-24
+
+4.3.0 keeps the 4.x public API surface compatible while hardening the
+runtime and release toolchain against Swift 6.3 / Xcode 26.3 compiler
+and CI drift.
+
+### Fixed
+
+- `EventBroadcaster` now stores subscriber continuations in a private
+  helper whose nonisolated deinitializer finishes outstanding streams.
+  This avoids the Swift 6.3 optimizer crash seen while compiling
+  `InnoRouterCore` in optimized Stage / Release simulator builds, while
+  preserving the existing event fan-out behavior and subscriber cleanup
+  contract.
+
+### Changed
+
+- Release and documentation gates now resolve the macOS SDK explicitly
+  when extracting symbol graphs, so `InnoRouterTesting` can reliably find
+  Swift Testing's `Testing.framework` in Xcode-based environments even
+  when Command Line Tools SDK discovery drifts.
+- CI workflows now use the current pinned action majors
+  (`actions/checkout@v7`, `codecov/codecov-action@v7`) without changing
+  the package's supported Swift or platform floors.
+
 ## 4.2.1 - 2026-05-12
 
 ### Fixed

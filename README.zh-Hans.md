@@ -82,7 +82,7 @@ badge。`❌` 表示该符号在该平台上未声明;请用 `#if !os(...)` 包�
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.1")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.3.0")
 ]
 ```
 
@@ -105,7 +105,7 @@ _ = compileCheckedStack.path
 ## 4.0.0 OSS 发布合约
 
 `4.0.0` 是 InnoRouter 的首个 OSS 发布,也是公开 SemVer 合约覆盖的第一个版本。
-新的采用者应该从 `4.2.0` 或更新版本安装。早期的私有/内部包快照不属于 OSS
+新的采用者应该从 `4.3.0` 或更新版本安装。早期的私有/内部包快照不属于 OSS
 兼容性线;测试过它们的团队应该作为一次性源代码迁移,根据 4.x 文档验证公开 API 使用。
 
 ### 4.x 线的 SemVer 承诺
@@ -855,7 +855,7 @@ DocC 按模块构建并发布到 GitHub Pages。
 发布结构:
 
 - `/InnoRouter/latest/`
-- `/InnoRouter/4.2.0/`
+- `/InnoRouter/4.3.0/`
 - `/InnoRouter/` 根门户
 
 ### CI
