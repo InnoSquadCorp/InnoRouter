@@ -219,8 +219,8 @@ swift build >/dev/null
 build_bin_dir="$(swift build --show-bin-path)"
 modules_dir="$build_bin_dir/Modules"
 module_cache_dir="$build_bin_dir/ModuleCache"
-sdk_path="$(xcrun --show-sdk-path)"
-sdk_platform_path="$(xcrun --show-sdk-platform-path 2>/dev/null || true)"
+sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
+sdk_platform_path="$(xcrun --sdk macosx --show-sdk-platform-path 2>/dev/null || true)"
 # Platform frameworks directory holds Testing.framework + its subpackages,
 # which InnoRouterTesting imports for Swift Testing integration.
 # Resolve it from the active SDK platform when available, but don't fail in

@@ -100,8 +100,8 @@ struct GenericEnumDiagnosticTests {
             enum Plain {
                 case home
 
-                public enum Cases {
-                        public static let home = CasePath<Plain, Void>(
+                internal enum Cases {
+                        internal static let home = CasePath<Plain, Void>(
                             embed: { _ in
                                 .home
                             },
@@ -114,11 +114,11 @@ struct GenericEnumDiagnosticTests {
                         )
                 }
 
-                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
                     casePath.extract(self) != nil
                 }
 
-                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
                     casePath.extract(self)
                 }
             }

@@ -628,7 +628,7 @@ struct RoutableMacroTests {
                     casePath.extract(self) != nil
                 }
 
-                internal subscript<Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
                     casePath.extract(self)
                 }
             }
