@@ -212,6 +212,10 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Reopening an already-active immersive scene with the same route and style now
+  reuses its presentation identity. A successful duplicate open can no longer
+  replace the store's active UUID while the live SwiftUI root still owns the
+  previous UUID, so lifecycle teardown reliably removes the scene.
 - Cancelling a visionOS scene host while it awaits cleanup of a superseded
   immersive open now reconciles and releases the claimed request before the
   dispatch loop exits. Queued scene requests no longer remain permanently

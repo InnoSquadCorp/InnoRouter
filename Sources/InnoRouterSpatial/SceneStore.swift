@@ -132,8 +132,9 @@ public final class SceneStore<R: Route> {
 
     /// Requests that the host open an immersive space for `route`.
     public func openImmersive(_ route: R, style: ImmersiveStyle) {
+        let presentation = state.presentationForImmersiveOpen(route: route, style: style)
         applyRequestMutation {
-            $0.requestOpen(.immersive(route, style: style))
+            $0.requestOpen(presentation)
         }
     }
 

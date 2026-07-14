@@ -659,10 +659,44 @@ struct SceneStoreIntegrationTests {
 
         #expect(collected != nil)
         if case .rejected(let intent, .hostTornDownDuringDispatch)? = collected {
-            #expect(intent == .open(.immersive(.theatre, style: .mixed)))
+            #expect(intent == .open(theatrePresentation))
         }
         #expect(await dismissCount.read() == 0)
         #expect(store.currentScene == theatrePresentation)
+    }
+
+    @Test("A successful duplicate immersive reopen retains lifecycle ownership")
+    @MainActor
+    func successfulDuplicateImmersiveReopenRetainsLifecycleOwnership() async throws {
+        let store = SceneStore<SpatialRoute>()
+        let scenes = makeRegistry()
+        let theatreDeclaration = try #require(scenes.declaration(for: .theatre))
+        let theatrePresentation = theatreDeclaration.presentation()
+        let hostToken = UUID()
+
+        _ = store.registerDispatcherHost(hostToken)
+        store.registerSceneLifecycle(theatrePresentation, token: hostToken)
+        store.openImmersive(.theatre, style: .mixed)
+
+        let driver = SceneDispatchDriver<SpatialRoute>(
+            store: store,
+            scenes: scenes,
+            dispatcherToken: hostToken,
+            capability: .primaryHost,
+            openWindow: { _, _ in },
+            openImmersiveSpace: { _ in .opened },
+            dismissImmersiveSpace: {
+                Issue.record("a successful duplicate reopen must not dismiss the live scene")
+            },
+            dismissWindow: { _, _ in }
+        )
+
+        await driver.run()
+
+        #expect(store.activeScenes == [theatrePresentation])
+        store.unregisterSceneLifecycle(hostToken)
+        #expect(store.activeScenes.isEmpty)
+        #expect(store.currentScene == nil)
     }
 
     @Test("Cancelling superseded immersive cleanup releases the claim for the next dispatcher")

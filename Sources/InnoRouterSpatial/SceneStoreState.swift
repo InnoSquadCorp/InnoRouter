@@ -260,6 +260,31 @@ internal struct SceneStoreState<R: Route>: Equatable {
         return declaration.presentation()
     }
 
+    internal func presentationForImmersiveOpen(
+        route: R,
+        style: ImmersiveStyle
+    ) -> ScenePresentation<R> {
+        let candidates = [
+            activeImmersive,
+            claimedRequest?.request.intent.openedPresentation
+        ] + queuedRequests.map(\.intent.openedPresentation)
+
+        for candidate in candidates {
+            guard let candidate else {
+                continue
+            }
+            guard case .immersive(let candidateRoute, let candidateStyle, _) = candidate else {
+                continue
+            }
+            guard candidateRoute == route, candidateStyle == style else {
+                continue
+            }
+            return candidate
+        }
+
+        return .immersive(route, style: style)
+    }
+
     internal mutating func completeOpen(
         _ presentation: ScenePresentation<R>,
         accepted: Bool,
