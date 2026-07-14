@@ -81,7 +81,7 @@ Every gate above runs under one of the workflows in `.github/workflows/`:
 | `docs-ci.yml` | 2 (DocC build validation) |
 | `coverage.yml` | 1 (with coverage instrumentation) |
 | `performance-smoke.yml` | 9 (perf regression detection) |
-| `release.yml` | reruns 1–12, calls the reusable `platforms` workflow, then serially merges versioned DocC into the required existing Pages site and publishes the GitHub Release |
+| `release.yml` | verifies the exact tag and changelog, reruns 1–12, calls the reusable `platforms` workflow, then serially merges versioned DocC into the required existing Pages site and publishes the GitHub Release; `/latest/` advances monotonically by GA SemVer |
 
 Tag format is bare semver (`5.0.0`) — leading-`v` or prefixed semver tags
 are rejected by the regex in `release.yml`.

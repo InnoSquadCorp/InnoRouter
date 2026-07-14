@@ -213,6 +213,36 @@ if [[ -n "$EXISTING_SITE_DIR" && -d "$EXISTING_SITE_DIR" ]]; then
   rsync -a --exclude '.git' "$EXISTING_SITE_DIR"/ "$OUTPUT_DIR"/
 fi
 
+if [[ "$SKIP_LATEST" != "true" ]]; then
+  if ! latest_decision="$(
+    find "$OUTPUT_DIR" \
+      -mindepth 1 \
+      -maxdepth 1 \
+      -type d \
+      ! -name latest \
+      -exec basename {} \; |
+      python3 "$ROOT_DIR/scripts/release-version-policy.py" latest-action "$VERSION"
+  )"; then
+    die "failed to resolve the /latest/ publication policy for $VERSION"
+  fi
+
+  read -r latest_action latest_version <<< "$latest_decision"
+  case "$latest_action" in
+    update)
+      echo "[build-docc-site] Updating /latest/ to $latest_version"
+      ;;
+    preserve)
+      [[ -d "$OUTPUT_DIR/latest" ]] || \
+        die "cannot preserve /latest/ for $latest_version because the existing alias is missing"
+      echo "[build-docc-site] Preserving /latest/ at $latest_version"
+      SKIP_LATEST="true"
+      ;;
+    *)
+      die "unexpected /latest/ publication decision: $latest_decision"
+      ;;
+  esac
+fi
+
 rm -rf "${OUTPUT_DIR:?}/${VERSION:?}"
 mkdir -p "${OUTPUT_DIR:?}/${VERSION:?}"
 if [[ "$SKIP_LATEST" != "true" ]]; then
@@ -491,7 +521,15 @@ render_root_portal() {
 
   while IFS= read -r version_dir; do
     discovered_versions+=("$version_dir")
-  done < <(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -type d ! -name latest -exec basename {} \; | LC_ALL=C sort -Vr)
+  done < <(
+    find "$OUTPUT_DIR" \
+      -mindepth 1 \
+      -maxdepth 1 \
+      -type d \
+      ! -name latest \
+      -exec basename {} \; |
+      python3 "$ROOT_DIR/scripts/release-version-policy.py" sort-published
+  )
 
   for version_dir in "${discovered_versions[@]}"; do
     version_links+="<li><a href=\"./${version_dir}/\">${version_dir}</a></li>"

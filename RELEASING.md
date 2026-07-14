@@ -154,7 +154,9 @@ Published documentation lives at:
 - `https://innosquadcorp.github.io/InnoRouter/latest/`
 - `https://innosquadcorp.github.io/InnoRouter/<version>/`
 
-Each release version keeps its own documentation subtree. `latest` is updated to the newest released version.
+Each release version keeps its own documentation subtree. `latest` advances only
+to an equal or newer GA version; rebuilding an older GA preserves the existing
+alias, and pre-releases never update it.
 
 ## Required local checks
 
@@ -215,7 +217,7 @@ that same reusable gate again before it publishes anything.
 - requires a valid checkout of the existing `gh-pages` site and fails closed if
   it cannot preserve older released documentation
 - merges new docs with existing released docs
-- updates `/latest/` only for GA releases
+- updates `/latest/` only when the GA is not older than the highest published GA
 - deploys GitHub Pages
 - publishes a GitHub Release named `InnoRouter <version>`
 

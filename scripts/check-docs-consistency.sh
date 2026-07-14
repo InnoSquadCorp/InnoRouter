@@ -253,6 +253,12 @@ check_present "$ROOT_DIR/scripts/resolve-docc-source-ref.sh" \
 check_present "$ROOT_DIR/scripts/build-docc-site.sh" \
   'resolve-docc-source-ref.sh' \
   "DocC builder does not delegate source-ref selection to the tested resolver"
+check_present "$ROOT_DIR/scripts/build-docc-site.sh" \
+  'latest-action "$VERSION"' \
+  "DocC builder does not prevent /latest/ from moving to an older GA"
+check_present "$ROOT_DIR/scripts/build-docc-site.sh" \
+  'sort-published' \
+  "DocC portal does not sort releases with the shared SemVer policy"
 if ! bash "$ROOT_DIR/scripts/test-resolve-docc-source-ref.sh"; then
   failures=1
 fi
