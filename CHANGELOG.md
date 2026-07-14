@@ -8,12 +8,15 @@ are bare semver (no leading `v`).
 
 ### Changed
 
-- Deep-link matching now parses each URL exactly once per decision.
+- Deep-link matching now parses accepted-size URLs at most once per
+  matcher or flow-pipeline decision, while preserving the raw URL
+  length rejection before parsing.
   `DeepLinkMatcher.match`, `FlowDeepLinkMatcher.match`, and
   `FlowDeepLinkPipeline.decide` previously re-parsed the same URL up
   to four times (input-limit checks and pattern walks each parsed
-  independently); they now thread a single `ParsedURL` through limit
-  validation and pattern matching. No behavior change.
+  independently); they now thread a single parsed value through
+  content-limit validation and pattern matching. URLs rejected by the
+  entry point's raw-length gate are not parsed.
 
 ### Fixed
 

@@ -100,20 +100,27 @@ public struct DeepLinkInputLimits: Sendable, Equatable {
     )
 
     public func violation(for url: URL) -> DeepLinkInputLimitViolation? {
-        violation(for: url, parsed: DeepLinkParser.parse(url))
+        if let violation = urlLengthViolation(for: url) {
+            return violation
+        }
+        return parsedContentViolation(for: DeepLinkParser.parse(url))
     }
 
-    /// Parse-free variant for callers that already hold the URL's
-    /// ``DeepLinkParser/ParsedURL``. Matchers and pipelines thread one
-    /// parsed value through limit checks and pattern matching so a
-    /// single deep-link decision parses its URL exactly once.
-    func violation(
-        for url: URL,
-        parsed: DeepLinkParser.ParsedURL
-    ) -> DeepLinkInputLimitViolation? {
+    /// Checks the raw URL before parsing so the length limit remains a
+    /// resource guard for untrusted, oversized input.
+    func urlLengthViolation(for url: URL) -> DeepLinkInputLimitViolation? {
         if let maxURLLength, url.absoluteString.count > maxURLLength {
             return .urlLengthExceeded(actual: url.absoluteString.count, max: maxURLLength)
         }
+        return nil
+    }
+
+    /// Checks limits that require an already-parsed URL. Matchers and
+    /// pipelines share one parsed value between this check and pattern
+    /// matching, while oversized raw URLs are rejected before parsing.
+    func parsedContentViolation(
+        for parsed: DeepLinkParser.ParsedURL
+    ) -> DeepLinkInputLimitViolation? {
         if let maxPathSegments, parsed.path.count > maxPathSegments {
             return .pathSegmentCountExceeded(actual: parsed.path.count, max: maxPathSegments)
         }
@@ -706,8 +713,9 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
     }
 
     public func match(_ url: URL) -> R? {
+        guard inputLimits.urlLengthViolation(for: url) == nil else { return nil }
         let parsed = DeepLinkParser.parse(url)
-        guard inputLimits.violation(for: url, parsed: parsed) == nil else { return nil }
+        guard inputLimits.parsedContentViolation(for: parsed) == nil else { return nil }
         for mapping in mappings {
             if let route = mapping.match(parsed) {
                 return route

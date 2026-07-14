@@ -140,8 +140,9 @@ public struct FlowDeepLinkMatcher<R: Route>: Sendable {
     /// Walks every declared mapping and returns the first plan that
     /// the URL matches, or `nil` if none apply.
     public func match(_ url: URL) -> FlowPlan<R>? {
+        guard inputLimits.urlLengthViolation(for: url) == nil else { return nil }
         let parsed = DeepLinkParser.parse(url)
-        guard inputLimits.violation(for: url, parsed: parsed) == nil else { return nil }
+        guard inputLimits.parsedContentViolation(for: parsed) == nil else { return nil }
         return match(parsed: parsed)
     }
 
@@ -152,8 +153,8 @@ public struct FlowDeepLinkMatcher<R: Route>: Sendable {
     }
 
     /// Pattern-walk without the input-limit gate, for pipeline callers
-    /// that have already checked ``inputLimitViolation(for:parsed:)``
-    /// against the same parsed value.
+    /// that have already checked the matcher limits against the same
+    /// parsed value.
     func match(parsed: DeepLinkParser.ParsedURL) -> FlowPlan<R>? {
         for mapping in mappings {
             if let plan = mapping.match(parsed) {
@@ -167,7 +168,8 @@ public struct FlowDeepLinkMatcher<R: Route>: Sendable {
         for url: URL,
         parsed: DeepLinkParser.ParsedURL
     ) -> DeepLinkInputLimitViolation? {
-        inputLimits.violation(for: url, parsed: parsed)
+        inputLimits.urlLengthViolation(for: url)
+            ?? inputLimits.parsedContentViolation(for: parsed)
     }
 }
 
