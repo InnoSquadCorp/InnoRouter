@@ -9,9 +9,9 @@ set -euo pipefail
 #
 # Comparison range: defaults to `origin/main..HEAD`. Override with
 # `BASE_REF` for fork PRs or release branches:
-#   BASE_REF=origin/release/4.x ./scripts/check-changelog-sync.sh
+#   BASE_REF=origin/release/5.x ./scripts/check-changelog-sync.sh
 #
-# CI usage: run this after `actions/checkout@v4` with
+# CI usage: run this after `actions/checkout@v7` with
 # `fetch-depth: 0` so the base ref is reachable.
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"

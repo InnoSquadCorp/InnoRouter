@@ -63,7 +63,7 @@ every PR.
 
 A change is **breaking** if it would fail to compile for an existing
 caller, narrow a generic constraint, or change documented runtime
-behaviour. Breaking changes target a 4.0 cycle, not a 3.x minor.
+behaviour. Breaking changes target a 6.0 cycle, not a 5.x minor.
 
 If your PR touches the public surface:
 

@@ -113,38 +113,35 @@ let compileCheckedStack = RouteStack<CompileCheckedRoute>()
 _ = compileCheckedStack.path
 ```
 
-## 4.0.0 OSS 릴리즈 계약
+## OSS 릴리즈 및 SemVer 계약
 
 `4.0.0`은 InnoRouter의 첫 OSS 릴리즈이며, public SemVer 계약이 적용되는 첫 버전입니다.
-신규 채택자는 `5.0.0` 이상에서 시작해야 합니다. 이전의 비공개/내부 패키지 스냅샷은
-OSS 호환성 라인의 일부가 아닙니다. 이전 버전을 테스트한 팀은 4.x 문서에 맞춰 public API
-사용을 일회성 source migration으로 검증해야 합니다.
+현재 호환성 라인은 `5.0.0`부터 시작합니다. 이전의 비공개/내부 패키지 스냅샷은
+OSS 호환성 라인의 일부가 아닙니다. 4.x 릴리즈에서 이동하는 팀은
+[`CHANGELOG.md`](CHANGELOG.md)의 5.0 마이그레이션 안내를 따라야 합니다.
 
-### 4.x 라인의 SemVer 약속
+### 5.x 라인의 SemVer 약속
 
-`4.x.y` 릴리즈 내에서 InnoRouter는 [Semantic Versioning](https://semver.org/)을
+`5.x.y` 릴리즈 내에서 InnoRouter는 [Semantic Versioning](https://semver.org/)을
 엄격하게 따릅니다:
 
-- **`4.x.y` → `4.x.(y+1)`** 패치 릴리즈: 버그 수정 only.
+- **`5.x.y` → `5.x.(y+1)`** 패치 릴리즈: 버그 수정 only.
   public-API 시그니처 변경 없음. 문서화된 버그 수정 외에는 관찰 가능한 동작 변경 없음.
-- **`4.x.y` → `4.(x+1).0`** 마이너 릴리즈: 추가만(additive only).
+- **`5.x.y` → `5.(x+1).0`** 마이너 릴리즈: 추가만(additive only).
   새 타입, 새 메서드, 새 케이스, 새 설정 옵션. 기존 시그니처는 모양을 유지하고
   기존 호출 사이트는 수정 없이 컴파일됩니다.
-- **`4.x.y` → `5.0.0`** 메이저 릴리즈: source 호환성을 깨거나, public 심볼을
+- **`5.x.y` → `6.0.0`** 메이저 릴리즈: source 호환성을 깨거나, public 심볼을
   제거하거나, generic 제약을 좁히거나, 문서화된 런타임 동작을 기존 호출 사이트가
   놀랄 만한 방식으로 변경하는 모든 것.
 
-예외: 아래의 `4.1.0` 역사적 정리는 문서화된 일회성 예외입니다. 그 채택
-baseline 이후의 4.x 마이너 릴리즈는 이 계약에 따라 additive-only입니다.
-
-Pre-release 태그는 `4.1.0-rc.1` / `4.2.0-beta.2` 형식을 사용합니다. 릴리즈
+Pre-release 태그는 `5.0.0-rc.1` / `5.1.0-beta.2` 형식을 사용합니다. 릴리즈
 워크플로우의 `^[0-9]+\.[0-9]+\.[0-9]+$` 정규식은 final 태그만 받아들입니다.
 pre-release 태그는 [`RELEASING.md`](RELEASING.md)에 문서화된 별도 수동 흐름을
 통해 출시됩니다.
 
 ### Breaking change의 정의
 
-4.x SemVer 약속의 목적상, *breaking change*는 다음 중 하나를 의미합니다:
+5.x SemVer 약속의 목적상, *breaking change*는 다음 중 하나를 의미합니다:
 
 - public 심볼(타입, 메서드, 프로퍼티, associated type, 케이스)의 제거 또는 이름 변경.
 - 기존 호출 사이트에서 컴파일 실패를 일으키는 public 메서드 시그니처 변경
@@ -161,15 +158,14 @@ pre-release 태그는 [`RELEASING.md`](RELEASING.md)에 문서화된 별도 수�
 - 시멘틱을 보존하는 성능 개선.
 - 문서만 변경.
 
-전체 4.0 baseline 정리는 [`CHANGELOG.md`](CHANGELOG.md)에 요약되어 있습니다.
-
-### 예외: 4.1.0 역사적 정리
+### 4.x 역사 기록
 
 `4.1.0`은 사용자 유입 전 cleanup 패스 이후의 채택 baseline입니다. 사용되지 않던
 dispatcher-object API들을 제거하고, `replaceStack`을 단일 풀-스택 교체 intent로
 유지하며, effect 관찰을 명시적 이벤트 스트림으로 옮겼습니다. 이는 4.x 라인에서
-문서화된 유일한 source-breaking 예외입니다. 신규 앱은 `5.0.0`에서 시작해야 하며,
-`4.0.0` 태그는 첫 OSS 스냅샷으로 남아 있습니다.
+문서화된 유일한 source-breaking 예외입니다. `4.0.0` 태그는 첫 OSS 스냅샷으로
+남아 있으며, 전체 4.x 이력과 5.0 마이그레이션은 [`CHANGELOG.md`](CHANGELOG.md)에
+기록되어 있습니다.
 
 ### Imports
 
@@ -188,8 +184,8 @@ import InnoRouterMacros      // @Routable / @CasePathable 사용 파일에서만
 `@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`, 기타 모든 property
 wrapper와 view modifier는 `InnoRouterMacros`가 아닌 `InnoRouter`에서 옵니다.
 
-SwiftSyntax 기반 매크로 구현은 4.x 라인 동안 이 패키지에 남아 있습니다.
-package-traits 또는 매크로-패키지 분리는 `swift package show-traits`,
+SwiftSyntax 기반 매크로 구현은 이 패키지에 포함되어 있습니다. package-traits 또는
+매크로-패키지 분리는 `swift package show-traits`,
 `swift build --target InnoRouter`, `swift build --target InnoRouterMacros`를
 마이그레이션 비용에 비해 실측한 후에만 평가해야 합니다.
 
@@ -895,12 +891,12 @@ CI는 다음을 검증합니다:
 
 CD는 bare semver tag에서만 동작합니다:
 
-- `4.1.0`
+- `5.0.0`
 
 유효하지 않은 tag 예:
 
 - 선행 `v`가 있는 모든 tag
-- `release-4.1.0`
+- `release-5.0.0`
 
 릴리즈 워크플로우 책임:
 

@@ -62,7 +62,6 @@ without breaking the macro expansion.
 
 ## Opt-out
 
-A `@Routable(visibility: .public)` argument is on the v4.x
-roadmap for consumers that intentionally want the wider surface
-without making the enclosing enum public. Until then, mark the
-enum `public` to widen the generated members.
+The macros do not expose a visibility override. Mark the enclosing
+enum `public` when its generated members must be public; otherwise the
+members follow the declaration's effective access level.

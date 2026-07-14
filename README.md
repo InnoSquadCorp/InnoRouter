@@ -116,44 +116,39 @@ let compileCheckedStack = RouteStack<CompileCheckedRoute>()
 _ = compileCheckedStack.path
 ```
 
-## 4.0.0 OSS release contract
+## OSS release and SemVer contract
 
 `4.0.0` is InnoRouter's first OSS release and the first version
-covered by the public SemVer contract. New adopters should install
-from `5.0.0` or newer. Earlier private/internal package snapshots are
-not part of the OSS compatibility line; teams that tested them should
-validate public API usage against the 4.x docs as a one-time source
-migration.
+covered by the public SemVer contract. The current compatibility line
+starts at `5.0.0`. Earlier private/internal package snapshots are not
+part of the OSS compatibility line; teams moving from a 4.x release
+should follow the 5.0 migration notes in [`CHANGELOG.md`](CHANGELOG.md).
 
-### SemVer commitment for the 4.x line
+### SemVer commitment for the 5.x line
 
-Within `4.x.y` releases, InnoRouter follows
+Within `5.x.y` releases, InnoRouter follows
 [Semantic Versioning](https://semver.org/) strictly:
 
-- **`4.x.y` → `4.x.(y+1)`** patch releases: bug fixes only. No
+- **`5.x.y` → `5.x.(y+1)`** patch releases: bug fixes only. No
   public-API signature changes. No observable behavior changes other
   than fixing the documented bug.
-- **`4.x.y` → `4.(x+1).0`** minor releases: additive only. New types,
+- **`5.x.y` → `5.(x+1).0`** minor releases: additive only. New types,
   new methods, new cases, new configuration options. Existing
   signatures keep their shape and existing call sites keep compiling
   unmodified.
-- **`4.x.y` → `5.0.0`** major releases: anything that breaks source
+- **`5.x.y` → `6.0.0`** major releases: anything that breaks source
   compatibility, removes a public symbol, narrows a generic
   constraint, or changes documented runtime behavior in a way that
   can surprise existing call sites.
 
-Exception: `4.1.0` is the documented one-time historical cleanup
-described below. After that adoption baseline, 4.x minor releases are
-additive-only under this contract.
-
-Pre-release tags use the `4.1.0-rc.1` / `4.2.0-beta.2` form. The
+Pre-release tags use the `5.0.0-rc.1` / `5.1.0-beta.2` form. The
 release workflow's `^[0-9]+\.[0-9]+\.[0-9]+$` regex only accepts
 final tags; pre-release tags ship through a separate manual flow
 documented in [`RELEASING.md`](RELEASING.md).
 
 ### What counts as a breaking change
 
-For the purposes of the 4.x SemVer commitment, a *breaking change*
+For the purposes of the 5.x SemVer commitment, a *breaking change*
 means any of:
 
 - Removing or renaming a public symbol (type, method, property,
@@ -175,17 +170,15 @@ minor release:
 - Performance improvements that preserve semantics.
 - Doc-only changes.
 
-The full 4.0 baseline sweep is summarized in
-[`CHANGELOG.md`](CHANGELOG.md).
-
-### Exception: 4.1.0 historical cleanup
+### Historical 4.x note
 
 `4.1.0` is the adoption baseline after the pre-user cleanup pass. It
 removes unused dispatcher-object APIs, keeps `replaceStack` as the
 single full-stack replacement intent, and moves effect observation to
 explicit event streams. This is the only documented source-breaking
-exception in the 4.x line; new apps should start from `5.0.0`, and the
-`4.0.0` tag remains available as the first OSS snapshot.
+exception in the 4.x line. The `4.0.0` tag remains available as the
+first OSS snapshot; the complete 4.x history and 5.0 migration are
+recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 ### Imports
 
@@ -943,12 +936,12 @@ CI validates:
 
 CD runs on bare semver tags only:
 
-- `4.1.0`
+- `5.0.0`
 
 Invalid tag examples:
 
 - any tag with a leading `v`
-- `release-4.1.0`
+- `release-5.0.0`
 
 Release workflow responsibilities:
 

@@ -107,33 +107,30 @@ let compileCheckedStack = RouteStack<CompileCheckedRoute>()
 _ = compileCheckedStack.path
 ```
 
-## 4.0.0 OSS 发布合约
+## OSS 发布与 SemVer 合约
 
 `4.0.0` 是 InnoRouter 的首个 OSS 发布,也是公开 SemVer 合约覆盖的第一个版本。
-新的采用者应该从 `5.0.0` 或更新版本安装。早期的私有/内部包快照不属于 OSS
-兼容性线;测试过它们的团队应该作为一次性源代码迁移,根据 4.x 文档验证公开 API 使用。
+当前兼容性线从 `5.0.0` 开始。早期的私有/内部包快照不属于 OSS 兼容性线;
+从 4.x 发布迁移的团队应遵循 [`CHANGELOG.md`](CHANGELOG.md) 中的 5.0 迁移说明。
 
-### 4.x 线的 SemVer 承诺
+### 5.x 线的 SemVer 承诺
 
-在 `4.x.y` 发布中,InnoRouter 严格遵循 [Semantic Versioning](https://semver.org/):
+在 `5.x.y` 发布中,InnoRouter 严格遵循 [Semantic Versioning](https://semver.org/):
 
-- **`4.x.y` → `4.x.(y+1)`** 补丁发布:仅 bug 修复。无公开 API 签名变更。
+- **`5.x.y` → `5.x.(y+1)`** 补丁发布:仅 bug 修复。无公开 API 签名变更。
   除修复文档化的 bug 外,无可观察行为变更。
-- **`4.x.y` → `4.(x+1).0`** 次版本发布:仅添加。新类型、新方法、新 case、
+- **`5.x.y` → `5.(x+1).0`** 次版本发布:仅添加。新类型、新方法、新 case、
   新配置选项。现有签名保持其形状,现有调用点未经修改即可编译。
-- **`4.x.y` → `5.0.0`** 主版本发布:任何破坏源代码兼容性、删除公开符号、
+- **`5.x.y` → `6.0.0`** 主版本发布:任何破坏源代码兼容性、删除公开符号、
   收窄泛型约束,或以可能令现有调用点惊讶的方式更改文档化运行时行为的事项。
 
-例外:下面的 `4.1.0` 历史性清理是文档化的一次性例外。在该采用基线之后,
-4.x 次版本发布按此合约仅允许添加。
-
-预发布标签使用 `4.1.0-rc.1` / `4.2.0-beta.2` 形式。发布工作流的
+预发布标签使用 `5.0.0-rc.1` / `5.1.0-beta.2` 形式。发布工作流的
 `^[0-9]+\.[0-9]+\.[0-9]+$` 正则表达式只接受最终标签;预发布标签通过
 [`RELEASING.md`](RELEASING.md) 中文档化的单独手动流程发布。
 
 ### 什么算破坏性变更
 
-就 4.x SemVer 承诺而言,*破坏性变更*指以下任何之一:
+就 5.x SemVer 承诺而言,*破坏性变更*指以下任何之一:
 
 - 删除或重命名公开符号(类型、方法、属性、associated type、case)。
 - 以使现有调用点编译失败的方式更改公开方法签名(添加非默认参数、收紧泛型
@@ -150,14 +147,12 @@ _ = compileCheckedStack.path
 - 保留语义的性能改进。
 - 仅文档变更。
 
-完整的 4.0 基线扫描总结在 [`CHANGELOG.md`](CHANGELOG.md) 中。
-
-### 例外:4.1.0 历史性清理
+### 4.x 历史记录
 
 `4.1.0` 是预用户清理 pass 之后的采用基线。它移除了未使用的 dispatcher 对象 API,
 将 `replaceStack` 保留为唯一的全栈替换 intent,并将 effect 观察转移到显式事件流。
-这是 4.x 线中唯一文档化的源码破坏性例外。新应用应从 `5.0.0` 开始;
-`4.0.0` 标签仍可用作首个 OSS 快照。
+这是 4.x 线中唯一文档化的源码破坏性例外。`4.0.0` 标签仍保留为首个 OSS 快照;
+完整的 4.x 历史和 5.0 迁移记录在 [`CHANGELOG.md`](CHANGELOG.md) 中。
 
 ### Imports
 
@@ -176,8 +171,8 @@ import InnoRouterMacros      // 仅在使用 @Routable / @CasePathable 的文件
 `@EnvironmentNavigationIntent`、`@EnvironmentModalIntent`,以及其他每个属性包装器
 或视图修饰符都来自 `InnoRouter`,而不是 `InnoRouterMacros`。
 
-SwiftSyntax 支持的 macro 实现在 4.x 线中保持在此包中。package-traits 或独立
-macro 包拆分应在测量 `swift package show-traits`、
+SwiftSyntax 支持的 macro 实现包含在此包中。package-traits 或独立 macro 包拆分
+应在测量 `swift package show-traits`、
 `swift build --target InnoRouter` 和 `swift build --target InnoRouterMacros`
 对照迁移成本之后才评估。
 
@@ -877,12 +872,12 @@ CI 验证:
 
 CD 仅在裸 semver 标签上运行:
 
-- `4.1.0`
+- `5.0.0`
 
 无效标签示例:
 
 - 任何带前导 `v` 的标签
-- `release-4.1.0`
+- `release-5.0.0`
 
 发布工作流职责:
 

@@ -4,12 +4,13 @@
 
 | Version | Status | Security fixes |
 |---|---|---|
-| 3.x | active | yes |
-| <= 2.x | not supported (internal milestone) | no |
+| Latest major release line | active | yes |
+| Earlier major release lines | not supported | no |
 
-The 3.x line is the first publicly supported release line. Earlier
-tagged versions (`1.0.0`, `2.0.0`) were internal milestones and do
-not receive security updates.
+The 4.x line was the first publicly supported release line. Earlier
+tagged versions were internal milestones and do not receive security
+updates. Once a new major version is generally available, it becomes
+the supported line and the previous major leaves support.
 
 ## Reporting a vulnerability
 
@@ -27,7 +28,8 @@ flow:
 A maintainer will acknowledge your report within 5 business days and
 follow up with a remediation timeline. For high-severity issues
 affecting deep-link routing, modal authority, or middleware
-cancellation, expect a same-week patch on the latest 3.x line.
+cancellation, expect a same-week patch on the latest supported release
+line.
 
 ## Scope
 

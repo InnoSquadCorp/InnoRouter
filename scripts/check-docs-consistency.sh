@@ -155,6 +155,51 @@ if [[ "$swift_syntax_series" != '603' ]]; then
   failures=1
 fi
 
+echo "[check-docs-consistency] Checking current major-version contract"
+for readme_path in "$ROOT_DIR"/README*.md; do
+  check_present "$readme_path" '5.x' \
+    "$(basename "$readme_path") does not describe the 5.x compatibility line"
+  check_present "$readme_path" '`6.0.0`' \
+    "$(basename "$readme_path") does not reserve breaking changes for 6.0.0"
+  check_present "$readme_path" '5.0.0-rc.1' \
+    "$(basename "$readme_path") does not use a current pre-release example"
+  check_absent "$readme_path" '4.1.0-rc.1' \
+    "$(basename "$readme_path") still uses a 4.x pre-release example"
+  check_absent "$readme_path" '4.2.0-beta.2' \
+    "$(basename "$readme_path") still uses a 4.x beta example"
+  check_absent "$readme_path" 'release-4.1.0' \
+    "$(basename "$readme_path") still uses a 4.x invalid-tag example"
+done
+
+check_present "$ROOT_DIR/RELEASING.md" 'InnoRouter 5.x follows' \
+  "RELEASING.md does not describe the current 5.x line"
+check_present "$ROOT_DIR/RELEASING.md" 'goes to a `6.0.0` cycle' \
+  "RELEASING.md does not reserve breaking work for 6.0.0"
+check_present "$ROOT_DIR/CONTRIBUTING.md" \
+  'Breaking changes target a 6.0 cycle, not a 5.x minor.' \
+  "CONTRIBUTING.md does not match the 5.x compatibility policy"
+check_present "$ROOT_DIR/SECURITY.md" '| Latest major release line | active | yes |' \
+  "SECURITY.md does not define the supported line without stale version numbers"
+check_present "$ROOT_DIR/SECURITY.md" 'latest supported release' \
+  "SECURITY.md still hard-codes a stale security-patch line"
+check_present "$ROOT_DIR/.github/workflows/release.yml" \
+  'for example 5.0.0-rc.1' \
+  "release workflow does not use a current pre-release example"
+check_present "$ROOT_DIR/Docs/CI-gates.md" 'bare semver (`5.0.0`)' \
+  "CI guide does not use a current release-tag example"
+check_present "$ROOT_DIR/scripts/check-changelog-sync.sh" \
+  'BASE_REF=origin/release/5.x' \
+  "changelog gate guidance does not use the current release branch"
+check_present "$ROOT_DIR/scripts/check-changelog-sync.sh" \
+  'actions/checkout@v7' \
+  "changelog gate guidance does not match the workflow action version"
+check_absent \
+  "$ROOT_DIR/Sources/InnoRouterMacros/InnoRouterMacros.docc/Articles/Guide-MacroVisibility.md" \
+  'v4.x roadmap' \
+  "macro visibility guide still presents an abandoned 4.x roadmap item"
+check_absent "$ROOT_DIR/.swiftlint.yml" '4.1.x store split' \
+  "SwiftLint configuration still describes a completed 4.1.x plan"
+
 echo "[check-docs-consistency] Checking rejection catalog enum coverage"
 check_enum_cases_documented \
   "$ROOT_DIR/Sources/InnoRouterCore/NavigationInterception.swift" \

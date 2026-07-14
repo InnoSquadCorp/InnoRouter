@@ -120,43 +120,38 @@ let compileCheckedStack = RouteStack<CompileCheckedRoute>()
 _ = compileCheckedStack.path
 ```
 
-## 4.0.0 OSS-Release-Vertrag
+## OSS-Release- und SemVer-Vertrag
 
 `4.0.0` ist InnoRouters erstes OSS-Release und die erste Version, die vom
-öffentlichen SemVer-Vertrag abgedeckt wird. Neue Anwender sollten von `5.0.0`
-oder neuer installieren. Frühere private/interne Paket-Snapshots sind nicht
-Teil der OSS-Kompatibilitätslinie; Teams, die sie getestet haben, sollten die
-öffentliche API-Verwendung gegen die 4.x-Dokumente als einmalige Quellcode-Migration
-validieren.
+öffentlichen SemVer-Vertrag abgedeckt wird. Die aktuelle Kompatibilitätslinie
+beginnt mit `5.0.0`. Frühere private/interne Paket-Snapshots sind nicht Teil der
+OSS-Kompatibilitätslinie; Teams, die von einem 4.x-Release migrieren, sollten
+den 5.0-Migrationshinweisen in [`CHANGELOG.md`](CHANGELOG.md) folgen.
 
-### SemVer-Verpflichtung für die 4.x-Linie
+### SemVer-Verpflichtung für die 5.x-Linie
 
-Innerhalb der `4.x.y`-Releases folgt InnoRouter
+Innerhalb der `5.x.y`-Releases folgt InnoRouter
 [Semantic Versioning](https://semver.org/) strikt:
 
-- **`4.x.y` → `4.x.(y+1)`** Patch-Releases: nur Bugfixes. Keine Änderungen
+- **`5.x.y` → `5.x.(y+1)`** Patch-Releases: nur Bugfixes. Keine Änderungen
   der öffentlichen API-Signatur. Keine beobachtbaren Verhaltensänderungen
   außer der Behebung des dokumentierten Bugs.
-- **`4.x.y` → `4.(x+1).0`** Minor-Releases: nur additiv. Neue Typen, neue
+- **`5.x.y` → `5.(x+1).0`** Minor-Releases: nur additiv. Neue Typen, neue
   Methoden, neue Cases, neue Konfigurationsoptionen. Bestehende Signaturen
   behalten ihre Form, und bestehende Aufrufstellen kompilieren unverändert.
-- **`4.x.y` → `5.0.0`** Major-Releases: alles, was die Quellcode-Kompatibilität
+- **`5.x.y` → `6.0.0`** Major-Releases: alles, was die Quellcode-Kompatibilität
   bricht, ein öffentliches Symbol entfernt, eine generische Beschränkung
   einengt oder das dokumentierte Laufzeitverhalten so ändert, dass bestehende
   Aufrufstellen überrascht werden können.
 
-Ausnahme: Die unten beschriebene historische Bereinigung in `4.1.0` ist eine
-dokumentierte einmalige Ausnahme. Nach dieser Adoptionsbasis sind Minor-Releases
-der 4.x-Linie unter diesem Vertrag nur additiv.
-
-Pre-Release-Tags verwenden die Form `4.1.0-rc.1` / `4.2.0-beta.2`. Die Regex
+Pre-Release-Tags verwenden die Form `5.0.0-rc.1` / `5.1.0-beta.2`. Die Regex
 `^[0-9]+\.[0-9]+\.[0-9]+$` des Release-Workflows akzeptiert nur finale Tags;
 Pre-Release-Tags werden über einen separaten manuellen Flow ausgeliefert,
 der in [`RELEASING.md`](RELEASING.md) dokumentiert ist.
 
 ### Was als Breaking Change zählt
 
-Für die Zwecke der 4.x-SemVer-Verpflichtung bedeutet ein *Breaking Change*
+Für die Zwecke der 5.x-SemVer-Verpflichtung bedeutet ein *Breaking Change*
 einen der folgenden:
 
 - Entfernen oder Umbenennen eines öffentlichen Symbols (Typ, Methode,
@@ -179,16 +174,15 @@ landen:
 - Performance-Verbesserungen, die die Semantik bewahren.
 - Reine Dokumentationsänderungen.
 
-Der vollständige 4.0-Basisdurchlauf ist in [`CHANGELOG.md`](CHANGELOG.md) zusammengefasst.
-
-### Ausnahme: Historische Bereinigung in 4.1.0
+### Historischer Hinweis zur 4.x-Linie
 
 `4.1.0` ist die Adoptionsbasis nach dem Pre-User-Cleanup-Durchlauf. Es
 entfernt ungenutzte Dispatcher-Object-APIs, behält `replaceStack` als das
 einzige vollständige Stack-Replacement-Intent und verschiebt Effect-Beobachtung
 zu expliziten Event-Streams. Das ist die einzige dokumentierte source-breaking
-Ausnahme in der 4.x-Linie. Neue Apps sollten von `5.0.0` ausgehen; das
-`4.0.0`-Tag bleibt als erster OSS-Snapshot verfügbar.
+Ausnahme in der 4.x-Linie. Das `4.0.0`-Tag bleibt als erster OSS-Snapshot
+verfügbar; die vollständige 4.x-Historie und die 5.0-Migration stehen in
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ### Imports
 
@@ -209,8 +203,8 @@ import InnoRouterMacros      // nur in Dateien, die @Routable / @CasePathable ve
 Property Wrapper oder View-Modifier kommen aus `InnoRouter`, nicht aus
 `InnoRouterMacros`.
 
-Die SwiftSyntax-gestützte Macro-Implementation bleibt für die 4.x-Linie in
-diesem Paket. Eine Aufteilung in Package-Traits oder ein separates Macro-Paket
+Die SwiftSyntax-gestützte Macro-Implementation ist in diesem Paket enthalten.
+Eine Aufteilung in Package-Traits oder ein separates Macro-Paket
 sollte erst nach Messung von `swift package show-traits`,
 `swift build --target InnoRouter` und `swift build --target InnoRouterMacros`
 gegen die Migrationskosten evaluiert werden.
@@ -933,12 +927,12 @@ CI validiert:
 
 CD läuft nur auf reinen Semver-Tags:
 
-- `4.1.0`
+- `5.0.0`
 
 Ungültige Tag-Beispiele:
 
 - jedes Tag mit führendem `v`
-- `release-4.1.0`
+- `release-5.0.0`
 
 Verantwortungen des Release-Workflows:
 

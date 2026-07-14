@@ -120,44 +120,39 @@ let compileCheckedStack = RouteStack<CompileCheckedRoute>()
 _ = compileCheckedStack.path
 ```
 
-## Contrato de release OSS 4.0.0
+## Contrato de release OSS y SemVer
 
 `4.0.0` es el primer release OSS de InnoRouter y la primera versión cubierta por
-el contrato público de SemVer. Los nuevos adoptantes deberían instalar desde
-`5.0.0` o más reciente. Las instantáneas privadas/internas anteriores no son
-parte de la línea de compatibilidad OSS; los equipos que las probaron deberían
-validar el uso de la API pública contra los documentos 4.x como una migración
-de fuente única.
+el contrato público de SemVer. La línea de compatibilidad actual comienza en
+`5.0.0`. Las instantáneas privadas/internas anteriores no son parte de la línea
+de compatibilidad OSS; los equipos que migren desde un release 4.x deberían
+seguir las notas de migración 5.0 de [`CHANGELOG.md`](CHANGELOG.md).
 
-### Compromiso SemVer para la línea 4.x
+### Compromiso SemVer para la línea 5.x
 
-Dentro de los releases `4.x.y`, InnoRouter sigue
+Dentro de los releases `5.x.y`, InnoRouter sigue
 [Semantic Versioning](https://semver.org/) estrictamente:
 
-- **`4.x.y` → `4.x.(y+1)`** releases de parche: solo correcciones de bugs.
+- **`5.x.y` → `5.x.(y+1)`** releases de parche: solo correcciones de bugs.
   Sin cambios de firma de API pública. Sin cambios de comportamiento observable
   más allá de arreglar el bug documentado.
-- **`4.x.y` → `4.(x+1).0`** releases menores: solo aditivos. Nuevos tipos,
+- **`5.x.y` → `5.(x+1).0`** releases menores: solo aditivos. Nuevos tipos,
   nuevos métodos, nuevos casos, nuevas opciones de configuración. Las firmas
   existentes mantienen su forma y los sitios de llamada existentes siguen
   compilando sin modificación.
-- **`4.x.y` → `5.0.0`** releases mayores: cualquier cosa que rompa la
+- **`5.x.y` → `6.0.0`** releases mayores: cualquier cosa que rompa la
   compatibilidad de fuente, elimine un símbolo público, restrinja una restricción
   genérica, o cambie el comportamiento documentado en runtime de una forma que
   pueda sorprender a los sitios de llamada existentes.
 
-Excepción: la limpieza histórica `4.1.0` descrita abajo es una excepción
-documentada y única. Después de esa línea base de adopción, los releases
-menores 4.x son solo aditivos bajo este contrato.
-
-Las etiquetas de pre-release usan la forma `4.1.0-rc.1` / `4.2.0-beta.2`. La
+Las etiquetas de pre-release usan la forma `5.0.0-rc.1` / `5.1.0-beta.2`. La
 expresión regular `^[0-9]+\.[0-9]+\.[0-9]+$` del workflow de release solo acepta
 etiquetas finales; las etiquetas pre-release se publican a través de un flujo
 manual separado documentado en [`RELEASING.md`](RELEASING.md).
 
 ### Qué cuenta como cambio rompedor
 
-Para los propósitos del compromiso SemVer 4.x, un *cambio rompedor* significa
+Para los propósitos del compromiso SemVer 5.x, un *cambio rompedor* significa
 cualquiera de:
 
 - Eliminar o renombrar un símbolo público (tipo, método, propiedad,
@@ -179,17 +174,15 @@ cualquier release menor:
 - Mejoras de rendimiento que preservan la semántica.
 - Cambios solo de documentación.
 
-El barrido completo de la línea base 4.0 se resume en
-[`CHANGELOG.md`](CHANGELOG.md).
-
-### Excepción: limpieza histórica 4.1.0
+### Nota histórica de la línea 4.x
 
 `4.1.0` es la línea base de adopción después del paso de limpieza pre-usuario.
 Elimina APIs de objetos dispatcher no usadas, mantiene `replaceStack` como el
 único intent de reemplazo de stack completo, y mueve la observación de efectos
 a flujos de eventos explícitos. Es la única excepción source-breaking
-documentada en la línea 4.x. Las nuevas apps deberían comenzar desde `5.0.0`;
-la etiqueta `4.0.0` permanece disponible como la primera instantánea OSS.
+documentada en la línea 4.x. La etiqueta `4.0.0` permanece disponible como la
+primera instantánea OSS; el historial completo de 4.x y la migración 5.0 están
+registrados en [`CHANGELOG.md`](CHANGELOG.md).
 
 ### Imports
 
@@ -210,8 +203,8 @@ import InnoRouterMacros      // solo en archivos que usan @Routable / @CasePatha
 property wrappers o modificadores de vista vienen de `InnoRouter`, no de
 `InnoRouterMacros`.
 
-La implementación de macros respaldada por SwiftSyntax permanece en este paquete
-para la línea 4.x. Una división de package-traits o paquete-macros-separado
+La implementación de macros respaldada por SwiftSyntax está incluida en este
+paquete. Una división de package-traits o paquete-macros-separado
 debería evaluarse solo después de medir `swift package show-traits`,
 `swift build --target InnoRouter` y `swift build --target InnoRouterMacros`
 contra el costo de migración.
@@ -944,12 +937,12 @@ CI valida:
 
 CD se ejecuta solo en etiquetas semver puras:
 
-- `4.1.0`
+- `5.0.0`
 
 Ejemplos de etiquetas inválidas:
 
 - cualquier etiqueta con un `v` inicial
-- `release-4.1.0`
+- `release-5.0.0`
 
 Responsabilidades del workflow de release:
 

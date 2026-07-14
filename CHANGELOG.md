@@ -187,6 +187,10 @@ are bare semver (no leading `v`).
 
 ### Changed
 
+- The repository's active compatibility policy now describes the 5.x release
+  line and reserves new source- or behavior-breaking changes for 6.0. Release,
+  contribution, security, workflow, and localized README guidance use the same
+  contract while retaining the 4.x migration history as historical context.
 - Deep-link matching now parses accepted-size URLs at most once per
   matcher, push-pipeline, or flow-pipeline decision, while preserving the raw
   URL length rejection at each entry point before that entry point parses.
