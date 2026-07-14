@@ -47,13 +47,16 @@ struct FlowIntentNamedIntentsTests {
         #expect(store.modalStore.currentPresentation == nil)
     }
 
-    @Test(".replaceStack emits a single onPathChanged event")
+    @Test(".replaceStack emits a single pathChanged event")
     @MainActor
     func replaceStackEmitsPathChanged() {
         let captured = Mutex<[[RouteStep<NamedRoute>]]>([])
         let store = FlowStore<NamedRoute>(
             configuration: FlowStoreConfiguration(
-                onPathChanged: { _, new in captured.withLock { $0.append(new) } }
+                onEvent: { event in
+                    guard case .pathChanged(_, let new) = event else { return }
+                    captured.withLock { $0.append(new) }
+                }
             )
         )
 
@@ -71,7 +74,8 @@ struct FlowIntentNamedIntentsTests {
         let rejections = Mutex<[(FlowIntent<NamedRoute>, FlowRejectionReason)]>([])
         let store = FlowStore<NamedRoute>(
             configuration: FlowStoreConfiguration(
-                onIntentRejected: { intent, reason in
+                onEvent: { event in
+                    guard case .intentRejected(let intent, let reason) = event else { return }
                     rejections.withLock { $0.append((intent, reason)) }
                 }
             )
@@ -104,7 +108,8 @@ struct FlowIntentNamedIntentsTests {
         let rejections = Mutex<[(FlowIntent<NamedRoute>, FlowRejectionReason)]>([])
         let store = FlowStore<NamedRoute>(
             configuration: FlowStoreConfiguration(
-                onIntentRejected: { intent, reason in
+                onEvent: { event in
+                    guard case .intentRejected(let intent, let reason) = event else { return }
                     rejections.withLock { $0.append((intent, reason)) }
                 }
             )
@@ -131,7 +136,8 @@ struct FlowIntentNamedIntentsTests {
         let rejections = Mutex<[(FlowIntent<NamedRoute>, FlowRejectionReason)]>([])
         let store = FlowStore<NamedRoute>(
             configuration: FlowStoreConfiguration(
-                onIntentRejected: { intent, reason in
+                onEvent: { event in
+                    guard case .intentRejected(let intent, let reason) = event else { return }
                     rejections.withLock { $0.append((intent, reason)) }
                 }
             )
@@ -161,7 +167,10 @@ struct FlowIntentNamedIntentsTests {
         let captured = Mutex<[[RouteStep<NamedRoute>]]>([])
         let store = FlowStore<NamedRoute>(
             configuration: FlowStoreConfiguration(
-                onPathChanged: { _, new in captured.withLock { $0.append(new) } }
+                onEvent: { event in
+                    guard case .pathChanged(_, let new) = event else { return }
+                    captured.withLock { $0.append(new) }
+                }
             )
         )
         store.send(.push(.home))
@@ -189,7 +198,10 @@ struct FlowIntentNamedIntentsTests {
         let captured = Mutex<[[RouteStep<NamedRoute>]]>([])
         let store = FlowStore<NamedRoute>(
             configuration: FlowStoreConfiguration(
-                onPathChanged: { _, new in captured.withLock { $0.append(new) } }
+                onEvent: { event in
+                    guard case .pathChanged(_, let new) = event else { return }
+                    captured.withLock { $0.append(new) }
+                }
             )
         )
         store.send(.push(.home))
@@ -209,7 +221,8 @@ struct FlowIntentNamedIntentsTests {
         let rejections = Mutex<[(FlowIntent<NamedRoute>, FlowRejectionReason)]>([])
         let store = FlowStore<NamedRoute>(
             configuration: FlowStoreConfiguration(
-                onIntentRejected: { intent, reason in
+                onEvent: { event in
+                    guard case .intentRejected(let intent, let reason) = event else { return }
                     rejections.withLock { $0.append((intent, reason)) }
                 }
             )

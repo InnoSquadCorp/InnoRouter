@@ -28,6 +28,9 @@ public protocol FlowPlanApplier<RouteType>: AnyObject, Sendable {
 
     /// Applies `plan` to the underlying authority. The call is
     /// expected to complete synchronously on the main actor so the
-    /// caller can observe the resulting state immediately.
+    /// caller can observe the resulting state immediately. Authorities may
+    /// reject a reentrant application made from one of their synchronous
+    /// observation callbacks when deferring it would make this result
+    /// misleading.
     func apply(_ plan: FlowPlan<RouteType>) -> FlowPlanApplyResult<RouteType>
 }

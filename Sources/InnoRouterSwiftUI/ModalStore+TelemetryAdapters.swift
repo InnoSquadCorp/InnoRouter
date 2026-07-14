@@ -11,102 +11,40 @@ import InnoRouterCore
 // initialiser call sites cross file boundaries; the helpers stay
 // absent from the public-API baseline because they remain non-public.
 extension ModalStore {
-
-    static func makePublicTelemetryRecorder(
-        onMiddlewareMutation: (@MainActor @Sendable (ModalMiddlewareMutationEvent<M>) -> Void)?
-    ) -> ModalStoreTelemetryRecorder<M>? {
-        guard let onMiddlewareMutation else { return nil }
-        return { @MainActor event in
-            switch event {
-            case .middlewareMutation(let action, let metadata, let index):
-                onMiddlewareMutation(
-                    ModalMiddlewareMutationEvent(
-                        action: Self.publicAction(for: action),
-                        metadata: metadata,
-                        index: index
-                    )
+    static func publicEvent(
+        for event: ModalStoreTelemetryEvent<M>
+    ) -> ModalEvent<M>? {
+        switch event {
+        case .presented(let presentation):
+            return .presented(presentation)
+        case .dismissed(let presentation, let reason):
+            return .dismissed(presentation, reason: reason)
+        case .replaced(let oldPresentation, let newPresentation):
+            return .replaced(old: oldPresentation, new: newPresentation)
+        case .queueChanged(let oldQueue, let newQueue):
+            return .queueChanged(old: oldQueue, new: newQueue)
+        case .middlewareMutation(let action, let metadata, let index):
+            return .middlewareMutation(
+                ModalMiddlewareMutationEvent(
+                    action: Self.publicAction(for: action),
+                    metadata: metadata,
+                    index: index
                 )
-            case .presented, .dismissed, .replaced, .queued, .queueChanged, .commandIntercepted:
-                break
-            }
-        }
-    }
-
-    static func makeBroadcastRecorder(
-        broadcaster: EventBroadcaster<ModalEvent<M>>
-    ) -> ModalStoreTelemetryRecorder<M>? {
-        { @MainActor event in
-            switch event {
-            case .presented(let presentation):
-                broadcaster.broadcast(.presented(presentation))
-            case .dismissed(let presentation, let reason):
-                broadcaster.broadcast(.dismissed(presentation, reason: reason))
-            case .replaced(let oldPresentation, let newPresentation):
-                broadcaster.broadcast(.replaced(old: oldPresentation, new: newPresentation))
-            case .queueChanged(let oldQueue, let newQueue):
-                broadcaster.broadcast(.queueChanged(old: oldQueue, new: newQueue))
-            case .middlewareMutation(let action, let metadata, let index):
-                broadcaster.broadcast(
-                    .middlewareMutation(
-                        ModalMiddlewareMutationEvent(
-                            action: Self.publicAction(for: action),
-                            metadata: metadata,
-                            index: index
-                        )
-                    )
-                )
-            case .commandIntercepted(let command, let outcome, let cancellationReason):
-                let result = Self.executionResult(
+            )
+        case .commandIntercepted(let command, let outcome, let cancellationReason):
+            return .commandIntercepted(
+                command: command,
+                result: Self.executionResult(
                     for: command,
                     outcome: outcome,
                     cancellationReason: cancellationReason
                 )
-                broadcaster.broadcast(
-                    .commandIntercepted(command: command, result: result)
-                )
-            case .queued:
-                // .queued is an internal side-signal emitted alongside
-                // .queueChanged; the public ModalEvent surface folds
-                // queueing into queueChanged, so we skip it here.
-                break
-            }
-        }
-    }
-
-    static func makeTelemetrySinkRecorder(
-        telemetrySink: AnyModalTelemetrySink<M>?
-    ) -> ModalStoreTelemetryRecorder<M>? {
-        guard let telemetrySink else { return nil }
-        return { @MainActor event in
-            switch event {
-            case .presented(let presentation):
-                telemetrySink.record(.presented(presentation))
-            case .dismissed(let presentation, let reason):
-                telemetrySink.record(.dismissed(presentation, reason: reason))
-            case .replaced(let oldPresentation, let newPresentation):
-                telemetrySink.record(.replaced(old: oldPresentation, new: newPresentation))
-            case .queueChanged(let oldQueue, let newQueue):
-                telemetrySink.record(.queueChanged(old: oldQueue, new: newQueue))
-            case .middlewareMutation(let action, let metadata, let index):
-                telemetrySink.record(
-                    .middlewareMutation(
-                        ModalMiddlewareMutationEvent(
-                            action: Self.publicAction(for: action),
-                            metadata: metadata,
-                            index: index
-                        )
-                    )
-                )
-            case .commandIntercepted(let command, let outcome, let cancellationReason):
-                let result = Self.executionResult(
-                    for: command,
-                    outcome: outcome,
-                    cancellationReason: cancellationReason
-                )
-                telemetrySink.record(.commandIntercepted(command: command, result: result))
-            case .queued:
-                break
-            }
+            )
+        case .queued:
+            // `.queued` is an internal side-signal emitted alongside
+            // `.queueChanged`; the public surface folds queueing into that
+            // event so every observer sees exactly one queue mutation.
+            return nil
         }
     }
 
@@ -131,25 +69,6 @@ extension ModalStore {
             return .cancelled(cancellationReason ?? .custom("unknown"))
         case .noop:
             return .noop
-        }
-    }
-
-    static func combineRecorders(
-        _ primary: ModalStoreTelemetryRecorder<M>?,
-        _ secondary: ModalStoreTelemetryRecorder<M>?
-    ) -> ModalStoreTelemetryRecorder<M>? {
-        switch (primary, secondary) {
-        case (nil, nil):
-            return nil
-        case (let primary?, nil):
-            return primary
-        case (nil, let secondary?):
-            return secondary
-        case (let primary?, let secondary?):
-            return { event in
-                primary(event)
-                secondary(event)
-            }
         }
     }
 

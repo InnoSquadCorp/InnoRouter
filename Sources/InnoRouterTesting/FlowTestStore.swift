@@ -7,13 +7,10 @@ import InnoRouterSwiftUI
 
 /// A host-less, Swift-Testing native assertion harness for `FlowStore`.
 ///
-/// `FlowTestStore` wraps a private `FlowStore<R>` and subscribes to:
-///
-/// - the FlowStore-level `onPathChanged` and `onIntentRejected` callbacks,
-/// - every `NavigationStoreConfiguration` observation hook on the inner
-///   navigation store,
-/// - every `ModalStoreConfiguration` observation hook on the inner modal
-///   store.
+/// `FlowTestStore` wraps a private `FlowStore<R>` and subscribes to its
+/// unified `onEvent` callback. Wrapped navigation and modal events already
+/// arrive through that flow-level surface, so the inner configurations are
+/// preserved without additional interception.
 ///
 /// All events land in a single FIFO queue and preserve their real emission
 /// order. This lets a test assert, for example, that a single
@@ -601,81 +598,9 @@ public final class FlowTestStore<R: Route> {
         queue: TestEventQueue<FlowTestEvent<R>>
     ) -> FlowStoreConfiguration<R> {
         var wrapped = original
-        wrapped.navigation = Self.wrapNavigationConfiguration(
-            original.navigation,
-            queue: queue
-        )
-        wrapped.modal = Self.wrapModalConfiguration(
-            original.modal,
-            queue: queue
-        )
-        wrapped.onPathChanged = { @MainActor [queue] old, new in
-            original.onPathChanged?(old, new)
-            queue.enqueue(.pathChanged(old: old, new: new))
-        }
-        wrapped.onIntentRejected = { @MainActor [queue] intent, reason in
-            original.onIntentRejected?(intent, reason)
-            queue.enqueue(.intentRejected(intent, reason))
-        }
-        return wrapped
-    }
-
-    private static func wrapNavigationConfiguration(
-        _ original: NavigationStoreConfiguration<R>,
-        queue: TestEventQueue<FlowTestEvent<R>>
-    ) -> NavigationStoreConfiguration<R> {
-        var wrapped = original
-        wrapped.onChange = { @MainActor [queue] old, new in
-            original.onChange?(old, new)
-            queue.enqueue(.navigation(.changed(from: old, to: new)))
-        }
-        wrapped.onBatchExecuted = { @MainActor [queue] result in
-            original.onBatchExecuted?(result)
-            queue.enqueue(.navigation(.batchExecuted(result)))
-        }
-        wrapped.onTransactionExecuted = { @MainActor [queue] result in
-            original.onTransactionExecuted?(result)
-            queue.enqueue(.navigation(.transactionExecuted(result)))
-        }
-        wrapped.onMiddlewareMutation = { @MainActor [queue] event in
-            original.onMiddlewareMutation?(event)
-            queue.enqueue(.navigation(.middlewareMutation(event)))
-        }
-        wrapped.onPathMismatch = { @MainActor [queue] event in
-            original.onPathMismatch?(event)
-            queue.enqueue(.navigation(.pathMismatch(event)))
-        }
-        return wrapped
-    }
-
-    private static func wrapModalConfiguration(
-        _ original: ModalStoreConfiguration<R>,
-        queue: TestEventQueue<FlowTestEvent<R>>
-    ) -> ModalStoreConfiguration<R> {
-        var wrapped = original
-        wrapped.onPresented = { @MainActor [queue] presentation in
-            original.onPresented?(presentation)
-            queue.enqueue(.modal(.presented(presentation)))
-        }
-        wrapped.onDismissed = { @MainActor [queue] presentation, reason in
-            original.onDismissed?(presentation, reason)
-            queue.enqueue(.modal(.dismissed(presentation, reason: reason)))
-        }
-        wrapped.onReplaced = { @MainActor [queue] old, new in
-            original.onReplaced?(old, new)
-            queue.enqueue(.modal(.replaced(old: old, new: new)))
-        }
-        wrapped.onQueueChanged = { @MainActor [queue] old, new in
-            original.onQueueChanged?(old, new)
-            queue.enqueue(.modal(.queueChanged(old: old, new: new)))
-        }
-        wrapped.onMiddlewareMutation = { @MainActor [queue] event in
-            original.onMiddlewareMutation?(event)
-            queue.enqueue(.modal(.middlewareMutation(event)))
-        }
-        wrapped.onCommandIntercepted = { @MainActor [queue] command, result in
-            original.onCommandIntercepted?(command, result)
-            queue.enqueue(.modal(.commandIntercepted(command: command, result: result)))
+        wrapped.onEvent = { @MainActor [queue] event in
+            original.onEvent?(event)
+            queue.enqueue(event)
         }
         return wrapped
     }

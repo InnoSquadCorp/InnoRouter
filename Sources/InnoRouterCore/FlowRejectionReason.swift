@@ -3,8 +3,8 @@
 // user intent cannot be applied.
 // Copyright © 2026 Inno Squad. All rights reserved.
 
-/// Reason surfaced to `FlowStoreConfiguration.onIntentRejected` when
-/// `FlowStore` refuses to apply a user intent.
+/// Reason carried by `FlowEvent.intentRejected` when `FlowStore` refuses to
+/// apply a user intent.
 ///
 /// Lives in `InnoRouterCore` alongside the other rejection
 /// taxonomies (``NavigationCancellationReason``,

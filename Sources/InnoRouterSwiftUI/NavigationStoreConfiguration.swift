@@ -40,15 +40,16 @@ public struct NavigationMiddlewareMetadata: Equatable, Sendable {
 ///
 /// All stored properties are `public var` so call sites can build a
 /// configuration with the desired engine / middlewares once and then
-/// adjust individual callbacks (`onChange`, `onPathMismatch`, …)
-/// without re-stating every other parameter:
+/// adjust the unified observation hook without re-stating every other
+/// parameter:
 ///
 /// ```swift
 /// var config = NavigationStoreConfiguration<AppRoute>(
 ///     engine: customEngine
 /// )
-/// config.onChange = { _, _ in analytics.send(.navChanged) }
-/// config.onPathMismatch = { event in diagnostics.record(event) }
+/// config.onEvent = { event in
+///     analytics.send(event)
+/// }
 /// let store = NavigationStore(configuration: config)
 /// ```
 ///
@@ -65,7 +66,8 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
     ///
     /// Defaults to ``NavigationPathMismatchPolicy/replace``, which treats the
     /// SwiftUI binding as the source of truth for non-prefix rewrites while
-    /// still emitting `onPathMismatch` / `events` telemetry. Debug builds that
+    /// still emitting ``NavigationEvent/pathMismatch(_:)`` through `onEvent`
+    /// and ``NavigationStore/events``. Debug builds that
     /// want to catch every unexpected rewrite can opt into
     /// ``NavigationPathMismatchPolicy/assertAndReplace`` without changing the
     /// production default.
@@ -80,28 +82,14 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
     /// Provide this sink when telemetry should go to analytics, tests,
     /// or another structured pipeline instead of OSLog.
     public var telemetrySink: AnyNavigationTelemetrySink<R>?
-    /// Called after a state mutation changes the stack.
-    public var onChange: (@MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void)?
-    /// Called after a batch execution completes.
-    public var onBatchExecuted: (@MainActor @Sendable (NavigationBatchResult<R>) -> Void)?
-    /// Called after a transaction execution commits or rolls back.
-    public var onTransactionExecuted: (@MainActor @Sendable (NavigationTransactionResult<R>) -> Void)?
-    /// Called after a successful middleware mutation (`add`/`insert`/`remove`/`replace`/`move`).
+    /// Called synchronously for every public navigation observation event.
     ///
-    /// Invalid mutations — for example, `replaceMiddleware(...)` with an unknown
-    /// handle — never fire this callback. Use this to surface registry churn to
-    /// analytics or diagnostic pipelines without reaching for `@testable import`.
-    public var onMiddlewareMutation: (@MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void)?
-    /// Called whenever the configured `pathMismatchPolicy` resolves a path
-    /// reconciliation divergence (e.g. SwiftUI swipe-back races, non-prefix
-    /// path replacements). Successful prefix reductions do not fire this
-    /// callback; only policy-driven resolutions do.
-    ///
-    /// Use this to surface path-binding instability to analytics or diagnostics
-    /// without reaching for `@testable import`. Test harnesses such as
-    /// `NavigationTestStore` subscribe to this hook internally to assert path
-    /// mismatch handling.
-    public var onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)?
+    /// The callback receives stack changes, batch and transaction completions,
+    /// successful middleware mutations, and policy-driven path mismatch
+    /// resolutions through a single ``NavigationEvent`` value. Invalid
+    /// middleware mutations and successful prefix-only path reductions do not
+    /// emit events.
+    public var onEvent: (@MainActor @Sendable (NavigationEvent<R>) -> Void)?
     /// Backpressure policy applied to each subscriber of ``NavigationStore/events``.
     ///
     /// Defaults to ``EventBufferingPolicy/default`` (``EventBufferingPolicy/bufferingNewest(_:)``
@@ -128,11 +116,7 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace,
         logger: Logger? = nil,
         telemetrySink: AnyNavigationTelemetrySink<R>? = nil,
-        onChange: (@MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void)? = nil,
-        onBatchExecuted: (@MainActor @Sendable (NavigationBatchResult<R>) -> Void)? = nil,
-        onTransactionExecuted: (@MainActor @Sendable (NavigationTransactionResult<R>) -> Void)? = nil,
-        onMiddlewareMutation: (@MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void)? = nil,
-        onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)? = nil,
+        onEvent: (@MainActor @Sendable (NavigationEvent<R>) -> Void)? = nil,
         eventBufferingPolicy: EventBufferingPolicy = .default,
         pathReconciler: (any NavigationPathReconciling<R>)? = nil
     ) {
@@ -142,11 +126,7 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         self.pathMismatchPolicy = pathMismatchPolicy
         self.logger = logger
         self.telemetrySink = telemetrySink
-        self.onChange = onChange
-        self.onBatchExecuted = onBatchExecuted
-        self.onTransactionExecuted = onTransactionExecuted
-        self.onMiddlewareMutation = onMiddlewareMutation
-        self.onPathMismatch = onPathMismatch
+        self.onEvent = onEvent
         self.eventBufferingPolicy = eventBufferingPolicy
         self.pathReconciler = pathReconciler ?? NavigationPathReconciler<R>()
     }

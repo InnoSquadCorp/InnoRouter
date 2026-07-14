@@ -95,11 +95,28 @@ let flow = FlowStore<AppRoute>(
     configuration: .init(
         navigation: legacyNavigationConfiguration,
         modal: legacyModalConfiguration,
-        onPathChanged: { old, new in Log.debug("flow path: \(old) -> \(new)") },
-        onIntentRejected: { intent, reason in Log.info("flow rejected \(intent): \(reason)") }
+        onEvent: { event in
+            switch event {
+            case .pathChanged(let old, let new):
+                Log.debug("flow path: \(old) -> \(new)")
+            case .intentRejected(let intent, let reason):
+                Log.info("flow rejected \(intent): \(reason)")
+            case .navigation(let event):
+                Log.debug("navigation event: \(event)")
+            case .modal(let event):
+                Log.debug("modal event: \(event)")
+            }
+        }
     )
 )
 ```
+
+In 5.0, each store configuration has one typed `onEvent` callback.
+Remove the former per-case callback arguments and switch over the
+matching event enum instead. The flow-level callback also receives
+the inner navigation and modal events as wrapped cases; callbacks
+already installed on the two legacy configurations still receive
+their direct `NavigationEvent` / `ModalEvent` values.
 
 ### 4. Handle the two new invariant-violation paths
 
@@ -111,8 +128,8 @@ let flow = FlowStore<AppRoute>(
 | `.reset([.sheet, .push])` (modal not at tail) | `.invalidResetPath` |
 | Any intent cancelled by middleware | `.middlewareRejected(debugName:)` |
 
-Subscribe to `flow.events` (case `.intentRejected`) — or keep the
-`onIntentRejected` closure — and handle each case. The legacy
+Subscribe to `flow.events` or handle `.intentRejected` in the
+configuration's `onEvent` closure. The legacy
 stores never had this signal; before the migration, a push attempt
 during a sheet presentation silently no-opped or tripped up the
 app in subtle ways.

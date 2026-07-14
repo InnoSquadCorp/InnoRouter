@@ -508,7 +508,7 @@ boundary.
 
 | You want… | Reach for | Why |
 |---|---|---|
-| One observable change for many commands, best-effort | `executeBatch(_:stopOnFailure:)` | Coalesced `onChange` / `events`, optional fail-fast |
+| One observable change for many commands, best-effort | `executeBatch(_:stopOnFailure:)` | Coalesced `.changed` plus `.batchExecuted` through `onEvent` / `events`, optional fail-fast |
 | All-or-nothing apply with rollback | `executeTransaction(_:)` | Shadow-state preview, journal-based discard |
 | A composite *value* the engine plans / validates | `NavigationCommand.sequence([...])` | Pure command, flows through every middleware as one unit |
 | Fire only the latest command after a quiet window | `DebouncingNavigator` | Async wrapping navigator, `Clock`-injectable |
@@ -587,14 +587,15 @@ Keep those as feature-local or coordinator-local presentation state.
 
 ### Modal observability
 
-`ModalStoreConfiguration` provides lightweight lifecycle hooks:
+`ModalStoreConfiguration` provides one typed observation callback plus
+the asynchronous stream:
 
 - `logger`
-- `onPresented`
-- `onDismissed`
-- `onQueueChanged`
-- `onMiddlewareMutation`
-- `onCommandIntercepted`
+- `onEvent: (ModalEvent<M>) -> Void`
+- `events: AsyncStream<ModalEvent<M>>` on `ModalStore`
+
+Switch over `ModalEvent` for presented, dismissed, replaced, queue-changed,
+command-intercepted, and middleware-mutation cases.
 
 `ModalDismissalReason` distinguishes:
 
@@ -1022,8 +1023,9 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 - `FlowHost` composes `ModalHost` over `NavigationHost` and injects an
   environment closure for `@EnvironmentFlowIntent(Route.self)` dispatch.
 - `FlowStoreConfiguration` composes `NavigationStoreConfiguration` and
-  `ModalStoreConfiguration`, adding `onPathChanged` and
-  `onIntentRejected`.
+  `ModalStoreConfiguration`, adding one `onEvent` callback for
+  `FlowEvent`. It receives flow-level path/rejection cases and wrapped
+  `.navigation(...)` / `.modal(...)` inner-store events.
 - `FlowStore(validating:configuration:)` is the throwing initializer
   for restored or externally supplied `[RouteStep]` values; the
   compatibility `initial:` initializer still coerces invalid input to
@@ -1038,7 +1040,7 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 harness that wraps `NavigationStore`, `ModalStore`, and `FlowStore`.
 Tests no longer need `@testable import InnoRouterSwiftUI` or
 hand-rolled `Mutex<[Event]>` collectors — every public observation
-callback is buffered into a FIFO queue, and tests drain it with
+event is buffered into a FIFO queue, and tests drain it with
 TCA-style `receive(...)` calls.
 
 Add the product to the test target only:
@@ -1079,14 +1081,15 @@ func pushHomeThenDetail() {
 
 What the harness covers:
 
-- **`NavigationTestStore<R>`** — `onChange`, `onBatchExecuted`,
-  `onTransactionExecuted`, `onMiddlewareMutation`, and
-  `onPathMismatch`. Forwards `send`, `execute`, `executeBatch`,
+- **`NavigationTestStore<R>`** — all `NavigationEvent` cases:
+  `.changed`, `.batchExecuted`, `.transactionExecuted`,
+  `.middlewareMutation`, and `.pathMismatch`. Forwards `send`, `execute`, `executeBatch`,
   `executeTransaction` to the underlying store unchanged.
-- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`, `onReplaced`,
-  `onQueueChanged`, `onCommandIntercepted`, `onMiddlewareMutation`.
-- **`FlowTestStore<R>`** — FlowStore-level
-  `onPathChanged` + `onIntentRejected`, plus `.navigation(...)` and
+- **`ModalTestStore<M>`** — all `ModalEvent` cases, including
+  `.presented`, `.dismissed`, `.replaced`, `.queueChanged`,
+  `.commandIntercepted`, and `.middlewareMutation`.
+- **`FlowTestStore<R>`** — FlowStore-level `.pathChanged` and
+  `.intentRejected`, plus `.navigation(...)` and
   `.modal(...)` wrappers around the inner store emissions on a
   single queue. One test can assert the complete chain triggered by
   a single `FlowIntent`, including middleware cancellation paths.
@@ -1161,9 +1164,12 @@ Task {
 }
 ```
 
-Individual `onChange`, `onPresented`, `onCommandIntercepted`, etc.
-callbacks on each `*Configuration` type remain source-compatible;
-the `events` stream is an additional channel, not a replacement.
+In 5.0, each `*Configuration` has one typed `onEvent` callback. Switch
+over `NavigationEvent`, `ModalEvent`, or `FlowEvent` when synchronous
+delivery is useful; use `events` for asynchronous iteration. The former
+per-event callbacks were removed without compatibility shims. A flow
+callback receives `.navigation(...)` and `.modal(...)` as well as its
+own `.pathChanged` and `.intentRejected` cases.
 
 ### Backpressure
 

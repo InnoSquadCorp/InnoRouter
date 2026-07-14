@@ -6,8 +6,8 @@
 /// finishes.
 ///
 /// InnoRouter's test stores follow TCA's `TestStore` exhaustivity model:
-/// events collected from the underlying authority (e.g. `onChange`,
-/// `onPresented`, `onPathChanged`) accumulate in an internal queue. Each
+/// events collected from the underlying authority's unified `onEvent`
+/// callback accumulate in an internal queue. Each
 /// `receive(...)` call dequeues the next event and asserts a predicate. In
 /// In `.strict` mode, the store reports events left pending at `finish()` or
 /// deallocation.

@@ -4,11 +4,11 @@ import InnoRouterCore
 ///
 /// A `FlowStore` owns an inner `NavigationStore` and `ModalStore`; this
 /// configuration gives callers a single entry point for configuring both of
-/// them (logging, middleware, per-store lifecycle observers) plus FlowStore
-/// specific observation hooks for path and intent rejection.
+/// them (logging, middleware, and per-store observation) plus the FlowStore
+/// specific unified observation hook.
 ///
 /// Stored properties are `public var` so call sites can adjust
-/// individual hooks after construction without re-stating every
+/// the observation hook after construction without re-stating every
 /// other parameter — see ``NavigationStoreConfiguration`` for the
 /// same pattern.
 public struct FlowStoreConfiguration<R: Route>: Sendable {
@@ -18,10 +18,12 @@ public struct FlowStoreConfiguration<R: Route>: Sendable {
     public var modal: ModalStoreConfiguration<R>
     /// Structured telemetry sink used for flow-level and wrapped inner-store events.
     public var telemetrySink: AnyFlowTelemetrySink<R>?
-    /// Called whenever `FlowStore.path` changes, with (old, new) snapshots.
-    public var onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?
-    /// Called whenever `FlowStore.send(_:)` refuses to apply an intent.
-    public var onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?
+    /// Called synchronously for every public flow observation event.
+    ///
+    /// This includes flow-level path changes and intent rejections as well as
+    /// ``FlowEvent/navigation(_:)`` and ``FlowEvent/modal(_:)`` wrappers for
+    /// every event emitted by the inner stores.
+    public var onEvent: (@MainActor @Sendable (FlowEvent<R>) -> Void)?
     /// Backpressure policy applied to each subscriber of ``FlowStore/events``.
     ///
     /// Controls the flow-level fan-out only; the inner `NavigationStore` and
@@ -46,16 +48,14 @@ public struct FlowStoreConfiguration<R: Route>: Sendable {
         navigation: NavigationStoreConfiguration<R> = .init(),
         modal: ModalStoreConfiguration<R> = .init(),
         telemetrySink: AnyFlowTelemetrySink<R>? = nil,
-        onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)? = nil,
-        onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)? = nil,
+        onEvent: (@MainActor @Sendable (FlowEvent<R>) -> Void)? = nil,
         eventBufferingPolicy: EventBufferingPolicy = .default,
         queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve
     ) {
         self.navigation = navigation
         self.modal = modal
         self.telemetrySink = telemetrySink
-        self.onPathChanged = onPathChanged
-        self.onIntentRejected = onIntentRejected
+        self.onEvent = onEvent
         self.eventBufferingPolicy = eventBufferingPolicy
         self.queueCoalescePolicy = queueCoalescePolicy
     }

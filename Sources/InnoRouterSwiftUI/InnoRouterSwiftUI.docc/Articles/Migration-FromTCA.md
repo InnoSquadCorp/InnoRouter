@@ -179,7 +179,7 @@ test.execute(.push(.detail(id)))
 test.expect(state: [.detail(id)])
 ```
 
-The test store keeps any analytics / diagnostic callbacks the
+The test store keeps the analytics / diagnostic `onEvent` callback the
 production store wired through `NavigationStoreConfiguration`,
 so the test asserts production telemetry without
 `@testable import`.

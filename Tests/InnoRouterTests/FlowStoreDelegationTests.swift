@@ -50,8 +50,447 @@ private final class FlowDelegationRecordingReconciler<R: Route>: NavigationPathR
     }
 }
 
+@MainActor
+private final class ReentrantFlowEventObserver {
+    weak var store: FlowStore<FlowDelegationRoute>?
+    var events: [FlowEvent<FlowDelegationRoute>] = []
+    var pathAtFirstNavigationEvent: [RouteStep<FlowDelegationRoute>]?
+    private var didReenter = false
+
+    func handle(_ event: FlowEvent<FlowDelegationRoute>) {
+        events.append(event)
+        guard !didReenter, case .navigation(.changed) = event else { return }
+        didReenter = true
+        pathAtFirstNavigationEvent = store?.path
+        store?.send(.push(.detail))
+    }
+}
+
+@MainActor
+private final class ReentrantModalFlowEventObserver {
+    weak var store: FlowStore<FlowDelegationRoute>?
+    var events: [FlowEvent<FlowDelegationRoute>] = []
+    var pathAtReplacementEvent: [RouteStep<FlowDelegationRoute>]?
+    private var didReenter = false
+
+    func handle(_ event: FlowEvent<FlowDelegationRoute>) {
+        events.append(event)
+        guard !didReenter, case .modal(.replaced) = event else { return }
+        didReenter = true
+        pathAtReplacementEvent = store?.path
+        store?.send(.dismiss)
+    }
+}
+
+@MainActor
+private final class ReentrantInnerNavigationObserver {
+    weak var store: FlowStore<FlowDelegationRoute>?
+    var flowEvents: [FlowEvent<FlowDelegationRoute>] = []
+    private var didReenter = false
+
+    func handleNavigation(_ event: NavigationEvent<FlowDelegationRoute>) {
+        guard !didReenter, case .changed = event else { return }
+        didReenter = true
+        store?.send(.dismiss)
+    }
+}
+
+@MainActor
+private final class ReentrantInnerPathMismatchObserver {
+    weak var store: FlowStore<FlowDelegationRoute>?
+    var flowEvents: [FlowEvent<FlowDelegationRoute>] = []
+    private var didReenter = false
+
+    func handleNavigation(_ event: NavigationEvent<FlowDelegationRoute>) {
+        guard !didReenter, case .pathMismatch = event else { return }
+        didReenter = true
+        store?.send(.push(.detail))
+    }
+}
+
+@MainActor
+private final class ReentrantInnerNavigationTelemetryObserver {
+    weak var store: FlowStore<FlowDelegationRoute>?
+    var flowEvents: [FlowEvent<FlowDelegationRoute>] = []
+    private var didReenter = false
+
+    func record(_ event: NavigationTelemetryEvent<FlowDelegationRoute>) {
+        guard !didReenter, case .changed = event else { return }
+        didReenter = true
+        store?.send(.push(.detail))
+    }
+}
+
+@MainActor
+private final class ReentrantInnerModalTelemetryObserver {
+    weak var store: FlowStore<FlowDelegationRoute>?
+    var flowEvents: [FlowEvent<FlowDelegationRoute>] = []
+    var pathAtReplacementTelemetry: [RouteStep<FlowDelegationRoute>]?
+    private var didReenter = false
+
+    func record(_ event: ModalTelemetryEvent<FlowDelegationRoute>) {
+        guard !didReenter, case .replaced = event else { return }
+        didReenter = true
+        pathAtReplacementTelemetry = store?.path
+        store?.send(.dismiss)
+    }
+}
+
+@MainActor
+private final class ReentrantFlowApplyObserver {
+    weak var store: FlowStore<FlowDelegationRoute>?
+    var events: [FlowEvent<FlowDelegationRoute>] = []
+    var result: FlowPlanApplyResult<FlowDelegationRoute>?
+
+    func handle(_ event: FlowEvent<FlowDelegationRoute>) {
+        events.append(event)
+        guard result == nil, case .navigation(.changed) = event else { return }
+        result = store?.apply(FlowPlan(steps: [.push(.detail)]))
+    }
+}
+
+@MainActor
+private final class ReentrantInnerApplyObserver {
+    weak var store: FlowStore<FlowDelegationRoute>?
+    var result: FlowPlanApplyResult<FlowDelegationRoute>?
+
+    func handle(_ event: NavigationEvent<FlowDelegationRoute>) {
+        guard result == nil, case .changed = event else { return }
+        result = store?.apply(FlowPlan(steps: [.push(.detail)]))
+    }
+}
+
 @Suite("FlowStore Delegation Tests")
 struct FlowStoreDelegationTests {
+
+    @Test("reentrant onEvent observes the current path and preserves transition order")
+    @MainActor
+    func reentrantOnEventSeesCurrentPath() async {
+        let observer = ReentrantFlowEventObserver()
+        let store = FlowStore<FlowDelegationRoute>(
+            configuration: .init(onEvent: { event in
+                observer.handle(event)
+            })
+        )
+        observer.store = store
+        var iterator = store.events.makeAsyncIterator()
+
+        store.navigationStore.send(.go(.home))
+
+        let callbackEvents = observer.events
+        var streamEvents: [FlowEvent<FlowDelegationRoute>] = []
+        for _ in callbackEvents.indices {
+            guard let event = await iterator.next() else {
+                Issue.record("FlowStore.events ended before matching the reentrant onEvent sequence")
+                return
+            }
+            streamEvents.append(event)
+        }
+
+        #expect(observer.pathAtFirstNavigationEvent == [.push(.home)])
+        #expect(store.navigationStore.state.path == [.home, .detail])
+        #expect(store.path == [.push(.home), .push(.detail)])
+        #expect(callbackEvents == streamEvents)
+        #expect(callbackEvents.count == 4)
+
+        guard case .navigation(.changed(let firstOld, let firstNew)) = callbackEvents[0] else {
+            Issue.record("Expected the outer navigation change first")
+            return
+        }
+        #expect(firstOld.path.isEmpty)
+        #expect(firstNew.path == [.home])
+
+        guard case .pathChanged(let firstOldPath, let firstNewPath) = callbackEvents[1] else {
+            Issue.record("Expected the outer path transition second")
+            return
+        }
+        #expect(firstOldPath.isEmpty)
+        #expect(firstNewPath == [.push(.home)])
+
+        guard case .navigation(.changed(let secondOld, let secondNew)) = callbackEvents[2] else {
+            Issue.record("Expected the reentrant navigation change third")
+            return
+        }
+        #expect(secondOld.path == [.home])
+        #expect(secondNew.path == [.home, .detail])
+
+        guard case .pathChanged(let secondOldPath, let secondNewPath) = callbackEvents[3] else {
+            Issue.record("Expected the reentrant path transition last")
+            return
+        }
+        #expect(secondOldPath == [.push(.home)])
+        #expect(secondNewPath == [.push(.home), .push(.detail)])
+    }
+
+    @Test("reentrant modal replacement preserves wrapped-event ordering and current path")
+    @MainActor
+    func reentrantModalReplacementSeesCurrentPath() async {
+        let observer = ReentrantModalFlowEventObserver()
+        let store = FlowStore<FlowDelegationRoute>(
+            configuration: .init(onEvent: { event in
+                observer.handle(event)
+            })
+        )
+        observer.store = store
+        store.send(.presentSheet(.share))
+        observer.events.removeAll()
+        var iterator = store.events.makeAsyncIterator()
+
+        store.modalStore.replaceCurrent(.paywall, style: .fullScreenCover)
+
+        let callbackEvents = observer.events
+        var streamEvents: [FlowEvent<FlowDelegationRoute>] = []
+        for _ in callbackEvents.indices {
+            guard let event = await iterator.next() else {
+                Issue.record("FlowStore.events ended before matching the reentrant modal sequence")
+                return
+            }
+            streamEvents.append(event)
+        }
+
+        #expect(observer.pathAtReplacementEvent == [.cover(.paywall)])
+        #expect(store.modalStore.currentPresentation == nil)
+        #expect(store.path.isEmpty)
+        #expect(callbackEvents == streamEvents)
+        #expect(callbackEvents.count == 6)
+
+        guard case .modal(.replaced(let old, let new)) = callbackEvents[0] else {
+            Issue.record("Expected replacement first")
+            return
+        }
+        #expect(old.route == .share)
+        #expect(new.route == .paywall)
+
+        guard case .modal(.commandIntercepted(_, let replacementResult)) = callbackEvents[1],
+              case .executed(.replaceCurrent) = replacementResult else {
+            Issue.record("Expected replacement interception second")
+            return
+        }
+        guard case .pathChanged(let replacementOldPath, let replacementNewPath) = callbackEvents[2] else {
+            Issue.record("Expected replacement path transition third")
+            return
+        }
+        #expect(replacementOldPath == [.sheet(.share)])
+        #expect(replacementNewPath == [.cover(.paywall)])
+
+        guard case .modal(.dismissed(let dismissed, _)) = callbackEvents[3] else {
+            Issue.record("Expected reentrant dismissal fourth")
+            return
+        }
+        #expect(dismissed.route == .paywall)
+        guard case .modal(.commandIntercepted(_, let dismissalResult)) = callbackEvents[4],
+              case .executed(.dismissCurrent) = dismissalResult else {
+            Issue.record("Expected dismissal interception fifth")
+            return
+        }
+        guard case .pathChanged(let dismissalOldPath, let dismissalNewPath) = callbackEvents[5] else {
+            Issue.record("Expected dismissal path transition last")
+            return
+        }
+        #expect(dismissalOldPath == [.cover(.paywall)])
+        #expect(dismissalNewPath.isEmpty)
+    }
+
+    @Test("inner navigation callback waits for the outer Flow mutation to finish")
+    @MainActor
+    func innerNavigationReentryWaitsForOuterMutation() {
+        let observer = ReentrantInnerNavigationObserver()
+        let store = FlowStore<FlowDelegationRoute>(
+            configuration: .init(
+                navigation: .init(onEvent: { event in
+                    observer.handleNavigation(event)
+                }),
+                onEvent: { event in
+                    observer.flowEvents.append(event)
+                }
+            )
+        )
+        observer.store = store
+
+        store.send(.reset([.push(.home), .sheet(.share)]))
+
+        #expect(store.navigationStore.state.path == [.home])
+        #expect(store.modalStore.currentPresentation == nil)
+        #expect(store.path == [.push(.home)])
+
+        let pathChanges: [(
+            old: [RouteStep<FlowDelegationRoute>],
+            new: [RouteStep<FlowDelegationRoute>]
+        )] = observer.flowEvents.compactMap { event in
+            guard case .pathChanged(let old, let new) = event else { return nil }
+            return (old, new)
+        }
+        #expect(pathChanges.count == 2)
+        #expect(pathChanges[0].old.isEmpty)
+        #expect(pathChanges[0].new == [.push(.home), .sheet(.share)])
+        #expect(pathChanges[1].old == [.push(.home), .sheet(.share)])
+        #expect(pathChanges[1].new == [.push(.home)])
+    }
+
+    @Test("inner path-mismatch reentry waits for reconciliation to finish")
+    @MainActor
+    func innerPathMismatchReentryWaitsForReconciliation() {
+        let observer = ReentrantInnerPathMismatchObserver()
+        let store = FlowStore<FlowDelegationRoute>(
+            configuration: .init(
+                navigation: .init(onEvent: { event in
+                    observer.handleNavigation(event)
+                }),
+                onEvent: { event in
+                    observer.flowEvents.append(event)
+                }
+            )
+        )
+        observer.store = store
+        store.send(.push(.home))
+        observer.flowEvents.removeAll()
+
+        store.navigationStore.pathBinding.wrappedValue = [.paywall]
+
+        #expect(store.navigationStore.state.path == [.paywall, .detail])
+        #expect(store.path == [.push(.paywall), .push(.detail)])
+
+        let changedPaths = observer.flowEvents.compactMap { event -> [FlowDelegationRoute]? in
+            guard case .navigation(.changed(_, let newState)) = event else { return nil }
+            return newState.path
+        }
+        #expect(changedPaths == [[.paywall], [.paywall, .detail]])
+    }
+
+    @Test("inner navigation telemetry reentry waits for wrapped flow events")
+    @MainActor
+    func innerNavigationTelemetryReentryPreservesOrder() {
+        let observer = ReentrantInnerNavigationTelemetryObserver()
+        let store = FlowStore<FlowDelegationRoute>(
+            configuration: .init(
+                navigation: .init(
+                    telemetrySink: AnyNavigationTelemetrySink { event in
+                        observer.record(event)
+                    }
+                ),
+                onEvent: { event in
+                    observer.flowEvents.append(event)
+                }
+            )
+        )
+        observer.store = store
+
+        store.navigationStore.send(.go(.home))
+
+        #expect(store.path == [.push(.home), .push(.detail)])
+        #expect(observer.flowEvents.count == 4)
+        guard observer.flowEvents.count == 4 else { return }
+
+        guard case .navigation(.changed(_, let outerState)) = observer.flowEvents[0] else {
+            Issue.record("Expected the outer navigation change first")
+            return
+        }
+        #expect(outerState.path == [.home])
+        #expect(observer.flowEvents[1] == .pathChanged(old: [], new: [.push(.home)]))
+
+        guard case .navigation(.changed(_, let reentrantState)) = observer.flowEvents[2] else {
+            Issue.record("Expected the reentrant navigation change third")
+            return
+        }
+        #expect(reentrantState.path == [.home, .detail])
+        #expect(
+            observer.flowEvents[3]
+                == .pathChanged(
+                    old: [.push(.home)],
+                    new: [.push(.home), .push(.detail)]
+                )
+        )
+    }
+
+    @Test("inner modal telemetry reentry waits for replacement flow events")
+    @MainActor
+    func innerModalTelemetryReentryPreservesOrder() {
+        let observer = ReentrantInnerModalTelemetryObserver()
+        let store = FlowStore<FlowDelegationRoute>(
+            configuration: .init(
+                modal: .init(
+                    telemetrySink: AnyModalTelemetrySink { event in
+                        observer.record(event)
+                    }
+                ),
+                onEvent: { event in
+                    observer.flowEvents.append(event)
+                }
+            )
+        )
+        observer.store = store
+        store.send(.presentSheet(.share))
+        observer.flowEvents.removeAll()
+
+        store.modalStore.replaceCurrent(.paywall, style: .fullScreenCover)
+
+        #expect(observer.pathAtReplacementTelemetry == [.cover(.paywall)])
+        #expect(store.path.isEmpty)
+        #expect(observer.flowEvents.count == 6)
+        guard observer.flowEvents.count == 6 else { return }
+
+        guard case .modal(.replaced) = observer.flowEvents[0] else {
+            Issue.record("Expected replacement first")
+            return
+        }
+        guard case .modal(.commandIntercepted) = observer.flowEvents[1] else {
+            Issue.record("Expected replacement interception second")
+            return
+        }
+        #expect(
+            observer.flowEvents[2]
+                == .pathChanged(old: [.sheet(.share)], new: [.cover(.paywall)])
+        )
+        guard case .modal(.dismissed) = observer.flowEvents[3] else {
+            Issue.record("Expected the reentrant dismissal fourth")
+            return
+        }
+        guard case .modal(.commandIntercepted) = observer.flowEvents[4] else {
+            Issue.record("Expected dismissal interception fifth")
+            return
+        }
+        #expect(
+            observer.flowEvents[5]
+                == .pathChanged(old: [.cover(.paywall)], new: [])
+        )
+    }
+
+    @Test("reentrant Flow apply is rejected until Flow event delivery finishes")
+    @MainActor
+    func reentrantFlowApplyIsRejected() {
+        let observer = ReentrantFlowApplyObserver()
+        let store = FlowStore<FlowDelegationRoute>(
+            configuration: .init(onEvent: { event in
+                observer.handle(event)
+            })
+        )
+        observer.store = store
+
+        store.navigationStore.send(.go(.home))
+
+        #expect(observer.result == .rejected(currentPath: [.push(.home)]))
+        #expect(store.path == [.push(.home)])
+        #expect(observer.events.count == 2)
+    }
+
+    @Test("reentrant inner apply is rejected without mixing Flow plans")
+    @MainActor
+    func reentrantInnerApplyIsRejected() {
+        let observer = ReentrantInnerApplyObserver()
+        let store = FlowStore<FlowDelegationRoute>(
+            configuration: .init(
+                navigation: .init(onEvent: { event in
+                    observer.handle(event)
+                })
+            )
+        )
+        observer.store = store
+
+        store.send(.reset([.push(.home), .sheet(.share)]))
+
+        #expect(observer.result == .rejected(currentPath: [.push(.home)]))
+        #expect(store.path == [.push(.home), .sheet(.share)])
+    }
 
     @Test("push delegates to navigation store and updates state")
     @MainActor
@@ -93,7 +532,8 @@ struct FlowStoreDelegationTests {
         let changes = Mutex<[([RouteStep<FlowDelegationRoute>], [RouteStep<FlowDelegationRoute>])]>([])
         let store = FlowStore<FlowDelegationRoute>(
             configuration: .init(
-                onPathChanged: { oldPath, newPath in
+                onEvent: { event in
+                    guard case .pathChanged(let oldPath, let newPath) = event else { return }
                     changes.withLock { $0.append((oldPath, newPath)) }
                 }
             )
@@ -232,13 +672,16 @@ struct FlowStoreDelegationTests {
         #expect(store.path == [.push(.home), .push(.paywall)])
     }
 
-    @Test("inner navigation onChange still fires when caller supplies a hook")
+    @Test("inner navigation onEvent still fires when caller supplies an observer")
     @MainActor
-    func userNavOnChangeStillFires() {
+    func userNavigationChangedEventStillFires() {
         let changes = Mutex<Int>(0)
         let config = FlowStoreConfiguration<FlowDelegationRoute>(
             navigation: .init(
-                onChange: { _, _ in changes.withLock { $0 += 1 } }
+                onEvent: { event in
+                    guard case .changed = event else { return }
+                    changes.withLock { $0 += 1 }
+                }
             )
         )
         let store = FlowStore<FlowDelegationRoute>(configuration: config)
@@ -249,14 +692,15 @@ struct FlowStoreDelegationTests {
         #expect(changes.withLock { $0 } == 2)
     }
 
-    @Test("inner navigation onPathMismatch still fires and flow path stays in sync")
+    @Test("inner navigation onEvent receives pathMismatch and flow path stays in sync")
     @MainActor
-    func userNavOnPathMismatchStillFires() {
+    func userNavigationPathMismatchEventStillFires() {
         let mismatches = Mutex<[NavigationPathMismatchEvent<FlowDelegationRoute>]>([])
         let config = FlowStoreConfiguration<FlowDelegationRoute>(
             navigation: .init(
-                onPathMismatch: { event in
-                    mismatches.withLock { $0.append(event) }
+                onEvent: { event in
+                    guard case .pathMismatch(let mismatch) = event else { return }
+                    mismatches.withLock { $0.append(mismatch) }
                 }
             )
         )
@@ -292,13 +736,14 @@ struct FlowStoreDelegationTests {
         #expect(store.path == [.push(.home), .push(.detail)])
     }
 
-    @Test("inner modal onPresented still fires when caller supplies a hook")
+    @Test("inner modal onEvent receives presented when caller supplies an observer")
     @MainActor
-    func userModalOnPresentedStillFires() {
+    func userModalPresentedEventStillFires() {
         let presented = Mutex<[FlowDelegationRoute]>([])
         let config = FlowStoreConfiguration<FlowDelegationRoute>(
             modal: .init(
-                onPresented: { presentation in
+                onEvent: { event in
+                    guard case .presented(let presentation) = event else { return }
                     presented.withLock { $0.append(presentation.route) }
                 }
             )

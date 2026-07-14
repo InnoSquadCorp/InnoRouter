@@ -17,52 +17,50 @@ private enum CfgRoute: Route {
 @MainActor
 struct ConfigurationMutationTests {
 
-    @Test("NavigationStoreConfiguration callbacks can be patched after construction")
-    func navigationConfig_callbacksArePatchable() {
+    @Test("NavigationStoreConfiguration observer can be patched after construction")
+    func navigationConfig_observerIsPatchable() {
         var config = NavigationStoreConfiguration<CfgRoute>()
-        #expect(config.onChange == nil)
-        #expect(config.onPathMismatch == nil)
+        #expect(config.onEvent == nil)
 
-        config.onChange = { _, _ in }
-        config.onPathMismatch = { _ in }
+        config.onEvent = { _ in }
 
-        #expect(config.onChange != nil)
-        #expect(config.onPathMismatch != nil)
+        #expect(config.onEvent != nil)
     }
 
-    @Test("ModalStoreConfiguration callbacks can be patched after construction")
-    func modalConfig_callbacksArePatchable() {
+    @Test("ModalStoreConfiguration observer can be patched after construction")
+    func modalConfig_observerIsPatchable() {
         var config = ModalStoreConfiguration<CfgRoute>()
-        #expect(config.onPresented == nil)
-        #expect(config.onCommandIntercepted == nil)
+        #expect(config.onEvent == nil)
 
-        config.onPresented = { _ in }
-        config.onCommandIntercepted = { _, _ in }
+        config.onEvent = { _ in }
 
-        #expect(config.onPresented != nil)
-        #expect(config.onCommandIntercepted != nil)
+        #expect(config.onEvent != nil)
     }
 
     @Test("FlowStoreConfiguration nested configs can be patched after construction")
     func flowConfig_nestedConfigsArePatchable() {
         var config = FlowStoreConfiguration<CfgRoute>()
-        #expect(config.navigation.onChange == nil)
-        #expect(config.modal.onPresented == nil)
+        #expect(config.navigation.onEvent == nil)
+        #expect(config.modal.onEvent == nil)
+        #expect(config.onEvent == nil)
 
-        config.navigation.onChange = { _, _ in }
-        config.modal.onPresented = { _ in }
-        config.onPathChanged = { _, _ in }
+        config.navigation.onEvent = { _ in }
+        config.modal.onEvent = { _ in }
+        config.onEvent = { _ in }
 
-        #expect(config.navigation.onChange != nil)
-        #expect(config.modal.onPresented != nil)
-        #expect(config.onPathChanged != nil)
+        #expect(config.navigation.onEvent != nil)
+        #expect(config.modal.onEvent != nil)
+        #expect(config.onEvent != nil)
     }
 
     @Test("Patched configuration constructs a working store")
     func patchedConfig_constructsStore() {
         var config = NavigationStoreConfiguration<CfgRoute>()
         var observed = 0
-        config.onChange = { _, _ in observed += 1 }
+        config.onEvent = { event in
+            guard case .changed = event else { return }
+            observed += 1
+        }
 
         let store = NavigationStore<CfgRoute>(configuration: config)
         store.execute(.push(.home))

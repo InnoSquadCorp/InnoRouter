@@ -52,6 +52,33 @@ Modal queue rules are intentionally small:
 
 `alert` and `confirmationDialog` stay outside this framework surface and should remain feature-owned state.
 
+`ModalStoreConfiguration` uses one `onEvent` callback for the complete
+modal observation surface:
+
+```swift skip doc-fragment
+let configuration = ModalStoreConfiguration<AppRoute>(
+    onEvent: { event in
+        switch event {
+        case .presented(let presentation):
+            analytics.recordPresented(presentation)
+        case .dismissed(let presentation, let reason):
+            analytics.recordDismissed(presentation, reason: reason)
+        case .replaced(let old, let new):
+            analytics.recordReplacement(from: old, to: new)
+        case .queueChanged(let old, let new):
+            diagnostics.recordQueueChange(from: old, to: new)
+        case .commandIntercepted(let command, let result):
+            diagnostics.record(command, result: result)
+        case .middlewareMutation(let mutation):
+            diagnostics.record(mutation)
+        }
+    }
+)
+```
+
+When migrating to 5.0, merge the former modal lifecycle closures into
+this switch. `ModalStore.events` emits the same cases asynchronously.
+
 ## Composition
 
 The recommended composition order is:

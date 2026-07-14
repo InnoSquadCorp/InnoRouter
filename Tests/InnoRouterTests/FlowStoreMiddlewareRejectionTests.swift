@@ -31,7 +31,8 @@ struct FlowStoreMiddlewareRejectionTests {
         )
         let config = FlowStoreConfiguration<FlowMiddlewareRoute>(
             navigation: .init(middlewares: [.init(middleware: gate, debugName: "nav-gate")]),
-            onIntentRejected: { intent, reason in
+            onEvent: { event in
+                guard case .intentRejected(let intent, let reason) = event else { return }
                 rejections.withLock { $0.append((intent, reason)) }
             }
         )
@@ -65,7 +66,8 @@ struct FlowStoreMiddlewareRejectionTests {
         )
         let config = FlowStoreConfiguration<FlowMiddlewareRoute>(
             modal: .init(middlewares: [.init(middleware: gate, debugName: "sheet-gate")]),
-            onIntentRejected: { intent, reason in
+            onEvent: { event in
+                guard case .intentRejected(let intent, let reason) = event else { return }
                 rejections.withLock { $0.append((intent, reason)) }
             }
         )
@@ -107,16 +109,36 @@ struct FlowStoreMiddlewareRejectionTests {
         let store = FlowStore<FlowMiddlewareRoute>(
             configuration: .init(
                 navigation: .init(
-                    onChange: { _, _ in navChanges.withLock { $0 += 1 } }
+                    onEvent: { event in
+                        guard case .changed = event else { return }
+                        navChanges.withLock { $0 += 1 }
+                    }
                 ),
                 modal: .init(
                     middlewares: [.init(middleware: gate, debugName: "sheet-gate")],
-                    onPresented: { _ in modalPresented.withLock { $0 += 1 } },
-                    onDismissed: { _, _ in modalDismissed.withLock { $0 += 1 } },
-                    onQueueChanged: { _, _ in modalQueueChanges.withLock { $0 += 1 } }
+                    onEvent: { event in
+                        switch event {
+                        case .presented:
+                            modalPresented.withLock { $0 += 1 }
+                        case .dismissed:
+                            modalDismissed.withLock { $0 += 1 }
+                        case .queueChanged:
+                            modalQueueChanges.withLock { $0 += 1 }
+                        default:
+                            break
+                        }
+                    }
                 ),
-                onPathChanged: { _, _ in pathChanges.withLock { $0 += 1 } },
-                onIntentRejected: { _, reason in rejections.withLock { $0.append(reason) } }
+                onEvent: { event in
+                    switch event {
+                    case .pathChanged:
+                        pathChanges.withLock { $0 += 1 }
+                    case .intentRejected(_, let reason):
+                        rejections.withLock { $0.append(reason) }
+                    default:
+                        break
+                    }
+                }
             )
         )
 
@@ -163,16 +185,36 @@ struct FlowStoreMiddlewareRejectionTests {
         let store = FlowStore<FlowMiddlewareRoute>(
             configuration: .init(
                 navigation: .init(
-                    onChange: { _, _ in navChanges.withLock { $0 += 1 } }
+                    onEvent: { event in
+                        guard case .changed = event else { return }
+                        navChanges.withLock { $0 += 1 }
+                    }
                 ),
                 modal: .init(
                     middlewares: [.init(middleware: gate, debugName: "dismiss-gate")],
-                    onPresented: { _ in modalPresented.withLock { $0 += 1 } },
-                    onDismissed: { _, _ in modalDismissed.withLock { $0 += 1 } },
-                    onQueueChanged: { _, _ in modalQueueChanges.withLock { $0 += 1 } }
+                    onEvent: { event in
+                        switch event {
+                        case .presented:
+                            modalPresented.withLock { $0 += 1 }
+                        case .dismissed:
+                            modalDismissed.withLock { $0 += 1 }
+                        case .queueChanged:
+                            modalQueueChanges.withLock { $0 += 1 }
+                        default:
+                            break
+                        }
+                    }
                 ),
-                onPathChanged: { _, _ in pathChanges.withLock { $0 += 1 } },
-                onIntentRejected: { _, reason in rejections.withLock { $0.append(reason) } }
+                onEvent: { event in
+                    switch event {
+                    case .pathChanged:
+                        pathChanges.withLock { $0 += 1 }
+                    case .intentRejected(_, let reason):
+                        rejections.withLock { $0.append(reason) }
+                    default:
+                        break
+                    }
+                }
             )
         )
 

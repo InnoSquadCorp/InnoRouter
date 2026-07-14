@@ -60,7 +60,8 @@ Batch execution still runs commands one step at a time, but it lets higher layer
 - step middleware still runs
 - `stopOnFailure: false` keeps later commands running after a failure
 - `stopOnFailure: true` stops the batch after the first failed step
-- the store can emit one aggregated callback
+- the store emits aggregated `.changed` and `.batchExecuted` cases
+  through `onEvent` and `events`
 - the caller gets a structured `NavigationBatchResult`
 
 Use batch execution when the caller wants one “transition event” while still preserving per-step execution.

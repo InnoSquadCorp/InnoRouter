@@ -179,22 +179,19 @@ checks = [
     (
         "Sources/InnoRouterSwiftUI/FlowStoreConfiguration.swift",
         [
-            "public var onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?",
-            "public var onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?",
+            "public var onEvent: (@MainActor @Sendable (FlowEvent<R>) -> Void)?",
         ],
     ),
     (
         "Sources/InnoRouterSwiftUI/ModalStoreConfiguration.swift",
         [
-            "public var onPresented: (@MainActor @Sendable (ModalPresentation<M>) -> Void)?",
-            "public var onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)?",
+            "public var onEvent: (@MainActor @Sendable (ModalEvent<M>) -> Void)?",
         ],
     ),
     (
         "Sources/InnoRouterSwiftUI/NavigationStoreConfiguration.swift",
         [
-            "public var onChange: (@MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void)?",
-            "public var onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)?",
+            "public var onEvent: (@MainActor @Sendable (NavigationEvent<R>) -> Void)?",
         ],
     ),
     (

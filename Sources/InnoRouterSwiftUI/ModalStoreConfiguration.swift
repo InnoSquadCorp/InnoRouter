@@ -37,8 +37,9 @@ public struct ModalMiddlewareMetadata: Equatable, Sendable {
     }
 }
 
-/// Outcome of a `ModalStore.execute(_:)` call surfaced to `onCommandIntercepted`
-/// and returned from the public execute API.
+/// Outcome of a `ModalStore.execute(_:)` call surfaced through
+/// `ModalEvent.commandIntercepted(command:result:)` and returned from the
+/// public execute API.
 public enum ModalExecutionResult<M: Route>: Sendable, Equatable {
     /// The command executed and mutated store state. `command` is the
     /// post-interception command (possibly rewritten by middleware).
@@ -112,10 +113,9 @@ public enum ModalPresentResult<M: Route>: Sendable, Equatable {
 
 /// Configuration for `ModalStore` observability, middleware, and logging.
 ///
-/// Stored properties are `public var` so call sites can adjust
-/// individual callbacks after construction without re-stating every
-/// other parameter — see ``NavigationStoreConfiguration`` for the
-/// same pattern.
+/// Stored properties are `public var` so call sites can adjust the unified
+/// observation hook after construction without re-stating every other
+/// parameter — see ``NavigationStoreConfiguration`` for the same pattern.
 public struct ModalStoreConfiguration<M: Route>: Sendable {
     /// Optional logger used by the default OSLog telemetry adapter and
     /// internal execution traces.
@@ -129,24 +129,13 @@ public struct ModalStoreConfiguration<M: Route>: Sendable {
     public var telemetrySink: AnyModalTelemetrySink<M>?
     /// Initial middleware registrations applied at store construction time.
     public var middlewares: [ModalMiddlewareRegistration<M>]
-    /// Called whenever a presentation becomes active.
-    public var onPresented: (@MainActor @Sendable (ModalPresentation<M>) -> Void)?
-    /// Called whenever the active presentation is dismissed.
-    public var onDismissed: (@MainActor @Sendable (ModalPresentation<M>, ModalDismissalReason) -> Void)?
-    /// Called whenever the active presentation is replaced in place.
-    public var onReplaced: (@MainActor @Sendable (ModalPresentation<M>, ModalPresentation<M>) -> Void)?
-    /// Called whenever the queued modal list changes.
-    public var onQueueChanged: (@MainActor @Sendable ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)?
-    /// Called after a successful middleware mutation
-    /// (`add`/`insert`/`remove`/`replace`/`move`).
+    /// Called synchronously for every public modal observation event.
     ///
-    /// Invalid mutations (e.g. `replaceMiddleware(...)` with an unknown
-    /// handle) never fire this callback.
-    public var onMiddlewareMutation: (@MainActor @Sendable (ModalMiddlewareMutationEvent<M>) -> Void)?
-    /// Called after every `execute(_:)` call, including cancelled and no-op
-    /// outcomes. Use this to feed analytics or diagnostics pipelines without
-    /// reaching for `@testable import`.
-    public var onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)?
+    /// The callback receives presentations, dismissals, replacements, queue
+    /// changes, command interception outcomes, and successful middleware
+    /// mutations through a single ``ModalEvent`` value. Invalid middleware
+    /// mutations do not emit events.
+    public var onEvent: (@MainActor @Sendable (ModalEvent<M>) -> Void)?
     /// Backpressure policy applied to each subscriber of ``ModalStore/events``.
     ///
     /// Defaults to ``EventBufferingPolicy/default``. Opt into
@@ -169,24 +158,14 @@ public struct ModalStoreConfiguration<M: Route>: Sendable {
         logger: Logger? = nil,
         telemetrySink: AnyModalTelemetrySink<M>? = nil,
         middlewares: [ModalMiddlewareRegistration<M>] = [],
-        onPresented: (@MainActor @Sendable (ModalPresentation<M>) -> Void)? = nil,
-        onDismissed: (@MainActor @Sendable (ModalPresentation<M>, ModalDismissalReason) -> Void)? = nil,
-        onReplaced: (@MainActor @Sendable (ModalPresentation<M>, ModalPresentation<M>) -> Void)? = nil,
-        onQueueChanged: (@MainActor @Sendable ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)? = nil,
-        onMiddlewareMutation: (@MainActor @Sendable (ModalMiddlewareMutationEvent<M>) -> Void)? = nil,
-        onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? = nil,
+        onEvent: (@MainActor @Sendable (ModalEvent<M>) -> Void)? = nil,
         eventBufferingPolicy: EventBufferingPolicy = .default,
         queueCancellationPolicy: ModalQueueCancellationPolicy<M> = .preserve
     ) {
         self.logger = logger
         self.telemetrySink = telemetrySink
         self.middlewares = middlewares
-        self.onPresented = onPresented
-        self.onDismissed = onDismissed
-        self.onReplaced = onReplaced
-        self.onQueueChanged = onQueueChanged
-        self.onMiddlewareMutation = onMiddlewareMutation
-        self.onCommandIntercepted = onCommandIntercepted
+        self.onEvent = onEvent
         self.eventBufferingPolicy = eventBufferingPolicy
         self.queueCancellationPolicy = queueCancellationPolicy
     }

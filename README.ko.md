@@ -473,7 +473,7 @@ view에서는 `send(_: ModalIntent)` / `send(_: FlowIntent)`, 엔진 경계에�
 
 | 원하는 것 | 사용 | 이유 |
 |---|---|---|
-| 여러 command에 대해 best-effort로 단일 관찰 가능 변경 | `executeBatch(_:stopOnFailure:)` | 합쳐진 `onChange` / `events`, 선택적 fail-fast |
+| 여러 command에 대해 best-effort로 단일 관찰 가능 변경 | `executeBatch(_:stopOnFailure:)` | `onEvent` / `events`로 합쳐진 `.changed`와 `.batchExecuted`, 선택적 fail-fast |
 | rollback과 함께 all-or-nothing 적용 | `executeTransaction(_:)` | shadow-state 미리보기, journal 기반 폐기 |
 | 엔진이 plan/검증하는 합성 *값* | `NavigationCommand.sequence([...])` | 순수 command, 모든 middleware를 한 단위로 통과 |
 | 조용한 시간 후 마지막 command만 실행 | `DebouncingNavigator` | async 래핑 navigator, `Clock` 주입 가능 |
@@ -551,14 +551,14 @@ InnoRouter는 의도적으로 다음을 소유하지 **않습니다**:
 
 ### 모달 관찰성
 
-`ModalStoreConfiguration`은 가벼운 lifecycle 훅을 제공합니다:
+`ModalStoreConfiguration`은 하나의 typed 관찰 콜백과 async stream을 제공합니다:
 
 - `logger`
-- `onPresented`
-- `onDismissed`
-- `onQueueChanged`
-- `onMiddlewareMutation`
-- `onCommandIntercepted`
+- `onEvent: (ModalEvent<M>) -> Void`
+- `ModalStore.events: AsyncStream<ModalEvent<M>>`
+
+present, dismiss, replace, queue 변경, command 가로채기, middleware 변경은
+`ModalEvent`를 switch해 처리합니다.
 
 `ModalDismissalReason`은 다음을 구분합니다:
 
@@ -966,7 +966,8 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 - `FlowHost`는 `NavigationHost` 위에 `ModalHost`를 합성하고 `@EnvironmentFlowIntent(Route.self)`
   dispatch를 위한 environment 클로저를 주입합니다.
 - `FlowStoreConfiguration`은 `NavigationStoreConfiguration`과 `ModalStoreConfiguration`을 합성하며,
-  `onPathChanged`와 `onIntentRejected`를 추가합니다.
+  `FlowEvent`를 받는 하나의 `onEvent`를 추가합니다. 이 콜백은 flow-level path/rejection뿐 아니라
+  `.navigation(...)` / `.modal(...)`로 감싼 inner-store 이벤트도 받습니다.
 - `FlowStore(validating:configuration:)`는 복원된 또는 외부에서 공급된 `[RouteStep]` 값을 위한
   throwing initializer입니다. 호환용 `initial:` initializer는 여전히 유효하지 않은 입력을 빈 path로 강제합니다.
 - `FlowRejectionReason`은 invariant 위반을 노출합니다
@@ -977,7 +978,7 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 `InnoRouterTesting`은 `NavigationStore`, `ModalStore`, `FlowStore`를 감싸는
 shippable Swift Testing 네이티브 assertion 하네스입니다. 테스트는 더 이상
 `@testable import InnoRouterSwiftUI`나 손수 만든 `Mutex<[Event]>` 수집기가 필요 없습니다.
-모든 public 관찰 콜백이 FIFO queue에 버퍼링되고, 테스트는 TCA 스타일의 `receive(...)`
+모든 public 관찰 이벤트가 FIFO queue에 버퍼링되고, 테스트는 TCA 스타일의 `receive(...)`
 호출로 그것을 drain합니다.
 
 product를 테스트 타깃에만 추가하세요:
@@ -1018,12 +1019,12 @@ func pushHomeThenDetail() {
 
 하네스가 다루는 범위:
 
-- **`NavigationTestStore<R>`** — `onChange`, `onBatchExecuted`, `onTransactionExecuted`,
-  `onMiddlewareMutation`, `onPathMismatch`. `send`, `execute`, `executeBatch`,
+- **`NavigationTestStore<R>`** — 모든 `NavigationEvent` case: `.changed`, `.batchExecuted`,
+  `.transactionExecuted`, `.middlewareMutation`, `.pathMismatch`. `send`, `execute`, `executeBatch`,
   `executeTransaction`을 그대로 underlying store로 forward.
-- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`, `onReplaced`,
-  `onQueueChanged`, `onCommandIntercepted`, `onMiddlewareMutation`.
-- **`FlowTestStore<R>`** — FlowStore 레벨의 `onPathChanged` + `onIntentRejected` +
+- **`ModalTestStore<M>`** — `.presented`, `.dismissed`, `.replaced`, `.queueChanged`,
+  `.commandIntercepted`, `.middlewareMutation`을 포함한 모든 `ModalEvent` case.
+- **`FlowTestStore<R>`** — FlowStore 레벨의 `.pathChanged` + `.intentRejected` +
   내부 store emission을 단일 queue 위에서 감싸는 `.navigation(...)` / `.modal(...)`.
   하나의 테스트가 단일 `FlowIntent`로 트리거되는 전체 chain (middleware cancellation 경로 포함)을
   assert할 수 있습니다.
@@ -1089,8 +1090,11 @@ Task {
 }
 ```
 
-각 `*Configuration` 타입의 개별 `onChange`, `onPresented`, `onCommandIntercepted` 등
-콜백은 source-호환으로 유지됩니다. `events` 스트림은 추가 채널이지 대체가 아닙니다.
+5.0부터 각 `*Configuration`은 typed `onEvent` 콜백 하나만 제공합니다.
+동기 전달이 필요하면 `NavigationEvent`, `ModalEvent`, `FlowEvent`를 switch하고,
+비동기 순회에는 `events`를 사용하세요. 기존 per-event 콜백은 호환 shim 없이 제거됩니다.
+Flow 콜백은 자체 `.pathChanged` / `.intentRejected`와 함께
+`.navigation(...)` / `.modal(...)`도 받습니다.
 
 ### Backpressure (역압)
 

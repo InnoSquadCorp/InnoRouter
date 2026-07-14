@@ -22,7 +22,8 @@ struct NavigationEffectHandlerTests {
         var changeCount = 0
         let store = NavigationStore<TestRoute>(
             configuration: NavigationStoreConfiguration(
-                onChange: { _, _ in
+                onEvent: { event in
+                    guard case .changed = event else { return }
                     changeCount += 1
                 }
             )

@@ -118,7 +118,8 @@ struct TestStoreConfigurationPreservationTests {
                         debugName: "cancel-dismiss-all"
                     ),
                 ],
-                onReplaced: { old, new in
+                onEvent: { event in
+                    guard case .replaced(let old, let new) = event else { return }
                     replacements.withLock { $0.append((old.route, new.route)) }
                 },
                 eventBufferingPolicy: .bufferingNewest(1),
@@ -157,8 +158,9 @@ struct TestStoreConfigurationPreservationTests {
         store.finish()
     }
 
-    @Test("FlowTestStore preserves top-level telemetry, buffering, and coalescing")
+    @Test("FlowTestStore preserves top-level onEvent, telemetry, buffering, and coalescing")
     func flowConfigurationIsPreserved() async {
+        let callbackEvents = Mutex<[FlowEvent<PreservedRoute>]>([])
         let telemetry = Mutex<[FlowEvent<PreservedRoute>]>([])
         let store = FlowTestStore<PreservedRoute>(
             configuration: FlowStoreConfiguration(
@@ -173,6 +175,9 @@ struct TestStoreConfigurationPreservationTests {
                 telemetrySink: AnyFlowTelemetrySink { event in
                     telemetry.withLock { $0.append(event) }
                 },
+                onEvent: { event in
+                    callbackEvents.withLock { $0.append(event) }
+                },
                 eventBufferingPolicy: .bufferingNewest(1),
                 queueCoalescePolicy: .dropQueued
             )
@@ -184,6 +189,12 @@ struct TestStoreConfigurationPreservationTests {
         store.send(.replaceStack([.home]))
 
         #expect(store.path.isEmpty)
+        #expect(callbackEvents.withLock { events in
+            events.contains { event in
+                if case .intentRejected = event { return true }
+                return false
+            }
+        })
         #expect(telemetry.withLock { events in
             events.contains { event in
                 if case .intentRejected = event { return true }
@@ -200,7 +211,7 @@ struct TestStoreConfigurationPreservationTests {
         store.finish()
     }
 
-    @Test("FlowTestStore preserves inner telemetry and callbacks")
+    @Test("FlowTestStore preserves inner telemetry and observers")
     func flowInnerConfigurationsArePreserved() {
         let navigationTelemetry = Mutex<[NavigationEvent<PreservedRoute>]>([])
         let modalTelemetry = Mutex<[ModalEvent<PreservedRoute>]>([])
@@ -212,7 +223,8 @@ struct TestStoreConfigurationPreservationTests {
                     telemetrySink: AnyNavigationTelemetrySink { event in
                         navigationTelemetry.withLock { $0.append(event) }
                     },
-                    onChange: { _, _ in
+                    onEvent: { event in
+                        guard case .changed = event else { return }
                         navigationCallbackCount.withLock { $0 += 1 }
                     }
                 ),
@@ -220,7 +232,8 @@ struct TestStoreConfigurationPreservationTests {
                     telemetrySink: AnyModalTelemetrySink { event in
                         modalTelemetry.withLock { $0.append(event) }
                     },
-                    onPresented: { _ in
+                    onEvent: { event in
+                        guard case .presented = event else { return }
                         modalCallbackCount.withLock { $0 += 1 }
                     }
                 )

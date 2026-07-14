@@ -494,7 +494,7 @@ Die gleiche Schichtung gilt für `ModalStore` und `FlowStore`:
 
 | Sie wollen… | Verwenden | Warum |
 |---|---|---|
-| Eine beobachtbare Änderung für viele Befehle, Best-Effort | `executeBatch(_:stopOnFailure:)` | Zusammengefasste `onChange` / `events`, optionales Fail-Fast |
+| Eine beobachtbare Änderung für viele Befehle, Best-Effort | `executeBatch(_:stopOnFailure:)` | Zusammengefasste `.changed` und `.batchExecuted` über `onEvent` / `events`, optionales Fail-Fast |
 | All-or-Nothing-Anwendung mit Rollback | `executeTransaction(_:)` | Schattenzustand-Vorschau, journalbasiertes Verwerfen |
 | Einen zusammengesetzten *Wert*, den die Engine plant / validiert | `NavigationCommand.sequence([...])` | Reiner Befehl, fließt durch jedes Middleware als eine Einheit |
 | Nur den letzten Befehl nach einem stillen Fenster auslösen | `DebouncingNavigator` | Async-Wrapping-Navigator, `Clock`-injizierbar |
@@ -573,14 +573,15 @@ Halten Sie diese als feature-lokalen oder coordinator-lokalen Präsentationszust
 
 ### Modale Beobachtbarkeit
 
-`ModalStoreConfiguration` bietet leichtgewichtige Lifecycle-Hooks:
+`ModalStoreConfiguration` bietet einen typisierten Beobachtungs-Callback und
+den asynchronen Stream:
 
 - `logger`
-- `onPresented`
-- `onDismissed`
-- `onQueueChanged`
-- `onMiddlewareMutation`
-- `onCommandIntercepted`
+- `onEvent: (ModalEvent<M>) -> Void`
+- `ModalStore.events: AsyncStream<ModalEvent<M>>`
+
+Behandeln Sie Präsentation, Dismiss, Ersetzung, Queue-Änderungen,
+Befehlsabfangung und Middleware-Mutationen per `switch` über `ModalEvent`.
 
 `ModalDismissalReason` unterscheidet:
 
@@ -1006,7 +1007,9 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 - `FlowHost` komponiert `ModalHost` über `NavigationHost` und injiziert eine
   Environment-Closure für `@EnvironmentFlowIntent(Route.self)`-Dispatch.
 - `FlowStoreConfiguration` komponiert `NavigationStoreConfiguration` und
-  `ModalStoreConfiguration` und fügt `onPathChanged` und `onIntentRejected` hinzu.
+  `ModalStoreConfiguration` und fügt einen einzigen `onEvent`-Callback für
+  `FlowEvent` hinzu. Er empfängt Flow-Level-Path/Rejection sowie in
+  `.navigation(...)` / `.modal(...)` verpackte innere Ereignisse.
 - `FlowStore(validating:configuration:)` ist der throwende Initializer für
   wiederhergestellte oder extern bereitgestellte `[RouteStep]`-Werte; der
   Kompatibilitäts-Initializer `initial:` zwingt ungültige Eingaben weiterhin auf
@@ -1019,7 +1022,7 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 `InnoRouterTesting` ist ein auslieferbares Swift-Testing-natives Assertion-Harness,
 das `NavigationStore`, `ModalStore` und `FlowStore` umhüllt. Tests benötigen
 keinen `@testable import InnoRouterSwiftUI` mehr und keine
-handgefertigten `Mutex<[Event]>`-Sammler — jeder öffentliche Beobachtungs-Callback
+handgefertigten `Mutex<[Event]>`-Sammler — jedes öffentliche Beobachtungsereignis
 wird in eine FIFO-Queue gepuffert, und Tests entleeren sie mit TCA-artigen
 `receive(...)`-Aufrufen.
 
@@ -1061,13 +1064,15 @@ func pushHomeThenDetail() {
 
 Was das Harness abdeckt:
 
-- **`NavigationTestStore<R>`** — `onChange`, `onBatchExecuted`,
-  `onTransactionExecuted`, `onMiddlewareMutation` und `onPathMismatch`. Leitet
+- **`NavigationTestStore<R>`** — alle `NavigationEvent`-Fälle:
+  `.changed`, `.batchExecuted`, `.transactionExecuted`, `.middlewareMutation`
+  und `.pathMismatch`. Leitet
   `send`, `execute`, `executeBatch`, `executeTransaction` unverändert an den
   zugrunde liegenden Store weiter.
-- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`, `onReplaced`,
-  `onQueueChanged`, `onCommandIntercepted`, `onMiddlewareMutation`.
-- **`FlowTestStore<R>`** — FlowStore-Level-`onPathChanged` + `onIntentRejected`,
+- **`ModalTestStore<M>`** — alle `ModalEvent`-Fälle, einschließlich
+  `.presented`, `.dismissed`, `.replaced`, `.queueChanged`,
+  `.commandIntercepted` und `.middlewareMutation`.
+- **`FlowTestStore<R>`** — FlowStore-Level-`.pathChanged` + `.intentRejected`,
   plus `.navigation(...)`- und `.modal(...)`-Wrapper um die inneren Store-Emissionen
   in einer einzelnen Queue. Ein Test kann die vollständige durch ein einzelnes
   `FlowIntent` ausgelöste Kette einschließlich Middleware-Cancellation-Pfaden behaupten.
@@ -1140,9 +1145,12 @@ Task {
 }
 ```
 
-Individuelle `onChange`-, `onPresented`-, `onCommandIntercepted`- usw.-Callbacks
-auf jedem `*Configuration`-Typ bleiben source-kompatibel; der `events`-Stream ist
-ein zusätzlicher Kanal, kein Ersatz.
+In 5.0 besitzt jede `*Configuration` genau einen typisierten `onEvent`-Callback.
+Für synchrone Zustellung wechseln Sie über `NavigationEvent`, `ModalEvent` oder
+`FlowEvent`; für asynchrone Iteration verwenden Sie `events`. Die früheren
+ereignisspezifischen Callbacks wurden ohne Kompatibilitäts-Shims entfernt. Der
+Flow-Callback empfängt `.navigation(...)` / `.modal(...)` zusätzlich zu
+`.pathChanged` und `.intentRejected`.
 
 ### Backpressure (Gegendruck)
 

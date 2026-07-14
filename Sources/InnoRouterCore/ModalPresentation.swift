@@ -14,7 +14,7 @@ public enum ModalPresentationStyle: Sendable, Hashable {
 /// An identifiable modal presentation pairing a route with a presentation style.
 ///
 /// `ModalPresentation` is the value type carried through the modal command
-/// pipeline and surfaced in lifecycle callbacks. It lives in `InnoRouterCore`
+/// pipeline and surfaced in modal observation events. It lives in `InnoRouterCore`
 /// so that modal-aware command abstractions (`ModalCommand`) remain at the
 /// same layer as their navigation siblings (`NavigationCommand`).
 public struct ModalPresentation<M: Route>: Identifiable, Sendable, Hashable {

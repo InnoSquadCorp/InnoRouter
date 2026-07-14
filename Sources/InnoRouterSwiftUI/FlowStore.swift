@@ -17,8 +17,8 @@ import InnoRouterCore
 ///    `path`. `.sheet` / `.cover` in any other position is rejected.
 /// 2. `.push` requests are rejected when the current tail is a modal step.
 ///    Consumers must dismiss first. The reason surfaces through
-///    `FlowStoreConfiguration.onIntentRejected` as
-///    `.pushBlockedByModalTail`.
+///    ``FlowEvent/intentRejected(_:_:)`` through the configuration's
+///    ``FlowStoreConfiguration/onEvent`` hook as `.pushBlockedByModalTail`.
 /// 3. `.pop` / `.dismiss` against an empty path or missing modal tail are
 ///    silent no-ops (matching `NavigationIntent.back` conventions).
 /// 4. `path` is rebuilt from committed inner state after each successful
@@ -47,12 +47,28 @@ public final class FlowStore<R: Route> {
     /// rather than bypassing FlowStore invariants through this inner store.
     internal let modalStore: ModalStore<R>
 
-    private let onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?
-    private let onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?
-    private let telemetrySink: AnyFlowTelemetrySink<R>?
     private let queueCoalescePolicy: QueueCoalescePolicy<R>
     private let link: FlowStoreLink<R>
     private let broadcaster: EventBroadcaster<FlowEvent<R>>
+    private let eventDispatcher: SerializedEventDispatcher<FlowEvent<R>>
+    @ObservationIgnored
+    private var bufferedInnerEventFrames: [BufferedInnerEventFrame] = []
+    @ObservationIgnored
+    private var pendingDirectModalEvents: [FlowEvent<R>] = []
+    @ObservationIgnored
+    private var pendingDirectModalOldPath: [RouteStep<R>]?
+    @ObservationIgnored
+    private var flowEventDispatchDepth = 0
+    @ObservationIgnored
+    private var queuedReentrantIntents: [FlowIntent<R>] = []
+    @ObservationIgnored
+    private var nextQueuedReentrantIntentIndex = 0
+    @ObservationIgnored
+    private var isDrainingReentrantIntents = false
+    @ObservationIgnored
+    private var innerObservationSourceStack: [InnerObservationSource] = []
+    @ObservationIgnored
+    private var flowMutationDepth = 0
     // `traceRecorder` is `internal` rather than `private` because
     // the public dispatch wrappers in `FlowStore+Public.swift` need
     // to reach it.
@@ -64,7 +80,8 @@ public final class FlowStore<R: Route> {
     private var cachedIntentDispatcher: FlowIntentHandler<R>?
 
     // Bookkeeping toggled while FlowStore drives its own inner stores, so
-    // observer callbacks can distinguish user / system-initiated changes.
+    // observer callbacks can validate that their events are captured by the
+    // matching Flow mutation frame before public delivery.
     //
     // Implemented as a depth counter rather than a Bool so nested
     // invocations (FlowStore-driven inner-store mutation that itself
@@ -75,13 +92,15 @@ public final class FlowStore<R: Route> {
     // driving the inner stores" — is enforced through a release-mode
     // `precondition` on decrement so an underflow surfaces immediately
     // instead of silently inverting the guard.
+    @ObservationIgnored
     private var mutationDepth: Int = 0
 
-    /// `true` while `FlowStore` is itself driving an inner-store
-    /// mutation. The four `guard` sites in the inner-store reverse-
-    /// sync callbacks read this to skip the projection refresh that
-    /// would otherwise loop back through the path projection.
+    /// `true` while `FlowStore` is itself driving an inner-store mutation.
     private var isApplyingInternalMutation: Bool { mutationDepth > 0 }
+
+    /// `true` until one complete Flow mutation has emitted its committed
+    /// inner events, applied rejection-side policies, and emitted rejection.
+    private var isApplyingFlowMutation: Bool { flowMutationDepth > 0 }
 
     /// A closure that forwards `FlowIntent` values to this store's
     /// ``send(_:)`` entry point.
@@ -106,13 +125,13 @@ public final class FlowStore<R: Route> {
     /// flow store and its inner navigation / modal stores produce —
     /// `.pathChanged` and `.intentRejected` from the flow level, plus
     /// `.navigation(...)` and `.modal(...)` wrappers around the inner
-    /// stores' events — in the same order as the matching callbacks
-    /// fire.
+    /// stores' events — in the same order as the synchronous
+    /// ``FlowStoreConfiguration/onEvent`` callback.
     ///
     /// This lets a single subscriber assert the complete chain
     /// triggered by one `FlowIntent` (including middleware
-    /// cancellation paths) without wiring the ten individual
-    /// navigation + modal + flow callbacks.
+    /// cancellation paths) without wiring separate inner-store and
+    /// flow-level callbacks.
     public var events: AsyncStream<FlowEvent<R>> {
         broadcaster.stream()
     }
@@ -130,106 +149,67 @@ public final class FlowStore<R: Route> {
 
         let link = FlowStoreLink<R>()
 
-        let userNavOnChange = configuration.navigation.onChange
-        let userNavOnBatchExecuted = configuration.navigation.onBatchExecuted
-        let userNavOnTransactionExecuted = configuration.navigation.onTransactionExecuted
-        let userNavOnMiddlewareMutation = configuration.navigation.onMiddlewareMutation
-        let userNavOnPathMismatch = configuration.navigation.onPathMismatch
-        let userModalOnPresented = configuration.modal.onPresented
-        let userModalOnDismissed = configuration.modal.onDismissed
-        let userModalOnReplaced = configuration.modal.onReplaced
-        let userModalOnQueueChanged = configuration.modal.onQueueChanged
-        let userModalOnMiddlewareMutation = configuration.modal.onMiddlewareMutation
-        let userModalOnCommandIntercepted = configuration.modal.onCommandIntercepted
+        let userNavigationOnEvent = configuration.navigation.onEvent
+        let userNavigationTelemetrySink = configuration.navigation.telemetrySink
+        let userModalOnEvent = configuration.modal.onEvent
+        let userModalTelemetrySink = configuration.modal.telemetrySink
 
-        let composedNavOnChange: @MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void = { old, new in
-            userNavOnChange?(old, new)
-            link.owner?.emitNavigationEvent(.changed(from: old, to: new))
-            link.owner?.handleNavigationStoreChange(from: old, to: new)
+        var navigationConfiguration = configuration.navigation
+        navigationConfiguration.onEvent = { event in
+            guard let owner = link.owner else {
+                userNavigationOnEvent?(event)
+                return
+            }
+            owner.withInnerObservationSource(.navigation) {
+                owner.handleNavigationStoreEvent(event)
+                userNavigationOnEvent?(event)
+            }
         }
-        let composedNavOnBatchExecuted: @MainActor @Sendable (NavigationBatchResult<R>) -> Void = { batch in
-            userNavOnBatchExecuted?(batch)
-            link.owner?.emitNavigationEvent(.batchExecuted(batch))
-        }
-        let composedNavOnTransactionExecuted: @MainActor @Sendable (NavigationTransactionResult<R>) -> Void = { transaction in
-            userNavOnTransactionExecuted?(transaction)
-            link.owner?.emitNavigationEvent(.transactionExecuted(transaction))
-        }
-        let composedNavOnMiddlewareMutation: @MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void = { event in
-            userNavOnMiddlewareMutation?(event)
-            link.owner?.emitNavigationEvent(.middlewareMutation(event))
-        }
-        let composedNavOnPathMismatch: @MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void = { event in
-            userNavOnPathMismatch?(event)
-            link.owner?.emitNavigationEvent(.pathMismatch(event))
-        }
-        let composedModalOnPresented: @MainActor @Sendable (ModalPresentation<R>) -> Void = { presentation in
-            userModalOnPresented?(presentation)
-            link.owner?.emitModalEvent(.presented(presentation))
-            link.owner?.handleModalStorePresentation(presentation)
-        }
-        let composedModalOnDismissed: @MainActor @Sendable (ModalPresentation<R>, ModalDismissalReason) -> Void = { presentation, reason in
-            userModalOnDismissed?(presentation, reason)
-            link.owner?.emitModalEvent(.dismissed(presentation, reason: reason))
-            link.owner?.handleModalStoreDismissal(presentation: presentation, reason: reason)
-        }
-        let composedModalOnReplaced: @MainActor @Sendable (ModalPresentation<R>, ModalPresentation<R>) -> Void = { old, new in
-            userModalOnReplaced?(old, new)
-            link.owner?.emitModalEvent(.replaced(old: old, new: new))
-        }
-        let composedModalOnQueueChanged: @MainActor @Sendable ([ModalPresentation<R>], [ModalPresentation<R>]) -> Void = { old, new in
-            userModalOnQueueChanged?(old, new)
-            link.owner?.emitModalEvent(.queueChanged(old: old, new: new))
-        }
-        let composedModalOnMiddlewareMutation: @MainActor @Sendable (ModalMiddlewareMutationEvent<R>) -> Void = { event in
-            userModalOnMiddlewareMutation?(event)
-            link.owner?.emitModalEvent(.middlewareMutation(event))
-        }
-        let composedModalOnCommandIntercepted: @MainActor @Sendable (ModalCommand<R>, ModalExecutionResult<R>) -> Void = { command, result in
-            userModalOnCommandIntercepted?(command, result)
-            link.owner?.emitModalEvent(.commandIntercepted(command: command, result: result))
-            switch result {
-            case .executed(.replaceCurrent):
-                link.owner?.handleModalStoreReplacement()
-            case .executed(.present),
-                 .executed(.dismissCurrent),
-                 .executed(.dismissAll),
-                 .queued,
-                 .cancelled,
-                 .noop:
-                break
+        if let userNavigationTelemetrySink {
+            navigationConfiguration.telemetrySink = AnyNavigationTelemetrySink { event in
+                guard let owner = link.owner else {
+                    userNavigationTelemetrySink.record(event)
+                    return
+                }
+                owner.withInnerObservationSource(.navigation) {
+                    userNavigationTelemetrySink.record(event)
+                }
             }
         }
 
-        let navConfig = NavigationStoreConfiguration<R>(
-            engine: configuration.navigation.engine,
-            middlewares: configuration.navigation.middlewares,
-            routeStackValidator: configuration.navigation.routeStackValidator,
-            pathMismatchPolicy: configuration.navigation.pathMismatchPolicy,
-            logger: configuration.navigation.logger,
-            telemetrySink: configuration.navigation.telemetrySink,
-            onChange: composedNavOnChange,
-            onBatchExecuted: composedNavOnBatchExecuted,
-            onTransactionExecuted: composedNavOnTransactionExecuted,
-            onMiddlewareMutation: composedNavOnMiddlewareMutation,
-            onPathMismatch: composedNavOnPathMismatch,
-            eventBufferingPolicy: configuration.navigation.eventBufferingPolicy,
-            pathReconciler: configuration.navigation.pathReconciler
-        )
+        var modalConfiguration = configuration.modal
+        modalConfiguration.onEvent = { event in
+            guard let owner = link.owner else {
+                userModalOnEvent?(event)
+                return
+            }
+            owner.withInnerObservationSource(.modal) {
+                owner.handleModalStoreEvent(event)
+                userModalOnEvent?(event)
+            }
+        }
+        if let userModalTelemetrySink {
+            modalConfiguration.telemetrySink = AnyModalTelemetrySink { event in
+                guard let owner = link.owner else {
+                    userModalTelemetrySink.record(event)
+                    return
+                }
+                owner.withInnerObservationSource(.modal) {
+                    userModalTelemetrySink.record(event)
+                }
+            }
+        }
 
-        let modalConfig = ModalStoreConfiguration<R>(
-            logger: configuration.modal.logger,
-            telemetrySink: configuration.modal.telemetrySink,
-            middlewares: configuration.modal.middlewares,
-            onPresented: composedModalOnPresented,
-            onDismissed: composedModalOnDismissed,
-            onReplaced: composedModalOnReplaced,
-            onQueueChanged: composedModalOnQueueChanged,
-            onMiddlewareMutation: composedModalOnMiddlewareMutation,
-            onCommandIntercepted: composedModalOnCommandIntercepted,
-            eventBufferingPolicy: configuration.modal.eventBufferingPolicy,
-            queueCancellationPolicy: configuration.modal.queueCancellationPolicy
+        let broadcaster = EventBroadcaster<FlowEvent<R>>(
+            bufferingPolicy: configuration.eventBufferingPolicy
         )
+        let onEvent = configuration.onEvent
+        let telemetrySink = configuration.telemetrySink
+        let eventDispatcher = SerializedEventDispatcher<FlowEvent<R>> { event in
+            onEvent?(event)
+            telemetrySink?.record(event)
+            broadcaster.broadcast(event)
+        }
 
         let (pushRoutes, modalTail) = Self.decompose(validatedInitial)
         let initialStack = RouteStack<R>(path: pushRoutes)
@@ -237,26 +217,21 @@ public final class FlowStore<R: Route> {
 
         self.navigationStore = NavigationStore(
             initial: initialStack,
-            configuration: navConfig
+            configuration: navigationConfiguration
         )
         self.modalStore = ModalStore(
             currentPresentation: modalPresentation,
-            configuration: modalConfig
+            configuration: modalConfiguration
         )
         self.path = FlowProjection(
             pushRoutes: self.navigationStore.state.path,
             currentPresentation: self.modalStore.currentPresentation,
             queuedPresentations: self.modalStore.queuedPresentations
         ).path
-        self.onPathChanged = configuration.onPathChanged
-        self.onIntentRejected = configuration.onIntentRejected
-        self.telemetrySink = configuration.telemetrySink
         self.queueCoalescePolicy = configuration.queueCoalescePolicy
         self.link = link
-        let broadcaster = EventBroadcaster<FlowEvent<R>>(
-            bufferingPolicy: configuration.eventBufferingPolicy
-        )
         self.broadcaster = broadcaster
+        self.eventDispatcher = eventDispatcher
         self.traceRecorder = nil
         self.link.owner = self
     }
@@ -333,6 +308,20 @@ public final class FlowStore<R: Route> {
 
     @discardableResult
     internal func apply(_ plan: FlowMutationPlan<R>, intent: FlowIntent<R>) -> FlowPlanApplyResult<R> {
+        withFlowMutationBoundary {
+            applyWithinFlowMutationBoundary(plan, intent: intent)
+        }
+    }
+
+    private func applyWithinFlowMutationBoundary(
+        _ plan: FlowMutationPlan<R>,
+        intent: FlowIntent<R>
+    ) -> FlowPlanApplyResult<R> {
+        let commitsInnerState = plan.navigationJournal != nil || !plan.modalJournals.isEmpty
+        if commitsInnerState {
+            beginBufferingInnerEvents(from: plan.oldPath)
+        }
+
         if let navigationJournal = plan.navigationJournal {
             withInternalMutation {
                 _ = navigationStore.commitFlowPreview(navigationJournal)
@@ -344,7 +333,12 @@ public final class FlowStore<R: Route> {
             }
         }
 
-        syncPathFromStores(from: plan.oldPath)
+        if commitsInnerState {
+            syncPathFromStoresWithoutEmitting()
+            finishBufferingInnerEvents()
+        } else {
+            syncPathFromStores(from: plan.oldPath)
+        }
 
         if let rejectionReason = plan.rejectionReason {
             emitIntentRejected(
@@ -560,53 +554,88 @@ public final class FlowStore<R: Route> {
 
     // MARK: - Reverse sync
 
-    private func handleNavigationStoreChange(
-        from oldStack: RouteStack<R>,
-        to newStack: RouteStack<R>
-    ) {
-        guard !isApplyingInternalMutation else { return }
-        syncPath(
-            from: path,
-            projection: FlowProjection(
-                pushRoutes: newStack.path,
-                currentPresentation: modalStore.currentPresentation,
-                queuedPresentations: modalStore.queuedPresentations
+    private func handleNavigationStoreEvent(_ event: NavigationEvent<R>) {
+        if isApplyingInternalMutation {
+            precondition(
+                !bufferedInnerEventFrames.isEmpty,
+                "FlowStore navigation event escaped its mutation buffer."
             )
-        )
+        }
+        guard case .changed(_, let newStack) = event else {
+            emitFlowEvent(.navigation(event))
+            return
+        }
+
+        let oldPath = path
+        path = FlowProjection(
+            pushRoutes: newStack.path,
+            currentPresentation: modalStore.currentPresentation,
+            queuedPresentations: modalStore.queuedPresentations
+        ).path
+
+        var events: [FlowEvent<R>] = [.navigation(event)]
+        if bufferedInnerEventFrames.isEmpty, oldPath != path {
+            events.append(.pathChanged(old: oldPath, new: path))
+        }
+        emitFlowEvents(events)
     }
 
-    private func handleModalStoreDismissal(
-        presentation: ModalPresentation<R>,
-        reason: ModalDismissalReason
-    ) {
-        guard !isApplyingInternalMutation else { return }
-        syncPathFromStores(from: path)
+    private func handleModalStoreEvent(_ event: ModalEvent<R>) {
+        if isApplyingInternalMutation {
+            precondition(
+                !bufferedInnerEventFrames.isEmpty,
+                "FlowStore modal event escaped its mutation buffer."
+            )
+        }
+        if !bufferedInnerEventFrames.isEmpty {
+            syncPathFromStoresWithoutEmitting()
+            emitFlowEvent(.modal(event))
+            return
+        }
+
+        switch event {
+        case .middlewareMutation:
+            emitFlowEvent(.modal(event))
+
+        case .presented, .dismissed, .replaced, .queueChanged:
+            if pendingDirectModalOldPath == nil {
+                pendingDirectModalOldPath = path
+            }
+            syncPathFromStoresWithoutEmitting()
+            pendingDirectModalEvents.append(.modal(event))
+
+        case .commandIntercepted:
+            let oldPath = pendingDirectModalOldPath ?? path
+            if pendingDirectModalOldPath == nil {
+                pendingDirectModalOldPath = oldPath
+            }
+            syncPathFromStoresWithoutEmitting()
+            pendingDirectModalEvents.append(.modal(event))
+
+            var events = pendingDirectModalEvents
+            if oldPath != path {
+                events.append(.pathChanged(old: oldPath, new: path))
+            }
+            pendingDirectModalEvents.removeAll(keepingCapacity: true)
+            pendingDirectModalOldPath = nil
+            dispatchFlowEvents(events)
+        }
     }
 
-    private func handleModalStorePresentation(_ presentation: ModalPresentation<R>) {
-        guard !isApplyingInternalMutation else { return }
-        syncPathFromStores(from: path)
-    }
-
-    private func handleModalStoreReplacement() {
-        guard !isApplyingInternalMutation else { return }
-        syncPathFromStores(from: path)
+    private func withInnerObservationSource<T>(
+        _ source: InnerObservationSource,
+        operation: () -> T
+    ) -> T {
+        innerObservationSourceStack.append(source)
+        defer { innerObservationSourceStack.removeLast() }
+        return operation()
     }
 
     // MARK: - Helpers
 
     private func emitPathChangedIfNeeded(from oldPath: [RouteStep<R>]) {
         guard oldPath != path else { return }
-        onPathChanged?(oldPath, path)
         emitFlowEvent(.pathChanged(old: oldPath, new: path))
-    }
-
-    private func emitNavigationEvent(_ event: NavigationEvent<R>) {
-        emitFlowEvent(.navigation(event))
-    }
-
-    private func emitModalEvent(_ event: ModalEvent<R>) {
-        emitFlowEvent(.modal(event))
     }
 
     private func emitIntentRejected(
@@ -617,13 +646,101 @@ public final class FlowStore<R: Route> {
         if applyQueueCoalescePolicy {
             applyQueueCoalescePolicyIfNeeded(intent: intent, reason: reason)
         }
-        onIntentRejected?(intent, reason)
         emitFlowEvent(.intentRejected(intent, reason))
     }
 
     private func emitFlowEvent(_ event: FlowEvent<R>) {
-        telemetrySink?.record(event)
-        broadcaster.broadcast(event)
+        emitFlowEvents([event])
+    }
+
+    private func emitFlowEvents(_ events: [FlowEvent<R>]) {
+        guard !events.isEmpty else { return }
+        guard !bufferedInnerEventFrames.isEmpty else {
+            dispatchFlowEvents(events)
+            return
+        }
+        bufferedInnerEventFrames[bufferedInnerEventFrames.count - 1].events.append(contentsOf: events)
+    }
+
+    /// Defers only fire-and-forget `send(_:)` intents. Public `apply(_:)`
+    /// returns the mutation result synchronously, so routing it through this
+    /// queue would require fabricating a result before the plan executes.
+    internal func deferReentrantIntentIfNeeded(_ intent: FlowIntent<R>) -> Bool {
+        if isApplyingFlowMutation || isApplyingInternalMutation {
+            queuedReentrantIntents.append(intent)
+            return true
+        }
+
+        switch innerObservationSourceStack.last {
+        case .navigation:
+            navigationStore.performAfterObservationDelivery { [weak self] in
+                self?.send(intent)
+            }
+            return true
+        case .modal:
+            modalStore.performAfterObservationDelivery { [weak self] in
+                self?.send(intent)
+            }
+            return true
+        case nil:
+            break
+        }
+
+        guard flowEventDispatchDepth > 0 else { return false }
+        queuedReentrantIntents.append(intent)
+        return true
+    }
+
+    /// A result-returning `apply(_:)` cannot be deferred without claiming a
+    /// mutation completed before it actually ran. Reject it while any Flow or
+    /// inner-store observer is synchronously delivering an event; callers that
+    /// need a reentrant reset can use `send(.reset(...))`, which is queued.
+    internal func rejectReentrantApplyIfNeeded() -> FlowPlanApplyResult<R>? {
+        guard isApplyingFlowMutation
+            || isApplyingInternalMutation
+            || !innerObservationSourceStack.isEmpty
+            || flowEventDispatchDepth > 0
+        else { return nil }
+
+        return .rejected(currentPath: path)
+    }
+
+    private func dispatchFlowEvents(_ events: [FlowEvent<R>]) {
+        guard !events.isEmpty else { return }
+        flowEventDispatchDepth += 1
+        defer {
+            flowEventDispatchDepth -= 1
+            precondition(
+                flowEventDispatchDepth >= 0,
+                "FlowStore event-dispatch depth counter underflowed — invariant break."
+            )
+            if flowEventDispatchDepth == 0 {
+                drainReentrantIntents()
+            }
+        }
+        eventDispatcher.emit(contentsOf: events)
+    }
+
+    private func drainReentrantIntents() {
+        guard flowMutationDepth == 0 else { return }
+        guard mutationDepth == 0 else { return }
+        guard bufferedInnerEventFrames.isEmpty else { return }
+        guard flowEventDispatchDepth == 0 else { return }
+        guard !isDrainingReentrantIntents else { return }
+        guard nextQueuedReentrantIntentIndex < queuedReentrantIntents.count else { return }
+
+        isDrainingReentrantIntents = true
+        defer {
+            queuedReentrantIntents.removeAll(keepingCapacity: true)
+            nextQueuedReentrantIntentIndex = 0
+            isDrainingReentrantIntents = false
+        }
+
+        while nextQueuedReentrantIntentIndex < queuedReentrantIntents.count {
+            let intent = queuedReentrantIntents[nextQueuedReentrantIntentIndex]
+            nextQueuedReentrantIntentIndex += 1
+            send(intent)
+        }
     }
 
     private func applyQueueCoalescePolicyIfNeeded(
@@ -652,11 +769,53 @@ public final class FlowStore<R: Route> {
                 || !modalStore.queuedPresentations.isEmpty
         else { return }
 
+        let oldPath = path
+        beginBufferingInnerEvents(from: oldPath)
         withInternalMutation {
             modalStore.dismissAll()
         }
-        let oldPath = path
-        syncPathFromStores(from: oldPath)
+        syncPathFromStoresWithoutEmitting()
+        finishBufferingInnerEvents()
+    }
+
+    private func beginBufferingInnerEvents(from oldPath: [RouteStep<R>]) {
+        checkpointBufferedPathChangeIfNeeded()
+        bufferedInnerEventFrames.append(
+            BufferedInnerEventFrame(
+                pathChangeBaseline: oldPath,
+                events: []
+            )
+        )
+    }
+
+    private func checkpointBufferedPathChangeIfNeeded() {
+        guard !bufferedInnerEventFrames.isEmpty else { return }
+        let index = bufferedInnerEventFrames.count - 1
+        let oldPath = bufferedInnerEventFrames[index].pathChangeBaseline
+        guard oldPath != path else { return }
+        bufferedInnerEventFrames[index].events.append(
+            .pathChanged(old: oldPath, new: path)
+        )
+        bufferedInnerEventFrames[index].pathChangeBaseline = path
+    }
+
+    private func finishBufferingInnerEvents() {
+        precondition(
+            !bufferedInnerEventFrames.isEmpty,
+            "FlowStore inner-event buffer underflowed — invariant break."
+        )
+        checkpointBufferedPathChangeIfNeeded()
+        let completedFrame = bufferedInnerEventFrames.removeLast()
+
+        guard !bufferedInnerEventFrames.isEmpty else {
+            dispatchFlowEvents(completedFrame.events)
+            drainReentrantIntents()
+            return
+        }
+
+        let parentIndex = bufferedInnerEventFrames.count - 1
+        bufferedInnerEventFrames[parentIndex].events.append(contentsOf: completedFrame.events)
+        bufferedInnerEventFrames[parentIndex].pathChangeBaseline = path
     }
 
     private func withInternalMutation<T>(_ body: () -> T) -> T {
@@ -664,15 +823,14 @@ public final class FlowStore<R: Route> {
         // sites — a nested invocation would silently restore
         // `false` on the inner `defer` while the outer scope still
         // expected the flag to be set. The depth counter records
-        // *how many* nested mutations are in flight; the inner-store
-        // reverse-sync guards keep reading
-        // ``isApplyingInternalMutation`` (depth > 0) and so behave
-        // identically when not nested but stay correct when nested.
+        // *how many* nested mutations are in flight; inner-store event
+        // adapters use ``isApplyingInternalMutation`` (depth > 0) to
+        // verify that every event is captured by a mutation frame.
         //
         // The release-mode `precondition` on decrement catches an
         // imbalance (decrement without matching increment) loudly
         // instead of letting the counter go negative and quietly
-        // re-enabling the reverse-sync guards.
+        // disabling the buffering invariant.
         mutationDepth += 1
         defer {
             mutationDepth -= 1
@@ -680,6 +838,24 @@ public final class FlowStore<R: Route> {
                 mutationDepth >= 0,
                 "FlowStore.withInternalMutation depth counter underflowed — invariant break."
             )
+            if mutationDepth == 0 {
+                drainReentrantIntents()
+            }
+        }
+        return body()
+    }
+
+    private func withFlowMutationBoundary<T>(_ body: () -> T) -> T {
+        flowMutationDepth += 1
+        defer {
+            flowMutationDepth -= 1
+            precondition(
+                flowMutationDepth >= 0,
+                "FlowStore mutation boundary depth counter underflowed — invariant break."
+            )
+            if flowMutationDepth == 0 {
+                drainReentrantIntents()
+            }
         }
         return body()
     }
@@ -697,6 +873,10 @@ public final class FlowStore<R: Route> {
 
     private func syncPathFromStores(from oldPath: [RouteStep<R>]) {
         syncPath(from: oldPath, projection: currentProjection)
+    }
+
+    private func syncPathFromStoresWithoutEmitting() {
+        path = currentProjection.path
     }
 
     private func syncPath(
@@ -775,6 +955,16 @@ public final class FlowStore<R: Route> {
     private enum ModalPreviewPlan {
         case commit([ModalExecutionJournal<R>])
         case rejected(ModalCancellationReason<R>)
+    }
+
+    private struct BufferedInnerEventFrame {
+        var pathChangeBaseline: [RouteStep<R>]
+        var events: [FlowEvent<R>]
+    }
+
+    private enum InnerObservationSource {
+        case navigation
+        case modal
     }
 }
 

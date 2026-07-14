@@ -253,7 +253,8 @@ struct NavigationCommandWhenCancelledTests {
         let observedEvents = Mutex<[NavigationEvent<WCRoute>]>([])
         let store = NavigationStore<WCRoute>(
             configuration: NavigationStoreConfiguration(
-                onChange: { old, new in
+                onEvent: { event in
+                    guard case .changed(let old, let new) = event else { return }
                     observedChanges.withLock { $0.append((old, new)) }
                 }
             )

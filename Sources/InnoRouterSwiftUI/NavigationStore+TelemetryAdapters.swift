@@ -12,114 +12,27 @@ import InnoRouterCore
 // initialiser cross file boundaries; the helpers remain absent
 // from the public-API baseline because none of them are `public`.
 extension NavigationStore {
-
-    static func makePublicTelemetryRecorder(
-        onMiddlewareMutation: (@MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void)?,
-        onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)?
-    ) -> NavigationStoreTelemetryRecorder<R>? {
-        if onMiddlewareMutation == nil && onPathMismatch == nil {
-            return nil
-        }
-        return { @MainActor event in
-            switch event {
-            case .middlewareMutation(let action, let metadata, let index):
-                onMiddlewareMutation?(
-                    MiddlewareMutationEvent(
-                        action: Self.publicAction(for: action),
-                        metadata: metadata,
-                        index: index
-                    )
+    static func publicEvent(
+        for event: NavigationStoreTelemetryEvent<R>
+    ) -> NavigationEvent<R> {
+        switch event {
+        case .middlewareMutation(let action, let metadata, let index):
+            return .middlewareMutation(
+                MiddlewareMutationEvent(
+                    action: Self.publicAction(for: action),
+                    metadata: metadata,
+                    index: index
                 )
-            case .pathMismatch(let policy, let resolution, let oldPath, let newPath):
-                onPathMismatch?(
-                    NavigationPathMismatchEvent(
-                        policy: Self.publicPolicy(for: policy),
-                        resolution: Self.publicResolution(for: resolution),
-                        oldPath: oldPath,
-                        newPath: newPath
-                    )
+            )
+        case .pathMismatch(let policy, let resolution, let oldPath, let newPath):
+            return .pathMismatch(
+                NavigationPathMismatchEvent(
+                    policy: Self.publicPolicy(for: policy),
+                    resolution: Self.publicResolution(for: resolution),
+                    oldPath: oldPath,
+                    newPath: newPath
                 )
-            }
-        }
-    }
-
-    static func makeBroadcastRecorder(
-        broadcaster: EventBroadcaster<NavigationEvent<R>>
-    ) -> NavigationStoreTelemetryRecorder<R>? {
-        { @MainActor event in
-            switch event {
-            case .middlewareMutation(let action, let metadata, let index):
-                broadcaster.broadcast(
-                    .middlewareMutation(
-                        MiddlewareMutationEvent(
-                            action: Self.publicAction(for: action),
-                            metadata: metadata,
-                            index: index
-                        )
-                    )
-                )
-            case .pathMismatch(let policy, let resolution, let oldPath, let newPath):
-                broadcaster.broadcast(
-                    .pathMismatch(
-                        NavigationPathMismatchEvent(
-                            policy: Self.publicPolicy(for: policy),
-                            resolution: Self.publicResolution(for: resolution),
-                            oldPath: oldPath,
-                            newPath: newPath
-                        )
-                    )
-                )
-            }
-        }
-    }
-
-    static func makeTelemetrySinkRecorder(
-        telemetrySink: AnyNavigationTelemetrySink<R>?
-    ) -> NavigationStoreTelemetryRecorder<R>? {
-        guard let telemetrySink else { return nil }
-        return { @MainActor event in
-            switch event {
-            case .middlewareMutation(let action, let metadata, let index):
-                telemetrySink.record(
-                    .middlewareMutation(
-                        MiddlewareMutationEvent(
-                            action: Self.publicAction(for: action),
-                            metadata: metadata,
-                            index: index
-                        )
-                    )
-                )
-            case .pathMismatch(let policy, let resolution, let oldPath, let newPath):
-                telemetrySink.record(
-                    .pathMismatch(
-                        NavigationPathMismatchEvent(
-                            policy: Self.publicPolicy(for: policy),
-                            resolution: Self.publicResolution(for: resolution),
-                            oldPath: oldPath,
-                            newPath: newPath
-                        )
-                    )
-                )
-            }
-        }
-    }
-
-    static func combineRecorders(
-        _ primary: NavigationStoreTelemetryRecorder<R>?,
-        _ secondary: NavigationStoreTelemetryRecorder<R>?
-    ) -> NavigationStoreTelemetryRecorder<R>? {
-        switch (primary, secondary) {
-        case (nil, nil):
-            return nil
-        case (let primary?, nil):
-            return primary
-        case (nil, let secondary?):
-            return secondary
-        case (let primary?, let secondary?):
-            return { event in
-                primary(event)
-                secondary(event)
-            }
+            )
         }
     }
 

@@ -84,11 +84,10 @@ relationship | memberOf | FlowStore.observe(_:) | FlowStore |  |
 relationship | memberOf | FlowStore.path | FlowStore |  |
 relationship | memberOf | FlowStore.send(_:) | FlowStore |  |
 relationship | memberOf | FlowStoreConfiguration.eventBufferingPolicy | FlowStoreConfiguration |  |
-relationship | memberOf | FlowStoreConfiguration.init(navigation:modal:telemetrySink:onPathChanged:onIntentRejected:eventBufferingPolicy:queueCoalescePolicy:) | FlowStoreConfiguration |  |
+relationship | memberOf | FlowStoreConfiguration.init(navigation:modal:telemetrySink:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.modal | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.navigation | FlowStoreConfiguration |  |
-relationship | memberOf | FlowStoreConfiguration.onIntentRejected | FlowStoreConfiguration |  |
-relationship | memberOf | FlowStoreConfiguration.onPathChanged | FlowStoreConfiguration |  |
+relationship | memberOf | FlowStoreConfiguration.onEvent | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.queueCoalescePolicy | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.telemetrySink | FlowStoreConfiguration |  |
 relationship | memberOf | LifecycleSignals.fireParentCancel() | LifecycleSignals |  |
@@ -174,15 +173,10 @@ relationship | memberOf | ModalStore.replaceCurrent(_:style:) | ModalStore |  |
 relationship | memberOf | ModalStore.replaceMiddleware(_:with:debugName:) | ModalStore |  |
 relationship | memberOf | ModalStore.send(_:) | ModalStore |  |
 relationship | memberOf | ModalStoreConfiguration.eventBufferingPolicy | ModalStoreConfiguration |  |
-relationship | memberOf | ModalStoreConfiguration.init(logger:telemetrySink:middlewares:onPresented:onDismissed:onReplaced:onQueueChanged:onMiddlewareMutation:onCommandIntercepted:eventBufferingPolicy:queueCancellationPolicy:) | ModalStoreConfiguration |  |
+relationship | memberOf | ModalStoreConfiguration.init(logger:telemetrySink:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | ModalStoreConfiguration |  |
 relationship | memberOf | ModalStoreConfiguration.logger | ModalStoreConfiguration |  |
 relationship | memberOf | ModalStoreConfiguration.middlewares | ModalStoreConfiguration |  |
-relationship | memberOf | ModalStoreConfiguration.onCommandIntercepted | ModalStoreConfiguration |  |
-relationship | memberOf | ModalStoreConfiguration.onDismissed | ModalStoreConfiguration |  |
-relationship | memberOf | ModalStoreConfiguration.onMiddlewareMutation | ModalStoreConfiguration |  |
-relationship | memberOf | ModalStoreConfiguration.onPresented | ModalStoreConfiguration |  |
-relationship | memberOf | ModalStoreConfiguration.onQueueChanged | ModalStoreConfiguration |  |
-relationship | memberOf | ModalStoreConfiguration.onReplaced | ModalStoreConfiguration |  |
+relationship | memberOf | ModalStoreConfiguration.onEvent | ModalStoreConfiguration |  |
 relationship | memberOf | ModalStoreConfiguration.queueCancellationPolicy | ModalStoreConfiguration |  |
 relationship | memberOf | ModalStoreConfiguration.telemetrySink | ModalStoreConfiguration |  |
 relationship | memberOf | NavigationEvent.batchExecuted(_:) | NavigationEvent |  |
@@ -258,14 +252,10 @@ relationship | memberOf | NavigationStore.send(_:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.state | NavigationStore |  |
 relationship | memberOf | NavigationStoreConfiguration.engine | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.eventBufferingPolicy | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:eventBufferingPolicy:pathReconciler:) | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onEvent:eventBufferingPolicy:pathReconciler:) | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.logger | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.middlewares | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.onBatchExecuted | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.onChange | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.onMiddlewareMutation | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.onPathMismatch | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.onTransactionExecuted | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.onEvent | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.pathMismatchPolicy | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.pathReconciler | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.routeStackValidator | NavigationStoreConfiguration |  |
@@ -588,7 +578,7 @@ symbol | swift.init | EnvironmentNavigationIntent.init(_:) | init(_:) | @MainAct
 symbol | swift.init | FlowHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: FlowStore<R>, @ViewBuilder destination: @escaping (R) -> Destination, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | FlowStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init()) | []
 symbol | swift.init | FlowStore.init(validating:configuration:) | init(validating:configuration:) | @MainActor convenience init(validating initial: [RouteStep<R>], configuration: FlowStoreConfiguration<R> = .init()) throws | []
-symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:telemetrySink:onPathChanged:onIntentRejected:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation:modal:telemetrySink:onPathChanged:onIntentRejected:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), telemetrySink: AnyFlowTelemetrySink<R>? = nil, onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? = nil, onIntentRejected: (@MainActor (FlowIntent<R>, FlowRejectionReason) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve) | []
+symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:telemetrySink:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation:modal:telemetrySink:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), telemetrySink: AnyFlowTelemetrySink<R>? = nil, onEvent: (@MainActor (FlowEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve) | []
 symbol | swift.init | LifecycleSignals.init(onParentCancel:onTeardown:) | init(onParentCancel:onTeardown:) | @MainActor init(onParentCancel: (@MainActor () -> Void)? = nil, onTeardown: (@MainActor () -> Void)? = nil) | []
 symbol | swift.init | MiddlewareMutationEvent.init(action:metadata:index:) | init(action:metadata:index:) | init(action: MiddlewareMutationEvent<R>.Action, metadata: NavigationMiddlewareMetadata, index: Int?) | []
 symbol | swift.init | ModalHost.init(store:destination:content:) | init(store:destination:content:) | @MainActor init(store: ModalStore<M>, @ViewBuilder destination: @escaping (M) -> Destination, @ViewBuilder content: @escaping () -> Content) | []
@@ -597,7 +587,7 @@ symbol | swift.init | ModalMiddlewareMetadata.init(handle:debugName:) | init(han
 symbol | swift.init | ModalMiddlewareMutationEvent.init(action:metadata:index:) | init(action:metadata:index:) | init(action: ModalMiddlewareMutationEvent<M>.Action, metadata: ModalMiddlewareMetadata, index: Int?) | []
 symbol | swift.init | ModalMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyModalMiddleware<M>, debugName: String? = nil) | []
 symbol | swift.init | ModalStore.init(currentPresentation:queuedPresentations:configuration:) | init(currentPresentation:queuedPresentations:configuration:) | @MainActor init(currentPresentation: ModalPresentation<M>? = nil, queuedPresentations: [ModalPresentation<M>] = [], configuration: ModalStoreConfiguration<M> = .init()) | []
-symbol | swift.init | ModalStoreConfiguration.init(logger:telemetrySink:middlewares:onPresented:onDismissed:onReplaced:onQueueChanged:onMiddlewareMutation:onCommandIntercepted:eventBufferingPolicy:queueCancellationPolicy:) | init(logger:telemetrySink:middlewares:onPresented:onDismissed:onReplaced:onQueueChanged:onMiddlewareMutation:onCommandIntercepted:eventBufferingPolicy:queueCancellationPolicy:) | init(logger: Logger? = nil, telemetrySink: AnyModalTelemetrySink<M>? = nil, middlewares: [ModalMiddlewareRegistration<M>] = [], onPresented: (@MainActor (ModalPresentation<M>) -> Void)? = nil, onDismissed: (@MainActor (ModalPresentation<M>, ModalDismissalReason) -> Void)? = nil, onReplaced: (@MainActor (ModalPresentation<M>, ModalPresentation<M>) -> Void)? = nil, onQueueChanged: (@MainActor ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)? = nil, onMiddlewareMutation: (@MainActor (ModalMiddlewareMutationEvent<M>) -> Void)? = nil, onCommandIntercepted: (@MainActor (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCancellationPolicy: ModalQueueCancellationPolicy<M> = .preserve) | []
+symbol | swift.init | ModalStoreConfiguration.init(logger:telemetrySink:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | init(logger:telemetrySink:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | init(logger: Logger? = nil, telemetrySink: AnyModalTelemetrySink<M>? = nil, middlewares: [ModalMiddlewareRegistration<M>] = [], onEvent: (@MainActor (ModalEvent<M>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCancellationPolicy: ModalQueueCancellationPolicy<M> = .preserve) | []
 symbol | swift.init | NavigationHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationMiddlewareHandle.init() | init() | init() | []
 symbol | swift.init | NavigationMiddlewareMetadata.init(handle:debugName:) | init(handle:debugName:) | init(handle: NavigationMiddlewareHandle, debugName: String? = nil) | []
@@ -607,7 +597,7 @@ symbol | swift.init | NavigationPathReconciler.init() | init() | nonisolated ini
 symbol | swift.init | NavigationSplitHost.init(store:sidebar:destination:root:) | init(store:sidebar:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: RouteStack<R> = .init(), configuration: NavigationStoreConfiguration<R> = .init()) | []
 symbol | swift.init | NavigationStore.init(initialPath:configuration:) | init(initialPath:configuration:) | @MainActor convenience init(initialPath: [R], configuration: NavigationStoreConfiguration<R> = .init()) throws | []
-symbol | swift.init | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:eventBufferingPolicy:pathReconciler:) | init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:eventBufferingPolicy:pathReconciler:) | init(engine: NavigationEngine<R> = .init(), middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, telemetrySink: AnyNavigationTelemetrySink<R>? = nil, onChange: (@MainActor (RouteStack<R>, RouteStack<R>) -> Void)? = nil, onBatchExecuted: (@MainActor (NavigationBatchResult<R>) -> Void)? = nil, onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? = nil, onMiddlewareMutation: (@MainActor (MiddlewareMutationEvent<R>) -> Void)? = nil, onPathMismatch: (@MainActor (NavigationPathMismatchEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, pathReconciler: (any NavigationPathReconciling<R>)? = nil) | []
+symbol | swift.init | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onEvent:eventBufferingPolicy:pathReconciler:) | init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onEvent:eventBufferingPolicy:pathReconciler:) | init(engine: NavigationEngine<R> = .init(), middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, telemetrySink: AnyNavigationTelemetrySink<R>? = nil, onEvent: (@MainActor (NavigationEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, pathReconciler: (any NavigationPathReconciling<R>)? = nil) | []
 symbol | swift.init | OSLogFlowTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogModalTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogNavigationTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
@@ -749,8 +739,7 @@ symbol | swift.property | FlowStore.path | path | @MainActor var path: [RouteSte
 symbol | swift.property | FlowStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | var eventBufferingPolicy: EventBufferingPolicy | []
 symbol | swift.property | FlowStoreConfiguration.modal | modal | var modal: ModalStoreConfiguration<R> | []
 symbol | swift.property | FlowStoreConfiguration.navigation | navigation | var navigation: NavigationStoreConfiguration<R> | []
-symbol | swift.property | FlowStoreConfiguration.onIntentRejected | onIntentRejected | var onIntentRejected: (@MainActor (FlowIntent<R>, FlowRejectionReason) -> Void)? | []
-symbol | swift.property | FlowStoreConfiguration.onPathChanged | onPathChanged | var onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? | []
+symbol | swift.property | FlowStoreConfiguration.onEvent | onEvent | var onEvent: (@MainActor (FlowEvent<R>) -> Void)? | []
 symbol | swift.property | FlowStoreConfiguration.queueCoalescePolicy | queueCoalescePolicy | var queueCoalescePolicy: QueueCoalescePolicy<R> | []
 symbol | swift.property | FlowStoreConfiguration.telemetrySink | telemetrySink | var telemetrySink: AnyFlowTelemetrySink<R>? | []
 symbol | swift.property | LifecycleAware.lifecycleSignals | lifecycleSignals | @MainActor var lifecycleSignals: LifecycleSignals { get set } | []
@@ -780,12 +769,7 @@ symbol | swift.property | ModalStore.queuedPresentations | queuedPresentations |
 symbol | swift.property | ModalStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | var eventBufferingPolicy: EventBufferingPolicy | []
 symbol | swift.property | ModalStoreConfiguration.logger | logger | var logger: Logger? | []
 symbol | swift.property | ModalStoreConfiguration.middlewares | middlewares | var middlewares: [ModalMiddlewareRegistration<M>] | []
-symbol | swift.property | ModalStoreConfiguration.onCommandIntercepted | onCommandIntercepted | var onCommandIntercepted: (@MainActor (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? | []
-symbol | swift.property | ModalStoreConfiguration.onDismissed | onDismissed | var onDismissed: (@MainActor (ModalPresentation<M>, ModalDismissalReason) -> Void)? | []
-symbol | swift.property | ModalStoreConfiguration.onMiddlewareMutation | onMiddlewareMutation | var onMiddlewareMutation: (@MainActor (ModalMiddlewareMutationEvent<M>) -> Void)? | []
-symbol | swift.property | ModalStoreConfiguration.onPresented | onPresented | var onPresented: (@MainActor (ModalPresentation<M>) -> Void)? | []
-symbol | swift.property | ModalStoreConfiguration.onQueueChanged | onQueueChanged | var onQueueChanged: (@MainActor ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)? | []
-symbol | swift.property | ModalStoreConfiguration.onReplaced | onReplaced | var onReplaced: (@MainActor (ModalPresentation<M>, ModalPresentation<M>) -> Void)? | []
+symbol | swift.property | ModalStoreConfiguration.onEvent | onEvent | var onEvent: (@MainActor (ModalEvent<M>) -> Void)? | []
 symbol | swift.property | ModalStoreConfiguration.queueCancellationPolicy | queueCancellationPolicy | var queueCancellationPolicy: ModalQueueCancellationPolicy<M> | []
 symbol | swift.property | ModalStoreConfiguration.telemetrySink | telemetrySink | var telemetrySink: AnyModalTelemetrySink<M>? | []
 symbol | swift.property | NavigationEvent.description | description | var description: String { get } | []
@@ -809,11 +793,7 @@ symbol | swift.property | NavigationStoreConfiguration.engine | engine | var eng
 symbol | swift.property | NavigationStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | var eventBufferingPolicy: EventBufferingPolicy | []
 symbol | swift.property | NavigationStoreConfiguration.logger | logger | var logger: Logger? | []
 symbol | swift.property | NavigationStoreConfiguration.middlewares | middlewares | var middlewares: [NavigationMiddlewareRegistration<R>] | []
-symbol | swift.property | NavigationStoreConfiguration.onBatchExecuted | onBatchExecuted | var onBatchExecuted: (@MainActor (NavigationBatchResult<R>) -> Void)? | []
-symbol | swift.property | NavigationStoreConfiguration.onChange | onChange | var onChange: (@MainActor (RouteStack<R>, RouteStack<R>) -> Void)? | []
-symbol | swift.property | NavigationStoreConfiguration.onMiddlewareMutation | onMiddlewareMutation | var onMiddlewareMutation: (@MainActor (MiddlewareMutationEvent<R>) -> Void)? | []
-symbol | swift.property | NavigationStoreConfiguration.onPathMismatch | onPathMismatch | var onPathMismatch: (@MainActor (NavigationPathMismatchEvent<R>) -> Void)? | []
-symbol | swift.property | NavigationStoreConfiguration.onTransactionExecuted | onTransactionExecuted | var onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? | []
+symbol | swift.property | NavigationStoreConfiguration.onEvent | onEvent | var onEvent: (@MainActor (NavigationEvent<R>) -> Void)? | []
 symbol | swift.property | NavigationStoreConfiguration.pathMismatchPolicy | pathMismatchPolicy | var pathMismatchPolicy: NavigationPathMismatchPolicy<R> | []
 symbol | swift.property | NavigationStoreConfiguration.pathReconciler | pathReconciler | var pathReconciler: any NavigationPathReconciling<R> | []
 symbol | swift.property | NavigationStoreConfiguration.routeStackValidator | routeStackValidator | var routeStackValidator: RouteStackValidator<R> | []

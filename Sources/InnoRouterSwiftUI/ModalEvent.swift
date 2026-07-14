@@ -6,34 +6,32 @@ import InnoRouterCore
 
 /// A single event produced by a `ModalStore` observation surface.
 ///
-/// Each case mirrors one of the public `ModalStoreConfiguration`
-/// observation hooks. `ModalStore.events` exposes these as a single
-/// `AsyncStream<ModalEvent<M>>` so callers can subscribe once instead
-/// of wiring the six individual `onPresented` / `onDismissed` /
-/// `onReplaced` / `onQueueChanged` / `onCommandIntercepted` /
-/// `onMiddlewareMutation` callbacks.
+/// These cases form the complete public `ModalStore` observation surface.
+/// `ModalStore.events` exposes them as a single `AsyncStream<ModalEvent<M>>`
+/// so callers can consume the same values delivered synchronously through
+/// `ModalStoreConfiguration.onEvent`.
 ///
 /// Test harnesses (`InnoRouterTesting`) reuse this type directly — the
 /// legacy `ModalTestEvent<M>` is preserved as a typealias for source
 /// compatibility.
 public enum ModalEvent<M: Route>: Sendable, Equatable {
-    /// `ModalStore` fired `onPresented`.
+    /// A presentation became active.
     case presented(ModalPresentation<M>)
 
-    /// `ModalStore` fired `onDismissed`.
+    /// The active presentation was dismissed.
     case dismissed(ModalPresentation<M>, reason: ModalDismissalReason)
 
     /// `ModalStore` replaced the active presentation in place.
     case replaced(old: ModalPresentation<M>, new: ModalPresentation<M>)
 
-    /// `ModalStore` fired `onQueueChanged`.
+    /// The queued modal list changed.
     case queueChanged(old: [ModalPresentation<M>], new: [ModalPresentation<M>])
 
-    /// `ModalStore` fired `onCommandIntercepted` — one event per
-    /// `execute(_:)` call, including cancelled and no-op outcomes.
+    /// One event per `execute(_:)` call, including cancelled and no-op
+    /// outcomes.
     case commandIntercepted(command: ModalCommand<M>, result: ModalExecutionResult<M>)
 
-    /// `ModalStore` fired `onMiddlewareMutation`.
+    /// A middleware registry mutation succeeded.
     case middlewareMutation(ModalMiddlewareMutationEvent<M>)
 }
 

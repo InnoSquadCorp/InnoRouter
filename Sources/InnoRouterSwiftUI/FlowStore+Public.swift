@@ -18,6 +18,9 @@ extension FlowStore {
     /// flow state and applies it through the unified inner-store
     /// commit path.
     public func send(_ intent: FlowIntent<R>) {
+        if deferReentrantIntentIfNeeded(intent) {
+            return
+        }
         _ = InternalExecutionTrace.withSpan(
             domain: .flow,
             operation: "send",
@@ -34,9 +37,20 @@ extension FlowStore {
     /// path in one coordinated mutation. Equivalent to
     /// `send(.reset(plan.steps))` but communicates intent at the
     /// API boundary.
+    ///
+    /// This result-returning operation must complete synchronously. If it is
+    /// called reentrantly from this FlowStore's observation callback, one of
+    /// its inner-store observation callbacks, or a corresponding telemetry
+    /// sink, it returns `.rejected(currentPath:)` without mutating state.
+    /// Use `send(.reset(plan.steps))` when a reset must be scheduled from an
+    /// observation callback; `send(_:)` defers that mutation until the current
+    /// event sequence has finished delivery.
     @discardableResult
     public func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> {
-        InternalExecutionTrace.withSpan(
+        if let rejection = rejectReentrantApplyIfNeeded() {
+            return rejection
+        }
+        return InternalExecutionTrace.withSpan(
             domain: .flow,
             operation: "applyPlan",
             recorder: traceRecorder,

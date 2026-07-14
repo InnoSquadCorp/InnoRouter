@@ -50,7 +50,7 @@ struct FlowTestStoreTests {
 
         store.send(.presentSheet(.sheet))
 
-        // FlowStore uses commitFlowPreview: onPresented fires before onCommandIntercepted,
+        // FlowStore uses commitFlowPreview: .presented fires before .commandIntercepted,
         // and pathChanged fires after the modal commit completes.
         store.receiveModal { event in
             if case .presented(let presentation) = event { return presentation.route == .sheet }

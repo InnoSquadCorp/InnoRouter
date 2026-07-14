@@ -32,9 +32,15 @@ struct ModalStoreInterceptionTests {
         let store = ModalStore<InterceptRoute>(
             configuration: .init(
                 middlewares: [.init(middleware: middleware, debugName: "gate")],
-                onPresented: { _ in presented.withLock { $0 += 1 } },
-                onCommandIntercepted: { command, result in
-                    intercepted.withLock { $0.append((command, result)) }
+                onEvent: { event in
+                    switch event {
+                    case .presented:
+                        presented.withLock { $0 += 1 }
+                    case .commandIntercepted(let command, let result):
+                        intercepted.withLock { $0.append((command, result)) }
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -204,13 +210,14 @@ struct ModalStoreInterceptionTests {
         #expect(thirdDidExecute.withLock { $0 } == 0)
     }
 
-    @Test("executed outcome surfaces via onCommandIntercepted")
+    @Test("executed outcome surfaces via onEvent")
     @MainActor
     func executedOutcomeSurfaces() {
         let intercepted = Mutex<[(ModalCommand<InterceptRoute>, ModalExecutionResult<InterceptRoute>)]>([])
         let store = ModalStore<InterceptRoute>(
             configuration: .init(
-                onCommandIntercepted: { command, result in
+                onEvent: { event in
+                    guard case .commandIntercepted(let command, let result) = event else { return }
                     intercepted.withLock { $0.append((command, result)) }
                 }
             )

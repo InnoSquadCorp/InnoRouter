@@ -1,5 +1,5 @@
 // MARK: - TestStorePathMismatchTests.swift
-// InnoRouterTestingTests - onPathMismatch forwarding through NavigationTestStore
+// InnoRouterTestingTests - path mismatch forwarding through NavigationTestStore
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Testing
@@ -37,14 +37,15 @@ struct TestStorePathMismatchTests {
         store.finish()
     }
 
-    @Test("User-supplied onPathMismatch still fires (callback chaining preserved)")
+    @Test("User-supplied onEvent receives path mismatch (observer chaining preserved)")
     @MainActor
-    func userOnPathMismatchIsPreserved() {
+    func userOnEventReceivesPathMismatch() {
         let captured = Mutex<[NavigationPathMismatchEvent<MismatchRoute>]>([])
         let store = NavigationTestStore<MismatchRoute>(
             configuration: NavigationStoreConfiguration(
-                onPathMismatch: { event in
-                    captured.withLock { $0.append(event) }
+                onEvent: { event in
+                    guard case .pathMismatch(let mismatch) = event else { return }
+                    captured.withLock { $0.append(mismatch) }
                 }
             )
         )

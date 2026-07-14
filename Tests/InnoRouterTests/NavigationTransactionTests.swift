@@ -23,11 +23,15 @@ struct NavigationTransactionTests {
         var transactionObserver: NavigationTransactionResult<TestRoute>?
         let store = NavigationStore<TestRoute>(
             configuration: NavigationStoreConfiguration(
-                onChange: { _, _ in
-                    changeCount += 1
-                },
-                onTransactionExecuted: { transaction in
-                    transactionObserver = transaction
+                onEvent: { event in
+                    switch event {
+                    case .changed:
+                        changeCount += 1
+                    case .transactionExecuted(let transaction):
+                        transactionObserver = transaction
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -63,11 +67,15 @@ struct NavigationTransactionTests {
         var transactionObserver: NavigationTransactionResult<TestRoute>?
         let store = NavigationStore<TestRoute>(
             configuration: NavigationStoreConfiguration(
-                onChange: { _, _ in
-                    changeCount += 1
-                },
-                onTransactionExecuted: { transaction in
-                    transactionObserver = transaction
+                onEvent: { event in
+                    switch event {
+                    case .changed:
+                        changeCount += 1
+                    case .transactionExecuted(let transaction):
+                        transactionObserver = transaction
+                    default:
+                        break
+                    }
                 }
             )
         )

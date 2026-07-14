@@ -24,7 +24,8 @@ struct FlowStoreInvariantTests {
         let rejections = Mutex<[(FlowIntent<FlowRoute>, FlowRejectionReason)]>([])
         let store = FlowStore<FlowRoute>(
             configuration: .init(
-                onIntentRejected: { intent, reason in
+                onEvent: { event in
+                    guard case .intentRejected(let intent, let reason) = event else { return }
                     rejections.withLock { $0.append((intent, reason)) }
                 }
             )
@@ -50,7 +51,8 @@ struct FlowStoreInvariantTests {
         let rejections = Mutex<[FlowRejectionReason]>([])
         let store = FlowStore<FlowRoute>(
             configuration: .init(
-                onIntentRejected: { _, reason in
+                onEvent: { event in
+                    guard case .intentRejected(_, let reason) = event else { return }
                     rejections.withLock { $0.append(reason) }
                 }
             )
@@ -68,7 +70,8 @@ struct FlowStoreInvariantTests {
         let rejections = Mutex<[FlowRejectionReason]>([])
         let store = FlowStore<FlowRoute>(
             configuration: .init(
-                onIntentRejected: { _, reason in
+                onEvent: { event in
+                    guard case .intentRejected(_, let reason) = event else { return }
                     rejections.withLock { $0.append(reason) }
                 }
             )
@@ -86,7 +89,8 @@ struct FlowStoreInvariantTests {
         let rejections = Mutex<[FlowRejectionReason]>([])
         let store = FlowStore<FlowRoute>(
             configuration: .init(
-                onIntentRejected: { _, reason in
+                onEvent: { event in
+                    guard case .intentRejected(_, let reason) = event else { return }
                     rejections.withLock { $0.append(reason) }
                 }
             )
@@ -105,8 +109,16 @@ struct FlowStoreInvariantTests {
         let rejections = Mutex<Int>(0)
         let store = FlowStore<FlowRoute>(
             configuration: .init(
-                onPathChanged: { _, _ in changes.withLock { $0 += 1 } },
-                onIntentRejected: { _, _ in rejections.withLock { $0 += 1 } }
+                onEvent: { event in
+                    switch event {
+                    case .pathChanged:
+                        changes.withLock { $0 += 1 }
+                    case .intentRejected:
+                        rejections.withLock { $0 += 1 }
+                    default:
+                        break
+                    }
+                }
             )
         )
 
@@ -124,8 +136,16 @@ struct FlowStoreInvariantTests {
         let rejections = Mutex<Int>(0)
         let store = FlowStore<FlowRoute>(
             configuration: .init(
-                onPathChanged: { _, _ in changes.withLock { $0 += 1 } },
-                onIntentRejected: { _, _ in rejections.withLock { $0 += 1 } }
+                onEvent: { event in
+                    switch event {
+                    case .pathChanged:
+                        changes.withLock { $0 += 1 }
+                    case .intentRejected:
+                        rejections.withLock { $0 += 1 }
+                    default:
+                        break
+                    }
+                }
             )
         )
         store.send(.push(.login))

@@ -16,7 +16,7 @@ import InnoRouterEffects
 
 @Suite("ModalStore Tests")
 struct ModalStoreTests {
-    @Test("Initial queued presentations normalize into active and queued state without callbacks")
+    @Test("Initial queued presentations normalize into active and queued state without events")
     @MainActor
     func testInitNormalizesQueuedPresentationsWithoutCallbacks() {
         let presented = Mutex<[ModalPresentation<TestModalRoute>]>([])
@@ -27,11 +27,15 @@ struct ModalStoreTests {
             currentPresentation: nil,
             queuedPresentations: [first, second],
             configuration: .init(
-                onPresented: { presentation in
-                    presented.withLock { $0.append(presentation) }
-                },
-                onQueueChanged: { oldQueue, newQueue in
-                    queueChanges.withLock { $0.append((oldQueue, newQueue)) }
+                onEvent: { event in
+                    switch event {
+                    case .presented(let presentation):
+                        presented.withLock { $0.append(presentation) }
+                    case .queueChanged(let oldQueue, let newQueue):
+                        queueChanges.withLock { $0.append((oldQueue, newQueue)) }
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -81,18 +85,22 @@ struct ModalStoreTests {
         #expect(store.queuedPresentations.isEmpty)
     }
 
-    @Test("First present emits onPresented once without queue callback")
+    @Test("First present emits presented once without queueChanged")
     @MainActor
-    func testPresentEmitsOnPresentedWithoutQueueCallback() {
+    func testPresentEmitsPresentedWithoutQueueChanged() {
         let presented = Mutex<[ModalPresentation<TestModalRoute>]>([])
         let queueChanges = Mutex<[([ModalPresentation<TestModalRoute>], [ModalPresentation<TestModalRoute>])]>([])
         let store = ModalStore<TestModalRoute>(
             configuration: .init(
-                onPresented: { presentation in
-                    presented.withLock { $0.append(presentation) }
-                },
-                onQueueChanged: { oldQueue, newQueue in
-                    queueChanges.withLock { $0.append((oldQueue, newQueue)) }
+                onEvent: { event in
+                    switch event {
+                    case .presented(let presentation):
+                        presented.withLock { $0.append(presentation) }
+                    case .queueChanged(let oldQueue, let newQueue):
+                        queueChanges.withLock { $0.append((oldQueue, newQueue)) }
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -104,18 +112,22 @@ struct ModalStoreTests {
         #expect(queueChanges.withLock { $0.isEmpty })
     }
 
-    @Test("Queued present emits queue callback but not presented")
+    @Test("Queued present emits queueChanged but not presented")
     @MainActor
     func testQueuedPresentEmitsQueueCallbackOnly() {
         let presented = Mutex<[ModalPresentation<TestModalRoute>]>([])
         let queueChanges = Mutex<[([ModalPresentation<TestModalRoute>], [ModalPresentation<TestModalRoute>])]>([])
         let store = ModalStore<TestModalRoute>(
             configuration: .init(
-                onPresented: { presentation in
-                    presented.withLock { $0.append(presentation) }
-                },
-                onQueueChanged: { oldQueue, newQueue in
-                    queueChanges.withLock { $0.append((oldQueue, newQueue)) }
+                onEvent: { event in
+                    switch event {
+                    case .presented(let presentation):
+                        presented.withLock { $0.append(presentation) }
+                    case .queueChanged(let oldQueue, let newQueue):
+                        queueChanges.withLock { $0.append((oldQueue, newQueue)) }
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -137,14 +149,17 @@ struct ModalStoreTests {
         let queueChanges = Mutex<[([ModalPresentation<TestModalRoute>], [ModalPresentation<TestModalRoute>])]>([])
         let store = ModalStore<TestModalRoute>(
             configuration: .init(
-                onPresented: { presentation in
-                    presented.withLock { $0.append(presentation) }
-                },
-                onDismissed: { presentation, reason in
-                    dismissed.withLock { $0.append((presentation, reason)) }
-                },
-                onQueueChanged: { oldQueue, newQueue in
-                    queueChanges.withLock { $0.append((oldQueue, newQueue)) }
+                onEvent: { event in
+                    switch event {
+                    case .presented(let presentation):
+                        presented.withLock { $0.append(presentation) }
+                    case .dismissed(let presentation, let reason):
+                        dismissed.withLock { $0.append((presentation, reason)) }
+                    case .queueChanged(let oldQueue, let newQueue):
+                        queueChanges.withLock { $0.append((oldQueue, newQueue)) }
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -183,11 +198,15 @@ struct ModalStoreTests {
         let queueChanges = Mutex<[([ModalPresentation<TestModalRoute>], [ModalPresentation<TestModalRoute>])]>([])
         let store = ModalStore<TestModalRoute>(
             configuration: .init(
-                onDismissed: { presentation, reason in
-                    dismissed.withLock { $0.append((presentation, reason)) }
-                },
-                onQueueChanged: { oldQueue, newQueue in
-                    queueChanges.withLock { $0.append((oldQueue, newQueue)) }
+                onEvent: { event in
+                    switch event {
+                    case .dismissed(let presentation, let reason):
+                        dismissed.withLock { $0.append((presentation, reason)) }
+                    case .queueChanged(let oldQueue, let newQueue):
+                        queueChanges.withLock { $0.append((oldQueue, newQueue)) }
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -212,16 +231,20 @@ struct ModalStoreTests {
         var store: ModalStore<TestModalRoute>!
         store = ModalStore<TestModalRoute>(
             configuration: .init(
-                onDismissed: { _, _ in
-                    callbackOrder.withLock { $0.append("dismiss") }
-                    observedStateDuringDismiss.withLock {
-                        $0.0.append(store.currentPresentation?.route)
-                        $0.1.append(store.queuedPresentations.map(\.route))
+                onEvent: { event in
+                    switch event {
+                    case .dismissed:
+                        callbackOrder.withLock { $0.append("dismiss") }
+                        observedStateDuringDismiss.withLock {
+                            $0.0.append(store.currentPresentation?.route)
+                            $0.1.append(store.queuedPresentations.map(\.route))
+                        }
+                        store.present(.profile, style: .sheet)
+                    case .queueChanged:
+                        callbackOrder.withLock { $0.append("queue") }
+                    default:
+                        break
                     }
-                    store.present(.profile, style: .sheet)
-                },
-                onQueueChanged: { _, _ in
-                    callbackOrder.withLock { $0.append("queue") }
                 }
             )
         )
@@ -279,7 +302,8 @@ struct ModalStoreTests {
         let dismissed = Mutex<[(ModalPresentation<TestModalRoute>, ModalDismissalReason)]>([])
         let store = ModalStore<TestModalRoute>(
             configuration: .init(
-                onDismissed: { presentation, reason in
+                onEvent: { event in
+                    guard case .dismissed(let presentation, let reason) = event else { return }
                     dismissed.withLock { $0.append((presentation, reason)) }
                 }
             )

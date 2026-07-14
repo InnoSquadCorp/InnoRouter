@@ -286,7 +286,8 @@ struct TypedCaseBindingTests {
         let dismissed = Mutex<[(ModalPresentation<TestModalRoute>, ModalDismissalReason)]>([])
         let store = ModalStore<TestModalRoute>(
             configuration: .init(
-                onDismissed: { presentation, reason in
+                onEvent: { event in
+                    guard case .dismissed(let presentation, let reason) = event else { return }
                     dismissed.withLock { $0.append((presentation, reason)) }
                 }
             )

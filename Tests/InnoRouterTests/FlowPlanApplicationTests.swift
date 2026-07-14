@@ -43,7 +43,8 @@ struct FlowPlanApplicationTests {
         let rejections = Mutex<[FlowRejectionReason]>([])
         let store = FlowStore<FlowPlanRoute>(
             configuration: .init(
-                onIntentRejected: { _, reason in
+                onEvent: { event in
+                    guard case .intentRejected(_, let reason) = event else { return }
                     rejections.withLock { $0.append(reason) }
                 }
             )
@@ -108,11 +109,15 @@ struct FlowPlanApplicationTests {
         let store = FlowStore<FlowPlanRoute>(
             configuration: .init(
                 modal: .init(
-                    onPresented: { presentation in
-                        presented.withLock { $0.append(presentation.route) }
-                    },
-                    onDismissed: { _, reason in
-                        dismissed.withLock { $0.append(reason) }
+                    onEvent: { event in
+                        switch event {
+                        case .presented(let presentation):
+                            presented.withLock { $0.append(presentation.route) }
+                        case .dismissed(_, let reason):
+                            dismissed.withLock { $0.append(reason) }
+                        default:
+                            break
+                        }
                     }
                 )
             )
@@ -143,7 +148,8 @@ struct FlowPlanApplicationTests {
         let changes = Mutex<[([RouteStep<FlowPlanRoute>], [RouteStep<FlowPlanRoute>])]>([])
         let store = FlowStore<FlowPlanRoute>(
             configuration: .init(
-                onPathChanged: { old, new in
+                onEvent: { event in
+                    guard case .pathChanged(let old, let new) = event else { return }
                     changes.withLock { $0.append((old, new)) }
                 }
             )

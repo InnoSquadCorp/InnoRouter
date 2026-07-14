@@ -71,11 +71,15 @@ private final class ExecutionRecorder {
         )
         return NavigationStoreConfiguration<TestRoute>(
             middlewares: [.init(middleware: middleware, debugName: "recorder")],
-            onChange: { [weak self] _, _ in
-                self?.changeCount += 1
-            },
-            onBatchExecuted: { [weak self] batch in
-                self?.batchResults.append(batch)
+            onEvent: { [weak self] event in
+                switch event {
+                case .changed:
+                    self?.changeCount += 1
+                case .batchExecuted(let batch):
+                    self?.batchResults.append(batch)
+                default:
+                    break
+                }
             }
         )
     }
@@ -85,7 +89,7 @@ private final class ExecutionRecorder {
 
 @Suite("DeepLink Plan Path Equivalence Tests")
 struct DeepLinkPathEquivalenceTests {
-    // Plan reused across tests. A multi-command plan is required so onChange
+    // Plan reused across tests. A multi-command plan is required so .changed
     // coalescing (1 event for batch vs N for for-loop) is observable.
     static let planCommands: [NavigationCommand<TestRoute>] = [
         .replace([.home]),
@@ -112,11 +116,11 @@ struct DeepLinkPathEquivalenceTests {
         }
     }
 
-    // MARK: onChange parity
+    // MARK: Changed-event parity
 
-    @Test("Umbrella and Effects paths coalesce onChange into a single event")
+    @Test("Umbrella and Effects paths coalesce changed into a single event")
     @MainActor
-    func testOnChangeEventParity() {
+    func testChangedEventParity() {
         let umbrellaRecorder = ExecutionRecorder()
         let umbrella = EquivalenceCoordinator(
             configuration: umbrellaRecorder.configuration(),
@@ -173,11 +177,11 @@ struct DeepLinkPathEquivalenceTests {
         )
     }
 
-    // MARK: onBatchExecuted parity
+    // MARK: Batch-executed parity
 
-    @Test("Both paths fire onBatchExecuted exactly once with equal metadata")
+    @Test("Both paths emit batchExecuted exactly once with equal metadata")
     @MainActor
-    func testOnBatchExecutedParity() {
+    func testBatchExecutedEventParity() {
         let umbrellaRecorder = ExecutionRecorder()
         let umbrella = EquivalenceCoordinator(
             configuration: umbrellaRecorder.configuration(),

@@ -44,8 +44,8 @@ struct NavigationTestStoreTests {
         let result = store.executeBatch([.push(.home), .push(.detail)])
 
         #expect(result.isSuccess)
-        // NavigationStore coalesces per-step onChange into one final onChange,
-        // then fires onBatchExecuted. TestStore preserves that order.
+        // NavigationStore coalesces per-step changes into one final .changed,
+        // then emits .batchExecuted. TestStore preserves that order.
         store.receiveChange { _, new in new.path == [.home, .detail] }
         store.receiveBatch { $0.executedCommands.count == 2 && $0.isSuccess }
         store.finish()
@@ -63,7 +63,7 @@ struct NavigationTestStoreTests {
         store.finish()
     }
 
-    @Test("middleware mutation emits .middlewareMutation via public callback")
+    @Test("middleware mutation emits .middlewareMutation via public observer")
     @MainActor
     func middlewareMutationEmitted() {
         let store = NavigationTestStore<NavRoute>()
@@ -74,13 +74,14 @@ struct NavigationTestStoreTests {
         store.finish()
     }
 
-    @Test("Preserves user-supplied onChange callback (chains, does not replace)")
+    @Test("Preserves user-supplied onEvent observer (chains, does not replace)")
     @MainActor
-    func userOnChangePreserved() {
+    func userChangedEventObserverPreserved() {
         let captured = Mutex<[[NavRoute]]>([])
         let store = NavigationTestStore<NavRoute>(
             configuration: NavigationStoreConfiguration(
-                onChange: { _, new in
+                onEvent: { event in
+                    guard case .changed(_, let new) = event else { return }
                     captured.withLock { $0.append(new.path) }
                 }
             )

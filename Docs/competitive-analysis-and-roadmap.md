@@ -32,7 +32,7 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 | Unified push + sheet + cover stack | ✅ `FlowStore<R>` + `[RouteStep<R>]` | ❌ nested presents | ❌ | ✅ **single array** | ✅ | ⚠ | ⚠ | ⚠ |
 | Middleware / interception | ✅ willExecute/didExecute + cancel **on both Navigation and Modal** | ✅ reducer composition | ❌ | ❌ | ✅ (via TCA) | ❌ | ❌ | ❌ |
 | Deep link pipeline | ✅ Matcher + Pipeline + AuthPolicy + Outcome **+ composite `FlowDeepLinkPipeline` (push + modal tail)** | ⚠ hand-hydrate | ❌ | ✅ rebuild path | ✅ | ⚠ manual | ❌ | ✅ URL-first, no modal tail |
-| Public observability hooks | ✅ onChange / Batch / Transaction / MiddlewareMutation **+ unified `store.events` AsyncStream** | ✅ TestStore covers it | ⚠ `observe { }` | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Public observability hooks | ✅ one typed `onEvent` callback per store **+ unified `store.events` AsyncStream** | ✅ TestStore covers it | ⚠ `observe { }` | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Codable state restoration | ✅ opt-in `Codable` + `StatePersistence<R>` | ✅ `StackState: Codable` | ❌ | ✅ | ✅ | ⚠ | ❌ | ⚠ |
 | Batch + Transaction split | ✅ two models | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Validator / Mismatch policy | ✅ `RouteStackValidator`, `NavigationPathMismatchPolicy` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -131,8 +131,9 @@ Shape (landed):
 - TCA-style exhaustivity: strict by default, unasserted events at
   deinit fire Swift Testing `Issue.record`. `.off` mode preserves
   per-call asserts but silences the final drain check.
-- New `NavigationStoreConfiguration.onPathMismatch` public callback
-  completes public observability so no harness internals are needed.
+- `NavigationStoreConfiguration.onEvent` includes `.pathMismatch`
+  alongside every other navigation observation case, so no harness
+  internals are needed.
 - `FlowTestStore` wraps both inner stores so one test can assert an
   intent's complete chain (`.navigation(...)` + `.modal(...)` +
   `.pathChanged` / `.intentRejected` on a single FIFO queue).
@@ -273,8 +274,8 @@ Shape (landed):
   navigation.
 - Public middleware CRUD on `ModalStore`
   (`addMiddleware`/`insertMiddleware`/`removeMiddleware`/`replaceMiddleware`/`moveMiddleware`)
-  plus `onMiddlewareMutation` and `onCommandIntercepted` config hooks
-  for analytics.
+  plus `.middlewareMutation` and `.commandIntercepted` cases delivered
+  through `ModalStoreConfiguration.onEvent` for analytics.
 
 ### P2 — Quality of life
 
@@ -287,8 +288,8 @@ pipelines wire up once instead of N individual callbacks.
 Shape (landed):
 
 - `NavigationEvent<R>` / `ModalEvent<M>` / `FlowEvent<R>` public
-  enums in `InnoRouterSwiftUI` mirror every existing configuration
-  hook (5 / 5 / 4 cases respectively).
+  enums in `InnoRouterSwiftUI` define each store's complete observation
+  surface (5 / 6 / 4 cases respectively).
 - `NavigationStore.events: AsyncStream<NavigationEvent<R>>`,
   `ModalStore.events`, and `FlowStore.events` broadcast every
   observation event through a shared `EventBroadcaster<Event>`
@@ -298,9 +299,9 @@ Shape (landed):
 - Subscribers clean up via `AsyncStream.Continuation.onTermination`;
   store `isolated deinit` (SE-0371) finishes outstanding
   continuations so `for await` loops terminate naturally.
-- Existing `onChange` / `onPresented` / `onCommandIntercepted` /
-  etc. callbacks remain source-compatible — the stream is an
-  additional channel, not a replacement.
+- In 5.0, the former per-event configuration callbacks are replaced by
+  one typed `onEvent` callback per store. `events` provides the same
+  cases as an asynchronous multicast channel.
 - `InnoRouterTesting`'s legacy `NavigationTestEvent` /
   `ModalTestEvent` / `FlowTestEvent` types are preserved as
   `typealias`es for source compatibility.

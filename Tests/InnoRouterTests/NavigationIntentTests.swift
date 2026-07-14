@@ -23,11 +23,15 @@ struct NavigationIntentTests {
         var observedBatch: NavigationBatchResult<TestRoute>?
         let store = NavigationStore<TestRoute>(
             configuration: NavigationStoreConfiguration(
-                onChange: { _, _ in
-                    changeCount += 1
-                },
-                onBatchExecuted: { batch in
-                    observedBatch = batch
+                onEvent: { event in
+                    switch event {
+                    case .changed:
+                        changeCount += 1
+                    case .batchExecuted(let batch):
+                        observedBatch = batch
+                    default:
+                        break
+                    }
                 }
             )
         )

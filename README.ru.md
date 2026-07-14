@@ -508,7 +508,7 @@ engine.
 
 | Вы хотите… | Используйте | Почему |
 |---|---|---|
-| Одно наблюдаемое изменение для многих команд, лучшее усилие | `executeBatch(_:stopOnFailure:)` | Объединённые `onChange` / `events`, опциональный fail-fast |
+| Одно наблюдаемое изменение для многих команд, лучшее усилие | `executeBatch(_:stopOnFailure:)` | Объединённые `.changed` и `.batchExecuted` через `onEvent` / `events`, опциональный fail-fast |
 | Применение всё-или-ничего с rollback | `executeTransaction(_:)` | Предпросмотр теневого состояния, отбрасывание на основе журнала |
 | Композитное *значение*, которое engine планирует / валидирует | `NavigationCommand.sequence([...])` | Чистая команда, проходит через каждую middleware как одна единица |
 | Запустить только последнюю команду после тихого окна | `DebouncingNavigator` | Async wrapping navigator, `Clock`-инжектируемый |
@@ -589,14 +589,15 @@ InnoRouter намеренно **не** владеет:
 
 ### Модальная наблюдаемость
 
-`ModalStoreConfiguration` предоставляет лёгкие хуки жизненного цикла:
+`ModalStoreConfiguration` предоставляет один типизированный callback
+наблюдения и асинхронный поток:
 
 - `logger`
-- `onPresented`
-- `onDismissed`
-- `onQueueChanged`
-- `onMiddlewareMutation`
-- `onCommandIntercepted`
+- `onEvent: (ModalEvent<M>) -> Void`
+- `ModalStore.events: AsyncStream<ModalEvent<M>>`
+
+Обрабатывайте presentation, dismiss, replace, изменения очереди, перехват
+команд и мутации middleware через `switch` по `ModalEvent`.
 
 `ModalDismissalReason` различает:
 
@@ -1034,7 +1035,9 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 - `FlowHost` составляет `ModalHost` поверх `NavigationHost` и инжектит
   environment closure для dispatch `@EnvironmentFlowIntent(Route.self)`.
 - `FlowStoreConfiguration` составляет `NavigationStoreConfiguration` и
-  `ModalStoreConfiguration`, добавляя `onPathChanged` и `onIntentRejected`.
+  `ModalStoreConfiguration`, добавляя один `onEvent` для `FlowEvent`.
+  Он получает path/rejection уровня flow и внутренние события в обёртках
+  `.navigation(...)` / `.modal(...)`.
 - `FlowStore(validating:configuration:)` — это throwing initializer для
   восстановленных или внешне предоставленных значений `[RouteStep]`;
   совместимый initializer `initial:` всё ещё принуждает невалидный ввод
@@ -1047,8 +1050,8 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 `InnoRouterTesting` — это поставляемый Swift-Testing-нативный harness
 утверждений, который оборачивает `NavigationStore`, `ModalStore` и
 `FlowStore`. Тестам больше не нужен `@testable import InnoRouterSwiftUI`
-или ручные коллекторы `Mutex<[Event]>` — каждый публичный observation
-callback буферизуется в FIFO очередь, и тесты осушают её TCA-style
+или ручные коллекторы `Mutex<[Event]>` — каждое публичное observation-событие
+буферизуется в FIFO очередь, и тесты осушают её TCA-style
 вызовами `receive(...)`.
 
 Добавьте product только к test target:
@@ -1089,14 +1092,16 @@ func pushHomeThenDetail() {
 
 Что покрывает harness:
 
-- **`NavigationTestStore<R>`** — `onChange`, `onBatchExecuted`,
-  `onTransactionExecuted`, `onMiddlewareMutation`, `onPathMismatch`.
+- **`NavigationTestStore<R>`** — все варианты `NavigationEvent`:
+  `.changed`, `.batchExecuted`, `.transactionExecuted`, `.middlewareMutation`,
+  `.pathMismatch`.
   Перенаправляет `send`, `execute`, `executeBatch`, `executeTransaction`
   в подлежащий store без изменений.
-- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`, `onReplaced`,
-  `onQueueChanged`, `onCommandIntercepted`, `onMiddlewareMutation`.
-- **`FlowTestStore<R>`** — FlowStore-уровень `onPathChanged` +
-  `onIntentRejected`, плюс обёртки `.navigation(...)` и `.modal(...)`
+- **`ModalTestStore<M>`** — все варианты `ModalEvent`, включая `.presented`,
+  `.dismissed`, `.replaced`, `.queueChanged`, `.commandIntercepted` и
+  `.middlewareMutation`.
+- **`FlowTestStore<R>`** — FlowStore-уровень `.pathChanged` +
+  `.intentRejected`, плюс обёртки `.navigation(...)` и `.modal(...)`
   вокруг эмиссий внутреннего store в одной очереди. Один тест может
   утверждать полную цепочку, запущенную одним `FlowIntent`, включая
   пути отмены middleware.
@@ -1171,9 +1176,11 @@ Task {
 }
 ```
 
-Индивидуальные колбэки `onChange`, `onPresented`, `onCommandIntercepted`
-и т. д. на каждом типе `*Configuration` остаются source-совместимыми;
-поток `events` — дополнительный канал, не замена.
+В 5.0 у каждого `*Configuration` есть один типизированный callback `onEvent`.
+Для синхронной доставки используйте `switch` по `NavigationEvent`, `ModalEvent`
+или `FlowEvent`, а для асинхронной итерации — `events`. Прежние callbacks для
+отдельных событий удалены без compatibility shim. Flow callback получает
+`.navigation(...)` / `.modal(...)` вместе с `.pathChanged` и `.intentRejected`.
 
 ### Backpressure (противодавление)
 

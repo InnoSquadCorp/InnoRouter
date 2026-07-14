@@ -22,10 +22,10 @@ private func blockingMiddleware(
     })
 }
 
-/// Collector wired to `NavigationStoreConfiguration.onChange`. The
-/// store invokes `onChange` synchronously inside `execute()` from the
+/// Collector wired to `NavigationStoreConfiguration.onEvent`. The
+/// store invokes `onEvent` synchronously inside `execute()` from the
 /// same call site that broadcasts the matching `.changed` event, so an
-/// onChange-based count is a faithful proxy for the broadcaster's
+/// onEvent-based count is a faithful proxy for the broadcaster's
 /// `.changed` count for the contract under test, while sidestepping
 /// the "wait for events that may never arrive" hazard of an
 /// `AsyncStream` iterator.
@@ -44,7 +44,8 @@ private func makeStore(
         initialPath: initialPath,
         configuration: NavigationStoreConfiguration<WCBRoute>(
             middlewares: middlewares,
-            onChange: { old, new in
+            onEvent: { event in
+                guard case .changed(let old, let new) = event else { return }
                 MainActor.assumeIsolated {
                     collector.changes.append((old.path, new.path))
                 }

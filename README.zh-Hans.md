@@ -456,7 +456,7 @@ InnoRouter 通过按目的分层的四个入口点暴露导航。
 
 | 你想要… | 使用 | 原因 |
 |---|---|---|
-| 多个命令的一个可观察变更,尽力而为 | `executeBatch(_:stopOnFailure:)` | 合并的 `onChange` / `events`、可选 fail-fast |
+| 多个命令的一个可观察变更,尽力而为 | `executeBatch(_:stopOnFailure:)` | 通过 `onEvent` / `events` 合并的 `.changed` 与 `.batchExecuted`、可选 fail-fast |
 | 全有或全无的应用并支持回滚 | `executeTransaction(_:)` | 影子状态预览、基于 journal 的丢弃 |
 | engine 规划/验证的组合*值* | `NavigationCommand.sequence([...])` | 纯命令,作为一个单元流过每个 middleware |
 | 在静默窗口后仅触发最新命令 | `DebouncingNavigator` | Async 包装 navigator、`Clock` 可注入 |
@@ -534,14 +534,14 @@ InnoRouter **有意不**拥有:
 
 ### 模态可观察性
 
-`ModalStoreConfiguration` 提供轻量级生命周期 hook:
+`ModalStoreConfiguration` 提供一个类型化观察回调和异步流:
 
 - `logger`
-- `onPresented`
-- `onDismissed`
-- `onQueueChanged`
-- `onMiddlewareMutation`
-- `onCommandIntercepted`
+- `onEvent: (ModalEvent<M>) -> Void`
+- `ModalStore.events: AsyncStream<ModalEvent<M>>`
+
+对 `ModalEvent` 使用 `switch` 来处理呈现、关闭、替换、队列变化、命令拦截
+和 middleware 变更。
 
 `ModalDismissalReason` 区分:
 
@@ -948,7 +948,9 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 - `FlowHost` 在 `NavigationHost` 之上组合 `ModalHost`,并为
   `@EnvironmentFlowIntent(Route.self)` dispatch 注入环境闭包。
 - `FlowStoreConfiguration` 组合 `NavigationStoreConfiguration` 和
-  `ModalStoreConfiguration`,添加 `onPathChanged` 和 `onIntentRejected`。
+  `ModalStoreConfiguration`,并为 `FlowEvent` 添加单个 `onEvent` 回调。
+  它接收 flow 级 path/rejection 以及包装为 `.navigation(...)` /
+  `.modal(...)` 的内部事件。
 - `FlowStore(validating:configuration:)` 是用于恢复的或外部提供的
   `[RouteStep]` 值的 throwing initializer;兼容性 `initial:` initializer
   仍将无效输入强制为空路径。
@@ -960,7 +962,7 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 `InnoRouterTesting` 是包装 `NavigationStore`、`ModalStore` 和 `FlowStore`
 的可发布 Swift Testing 原生断言 harness。测试不再需要
 `@testable import InnoRouterSwiftUI` 或手工的 `Mutex<[Event]>` 收集器 —
-每个公开观察回调都被缓冲到 FIFO 队列中,测试用 TCA 风格的 `receive(...)`
+每个公开观察事件都被缓冲到 FIFO 队列中,测试用 TCA 风格的 `receive(...)`
 调用排空它。
 
 仅向测试目标添加产品:
@@ -1001,13 +1003,15 @@ func pushHomeThenDetail() {
 
 Harness 涵盖:
 
-- **`NavigationTestStore<R>`** — `onChange`、`onBatchExecuted`、
-  `onTransactionExecuted`、`onMiddlewareMutation` 和 `onPathMismatch`。
+- **`NavigationTestStore<R>`** — 所有 `NavigationEvent` case:
+  `.changed`、`.batchExecuted`、`.transactionExecuted`、`.middlewareMutation`
+  和 `.pathMismatch`。
   将 `send`、`execute`、`executeBatch`、`executeTransaction` 不变地
   转发到底层 store。
-- **`ModalTestStore<M>`** — `onPresented`、`onDismissed`、`onReplaced`、
-  `onQueueChanged`、`onCommandIntercepted`、`onMiddlewareMutation`。
-- **`FlowTestStore<R>`** — FlowStore 级别的 `onPathChanged` + `onIntentRejected`,
+- **`ModalTestStore<M>`** — 所有 `ModalEvent` case,包括 `.presented`、
+  `.dismissed`、`.replaced`、`.queueChanged`、`.commandIntercepted`
+  和 `.middlewareMutation`。
+- **`FlowTestStore<R>`** — FlowStore 级别的 `.pathChanged` + `.intentRejected`,
   加上围绕单个队列上内部 store 发射的 `.navigation(...)` 和 `.modal(...)` 包装器。
   一个测试可以断言由单个 `FlowIntent` 触发的完整链,包括 middleware 取消路径。
 
@@ -1073,9 +1077,11 @@ Task {
 }
 ```
 
-每个 `*Configuration` 类型上的单独 `onChange`、`onPresented`、
-`onCommandIntercepted` 等回调保持源代码兼容;`events` 流是附加通道,
-而不是替代品。
+从 5.0 开始,每个 `*Configuration` 只有一个类型化 `onEvent` 回调。
+同步交付时对 `NavigationEvent`、`ModalEvent` 或 `FlowEvent` 使用 `switch`,
+异步迭代则使用 `events`。旧的逐事件回调已删除且不提供兼容 shim。
+Flow 回调除了自己的 `.pathChanged` / `.intentRejected` 外,还会收到
+`.navigation(...)` / `.modal(...)`。
 
 ### 背压 (Backpressure)
 

@@ -8,6 +8,20 @@ are bare semver (no leading `v`).
 
 ### Breaking
 
+- Store observation configuration is consolidated into one callback per
+  authority. `NavigationStoreConfiguration` removes `onChange`,
+  `onBatchExecuted`, `onTransactionExecuted`, `onMiddlewareMutation`, and
+  `onPathMismatch`; `ModalStoreConfiguration` removes `onPresented`,
+  `onDismissed`, `onReplaced`, `onQueueChanged`, `onCommandIntercepted`, and
+  `onMiddlewareMutation`; and `FlowStoreConfiguration` removes
+  `onPathChanged` and `onIntentRejected`. Migrate each group to its
+  configuration's `onEvent` callback and switch over `NavigationEvent`,
+  `ModalEvent`, or `FlowEvent`. The existing `events` `AsyncStream` remains
+  the asynchronous observation surface. `FlowStoreConfiguration.onEvent`
+  also receives inner-store activity as `.navigation(...)` and `.modal(...)`,
+  so one callback can observe the complete flow without separately wiring
+  the nested configurations. This is a 5.0 source-breaking change; no
+  compatibility callback shims are provided.
 - `FlowCoordinator` and `FlowCoordinatorView` are now
   `StepCoordinator` and `StepCoordinatorView`, clarifying that this
   helper owns checklist progress rather than navigation/modal state.
@@ -44,12 +58,21 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Reentrant `FlowStore.send(_:)` calls made by nested navigation or modal
+  `onEvent` callbacks and telemetry sinks now wait for the originating
+  inner-store operation and complete Flow mutation to finish. This includes
+  path reconciliation and partial-commit rejection/coalescing, preserving
+  wrapped-event and `pathChanged` ordering without losing the nested intent.
+  Because `FlowStore.apply(_:)` returns its result synchronously, reentrant
+  calls from Flow or inner-store observation callbacks and telemetry sinks are
+  rejected without mutation; use `send(.reset(...))` when the follow-up reset
+  should be queued.
 - Test stores now copy the complete production configuration before
-  composing their observation callbacks. Previously the wrappers reset
+  composing their `onEvent` callbacks. Previously the wrappers reset
   custom telemetry sinks, event buffering, path reconciliation, modal
   queue cancellation, and flow queue coalescing to their defaults.
-  `ModalTestStore` and `FlowTestStore` now also preserve `onReplaced`
-  and enqueue the corresponding `.replaced` event.
+  All three wrappers preserve the user's callback; `ModalTestStore` and
+  `FlowTestStore` also enqueue the corresponding `.replaced` event.
 - OSLog telemetry now treats route, command, middleware debug-name,
   dismissal-reason, full event-summary, and arbitrary runtime error
   payloads as private hash-masked values. Event kinds, counts, policies,

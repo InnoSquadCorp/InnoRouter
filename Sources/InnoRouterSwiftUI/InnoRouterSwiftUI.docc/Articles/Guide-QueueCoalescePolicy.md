@@ -10,7 +10,8 @@ policy with `FlowStoreConfiguration.queueCoalescePolicy`.
 
 The policy only engages when navigation middleware **cancels** a
 flow-level command — i.e. the rejection reason surfaced to
-`onIntentRejected` is `FlowRejectionReason.middlewareRejected`.
+`FlowStoreConfiguration.onEvent` as
+`.intentRejected(_, .middlewareRejected)`.
 Caller-side invariant rejections (`.pushBlockedByModalTail`,
 `.invalidResetPath`) ignore the policy because they signal a
 caller bug, not an entitlement / analytics gate.

@@ -16,6 +16,11 @@ private enum StreamRoute: Route {
 }
 
 @MainActor
+private final class WeakStoreReference<Value: AnyObject> {
+    weak var value: Value?
+}
+
+@MainActor
 private func noopNavMiddleware() -> AnyNavigationMiddleware<StreamRoute> {
     AnyNavigationMiddleware(willExecute: { command, _ in .proceed(command) })
 }
@@ -137,13 +142,14 @@ struct UnifiedTelemetryStreamTests {
         #expect(toB.path == [.home])
     }
 
-    @Test("NavigationStore.events coexists with configuration onChange callback")
+    @Test("NavigationStore.events coexists with configuration onEvent observer")
     @MainActor
     func navigationEventsCoexistsWithCallback() async {
         let captured = Mutex<[RouteStack<StreamRoute>]>([])
         let store = NavigationStore<StreamRoute>(
             configuration: NavigationStoreConfiguration(
-                onChange: { _, new in
+                onEvent: { event in
+                    guard case .changed(_, let new) = event else { return }
                     captured.withLock { $0.append(new) }
                 }
             )
@@ -178,6 +184,95 @@ struct UnifiedTelemetryStreamTests {
         }
         #expect(from.path.isEmpty)
         #expect(to.path == [.home])
+    }
+
+    @Test("NavigationStore onEvent receives every event kind in events stream order")
+    @MainActor
+    func navigationOnEventMatchesStreamForEveryEventKind() async {
+        let observed = Mutex<[NavigationEvent<StreamRoute>]>([])
+        let store = NavigationStore<StreamRoute>(
+            configuration: NavigationStoreConfiguration(
+                onEvent: { event in
+                    observed.withLock { $0.append(event) }
+                }
+            )
+        )
+        var iterator = store.events.makeAsyncIterator()
+
+        _ = store.addMiddleware(noopNavMiddleware(), debugName: "observer-coverage")
+        store.send(.go(.home))
+        _ = store.executeBatch([.push(.detail)])
+        _ = store.executeTransaction([.push(.settings)])
+        store.pathBinding.wrappedValue = [.detail]
+
+        let callbackEvents = observed.withLock { $0 }
+        var streamEvents: [NavigationEvent<StreamRoute>] = []
+        for _ in callbackEvents.indices {
+            guard let event = await iterator.next() else {
+                Issue.record("NavigationStore.events ended before matching onEvent")
+                return
+            }
+            streamEvents.append(event)
+        }
+
+        #expect(callbackEvents == streamEvents)
+        #expect(callbackEvents.contains { if case .changed = $0 { true } else { false } })
+        #expect(callbackEvents.contains { if case .batchExecuted = $0 { true } else { false } })
+        #expect(callbackEvents.contains { if case .transactionExecuted = $0 { true } else { false } })
+        #expect(callbackEvents.contains { if case .middlewareMutation = $0 { true } else { false } })
+        #expect(callbackEvents.contains { if case .pathMismatch = $0 { true } else { false } })
+    }
+
+    @Test("NavigationStore serializes reentrant observation fan-out")
+    @MainActor
+    func navigationObservationFanOutIsReentrantSafe() async {
+        let callbackEvents = Mutex<[NavigationEvent<StreamRoute>]>([])
+        let telemetryEvents = Mutex<[NavigationEvent<StreamRoute>]>([])
+        let hasReentered = Mutex(false)
+        let telemetrySink = AnyNavigationTelemetrySink<StreamRoute> { event in
+            telemetryEvents.withLock { $0.append(event) }
+        }
+        let storeReference = WeakStoreReference<NavigationStore<StreamRoute>>()
+        let store = NavigationStore(
+            configuration: NavigationStoreConfiguration(
+                telemetrySink: telemetrySink,
+                onEvent: { event in
+                    callbackEvents.withLock { $0.append(event) }
+                    guard case .changed(_, let newState) = event,
+                          newState.path == [.home]
+                    else { return }
+
+                    let shouldReenter = hasReentered.withLock { hasReentered in
+                        guard !hasReentered else { return false }
+                        hasReentered = true
+                        return true
+                    }
+                    if shouldReenter {
+                        _ = storeReference.value?.execute(.push(.detail))
+                    }
+                }
+            )
+        )
+        storeReference.value = store
+        var iterator = store.events.makeAsyncIterator()
+
+        _ = store.execute(.push(.home))
+
+        let callbacks = callbackEvents.withLock { $0 }
+        let telemetry = telemetryEvents.withLock { $0 }
+        var streamed: [NavigationEvent<StreamRoute>] = []
+        for _ in callbacks.indices {
+            guard let event = await iterator.next() else {
+                Issue.record("NavigationStore.events ended during reentrant fan-out")
+                return
+            }
+            streamed.append(event)
+        }
+
+        #expect(store.state.path == [.home, .detail])
+        #expect(callbacks.count == 2)
+        #expect(callbacks == telemetry)
+        #expect(callbacks == streamed)
     }
 
     // MARK: - ModalStore
@@ -301,6 +396,114 @@ struct UnifiedTelemetryStreamTests {
         }
         #expect(old.route == .sheet)
         #expect(new.route == .settings)
+    }
+
+    @Test("ModalStore onEvent receives every event kind in events stream order")
+    @MainActor
+    func modalOnEventMatchesStreamForEveryEventKind() async {
+        let observed = Mutex<[ModalEvent<StreamRoute>]>([])
+        let store = ModalStore<StreamRoute>(
+            configuration: ModalStoreConfiguration(
+                onEvent: { event in
+                    observed.withLock { $0.append(event) }
+                }
+            )
+        )
+        var iterator = store.events.makeAsyncIterator()
+
+        _ = store.addMiddleware(
+            AnyModalMiddleware(willExecute: { command, _, _ in .proceed(command) }),
+            debugName: "observer-coverage"
+        )
+        store.present(.sheet, style: .sheet)
+        store.present(.detail, style: .sheet)
+        store.replaceCurrent(.settings, style: .fullScreenCover)
+        store.dismissCurrent()
+
+        let callbackEvents = observed.withLock { $0 }
+        var streamEvents: [ModalEvent<StreamRoute>] = []
+        for _ in callbackEvents.indices {
+            guard let event = await iterator.next() else {
+                Issue.record("ModalStore.events ended before matching onEvent")
+                return
+            }
+            streamEvents.append(event)
+        }
+
+        #expect(callbackEvents == streamEvents)
+        #expect(callbackEvents.contains { if case .presented = $0 { true } else { false } })
+        #expect(callbackEvents.contains { if case .dismissed = $0 { true } else { false } })
+        #expect(callbackEvents.contains { if case .replaced = $0 { true } else { false } })
+        #expect(callbackEvents.contains { if case .queueChanged = $0 { true } else { false } })
+        #expect(callbackEvents.contains { if case .middlewareMutation = $0 { true } else { false } })
+        #expect(callbackEvents.contains { if case .commandIntercepted = $0 { true } else { false } })
+    }
+
+    @Test("ModalStore serializes reentrant observation fan-out")
+    @MainActor
+    func modalObservationFanOutIsReentrantSafe() async {
+        let callbackEvents = Mutex<[ModalEvent<StreamRoute>]>([])
+        let telemetryEvents = Mutex<[ModalEvent<StreamRoute>]>([])
+        let hasReentered = Mutex(false)
+        let telemetrySink = AnyModalTelemetrySink<StreamRoute> { event in
+            telemetryEvents.withLock { $0.append(event) }
+        }
+        let storeReference = WeakStoreReference<ModalStore<StreamRoute>>()
+        let store = ModalStore(
+            configuration: ModalStoreConfiguration(
+                telemetrySink: telemetrySink,
+                onEvent: { event in
+                    callbackEvents.withLock { $0.append(event) }
+                    guard case .dismissed = event else { return }
+
+                    let shouldReenter = hasReentered.withLock { hasReentered in
+                        guard !hasReentered else { return false }
+                        hasReentered = true
+                        return true
+                    }
+                    if shouldReenter {
+                        storeReference.value?.present(.settings, style: .sheet)
+                    }
+                }
+            )
+        )
+        storeReference.value = store
+        store.present(.sheet, style: .sheet)
+        store.present(.detail, style: .sheet)
+        callbackEvents.withLock { $0.removeAll() }
+        telemetryEvents.withLock { $0.removeAll() }
+        var iterator = store.events.makeAsyncIterator()
+
+        store.dismissAll()
+
+        let callbacks = callbackEvents.withLock { $0 }
+        let telemetry = telemetryEvents.withLock { $0 }
+        var streamed: [ModalEvent<StreamRoute>] = []
+        for _ in callbacks.indices {
+            guard let event = await iterator.next() else {
+                Issue.record("ModalStore.events ended during reentrant fan-out")
+                return
+            }
+            streamed.append(event)
+        }
+
+        #expect(store.currentPresentation?.route == .settings)
+        #expect(store.queuedPresentations.isEmpty)
+        #expect(callbacks.count == 5)
+        #expect(callbacks == telemetry)
+        #expect(callbacks == streamed)
+        guard callbacks.count == 5 else { return }
+        #expect({ if case .queueChanged = callbacks[0] { true } else { false } }())
+        #expect({ if case .dismissed = callbacks[1] { true } else { false } }())
+        #expect({ if case .presented = callbacks[2] { true } else { false } }())
+        guard case .commandIntercepted(let presentCommand, _) = callbacks[3],
+              case .commandIntercepted(let dismissCommand, _) = callbacks[4]
+        else {
+            Issue.record("Expected reentrant present and outer dismissAll command events")
+            return
+        }
+        #expect({ if case .present = presentCommand { true } else { false } }())
+        #expect({ if case .dismissAll = dismissCommand { true } else { false } }())
     }
 
     // MARK: - FlowStore
@@ -473,5 +676,60 @@ struct UnifiedTelemetryStreamTests {
         }
         #expect(old.isEmpty)
         #expect(new == [.push(.home)])
+    }
+
+    @Test("FlowStore onEvent receives wrapped inner events before pathChanged in stream order")
+    @MainActor
+    func flowOnEventMatchesWrappedStreamOrder() async {
+        let observed = Mutex<[FlowEvent<StreamRoute>]>([])
+        let store = FlowStore<StreamRoute>(
+            configuration: FlowStoreConfiguration(
+                onEvent: { event in
+                    observed.withLock { $0.append(event) }
+                }
+            )
+        )
+        var iterator = store.events.makeAsyncIterator()
+
+        store.send(.push(.home))
+        store.send(.presentSheet(.sheet))
+        store.send(.push(.detail))
+
+        let callbackEvents = observed.withLock { $0 }
+        var streamEvents: [FlowEvent<StreamRoute>] = []
+        for _ in callbackEvents.indices {
+            guard let event = await iterator.next() else {
+                Issue.record("FlowStore.events ended before matching onEvent")
+                return
+            }
+            streamEvents.append(event)
+        }
+
+        #expect(callbackEvents == streamEvents)
+        #expect(callbackEvents.count == 6)
+        guard case .navigation(.changed) = callbackEvents[0] else {
+            Issue.record("Expected wrapped navigation change first")
+            return
+        }
+        guard case .pathChanged = callbackEvents[1] else {
+            Issue.record("Expected navigation pathChanged second")
+            return
+        }
+        guard case .modal(.presented) = callbackEvents[2] else {
+            Issue.record("Expected wrapped modal presentation third")
+            return
+        }
+        guard case .modal(.commandIntercepted) = callbackEvents[3] else {
+            Issue.record("Expected wrapped modal interception fourth")
+            return
+        }
+        guard case .pathChanged = callbackEvents[4] else {
+            Issue.record("Expected modal pathChanged after wrapped inner events")
+            return
+        }
+        guard case .intentRejected(.push(.detail), .pushBlockedByModalTail) = callbackEvents[5] else {
+            Issue.record("Expected flow rejection last")
+            return
+        }
     }
 }

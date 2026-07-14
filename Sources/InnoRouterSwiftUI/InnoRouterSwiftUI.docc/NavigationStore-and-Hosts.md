@@ -16,9 +16,35 @@
 - transactional execution
 - path reconciliation from `NavigationStack(path:)`
 - middleware registry orchestration
-- telemetry and lifecycle callbacks
+- telemetry and typed observation events
 
 Configuration is centralized in `NavigationStoreConfiguration`.
+Its synchronous observation surface is one `onEvent` callback that
+switches over `NavigationEvent`; `NavigationStore.events` provides the
+same cases as an `AsyncStream`.
+
+```swift skip doc-fragment
+let configuration = NavigationStoreConfiguration<AppRoute>(
+    onEvent: { event in
+        switch event {
+        case .changed(_, let new):
+            analytics.recordPath(new.path)
+        case .batchExecuted(let result):
+            analytics.recordBatch(result)
+        case .transactionExecuted(let result):
+            analytics.recordTransaction(result)
+        case .middlewareMutation(let mutation):
+            diagnostics.record(mutation)
+        case .pathMismatch(let mismatch):
+            diagnostics.record(mismatch)
+        }
+    }
+)
+```
+
+For a 5.0 migration, move the bodies of the former per-event
+configuration closures into these switch cases. No compatibility
+closures remain.
 
 ## Host responsibilities
 

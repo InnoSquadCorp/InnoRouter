@@ -76,7 +76,8 @@ func entitlementGateNavigation(hasPremium: @escaping @MainActor () -> Bool) -> A
 ```
 
 The cancellation surfaces through
-`onCommandIntercepted(.cancelled(...))` on the store and through
+`ModalStoreConfiguration.onEvent` as
+`.commandIntercepted(_, .cancelled(...))` and through
 `FlowRejectionReason.middlewareRejected(debugName: "entitlement-gate")`
 when used from `FlowStore`.
 
@@ -117,9 +118,9 @@ to `[entitlement-gate, logging]` would skip the logger's
 ## Observing a cancellation end-to-end
 
 `ModalStore.events` surfaces `.commandIntercepted(.cancelled(...))`
-and `NavigationStore.events` surfaces the same through
-`.pathMismatch` (if the rewrite triggered a policy) plus the
-direct cancellation. For a `FlowStore` in particular,
+while a direct `NavigationStore.execute(_:)` cancellation is returned
+as `NavigationResult.cancelled`; a path-reconciliation policy may
+separately emit `.pathMismatch`. For a `FlowStore` in particular,
 `FlowStore.events` wraps both in `.navigation(...)` / `.modal(...)`
 cases so one subscriber sees the whole picture.
 

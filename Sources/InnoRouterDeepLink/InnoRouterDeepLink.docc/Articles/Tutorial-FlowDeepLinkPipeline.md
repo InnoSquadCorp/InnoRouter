@@ -238,9 +238,9 @@ All three authorities surface on `FlowStore.events` as one
 `AsyncStream`. A single subscriber sees the batch execution on the
 navigation store, the modal presentation (if any), and the
 settled FlowStore-level event as one chain. `FlowStore` wraps inner
-navigation / modal callbacks synchronously before emitting the
-flow-level event, so one subscriber can assert the same ordering the
-matching configuration callbacks observe.
+navigation / modal events synchronously before emitting the
+flow-level event, so one subscriber can assert the same ordering that
+`FlowStoreConfiguration.onEvent` observes.
 
 ```swift skip doc-fragment
 Task {

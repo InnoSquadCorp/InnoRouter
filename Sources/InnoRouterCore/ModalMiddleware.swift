@@ -4,7 +4,7 @@
 /// `ModalMiddleware` mirrors `NavigationMiddleware`. Unlike navigation, modal
 /// commands do not have a per-command result type; `didExecute` therefore
 /// returns `Void`. Analytics that need a signal should use the telemetry
-/// surface (`onCommandIntercepted`).
+/// surface (`ModalStoreConfiguration.onEvent`).
 @MainActor
 public protocol ModalMiddleware {
     associatedtype RouteType: Route

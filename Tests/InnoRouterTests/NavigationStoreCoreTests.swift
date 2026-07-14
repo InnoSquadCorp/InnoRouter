@@ -16,7 +16,7 @@ import InnoRouterEffects
 
 @Suite("NavigationStore Tests")
 struct NavigationStoreTests {
-    @Test("Configuration init preserves legacy onChange and onBatchExecuted behavior")
+    @Test("Configuration init observes changed and batch events")
     @MainActor
     func testConfigurationInitParity() throws {
         var changeCount = 0
@@ -24,11 +24,15 @@ struct NavigationStoreTests {
         let store = try NavigationStore<TestRoute>(
             initialPath: [.home],
             configuration: NavigationStoreConfiguration(
-                onChange: { _, _ in
-                    changeCount += 1
-                },
-                onBatchExecuted: { _ in
-                    batchCount += 1
+                onEvent: { event in
+                    switch event {
+                    case .changed:
+                        changeCount += 1
+                    case .batchExecuted:
+                        batchCount += 1
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -137,13 +141,14 @@ struct NavigationStoreTests {
         #expect(store.state.path == [.home, .detail(id: "123"), .settings, .detail(id: "123")])
     }
 
-    @Test("onChange callback is called")
+    @Test("onEvent receives changed events")
     @MainActor
-    func testOnChange() {
+    func testChangedEventObservation() {
         var changeCount = 0
         let store = NavigationStore<TestRoute>(
             configuration: NavigationStoreConfiguration(
-                onChange: { _, _ in
+                onEvent: { event in
+                    guard case .changed = event else { return }
                     changeCount += 1
                 }
             )

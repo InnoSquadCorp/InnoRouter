@@ -14,6 +14,8 @@ InnoRouter deliberately surfaces failure modes as typed values rather
 than opaque codes. Each authority owns its own rejection taxonomy, and
 all of them reach consumers through either a `Configuration` callback,
 the unified `events: AsyncStream`, or a store method's return value.
+In 5.0 that synchronous configuration surface is one typed `onEvent`
+callback per store rather than one callback per event case.
 
 The table below groups every rejection type by authority. Follow the
 link under "Symbol" for the full symbol reference with cases and
@@ -66,7 +68,7 @@ Identical shape to `NavigationCancellationReason` but parameterised on
 
 | Source | Symbol | Emits through |
 |---|---|---|
-| `FlowStore.send(_ intent:)` invariant check | `FlowRejectionReason` | `FlowStoreConfiguration.onIntentRejected` + `FlowEvent.intentRejected` |
+| `FlowStore.send(_ intent:)` invariant check | `FlowRejectionReason` | `FlowStoreConfiguration.onEvent` / `FlowStore.events` as `FlowEvent.intentRejected` |
 
 ### `FlowRejectionReason`
 

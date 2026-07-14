@@ -10,10 +10,9 @@ import InnoRouterSwiftUI
 /// `NavigationTestStore` wraps a private `NavigationStore<R>` and mirrors
 /// its public execution surface (`send`, `execute`, `executeBatch`,
 /// `executeTransaction`). Middleware registry APIs remain available through
-/// the wrapped `store` escape hatch. It transparently subscribes to every
-/// public observation callback (`onChange`, `onBatchExecuted`,
-/// `onTransactionExecuted`, `onMiddlewareMutation`, `onPathMismatch`),
-/// buffers the emitted events, and exposes a TCA `TestStore`-style
+/// the wrapped `store` escape hatch. It transparently subscribes to the
+/// unified public `onEvent` callback, buffers the emitted events, and exposes
+/// a TCA `TestStore`-style
 /// `receive(...)` API for consuming them in order.
 ///
 /// ```swift
@@ -409,25 +408,9 @@ public final class NavigationTestStore<R: Route> {
         queue: TestEventQueue<NavigationTestEvent<R>>
     ) -> NavigationStoreConfiguration<R> {
         var wrapped = original
-        wrapped.onChange = { @MainActor [queue] old, new in
-            original.onChange?(old, new)
-            queue.enqueue(.changed(from: old, to: new))
-        }
-        wrapped.onBatchExecuted = { @MainActor [queue] result in
-            original.onBatchExecuted?(result)
-            queue.enqueue(.batchExecuted(result))
-        }
-        wrapped.onTransactionExecuted = { @MainActor [queue] result in
-            original.onTransactionExecuted?(result)
-            queue.enqueue(.transactionExecuted(result))
-        }
-        wrapped.onMiddlewareMutation = { @MainActor [queue] event in
-            original.onMiddlewareMutation?(event)
-            queue.enqueue(.middlewareMutation(event))
-        }
-        wrapped.onPathMismatch = { @MainActor [queue] event in
-            original.onPathMismatch?(event)
-            queue.enqueue(.pathMismatch(event))
+        wrapped.onEvent = { @MainActor [queue] event in
+            original.onEvent?(event)
+            queue.enqueue(event)
         }
         return wrapped
     }

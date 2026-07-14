@@ -70,11 +70,15 @@ struct NavigationPathBindingTests {
         let store = try NavigationStore<TestRoute>(
             initialPath: [.home],
             configuration: NavigationStoreConfiguration(
-                onChange: { _, _ in
-                    changeCount += 1
-                },
-                onBatchExecuted: { batch in
-                    observedBatch = batch
+                onEvent: { event in
+                    switch event {
+                    case .changed:
+                        changeCount += 1
+                    case .batchExecuted(let batch):
+                        observedBatch = batch
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -131,11 +135,15 @@ struct NavigationPathBindingTests {
             initialPath: [.home, .detail(id: "123")],
             configuration: NavigationStoreConfiguration(
                 pathMismatchPolicy: .ignore,
-                onChange: { _, _ in
-                    changeCount += 1
-                },
-                onBatchExecuted: { _ in
-                    batchCount += 1
+                onEvent: { event in
+                    switch event {
+                    case .changed:
+                        changeCount += 1
+                    case .batchExecuted:
+                        batchCount += 1
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -197,11 +205,15 @@ struct NavigationPathBindingTests {
                 pathMismatchPolicy: .custom { _, _ in
                     .batch([.push(.settings), .push(.detail(id: "123"))])
                 },
-                onChange: { _, _ in
-                    changeCount += 1
-                },
-                onBatchExecuted: { batch in
-                    observedBatch = batch
+                onEvent: { event in
+                    switch event {
+                    case .changed:
+                        changeCount += 1
+                    case .batchExecuted(let batch):
+                        observedBatch = batch
+                    default:
+                        break
+                    }
                 }
             )
         )

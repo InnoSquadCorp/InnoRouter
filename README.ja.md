@@ -499,7 +499,7 @@ InnoRouter は目的によってレイヤー化された 4 つのエントリー
 
 | 望むもの | 使用 | 理由 |
 |---|---|---|
-| 多くのコマンドに対する 1 つの観察可能な変更、ベストエフォート | `executeBatch(_:stopOnFailure:)` | 結合された `onChange` / `events`、オプションの fail-fast |
+| 多くのコマンドに対する 1 つの観察可能な変更、ベストエフォート | `executeBatch(_:stopOnFailure:)` | `onEvent` / `events` を通じた集約 `.changed` と `.batchExecuted`、オプションの fail-fast |
 | ロールバックを伴う All-or-nothing の適用 | `executeTransaction(_:)` | シャドウ状態プレビュー、ジャーナルベースの破棄 |
 | エンジンが計画/検証する合成*値* | `NavigationCommand.sequence([...])` | 純粋なコマンド、1 単位として各ミドルウェアを流れる |
 | 静かな期間の後に最新のコマンドのみを発火 | `DebouncingNavigator` | Async ラッピング navigator、`Clock` 注入可能 |
@@ -580,14 +580,15 @@ InnoRouter は意図的に以下を所有**しません**:
 
 ### モーダル可観測性
 
-`ModalStoreConfiguration` は軽量なライフサイクルフックを提供します:
+`ModalStoreConfiguration` は 1 つの型付き監視コールバックと
+非同期ストリームを提供します:
 
 - `logger`
-- `onPresented`
-- `onDismissed`
-- `onQueueChanged`
-- `onMiddlewareMutation`
-- `onCommandIntercepted`
+- `onEvent: (ModalEvent<M>) -> Void`
+- `ModalStore.events: AsyncStream<ModalEvent<M>>`
+
+present、dismiss、replace、queue 変更、command interception、middleware 変更は
+`ModalEvent` を switch して処理します。
 
 `ModalDismissalReason` は以下を区別します:
 
@@ -1024,8 +1025,9 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
   `@EnvironmentFlowIntent(Route.self)` ディスパッチのための環境クロージャを
   注入します。
 - `FlowStoreConfiguration` は `NavigationStoreConfiguration` と
-  `ModalStoreConfiguration` を構成し、`onPathChanged` と `onIntentRejected`
-  を追加します。
+  `ModalStoreConfiguration` を構成し、`FlowEvent` を受け取る 1 つの
+  `onEvent` を追加します。flow-level の path / rejection に加え、
+  `.navigation(...)` / `.modal(...)` でラップされた内部イベントも届きます。
 - `FlowStore(validating:configuration:)` は復元または外部供給された
   `[RouteStep]` 値のための throwing イニシャライザです。互換性のある
   `initial:` イニシャライザは依然として無効な入力を空のパスに強制します。
@@ -1037,7 +1039,7 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 `InnoRouterTesting` は `NavigationStore`、`ModalStore`、`FlowStore` を
 ラップする出荷可能な Swift Testing ネイティブアサーションハーネスです。
 テストは `@testable import InnoRouterSwiftUI` や手作りの `Mutex<[Event]>`
-コレクターをもう必要としません — すべての公開観察コールバックは FIFO
+コレクターをもう必要としません — すべての公開観察イベントは FIFO
 キューにバッファリングされ、テストは TCA スタイルの `receive(...)` 呼び出し
 でそれを排出します。
 
@@ -1079,14 +1081,16 @@ func pushHomeThenDetail() {
 
 ハーネスがカバーする内容:
 
-- **`NavigationTestStore<R>`** — `onChange`、`onBatchExecuted`、
-  `onTransactionExecuted`、`onMiddlewareMutation`、`onPathMismatch`。
+- **`NavigationTestStore<R>`** — `.changed`、`.batchExecuted`、
+  `.transactionExecuted`、`.middlewareMutation`、`.pathMismatch` を含む
+  すべての `NavigationEvent` case。
   `send`、`execute`、`executeBatch`、`executeTransaction` を変更なく
   下層のストアに転送します。
-- **`ModalTestStore<M>`** — `onPresented`、`onDismissed`、`onReplaced`、
-  `onQueueChanged`、`onCommandIntercepted`、`onMiddlewareMutation`。
-- **`FlowTestStore<R>`** — FlowStore レベルの `onPathChanged` +
-  `onIntentRejected`、加えて単一キューでの内部ストアの発行を囲む
+- **`ModalTestStore<M>`** — `.presented`、`.dismissed`、`.replaced`、
+  `.queueChanged`、`.commandIntercepted`、`.middlewareMutation` を含む
+  すべての `ModalEvent` case。
+- **`FlowTestStore<R>`** — FlowStore レベルの `.pathChanged` +
+  `.intentRejected`、加えて単一キューでの内部ストアの発行を囲む
   `.navigation(...)` と `.modal(...)` のラッパー。1 つのテストが、
   ミドルウェアキャンセルパスを含む単一の `FlowIntent` によってトリガーされる
   完全なチェーンをアサートできます。
@@ -1158,9 +1162,11 @@ Task {
 }
 ```
 
-各 `*Configuration` 型の個別の `onChange`、`onPresented`、
-`onCommandIntercepted` などのコールバックはソース互換のままです。`events`
-ストリームは置換ではなく追加チャネルです。
+5.0 では各 `*Configuration` は 1 つの型付き `onEvent` コールバックを持ちます。
+同期配信には `NavigationEvent`、`ModalEvent`、`FlowEvent` を switch し、非同期
+反復には `events` を使用します。以前のイベント別コールバックに互換 shim はありません。
+Flow コールバックには自身の `.pathChanged` / `.intentRejected` に加えて
+`.navigation(...)` / `.modal(...)` も届きます。
 
 ### バックプレッシャー
 

@@ -8,8 +8,8 @@ the call site.
 
 | You want… | Reach for | Why |
 |---|---|---|
-| One observable change for multiple commands, best-effort | `NavigationStore.executeBatch(_:stopOnFailure:)` | Per-step results, exactly one `onChange` / `events` notification, optional fail-fast |
-| All-or-nothing atomic apply with rollback on failure | `NavigationStore.executeTransaction(_:)` | Shadow-state preview, journal-based discard, single `onTransactionExecuted` |
+| One observable change for multiple commands, best-effort | `NavigationStore.executeBatch(_:stopOnFailure:)` | Per-step results, one `.changed` plus one `.batchExecuted` observation, optional fail-fast |
+| All-or-nothing atomic apply with rollback on failure | `NavigationStore.executeTransaction(_:)` | Shadow-state preview, journal-based discard, one `.transactionExecuted` observation |
 | Express the composite as one *command* that the engine can validate, plan, or rebuild | `NavigationCommand.sequence([...])` | Pure value composition; flows through `NavigationEngine` as a single command unit |
 | Schedule a single command after a quiet window | `DebouncingNavigator` | Async wrapping navigator, `Clock`-injectable |
 | Rate-limit per key | `ThrottleNavigationMiddleware` | Synchronous interception, last-accept timestamp |
@@ -25,8 +25,9 @@ component results as `.multiple([...])`.
 `executeBatch` is an **execution mode**. The store iterates the
 commands, accepts partial success unless `stopOnFailure: true`,
 and coalesces observation: the SwiftUI state stays correct after
-each step but only one `onChange` / `events` event surfaces at the
-end. Use it for analytics-clean compound actions ("complete
+each step but only one `.changed` event surfaces at the end, followed
+by `.batchExecuted`, through both `onEvent` and `events`. Use it for
+analytics-clean compound actions ("complete
 checkout: replace stack + dismiss modal").
 
 `executeTransaction` is an **atomicity mode**. The store applies

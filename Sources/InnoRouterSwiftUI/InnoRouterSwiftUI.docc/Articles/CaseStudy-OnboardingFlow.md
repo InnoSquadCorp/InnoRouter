@@ -6,7 +6,7 @@ onboarding sequence with conditional branches, deep-link
 resumption, and entitlement gating.
 
 > This is a synthesized case study against the public InnoRouter
-> surface (v4.0). It does not represent a specific shipped app
+> surface (v5.0). It does not represent a specific shipped app
 > but is structured to match the shape of recurring requests
 > from teams evaluating the framework.
 
@@ -101,8 +101,15 @@ final class OnboardingDriver: ChildCoordinator {
                               debugName: "entitlement"),
                     ]
                 ),
-                onPathChanged: { [analytics] _, new in
-                    analytics.record(.flowPathChanged(new))
+                onEvent: { [analytics] event in
+                    switch event {
+                    case .pathChanged(_, let new):
+                        analytics.record(.flowPathChanged(new))
+                    case .intentRejected(_, let reason):
+                        analytics.record(.flowRejected(reason))
+                    case .navigation, .modal:
+                        break
+                    }
                 },
                 queueCoalescePolicy: .dropQueued
             )
@@ -143,7 +150,8 @@ sheet shell.
 
 `AnalyticsMiddleware` records `.willExecute` and `.didExecute`
 events for every navigation command, deduplicated against the
-`onPathChanged` callback. Because middleware fires **before**
+`.pathChanged` case handled by `FlowStoreConfiguration.onEvent`.
+Because middleware fires **before**
 state mutates, the analytics event always carries the intended
 target route, not the post-cancellation snapshot.
 
@@ -153,7 +161,7 @@ branch, navigation middleware cancels the `.replaceStack` /
 `.reset` command with a typed reason; the flow falls back to
 `.dropQueued` policy, dismissing any speculative modal state
 that was queued behind the rejected navigation rewrite.
-`onIntentRejected` records a structured
+The `.intentRejected` case records a structured
 `.middlewareRejected(debugName: "entitlement")` event so the
 analytics layer can correlate with the same span ID.
 
@@ -218,7 +226,7 @@ func onboardingResumesFromProfile() async throws {
 No SwiftUI host in scope. The exact same store configuration —
 including production analytics middleware — is exercised in
 the test and in production. `FlowTestStore` reuses the
-`FlowStoreConfiguration` callbacks, so the test can also verify
+`FlowStoreConfiguration.onEvent`, so the test can also verify
 that `analytics.record(.flowPathChanged(...))` fired exactly
 once per applied step.
 

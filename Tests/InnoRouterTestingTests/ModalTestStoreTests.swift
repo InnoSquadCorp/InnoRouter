@@ -38,7 +38,7 @@ struct ModalTestStoreTests {
 
         store.present(.onboarding, style: .sheet)
 
-        // ModalStore.applyCommand fires onPresented BEFORE onCommandIntercepted.
+        // ModalStore.applyCommand emits .presented BEFORE .commandIntercepted.
         store.receivePresented(.onboarding)
         store.receiveIntercepted { command, result in
             if case .present = command,
@@ -59,8 +59,8 @@ struct ModalTestStoreTests {
 
         store.dismissCurrent()
 
-        // Emission order: applyDismissCurrent → onDismissed → promoteNextPresentationIfNeeded
-        // (onQueueChanged + onPresented) → finally onCommandIntercepted.
+        // Emission order: applyDismissCurrent → .dismissed → promoteNextPresentationIfNeeded
+        // (.queueChanged + .presented) → finally .commandIntercepted.
         store.receiveDismissed { presentation, reason in
             presentation.route == .onboarding && reason == .dismiss
         }
@@ -86,7 +86,7 @@ struct ModalTestStoreTests {
 
         store.present(.blocked, style: .sheet)
 
-        // Cancelled path never touches applyCommand, so only onCommandIntercepted fires.
+        // Cancelled path never touches applyCommand, so only .commandIntercepted fires.
         store.receiveIntercepted { _, result in
             if case .cancelled = result { return true }
             return false

@@ -25,14 +25,15 @@ private func noopModalMiddleware() -> AnyModalMiddleware<ModalObsRoute> {
 @Suite("ModalStore Middleware Observability Tests")
 struct ModalStoreMiddlewareObservabilityTests {
 
-    @Test("onMiddlewareMutation fires for each successful mutator call")
+    @Test("onEvent emits middlewareMutation for each successful mutator call")
     @MainActor
-    func onMiddlewareMutationFiresForEachMutator() {
+    func middlewareMutationEventFiresForEachMutator() {
         let events = Mutex<[ModalMiddlewareMutationEvent<ModalObsRoute>]>([])
         let store = ModalStore<ModalObsRoute>(
             configuration: ModalStoreConfiguration<ModalObsRoute>(
-                onMiddlewareMutation: { event in
-                    events.withLock { $0.append(event) }
+                onEvent: { event in
+                    guard case .middlewareMutation(let mutation) = event else { return }
+                    events.withLock { $0.append(mutation) }
                 }
             )
         )
@@ -48,14 +49,15 @@ struct ModalStoreMiddlewareObservabilityTests {
         #expect(actions == [.added, .inserted, .replaced, .moved, .removed])
     }
 
-    @Test("onMiddlewareMutation never fires for invalid mutations")
+    @Test("onEvent never emits middlewareMutation for invalid mutations")
     @MainActor
-    func onMiddlewareMutationDoesNotFireForInvalidMutations() {
+    func middlewareMutationEventDoesNotFireForInvalidMutations() {
         let events = Mutex<[ModalMiddlewareMutationEvent<ModalObsRoute>]>([])
         let store = ModalStore<ModalObsRoute>(
             configuration: ModalStoreConfiguration<ModalObsRoute>(
-                onMiddlewareMutation: { event in
-                    events.withLock { $0.append(event) }
+                onEvent: { event in
+                    guard case .middlewareMutation(let mutation) = event else { return }
+                    events.withLock { $0.append(mutation) }
                 }
             )
         )
@@ -75,8 +77,9 @@ struct ModalStoreMiddlewareObservabilityTests {
         let events = Mutex<[ModalMiddlewareMutationEvent<ModalObsRoute>]>([])
         let store = ModalStore<ModalObsRoute>(
             configuration: ModalStoreConfiguration<ModalObsRoute>(
-                onMiddlewareMutation: { event in
-                    events.withLock { $0.append(event) }
+                onEvent: { event in
+                    guard case .middlewareMutation(let mutation) = event else { return }
+                    events.withLock { $0.append(mutation) }
                 }
             )
         )
@@ -98,8 +101,9 @@ struct ModalStoreMiddlewareObservabilityTests {
         let events = Mutex<[ModalMiddlewareMutationEvent<ModalObsRoute>]>([])
         let store = ModalStore<ModalObsRoute>(
             configuration: ModalStoreConfiguration<ModalObsRoute>(
-                onMiddlewareMutation: { event in
-                    events.withLock { $0.append(event) }
+                onEvent: { event in
+                    guard case .middlewareMutation(let mutation) = event else { return }
+                    events.withLock { $0.append(mutation) }
                 }
             )
         )
@@ -121,8 +125,9 @@ struct ModalStoreMiddlewareObservabilityTests {
         let publicEvents = Mutex<[ModalMiddlewareMutationEvent<ModalObsRoute>]>([])
         let store = ModalStore<ModalObsRoute>(
             configuration: ModalStoreConfiguration<ModalObsRoute>(
-                onMiddlewareMutation: { event in
-                    publicEvents.withLock { $0.append(event) }
+                onEvent: { event in
+                    guard case .middlewareMutation(let mutation) = event else { return }
+                    publicEvents.withLock { $0.append(mutation) }
                 }
             ),
             telemetryRecorder: { event in

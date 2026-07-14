@@ -4,6 +4,11 @@ import SwiftUI
 
 import InnoRouterCore
 
+private struct ModalObservationDelivery<M: Route> {
+    let event: ModalEvent<M>?
+    let telemetryEvent: ModalStoreTelemetryEvent<M>
+}
+
 /// View-layer intent dispatched to ``ModalStore/send(_:)``.
 ///
 /// Conformance to `Sendable` is **unconditional** because every ``Route`` is
@@ -21,12 +26,8 @@ public enum ModalIntent<M: Route>: Sendable, Equatable {
 public final class ModalStore<M: Route> {
     public private(set) var currentPresentation: ModalPresentation<M>?
     public private(set) var queuedPresentations: [ModalPresentation<M>] = []
-    private let onPresented: (@MainActor @Sendable (ModalPresentation<M>) -> Void)?
-    private let onDismissed: (@MainActor @Sendable (ModalPresentation<M>, ModalDismissalReason) -> Void)?
-    private let onReplaced: (@MainActor @Sendable (ModalPresentation<M>, ModalPresentation<M>) -> Void)?
-    private let onQueueChanged: (@MainActor @Sendable ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)?
-    private let onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)?
     private let queueCancellationPolicy: ModalQueueCancellationPolicy<M>
+    private let eventDispatcher: SerializedEventDispatcher<ModalObservationDelivery<M>>
     private let telemetrySink: ModalStoreTelemetrySink<M>
     // `middlewareRegistry` is `internal` rather than `private`
     // because middleware management methods live in
@@ -77,9 +78,8 @@ public final class ModalStore<M: Route> {
     /// A multicast `AsyncStream` that emits every observation event the
     /// modal store produces — presentations, replacements, dismissals,
     /// queue changes, command interceptions, and middleware registry mutations — in
-    /// the same order as the matching `onPresented` / `onDismissed` /
-    /// `onReplaced` / `onQueueChanged` / `onCommandIntercepted` /
-    /// `onMiddlewareMutation` callbacks fire.
+    /// the same order as the synchronous
+    /// ``ModalStoreConfiguration/onEvent`` callback.
     ///
     /// Each call to `events` returns a fresh stream with its own
     /// continuation; multiple subscribers see every event
@@ -102,19 +102,23 @@ public final class ModalStore<M: Route> {
             bufferingPolicy: configuration.eventBufferingPolicy
         )
         let observationTelemetrySink = Self.defaultTelemetrySink(for: configuration)
-        let publicRecorder = Self.makePublicTelemetryRecorder(
-            onMiddlewareMutation: configuration.onMiddlewareMutation
-        )
-        let telemetrySinkRecorder = Self.makeTelemetrySinkRecorder(
-            telemetrySink: observationTelemetrySink
-        )
-        let broadcastRecorder = Self.makeBroadcastRecorder(broadcaster: broadcaster)
+        let onEvent = configuration.onEvent
+        let eventDispatcher = SerializedEventDispatcher<ModalObservationDelivery<M>> { delivery in
+            guard let event = delivery.event else { return }
+            onEvent?(event)
+            observationTelemetrySink?.record(event)
+            broadcaster.broadcast(event)
+        }
         let telemetrySink = ModalStoreTelemetrySink<M>(
             logger: nil,
-            recorder: Self.combineRecorders(
-                Self.combineRecorders(publicRecorder, telemetrySinkRecorder),
-                broadcastRecorder
-            )
+            recorder: { telemetryEvent in
+                eventDispatcher.emit(
+                    ModalObservationDelivery(
+                        event: Self.publicEvent(for: telemetryEvent),
+                        telemetryEvent: telemetryEvent
+                    )
+                )
+            }
         )
         let middlewareRegistry = ModalMiddlewareRegistry(
             registrations: configuration.middlewares,
@@ -122,12 +126,8 @@ public final class ModalStore<M: Route> {
         )
         self.currentPresentation = normalizedState.current
         self.queuedPresentations = normalizedState.queue
-        self.onPresented = configuration.onPresented
-        self.onDismissed = configuration.onDismissed
-        self.onReplaced = configuration.onReplaced
-        self.onQueueChanged = configuration.onQueueChanged
-        self.onCommandIntercepted = configuration.onCommandIntercepted
         self.queueCancellationPolicy = configuration.queueCancellationPolicy
+        self.eventDispatcher = eventDispatcher
         self.telemetrySink = telemetrySink
         self.middlewareRegistry = middlewareRegistry
         self.broadcaster = broadcaster
@@ -150,23 +150,27 @@ public final class ModalStore<M: Route> {
             bufferingPolicy: configuration.eventBufferingPolicy
         )
         let observationTelemetrySink = Self.defaultTelemetrySink(for: configuration)
-        let publicRecorder = Self.makePublicTelemetryRecorder(
-            onMiddlewareMutation: configuration.onMiddlewareMutation
-        )
-        let telemetrySinkRecorder = Self.makeTelemetrySinkRecorder(
-            telemetrySink: observationTelemetrySink
-        )
-        let broadcastRecorder = Self.makeBroadcastRecorder(broadcaster: broadcaster)
-        let combinedRecorder = Self.combineRecorders(
-            Self.combineRecorders(
-                Self.combineRecorders(telemetryRecorder, publicRecorder),
-                telemetrySinkRecorder
-            ),
-            broadcastRecorder
-        )
+        let onEvent = configuration.onEvent
+        let eventDispatcher = SerializedEventDispatcher<ModalObservationDelivery<M>> { delivery in
+            if let event = delivery.event {
+                onEvent?(event)
+            }
+            telemetryRecorder?(delivery.telemetryEvent)
+            if let event = delivery.event {
+                observationTelemetrySink?.record(event)
+                broadcaster.broadcast(event)
+            }
+        }
         let telemetrySink = ModalStoreTelemetrySink(
             logger: nil,
-            recorder: combinedRecorder
+            recorder: { telemetryEvent in
+                eventDispatcher.emit(
+                    ModalObservationDelivery(
+                        event: Self.publicEvent(for: telemetryEvent),
+                        telemetryEvent: telemetryEvent
+                    )
+                )
+            }
         )
         let middlewareRegistry = ModalMiddlewareRegistry(
             registrations: configuration.middlewares,
@@ -174,12 +178,8 @@ public final class ModalStore<M: Route> {
         )
         self.currentPresentation = normalizedState.current
         self.queuedPresentations = normalizedState.queue
-        self.onPresented = configuration.onPresented
-        self.onDismissed = configuration.onDismissed
-        self.onReplaced = configuration.onReplaced
-        self.onQueueChanged = configuration.onQueueChanged
-        self.onCommandIntercepted = configuration.onCommandIntercepted
         self.queueCancellationPolicy = configuration.queueCancellationPolicy
+        self.eventDispatcher = eventDispatcher
         self.telemetrySink = telemetrySink
         self.middlewareRegistry = middlewareRegistry
         self.broadcaster = broadcaster
@@ -195,6 +195,12 @@ public final class ModalStore<M: Route> {
     func installTraceRecorder(_ recorder: InternalExecutionTraceRecorder?) {
         self.traceRecorder = recorder
         updateEffectiveTraceRecorder()
+    }
+
+    func performAfterObservationDelivery(
+        _ action: @escaping @MainActor @Sendable () -> Void
+    ) {
+        eventDispatcher.performAfterDelivery(action)
     }
 
     private func updateEffectiveTraceRecorder() {
@@ -267,7 +273,8 @@ public final class ModalStore<M: Route> {
 
     @discardableResult
     public func execute(_ command: ModalCommand<M>) -> ModalExecutionResult<M> {
-        InternalExecutionTrace.withSpan(
+        eventDispatcher.withExecutionBoundary {
+            InternalExecutionTrace.withSpan(
             domain: .modal,
             operation: "execute",
             recorder: effectiveTraceRecorder,
@@ -302,7 +309,6 @@ public final class ModalStore<M: Route> {
                     outcome: .cancelled,
                     cancellationReason: reason
                 )
-                onCommandIntercepted?(outcome.command, result)
                 return result
 
             case .proceed(let effectiveCommand):
@@ -320,11 +326,11 @@ public final class ModalStore<M: Route> {
                     outcome: Self.outcomeKind(for: result),
                     cancellationReason: nil
                 )
-                onCommandIntercepted?(effectiveCommand, result)
                 return result
             }
-        } outcome: { result in
-            String(describing: result)
+            } outcome: { result in
+                String(describing: result)
+            }
         }
     }
 
@@ -436,7 +442,8 @@ public final class ModalStore<M: Route> {
 
     @discardableResult
     func commitFlowPreview(_ preview: ModalExecutionJournal<M>) -> ModalExecutionResult<M> {
-        InternalExecutionTrace.withSpan(
+        eventDispatcher.withExecutionBoundary {
+            InternalExecutionTrace.withSpan(
             domain: .modal,
             operation: "commitFlowPreview",
             recorder: effectiveTraceRecorder,
@@ -468,16 +475,18 @@ public final class ModalStore<M: Route> {
                 )
             }
 
-            onCommandIntercepted?(preview.effectiveCommand, preview.result)
             return preview.result
-        } outcome: { result in
-            String(describing: result)
+            } outcome: { result in
+                String(describing: result)
+            }
         }
     }
 
     func commitFlowPreviews(_ previews: [ModalExecutionJournal<M>]) {
-        for preview in previews {
-            _ = commitFlowPreview(preview)
+        eventDispatcher.withExecutionBoundary {
+            for preview in previews {
+                _ = commitFlowPreview(preview)
+            }
         }
     }
 
@@ -595,14 +604,12 @@ public final class ModalStore<M: Route> {
         if currentPresentation == nil {
             currentPresentation = presentation
             telemetrySink.recordPresented(presentation)
-            onPresented?(presentation)
             return .executed(.present(presentation))
         } else {
             let oldQueue = queuedPresentations
             queuedPresentations.append(presentation)
             telemetrySink.recordQueued(presentation)
             telemetrySink.recordQueueChanged(oldQueue: oldQueue, newQueue: queuedPresentations)
-            onQueueChanged?(oldQueue, queuedPresentations)
             return .queued(presentation)
         }
     }
@@ -618,7 +625,6 @@ public final class ModalStore<M: Route> {
 
         self.currentPresentation = presentation
         telemetrySink.recordReplaced(old: currentPresentation, new: presentation)
-        onReplaced?(currentPresentation, presentation)
         return .executed(.replaceCurrent(presentation))
     }
 
@@ -628,7 +634,6 @@ public final class ModalStore<M: Route> {
         }
         currentPresentation = nil
         telemetrySink.recordDismissed(dismissedPresentation, reason: reason)
-        onDismissed?(dismissedPresentation, reason)
         promoteNextPresentationIfNeeded()
         return .executed(.dismissCurrent(reason: reason))
     }
@@ -643,11 +648,9 @@ public final class ModalStore<M: Route> {
         queuedPresentations.removeAll()
         if oldQueue != queuedPresentations {
             telemetrySink.recordQueueChanged(oldQueue: oldQueue, newQueue: queuedPresentations)
-            onQueueChanged?(oldQueue, queuedPresentations)
         }
         if let dismissedPresentation {
             telemetrySink.recordDismissed(dismissedPresentation, reason: .dismissAll)
-            onDismissed?(dismissedPresentation, .dismissAll)
         }
         return .executed(.dismissAll)
     }
@@ -678,16 +681,14 @@ public final class ModalStore<M: Route> {
         let promotedPresentation = queuedPresentations.removeFirst()
         currentPresentation = promotedPresentation
         telemetrySink.recordQueueChanged(oldQueue: oldQueue, newQueue: queuedPresentations)
-        onQueueChanged?(oldQueue, queuedPresentations)
         telemetrySink.recordPresented(promotedPresentation)
-        onPresented?(promotedPresentation)
     }
 
     /// Applies the configured ``ModalQueueCancellationPolicy`` to
     /// ``queuedPresentations`` after a middleware cancellation. The
     /// active presentation is never touched here — only the queue.
-    /// Emits an `onQueueChanged` event when the queue actually
-    /// shrinks so observers (and `events` subscribers) see the
+    /// Emits a `queueChanged` event when the queue actually shrinks so
+    /// `onEvent` observers (and `events` subscribers) see the
     /// drop without polling state.
     private func applyQueueCancellationPolicy(
         command: ModalCommand<M>,
@@ -709,7 +710,6 @@ public final class ModalStore<M: Route> {
                 oldQueue: oldQueue,
                 newQueue: queuedPresentations
             )
-            onQueueChanged?(oldQueue, queuedPresentations)
         }
     }
 
@@ -717,29 +717,24 @@ public final class ModalStore<M: Route> {
         switch preview.result {
         case .executed(.present(let presentation)):
             telemetrySink.recordPresented(presentation)
-            onPresented?(presentation)
 
         case .executed(.replaceCurrent(let presentation)):
             guard let replacedPresentation = preview.stateBefore.currentPresentation else { return }
             telemetrySink.recordReplaced(old: replacedPresentation, new: presentation)
-            onReplaced?(replacedPresentation, presentation)
 
         case .executed(.dismissCurrent(let reason)):
             guard let dismissedPresentation = preview.stateBefore.currentPresentation else { return }
             telemetrySink.recordDismissed(dismissedPresentation, reason: reason)
-            onDismissed?(dismissedPresentation, reason)
 
             if preview.stateBefore.queuedPresentations != preview.stateAfter.queuedPresentations {
                 telemetrySink.recordQueueChanged(
                     oldQueue: preview.stateBefore.queuedPresentations,
                     newQueue: preview.stateAfter.queuedPresentations
                 )
-                onQueueChanged?(preview.stateBefore.queuedPresentations, preview.stateAfter.queuedPresentations)
             }
 
             if let promotedPresentation = preview.stateAfter.currentPresentation {
                 telemetrySink.recordPresented(promotedPresentation)
-                onPresented?(promotedPresentation)
             }
 
         case .executed(.dismissAll):
@@ -748,12 +743,10 @@ public final class ModalStore<M: Route> {
                     oldQueue: preview.stateBefore.queuedPresentations,
                     newQueue: preview.stateAfter.queuedPresentations
                 )
-                onQueueChanged?(preview.stateBefore.queuedPresentations, preview.stateAfter.queuedPresentations)
             }
 
             if let dismissedPresentation = preview.stateBefore.currentPresentation {
                 telemetrySink.recordDismissed(dismissedPresentation, reason: .dismissAll)
-                onDismissed?(dismissedPresentation, .dismissAll)
             }
 
         case .queued(let presentation):
@@ -762,7 +755,6 @@ public final class ModalStore<M: Route> {
                 oldQueue: preview.stateBefore.queuedPresentations,
                 newQueue: preview.stateAfter.queuedPresentations
             )
-            onQueueChanged?(preview.stateBefore.queuedPresentations, preview.stateAfter.queuedPresentations)
 
         case .cancelled, .noop:
             break

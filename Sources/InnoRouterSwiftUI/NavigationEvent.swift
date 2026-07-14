@@ -6,31 +6,30 @@ import InnoRouterCore
 
 /// A single event produced by a `NavigationStore` observation surface.
 ///
-/// Each case mirrors one of the public `NavigationStoreConfiguration`
-/// observation hooks. `NavigationStore.events` exposes these as a single
-/// `AsyncStream<NavigationEvent<R>>` so analytics, logging, and
-/// debugging pipelines can subscribe once instead of wiring the five
-/// individual `onChange` / `onBatchExecuted` / `onTransactionExecuted`
-/// / `onMiddlewareMutation` / `onPathMismatch` callbacks.
+/// These cases form the complete public `NavigationStore` observation
+/// surface. `NavigationStore.events` exposes them as a single
+/// `AsyncStream<NavigationEvent<R>>` so analytics, logging, and debugging
+/// pipelines can consume the same values delivered synchronously through
+/// `NavigationStoreConfiguration.onEvent`.
 ///
 /// Test harnesses (`InnoRouterTesting`) reuse this type directly — the
 /// legacy `NavigationTestEvent<R>` is preserved as a typealias for
 /// source compatibility.
 public enum NavigationEvent<R: Route>: Sendable, Equatable {
-    /// `NavigationStore` fired `onChange` (single command or external
-    /// path binding update).
+    /// The navigation stack changed through a command or external path
+    /// binding update.
     case changed(from: RouteStack<R>, to: RouteStack<R>)
 
-    /// `NavigationStore` fired `onBatchExecuted`.
+    /// A batch execution completed.
     case batchExecuted(NavigationBatchResult<R>)
 
-    /// `NavigationStore` fired `onTransactionExecuted`.
+    /// A transaction execution committed or rolled back.
     case transactionExecuted(NavigationTransactionResult<R>)
 
-    /// `NavigationStore` fired `onMiddlewareMutation`.
+    /// A middleware registry mutation succeeded.
     case middlewareMutation(MiddlewareMutationEvent<R>)
 
-    /// `NavigationStore` fired `onPathMismatch`.
+    /// The path mismatch policy resolved a reconciliation divergence.
     case pathMismatch(NavigationPathMismatchEvent<R>)
 }
 

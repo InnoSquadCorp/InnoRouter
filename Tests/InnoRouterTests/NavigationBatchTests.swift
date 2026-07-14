@@ -24,11 +24,15 @@ struct NavigationBatchTests {
         let store = try NavigationStore<TestRoute>(
             initialPath: [.home],
             configuration: NavigationStoreConfiguration(
-                onChange: { _, _ in
-                    changeCount += 1
-                },
-                onBatchExecuted: { batch in
-                    observedBatch = batch
+                onEvent: { event in
+                    switch event {
+                    case .changed:
+                        changeCount += 1
+                    case .batchExecuted(let batch):
+                        observedBatch = batch
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -69,7 +73,8 @@ struct NavigationBatchTests {
         var changeCount = 0
         let store = NavigationStore<TestRoute>(
             configuration: NavigationStoreConfiguration(
-                onChange: { _, _ in
+                onEvent: { event in
+                    guard case .changed = event else { return }
                     changeCount += 1
                 }
             )
@@ -174,11 +179,15 @@ struct NavigationBatchTests {
         var sequenceBatchCount = 0
         let sequenceStore = NavigationStore<TestRoute>(
             configuration: NavigationStoreConfiguration(
-                onChange: { _, _ in
-                    sequenceChanges += 1
-                },
-                onBatchExecuted: { _ in
-                    sequenceBatchCount += 1
+                onEvent: { event in
+                    switch event {
+                    case .changed:
+                        sequenceChanges += 1
+                    case .batchExecuted:
+                        sequenceBatchCount += 1
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -189,11 +198,15 @@ struct NavigationBatchTests {
         var batchObserverCount = 0
         let batchStore = NavigationStore<TestRoute>(
             configuration: NavigationStoreConfiguration(
-                onChange: { _, _ in
-                    batchChanges += 1
-                },
-                onBatchExecuted: { _ in
-                    batchObserverCount += 1
+                onEvent: { event in
+                    switch event {
+                    case .changed:
+                        batchChanges += 1
+                    case .batchExecuted:
+                        batchObserverCount += 1
+                    default:
+                        break
+                    }
                 }
             )
         )
