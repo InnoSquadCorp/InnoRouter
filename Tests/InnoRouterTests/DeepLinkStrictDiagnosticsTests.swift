@@ -70,13 +70,15 @@ struct DeepLinkStrictDiagnosticsTests {
     func testStrictThrowsOnInvalidParameterName() {
         do {
             _ = try DeepLinkMatcher<StrictRoute>(strict: ()) {
-                DeepLinkMapping("/detail/:1id") { _ in .detail }
+                DeepLinkMapping("/:1id") { _ in .detail }
+                DeepLinkMapping("/home") { _ in .home }
+                DeepLinkMapping("/:slug") { _ in .detail }
             }
             Issue.record("Expected DeepLinkMatcherStrictError")
         } catch let error as DeepLinkMatcherStrictError {
             #expect(
                 error.diagnostics == [
-                    .invalidParameterName(pattern: "/detail/:1id", index: 1, name: "1id")
+                    .invalidParameterName(pattern: "/:1id", index: 0, name: "1id")
                 ]
             )
         } catch {

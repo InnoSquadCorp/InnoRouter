@@ -422,8 +422,7 @@ struct DeepLinkPattern: Sendable {
     }
 
     private func match(pathParts: [String]) -> MatchResult? {
-        guard nonTerminalWildcardIndex == nil else { return nil }
-        guard invalidParameterNameDiagnostics.isEmpty else { return nil }
+        guard isStructurallyMatchable else { return nil }
 
         let hasWildcard = patternParts.contains { part in
             if case .wildcard = part { return true }
@@ -506,6 +505,10 @@ struct DeepLinkPattern: Sendable {
                 name: name
             )
         }
+    }
+
+    fileprivate var isStructurallyMatchable: Bool {
+        nonTerminalWildcardIndex == nil && invalidParameterNameDiagnostics.isEmpty
     }
 
     private static func isValidParameterName(_ name: String) -> Bool {
@@ -594,12 +597,12 @@ struct DeepLinkPattern: Sendable {
 
         for earlierIndex in patterns.indices {
             let earlier = patterns[earlierIndex]
-            guard earlier.nonTerminalWildcardIndex == nil else {
+            guard earlier.isStructurallyMatchable else {
                 continue
             }
             for laterIndex in patterns.indices where laterIndex > earlierIndex {
                 let later = patterns[laterIndex]
-                guard later.nonTerminalWildcardIndex == nil else {
+                guard later.isStructurallyMatchable else {
                     continue
                 }
 

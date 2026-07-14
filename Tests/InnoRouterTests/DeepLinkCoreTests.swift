@@ -298,6 +298,50 @@ struct DeepLinkTests {
         #expect(matcher.match(URL(string: "myapp://app/detail/456")!) == nil)
     }
 
+    @Test("Invalid parameter patterns do not shadow or duplicate valid mappings")
+    func testInvalidParameterDiagnosticsDoNotCascade() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/:1id") { _ in .detail(id: "invalid") }
+            DeepLinkMapping("/home") { _ in .home }
+            DeepLinkMapping("/:slug") { parameters in
+                parameters.firstValue(forName: "slug").map(TestRoute.detail(id:))
+            }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .invalidParameterName(pattern: "/:1id", index: 0, name: "1id")
+            ]
+        )
+        #expect(matcher.match("myapp://app/home") == .home)
+        #expect(matcher.match("myapp://app/profile") == .detail(id: "profile"))
+    }
+
+    @Test("Invalid patterns are excluded without hiding valid shadow diagnostics")
+    func testInvalidParameterFilteringPreservesValidShadowDiagnostics() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/*") { _ in .home }
+            DeepLinkMapping("/:1id") { _ in .detail(id: "invalid") }
+            DeepLinkMapping("/home") { _ in .settings }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .invalidParameterName(pattern: "/:1id", index: 0, name: "1id"),
+                .wildcardShadowing(
+                    pattern: "/*",
+                    index: 0,
+                    shadowedPattern: "/home",
+                    shadowedIndex: 2
+                ),
+            ]
+        )
+    }
+
     @Test("DeepLinkMatcher input limits reject before matching")
     func testMatcherInputLimitsRejectBeforeMatching() {
         let matcher = DeepLinkMatcher<TestRoute>(

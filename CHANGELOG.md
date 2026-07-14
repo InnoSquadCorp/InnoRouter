@@ -91,6 +91,10 @@ are bare semver (no leading `v`).
   inside one segment instead of matching a two-segment pattern, `%252F`
   resolves to the literal `%2F` instead of being decoded twice, and path
   segment limits use the same boundaries as pattern matching.
+- Deep-link diagnostics no longer report duplicate or shadowing cascades from
+  patterns that cannot match because of an invalid parameter name. Intrinsic
+  invalid-pattern diagnostics remain unchanged, while pairwise diagnostics
+  among valid mappings retain their original declaration indices.
 - Reentrant `FlowStore.send(_:)` calls made by nested navigation or modal
   `onEvent` callbacks and telemetry sinks now wait for the originating
   inner-store operation and complete Flow mutation to finish. This includes
