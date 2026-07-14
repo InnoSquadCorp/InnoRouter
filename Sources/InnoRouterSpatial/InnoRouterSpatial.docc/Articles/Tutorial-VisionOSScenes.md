@@ -33,7 +33,6 @@ that mirrors the `NavigationStore` / `NavigationHost` discipline:
 import SwiftUI
 
 import InnoRouter
-import InnoRouterMacros
 import InnoRouterSpatial
 
 @Routable

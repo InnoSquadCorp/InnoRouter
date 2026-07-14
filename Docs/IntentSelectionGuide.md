@@ -9,8 +9,9 @@ case it was designed for.
 
 | Surface | Type | Use when |
 |---|---|---|
+| Stack view facade (default) | `RouterActions<R>` | A view reads `@EnvironmentRouter` and calls `go`, `back`, or another named action without knowing about the store. |
+| Explicit intent | `NavigationIntent<R>` / `ModalIntent<M>` / `FlowIntent<R>` | A transition needs a lower-level stack intent, modal presentation, or unified push+modal flow semantics. Send advanced stack intents with `router.send(_:)`; use the modal/flow environment wrappers for those surfaces. |
 | Imperative low-level | `NavigationCommand<R>` / `ModalCommand<M>` | You hold a store reference and want explicit control over a single push, pop, present, or replace. Middleware sees this. |
-| SwiftUI view layer | `NavigationIntent<R>` / `ModalIntent<M>` / `FlowIntent<R>` | A view dispatches a high-level intent through `@EnvironmentNavigationIntent` / `@EnvironmentModalIntent` / `@EnvironmentFlowIntent`. The store decomposes the intent into one or more commands and runs the middleware pipeline. |
 | Composite multi-step | `FlowPlan<R>` | A deep link, restoration snapshot, or pre-built scenario commits a whole push prefix + modal tail in one shot. |
 
 ## NavigationCommand vs NavigationIntent
@@ -20,17 +21,22 @@ understands: `.push(R)`, `.pop`, `.popTo(R)`, `.replace([R])`, etc. It
 goes through `NavigationStore.execute(_:)` and `executeBatch(_:)` and
 fires every middleware in the registry.
 
-`NavigationIntent<R>` is the view-layer vocabulary: `.go(R)`,
+`RouterActions<R>` is the default stack-view facade. Read it with
+`@EnvironmentRouter(Route.self)` and call `go`, `back`, `back(to:)`, or
+`backToRoot` for ordinary transitions.
+
+`NavigationIntent<R>` is the complete intent vocabulary: `.go(R)`,
 `.back`, `.backTo(R)`, `.backOrPush(R)`, `.pushUniqueRoot(R)`,
-`.replaceStack([R])`. It is dispatched through the
-SwiftUI environment from a child view that does not hold a store
-reference. The store maps each intent to one or more commands and
-runs them through the same pipeline.
+`.replaceStack([R])`. A child view that needs a case without a named facade
+method sends it with `router.send(_:)`. An application boundary that
+deliberately owns a `NavigationStore` can use `store.send(_:)`. The store maps
+each intent to one or more commands and runs them through the same pipeline.
 
 Use **commands** in app-boundary code (effect handlers, deep-link
 coordinators, test scaffolding) where you want exact control. Use
-**intents** in views and view models so the view layer is decoupled
-from store internals.
+the **router facade** in ordinary stack views, and explicit **intents** only
+when the facade does not express the transition or the modal/flow surface owns
+the semantics.
 
 ## ModalCommand vs ModalIntent
 
@@ -79,11 +85,13 @@ apply.
 ## Quick decision flowchart
 
 ```text
-Are you in a SwiftUI view that doesn't hold the store?
-├── Yes → use intents (NavigationIntent / ModalIntent / FlowIntent)
-└── No  → are you composing a multi-step landing surface?
-         ├── Yes → use FlowPlan
-         └── No  → use commands (NavigationCommand / ModalCommand)
+Are you in an ordinary SwiftUI stack view?
+├── Yes → use @EnvironmentRouter (go / back; send an advanced intent if needed)
+└── No  → does a modal or unified flow own the transition?
+         ├── Yes → use ModalIntent / FlowIntent through its environment wrapper
+         └── No  → are you composing a multi-step landing surface?
+                  ├── Yes → use FlowPlan
+                  └── No  → use commands at the store/effect boundary
 ```
 
 ## Pitfalls

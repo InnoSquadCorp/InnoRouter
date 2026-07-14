@@ -29,6 +29,10 @@ private struct NavigationStackHostContent<R: Route, DestinationView: View, Root:
 
 /// Hosts a stack-based navigation surface backed by a `NavigationStore`.
 ///
+/// This is the externally owned authority tier. For a self-contained route,
+/// declare it with `@Router` and use ``RouterHost`` so callers do not have to
+/// create, retain, or expose the store themselves.
+///
 /// Ownership split:
 ///
 /// - The `NavigationStore` is owned by the caller and outlives this host.

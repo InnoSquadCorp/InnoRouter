@@ -47,27 +47,27 @@ struct MultiPlatformExampleView: View {
 }
 
 struct MultiPlatformSidebar: View {
-    @EnvironmentNavigationIntent(MultiPlatformRoute.self)
-    private var navigationIntent
+    @EnvironmentRouter(MultiPlatformRoute.self)
+    private var router
 
     var body: some View {
         List {
-            Button("Inbox") { navigationIntent(.go(.inbox)) }
-            Button("Preferences") { navigationIntent(.go(.preferences)) }
+            Button("Inbox") { router.go(.inbox) }
+            Button("Preferences") { router.go(.preferences) }
         }
         .navigationTitle("InnoRouter")
     }
 }
 
 struct MultiPlatformInbox: View {
-    @EnvironmentNavigationIntent(MultiPlatformRoute.self)
-    private var navigationIntent
+    @EnvironmentRouter(MultiPlatformRoute.self)
+    private var router
 
     var body: some View {
         List {
-            Button("Message 1") { navigationIntent(.go(.message(id: "1"))) }
-            Button("Message 2") { navigationIntent(.go(.message(id: "2"))) }
-            Button("Preferences") { navigationIntent(.go(.preferences)) }
+            Button("Message 1") { router.go(.message(id: "1")) }
+            Button("Message 2") { router.go(.message(id: "2")) }
+            Button("Preferences") { router.go(.preferences) }
         }
         .navigationTitle("Inbox")
     }

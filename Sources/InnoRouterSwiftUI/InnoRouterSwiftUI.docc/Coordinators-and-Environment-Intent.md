@@ -21,12 +21,39 @@ A coordinator:
 
 ## Environment intent
 
-`EnvironmentNavigationIntent` and `EnvironmentModalIntent` are the primary view-facing APIs.
+`EnvironmentRouter` is the primary stack-navigation API for views. It exposes
+discoverable `RouterActions` methods such as `go`, `back`, and `backToRoot`
+without revealing the store. Advanced `NavigationIntent` values remain
+available through the explicit `send(_:)` escape hatch:
+
+```swift skip doc-fragment
+struct ProductRow: View {
+    @EnvironmentRouter(AppRoute.self) private var router
+
+    let productID: String
+
+    var body: some View {
+        Button("Open") {
+            router.go(.product(id: productID))
+        }
+
+        Button("Replace stack") {
+            router.send(.replaceStack([.catalog, .product(id: productID)]))
+        }
+    }
+}
+```
+
+`EnvironmentNavigationIntent` remains the lower-level stack surface for code
+that needs to construct `NavigationIntent` directly. `EnvironmentModalIntent`
+and `EnvironmentFlowIntent` provide the corresponding modal and unified-flow
+dispatchers.
 
 This keeps view code declarative:
 
 - child views do not need a direct store reference
-- fail-fast behavior catches host wiring mistakes early
+- macro diagnostics catch invalid `@Router` declarations at compile time
+- fail-fast environment behavior catches host wiring mistakes at runtime
 - multi-host trees can keep separate routing authorities in the same hierarchy
 
 ### Sibling hosts and duplicate registration

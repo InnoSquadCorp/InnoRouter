@@ -24,7 +24,7 @@ import Foundation
 ///
 /// ```swift
 /// @Routable
-/// enum AppRoute: Route {
+/// enum AppRoute {
 ///     case detail(id: String)
 /// }
 ///

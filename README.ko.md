@@ -88,6 +88,14 @@ SwiftUI의 네이티브 시각 badge를 생략한다는 뜻입니다. `❌`는 �
 ```swift skip package-manifest-fragment
 dependencies: [
     .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "5.0.0")
+],
+targets: [
+    .target(
+        name: "MyApp",
+        dependencies: [
+            .product(name: "InnoRouter", package: "InnoRouter")
+        ]
+    )
 ]
 ```
 
@@ -99,19 +107,60 @@ InnoRouter는 source-only SwiftPM 패키지로 배포됩니다. 바이너리 아
 않으며, library evolution은 의도적으로 꺼져 있어 Apple 플랫폼 전반에서 source 빌드가
 단순하게 유지됩니다.
 
-문서 게이트는 또한 최소한 하나의 완전한 Swift 스니펫이 패키지에 대해 typecheck되도록
-강제합니다:
+## 30초 Quick Start
+
+InnoRouter import 하나를 추가하고 enum에 `@Router`를 붙인 뒤, `destination`
+프로퍼티에서 화면만 연결하면 됩니다. `Route`와 `DestinationRoute` 준수, SwiftUI에
+필요한 actor와 result builder annotation은 매크로가 생성합니다.
 
 ```swift compile
+import SwiftUI
 import InnoRouter
 
-enum CompileCheckedRoute: Route {
-    case home
+@Router
+enum HomeRoute {
+    case detail(id: String)
+    case settings
+
+    var destination: some View {
+        switch self {
+        case .detail(let id):
+            Text("Detail \(id)")
+        case .settings:
+            Text("Settings")
+        }
+    }
 }
 
-let compileCheckedStack = RouteStack<CompileCheckedRoute>()
-_ = compileCheckedStack.path
+struct AppRoot: View {
+    var body: some View {
+        RouterHost(HomeRoute.self) {
+            HomeView()
+        }
+    }
+}
+
+struct HomeView: View {
+    @EnvironmentRouter(HomeRoute.self) private var router
+
+    var body: some View {
+        List {
+            Button("Detail") {
+                router.go(.detail(id: "123"))
+            }
+            Button("Settings") {
+                router.go(.settings)
+            }
+        }
+        .navigationTitle("Home")
+    }
+}
 ```
+
+`@Router`를 잘못된 선언에 붙이거나 `destination`이 없거나 형태가 잘못된 경우,
+수동 선언이 생성 코드와 충돌하는 경우에는 컴파일 시점 진단이 표시됩니다. host 누락이나
+route 타입 불일치는 SwiftUI 계층이 만들어진 뒤에만 알 수 있으므로 InnoRouter의 설정된
+environment 진단 정책을 따릅니다.
 
 ## OSS 릴리즈 및 SemVer 계약
 
@@ -171,19 +220,21 @@ dispatcher-object API들을 제거하고, `replaceStack`을 단일 풀-스택 �
 ### Imports
 
 umbrella 타깃 `InnoRouter`는 `InnoRouterCore`, `InnoRouterSwiftUI`,
-`InnoRouterDeepLink`를 re-export합니다. 공간 라우팅, app-boundary effects, macros는
-opt-in으로 남겨, 사용하지 않는 파일이 추가 API와 macro plugin 해결 비용을 부담하지
-않게 합니다. `InnoRouter`는 `InnoRouterSpatial`을 re-export하지 않습니다:
+`InnoRouterDeepLink`, 라우터 매크로를 re-export합니다. 5.0의 기본 경험은
+macro-first이며, 앱 타깃에는 product 하나, 소스에는 import 하나만 필요합니다.
+공간 라우팅과 app-boundary effects는 계속 opt-in입니다:
 
 ```swift skip doc-fragment
-import InnoRouter            // stores, stack/modal hosts, intents, deep links
+import InnoRouter            // stores, hosts, deep links, macros
 import InnoRouterSpatial     // visionOS scenes와 ornaments를 사용할 때만
 import InnoRouterEffects     // app-boundary 실행과 pending replay
-import InnoRouterMacros      // @Routable / @CasePathable 사용 파일에서만
 ```
 
-`@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`, 기타 모든 property
-wrapper와 view modifier는 `InnoRouterMacros`가 아닌 `InnoRouter`에서 옵니다.
+`InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`,
+`InnoRouterMacros` 직접 import는 의도적으로 더 작은 surface를 선택하는 고급 escape
+hatch입니다. 특히 macro가 아닌 세부 product를 선택하면 해당 타깃의 빌드 그래프에서
+compiler-plugin target을 제외할 수 있습니다. 다만 SwiftPM은 이 source package가 선언한
+package-level `swift-syntax` dependency 자체는 계속 resolve합니다.
 
 SwiftSyntax 기반 매크로 구현은 이 패키지에 포함되어 있습니다. package-traits 또는
 매크로-패키지 분리는 `swift package show-traits`,
@@ -192,21 +243,21 @@ SwiftSyntax 기반 매크로 구현은 이 패키지에 포함되어 있습니�
 
 | Product | 언제 import할지 |
 |---|---|
-| `InnoRouter` | store, stack/modal host, intent, coordinator, deep link, persistence 헬퍼가 필요한 앱 코드. |
+| `InnoRouter` | 앱 코드의 기본값. `@Router`, store, stack/modal host, intent, coordinator, deep link, persistence 헬퍼. |
 | `InnoRouterSpatial` | visionOS scene, immersive space, ornament 라우팅을 사용하는 앱 타깃. `InnoRouter`와 별도로 product를 추가하고 import합니다. |
-| `InnoRouterMacros` | `@Routable` 또는 `@CasePathable`을 사용하는 파일에서만. |
+| `InnoRouterMacros` | macro와 Core/SwiftUI API는 필요하지만 전체 deep-link umbrella는 필요하지 않은 타깃용 granular product. 앱 타깃은 보통 `InnoRouter`를 사용합니다. |
 | `InnoRouterEffects` | `NavigationCommand` 값을 실행하고 pending 딥링크를 처리하거나 재개하는 앱-경계 코드. |
 | `InnoRouterTesting` | host-less `NavigationTestStore` / `ModalTestStore` / `FlowTestStore`를 원하는 테스트 타깃. |
 
 ## 모듈
 
-- `InnoRouter`: `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`의 umbrella re-export
+- `InnoRouter`: `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`, `InnoRouterMacros`의 macro-first umbrella re-export
 - `InnoRouterCore`: route stack, validator, command, result, batch/transaction executor, middleware
 - `InnoRouterSwiftUI`: store, stack/split/modal host, coordinator, environment intent dispatch
 - `InnoRouterSpatial`: opt-in visionOS scene/immersive-space store, host, anchor, ornament
 - `InnoRouterDeepLink`: 패턴 매칭, 진단, pipeline planning, pending 딥링크
 - `InnoRouterEffects`: 앱 경계용 네비게이션·딥링크 실행 헬퍼
-- `InnoRouterMacros`: `@Routable`과 `@CasePathable`
+- `InnoRouterMacros`: `@Router`, `@Routable`, `@CasePathable`
 
 ## 적합한 surface 고르기
 
@@ -214,7 +265,8 @@ SwiftSyntax 기반 매크로 구현은 이 패키지에 포함되어 있습니�
 
 | 필요 | 사용 |
 |---|---|
-| 한 개의 typed SwiftUI stack | `NavigationStore` + `NavigationHost` |
+| 자체 완결형 typed SwiftUI stack 한 개 | `@Router` + `RouterHost` |
+| 딥링크·복원·middleware·앱 상태가 소유하는 stack | `NavigationStore` + `NavigationHost` |
 | 지원 플랫폼에서 split-view stack | `NavigationStore` + `NavigationSplitHost` |
 | stack reset 없는 sheet / cover 권한 | `ModalStore` + `ModalHost` |
 | push + modal 흐름, 복원, 또는 multi-step 딥링크 | `FlowStore` + `FlowHost` + `FlowPlan` |
@@ -237,14 +289,15 @@ SwiftSyntax 기반 매크로 구현은 이 패키지에 포함되어 있습니�
 ├── 예  → FlowStore + FlowHost (단일 진실, 단일 events 스트림)
 └── 아니오 → modal 권한(sheet / cover)만 갖나요?
          ├── 예  → ModalStore + ModalHost
-         └── 아니오 → NavigationStore + NavigationHost
-                    (split-view 변형: NavigationSplitHost)
+         └── 아니오 → @Router + RouterHost
+                    (외부 authority: NavigationStore + NavigationHost;
+                     split-view: NavigationSplitHost)
 ```
 
-view 코드에서 store 참조 없이 dispatch하려면, [`Docs/IntentSelectionGuide.md`](Docs/IntentSelectionGuide.md)에서
-대응되는 intent 타입을 사용하세요: stack-only store에는 `NavigationIntent`,
-`FlowStore`에는 `FlowIntent`(여섯 개의 겹치는 케이스 + `FlowIntent`만 아는
-modal-aware 변형들).
+view의 일반적인 stack 네비게이션에는 `@EnvironmentRouter`의 `go` / `back`을
+사용하세요. 명시적인 `NavigationIntent`, modal dispatch, 통합 `FlowIntent` 시멘틱이
+필요할 때만 [`Docs/IntentSelectionGuide.md`](Docs/IntentSelectionGuide.md)의
+하위 수준 intent 타입으로 내려갑니다.
 
 ## 문서
 
@@ -310,105 +363,6 @@ flowchart LR
 - Effect 핸들러는 앱 정책이 지금 실행할지 미룰지 결정하는 경계입니다.
 - Pending 딥링크는 앱이 replay 가능한 시점까지 계획된 전이를 보존합니다.
 
-## Quick Start
-
-### 1. Route 정의
-
-매크로 없이:
-
-```swift skip doc-fragment
-import InnoRouter
-
-enum HomeRoute: Route {
-    case list
-    case detail(id: String)
-    case settings
-}
-```
-
-매크로 사용:
-
-```swift skip doc-fragment
-import InnoRouter
-import InnoRouterMacros
-
-@Routable
-enum HomeRoute {
-    case list
-    case detail(id: String)
-    case settings
-}
-```
-
-### 2. `NavigationStore` 생성
-
-```swift skip doc-fragment
-import InnoRouter
-import OSLog
-
-let store = try NavigationStore<HomeRoute>(
-    initialPath: [.list],
-    configuration: NavigationStoreConfiguration(
-        routeStackValidator: .nonEmpty.combined(with: .rooted(at: .list)),
-        logger: Logger(subsystem: "com.example.app", category: "navigation")
-    )
-)
-```
-
-### 3. SwiftUI에서 host
-
-```swift skip doc-fragment
-import SwiftUI
-import InnoRouter
-
-struct AppRoot: View {
-    @State private var store = try! NavigationStore<HomeRoute>(
-        initialPath: [.list]
-    )
-
-    var body: some View {
-        NavigationHost(store: store) { route in
-            switch route {
-            case .list:
-                HomeListView()
-            case .detail(let id):
-                DetailView(id: id)
-            case .settings:
-                SettingsView()
-            }
-        } root: {
-            HomeListView()
-        }
-    }
-}
-```
-
-### 4. child view에서 intent emit
-
-```swift skip doc-fragment
-struct HomeListView: View {
-    @EnvironmentNavigationIntent(HomeRoute.self) private var navigationIntent
-
-    var body: some View {
-        List {
-            Button("Detail") {
-                navigationIntent(.go(.detail(id: "123")))
-            }
-
-            Button("Settings") {
-                navigationIntent(.go(.settings))
-            }
-
-            Button("Back") {
-                navigationIntent(.back)
-            }
-        }
-    }
-}
-```
-
-View는 intent를 emit해야 합니다. router state를 직접 변경하는 권한을 가져서는 안 됩니다.
-
 ## 상태와 실행 모델
 
 InnoRouter는 세 가지 별개의 실행 시멘틱을 노출합니다.
@@ -451,19 +405,22 @@ transaction 실행을 사용하는 경우:
 
 ### `send(_:)` vs `execute(_:)` — 올바른 진입점 고르기
 
-InnoRouter는 목적별로 계층화된 4개의 진입점으로 네비게이션을 노출합니다.
-데이터 모양이 아니라 호출 위치에 맞는 것을 고르세요.
+InnoRouter는 목적에 따라 view action과 store/engine API를 계층화합니다.
+데이터 모양이 아니라 호출 위치에 맞는 진입점을 고르세요.
 
 | 계층 | 진입점 | 사용 시점 |
-| ------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
-| View intent  | `store.send(_:)`                   | SwiftUI view에서 이름 있는 `NavigationIntent`를 dispatch (`go`, `back`, `backToRoot`, …).            |
-| Command      | `store.execute(_:)`                | 단일 `NavigationCommand`를 엔진에 전달하고 typed `NavigationResult`를 검사.                             |
-| Batch        | `store.executeBatch(_:)`           | 여러 command를 하나씩 실행하되 middleware 가시성과 단일 관찰자 이벤트를 유지.                                |
-| Transaction  | `store.executeTransaction(_:)`     | All-or-nothing commit — shadow stack에 미리보고 모든 step이 성공할 때만 commit.                          |
+| --- | --- | --- |
+| View action (기본) | `router.go(_:)`, `router.back()`, … | 일반 SwiftUI view에서 `@EnvironmentRouter`로 라우팅할 때. |
+| View intent (고급) | `router.send(_:)` | 이름 있는 편의 메서드가 없는 `NavigationIntent`를 dispatch할 때. |
+| 외부 store 경계 | `store.send(_:)` | 앱이 `NavigationStore`를 의도적으로 외부 소유하고 주입할 때. |
+| Command | `store.execute(_:)` | 단일 `NavigationCommand`를 엔진에 전달하고 typed `NavigationResult`를 검사할 때. |
+| Batch | `store.executeBatch(_:)` | 여러 command를 하나씩 실행하되 middleware 가시성과 단일 관찰자 이벤트를 유지할 때. |
+| Transaction | `store.executeTransaction(_:)` | All-or-nothing으로 shadow stack에 미리보고 모든 step이 성공할 때만 commit할 때. |
 
 경험칙:
 
-- View는 send. Coordinator와 effect 경계는 execute.
+- 일반 view는 `@EnvironmentRouter`를 사용하고, 명시적인 외부 store 경계에서만
+  `store.send`를 호출합니다. Coordinator와 effect 경계는 execute합니다.
 - `send`는 intent 모양 (반환값 없음); `execute*`는 command 모양 (분기, 텔레메트리, 재시도용 typed 결과 반환).
 - 부분 실패 시 rollback이 필요한 atomic multi-step 흐름은 손수 만든 batch보다
   `executeTransaction`을 선호하세요.
@@ -487,7 +444,7 @@ view에서는 `send(_: ModalIntent)` / `send(_: FlowIntent)`, 엔진 경계에�
 
 ## Stack 라우팅 surface
 
-`NavigationIntent`는 공식 SwiftUI stack-intent surface입니다:
+`NavigationIntent`는 전체 SwiftUI stack-intent surface입니다:
 
 - `.go(Route)`
 - `.goMany([Route])`
@@ -497,7 +454,10 @@ view에서는 `send(_: ModalIntent)` / `send(_: FlowIntent)`, 엔진 경계에�
 - `.backToRoot`
 - `.replaceStack([Route])`
 
-`NavigationStore.send(_:)`는 이 intent들의 SwiftUI 진입점입니다.
+Macro-first view는 보통 store를 알 필요가 없습니다. `@EnvironmentRouter`로 action을 읽고,
+일반 전환은 `router.go(_:)` / `router.back()`을, 고급 intent는 `router.send(_:)`를 사용하세요.
+`NavigationStore.send(_:)`는 앱이 store를 의도적으로 외부 소유하고 주입하는 경계에서만
+호출합니다.
 
 ## Modal 라우팅 surface
 
@@ -669,11 +629,11 @@ final class SignUpCoordinator: ChildCoordinator {
 
 ```swift skip doc-fragment
 struct DetailSheet: View {
-    @Environment(\.navigationStore) private var store: NavigationStore<AppRoute>
+    let store: NavigationStore<AppRoute>
 
     var body: some View {
         SomeDetailView()
-            .sheet(item: store.binding(case: \AppRoute.detail)) { detail in
+            .sheet(item: store.binding(case: AppRoute.Cases.detail)) { detail in
                 DetailView(detail: detail)
             }
     }

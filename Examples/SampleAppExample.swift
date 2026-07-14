@@ -20,7 +20,6 @@ import SwiftUI
 import Synchronization
 
 import InnoRouter
-import InnoRouterDeepLink
 import InnoRouterEffects
 
 // MARK: - Routes

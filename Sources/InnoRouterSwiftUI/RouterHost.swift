@@ -9,6 +9,27 @@ import InnoRouterCore
 /// access to its store. When restoration, deep-link reconciliation, or
 /// middleware mutation requires an external authority, create the store at the
 /// application boundary and use ``NavigationHost`` instead.
+///
+/// ```swift
+/// @Router
+/// enum AppRoute {
+///     case settings
+///
+///     var destination: some View {
+///         switch self {
+///         case .settings: SettingsView()
+///         }
+///     }
+/// }
+///
+/// struct AppRoot: View {
+///     var body: some View {
+///         RouterHost(AppRoute.self) {
+///             HomeView()
+///         }
+///     }
+/// }
+/// ```
 @MainActor
 public struct RouterHost<R: DestinationRoute, Root: View>: View {
     @State private var store: NavigationStore<R>

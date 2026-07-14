@@ -15,11 +15,14 @@ continuation plumbing to surface the sheet result back to the
 parent. `FlowStore` + `ChildCoordinator` collapse this to a single
 store and one `await`.
 
+This flow has crossed the macro-first local-stack boundary: push and modal
+state must share one externally owned, serializable authority. A push-only
+version should stay on `@Router` + `RouterHost` instead.
+
 ## Routes
 
 ```swift skip doc-fragment
 enum AppRoute: Route {
-    case welcome
     case preAuth
     case signup
     case home(UserID)
@@ -34,7 +37,7 @@ exposes both authorities through a single `FlowStore`:
 ```swift skip doc-fragment
 @main
 struct DemoApp: App {
-    @State private var flow = FlowStore<AppRoute>(initial: [.push(.welcome)])
+    @State private var flow = FlowStore<AppRoute>()
 
     var body: some Scene {
         WindowGroup {
@@ -49,8 +52,6 @@ struct DemoApp: App {
     @ViewBuilder
     private func destination(_ route: AppRoute) -> some View {
         switch route {
-        case .welcome:
-            WelcomeRootView()
         case .preAuth:
             PreAuthDetailView()
         case .signup:
@@ -70,15 +71,15 @@ middleware and telemetry observe every step:
 
 ```swift skip doc-fragment
 struct WelcomeRootView: View {
-    @EnvironmentFlowIntent<AppRoute> private var flow
+    @EnvironmentFlowIntent(AppRoute.self) private var flow
 
     var body: some View {
         VStack {
             Button("Continue") {
-                flow.send(.push(.preAuth))
+                flow(.push(.preAuth))
             }
             Button("Create account") {
-                flow.send(.presentSheet(.signup))
+                flow(.presentSheet(.signup))
             }
         }
     }
@@ -139,7 +140,7 @@ in a unit test without mounting any SwiftUI host:
 @Test
 @MainActor
 func signUpCompletesOnboarding() {
-    let store = FlowTestStore<AppRoute>(initial: [.push(.welcome)])
+    let store = FlowTestStore<AppRoute>()
 
     store.send(.presentSheet(.signup))
     store.receiveModal { if case .presented = $0 { return true }; return false }

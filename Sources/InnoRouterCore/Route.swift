@@ -28,16 +28,16 @@
 ///
 /// ```swift
 /// @Routable
-/// enum AppRoute: Route {
+/// enum AppRoute {
 ///     case home
 ///     case detail(id: String)
 ///     case profile(userID: UUID)
 /// }
 /// ```
 ///
-/// The macro emits `Hashable` and `Sendable` synthesis automatically.
-/// Manual conformance also works, as long as every associated value is
-/// itself `Hashable` and `Sendable`:
+/// The macro adds `Route` conformance, allowing Swift to synthesize
+/// `Hashable` and `Sendable` when every associated value supports them.
+/// Manual conformance also works:
 ///
 /// ```swift
 /// enum AppRoute: Route {

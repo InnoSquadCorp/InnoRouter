@@ -13,6 +13,10 @@ an entitlement check. An analytics call must fire after an
 execution attempt finishes — but only for middlewares that actually
 participated in the `willExecute` decision.
 
+This tutorial starts at the externally owned-store tier because middleware is
+installed when the authority is created. A self-contained stack without custom
+policy should use `@Router` + `RouterHost` instead.
+
 ## Modeling routes
 
 ```swift skip doc-fragment

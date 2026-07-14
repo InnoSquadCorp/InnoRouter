@@ -1,12 +1,9 @@
-# `@Routable` / `@CasePathable` access level inference
+# Macro-generated access levels
 
-Starting in 4.0.0 the `@Routable` and `@CasePathable` macros
-infer the access level of every generated member from the
-enclosing enum. The previous behaviour emitted everything as
-`public`, which leaked CasePath surface for `internal` and
-`private` enums that never intended that visibility.
+InnoRouter macros infer generated member visibility from the attached enum.
+They do not widen an internal route into public API.
 
-## What gets generated, and at what level
+## `@Routable` and `@CasePathable`
 
 For every `@Routable` (or `@CasePathable`) enum the macros emit:
 
@@ -14,8 +11,8 @@ For every `@Routable` (or `@CasePathable`) enum the macros emit:
 - `func is(_ casePath:) -> Bool`.
 - `subscript(case:) -> Value?`.
 
-The access keyword applied to all four is inferred from the
-enclosing enum:
+The access keyword applied to `Cases`, every case-path member, `is(_:)`, and
+`subscript(case:)` is inferred from the enclosing enum:
 
 | Enum modifier | Generated members |
 |---|---|
@@ -23,45 +20,66 @@ enclosing enum:
 | `package enum Foo` | `package` |
 | `internal enum Foo` (or no modifier) | `internal` |
 | `fileprivate enum Foo` | `fileprivate` |
-| `private enum Foo` | `fileprivate` (lowest level the macro can emit while still letting same-file `is(_:)` and `subscript(case:)` callers reach the cases) |
+| `private enum Foo` | `fileprivate` (the narrowest level that remains reachable across the macro expansion) |
 
-Each case `static let` also receives any `@available(...)`
-attribute attached to the enum case, so a case gated on an OS
-version no longer produces a CasePath member with a wider
-availability than the underlying case.
+Each case `static let` also receives any `@available(...)` attribute attached
+to the enum case, so a case gated on an OS version does not produce a
+`CasePath` member with wider availability than the underlying case.
+
+## `@Router`
+
+``Router()`` adds `@MainActor` and `@ViewBuilder` to the developer-declared
+instance `destination` property. It does not change that property's declared
+access level.
+
+The generated `static destination(for:)` protocol witness follows the enum's
+effective access level. This means a public router can keep the instance hook
+private while exposing only the witness required by ``DestinationRoute``:
+
+```swift compile
+import SwiftUI
+import InnoRouter
+
+@Router
+public enum PublicRoute {
+    case settings
+
+    private var destination: some View {
+        Text("Settings")
+    }
+}
+```
+
+For a `private` enum, the generated witness uses `fileprivate`, matching the
+case-path macros' same-file fallback. Do not declare `: DestinationRoute`
+yourself; `@Router` supplies the conformance and warns when the direct
+conformance is redundant.
 
 ## Compatibility for pre-OSS snapshots
 
 Before the 4.0.0 OSS release, internal macro snapshots always emitted
-`public`. Teams that tested those snapshots should check three
-patterns:
+case-path members as `public`. Teams that tested those snapshots should check
+three patterns:
 
-1. **Enum and CasePath usage already match.** No action — the
-   generated members tighten to `internal` / `fileprivate` /
-   `fileprivate` matching the enum and the consumer code keeps
-   compiling because it was within the same module already.
-2. **Enum is not `public` but a sibling module reads the
-   generated CasePath members.** Mark the enum `public`. The
-   pre-OSS behaviour was effectively widening the surface for you;
-   4.0.0 makes the boundary explicit.
-3. **Enum cases are gated on `@available(...)`.** The generated
-   CasePath members now carry the same availability. If a
-   downstream call site compiled under a wider availability
-   window before, narrow the enclosing function or branch on
-   `if #available(...)` to match.
+1. **Enum and CasePath usage already match.** No action is needed. Generated
+   members tighten to match the enum, and same-module consumer code keeps
+   compiling.
+2. **A sibling module reads generated members from a non-public enum.** Mark
+   the enum `public`; the old expansion was widening the surface implicitly.
+3. **Enum cases are gated on `@available(...)`.** Generated `CasePath` members
+   now carry the same availability. Narrow the enclosing function or branch on
+   `if #available(...)` at any downstream call site that used a wider window.
 
-## Why `private` enums emit `fileprivate`
+## Why `private` maps to `fileprivate`
 
-Swift does not let an extension method (the macro emits
-`is(_:)` / `subscript(case:)` as members on the enum itself,
-not on a generated extension) reference a `private`
-declaration in its own scope when that declaration came from
-a distinct macro plugin call. Falling back to `fileprivate`
-gives the same effective scope for any caller in the same file
-without breaking the macro expansion.
+Generated declarations can originate from distinct macro expansion roles.
+Using `fileprivate` preserves same-file access between those declarations while
+remaining narrower than module-wide `internal` visibility.
 
-## Opt-out
+## Manual visibility control
 
-The macros do not expose a visibility override. Mark the enclosing
-enum `public` when its generated members must be public; otherwise the
-members follow the declaration's effective access level.
+The macros do not expose a visibility override. Mark the enclosing enum
+`public` when its generated members must be public; otherwise generated members
+follow the declaration's effective access level. If a generated surface is not
+appropriate, remove the macro and write the conformance or case-path members
+explicitly.

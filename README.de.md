@@ -103,6 +103,10 @@ InnoRouter wird als reines Quellcode-SwiftPM-Paket ausgeliefert. Es liefert kein
 Binärartefakte, und die Library Evolution ist absichtlich deaktiviert, damit
 Quellcode-Builds plattformübergreifend einfach bleiben.
 
+Fügen Sie Ihrem App-Target nur das Produkt `InnoRouter` hinzu. Dieses eine
+Produkt stellt sowohl die Laufzeit-API als auch die Macros bereit; im Quellcode
+genügt daher ein einziges `import InnoRouter`.
+
 Fügen Sie für Scene-, Anchor- und Ornament-Routing unter visionOS zusätzlich das
 Opt-in-Produkt `InnoRouterSpatial` zur Produktabhängigkeit Ihres Targets hinzu.
 
@@ -110,14 +114,24 @@ Das Dokumentations-Gate hält außerdem mindestens einen vollständigen Swift-Sn
 gegen das Paket typgeprüft:
 
 ```swift compile
+import SwiftUI
 import InnoRouter
 
-enum CompileCheckedRoute: Route {
-    case home
+@Router
+enum CompileCheckedRoute {
+    case detail
+
+    var destination: some View {
+        Text("Detail")
+    }
 }
 
-let compileCheckedStack = RouteStack<CompileCheckedRoute>()
-_ = compileCheckedStack.path
+@MainActor
+func makeCompileCheckedHost() -> some View {
+    RouterHost(CompileCheckedRoute.self) {
+        Text("Home")
+    }
+}
 ```
 
 ## OSS-Release- und SemVer-Vertrag
@@ -188,21 +202,19 @@ verfügbar; die vollständige 4.x-Historie und die 5.0-Migration stehen in
 ### Imports
 
 Das Umbrella-Target `InnoRouter` re-exportiert `InnoRouterCore`,
-`InnoRouterSwiftUI` und `InnoRouterDeepLink`. Spatial Routing,
-App-Boundary-Effects und Macros bleiben opt-in, damit unbeteiligte Dateien weder
-die zusätzliche API noch die Kosten der Macro-Plugin-Auflösung tragen.
-`InnoRouter` re-exportiert `InnoRouterSpatial` ausdrücklich nicht:
+`InnoRouterSwiftUI`, `InnoRouterDeepLink` und die Macro-Deklarationen. Damit
+stehen `@Router`, `@Routable` und `@CasePathable` nach einem einzigen Import zur
+Verfügung. Spatial Routing und App-Boundary-Effects bleiben eigenständige
+Produkte; `InnoRouter` re-exportiert `InnoRouterSpatial` ausdrücklich nicht:
 
 ```swift skip doc-fragment
 import InnoRouter            // Stores, Stack-/Split-/Modal-Hosts, Intents, Deep Links
 import InnoRouterSpatial     // visionOS-Scenes, Anchors und Ornaments
 import InnoRouterEffects     // App-Boundary-Ausführung und Pending Replay
-import InnoRouterMacros      // nur in Dateien, die @Routable / @CasePathable verwenden
 ```
 
-`@EnvironmentNavigationIntent`, `@EnvironmentModalIntent` und jeder andere
-Property Wrapper oder View-Modifier kommen aus `InnoRouter`, nicht aus
-`InnoRouterMacros`.
+`@Router`, `RouterHost`, `@EnvironmentRouter` und die fortgeschrittenen
+Property Wrapper und View-Modifier kommen alle aus `InnoRouter`.
 
 Die SwiftSyntax-gestützte Macro-Implementation ist in diesem Paket enthalten.
 Eine Aufteilung in Package-Traits oder ein separates Macro-Paket
@@ -212,21 +224,21 @@ gegen die Migrationskosten evaluiert werden.
 
 | Produkt | Wann importieren |
 |---|---|
-| `InnoRouter` | App-Code, der Stack-/Modal-Stores, Hosts, Intents, Coordinators, Deep Links oder Persistenz-Helfer benötigt. |
+| `InnoRouter` | Standardprodukt für App-Code: Macros, Router-Hosts, Stack-/Modal-Stores, Intents, Coordinators, Deep Links und Persistenz-Helfer. |
 | `InnoRouterSpatial` | visionOS-Code, der `SceneStore`, Scene-Host/-Anchor-Modifier oder Ornaments verwendet. Als Produktabhängigkeit und Import explizit hinzufügen. |
-| `InnoRouterMacros` | Nur Dateien, die `@Routable` oder `@CasePathable` verwenden. |
+| `InnoRouterMacros` | Granulares Produkt für Targets, die Macros sowie Core- und SwiftUI-APIs, aber nicht die vollständige Deep-Link-Umbrella benötigen; App-Targets verwenden normalerweise `InnoRouter`. |
 | `InnoRouterEffects` | App-Grenze-Code, der `NavigationCommand`-Werte ausführt und ausstehende Deep Links handhabt oder fortsetzt. |
 | `InnoRouterTesting` | Test-Targets, die host-loses `NavigationTestStore`, `ModalTestStore` oder `FlowTestStore` wollen. |
 
 ## Module
 
-- `InnoRouter`: Umbrella-Re-Export von `InnoRouterCore`, `InnoRouterSwiftUI` und `InnoRouterDeepLink`
+- `InnoRouter`: Umbrella-Re-Export von `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink` und den Macro-Deklarationen
 - `InnoRouterCore`: Route-Stack, Validatoren, Befehle, Ergebnisse, Batch-/Transaction-Executoren, Middleware
 - `InnoRouterSwiftUI`: Stores, Stack-/Split-/Modal-Hosts, Coordinators, Environment-Intent-Dispatch
 - `InnoRouterSpatial`: Opt-in-Routing für visionOS-Scenes, Scene-Host/-Anchor-Modifier und Ornaments; nicht vom Umbrella-Modul re-exportiert
 - `InnoRouterDeepLink`: Pattern-Matching, Diagnostik, Pipeline-Planung, ausstehende Deep Links
 - `InnoRouterEffects`: Navigation- und Deep-Link-Ausführungshelfer für App-Grenzen
-- `InnoRouterMacros`: `@Routable` und `@CasePathable`
+- `InnoRouterMacros`: granulares Macro-Produkt mit `@Router`, `@Routable` und `@CasePathable`
 
 ## Die richtige Oberfläche wählen
 
@@ -234,7 +246,8 @@ Nutzen Sie die kleinste Oberfläche, die die benötigte Übergangsautorität bes
 
 | Bedarf | Verwenden |
 |---|---|
-| Ein typisierter SwiftUI-Stack | `NavigationStore` + `NavigationHost` |
+| Ein eigenständiger typisierter SwiftUI-Stack | `@Router` + `RouterHost` |
+| Stack-Zustand im Besitz von Deep Links, Wiederherstellung, Middleware oder App-State | `NavigationStore` + `NavigationHost` |
 | Split-View-Stack auf unterstützten Plattformen | `NavigationStore` + `NavigationSplitHost` |
 | Sheet- / Cover-Autorität ohne Stack-Resets | `ModalStore` + `ModalHost` |
 | Push-+-Modal-Flows, Wiederherstellung oder Multi-Step-Deep-Links | `FlowStore` + `FlowHost` + `FlowPlan` |
@@ -255,14 +268,15 @@ Kombiniert die Bildschirmoberfläche Push und Modal in einem Flow?
 ├── Ja → FlowStore + FlowHost (eine Wahrheitsquelle, ein Events-Stream)
 └── Nein → besitzt sie nur modale Autorität (Sheet / Cover)?
          ├── Ja → ModalStore + ModalHost
-         └── Nein → NavigationStore + NavigationHost
-                   (Split-View-Variante: NavigationSplitHost)
+         └── Nein → @Router + RouterHost
+                   (externe Autorität: NavigationStore + NavigationHost;
+                    Split-View: NavigationSplitHost)
 ```
 
-Zum Dispatchen aus View-Code (ohne Store-Referenz) verwenden Sie den passenden
-Intent-Typ in [`Docs/IntentSelectionGuide.md`](Docs/IntentSelectionGuide.md):
-`NavigationIntent` für die nur-Stack-Stores, `FlowIntent` für `FlowStore`
-(sechs überlappende Cases plus modal-aware Varianten, die nur `FlowIntent` kennt).
+Für gewöhnliche Stack-Navigation aus einer View verwenden Sie
+`@EnvironmentRouter` mit `go` / `back`. Wechseln Sie nur für explizite
+Navigation-, Modal- oder Flow-Semantik zu den Low-Level-Intents in
+[`Docs/IntentSelectionGuide.md`](Docs/IntentSelectionGuide.md).
 
 ## Dokumentation
 
@@ -331,102 +345,75 @@ flowchart LR
 
 ## Schnellstart
 
-### 1. Eine Route definieren
+Fügen Sie das Produkt `InnoRouter` hinzu und importieren Sie nur
+`InnoRouter`. `@Router` erzeugt die benötigten Route-Conformances und prüft die
+`destination`-Deklaration bereits beim Kompilieren.
 
-Ohne Macros:
-
-```swift skip doc-fragment
-import InnoRouter
-
-enum HomeRoute: Route {
-    case list
-    case detail(id: String)
-    case settings
-}
-```
-
-Mit Macros:
-
-```swift skip doc-fragment
-import InnoRouter
-import InnoRouterMacros
-
-@Routable
-enum HomeRoute {
-    case list
-    case detail(id: String)
-    case settings
-}
-```
-
-### 2. Einen `NavigationStore` erstellen
-
-```swift skip doc-fragment
-import InnoRouter
-import OSLog
-
-let store = try NavigationStore<HomeRoute>(
-    initialPath: [.list],
-    configuration: NavigationStoreConfiguration(
-        routeStackValidator: .nonEmpty.combined(with: .rooted(at: .list)),
-        logger: Logger(subsystem: "com.example.app", category: "navigation")
-    )
-)
-```
-
-### 3. In SwiftUI hosten
+### 1. Router und Ziele definieren
 
 ```swift skip doc-fragment
 import SwiftUI
 import InnoRouter
 
-struct AppRoot: View {
-    @State private var store = try! NavigationStore<HomeRoute>(
-        initialPath: [.list]
-    )
+@Router
+enum HomeRoute {
+    case detail(id: String)
+    case settings
 
+    var destination: some View {
+        switch self {
+        case .detail(let id):
+            Text("Detail \(id)")
+        case .settings:
+            Text("Einstellungen")
+        }
+    }
+}
+```
+
+### 2. Mit `RouterHost` hosten
+
+```swift skip doc-fragment
+struct AppRoot: View {
     var body: some View {
-        NavigationHost(store: store) { route in
-            switch route {
-            case .list:
-                HomeListView()
-            case .detail(let id):
-                DetailView(id: id)
-            case .settings:
-                SettingsView()
-            }
-        } root: {
+        RouterHost(HomeRoute.self) {
             HomeListView()
         }
     }
 }
 ```
 
-### 4. Intent aus einer Child-View emittieren
+`RouterHost` besitzt den lokalen `NavigationStore`; für diesen einfachen Pfad
+müssen Sie keinen Store selbst erstellen.
+
+### 3. Aus einer Child-View navigieren
 
 ```swift skip doc-fragment
 struct HomeListView: View {
-    @EnvironmentNavigationIntent(HomeRoute.self) private var navigationIntent
+    @EnvironmentRouter(HomeRoute.self) private var router
 
     var body: some View {
         List {
             Button("Detail") {
-                navigationIntent(.go(.detail(id: "123")))
+                router.go(.detail(id: "123"))
             }
 
-            Button("Settings") {
-                navigationIntent(.go(.settings))
+            Button("Einstellungen") {
+                router.go(.settings)
             }
 
-            Button("Back") {
-                navigationIntent(.back)
+            Button("Zurück") {
+                router.back()
             }
         }
     }
 }
 ```
 
-Views sollten Intent emittieren. Sie sollten keine direkte Mutationsautorität über den Router-Zustand haben.
+`@EnvironmentRouter` stellt typsichere Aktionen bereit, ohne den Store in der
+View offenzulegen. Für Wiederherstellung, Middleware oder Deep-Link-Abgleich
+können fortgeschrittene Apps weiterhin `NavigationStore` und `NavigationHost`
+direkt verwenden.
 
 ## Zustands- und Ausführungsmodell
 
@@ -470,19 +457,22 @@ Frühere erfolgreiche Schritte bleiben angewendet, auch wenn ein späterer Schri
 
 ### `send(_:)` vs `execute(_:)` — den richtigen Einstiegspunkt wählen
 
-InnoRouter macht Navigation über vier nach Zweck geschichteten Einstiegspunkten verfügbar.
-Wählen Sie denjenigen, der zur Aufrufstelle passt, nicht den, der zur Datenform passt.
+InnoRouter schichtet View-Aktionen und Store-/Engine-APIs nach Zweck.
+Wählen Sie den Einstiegspunkt, der zur Aufrufstelle passt, nicht den, der zur Datenform passt.
 
-| Schicht       | Einstieg                           | Verwenden, wenn                                                                                |
-| ------------- | ---------------------------------- | --------------------------------------------------------------------------------------------- |
-| View-Intent   | `store.send(_:)`                   | Ein benanntes `NavigationIntent` aus einer SwiftUI-View dispatchen (`go`, `back`, `backToRoot`, …). |
-| Befehl        | `store.execute(_:)`                | Einen einzelnen `NavigationCommand` an die Engine weiterleiten und das typisierte `NavigationResult` inspizieren. |
-| Batch         | `store.executeBatch(_:)`           | Mehrere Befehle einer nach dem anderen ausführen, dabei Middleware-Sichtbarkeit und ein einzelnes Beobachter-Ereignis behalten. |
-| Transaction   | `store.executeTransaction(_:)`     | All-or-Nothing committen — gegen einen Schatten-Stack vorzeigen, dann nur committen, wenn jeder Schritt gelingt. |
+| Schicht                 | Einstieg                              | Verwenden, wenn |
+| ----------------------- | ------------------------------------- | --------------- |
+| View-Aktion (Standard)  | `router.go(_:)`, `router.back()`, …   | Aus einer gewöhnlichen SwiftUI-View über `@EnvironmentRouter` routen. |
+| View-Intent (erweitert) | `router.send(_:)`                     | Einen `NavigationIntent` dispatchen, für den es keine benannte Convenience-Methode gibt. |
+| Externe Store-Grenze    | `store.send(_:)`                      | Die App einen `NavigationStore` bewusst extern besitzt und injiziert. |
+| Befehl                  | `store.execute(_:)`                   | Einen einzelnen `NavigationCommand` an die Engine weiterleiten und das typisierte `NavigationResult` inspizieren. |
+| Batch                   | `store.executeBatch(_:)`              | Mehrere Befehle einer nach dem anderen ausführen, dabei Middleware-Sichtbarkeit und ein einzelnes Beobachter-Ereignis behalten. |
+| Transaction             | `store.executeTransaction(_:)`        | All-or-Nothing committen — gegen einen Schatten-Stack vorzeigen, dann nur committen, wenn jeder Schritt gelingt. |
 
 Faustregel:
 
-- Views senden. Coordinators und Effect-Grenzen führen aus.
+- Gewöhnliche Views verwenden `@EnvironmentRouter`; nur eine explizite externe
+  Store-Grenze ruft `store.send` auf. Coordinators und Effect-Grenzen führen aus.
 - `send` ist intent-förmig (kein Rückgabewert zum Inspizieren); `execute*` ist
   befehlsförmig (gibt ein typisiertes Ergebnis für Branching, Telemetrie,
   Retries zurück).
@@ -509,7 +499,7 @@ Antipatterns lebt im DocC-Tutorial
 
 ## Stack-Routing-Oberfläche
 
-`NavigationIntent` ist die offizielle SwiftUI-Stack-Intent-Oberfläche:
+`NavigationIntent` ist die vollständige SwiftUI-Stack-Intent-Oberfläche:
 
 - `.go(Route)`
 - `.goMany([Route])`
@@ -519,7 +509,11 @@ Antipatterns lebt im DocC-Tutorial
 - `.backToRoot`
 - `.replaceStack([Route])`
 
-`NavigationStore.send(_:)` ist der SwiftUI-Einstiegspunkt für diese Intents.
+Macro-first Views müssen den Store normalerweise nicht kennen. Lesen Sie die
+Aktionen mit `@EnvironmentRouter`, verwenden Sie `router.go(_:)` /
+`router.back()` für häufige Übergänge und `router.send(_:)` für erweiterte
+Intents. Rufen Sie `NavigationStore.send(_:)` nur an einer Grenze auf, an der
+die App den Store bewusst extern besitzt und injiziert.
 
 ## Modal-Routing-Oberfläche
 
@@ -693,11 +687,11 @@ die durch den von `@Routable` / `@CasePathable` emittierten `CasePath` indiziert
 
 ```swift skip doc-fragment
 struct DetailSheet: View {
-    @Environment(\.navigationStore) private var store: NavigationStore<AppRoute>
+    let store: NavigationStore<AppRoute>
 
     var body: some View {
         SomeDetailView()
-            .sheet(item: store.binding(case: \AppRoute.detail)) { detail in
+            .sheet(item: store.binding(case: AppRoute.Cases.detail)) { detail in
                 DetailView(detail: detail)
             }
     }

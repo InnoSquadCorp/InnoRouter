@@ -1,62 +1,102 @@
 # InnoRouterMacros
 
-Route and case-path convenience macros for InnoRouter.
+Build a typed SwiftUI router from an enum while keeping a manual runtime path
+available for advanced composition.
 
 ## Overview
 
-`InnoRouterMacros` reduces route boilerplate without changing runtime semantics.
+InnoRouter 5 makes macros part of the canonical `InnoRouter` product. Most
+applications add that one product and use one import:
 
-It currently exposes:
-
-- `@Routable`
-- `@CasePathable`
-
-These macros are optional. Everything in InnoRouter can still be written manually with plain Swift types.
-
-## Imports
-
-InnoRouter intentionally ships the macros as a distinct product from
-the main umbrella so apps can opt into macro expansion per-file.
-That means **different imports pull different surfaces into scope**:
-
-- `import InnoRouterMacros` is required to use `@Routable` or
-  `@CasePathable` on a declaration. The umbrella `InnoRouter` does
-  **not** re-export the macros — this is deliberate so non-macro
-  files don't pay the macro-plugin resolution cost.
-- `import InnoRouter` (or `import InnoRouterSwiftUI` directly) provides
-  the default stack, modal, flow, coordinator, intent, event, and Core
-  runtime surfaces.
-- `import InnoRouterSpatial` is additionally required for `SceneStore`,
-  `innoRouterSceneHost`, `innoRouterSceneAnchor`, and
-  `innoRouterOrnament`. The umbrella intentionally does not re-export
-  this opt-in product.
-
-A file that uses both macros and runtime symbols imports both:
-
-```swift skip doc-fragment
+```swift compile
+import SwiftUI
 import InnoRouter
-import InnoRouterMacros
+```
 
-@Routable
-enum HomeRoute {
-    case list
-    case detail
+The module exposes three macros with separate responsibilities:
+
+- `@Router` is the default macro-first path. It turns route cases and an
+  instance `destination` view into a ``DestinationRoute`` that works with
+  ``RouterHost``.
+- `@Routable` adds ``Route`` conformance plus typed `Cases`, `is(_:)`, and
+  `subscript(case:)` helpers. It does not build destination views.
+- `@CasePathable` adds the same case-path helpers without adding `Route`
+  conformance.
+
+Every generated conformance has a plain Swift equivalent. Applications that
+need externally owned stores, coordinators, restoration, or custom dependency
+construction can continue to use the runtime APIs directly.
+
+## Macro-first quick start
+
+```swift compile
+import SwiftUI
+import InnoRouter
+
+@Router
+enum AppRoute {
+    case detail(id: String)
+    case settings
+
+    var destination: some View {
+        switch self {
+        case .detail(let id):
+            Text("Detail \(id)")
+        case .settings:
+            Text("Settings")
+        }
+    }
 }
 
-struct HomeListView: View {
-    @EnvironmentNavigationIntent(HomeRoute.self) private var navigationIntent
-    // ...
+struct AppRoot: View {
+    var body: some View {
+        RouterHost(AppRoute.self) {
+            HomeView()
+        }
+    }
+}
+
+struct HomeView: View {
+    @EnvironmentRouter(AppRoute.self) private var router
+
+    var body: some View {
+        Button("Open settings") {
+            router.go(.settings)
+        }
+    }
 }
 ```
 
-A file that only consumes the routing runtime (for example a plain
-view that reads `@EnvironmentNavigationIntent` for an already-declared
-route) doesn't need `import InnoRouterMacros` at all.
+`@Router` supplies `Route` through `DestinationRoute`, so do not add either
+conformance to `AppRoute`. The `switch` remains ordinary Swift and receives the
+compiler's exhaustive-case checking.
+
+## Advanced granular imports
+
+`import InnoRouter` is the default application entry point. It re-exports the
+Core, SwiftUI, deep-link, and macro declarations together.
+
+Use granular products only when a target intentionally needs a narrower graph:
+
+| Product and import | Advanced use case |
+|---|---|
+| `InnoRouterCore` | Typed route state and command execution without SwiftUI or a compiler-plugin target in this target's build graph. |
+| `InnoRouterSwiftUI` | Manually conformed routes, externally owned stores, hosts, and coordinators without a compiler-plugin target in this target's build graph. |
+| `InnoRouterDeepLink` | Deep-link matching and planning without the SwiftUI authority layer. |
+| `InnoRouterMacros` | A feature target that wants macros plus Core and SwiftUI, but not the deep-link umbrella surface. |
+| `InnoRouterSpatial` | visionOS windows, volumes, immersive spaces, and ornaments. This remains opt-in. |
+
+Keeping the compiler-plugin target out of a consumer target's build graph
+requires depending on granular runtime products instead of the `InnoRouter`
+umbrella. SwiftPM still resolves this package's package-level `swift-syntax`
+dependency. Merely omitting a macro attribute from a file does not remove the
+umbrella target's macro dependency.
 
 ## Topics
 
 ### Essentials
 
+- <doc:Router-Macro-First>
 - <doc:Routable-and-CasePathable>
 
 ### Guides

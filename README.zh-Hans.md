@@ -90,6 +90,8 @@ dependencies: [
 请在应用目标中添加用于基础路由的 `InnoRouter` 产品。使用 visionOS scene 或 ornament
 的目标还必须显式添加 `InnoRouterSpatial` 产品。`InnoRouter` 伞形目标不会重新导出
 `InnoRouterSpatial`。
+应用目标只需添加 `InnoRouter` 这一个产品。它同时提供运行时 API 和 macros，
+因此源代码中只需一个 `import InnoRouter`。
 
 InnoRouter 作为纯源码 SwiftPM 包发布。它不发布二进制工件,并且 library evolution
 有意关闭,以便在 Apple 平台上保持源码构建的简单性。
@@ -97,14 +99,24 @@ InnoRouter 作为纯源码 SwiftPM 包发布。它不发布二进制工件,并�
 文档门也保持至少一个完整的 Swift 片段对包进行类型检查:
 
 ```swift compile
+import SwiftUI
 import InnoRouter
 
-enum CompileCheckedRoute: Route {
-    case home
+@Router
+enum CompileCheckedRoute {
+    case detail
+
+    var destination: some View {
+        Text("Detail")
+    }
 }
 
-let compileCheckedStack = RouteStack<CompileCheckedRoute>()
-_ = compileCheckedStack.path
+@MainActor
+func makeCompileCheckedHost() -> some View {
+    RouterHost(CompileCheckedRoute.self) {
+        Text("Home")
+    }
+}
 ```
 
 ## OSS 发布与 SemVer 合约
@@ -157,20 +169,19 @@ _ = compileCheckedStack.path
 
 ### Imports
 
-伞形目标 `InnoRouter` 重新导出 `InnoRouterCore`、`InnoRouterSwiftUI` 和
-`InnoRouterDeepLink`。空间路由、app-boundary effects 与 macros 保持 opt-in，使未使用
-它们的文件无需承担额外 API 和 macro 插件解析成本。`InnoRouter` 不会重新导出
-`InnoRouterSpatial`:
+伞形目标 `InnoRouter` 重新导出 `InnoRouterCore`、`InnoRouterSwiftUI`、
+`InnoRouterDeepLink` 和 macro 声明。因此 `@Router`、`@Routable` 和
+`@CasePathable` 都可以通过一个 import 使用。空间路由和 app-boundary effects
+仍是独立产品；`InnoRouter` 不会重新导出 `InnoRouterSpatial`:
 
 ```swift skip doc-fragment
 import InnoRouter            // stores、stack/modal hosts、intents、deep links
 import InnoRouterSpatial     // 仅在使用 visionOS scenes 和 ornaments 时
 import InnoRouterEffects     // app-boundary 执行与 pending replay
-import InnoRouterMacros      // 仅在使用 @Routable / @CasePathable 的文件中
 ```
 
-`@EnvironmentNavigationIntent`、`@EnvironmentModalIntent`,以及其他每个属性包装器
-或视图修饰符都来自 `InnoRouter`,而不是 `InnoRouterMacros`。
+`@Router`、`RouterHost`、`@EnvironmentRouter` 以及高级属性包装器和
+视图修饰符都来自 `InnoRouter`。
 
 SwiftSyntax 支持的 macro 实现包含在此包中。package-traits 或独立 macro 包拆分
 应在测量 `swift package show-traits`、
@@ -179,21 +190,21 @@ SwiftSyntax 支持的 macro 实现包含在此包中。package-traits 或独立 
 
 | 产品 | 何时导入 |
 |---|---|
-| `InnoRouter` | 需要 stores、stack/modal hosts、intents、coordinators、deep links 或持久化助手的应用代码。 |
+| `InnoRouter` | 应用代码的默认产品：macros、router hosts、stack/modal stores、intents、coordinators、deep links 和持久化助手。 |
 | `InnoRouterSpatial` | 使用 visionOS scenes、immersive spaces 或 ornaments 路由的应用目标。请与 `InnoRouter` 分开添加并导入该产品。 |
-| `InnoRouterMacros` | 仅使用 `@Routable` 或 `@CasePathable` 的文件。 |
+| `InnoRouterMacros` | 需要 macros 与 Core/SwiftUI API、但不需要完整 deep-link 伞形表面的目标所用的细分产品；应用目标通常使用 `InnoRouter`。 |
 | `InnoRouterEffects` | 执行 `NavigationCommand` 值并处理或恢复挂起深链接的应用边界代码。 |
 | `InnoRouterTesting` | 想要无 host 的 `NavigationTestStore`、`ModalTestStore` 或 `FlowTestStore` 的测试目标。 |
 
 ## 模块
 
-- `InnoRouter`:`InnoRouterCore`、`InnoRouterSwiftUI` 和 `InnoRouterDeepLink` 的伞形重新导出
+- `InnoRouter`:`InnoRouterCore`、`InnoRouterSwiftUI`、`InnoRouterDeepLink` 和 macro 声明的伞形重新导出
 - `InnoRouterCore`:route stack、validators、commands、results、batch/transaction executors、middleware
 - `InnoRouterSwiftUI`:stores、stack/split/modal hosts、coordinators、environment intent dispatch
 - `InnoRouterSpatial`:opt-in visionOS scene/immersive-space stores、hosts、anchors 和 ornaments
 - `InnoRouterDeepLink`:模式匹配、诊断、pipeline 规划、挂起深链接
 - `InnoRouterEffects`:用于应用边界的导航与深链接执行助手
-- `InnoRouterMacros`:`@Routable` 和 `@CasePathable`
+- `InnoRouterMacros`:提供 `@Router`、`@Routable` 和 `@CasePathable` 的细分 macro 产品
 
 ## 选择正确的表面
 
@@ -201,7 +212,8 @@ SwiftSyntax 支持的 macro 实现包含在此包中。package-traits 或独立 
 
 | 需求 | 使用 |
 |---|---|
-| 一个类型化 SwiftUI 栈 | `NavigationStore` + `NavigationHost` |
+| 一个自包含的类型化 SwiftUI 栈 | `@Router` + `RouterHost` |
+| 由深链接、恢复、middleware 或应用状态拥有的栈 | `NavigationStore` + `NavigationHost` |
 | 在支持的平台上的分屏视图栈 | `NavigationStore` + `NavigationSplitHost` |
 | 不重置栈的 sheet / cover 权限 | `ModalStore` + `ModalHost` |
 | Push + modal 流程、恢复或多步深链接 | `FlowStore` + `FlowHost` + `FlowPlan` |
@@ -223,14 +235,14 @@ SwiftSyntax 支持的 macro 实现包含在此包中。package-traits 或独立 
 ├── 是 → FlowStore + FlowHost (单一真相源、单一事件流)
 └── 否 → 它是否仅拥有模态权限(sheet / cover)?
          ├── 是 → ModalStore + ModalHost
-         └── 否 → NavigationStore + NavigationHost
-                 (分屏视图变体: NavigationSplitHost)
+         └── 否 → @Router + RouterHost
+                 (外部 authority: NavigationStore + NavigationHost;
+                  分屏视图: NavigationSplitHost)
 ```
 
-要从视图代码 dispatch(无 store 引用),请使用
-[`Docs/IntentSelectionGuide.md`](Docs/IntentSelectionGuide.md) 中的对应 intent
-类型:仅栈 store 使用 `NavigationIntent`,`FlowStore` 使用 `FlowIntent`(六个
-重叠的 case 加上仅 `FlowIntent` 知晓的 modal-aware 变体)。
+从视图进行普通 stack 导航时，请使用 `@EnvironmentRouter` 的 `go` / `back`。
+只有在需要显式 navigation、modal 或 flow 语义时，才使用
+[`Docs/IntentSelectionGuide.md`](Docs/IntentSelectionGuide.md) 中的底层 intent。
 
 ## 文档
 
@@ -297,102 +309,72 @@ flowchart LR
 
 ## 快速开始
 
-### 1. 定义路由
+添加 `InnoRouter` 产品并只导入 `InnoRouter`。`@Router` 会生成必要的 route
+conformance，并在编译时验证 `destination` 声明。
 
-不使用 macros:
-
-```swift skip doc-fragment
-import InnoRouter
-
-enum HomeRoute: Route {
-    case list
-    case detail(id: String)
-    case settings
-}
-```
-
-使用 macros:
-
-```swift skip doc-fragment
-import InnoRouter
-import InnoRouterMacros
-
-@Routable
-enum HomeRoute {
-    case list
-    case detail(id: String)
-    case settings
-}
-```
-
-### 2. 创建 `NavigationStore`
-
-```swift skip doc-fragment
-import InnoRouter
-import OSLog
-
-let store = try NavigationStore<HomeRoute>(
-    initialPath: [.list],
-    configuration: NavigationStoreConfiguration(
-        routeStackValidator: .nonEmpty.combined(with: .rooted(at: .list)),
-        logger: Logger(subsystem: "com.example.app", category: "navigation")
-    )
-)
-```
-
-### 3. 在 SwiftUI 中托管
+### 1. 定义 Router 和目的地
 
 ```swift skip doc-fragment
 import SwiftUI
 import InnoRouter
 
-struct AppRoot: View {
-    @State private var store = try! NavigationStore<HomeRoute>(
-        initialPath: [.list]
-    )
+@Router
+enum HomeRoute {
+    case detail(id: String)
+    case settings
 
+    var destination: some View {
+        switch self {
+        case .detail(let id):
+            Text("Detail \(id)")
+        case .settings:
+            Text("Settings")
+        }
+    }
+}
+```
+
+### 2. 使用 `RouterHost` 托管
+
+```swift skip doc-fragment
+struct AppRoot: View {
     var body: some View {
-        NavigationHost(store: store) { route in
-            switch route {
-            case .list:
-                HomeListView()
-            case .detail(let id):
-                DetailView(id: id)
-            case .settings:
-                SettingsView()
-            }
-        } root: {
+        RouterHost(HomeRoute.self) {
             HomeListView()
         }
     }
 }
 ```
 
-### 4. 从子视图发出 intent
+`RouterHost` 会拥有本地 `NavigationStore`；在这条简单路径中，无需手动创建 store。
+
+### 3. 从子视图导航
 
 ```swift skip doc-fragment
 struct HomeListView: View {
-    @EnvironmentNavigationIntent(HomeRoute.self) private var navigationIntent
+    @EnvironmentRouter(HomeRoute.self) private var router
 
     var body: some View {
         List {
             Button("Detail") {
-                navigationIntent(.go(.detail(id: "123")))
+                router.go(.detail(id: "123"))
             }
 
             Button("Settings") {
-                navigationIntent(.go(.settings))
+                router.go(.settings)
             }
 
             Button("Back") {
-                navigationIntent(.back)
+                router.back()
             }
         }
     }
 }
 ```
 
-视图应该发出 intent。它们不应该拥有对 router 状态的直接变更权限。
+`@EnvironmentRouter` 会提供类型安全的操作，而不向视图暴露 store。需要状态恢复、
+middleware 或 deep-link 协调的高级应用仍可直接使用 `NavigationStore` 和
+`NavigationHost`。
 
 ## 状态和执行模型
 
@@ -436,19 +418,22 @@ InnoRouter 暴露三种不同的执行语义。
 
 ### `send(_:)` vs `execute(_:)` — 选择正确的入口点
 
-InnoRouter 通过按目的分层的四个入口点暴露导航。
-选择匹配调用点的那个,而不是匹配数据形状的那个。
+InnoRouter 按目的对视图操作和 store/engine API 进行分层。
+请选择匹配调用点的入口,而不是匹配数据形状的入口。
 
 | 层 | 入口 | 何时使用 |
-| ------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
-| View intent  | `store.send(_:)`                   | 从 SwiftUI 视图 dispatch 命名的 `NavigationIntent` (`go`、`back`、`backToRoot`、…)。            |
-| Command      | `store.execute(_:)`                | 将单个 `NavigationCommand` 转发到 engine 并检查类型化 `NavigationResult`。                        |
-| Batch        | `store.executeBatch(_:)`           | 一个接一个运行多个命令,同时保持 middleware 可见性和单个观察者事件。                                |
-| Transaction  | `store.executeTransaction(_:)`     | 全有或全无地提交 — 对照影子栈预览,然后仅当每一步都成功时才提交。                                  |
+| --- | --- | --- |
+| 视图操作(默认) | `router.go(_:)`、`router.back()`、… | 从普通 SwiftUI 视图通过 `@EnvironmentRouter` 路由。 |
+| 视图 intent(高级) | `router.send(_:)` | dispatch 没有命名便捷方法的 `NavigationIntent`。 |
+| 外部 store 边界 | `store.send(_:)` | 应用有意在外部持有并注入 `NavigationStore`。 |
+| Command | `store.execute(_:)` | 将单个 `NavigationCommand` 转发到 engine 并检查类型化 `NavigationResult`。 |
+| Batch | `store.executeBatch(_:)` | 一个接一个运行多个命令,同时保持 middleware 可见性和单个观察者事件。 |
+| Transaction | `store.executeTransaction(_:)` | 全有或全无地提交 — 对照影子栈预览,然后仅当每一步都成功时才提交。 |
 
 经验法则:
 
-- 视图 send。Coordinators 和 effect 边界 execute。
+- 普通视图使用 `@EnvironmentRouter`;只有明确的外部 store 边界才调用
+  `store.send`。Coordinators 和 effect 边界执行命令。
 - `send` 是 intent 形态(无返回值可检查);`execute*` 是命令形态(返回类型化结果用于分支、遥测、重试)。
 - 对于必须在部分失败时回滚的原子多步流程,优先使用 `executeTransaction` 而不是手工 batch。
 
@@ -471,7 +456,7 @@ InnoRouter 通过按目的分层的四个入口点暴露导航。
 
 ## 栈路由表面
 
-`NavigationIntent` 是官方 SwiftUI 栈 intent 表面:
+`NavigationIntent` 是完整的 SwiftUI 栈 intent 表面:
 
 - `.go(Route)`
 - `.goMany([Route])`
@@ -481,7 +466,10 @@ InnoRouter 通过按目的分层的四个入口点暴露导航。
 - `.backToRoot`
 - `.replaceStack([Route])`
 
-`NavigationStore.send(_:)` 是这些 intent 的 SwiftUI 入口点。
+Macro-first 视图通常无需了解 store。通过 `@EnvironmentRouter` 获取操作,
+常见转换使用 `router.go(_:)` / `router.back()`,高级 intent 使用
+`router.send(_:)`。仅在应用有意从外部持有并注入 store 的边界调用
+`NavigationStore.send(_:)`。
 
 ## 模态路由表面
 
@@ -652,11 +640,11 @@ final class SignUpCoordinator: ChildCoordinator {
 
 ```swift skip doc-fragment
 struct DetailSheet: View {
-    @Environment(\.navigationStore) private var store: NavigationStore<AppRoute>
+    let store: NavigationStore<AppRoute>
 
     var body: some View {
         SomeDetailView()
-            .sheet(item: store.binding(case: \AppRoute.detail)) { detail in
+            .sheet(item: store.binding(case: AppRoute.Cases.detail)) { detail in
                 DetailView(detail: detail)
             }
     }

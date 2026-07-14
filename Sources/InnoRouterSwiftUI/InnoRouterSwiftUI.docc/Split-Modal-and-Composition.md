@@ -85,7 +85,8 @@ The recommended composition order is:
 
 1. shell state such as tabs or app mode
 2. `ModalHost` if modal routing should be shared
-3. `NavigationHost` or `CoordinatorHost` for stack routing
+3. `RouterHost` for a local stack, or `NavigationHost` /
+   `CoordinatorHost` when the application owns the routing authority
 4. feature-local flow state inside a destination
 
 This keeps each authority narrow and avoids one giant store owning every kind of navigation.

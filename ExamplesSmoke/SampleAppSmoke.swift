@@ -2,13 +2,10 @@ import Foundation
 import Synchronization
 
 import InnoRouter
-import InnoRouterDeepLink
 import InnoRouterEffects
 
 // Compiler-stable smoke fixture for SampleAppExample.swift.
-// The human-facing example uses `@Routable` (which lives in the
-// macros target). The smoke target avoids the macro plugin so it
-// compiles uniformly across every platform CI leg.
+// The dedicated MacrosSmoke target covers downstream macro expansion.
 
 private enum SampleSmokeRoute: Route {
     case home

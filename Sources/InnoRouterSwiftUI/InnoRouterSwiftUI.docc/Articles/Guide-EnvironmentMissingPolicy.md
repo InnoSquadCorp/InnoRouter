@@ -1,11 +1,12 @@
 # Choosing an `EnvironmentMissingPolicy`
 
-InnoRouter property wrappers
-(`@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`,
-`@EnvironmentFlowIntent`) resolve their dispatcher through the
-SwiftUI environment. When the matching host is missing, the
-`EnvironmentMissingPolicy` decides whether to crash, log, or
-both.
+InnoRouter property wrappers (`@EnvironmentRouter`,
+`@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`, and
+`@EnvironmentFlowIntent`) resolve their dispatcher through the SwiftUI
+environment. `@EnvironmentRouter` is the macro-first stack API; the intent
+wrappers remain available for lower-level modal, flow, and custom-intent code.
+When the matching host is missing, `EnvironmentMissingPolicy` decides whether
+to crash, log, or both.
 
 ## The three policies
 
@@ -60,9 +61,9 @@ struct AppEntry: App {
 ```
 
 The setting flows through the environment, so a single modifier
-covers every nested `@EnvironmentNavigationIntent`,
-`@EnvironmentModalIntent`, and `@EnvironmentFlowIntent` it
-contains.
+covers every nested `@EnvironmentRouter`,
+`@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`, and
+`@EnvironmentFlowIntent` it contains.
 
 ## Why `.assertAndLog` is not the new default
 

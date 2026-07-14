@@ -12,6 +12,12 @@ are bare semver (no leading `v`).
   (`swift-tools-version: 6.3`), aligned with `swift-syntax` 603.x and the
   Xcode 26.6 / Swift 6.3 release gates. Consumers building with Swift 6.2 must
   upgrade their toolchain before adopting InnoRouter 5.0.
+- The default `InnoRouter` umbrella now includes and re-exports
+  `InnoRouterMacros`. A standard app target therefore resolves the compiler
+  plugin and uses `import InnoRouter` for both runtime APIs and macros. Targets
+  that deliberately need a macro-free dependency surface should depend on a
+  granular product such as `InnoRouterCore`, `InnoRouterSwiftUI`, or
+  `InnoRouterDeepLink` instead.
 - visionOS scene routing and ornaments now ship in the opt-in
   `InnoRouterSpatial` product. Add that product dependency and
   `import InnoRouterSpatial` at spatial call sites. `ScenePresentation`,
@@ -196,6 +202,20 @@ are bare semver (no leading `v`).
   after completion even when exhaustivity is `.off`. Migrate end-of-test
   calls to `finish()`; use `assertNoPendingEvents()` only for checkpoints
   between test phases.
+
+### Added
+
+- `@Router` is the macro-first SwiftUI entry point. Developers declare an enum
+  and one `var destination: some View` switch; the macro supplies `Route` and
+  `DestinationRoute` conformance, `@MainActor`, `@ViewBuilder`, and the host
+  witness. Invalid attachment, missing or malformed destinations, conflicting
+  manual witnesses, empty routers, and redundant conformance now produce
+  stable compiler errors or warnings at the declaration site.
+- `RouterHost` owns the `NavigationStore` for a simple stack, while
+  `@EnvironmentRouter` exposes short typed actions such as `go`, `back`, and
+  `backToRoot` to descendants. Applications that need external store access,
+  restoration, middleware mutation, or deep-link orchestration can continue
+  with `NavigationHost(store:)` without changing their route type.
 
 ### Changed
 

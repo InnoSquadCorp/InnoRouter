@@ -41,13 +41,13 @@ struct SplitCoordinatorExampleView: View {
 }
 
 struct SplitSidebarView: View {
-    @EnvironmentNavigationIntent(SplitRoute.self) private var navigationIntent
+    @EnvironmentRouter(SplitRoute.self) private var router
 
     var body: some View {
         List {
-            Button("Dashboard") { navigationIntent(.go(.dashboard)) }
-            Button("Reports") { navigationIntent(.go(.reports)) }
-            Button("Settings") { navigationIntent(.go(.settings)) }
+            Button("Dashboard") { router.go(.dashboard) }
+            Button("Reports") { router.go(.reports) }
+            Button("Settings") { router.go(.settings) }
         }
         .navigationTitle("Sidebar")
     }

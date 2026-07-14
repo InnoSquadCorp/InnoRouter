@@ -9,7 +9,7 @@ import SwiftDiagnostics
 
 // MARK: - CasePathable Macro
 
-/// `@CasePathable` synthesises a KeyPath-like accessor for each case of
+/// `@CasePathable` synthesises a typed `CasePath` accessor for each case of
 /// the attached enum. It is the `Route`-protocol-free counterpart of
 /// `@Routable` — use it whenever an enum's cases need typed access but
 /// the type itself is not a router-owned route.
@@ -24,8 +24,8 @@ import SwiftDiagnostics
 /// }
 ///
 /// let dest: Destination = .profile(userId: "123")
-/// dest[case: \.profile]  // Optional("123")
-/// dest.is(\.home)        // false
+/// dest[case: Destination.Cases.profile]  // Optional("123")
+/// dest.is(Destination.Cases.home)        // false
 /// ```
 public struct CasePathableMacro: MemberMacro {
 

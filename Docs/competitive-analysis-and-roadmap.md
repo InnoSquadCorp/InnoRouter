@@ -38,7 +38,7 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 | Batch + Transaction split | ✅ two models | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Validator / Mismatch policy | ✅ `RouteStackValidator`, `NavigationPathMismatchPolicy` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Host-less testing | ✅ `InnoRouterTesting` (Navigation / Modal / Flow) | ✅ **`TestStore`** | ✅ assert on model | ✅ value-typed arrays | ✅ | ❌ | ⚠ | ⚠ |
-| Macros | ✅ `@Routable`, `@CasePathable` | ✅ `@Reducer`, `@Presents`, `@CasePathable` | ✅ `@CasePathable` | ❌ | (TCA) | ❌ | ❌ | ❌ |
+| Macros | ✅ `@Router`, `@Routable`, `@CasePathable` | ✅ `@Reducer`, `@Presents`, `@CasePathable` | ✅ `@CasePathable` | ❌ | (TCA) | ❌ | ❌ | ❌ |
 | Swift 6 strict concurrency | ✅ **enforced per module** | ✅ | ✅ | ⚠ in progress | ⚠ | ❌ | ✅ | ✅ |
 | iOS floor | **18+** | 13+ / 17+ for Observation | 13+ | 16+ | 13+ | 14+ | 17+ | 16+ |
 | Cross-surface (UIKit / AppKit) | ❌ SwiftUI only (by choice) | ⚠ | ✅ **4 products** | ❌ | ⚠ | ⚠ | ❌ | ❌ |

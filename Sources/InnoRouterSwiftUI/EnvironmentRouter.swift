@@ -3,6 +3,16 @@ import SwiftUI
 import InnoRouterCore
 
 /// Type-safe navigation actions exposed by ``EnvironmentRouter``.
+///
+/// Use the named methods for common transitions. Send a
+/// ``NavigationIntent`` directly when an advanced transition has no
+/// convenience method:
+///
+/// ```swift
+/// router.go(.detail(id: "42"))
+/// router.back()
+/// router.send(.replaceStack([.home, .settings]))
+/// ```
 public struct RouterActions<R: Route>: Sendable {
     private let dispatch: @MainActor @Sendable (NavigationIntent<R>) -> Void
 
@@ -47,13 +57,26 @@ public struct RouterActions<R: Route>: Sendable {
     public func backToRoot() {
         dispatch(.backToRoot)
     }
-
 }
 
 /// Reads navigation actions for a route type from the nearest InnoRouter host.
 ///
 /// A missing or mismatched host is handled by the same
 /// ``EnvironmentMissingPolicy`` used by ``EnvironmentNavigationIntent``.
+/// The default `.crash` policy makes incorrect host wiring fail immediately;
+/// previews and host-less snapshots can opt into `.logAndDegrade`.
+///
+/// ```swift
+/// struct HomeView: View {
+///     @EnvironmentRouter(AppRoute.self) private var router
+///
+///     var body: some View {
+///         Button("Open detail") {
+///             router.go(.detail(id: "42"))
+///         }
+///     }
+/// }
+/// ```
 @MainActor
 @propertyWrapper
 public struct EnvironmentRouter<R: Route>: DynamicProperty {

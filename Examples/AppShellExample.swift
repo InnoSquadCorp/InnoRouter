@@ -130,13 +130,13 @@ struct AppShellHomeScene: View {
 }
 
 struct HomeDashboardView: View {
-    @EnvironmentNavigationIntent(HomeShellRoute.self) private var navigationIntent
+    @EnvironmentRouter(HomeShellRoute.self) private var router
     @EnvironmentModalIntent(AppShellModalRoute.self) private var modalIntent
 
     var body: some View {
         VStack(spacing: 12) {
             Button("Start Checkout Flow") {
-                navigationIntent(.go(.checkoutFlow))
+                router.go(.checkoutFlow)
             }
             Button("Show Profile Sheet") {
                 modalIntent(.present(.profile, style: .sheet))
@@ -150,12 +150,12 @@ struct HomeDashboardView: View {
 }
 
 struct SettingsRootView: View {
-    @EnvironmentNavigationIntent(SettingsShellRoute.self) private var navigationIntent
+    @EnvironmentRouter(SettingsShellRoute.self) private var router
 
     var body: some View {
         VStack(spacing: 12) {
             Button("Open Settings Detail") {
-                navigationIntent(.go(.detail))
+                router.go(.detail)
             }
         }
         .navigationTitle("Settings")

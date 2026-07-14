@@ -6,6 +6,10 @@ existing `NavigationStore` / `ModalStore` configurations while
 unlocking a serializable `[RouteStep<R>]` path and
 `FlowStore.apply(_:)` for restoration + deep-link hydration.
 
+This is an advanced promotion path. A self-contained push-only feature should
+stay on `@Router` + `RouterHost`; introduce the externally owned stores below
+only when push and modal state must be restored or deep-linked as one value.
+
 ## Starting point
 
 An app that shipped before `FlowStore` landed typically has:
@@ -75,10 +79,10 @@ modalStore.present(.sheet, style: .sheet)
 
 New:
 ```swift skip doc-fragment
-@EnvironmentFlowIntent<AppRoute> private var flow
+@EnvironmentFlowIntent(AppRoute.self) private var flow
 // ...
-flow.send(.push(.detail))
-flow.send(.presentSheet(.sheet))
+flow(.push(.detail))
+flow(.presentSheet(.sheet))
 ```
 
 `FlowStore.send` still delegates to the inner

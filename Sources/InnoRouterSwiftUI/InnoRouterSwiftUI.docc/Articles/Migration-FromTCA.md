@@ -75,9 +75,16 @@ struct AppView: View {
 After migration:
 
 ```swift skip doc-fragment
-@Routable
-enum AppRoute: Route {
+@Router
+enum AppRoute {
     case detail(DetailFeature.State.ID)
+
+    var destination: some View {
+        switch self {
+        case .detail(let id):
+            DetailView(/* hydrate from id */)
+        }
+    }
 }
 
 @Reducer
@@ -94,16 +101,10 @@ struct AppFeature {
 
 struct AppView: View {
     @Bindable var store: StoreOf<AppFeature>
-    @State private var navigationStore = NavigationStore<AppRoute>()
 
     var body: some View {
-        NavigationHost(store: navigationStore) {
+        RouterHost(AppRoute.self) {
             RootView(store: store)
-        } destination: { route in
-            switch route {
-            case .detail(let id):
-                DetailView(/* hydrate from id */)
-            }
         }
     }
 }
@@ -115,9 +116,22 @@ Three things changed:
    parent reducer no longer carries navigation state.
 2. The parent action enum no longer routes
    `case path(StackActionOf<Path>)`.
-3. The view uses `NavigationHost` + `NavigationStore<AppRoute>`
-   in place of `NavigationStackStore` + `Path` reducer
-   composition.
+3. The view uses macro-generated destinations with `RouterHost` in place of
+   `NavigationStackStore` + `Path` reducer composition. No navigation store is
+   exposed to the feature for this self-contained stack.
+
+If a TCA dependency, deep-link handler, or restoration boundary must access
+the navigation authority, promote the store to the app boundary. `@Router`
+still removes the destination closure, so the advanced form keeps the correct
+`NavigationHost` closure order:
+
+```swift skip doc-fragment
+@State private var navigationStore = NavigationStore<AppRoute>()
+
+NavigationHost(store: navigationStore) {
+    RootView(store: store)
+}
+```
 
 ## Modal presentation (`@Presents` → `ModalStore`)
 
@@ -146,12 +160,16 @@ with:
 // View
 ModalHost(store: modalStore) { route in
     switch route { case .sheet: SheetView(…) }
+} content: {
+    RootView()
 }
 ```
 
 The reducer no longer fires `Action.sheet(.presented(…))`; the
-view dispatches `flowStore.send(.presentSheet(.sheet))` directly
-through `@EnvironmentFlowIntent`.
+view dispatches `ModalIntent.present` through
+`@EnvironmentModalIntent(AppModalRoute.self)`. Move to `FlowStore` and
+`@EnvironmentFlowIntent` only when stack and modal state must form one
+atomic timeline.
 
 ## Stack + modal as one value (`StackState` + `@Presents` → `FlowStore`)
 
@@ -200,14 +218,14 @@ no longer needs reducer-level modeling.
 
 ## Migration sequence
 
-1. Start with a leaf feature whose navigation state lives only
-   in the parent reducer's `StackState`. Replace its view-layer
-   wiring with `NavigationHost` + `NavigationStore`.
+1. Start with a leaf feature whose navigation state lives only in the parent
+   reducer's `StackState`. Declare its route with `@Router` and replace the
+   view-layer wiring with `RouterHost`.
 2. Strip the matching `path` slot and `Path` reducer from the
    parent reducer. Verify the existing tests still pass against
    the trimmed reducer state.
-3. Repeat per feature. The blast radius per migration is
-   contained because each `NavigationStore` is independent.
+3. Repeat per feature. The blast radius per migration is contained because
+   each `RouterHost` owns an independent `NavigationStore`.
 4. Tackle modal authority feature-by-feature once the navigation
    stacks are ported. `@Presents` is the cheapest swap.
 5. For features with both stack and modal authority, migrate
@@ -216,11 +234,11 @@ no longer needs reducer-level modeling.
 
 ## Common pitfalls
 
-- **Action forwarding instinct.** TCA users habitually plumb
-  navigation through actions even when the feature doesn't need
-  it. With `@EnvironmentNavigationIntent`, the view dispatches
-  intents directly; the reducer never sees a navigation action
-  unless you explicitly want to gate one through middleware.
+- **Action forwarding instinct.** TCA users habitually plumb navigation
+  through actions even when the feature doesn't need it. With
+  `@EnvironmentRouter`, the view calls `router.go(...)` directly; the reducer
+  never sees a navigation action unless you explicitly want to gate one
+  through middleware.
 - **Strict concurrency floor.** InnoRouter requires iOS 18 /
   Swift 6.3. If the project still targets iOS 13–17, plan the
   platform bump as a separate PR before the navigation
@@ -231,7 +249,8 @@ no longer needs reducer-level modeling.
 
 ## Reference
 
-- `NavigationStore` / `NavigationHost`
+- `@Router` / `RouterHost` / `@EnvironmentRouter`
+- `NavigationStore` / `NavigationHost` for externally owned authority
 - `ModalStore` / `ModalHost`
 - `FlowStore` / `FlowHost` / `FlowPlan`
 - `InnoRouterTesting` (`NavigationTestStore`,

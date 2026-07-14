@@ -79,6 +79,17 @@ extension View {
     }
 }
 
+/// Reads the low-level `NavigationIntent` dispatcher for a route type.
+///
+/// Prefer ``EnvironmentRouter`` for ordinary push and pop actions. Use this
+/// wrapper when a feature needs to construct `NavigationIntent` directly.
+/// Missing or mismatched hosts follow ``EnvironmentMissingPolicy``.
+///
+/// ```swift
+/// @EnvironmentNavigationIntent(AppRoute.self) private var dispatch
+///
+/// dispatch(.go(.detail(id: "42")))
+/// ```
 @MainActor
 @propertyWrapper
 public struct EnvironmentNavigationIntent<R: Route>: DynamicProperty {

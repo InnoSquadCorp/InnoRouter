@@ -14,9 +14,16 @@ while signed out, the app must remember it, route through the
 sign-in flow, and then replay it — without dropping the original
 URL context.
 
+This tutorial intentionally uses an externally owned `NavigationStore`: the
+deep-link effect handler must apply plans outside the SwiftUI host. A local
+push-only feature should start with `@Router` + `RouterHost` and promote to
+this shape when URL handling or restoration needs the authority.
+
 ## Modeling the routes
 
 ```swift skip doc-fragment
+// This host-independent excerpt uses plain Route conformance. Add @Router and
+// a destination property when this same enum also owns SwiftUI rendering.
 enum AppRoute: Route {
     case home
     case signIn

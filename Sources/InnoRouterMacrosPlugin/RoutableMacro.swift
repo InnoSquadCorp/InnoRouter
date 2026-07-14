@@ -9,29 +9,31 @@ import SwiftDiagnostics
 
 // MARK: - Routable Macro
 
-/// `@Routable` is the recommended macro for declaring a `Route` enum.
+/// `@Routable` declares a `Route` enum with typed case-path helpers.
+/// Use `@Router` for the macro-first SwiftUI composition path; use
+/// `@Routable` when the route model needs case extraction without owning
+/// destination views.
+///
 /// Attaching it to an enum synthesises:
 /// - a nested `Cases` enum carrying a `CasePath` for every case
 /// - the `Route` protocol conformance, so the type plugs into stores,
 ///   middleware, and deep-link planners without further boilerplate
 /// - case-membership helpers (`is(_:)`, `subscript(case:)`)
 ///
+/// Do not repeat `: Route` on the enum. The macro generates that conformance.
+///
 /// ## Example
 /// ```swift
 /// @Routable
-/// enum HomeRoute: Route {
+/// enum HomeRoute {
 ///     case list
 ///     case detail(id: String)
 ///     case settings
 /// }
 ///
-/// // Generated:
-/// extension HomeRoute {
-///     enum Cases {
-///         static let list = CasePath<HomeRoute, Void> { .list } extract: { ... }
-///         static let detail = CasePath<HomeRoute, String> { .detail(id: $0) } extract: { ... }
-///     }
-/// }
+/// let route = HomeRoute.detail(id: "42")
+/// route[case: HomeRoute.Cases.detail]  // Optional("42")
+/// route.is(HomeRoute.Cases.list)       // false
 /// ```
 public struct RoutableMacro: MemberMacro, ExtensionMacro {
 

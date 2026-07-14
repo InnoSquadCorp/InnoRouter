@@ -1,6 +1,7 @@
 # InnoRouterSwiftUI
 
-SwiftUI hosts, stores, modal routing, coordinators, and environment intent dispatch for InnoRouter.
+Macro-first SwiftUI routing, externally owned stores, modal routing,
+coordinators, and environment intent dispatch for InnoRouter.
 
 ## Overview
 
@@ -8,15 +9,20 @@ SwiftUI hosts, stores, modal routing, coordinators, and environment intent dispa
 
 This module owns:
 
+- `DestinationRoute`, `RouterHost`, and `EnvironmentRouter`
 - `NavigationStore`
 - `NavigationHost` and `NavigationSplitHost` (watchOS not supported for split host)
 - `CoordinatorHost` and `CoordinatorSplitHost` (watchOS not supported for split host)
 - `ModalStore` and `ModalHost`
 - `NavigationIntent` and `ModalIntent`
-- `EnvironmentNavigationIntent` and `EnvironmentModalIntent`
+- `RouterActions`, `EnvironmentNavigationIntent`, and `EnvironmentModalIntent`
 - `StepCoordinator` and `TabCoordinator`
 
-The guiding rule is simple: views emit intent, stores own transition authority, and hosts bridge system UI state back into those authorities.
+The guiding rule is simple: start with `@Router` + `RouterHost`, let views use
+`@EnvironmentRouter`, and promote the `NavigationStore` to an application-owned
+authority only when deep links, restoration, middleware, or cross-surface
+composition require it. Stores own transition authority, and hosts bridge
+system UI state back into those authorities.
 
 Spatial scene routing is an opt-in boundary documented by the separate
 `InnoRouterSpatial` product. It is not re-exported by the `InnoRouter`
@@ -28,7 +34,8 @@ Pick the narrowest authority that matches the app boundary:
 
 | Need | Use |
 |---|---|
-| One typed SwiftUI stack | `NavigationStore` + `NavigationHost` |
+| One self-contained typed SwiftUI stack | `@Router` + `RouterHost` |
+| Stack with external deep-link, restoration, or middleware authority | `NavigationStore` + `NavigationHost` |
 | Split-view stack on supported platforms | `NavigationStore` + `NavigationSplitHost` |
 | Sheet / cover authority | `ModalStore` + `ModalHost` |
 | Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
@@ -42,7 +49,7 @@ InnoRouter ships on every Apple platform it currently supports:
 
 | Capability | iOS | iPadOS | macOS | tvOS | watchOS | visionOS |
 |---|---|---|---|---|---|---|
-| `NavigationHost` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `RouterHost` / `NavigationHost` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `NavigationSplitHost` / `CoordinatorSplitHost` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | `ModalHost` `.sheet` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `ModalHost` `.fullScreenCover` (native) | ✅ | ✅ | ⚠ degrades to `.sheet` | ✅ | ⚠ degrades to `.sheet` | ⚠ degrades to `.sheet` |

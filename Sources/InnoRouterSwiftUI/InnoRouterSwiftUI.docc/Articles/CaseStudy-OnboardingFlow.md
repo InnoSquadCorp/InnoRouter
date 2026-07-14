@@ -43,7 +43,7 @@ Constraints:
 
 ```swift skip doc-fragment
 @Routable
-enum OnboardingRoute: Route, Codable {
+enum OnboardingRoute: Codable {
     case launch
     case welcome
     case phoneNumber
@@ -252,8 +252,10 @@ analytics middleware's span ID without extra wiring.
 
 ## When this composition is overkill
 
-For a single-screen flow with no entitlement gating and no deep
-link, drop straight to `NavigationStore<R>` + `NavigationHost`.
+For a single-screen flow with no entitlement gating and no deep link, declare
+the destinations with `@Router` and use `RouterHost`. Promote to an externally
+owned `NavigationStore<R>` + `NavigationHost` only when another boundary needs
+the store.
 `FlowStore` earns its surface specifically when:
 
 - Multiple steps need atomic deep-link rehydration.
