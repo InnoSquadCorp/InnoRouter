@@ -1,3 +1,4 @@
 # Public API baseline for InnoRouterMacros
 symbol | swift.macro | CasePathable() | CasePathable() | @attached(member, names: named(Cases), named(`is`), named(subscript)) macro CasePathable() | []
 symbol | swift.macro | Routable() | Routable() | @attached(member, names: named(Cases), named(`is`), named(subscript)) @attached(extension, conformances: Route) macro Routable() | []
+symbol | swift.macro | Router() | Router() | @attached(memberAttribute) @attached(extension, conformances: DestinationRoute, names: named(destination)) macro Router() | []
