@@ -1021,8 +1021,8 @@ func pushHomeThenDetail() {
 - **`NavigationTestStore<R>`** — `onChange`, `onBatchExecuted`, `onTransactionExecuted`,
   `onMiddlewareMutation`, `onPathMismatch`. `send`, `execute`, `executeBatch`,
   `executeTransaction`을 그대로 underlying store로 forward.
-- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`, `onQueueChanged`,
-  `onCommandIntercepted`, `onMiddlewareMutation`.
+- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`, `onReplaced`,
+  `onQueueChanged`, `onCommandIntercepted`, `onMiddlewareMutation`.
 - **`FlowTestStore<R>`** — FlowStore 레벨의 `onPathChanged` + `onIntentRejected` +
   내부 store emission을 단일 queue 위에서 감싸는 `.navigation(...)` / `.modal(...)`.
   하나의 테스트가 단일 `FlowIntent`로 트리거되는 전체 chain (middleware cancellation 경로 포함)을

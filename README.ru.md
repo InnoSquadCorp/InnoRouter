@@ -1093,8 +1093,8 @@ func pushHomeThenDetail() {
   `onTransactionExecuted`, `onMiddlewareMutation`, `onPathMismatch`.
   Перенаправляет `send`, `execute`, `executeBatch`, `executeTransaction`
   в подлежащий store без изменений.
-- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`, `onQueueChanged`,
-  `onCommandIntercepted`, `onMiddlewareMutation`.
+- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`, `onReplaced`,
+  `onQueueChanged`, `onCommandIntercepted`, `onMiddlewareMutation`.
 - **`FlowTestStore<R>`** — FlowStore-уровень `onPathChanged` +
   `onIntentRejected`, плюс обёртки `.navigation(...)` и `.modal(...)`
   вокруг эмиссий внутреннего store в одной очереди. Один тест может

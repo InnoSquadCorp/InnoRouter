@@ -9,9 +9,9 @@ import InnoRouterCore
 /// Each case mirrors one of the public `ModalStoreConfiguration`
 /// observation hooks. `ModalStore.events` exposes these as a single
 /// `AsyncStream<ModalEvent<M>>` so callers can subscribe once instead
-/// of wiring the five individual `onPresented` / `onDismissed` /
-/// `onQueueChanged` / `onCommandIntercepted` / `onMiddlewareMutation`
-/// callbacks.
+/// of wiring the six individual `onPresented` / `onDismissed` /
+/// `onReplaced` / `onQueueChanged` / `onCommandIntercepted` /
+/// `onMiddlewareMutation` callbacks.
 ///
 /// Test harnesses (`InnoRouterTesting`) reuse this type directly — the
 /// legacy `ModalTestEvent<M>` is preserved as a typealias for source

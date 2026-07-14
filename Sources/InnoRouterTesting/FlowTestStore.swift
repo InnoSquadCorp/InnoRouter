@@ -600,88 +600,83 @@ public final class FlowTestStore<R: Route> {
         _ original: FlowStoreConfiguration<R>,
         queue: TestEventQueue<FlowTestEvent<R>>
     ) -> FlowStoreConfiguration<R> {
-        let wrappedNavigation = Self.wrapNavigationConfiguration(
+        var wrapped = original
+        wrapped.navigation = Self.wrapNavigationConfiguration(
             original.navigation,
             queue: queue
         )
-        let wrappedModal = Self.wrapModalConfiguration(
+        wrapped.modal = Self.wrapModalConfiguration(
             original.modal,
             queue: queue
         )
-        return FlowStoreConfiguration(
-            navigation: wrappedNavigation,
-            modal: wrappedModal,
-            onPathChanged: { @MainActor [queue] old, new in
-                original.onPathChanged?(old, new)
-                queue.enqueue(.pathChanged(old: old, new: new))
-            },
-            onIntentRejected: { @MainActor [queue] intent, reason in
-                original.onIntentRejected?(intent, reason)
-                queue.enqueue(.intentRejected(intent, reason))
-            }
-        )
+        wrapped.onPathChanged = { @MainActor [queue] old, new in
+            original.onPathChanged?(old, new)
+            queue.enqueue(.pathChanged(old: old, new: new))
+        }
+        wrapped.onIntentRejected = { @MainActor [queue] intent, reason in
+            original.onIntentRejected?(intent, reason)
+            queue.enqueue(.intentRejected(intent, reason))
+        }
+        return wrapped
     }
 
     private static func wrapNavigationConfiguration(
         _ original: NavigationStoreConfiguration<R>,
         queue: TestEventQueue<FlowTestEvent<R>>
     ) -> NavigationStoreConfiguration<R> {
-        NavigationStoreConfiguration(
-            engine: original.engine,
-            middlewares: original.middlewares,
-            routeStackValidator: original.routeStackValidator,
-            pathMismatchPolicy: original.pathMismatchPolicy,
-            logger: original.logger,
-            onChange: { @MainActor [queue] old, new in
-                original.onChange?(old, new)
-                queue.enqueue(.navigation(.changed(from: old, to: new)))
-            },
-            onBatchExecuted: { @MainActor [queue] result in
-                original.onBatchExecuted?(result)
-                queue.enqueue(.navigation(.batchExecuted(result)))
-            },
-            onTransactionExecuted: { @MainActor [queue] result in
-                original.onTransactionExecuted?(result)
-                queue.enqueue(.navigation(.transactionExecuted(result)))
-            },
-            onMiddlewareMutation: { @MainActor [queue] event in
-                original.onMiddlewareMutation?(event)
-                queue.enqueue(.navigation(.middlewareMutation(event)))
-            },
-            onPathMismatch: { @MainActor [queue] event in
-                original.onPathMismatch?(event)
-                queue.enqueue(.navigation(.pathMismatch(event)))
-            }
-        )
+        var wrapped = original
+        wrapped.onChange = { @MainActor [queue] old, new in
+            original.onChange?(old, new)
+            queue.enqueue(.navigation(.changed(from: old, to: new)))
+        }
+        wrapped.onBatchExecuted = { @MainActor [queue] result in
+            original.onBatchExecuted?(result)
+            queue.enqueue(.navigation(.batchExecuted(result)))
+        }
+        wrapped.onTransactionExecuted = { @MainActor [queue] result in
+            original.onTransactionExecuted?(result)
+            queue.enqueue(.navigation(.transactionExecuted(result)))
+        }
+        wrapped.onMiddlewareMutation = { @MainActor [queue] event in
+            original.onMiddlewareMutation?(event)
+            queue.enqueue(.navigation(.middlewareMutation(event)))
+        }
+        wrapped.onPathMismatch = { @MainActor [queue] event in
+            original.onPathMismatch?(event)
+            queue.enqueue(.navigation(.pathMismatch(event)))
+        }
+        return wrapped
     }
 
     private static func wrapModalConfiguration(
         _ original: ModalStoreConfiguration<R>,
         queue: TestEventQueue<FlowTestEvent<R>>
     ) -> ModalStoreConfiguration<R> {
-        ModalStoreConfiguration(
-            logger: original.logger,
-            middlewares: original.middlewares,
-            onPresented: { @MainActor [queue] presentation in
-                original.onPresented?(presentation)
-                queue.enqueue(.modal(.presented(presentation)))
-            },
-            onDismissed: { @MainActor [queue] presentation, reason in
-                original.onDismissed?(presentation, reason)
-                queue.enqueue(.modal(.dismissed(presentation, reason: reason)))
-            },
-            onQueueChanged: { @MainActor [queue] old, new in
-                original.onQueueChanged?(old, new)
-                queue.enqueue(.modal(.queueChanged(old: old, new: new)))
-            },
-            onMiddlewareMutation: { @MainActor [queue] event in
-                original.onMiddlewareMutation?(event)
-                queue.enqueue(.modal(.middlewareMutation(event)))
-            },
-            onCommandIntercepted: { @MainActor [queue] command, result in
-                original.onCommandIntercepted?(command, result)
-                queue.enqueue(.modal(.commandIntercepted(command: command, result: result)))
-            }
-        )
+        var wrapped = original
+        wrapped.onPresented = { @MainActor [queue] presentation in
+            original.onPresented?(presentation)
+            queue.enqueue(.modal(.presented(presentation)))
+        }
+        wrapped.onDismissed = { @MainActor [queue] presentation, reason in
+            original.onDismissed?(presentation, reason)
+            queue.enqueue(.modal(.dismissed(presentation, reason: reason)))
+        }
+        wrapped.onReplaced = { @MainActor [queue] old, new in
+            original.onReplaced?(old, new)
+            queue.enqueue(.modal(.replaced(old: old, new: new)))
+        }
+        wrapped.onQueueChanged = { @MainActor [queue] old, new in
+            original.onQueueChanged?(old, new)
+            queue.enqueue(.modal(.queueChanged(old: old, new: new)))
+        }
+        wrapped.onMiddlewareMutation = { @MainActor [queue] event in
+            original.onMiddlewareMutation?(event)
+            queue.enqueue(.modal(.middlewareMutation(event)))
+        }
+        wrapped.onCommandIntercepted = { @MainActor [queue] command, result in
+            original.onCommandIntercepted?(command, result)
+            queue.enqueue(.modal(.commandIntercepted(command: command, result: result)))
+        }
+        return wrapped
     }
 }

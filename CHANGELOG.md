@@ -44,6 +44,12 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Test stores now copy the complete production configuration before
+  composing their observation callbacks. Previously the wrappers reset
+  custom telemetry sinks, event buffering, path reconciliation, modal
+  queue cancellation, and flow queue coalescing to their defaults.
+  `ModalTestStore` and `FlowTestStore` now also preserve `onReplaced`
+  and enqueue the corresponding `.replaced` event.
 - OSLog telemetry now treats route, command, middleware debug-name,
   dismissal-reason, full event-summary, and arbitrary runtime error
   payloads as private hash-masked values. Event kinds, counts, policies,

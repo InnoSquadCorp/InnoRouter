@@ -1005,8 +1005,8 @@ Harness 涵盖:
   `onTransactionExecuted`、`onMiddlewareMutation` 和 `onPathMismatch`。
   将 `send`、`execute`、`executeBatch`、`executeTransaction` 不变地
   转发到底层 store。
-- **`ModalTestStore<M>`** — `onPresented`、`onDismissed`、`onQueueChanged`、
-  `onCommandIntercepted`、`onMiddlewareMutation`。
+- **`ModalTestStore<M>`** — `onPresented`、`onDismissed`、`onReplaced`、
+  `onQueueChanged`、`onCommandIntercepted`、`onMiddlewareMutation`。
 - **`FlowTestStore<R>`** — FlowStore 级别的 `onPathChanged` + `onIntentRejected`,
   加上围绕单个队列上内部 store 发射的 `.navigation(...)` 和 `.modal(...)` 包装器。
   一个测试可以断言由单个 `FlowIntent` 触发的完整链,包括 middleware 取消路径。

@@ -75,10 +75,10 @@ public final class ModalStore<M: Route> {
     }
 
     /// A multicast `AsyncStream` that emits every observation event the
-    /// modal store produces — presentations, dismissals, queue changes,
-    /// command interceptions, and middleware registry mutations — in
+    /// modal store produces — presentations, replacements, dismissals,
+    /// queue changes, command interceptions, and middleware registry mutations — in
     /// the same order as the matching `onPresented` / `onDismissed` /
-    /// `onQueueChanged` / `onCommandIntercepted` /
+    /// `onReplaced` / `onQueueChanged` / `onCommandIntercepted` /
     /// `onMiddlewareMutation` callbacks fire.
     ///
     /// Each call to `events` returns a fresh stream with its own

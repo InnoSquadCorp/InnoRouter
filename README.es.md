@@ -1073,8 +1073,8 @@ Lo que cubre el arnés:
   `onTransactionExecuted`, `onMiddlewareMutation`, `onPathMismatch`. Reenvía
   `send`, `execute`, `executeBatch`, `executeTransaction` al store subyacente
   sin cambios.
-- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`, `onQueueChanged`,
-  `onCommandIntercepted`, `onMiddlewareMutation`.
+- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`, `onReplaced`,
+  `onQueueChanged`, `onCommandIntercepted`, `onMiddlewareMutation`.
 - **`FlowTestStore<R>`** — nivel FlowStore `onPathChanged` + `onIntentRejected`,
   más wrappers `.navigation(...)` y `.modal(...)` alrededor de las emisiones
   del store interno en una sola cola. Un test puede afirmar la cadena completa

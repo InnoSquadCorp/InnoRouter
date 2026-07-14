@@ -8,13 +8,13 @@ import InnoRouterSwiftUI
 /// A host-less, Swift-Testing native assertion harness for `ModalStore`.
 ///
 /// `ModalTestStore` wraps a private `ModalStore<M>` and subscribes to every
-/// public observation callback (`onPresented`, `onDismissed`,
-/// `onQueueChanged`, `onCommandIntercepted`, `onMiddlewareMutation`). Emitted
-/// events are buffered into a FIFO queue and consumed by `receive(...)`
-/// calls in test-authored order.
+/// public observation callback (`onPresented`, `onDismissed`, `onReplaced`,
+/// `onQueueChanged`, `onCommandIntercepted`, `onMiddlewareMutation`).
+/// Emitted events are buffered into a FIFO queue and consumed by
+/// `receive(...)` calls in test-authored order.
 ///
 /// The event order reflects the production store's real emission order.
-/// Executed commands may emit `onPresented` / `onDismissed` /
+/// Executed commands may emit `onPresented` / `onDismissed` / `onReplaced` /
 /// `onQueueChanged` while applying the command, before the final
 /// `onCommandIntercepted` callback. Cancelled commands emit only
 /// `onCommandIntercepted`.
@@ -336,29 +336,31 @@ public final class ModalTestStore<M: Route> {
         _ original: ModalStoreConfiguration<M>,
         queue: TestEventQueue<ModalTestEvent<M>>
     ) -> ModalStoreConfiguration<M> {
-        ModalStoreConfiguration(
-            logger: original.logger,
-            middlewares: original.middlewares,
-            onPresented: { @MainActor [queue] presentation in
-                original.onPresented?(presentation)
-                queue.enqueue(.presented(presentation))
-            },
-            onDismissed: { @MainActor [queue] presentation, reason in
-                original.onDismissed?(presentation, reason)
-                queue.enqueue(.dismissed(presentation, reason: reason))
-            },
-            onQueueChanged: { @MainActor [queue] old, new in
-                original.onQueueChanged?(old, new)
-                queue.enqueue(.queueChanged(old: old, new: new))
-            },
-            onMiddlewareMutation: { @MainActor [queue] event in
-                original.onMiddlewareMutation?(event)
-                queue.enqueue(.middlewareMutation(event))
-            },
-            onCommandIntercepted: { @MainActor [queue] command, result in
-                original.onCommandIntercepted?(command, result)
-                queue.enqueue(.commandIntercepted(command: command, result: result))
-            }
-        )
+        var wrapped = original
+        wrapped.onPresented = { @MainActor [queue] presentation in
+            original.onPresented?(presentation)
+            queue.enqueue(.presented(presentation))
+        }
+        wrapped.onDismissed = { @MainActor [queue] presentation, reason in
+            original.onDismissed?(presentation, reason)
+            queue.enqueue(.dismissed(presentation, reason: reason))
+        }
+        wrapped.onReplaced = { @MainActor [queue] old, new in
+            original.onReplaced?(old, new)
+            queue.enqueue(.replaced(old: old, new: new))
+        }
+        wrapped.onQueueChanged = { @MainActor [queue] old, new in
+            original.onQueueChanged?(old, new)
+            queue.enqueue(.queueChanged(old: old, new: new))
+        }
+        wrapped.onMiddlewareMutation = { @MainActor [queue] event in
+            original.onMiddlewareMutation?(event)
+            queue.enqueue(.middlewareMutation(event))
+        }
+        wrapped.onCommandIntercepted = { @MainActor [queue] command, result in
+            original.onCommandIntercepted?(command, result)
+            queue.enqueue(.commandIntercepted(command: command, result: result))
+        }
+        return wrapped
     }
 }

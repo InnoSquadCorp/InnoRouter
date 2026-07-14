@@ -1083,7 +1083,7 @@ func pushHomeThenDetail() {
   `onTransactionExecuted`、`onMiddlewareMutation`、`onPathMismatch`。
   `send`、`execute`、`executeBatch`、`executeTransaction` を変更なく
   下層のストアに転送します。
-- **`ModalTestStore<M>`** — `onPresented`、`onDismissed`、
+- **`ModalTestStore<M>`** — `onPresented`、`onDismissed`、`onReplaced`、
   `onQueueChanged`、`onCommandIntercepted`、`onMiddlewareMutation`。
 - **`FlowTestStore<R>`** — FlowStore レベルの `onPathChanged` +
   `onIntentRejected`、加えて単一キューでの内部ストアの発行を囲む

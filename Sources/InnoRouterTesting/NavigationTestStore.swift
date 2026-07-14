@@ -408,32 +408,27 @@ public final class NavigationTestStore<R: Route> {
         _ original: NavigationStoreConfiguration<R>,
         queue: TestEventQueue<NavigationTestEvent<R>>
     ) -> NavigationStoreConfiguration<R> {
-        NavigationStoreConfiguration(
-            engine: original.engine,
-            middlewares: original.middlewares,
-            routeStackValidator: original.routeStackValidator,
-            pathMismatchPolicy: original.pathMismatchPolicy,
-            logger: original.logger,
-            onChange: { @MainActor [queue] old, new in
-                original.onChange?(old, new)
-                queue.enqueue(.changed(from: old, to: new))
-            },
-            onBatchExecuted: { @MainActor [queue] result in
-                original.onBatchExecuted?(result)
-                queue.enqueue(.batchExecuted(result))
-            },
-            onTransactionExecuted: { @MainActor [queue] result in
-                original.onTransactionExecuted?(result)
-                queue.enqueue(.transactionExecuted(result))
-            },
-            onMiddlewareMutation: { @MainActor [queue] event in
-                original.onMiddlewareMutation?(event)
-                queue.enqueue(.middlewareMutation(event))
-            },
-            onPathMismatch: { @MainActor [queue] event in
-                original.onPathMismatch?(event)
-                queue.enqueue(.pathMismatch(event))
-            }
-        )
+        var wrapped = original
+        wrapped.onChange = { @MainActor [queue] old, new in
+            original.onChange?(old, new)
+            queue.enqueue(.changed(from: old, to: new))
+        }
+        wrapped.onBatchExecuted = { @MainActor [queue] result in
+            original.onBatchExecuted?(result)
+            queue.enqueue(.batchExecuted(result))
+        }
+        wrapped.onTransactionExecuted = { @MainActor [queue] result in
+            original.onTransactionExecuted?(result)
+            queue.enqueue(.transactionExecuted(result))
+        }
+        wrapped.onMiddlewareMutation = { @MainActor [queue] event in
+            original.onMiddlewareMutation?(event)
+            queue.enqueue(.middlewareMutation(event))
+        }
+        wrapped.onPathMismatch = { @MainActor [queue] event in
+            original.onPathMismatch?(event)
+            queue.enqueue(.pathMismatch(event))
+        }
+        return wrapped
     }
 }

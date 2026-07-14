@@ -1083,7 +1083,7 @@ What the harness covers:
   `onTransactionExecuted`, `onMiddlewareMutation`, and
   `onPathMismatch`. Forwards `send`, `execute`, `executeBatch`,
   `executeTransaction` to the underlying store unchanged.
-- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`,
+- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`, `onReplaced`,
   `onQueueChanged`, `onCommandIntercepted`, `onMiddlewareMutation`.
 - **`FlowTestStore<R>`** — FlowStore-level
   `onPathChanged` + `onIntentRejected`, plus `.navigation(...)` and
