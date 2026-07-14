@@ -41,7 +41,7 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
     }
 
     public private(set) var pendingDeepLink: FlowPendingDeepLink<R>?
-    public let pipeline: FlowDeepLinkPipeline<R>
+    private let pipeline: FlowDeepLinkPipeline<R>
     private let applier: any FlowPlanApplier<R>
     private var traceRecorder: InternalExecutionTraceRecorder?
 
@@ -178,10 +178,6 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
         }
     }
 
-    public var hasPendingDeepLink: Bool {
-        pendingDeepLink != nil
-    }
-
     public func clearPendingDeepLink() {
         pendingDeepLink = nil
     }
@@ -203,15 +199,7 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
     // MARK: - Internals
 
     private func canResume(_ pending: FlowPendingDeepLink<R>) -> Bool {
-        switch pipeline.authenticationPolicy {
-        case .notRequired:
-            return true
-        case .required(let shouldRequireAuthentication, let isAuthenticated):
-            if !shouldRequireAuthentication(pending.gatedRoute) {
-                return true
-            }
-            return isAuthenticated()
-        }
+        pipeline.canResume(pending.gatedRoute)
     }
 
     private func result(for plan: FlowPlan<R>) -> Result {

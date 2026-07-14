@@ -87,7 +87,7 @@ struct FlowPendingDeepLinkPersistenceTests {
         )
         let restored = try persistence.decode(data)
         secondHandler.restore(pending: restored)
-        #expect(secondHandler.hasPendingDeepLink)
+        #expect(secondHandler.pendingDeepLink != nil)
 
         isAuthed.withLock { $0 = true }
         let replay = secondHandler.resumePendingDeepLink()
@@ -97,6 +97,6 @@ struct FlowPendingDeepLinkPersistenceTests {
             Issue.record("Expected .executed on replay, got \(replay)")
         }
         #expect(secondStore.path == [.push(.secure)])
-        #expect(!secondHandler.hasPendingDeepLink)
+        #expect(secondHandler.pendingDeepLink == nil)
     }
 }

@@ -42,6 +42,25 @@ are bare semver (no leading `v`).
   initializers, are removed. Dynamic mappings remain supported through
   array expressions or `for` statements in the shared result builder; no
   compatibility aliases are provided.
+- Deep-link pipelines and effect handlers now expose outcomes instead of
+  their injected implementation state. The configuration stored by
+  `DeepLinkPipeline` and `FlowDeepLinkPipeline`,
+  `DeepLinkEffectHandler.navigationHandler`, and
+  `FlowDeepLinkEffectHandler.pipeline` are no longer public. Pass all
+  configuration through the existing initializers; retain any matcher,
+  pipeline, navigator, or store separately when it must be reused; and inspect
+  `decide`, `handle`, or `resumePendingDeepLink` results for execution
+  outcomes.
+- Output-only deep-link values no longer expose public construction or
+  duplicate convenience state. `DeepLinkParameters` and
+  `NavigationPlanValidationFailure` are created by the matcher and plan
+  validator, respectively; `DeepLinkParameters.firstValuesByName` is removed
+  in favor of `firstValue(forName:)` for named access or
+  `valuesByName.compactMapValues { $0.first }` for the full projection; and
+  both effect handlers remove
+  `hasPendingDeepLink` in favor of `pendingDeepLink != nil`. The unused
+  `RouterEffect` marker is removed; effects that support both operations can
+  conform directly to `NavigationEffect` and `DeepLinkEffect`.
 - `InnoRouterTesting` replaces the terminal-sounding
   `expectNoMoreEvents()` checkpoint with `assertNoPendingEvents()`.
   The renamed method reports and consumes only the current queue

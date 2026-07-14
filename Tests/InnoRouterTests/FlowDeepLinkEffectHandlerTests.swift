@@ -25,9 +25,8 @@ private func blockEverythingNavigationMiddleware() -> AnyNavigationMiddleware<Ef
     })
 }
 
-@MainActor
-private func makePipeline() -> FlowDeepLinkPipeline<EffectRoute> {
-    let matcher = DeepLinkMatcher<FlowPlan<EffectRoute>> {
+private func makeMatcher() -> DeepLinkMatcher<FlowPlan<EffectRoute>> {
+    DeepLinkMatcher {
         DeepLinkMapping("/home") { _ in
             FlowPlan(steps: [.push(.home)])
         }
@@ -42,9 +41,13 @@ private func makePipeline() -> FlowDeepLinkPipeline<EffectRoute> {
             FlowPlan(steps: [.push(.secure)])
         }
     }
+}
+
+@MainActor
+private func makePipeline() -> FlowDeepLinkPipeline<EffectRoute> {
     return FlowDeepLinkPipeline<EffectRoute>(
         allowedSchemes: ["myapp"],
-        matcher: matcher
+        matcher: makeMatcher()
     )
 }
 
@@ -168,7 +171,7 @@ struct FlowDeepLinkEffectHandlerTests {
             Issue.record("Expected .pending, got \(firstResult)")
         }
         #expect(store.path.isEmpty)
-        #expect(handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink != nil)
 
         // Simulate sign-in.
         isAuthed.withLock { $0 = true }
@@ -181,7 +184,7 @@ struct FlowDeepLinkEffectHandlerTests {
             Issue.record("Expected .executed on resume, got \(secondResult)")
         }
         #expect(store.path == [.push(.secure)])
-        #expect(!handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink == nil)
     }
 
     @Test("resumePendingDeepLink with no queued link returns .noPendingDeepLink")
@@ -205,7 +208,7 @@ struct FlowDeepLinkEffectHandlerTests {
     func throwingResumePendingDeepLinkIfAllowedPropagatesFailure() async {
         let pipeline = FlowDeepLinkPipeline<EffectRoute>(
             allowedSchemes: ["myapp"],
-            matcher: makePipeline().matcher,
+            matcher: makeMatcher(),
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },
                 isAuthenticated: { false }
@@ -225,7 +228,7 @@ struct FlowDeepLinkEffectHandlerTests {
             }
             Issue.record("Expected authorization probe failure")
         } catch AuthorizationProbeError.failed {
-            #expect(handler.hasPendingDeepLink)
+            #expect(handler.pendingDeepLink != nil)
             #expect(store.path.isEmpty)
         } catch {
             Issue.record("Unexpected error: \(error)")
@@ -237,7 +240,7 @@ struct FlowDeepLinkEffectHandlerTests {
     func clearPending() {
         let pipeline = FlowDeepLinkPipeline<EffectRoute>(
             allowedSchemes: ["myapp"],
-            matcher: makePipeline().matcher,
+            matcher: makeMatcher(),
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },
                 isAuthenticated: { false }
@@ -249,10 +252,10 @@ struct FlowDeepLinkEffectHandlerTests {
             applier: store
         )
         _ = handler.handle(URL(string: "myapp://app/secure")!)
-        #expect(handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink != nil)
 
         handler.clearPendingDeepLink()
-        #expect(!handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink == nil)
     }
 
     @Test("End-to-end: flowStore.events emits .pathChanged after applying a multi-step URL")
@@ -342,7 +345,7 @@ struct FlowDeepLinkEffectHandlerTests {
         )
 
         _ = handler.handle(URL(string: "myapp://app/secure")!)
-        #expect(handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink != nil)
 
         isAuthed.withLock { $0 = true }
 
@@ -353,7 +356,7 @@ struct FlowDeepLinkEffectHandlerTests {
         } else {
             Issue.record("Expected .applicationRejected on resume, got \(result)")
         }
-        #expect(!handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink == nil)
         #expect(store.path.isEmpty)
     }
 }

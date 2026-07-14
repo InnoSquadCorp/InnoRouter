@@ -259,7 +259,7 @@ struct ExecutionContractSpecTests {
         } else {
             Issue.record("Expected pending replay to execute after auth, got \(resumed)")
         }
-        #expect(!handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink == nil)
         #expect(store.path == [.push(.secure)])
     }
 }

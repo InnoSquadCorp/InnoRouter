@@ -25,9 +25,9 @@ public final class DeepLinkEffectHandler<R: Route> {
     }
 
     private let pipeline: DeepLinkPipeline<R>
+    private let navigationHandler: NavigationEffectHandler<R>
 
     public private(set) var pendingDeepLink: PendingDeepLink<R>?
-    public let navigationHandler: NavigationEffectHandler<R>
 
     public init<N: Navigator & NavigationBatchExecutor & NavigationTransactionExecutor>(
         navigator: N,
@@ -132,10 +132,6 @@ public final class DeepLinkEffectHandler<R: Route> {
         return resumePendingDeepLink()
     }
 
-    public var hasPendingDeepLink: Bool {
-        pendingDeepLink != nil
-    }
-
     public func clearPendingDeepLink() {
         pendingDeepLink = nil
     }
@@ -149,15 +145,7 @@ public final class DeepLinkEffectHandler<R: Route> {
     }
 
     private func canResume(_ pendingDeepLink: PendingDeepLink<R>) -> Bool {
-        switch pipeline.authenticationPolicy {
-        case .notRequired:
-            return true
-        case .required(let shouldRequireAuthentication, let isAuthenticated):
-            if !shouldRequireAuthentication(pendingDeepLink.route) {
-                return true
-            }
-            return isAuthenticated()
-        }
+        pipeline.canResume(pendingDeepLink.route)
     }
 }
 
@@ -165,8 +153,6 @@ public protocol DeepLinkEffect {
     var deepLinkURL: URL? { get }
     static func deepLink(_ url: URL) -> Self
 }
-
-public protocol RouterEffect: NavigationEffect, DeepLinkEffect {}
 
 public extension DeepLinkEffectHandler {
     func handle<E: DeepLinkEffect>(_ effect: E) -> Result {

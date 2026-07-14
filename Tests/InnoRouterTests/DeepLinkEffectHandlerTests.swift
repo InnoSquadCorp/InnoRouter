@@ -76,7 +76,7 @@ struct DeepLinkEffectHandlerTests {
             Issue.record("Expected pending result")
             return
         }
-        #expect(handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink != nil)
 
         authState.withLock { $0 = true }
         let resumeResult = handler.resumePendingDeepLink()
@@ -87,7 +87,7 @@ struct DeepLinkEffectHandlerTests {
         #expect(plan.commands == [.replace([.home, .settings])])
         #expect(batch.results == [.success])
         #expect(store.state.path == [.home, .settings])
-        #expect(!handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink == nil)
     }
 
     @Test("Async deep-link guard keeps pending until authorized")
@@ -116,7 +116,7 @@ struct DeepLinkEffectHandlerTests {
 
         let denied = await handler.resumePendingDeepLinkIfAllowed { _ in false }
         #expect(denied == .pending(handler.pendingDeepLink!))
-        #expect(handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink != nil)
         #expect(store.state.path.isEmpty)
 
         authState.withLock { $0 = true }
@@ -127,7 +127,7 @@ struct DeepLinkEffectHandlerTests {
         }
         #expect(batch.results == [.success])
         #expect(store.state.path == [.home, .settings])
-        #expect(!handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink == nil)
     }
 
     @Test("Async deep-link guard does not resume a stale pending deep link")
@@ -223,7 +223,7 @@ struct DeepLinkEffectHandlerTests {
             }
             Issue.record("Expected authorization probe failure")
         } catch AuthorizationProbeError.failed {
-            #expect(handler.hasPendingDeepLink)
+            #expect(handler.pendingDeepLink != nil)
             #expect(store.state.path.isEmpty)
         } catch {
             Issue.record("Unexpected error: \(error)")
@@ -308,7 +308,7 @@ struct DeepLinkEffectHandlerTests {
         }
         #expect(plan.commands == [.pop])
         #expect(failure.result == .emptyStack)
-        #expect(!handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink == nil)
         #expect(store.state.path.isEmpty)
     }
 

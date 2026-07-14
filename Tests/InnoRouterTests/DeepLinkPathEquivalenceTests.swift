@@ -296,7 +296,7 @@ struct DeepLinkPathEquivalenceTests {
             plan: { _ in NavigationPlan(commands: Self.planCommands) }
         )
         _ = handler.handle(Self.url)
-        #expect(handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink != nil)
         #expect(effectsRecorder.changeCount == 0)
         #expect(effectsRecorder.batchResults.isEmpty)
 
@@ -324,6 +324,6 @@ struct DeepLinkPathEquivalenceTests {
         #expect(umbrellaBatch.results == effectsBatch.results)
         #expect(umbrella.store.state.path == effectsStore.state.path)
         #expect(umbrella.pendingDeepLink == nil)
-        #expect(!handler.hasPendingDeepLink)
+        #expect(handler.pendingDeepLink == nil)
     }
 }

@@ -51,12 +51,6 @@ public struct NavigationPlanValidationFailure<R: Route>: Sendable, Equatable {
     public let index: Int
     public let command: NavigationCommand<R>
     public let result: NavigationResult<R>
-
-    public init(index: Int, command: NavigationCommand<R>, result: NavigationResult<R>) {
-        self.index = index
-        self.command = command
-        self.result = result
-    }
 }
 
 public enum DeepLinkAuthenticationPolicy<R: Route>: Sendable {
@@ -95,12 +89,12 @@ public struct DeepLinkPipeline<R: Route>: Sendable {
     public typealias Resolver = @Sendable (URL) -> R?
     public typealias Planner = @Sendable (R) -> NavigationPlan<R>
 
-    public var allowedSchemes: Set<String>?
-    public var allowedHosts: Set<String>?
-    public var resolve: Resolver
-    public var authenticationPolicy: DeepLinkAuthenticationPolicy<R>
-    public var plan: Planner
-    public var inputLimits: DeepLinkInputLimits
+    private let allowedSchemes: Set<String>?
+    private let allowedHosts: Set<String>?
+    private let resolve: Resolver
+    private let authenticationPolicy: DeepLinkAuthenticationPolicy<R>
+    private let plan: Planner
+    private let inputLimits: DeepLinkInputLimits
 
     public init(
         allowedSchemes: Set<String>? = nil,
@@ -161,6 +155,15 @@ public struct DeepLinkPipeline<R: Route>: Sendable {
         }
 
         return .plan(navigationPlan)
+    }
+
+    package func canResume(_ route: R) -> Bool {
+        switch authenticationPolicy {
+        case .notRequired:
+            return true
+        case .required(let shouldRequireAuthentication, let isAuthenticated):
+            return !shouldRequireAuthentication(route) || isAuthenticated()
+        }
     }
 }
 

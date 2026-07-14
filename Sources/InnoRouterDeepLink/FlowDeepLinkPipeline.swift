@@ -86,11 +86,11 @@ public enum FlowDeepLinkDecision<R: Route>: Sendable, Equatable {
 /// often depend on the plan's atomicity (analytics, telemetry, screen
 /// transitions).
 public struct FlowDeepLinkPipeline<R: Route>: Sendable {
-    public let allowedSchemes: Set<String>?
-    public let allowedHosts: Set<String>?
-    public let matcher: DeepLinkMatcher<FlowPlan<R>>
-    public let authenticationPolicy: DeepLinkAuthenticationPolicy<R>
-    public let inputLimits: DeepLinkInputLimits
+    private let allowedSchemes: Set<String>?
+    private let allowedHosts: Set<String>?
+    private let matcher: DeepLinkMatcher<FlowPlan<R>>
+    private let authenticationPolicy: DeepLinkAuthenticationPolicy<R>
+    private let inputLimits: DeepLinkInputLimits
 
     public init(
         allowedSchemes: Set<String>? = nil,
@@ -159,6 +159,15 @@ public struct FlowDeepLinkPipeline<R: Route>: Sendable {
                 }
             }
             return .flowPlan(plan)
+        }
+    }
+
+    package func canResume(_ route: R) -> Bool {
+        switch authenticationPolicy {
+        case .notRequired:
+            return true
+        case .required(let shouldRequireAuthentication, let isAuthenticated):
+            return !shouldRequireAuthentication(route) || isAuthenticated()
         }
     }
 }

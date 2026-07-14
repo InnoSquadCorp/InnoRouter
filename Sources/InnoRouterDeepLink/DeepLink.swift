@@ -288,14 +288,6 @@ extension UUID: DeepLinkParameterValue {
 public struct DeepLinkParameters: Sendable, Equatable {
     public let valuesByName: [String: [String]]
 
-    public init(valuesByName: [String: [String]] = [:]) {
-        self.valuesByName = valuesByName
-    }
-
-    public var firstValuesByName: [String: String] {
-        valuesByName.compactMapValues { $0.first }
-    }
-
     public func firstValue(forName name: String) -> String? {
         valuesByName[name]?.first
     }

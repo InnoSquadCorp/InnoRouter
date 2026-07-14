@@ -54,14 +54,8 @@ public extension DeepLinkCoordinating {
     @discardableResult
     func resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<RouteType> {
         guard let pendingDeepLink else { return .noPendingDeepLink }
-        switch deepLinkPipeline.authenticationPolicy {
-        case .notRequired:
-            break
-
-        case .required(let shouldRequireAuthentication, let isAuthenticated):
-            if shouldRequireAuthentication(pendingDeepLink.route), !isAuthenticated() {
-                return .pending(pendingDeepLink)
-            }
+        if !deepLinkPipeline.canResume(pendingDeepLink.route) {
+            return .pending(pendingDeepLink)
         }
 
         // Safe to clear first: we iterate on the local `pendingDeepLink` constant, not the stored property.

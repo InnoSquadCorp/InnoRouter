@@ -1,5 +1,4 @@
 # Public API baseline for InnoRouterDeepLinkEffects
-relationship | conformsTo | RouterEffect | DeepLinkEffect |  |
 relationship | memberOf | DeepLinkEffectHandler.Result | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.Result.applicationRejected(plan:failure:) | DeepLinkEffectHandler.Result |  |
 relationship | memberOf | DeepLinkEffectHandler.Result.executed(plan:batch:) | DeepLinkEffectHandler.Result |  |
@@ -11,9 +10,7 @@ relationship | memberOf | DeepLinkEffectHandler.Result.rejected(reason:) | DeepL
 relationship | memberOf | DeepLinkEffectHandler.Result.unhandled(url:) | DeepLinkEffectHandler.Result |  |
 relationship | memberOf | DeepLinkEffectHandler.clearPendingDeepLink() | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.handle(_:) | DeepLinkEffectHandler |  |
-relationship | memberOf | DeepLinkEffectHandler.hasPendingDeepLink | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.init(navigator:matcher:allowedSchemes:allowedHosts:authenticationPolicy:inputLimits:plan:) | DeepLinkEffectHandler |  |
-relationship | memberOf | DeepLinkEffectHandler.navigationHandler | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.pendingDeepLink | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.resumePendingDeepLink() | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | DeepLinkEffectHandler |  |
@@ -28,10 +25,8 @@ relationship | memberOf | FlowDeepLinkEffectHandler.Result.rejected(reason:) | F
 relationship | memberOf | FlowDeepLinkEffectHandler.Result.unhandled(url:) | FlowDeepLinkEffectHandler.Result |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.clearPendingDeepLink() | FlowDeepLinkEffectHandler |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.handle(_:) | FlowDeepLinkEffectHandler |  |
-relationship | memberOf | FlowDeepLinkEffectHandler.hasPendingDeepLink | FlowDeepLinkEffectHandler |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.init(pipeline:applier:) | FlowDeepLinkEffectHandler |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.pendingDeepLink | FlowDeepLinkEffectHandler |  |
-relationship | memberOf | FlowDeepLinkEffectHandler.pipeline | FlowDeepLinkEffectHandler |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.restore(pending:) | FlowDeepLinkEffectHandler |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.resumePendingDeepLink() | FlowDeepLinkEffectHandler |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | FlowDeepLinkEffectHandler |  |
@@ -75,12 +70,7 @@ symbol | swift.method | FlowDeepLinkEffectHandler.resumePendingDeepLink() | resu
 symbol | swift.method | FlowDeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | resumePendingDeepLinkIfAllowed(_:) | @discardableResult @MainActor func resumePendingDeepLinkIfAllowed(_ authorize: @escaping @MainActor (FlowPendingDeepLink<R>) async -> Bool) async -> FlowDeepLinkEffectHandler<R>.Result | []
 symbol | swift.method | FlowDeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | resumePendingDeepLinkIfAllowed(_:) | @discardableResult @MainActor func resumePendingDeepLinkIfAllowed(_ authorize: @escaping @MainActor (FlowPendingDeepLink<R>) async throws -> Bool) async rethrows -> FlowDeepLinkEffectHandler<R>.Result | []
 symbol | swift.property | DeepLinkEffect.deepLinkURL | deepLinkURL | var deepLinkURL: URL? { get } | []
-symbol | swift.property | DeepLinkEffectHandler.hasPendingDeepLink | hasPendingDeepLink | @MainActor var hasPendingDeepLink: Bool { get } | []
-symbol | swift.property | DeepLinkEffectHandler.navigationHandler | navigationHandler | @MainActor let navigationHandler: NavigationEffectHandler<R> | []
 symbol | swift.property | DeepLinkEffectHandler.pendingDeepLink | pendingDeepLink | @MainActor var pendingDeepLink: PendingDeepLink<R>? { get } | []
-symbol | swift.property | FlowDeepLinkEffectHandler.hasPendingDeepLink | hasPendingDeepLink | @MainActor var hasPendingDeepLink: Bool { get } | []
 symbol | swift.property | FlowDeepLinkEffectHandler.pendingDeepLink | pendingDeepLink | @MainActor var pendingDeepLink: FlowPendingDeepLink<R>? { get } | []
-symbol | swift.property | FlowDeepLinkEffectHandler.pipeline | pipeline | @MainActor let pipeline: FlowDeepLinkPipeline<R> | []
 symbol | swift.protocol | DeepLinkEffect | DeepLinkEffect | protocol DeepLinkEffect | []
-symbol | swift.protocol | RouterEffect | RouterEffect | protocol RouterEffect : DeepLinkEffect, NavigationEffect | []
 symbol | swift.type.method | DeepLinkEffect.deepLink(_:) | deepLink(_:) | static func deepLink(_ url: URL) -> Self | []
