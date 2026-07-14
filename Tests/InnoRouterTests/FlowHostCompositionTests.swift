@@ -82,21 +82,4 @@ struct FlowHostCompositionTests {
 
         #expect(store.path == [.push(.landing)])
     }
-
-    @Test("FlowNavigating default handle forwards to flowStore.send")
-    @MainActor
-    func flowNavigatingDefaultHandle() {
-        final class FakeNavigator: FlowNavigating {
-            typealias RouteType = FlowHostRoute
-            let flowStore: FlowStore<FlowHostRoute>
-            init(store: FlowStore<FlowHostRoute>) { self.flowStore = store }
-        }
-        let store = FlowStore<FlowHostRoute>()
-        let navigator = FakeNavigator(store: store)
-
-        navigator.handle(.push(.landing))
-        navigator.handle(.presentSheet(.sheetChild))
-
-        #expect(store.path == [.push(.landing), .sheet(.sheetChild)])
-    }
 }

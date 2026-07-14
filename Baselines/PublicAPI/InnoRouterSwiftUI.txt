@@ -10,7 +10,6 @@ relationship | conformsTo | OSLogModalTelemetrySink | ModalTelemetrySink |  |
 relationship | conformsTo | OSLogNavigationTelemetrySink | NavigationTelemetrySink |  |
 relationship | defaultImplementationOf | ChildCoordinator.parentDidCancel() | ChildCoordinator.parentDidCancel() |  |
 relationship | defaultImplementationOf | Coordinator.handle(_:) | Coordinator.handle(_:) |  |
-relationship | defaultImplementationOf | FlowNavigating.handle(_:) | FlowNavigating.handle(_:) |  |
 relationship | defaultImplementationOf | StepCoordinator.canProceed(from:) | StepCoordinator.canProceed(from:) |  |
 relationship | defaultImplementationOf | StoreObserver.handle(_:) | StoreObserver.handle(_:) |  |
 relationship | memberOf | AnyFlowTelemetrySink.RouteType | AnyFlowTelemetrySink |  |
@@ -308,9 +307,6 @@ relationship | requirementOf | Coordinator.RouteType | Coordinator |  |
 relationship | requirementOf | Coordinator.destination(for:) | Coordinator |  |
 relationship | requirementOf | Coordinator.handle(_:) | Coordinator |  |
 relationship | requirementOf | Coordinator.store | Coordinator |  |
-relationship | requirementOf | FlowNavigating.RouteType | FlowNavigating |  |
-relationship | requirementOf | FlowNavigating.flowStore | FlowNavigating |  |
-relationship | requirementOf | FlowNavigating.handle(_:) | FlowNavigating |  |
 relationship | requirementOf | FlowStateReading.RouteType | FlowStateReading |  |
 relationship | requirementOf | FlowStateReading.currentModalPresentation | FlowStateReading |  |
 relationship | requirementOf | FlowStateReading.currentModalRoute | FlowStateReading |  |
@@ -342,7 +338,6 @@ relationship | requirementOf | TabCoordinator.tabBadges | TabCoordinator |  |
 symbol | swift.associatedtype | ChildCoordinator.Result | Result | associatedtype Result : Sendable | []
 symbol | swift.associatedtype | Coordinator.Destination | Destination | associatedtype Destination : View | []
 symbol | swift.associatedtype | Coordinator.RouteType | RouteType | associatedtype RouteType : Route | []
-symbol | swift.associatedtype | FlowNavigating.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | FlowStateReading.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | FlowTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | ModalTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
@@ -521,7 +516,6 @@ symbol | swift.method | Coordinator.push(child:) | push(child:) | @discardableRe
 symbol | swift.method | Coordinator.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<Self.RouteType>) | []
 symbol | swift.method | DebouncingNavigator.cancelPending() | cancelPending() | @MainActor func cancelPending() | []
 symbol | swift.method | DebouncingNavigator.debouncedExecute(_:) | debouncedExecute(_:) | @discardableResult @MainActor func debouncedExecute(_ command: NavigationCommand<N.RouteType>) async -> NavigationResult<N.RouteType>? | []
-symbol | swift.method | FlowNavigating.handle(_:) | handle(_:) | @MainActor func handle(_ intent: FlowIntent<Self.RouteType>) | []
 symbol | swift.method | FlowStore.apply(_:) | apply(_:) | @discardableResult @MainActor func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> | []
 symbol | swift.method | FlowStore.observe(_:) | observe(_:) | @MainActor func observe<O>(_ observer: O) -> StoreObserverSubscription where R == O.RouteType, O : StoreObserver | []
 symbol | swift.method | FlowStore.send(_:) | send(_:) | @MainActor func send(_ intent: FlowIntent<R>) | []
@@ -594,7 +588,6 @@ symbol | swift.property | EnvironmentNavigationIntent.wrappedValue | wrappedValu
 symbol | swift.property | EnvironmentValues.innoRouterEnvironmentMissingPolicy | innoRouterEnvironmentMissingPolicy | var innoRouterEnvironmentMissingPolicy: EnvironmentMissingPolicy { get set } | []
 symbol | swift.property | FlowEvent.description | description | var description: String { get } | []
 symbol | swift.property | FlowHost.body | body | @MainActor var body: some View { get } | []
-symbol | swift.property | FlowNavigating.flowStore | flowStore | @MainActor var flowStore: FlowStore<Self.RouteType> { get } | []
 symbol | swift.property | FlowStateReading.currentModalPresentation | currentModalPresentation | @MainActor var currentModalPresentation: ModalPresentation<Self.RouteType>? { get } | []
 symbol | swift.property | FlowStateReading.currentModalRoute | currentModalRoute | @MainActor var currentModalRoute: Self.RouteType? { get } | []
 symbol | swift.property | FlowStateReading.hasModalTail | hasModalTail | @MainActor var hasModalTail: Bool { get } | []
@@ -683,7 +676,6 @@ symbol | swift.property | TabCoordinator.tabBadges | tabBadges | @MainActor var 
 symbol | swift.property | TabCoordinatorView.body | body | @MainActor var body: some View { get } | []
 symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor protocol ChildCoordinator : LifecycleAware | []
 symbol | swift.protocol | Coordinator | Coordinator | @MainActor protocol Coordinator : AnyObject, Observable | []
-symbol | swift.protocol | FlowNavigating | FlowNavigating | @MainActor protocol FlowNavigating : AnyObject | []
 symbol | swift.protocol | FlowStateReading | FlowStateReading | @MainActor protocol FlowStateReading<RouteType> : Sendable | []
 symbol | swift.protocol | FlowTelemetrySink | FlowTelemetrySink | @MainActor protocol FlowTelemetrySink : Sendable | []
 symbol | swift.protocol | LifecycleAware | LifecycleAware | @MainActor protocol LifecycleAware : AnyObject | []

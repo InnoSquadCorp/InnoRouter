@@ -175,6 +175,9 @@ are bare semver (no leading `v`).
   `ModalTelemetryEvent`, and `FlowTelemetryEvent` aliases are removed; update
   explicit annotations and custom sink method signatures to the canonical
   event types.
+- The unused `FlowNavigating` forwarding protocol is removed. Flow owners
+  should keep a `FlowStore` directly and dispatch with `send(_:)` or its cached
+  `intentDispatcher`; `FlowHost` already consumes that store-native dispatcher.
 - `DeepLinkPipeline` now accepts a `DeepLinkMatcher` through its canonical
   `matcher:` initializer. The old `resolve:` initializer and nested `Resolver`
   type alias are removed. Migrate `resolve: { matcher.match($0) }` to
