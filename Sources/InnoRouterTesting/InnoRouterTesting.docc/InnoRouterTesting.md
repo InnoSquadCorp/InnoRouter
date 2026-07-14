@@ -38,6 +38,8 @@ func pushHomeLogsChangeEvent() {
 
 The default mode is `TestExhaustivity.strict`: unasserted events at store deinit (or at an explicit `finish()`) are reported as test issues. `TestExhaustivity.off` preserves the `receive(...)` assertions but silences the final drain check — useful when incrementally migrating large legacy suites.
 
+> Note: Swift Testing currently attributes issues recorded inside an isolated `deinit` to an *unknown test*, so a deinit-time leftover-event failure can be hard to trace back to the test that owned the store. Prefer ending each test with an explicit `finish()` (or `expectNoMoreEvents()`), as the examples on this page do — it runs the same strict check immediately with correct source attribution and disarms the deinit-time fallback.
+
 ### User callbacks are preserved
 
 When you pass a production `NavigationStoreConfiguration`, `ModalStoreConfiguration`, or `FlowStoreConfiguration` into a test store, every hook (including `onChange`, `onPresented`, `onCommandIntercepted`, `onPathMismatch`, etc.) still fires. The test store appends events after the user callback runs, so production middleware and analytics pipelines behave under test exactly as they would in the app.
