@@ -237,6 +237,14 @@ check_present \
   '```swift compile' \
   "Effects documentation does not compile an import/use example"
 
+echo "[check-docs-consistency] Checking DocC source-ref contract"
+check_present "$ROOT_DIR/scripts/build-docc-site.sh" \
+  'resolve-docc-source-ref.sh' \
+  "DocC builder does not delegate source-ref selection to the tested resolver"
+if ! bash "$ROOT_DIR/scripts/test-resolve-docc-source-ref.sh"; then
+  failures=1
+fi
+
 echo "[check-docs-consistency] Checking rejection catalog enum coverage"
 check_enum_cases_documented \
   "$ROOT_DIR/Sources/InnoRouterCore/NavigationInterception.swift" \

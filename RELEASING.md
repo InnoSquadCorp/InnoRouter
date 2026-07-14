@@ -39,6 +39,10 @@ pre-release path publishes a GitHub Release marked as pre-release and
 a DocC subtree under `/InnoRouter/<tag>/`, but does **not** update
 `/latest/`. Only a bare-semver GA tag advances `/latest/`.
 
+GA, release-candidate, and beta DocC builds link source locations to their
+exact tag. Preview builds link to the CI commit SHA (or the local `HEAD` SHA),
+while other non-release labels fall back to `main`.
+
 ## SemVer commitment
 
 InnoRouter 5.x follows [Semantic Versioning](https://semver.org/)

@@ -212,6 +212,10 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Versioned DocC source links now use the exact GA, release-candidate, or beta
+  tag. Pre-release builds such as `5.0.0-rc.1` no longer send “View Source”
+  links to a potentially newer `main`; preview builds remain pinned to their
+  commit SHA.
 - The public-API changelog gate now compares substantive `Unreleased` content
   against the merge base, so an edit to historical release prose or whitespace
   cannot satisfy a baseline change. Pull requests use the base SHA and branch

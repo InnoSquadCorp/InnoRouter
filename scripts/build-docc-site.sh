@@ -148,16 +148,13 @@ if [[ -n "$EXISTING_SITE_DIR" ]]; then
   EXISTING_SITE_DIR="$(resolve_existing_dir_under_root "$EXISTING_SITE_DIR")"
 fi
 
-SOURCE_REF="main"
+PREVIEW_SOURCE_REF="${GITHUB_SHA:-}"
 if [[ "$VERSION" == "preview" ]]; then
-  if [[ -n "${GITHUB_SHA:-}" ]]; then
-    SOURCE_REF="$GITHUB_SHA"
-  elif git -C "$ROOT_DIR" rev-parse --verify HEAD >/dev/null 2>&1; then
-    SOURCE_REF="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+  if [[ -z "$PREVIEW_SOURCE_REF" ]] && git -C "$ROOT_DIR" rev-parse --verify HEAD >/dev/null 2>&1; then
+    PREVIEW_SOURCE_REF="$(git -C "$ROOT_DIR" rev-parse HEAD)"
   fi
-elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  SOURCE_REF="$VERSION"
 fi
+SOURCE_REF="$(bash "$ROOT_DIR/scripts/resolve-docc-source-ref.sh" "$VERSION" "$PREVIEW_SOURCE_REF")"
 
 DOCC_MODULES=(
   "InnoRouterCore|Sources/InnoRouterCore/InnoRouterCore.docc|core|InnoRouterCore|com.innosquad.innorouter.docs.core"
