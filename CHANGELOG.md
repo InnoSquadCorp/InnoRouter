@@ -199,6 +199,17 @@ are bare semver (no leading `v`).
 
 ### Changed
 
+- Release publication now resolves strict GA/`rc`/`beta` metadata through one
+  SemVer policy, reads release policy from `main`, verifies the exact tag and
+  triggering SHA against `main` ancestry, and builds only the resulting
+  immutable commit. Pre-release tag pushes complete as validated publication
+  no-ops; manual `prerelease=true` dispatch remains the publishing path.
+- Release preflight now validates `CHANGELOG.md` from the tag commit. GA cuts
+  must empty `Unreleased` and place the tagged version immediately below it;
+  pre-releases keep non-empty notes under `Unreleased` until the GA cut.
+- Apple-platform CI now compiles the shipped Effects and Testing products
+  explicitly, guards the Swift/Xcode pin matrix, and runs `actionlint` on every
+  pull request and branch push.
 - The documentation snippet gate now depends on every public product and
   compile-checks an `InnoRouterEffects` import/use example, closing the only
   opt-in product coverage gap in the consumer fixture.
@@ -243,6 +254,13 @@ are bare semver (no leading `v`).
   merges that snapshot before deployment. All release runs share a queued
   concurrency group, preventing simultaneous tags from publishing stale site
   snapshots that erase one another or older versioned documentation.
+- Versioned DocC publication compares every GA against the highest existing GA
+  before rebuilding `/latest/`, so rerunning an older tag cannot roll the alias
+  back. The root portal now uses the shared SemVer ordering, placing a GA ahead
+  of its `rc`/`beta` builds and ordering numeric prerelease ordinals correctly.
+- Apple-platform runtime CI now treats a timed-out asynchronous `simctl boot`
+  request as provisional and lets authoritative `bootstatus` decide readiness,
+  avoiding false failures when the simulator continues booting successfully.
 - Versioned DocC source links now use the exact GA, release-candidate, or beta
   tag. Pre-release builds such as `5.0.0-rc.1` no longer send “View Source”
   links to a potentially newer `main`; preview builds remain pinned to their
