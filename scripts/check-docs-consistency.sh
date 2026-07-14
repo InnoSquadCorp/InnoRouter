@@ -314,6 +314,9 @@ check_present "$ROOT_DIR/.github/workflows/release.yml" 'queue: max' \
 check_present "$ROOT_DIR/.github/actionlint.yaml" \
   'unexpected key "queue" for "concurrency" section' \
   "actionlint does not scope its temporary queue-schema exception"
+check_present "$ROOT_DIR/.github/workflows/principle-gates.yml" \
+  'actionlint -config-file .github/actionlint.yaml' \
+  "principle-gates workflow does not run actionlint"
 check_absent "$ROOT_DIR/.github/workflows/release.yml" 'continue-on-error: true' \
   "release workflow still ignores an existing-site checkout failure"
 check_present "$ROOT_DIR/.github/workflows/release.yml" \
