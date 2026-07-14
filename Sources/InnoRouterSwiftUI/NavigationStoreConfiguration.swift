@@ -39,14 +39,13 @@ public struct NavigationMiddlewareMetadata: Equatable, Sendable {
 /// Configuration for constructing a `NavigationStore`.
 ///
 /// All stored properties are `public var` so call sites can build a
-/// configuration with the desired engine / middlewares once and then
+/// configuration with the desired policies and middleware once and then
 /// adjust the unified observation hook without re-stating every other
 /// parameter:
 ///
 /// ```swift
-/// var config = NavigationStoreConfiguration<AppRoute>(
-///     engine: customEngine
-/// )
+/// var config = NavigationStoreConfiguration<AppRoute>()
+/// config.pathMismatchPolicy = .assertAndReplace
 /// config.onEvent = { event in
 ///     analytics.send(event)
 /// }
@@ -56,8 +55,6 @@ public struct NavigationMiddlewareMetadata: Equatable, Sendable {
 /// The struct stays `Sendable`; mutating an instance does not affect
 /// any `NavigationStore` already constructed from a previous copy.
 public struct NavigationStoreConfiguration<R: Route>: Sendable {
-    /// Engine used to apply navigation commands.
-    public var engine: NavigationEngine<R>
     /// Initial middleware registrations.
     public var middlewares: [NavigationMiddlewareRegistration<R>]
     /// Validator used for externally supplied route stack snapshots.
@@ -110,7 +107,6 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
 
     /// Creates a navigation store configuration.
     public init(
-        engine: NavigationEngine<R> = .init(),
         middlewares: [NavigationMiddlewareRegistration<R>] = [],
         routeStackValidator: RouteStackValidator<R> = .permissive,
         pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace,
@@ -120,7 +116,6 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         eventBufferingPolicy: EventBufferingPolicy = .default,
         pathReconciler: (any NavigationPathReconciling<R>)? = nil
     ) {
-        self.engine = engine
         self.middlewares = middlewares
         self.routeStackValidator = routeStackValidator
         self.pathMismatchPolicy = pathMismatchPolicy

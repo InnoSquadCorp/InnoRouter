@@ -106,7 +106,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             telemetrySink: telemetrySink
         )
         self.state = initial
-        self.engine = configuration.engine
+        self.engine = .init()
         self.eventDispatcher = eventDispatcher
         self.pathMismatchPolicy = configuration.pathMismatchPolicy
         self.pathMismatchAssertionHandler = Self.defaultPathMismatchAssertionHandler
@@ -163,7 +163,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             telemetrySink: telemetrySink
         )
         self.state = initial
-        self.engine = configuration.engine
+        self.engine = .init()
         self.eventDispatcher = eventDispatcher
         self.pathMismatchPolicy = configuration.pathMismatchPolicy
         self.pathMismatchAssertionHandler = nonPrefixAssertionHandler

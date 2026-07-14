@@ -246,9 +246,8 @@ relationship | memberOf | NavigationStore.removeMiddleware(_:) | NavigationStore
 relationship | memberOf | NavigationStore.replaceMiddleware(_:with:debugName:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.send(_:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.state | NavigationStore |  |
-relationship | memberOf | NavigationStoreConfiguration.engine | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.eventBufferingPolicy | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onEvent:eventBufferingPolicy:pathReconciler:) | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.init(middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onEvent:eventBufferingPolicy:pathReconciler:) | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.logger | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.middlewares | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.onEvent | NavigationStoreConfiguration |  |
@@ -513,7 +512,7 @@ symbol | swift.init | NavigationPathReconciler.init() | init() | nonisolated ini
 symbol | swift.init | NavigationSplitHost.init(store:sidebar:destination:root:) | init(store:sidebar:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: RouteStack<R> = .init(), configuration: NavigationStoreConfiguration<R> = .init()) | []
 symbol | swift.init | NavigationStore.init(initialPath:configuration:) | init(initialPath:configuration:) | @MainActor convenience init(initialPath: [R], configuration: NavigationStoreConfiguration<R> = .init()) throws | []
-symbol | swift.init | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onEvent:eventBufferingPolicy:pathReconciler:) | init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onEvent:eventBufferingPolicy:pathReconciler:) | init(engine: NavigationEngine<R> = .init(), middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, telemetrySink: AnyNavigationTelemetrySink<R>? = nil, onEvent: (@MainActor (NavigationEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, pathReconciler: (any NavigationPathReconciling<R>)? = nil) | []
+symbol | swift.init | NavigationStoreConfiguration.init(middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onEvent:eventBufferingPolicy:pathReconciler:) | init(middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onEvent:eventBufferingPolicy:pathReconciler:) | init(middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, telemetrySink: AnyNavigationTelemetrySink<R>? = nil, onEvent: (@MainActor (NavigationEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, pathReconciler: (any NavigationPathReconciling<R>)? = nil) | []
 symbol | swift.init | OSLogFlowTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogModalTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogNavigationTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
@@ -676,7 +675,6 @@ symbol | swift.property | NavigationStore.intentDispatcher | intentDispatcher | 
 symbol | swift.property | NavigationStore.middlewareMetadata | middlewareMetadata | @MainActor var middlewareMetadata: [NavigationMiddlewareMetadata] { get } | []
 symbol | swift.property | NavigationStore.pathBinding | pathBinding | @MainActor var pathBinding: Binding<[R]> { get } | []
 symbol | swift.property | NavigationStore.state | state | @MainActor var state: RouteStack<R> { get set } | []
-symbol | swift.property | NavigationStoreConfiguration.engine | engine | var engine: NavigationEngine<R> | []
 symbol | swift.property | NavigationStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | var eventBufferingPolicy: EventBufferingPolicy | []
 symbol | swift.property | NavigationStoreConfiguration.logger | logger | var logger: Logger? | []
 symbol | swift.property | NavigationStoreConfiguration.middlewares | middlewares | var middlewares: [NavigationMiddlewareRegistration<R>] | []
