@@ -299,9 +299,10 @@ struct FlowDeepLinkEffectHandlerTests {
 
         let result = handler.handle(URL(string: "myapp://app/home/detail/42")!)
 
-        if case .applicationRejected(let plan, let path) = result {
+        if case .applicationRejected(let plan, let path, let reason) = result {
             #expect(plan == FlowPlan(steps: [.push(.home), .push(.detail(id: "42"))]))
             #expect(path.isEmpty)
+            #expect(reason == .middlewareRejected(debugName: "blocker"))
         } else {
             Issue.record("Expected .applicationRejected, got \(result)")
         }
@@ -350,9 +351,10 @@ struct FlowDeepLinkEffectHandlerTests {
         isAuthed.withLock { $0 = true }
 
         let result = handler.resumePendingDeepLink()
-        if case .applicationRejected(let plan, let path) = result {
+        if case .applicationRejected(let plan, let path, let reason) = result {
             #expect(plan == FlowPlan(steps: [.push(.secure)]))
             #expect(path.isEmpty)
+            #expect(reason == .middlewareRejected(debugName: "blocker"))
         } else {
             Issue.record("Expected .applicationRejected on resume, got \(result)")
         }

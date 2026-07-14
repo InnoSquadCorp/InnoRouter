@@ -468,7 +468,7 @@ struct FlowStoreDelegationTests {
 
         store.navigationStore.send(.go(.home))
 
-        #expect(observer.result == .rejected(currentPath: [.push(.home)]))
+        #expect(observer.result == .rejected(currentPath: [.push(.home)], reason: .reentrantApply))
         #expect(store.path == [.push(.home)])
         #expect(observer.events.count == 2)
     }
@@ -488,7 +488,7 @@ struct FlowStoreDelegationTests {
 
         store.send(.reset([.push(.home), .sheet(.share)]))
 
-        #expect(observer.result == .rejected(currentPath: [.push(.home)]))
+        #expect(observer.result == .rejected(currentPath: [.push(.home)], reason: .reentrantApply))
         #expect(store.path == [.push(.home), .sheet(.share)])
     }
 

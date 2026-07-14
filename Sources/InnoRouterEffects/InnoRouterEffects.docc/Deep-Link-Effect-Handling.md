@@ -24,6 +24,8 @@ The handler keeps deep-link execution explicit:
 - it does not collapse rejection into generic failure
 - it validates the produced `NavigationPlan` before execution and
   reports `.applicationRejected` when the current stack cannot apply it
+- its flow counterpart preserves the authority's exact
+  `FlowRejectionReason` in `.applicationRejected(plan:path:reason:)`
 - it reports `.executionFailed` with the full batch when middleware or
   command execution prevents every step from succeeding
 - it keeps batch execution payloads visible to the caller

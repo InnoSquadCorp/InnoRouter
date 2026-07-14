@@ -346,7 +346,7 @@ public final class FlowStore<R: Route> {
                 reason: rejectionReason,
                 applyQueueCoalescePolicy: plan.queueCoalescePolicyEligible
             )
-            return .rejected(currentPath: path)
+            return .rejected(currentPath: path, reason: rejectionReason)
         }
 
         return .applied(path: path)
@@ -702,7 +702,7 @@ public final class FlowStore<R: Route> {
             || flowEventDispatchDepth > 0
         else { return nil }
 
-        return .rejected(currentPath: path)
+        return .rejected(currentPath: path, reason: .reentrantApply)
     }
 
     private func dispatchFlowEvents(_ events: [FlowEvent<R>]) {

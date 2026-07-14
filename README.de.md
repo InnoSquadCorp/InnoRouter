@@ -1008,8 +1008,9 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
   wiederhergestellte oder extern bereitgestellte `[RouteStep]`-Werte; der
   Kompatibilitäts-Initializer `initial:` zwingt ungültige Eingaben weiterhin auf
   einen leeren Path.
-- `FlowRejectionReason` macht Invariantenverletzungen sichtbar
-  (`pushBlockedByModalTail`, `invalidResetPath`, `middlewareRejected(debugName:)`).
+- `FlowRejectionReason` macht Laufzeit-Ablehnungsgründe sichtbar
+  (`pushBlockedByModalTail`, `invalidResetPath`, `middlewareRejected(debugName:)`,
+  `reentrantApply`).
 
 ## Host-loses Testing (`InnoRouterTesting`)
 

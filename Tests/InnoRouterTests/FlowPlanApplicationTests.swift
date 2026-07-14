@@ -58,7 +58,7 @@ struct FlowPlanApplicationTests {
 
         #expect(store.path.isEmpty)
         #expect(rejections.withLock { $0 } == [.invalidResetPath])
-        #expect(result == .rejected(currentPath: []))
+        #expect(result == .rejected(currentPath: [], reason: .invalidResetPath))
     }
 
     @Test("apply with empty plan clears stack and modal")

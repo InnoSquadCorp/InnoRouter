@@ -23,6 +23,7 @@ struct LocalizedDescriptionSurfaceTests {
     @Test("flow rejection exposes localizedDescription")
     func flowRejectionDescription() {
         #expect(FlowRejectionReason.pushBlockedByModalTail.localizedDescription.contains("modal"))
+        #expect(FlowRejectionReason.reentrantApply.localizedDescription.contains("reentrant"))
     }
 
     @Test("deep-link rejection exposes localizedDescription")

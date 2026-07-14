@@ -1017,8 +1017,9 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 - `FlowStore(validating:configuration:)` es el initializer throwing para
   valores `[RouteStep]` restaurados o suministrados externamente; el initializer
   de compatibilidad `initial:` aún coacciona entrada inválida a un path vacío.
-- `FlowRejectionReason` expone violaciones de invariante
-  (`pushBlockedByModalTail`, `invalidResetPath`, `middlewareRejected(debugName:)`).
+- `FlowRejectionReason` expone motivos de rechazo en tiempo de ejecución
+  (`pushBlockedByModalTail`, `invalidResetPath`, `middlewareRejected(debugName:)`,
+  `reentrantApply`).
 
 ## Testing sin host (`InnoRouterTesting`)
 

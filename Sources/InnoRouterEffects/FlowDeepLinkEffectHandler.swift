@@ -21,9 +21,14 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
         /// path is attached for caller inspection / logging.
         case executed(plan: FlowPlan<R>, path: [RouteStep<R>])
         /// URL matched, but applying the plan was rejected by the
-        /// underlying authority. `path` reflects the unchanged
-        /// committed state after the rejection.
-        case applicationRejected(plan: FlowPlan<R>, path: [RouteStep<R>])
+        /// underlying authority. `path` is the authority's committed-state
+        /// snapshot at the point of rejection, while `reason` preserves its
+        /// typed refusal.
+        case applicationRejected(
+            plan: FlowPlan<R>,
+            path: [RouteStep<R>],
+            reason: FlowRejectionReason
+        )
         /// Authentication gate deferred the URL; caller should replay
         /// via ``resumePendingDeepLinkIfAllowed(_:)``.
         case pending(FlowPendingDeepLink<R>)
@@ -171,8 +176,8 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
         switch applier.apply(plan) {
         case .applied(let path):
             return .executed(plan: plan, path: path)
-        case .rejected(let currentPath):
-            return .applicationRejected(plan: plan, path: currentPath)
+        case .rejected(let currentPath, let reason):
+            return .applicationRejected(plan: plan, path: currentPath, reason: reason)
         }
     }
 

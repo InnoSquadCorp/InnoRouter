@@ -68,7 +68,8 @@ Identical shape to `NavigationCancellationReason` but parameterised on
 
 | Source | Symbol | Emits through |
 |---|---|---|
-| `FlowStore.send(_ intent:)` invariant check | `FlowRejectionReason` | `FlowStoreConfiguration.onEvent` / `FlowStore.events` as `FlowEvent.intentRejected` |
+| `FlowStore.send(_ intent:)` refusal | `FlowRejectionReason` | `FlowStoreConfiguration.onEvent` / `FlowStore.events` as `FlowEvent.intentRejected` |
+| `FlowStore.apply(_ plan:)` rejection | `FlowPlanApplyResult.rejected(currentPath:reason:)` | Synchronous return value with the exact `FlowRejectionReason` |
 
 ### `FlowRejectionReason`
 
@@ -77,6 +78,7 @@ Identical shape to `NavigationCancellationReason` but parameterised on
 | `.pushBlockedByModalTail` | `.push(_)` requested while the flow tail is a `.sheet` / `.cover` step | Dismiss first, or use `.reset(_:)` |
 | `.invalidResetPath` | A `.reset([_])` path violates FlowStore invariants (e.g. multiple modal steps, or a modal not at the tail) | Fix the path before sending |
 | `.middlewareRejected(debugName:)` | A navigation or modal middleware inside the flow cancelled the underlying command; `FlowStore.path` was rolled back | Observe which middleware; surface telemetry |
+| `.reentrantApply` | `FlowStore.apply(_:)` was called synchronously while the store was already delivering a mutation event | Schedule `send(.reset(_))` from the callback so the mutation is deferred |
 
 ## Scene (visionOS)
 
@@ -119,7 +121,8 @@ The typed outcome from `DeepLinkEffectHandler` / `FlowDeepLinkEffectHandler`:
 |---|---|
 | `.executed(plan:batch:)` | Every command in the plan succeeded; per-command results remain available in `batch` |
 | `.executionFailed(plan:batch:)` | Batch execution was attempted, but at least one command failed or was cancelled; inspect `batch.stateAfter` for partial changes |
-| `.applicationRejected(plan:failure:)` | Preflight rejected the plan before batch execution, so navigation state is unchanged |
+| `.applicationRejected(plan:failure:)` | The push-only handler's preflight rejected the plan before batch execution, so navigation state is unchanged |
+| `.applicationRejected(plan:path:reason:)` | The flow authority rejected an atomic plan; `path` is its snapshot at the rejection point and `reason` preserves the exact `FlowRejectionReason` |
 | `.pending(_)` | Authorisation deferred; plan stored as `pendingDeepLink` for later replay |
 | `.rejected(reason:)` | URL rejected by scheme/host policy — see `DeepLinkRejectionReason` above |
 | `.unhandled(url:)` | URL did not resolve to any route |

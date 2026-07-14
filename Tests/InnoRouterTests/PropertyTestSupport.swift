@@ -1038,6 +1038,8 @@ enum NormalizedFlowEvent: Equatable, Hashable {
             case .middlewareRejected(let debugName):
                 hasher.combine(2)
                 hasher.combine(debugName)
+            case .reentrantApply:
+                hasher.combine(3)
             }
         case .pathChanged:
             hasher.combine(5)

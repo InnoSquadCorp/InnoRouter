@@ -1036,8 +1036,9 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
   восстановленных или внешне предоставленных значений `[RouteStep]`;
   совместимый initializer `initial:` всё ещё принуждает невалидный ввод
   к пустому пути.
-- `FlowRejectionReason` раскрывает нарушения инвариантов
-  (`pushBlockedByModalTail`, `invalidResetPath`, `middlewareRejected(debugName:)`).
+- `FlowRejectionReason` раскрывает причины отказа во время выполнения
+  (`pushBlockedByModalTail`, `invalidResetPath`, `middlewareRejected(debugName:)`,
+  `reentrantApply`).
 
 ## Тестирование без host (`InnoRouterTesting`)
 

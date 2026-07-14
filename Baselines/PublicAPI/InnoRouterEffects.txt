@@ -16,7 +16,7 @@ relationship | memberOf | DeepLinkEffectHandler.pendingDeepLink | DeepLinkEffect
 relationship | memberOf | DeepLinkEffectHandler.resumePendingDeepLink() | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | DeepLinkEffectHandler |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.Result | FlowDeepLinkEffectHandler |  |
-relationship | memberOf | FlowDeepLinkEffectHandler.Result.applicationRejected(plan:path:) | FlowDeepLinkEffectHandler.Result |  |
+relationship | memberOf | FlowDeepLinkEffectHandler.Result.applicationRejected(plan:path:reason:) | FlowDeepLinkEffectHandler.Result |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.Result.executed(plan:path:) | FlowDeepLinkEffectHandler.Result |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.Result.invalidURL(input:) | FlowDeepLinkEffectHandler.Result |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.Result.missingDeepLinkURL | FlowDeepLinkEffectHandler.Result |  |
@@ -63,7 +63,7 @@ symbol | swift.enum.case | DeepLinkEffectHandler.Result.noPendingDeepLink | Deep
 symbol | swift.enum.case | DeepLinkEffectHandler.Result.pending(_:) | DeepLinkEffectHandler.Result.pending(_:) | case pending(PendingDeepLink<R>) | []
 symbol | swift.enum.case | DeepLinkEffectHandler.Result.rejected(reason:) | DeepLinkEffectHandler.Result.rejected(reason:) | case rejected(reason: DeepLinkRejectionReason) | []
 symbol | swift.enum.case | DeepLinkEffectHandler.Result.unhandled(url:) | DeepLinkEffectHandler.Result.unhandled(url:) | case unhandled(url: URL) | []
-symbol | swift.enum.case | FlowDeepLinkEffectHandler.Result.applicationRejected(plan:path:) | FlowDeepLinkEffectHandler.Result.applicationRejected(plan:path:) | case applicationRejected(plan: FlowPlan<R>, path: [RouteStep<R>]) | []
+symbol | swift.enum.case | FlowDeepLinkEffectHandler.Result.applicationRejected(plan:path:reason:) | FlowDeepLinkEffectHandler.Result.applicationRejected(plan:path:reason:) | case applicationRejected(plan: FlowPlan<R>, path: [RouteStep<R>], reason: FlowRejectionReason) | []
 symbol | swift.enum.case | FlowDeepLinkEffectHandler.Result.executed(plan:path:) | FlowDeepLinkEffectHandler.Result.executed(plan:path:) | case executed(plan: FlowPlan<R>, path: [RouteStep<R>]) | []
 symbol | swift.enum.case | FlowDeepLinkEffectHandler.Result.invalidURL(input:) | FlowDeepLinkEffectHandler.Result.invalidURL(input:) | case invalidURL(input: String) | []
 symbol | swift.enum.case | FlowDeepLinkEffectHandler.Result.missingDeepLinkURL | FlowDeepLinkEffectHandler.Result.missingDeepLinkURL | case missingDeepLinkURL | []

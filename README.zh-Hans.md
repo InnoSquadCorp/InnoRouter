@@ -947,8 +947,9 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 - `FlowStore(validating:configuration:)` 是用于恢复的或外部提供的
   `[RouteStep]` 值的 throwing initializer;兼容性 `initial:` initializer
   仍将无效输入强制为空路径。
-- `FlowRejectionReason` 浮现不变量违规
-  (`pushBlockedByModalTail`、`invalidResetPath`、`middlewareRejected(debugName:)`)。
+- `FlowRejectionReason` 浮现运行时拒绝原因
+  (`pushBlockedByModalTail`、`invalidResetPath`、`middlewareRejected(debugName:)`、
+  `reentrantApply`)。
 
 ## 无 Host 测试 (`InnoRouterTesting`)
 

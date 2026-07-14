@@ -8,6 +8,12 @@ are bare semver (no leading `v`).
 
 ### Breaking
 
+- `FlowPlanApplyResult.rejected` and
+  `FlowDeepLinkEffectHandler.Result.applicationRejected` now carry the exact
+  `FlowRejectionReason`. Custom `FlowPlanApplier` conformers must return a
+  reason for every rejection, and exhaustive result patterns must accept the
+  new payload. Reentrant `FlowStore.apply(_:)` calls now report the new
+  `.reentrantApply` reason instead of an unclassified rejection.
 - Push-only deep-link outcomes add
   `.executionFailed(plan:batch:)`. `DeepLinkEffectHandler` and
   `DeepLinkCoordinating` now reserve `.executed` for batches whose commands all

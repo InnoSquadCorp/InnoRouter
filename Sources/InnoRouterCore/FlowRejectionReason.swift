@@ -1,10 +1,11 @@
 // MARK: - FlowRejectionReason.swift
-// InnoRouterCore — rejection reasons surfaced by FlowStore when a
-// user intent cannot be applied.
+// InnoRouterCore — rejection reasons surfaced by FlowStore when an
+// intent or plan cannot be applied.
 // Copyright © 2026 Inno Squad. All rights reserved.
 
-/// Reason carried by `FlowEvent.intentRejected` when `FlowStore` refuses to
-/// apply a user intent.
+/// Reason carried by `FlowEvent.intentRejected` or
+/// ``FlowPlanApplyResult/rejected(currentPath:reason:)`` when `FlowStore`
+/// refuses to apply a user intent or plan.
 ///
 /// Lives in `InnoRouterCore` alongside the other rejection
 /// taxonomies (``NavigationCancellationReason``,
@@ -25,6 +26,10 @@ public enum FlowRejectionReason: Sendable, Equatable {
     /// A navigation or modal middleware cancelled the underlying command,
     /// so `FlowStore.path` was rolled back.
     case middlewareRejected(debugName: String?)
+
+    /// `FlowStore.apply(_:)` was called synchronously while the store or one
+    /// of its inner authorities was already delivering a mutation event.
+    case reentrantApply
 }
 
 public extension FlowRejectionReason {
@@ -39,6 +44,8 @@ public extension FlowRejectionReason {
                 return "Flow intent was rejected by middleware '\(debugName)'."
             }
             return "Flow intent was rejected by middleware."
+        case .reentrantApply:
+            return "Flow plan application was rejected because reentrant apply is not supported."
         }
     }
 }

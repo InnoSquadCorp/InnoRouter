@@ -53,13 +53,14 @@ relationship | memberOf | FlowPlan.init(validating:) | FlowPlan |  |
 relationship | memberOf | FlowPlan.steps | FlowPlan |  |
 relationship | memberOf | FlowPlan.validate(_:) | FlowPlan |  |
 relationship | memberOf | FlowPlanApplyResult.applied(path:) | FlowPlanApplyResult |  |
-relationship | memberOf | FlowPlanApplyResult.rejected(currentPath:) | FlowPlanApplyResult |  |
+relationship | memberOf | FlowPlanApplyResult.rejected(currentPath:reason:) | FlowPlanApplyResult |  |
 relationship | memberOf | FlowPlanValidationError.modalNotAtTail | FlowPlanValidationError |  |
 relationship | memberOf | FlowPlanValidationError.tooManyModals | FlowPlanValidationError |  |
 relationship | memberOf | FlowRejectionReason.invalidResetPath | FlowRejectionReason |  |
 relationship | memberOf | FlowRejectionReason.localizedDescription | FlowRejectionReason |  |
 relationship | memberOf | FlowRejectionReason.middlewareRejected(debugName:) | FlowRejectionReason |  |
 relationship | memberOf | FlowRejectionReason.pushBlockedByModalTail | FlowRejectionReason |  |
+relationship | memberOf | FlowRejectionReason.reentrantApply | FlowRejectionReason |  |
 relationship | memberOf | ImmersiveStyle.full | ImmersiveStyle |  |
 relationship | memberOf | ImmersiveStyle.mixed | ImmersiveStyle |  |
 relationship | memberOf | ImmersiveStyle.progressive | ImmersiveStyle |  |
@@ -245,12 +246,13 @@ symbol | swift.enum.case | EventBufferingPolicy.bufferingNewest(_:) | EventBuffe
 symbol | swift.enum.case | EventBufferingPolicy.bufferingOldest(_:) | EventBufferingPolicy.bufferingOldest(_:) | case bufferingOldest(Int) | []
 symbol | swift.enum.case | EventBufferingPolicy.unbounded | EventBufferingPolicy.unbounded | case unbounded | []
 symbol | swift.enum.case | FlowPlanApplyResult.applied(path:) | FlowPlanApplyResult.applied(path:) | case applied(path: [RouteStep<R>]) | []
-symbol | swift.enum.case | FlowPlanApplyResult.rejected(currentPath:) | FlowPlanApplyResult.rejected(currentPath:) | case rejected(currentPath: [RouteStep<R>]) | []
+symbol | swift.enum.case | FlowPlanApplyResult.rejected(currentPath:reason:) | FlowPlanApplyResult.rejected(currentPath:reason:) | case rejected(currentPath: [RouteStep<R>], reason: FlowRejectionReason) | []
 symbol | swift.enum.case | FlowPlanValidationError.modalNotAtTail | FlowPlanValidationError.modalNotAtTail | case modalNotAtTail | []
 symbol | swift.enum.case | FlowPlanValidationError.tooManyModals | FlowPlanValidationError.tooManyModals | case tooManyModals | []
 symbol | swift.enum.case | FlowRejectionReason.invalidResetPath | FlowRejectionReason.invalidResetPath | case invalidResetPath | []
 symbol | swift.enum.case | FlowRejectionReason.middlewareRejected(debugName:) | FlowRejectionReason.middlewareRejected(debugName:) | case middlewareRejected(debugName: String?) | []
 symbol | swift.enum.case | FlowRejectionReason.pushBlockedByModalTail | FlowRejectionReason.pushBlockedByModalTail | case pushBlockedByModalTail | []
+symbol | swift.enum.case | FlowRejectionReason.reentrantApply | FlowRejectionReason.reentrantApply | case reentrantApply | []
 symbol | swift.enum.case | ImmersiveStyle.full | ImmersiveStyle.full | case full | []
 symbol | swift.enum.case | ImmersiveStyle.mixed | ImmersiveStyle.mixed | case mixed | []
 symbol | swift.enum.case | ImmersiveStyle.progressive | ImmersiveStyle.progressive | case progressive | []

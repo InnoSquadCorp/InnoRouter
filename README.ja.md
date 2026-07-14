@@ -1024,8 +1024,9 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 - `FlowStore(validating:configuration:)` は復元または外部供給された
   `[RouteStep]` 値のための throwing イニシャライザです。互換性のある
   `initial:` イニシャライザは依然として無効な入力を空のパスに強制します。
-- `FlowRejectionReason` は不変条件違反を表面化します
-  (`pushBlockedByModalTail`、`invalidResetPath`、`middlewareRejected(debugName:)`)。
+- `FlowRejectionReason` は実行時の拒否理由を表面化します
+  (`pushBlockedByModalTail`、`invalidResetPath`、`middlewareRejected(debugName:)`、
+  `reentrantApply`)。
 
 ## ホストレステスト (`InnoRouterTesting`)
 
