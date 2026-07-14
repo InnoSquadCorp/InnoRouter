@@ -88,6 +88,15 @@ if len(unreleased_indices) != 1:
 unreleased_index = unreleased_indices[0]
 
 if channel == "prerelease":
+    release_heading_pattern = re.compile(
+        r"## \d+\.\d+\.\d+(?:-\S+)? - \d{4}-\d{2}-\d{2}\s*"
+    )
+    if any(
+        release_heading_pattern.fullmatch(line)
+        for line in lines[:unreleased_index]
+    ):
+        fail("`## Unreleased` must appear above every release section")
+
     if not has_release_note(section_after(unreleased_index)):
         fail("pre-release notes must remain non-empty under `## Unreleased`")
 

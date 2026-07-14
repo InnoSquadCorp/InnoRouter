@@ -129,6 +129,13 @@ write_fixture prerelease-after-ga \
   '## 5.0.0 - 2026-07-15' '' \
   '- Stable release.'
 
+write_fixture prerelease-unreleased-after-release \
+  '# Changelog' '' \
+  '## 4.3.0 - 2026-06-01' '' \
+  '- Previous release.' '' \
+  '## Unreleased' '' \
+  '- Release candidate notes.'
+
 expect_pass ga-valid 5.0.0 ga
 expect_pass prerelease-valid 5.0.0-rc.1 prerelease
 expect_fail missing-unreleased 5.0.0 ga
@@ -142,5 +149,6 @@ expect_fail stale-target-not-first 5.0.0 ga
 expect_fail duplicate-version 5.0.0 ga
 expect_fail duplicate-unreleased 5.0.0 ga
 expect_fail prerelease-after-ga 5.0.0-rc.1 prerelease
+expect_fail prerelease-unreleased-after-release 5.0.0-rc.1 prerelease
 
 echo '[test-check-release-changelog] All scenarios passed'
