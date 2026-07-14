@@ -235,12 +235,13 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
-- Performance smoke measurements now alternate small/large input order and use
-  inner and outer medians instead of phase-separated averages. Transient runner
-  preemption no longer masquerades as an input-scaling regression, while a
-  slowdown present in at least three of five pairs still fails the unchanged
-  ratio and absolute-time budgets. Failed runs also preserve the JSON report
-  and print every regressed sample instead of exiting before diagnostics.
+- Performance smoke measurements now alternate small/large input order, report
+  median timings, and gate scaling on the median of five pair ratios instead of
+  dividing two independently aggregated medians. Transient runner preemption no
+  longer masquerades as an input-scaling regression, while a slowdown present
+  in at least three of five pairs still fails the unchanged ratio and
+  absolute-time budgets. Failed runs also preserve the JSON report and print
+  every regressed sample instead of exiting before diagnostics.
 - Reopening an already-active immersive scene with the same route and style now
   reuses its presentation identity. A successful duplicate open can no longer
   replace the store's active UUID while the live SwiftUI root still owns the

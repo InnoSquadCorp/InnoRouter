@@ -181,6 +181,7 @@ private func measureDeepLinkPipeline(mappingCount: Int) -> Double {
 private struct PairedMeasurementSummary {
     let smallMilliseconds: Double
     let largeMilliseconds: Double
+    let medianPairRatio: Double
 }
 
 private func pairedMedianMeasurement(
@@ -193,8 +194,10 @@ private func pairedMedianMeasurement(
 
     var smallMeasurements: [Double] = []
     var largeMeasurements: [Double] = []
+    var pairRatios: [Double] = []
     smallMeasurements.reserveCapacity(pairCount)
     largeMeasurements.reserveCapacity(pairCount)
+    pairRatios.reserveCapacity(pairCount)
 
     for pairIndex in 0..<pairCount {
         let small: Double
@@ -207,24 +210,32 @@ private func pairedMedianMeasurement(
             small = measure(smallInput)
         }
 
-        guard small.isFinite, small > 0, large.isFinite, large > 0 else {
+        let pairRatio = large / small
+        guard small.isFinite, small > 0,
+              large.isFinite, large > 0,
+              pairRatio.isFinite, pairRatio > 0
+        else {
             return nil
         }
         smallMeasurements.append(small)
         largeMeasurements.append(large)
+        pairRatios.append(pairRatio)
     }
 
     guard smallMeasurements.count == pairCount,
           largeMeasurements.count == pairCount,
+          pairRatios.count == pairCount,
           let smallMedian = median(smallMeasurements),
-          let largeMedian = median(largeMeasurements)
+          let largeMedian = median(largeMeasurements),
+          let medianPairRatio = median(pairRatios)
     else {
         return nil
     }
 
     return PairedMeasurementSummary(
         smallMilliseconds: smallMedian,
-        largeMilliseconds: largeMedian
+        largeMilliseconds: largeMedian,
+        medianPairRatio: medianPairRatio
     )
 }
 
@@ -248,11 +259,38 @@ private func runAggregationSelfTest() -> Bool {
     let expectedOrder = [1, 2, 2, 1, 1, 2, 2, 1, 1, 2]
     guard summary?.smallMilliseconds == 1,
           summary?.largeMilliseconds == 2,
+          summary?.medianPairRatio == 2,
           callOrder == expectedOrder,
           median([2, 2, 100, 100, 100]) == 100,
           median([1, 0, 1]) == nil,
           median([1, .nan, 1]) == nil,
           median([1, .infinity, 1]) == nil
+    else {
+        return false
+    }
+
+    let asymmetricSmallValues = [1_000.0, 1_000.0, 1.0, 1_000.0, 1_000.0]
+    let asymmetricLargeValues = [4_000.0, 4_000.0, 4.0, 1.0, 1.0]
+    var asymmetricSmallIndex = 0
+    var asymmetricLargeIndex = 0
+    let asymmetricSample = makeSample(
+        name: "asymmetric_pair_regression_self_test",
+        smallInput: 1,
+        largeInput: 2,
+        threshold: 3.8
+    ) { input in
+        if input == 1 {
+            defer { asymmetricSmallIndex += 1 }
+            return asymmetricSmallValues[asymmetricSmallIndex]
+        }
+        defer { asymmetricLargeIndex += 1 }
+        return asymmetricLargeValues[asymmetricLargeIndex]
+    }
+
+    guard asymmetricSample.smallMilliseconds == 1_000,
+          asymmetricSample.largeMilliseconds == 4,
+          asymmetricSample.ratio == 4,
+          asymmetricSample.passed == false
     else {
         return false
     }
@@ -280,7 +318,7 @@ private func makeSample(
     )
     let small = measurement?.smallMilliseconds ?? 0
     let large = measurement?.largeMilliseconds ?? 0
-    let ratio = small > 0 ? large / small : .infinity
+    let ratio = measurement?.medianPairRatio ?? .infinity
     let absolutePassed: Bool
     if let cap = largeMaxMilliseconds {
         absolutePassed = large <= cap
