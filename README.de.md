@@ -144,10 +144,11 @@ Innerhalb der `5.x.y`-Releases folgt InnoRouter
   einengt oder das dokumentierte Laufzeitverhalten so ändert, dass bestehende
   Aufrufstellen überrascht werden können.
 
-Pre-Release-Tags verwenden die Form `5.0.0-rc.1` / `5.1.0-beta.2`. Die Regex
-`^[0-9]+\.[0-9]+\.[0-9]+$` des Release-Workflows akzeptiert nur finale Tags;
-Pre-Release-Tags werden über einen separaten manuellen Flow ausgeliefert,
-der in [`RELEASING.md`](RELEASING.md) dokumentiert ist.
+Pre-Release-Tags verwenden die Form `5.0.0-rc.1` / `5.1.0-beta.2`. Eine
+einheitliche strict Versionsrichtlinie akzeptiert GA-, `rc`- und `beta`-Bezeichner
+ohne führende Nullen. Ein Pre-Release-Tag-Push validiert, veröffentlicht aber
+nichts; die Veröffentlichung erfolgt gemäß [`RELEASING.md`](RELEASING.md) durch
+manuelles Ausführen von `release.yml` mit `prerelease=true`.
 
 ### Was als Breaking Change zählt
 
@@ -925,7 +926,7 @@ CI validiert:
 
 ### CD
 
-CD läuft nur auf reinen Semver-Tags:
+GA-Veröffentlichungen laufen auf strict reinen Semver-Tags:
 
 - `5.0.0`
 
@@ -936,10 +937,11 @@ Ungültige Tag-Beispiele:
 
 Verantwortungen des Release-Workflows:
 
+- exact Tag, `main`-Ancestry und `CHANGELOG.md` des Tags prüfen
 - Code-/Dokumentations-Gates erneut ausführen
 - das wiederverwendbare `platforms`-Gate aufrufen und die Veröffentlichung bis zum erfolgreichen Abschluss blockieren; `./scripts/principle-gates.sh --platforms=all` prüft lokal nur die Kompilierung und ersetzt diese Laufzeittests nicht
 - versioniertes DocC bauen
-- `/latest/` aktualisieren
+- `/latest/` nur aktualisieren, wenn das GA mindestens dem höchsten veröffentlichten GA entspricht
 - ältere versionierte Docs erhalten
 - GitHub Release veröffentlichen
 

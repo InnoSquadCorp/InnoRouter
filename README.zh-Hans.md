@@ -124,9 +124,10 @@ _ = compileCheckedStack.path
 - **`5.x.y` → `6.0.0`** 主版本发布:任何破坏源代码兼容性、删除公开符号、
   收窄泛型约束,或以可能令现有调用点惊讶的方式更改文档化运行时行为的事项。
 
-预发布标签使用 `5.0.0-rc.1` / `5.1.0-beta.2` 形式。发布工作流的
-`^[0-9]+\.[0-9]+\.[0-9]+$` 正则表达式只接受最终标签;预发布标签通过
-[`RELEASING.md`](RELEASING.md) 中文档化的单独手动流程发布。
+预发布标签使用 `5.0.0-rc.1` / `5.1.0-beta.2` 形式。统一的 strict 版本策略
+只接受无前导零的 GA、`rc` 和 `beta` 标识符。预发布标签 push 会完成验证但不发布;
+实际发布需按 [`RELEASING.md`](RELEASING.md) 手动运行 `release.yml`,并设置
+`prerelease=true`。
 
 ### 什么算破坏性变更
 
@@ -870,7 +871,7 @@ CI 验证:
 
 ### CD
 
-CD 仅在裸 semver 标签上运行:
+GA 发布仅在 strict 裸 semver 标签上运行:
 
 - `5.0.0`
 
@@ -881,10 +882,11 @@ CD 仅在裸 semver 标签上运行:
 
 发布工作流职责:
 
+- 验证 exact tag、`main` ancestry 以及标签中的 `CHANGELOG.md`
 - 重新运行代码/文档门
 - 调用可复用的 `platforms` 门禁，并在其通过前阻止发布；本地 `./scripts/principle-gates.sh --platforms=all` 仅执行编译检查，不能替代这些运行时测试
 - 构建版本化 DocC
-- 更新 `/latest/`
+- 仅当 GA 不低于已发布的最高 GA 时更新 `/latest/`
 - 保留旧版本化文档
 - 发布 GitHub Release
 

@@ -134,10 +134,11 @@ OSS 호환성 라인의 일부가 아닙니다. 4.x 릴리즈에서 이동하는
   제거하거나, generic 제약을 좁히거나, 문서화된 런타임 동작을 기존 호출 사이트가
   놀랄 만한 방식으로 변경하는 모든 것.
 
-Pre-release 태그는 `5.0.0-rc.1` / `5.1.0-beta.2` 형식을 사용합니다. 릴리즈
-워크플로우의 `^[0-9]+\.[0-9]+\.[0-9]+$` 정규식은 final 태그만 받아들입니다.
-pre-release 태그는 [`RELEASING.md`](RELEASING.md)에 문서화된 별도 수동 흐름을
-통해 출시됩니다.
+Pre-release 태그는 `5.0.0-rc.1` / `5.1.0-beta.2` 형식을 사용합니다. 하나의
+strict 버전 정책이 선행 0 없는 GA, `rc`, `beta` 식별자만 허용합니다. Pre-release
+태그 push는 게시하지 않는 검증 run으로 완료되며, 실제 출시는
+[`RELEASING.md`](RELEASING.md)에 따라 `release.yml`을 `prerelease=true`로 수동
+실행합니다.
 
 ### Breaking change의 정의
 
@@ -889,7 +890,7 @@ CI는 다음을 검증합니다:
 
 ### CD
 
-CD는 bare semver tag에서만 동작합니다:
+GA 게시는 strict bare semver tag에서 동작합니다:
 
 - `5.0.0`
 
@@ -900,10 +901,11 @@ CD는 bare semver tag에서만 동작합니다:
 
 릴리즈 워크플로우 책임:
 
+- exact tag, `main` ancestry, tag의 `CHANGELOG.md` 검증
 - 코드/문서 게이트 재실행
 - 재사용 가능한 `platforms` 게이트를 호출하고 green이 될 때까지 게시 차단; 로컬 `./scripts/principle-gates.sh --platforms=all`은 컴파일만 확인하며 런타임 테스트를 대체하지 않음
 - 버전별 DocC 빌드
-- `/latest/` 업데이트
+- GA가 게시된 최고 GA 이상일 때만 `/latest/` 업데이트
 - 이전 버전별 docs 보존
 - GitHub Release 게시
 

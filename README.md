@@ -141,10 +141,11 @@ Within `5.x.y` releases, InnoRouter follows
   constraint, or changes documented runtime behavior in a way that
   can surprise existing call sites.
 
-Pre-release tags use the `5.0.0-rc.1` / `5.1.0-beta.2` form. The
-release workflow's `^[0-9]+\.[0-9]+\.[0-9]+$` regex only accepts
-final tags; pre-release tags ship through a separate manual flow
-documented in [`RELEASING.md`](RELEASING.md).
+Pre-release tags use the `5.0.0-rc.1` / `5.1.0-beta.2` form. One strict
+version policy accepts GA, `rc`, and `beta` identifiers without leading zeroes.
+A pre-release tag push validates as a publication no-op; publish it by manually
+dispatching `release.yml` with `prerelease=true` as documented in
+[`RELEASING.md`](RELEASING.md).
 
 ### What counts as a breaking change
 
@@ -934,7 +935,7 @@ CI validates:
 
 ### CD
 
-CD runs on bare semver tags only:
+GA publication runs on strict bare semver tags:
 
 - `5.0.0`
 
@@ -945,10 +946,11 @@ Invalid tag examples:
 
 Release workflow responsibilities:
 
+- verify the exact tag, `main` ancestry, and tagged `CHANGELOG.md`
 - rerun code/documentation gates
 - invoke the reusable `platforms` gate and block publishing until it is green; local `./scripts/principle-gates.sh --platforms=all` is compile-only and does not replace the runtime tests
 - build versioned DocC
-- update `/latest/`
+- update `/latest/` only when the GA is at least the highest published GA
 - preserve older versioned docs
 - publish GitHub Release
 

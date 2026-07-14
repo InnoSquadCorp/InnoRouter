@@ -205,6 +205,10 @@ for readme_path in "$ROOT_DIR"/README*.md; do
     "$(basename "$readme_path") does not reserve breaking changes for 6.0.0"
   check_present "$readme_path" '5.0.0-rc.1' \
     "$(basename "$readme_path") does not use a current pre-release example"
+  check_present "$readme_path" 'prerelease=true' \
+    "$(basename "$readme_path") does not document manual pre-release publication"
+  check_absent "$readme_path" '^[0-9]+\.[0-9]+\.[0-9]+$' \
+    "$(basename "$readme_path") still describes the removed GA-only regex"
   check_absent "$readme_path" '4.1.0-rc.1' \
     "$(basename "$readme_path") still uses a 4.x pre-release example"
   check_absent "$readme_path" '4.2.0-beta.2' \

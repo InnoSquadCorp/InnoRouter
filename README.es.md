@@ -145,10 +145,11 @@ Dentro de los releases `5.x.y`, InnoRouter sigue
   genérica, o cambie el comportamiento documentado en runtime de una forma que
   pueda sorprender a los sitios de llamada existentes.
 
-Las etiquetas de pre-release usan la forma `5.0.0-rc.1` / `5.1.0-beta.2`. La
-expresión regular `^[0-9]+\.[0-9]+\.[0-9]+$` del workflow de release solo acepta
-etiquetas finales; las etiquetas pre-release se publican a través de un flujo
-manual separado documentado en [`RELEASING.md`](RELEASING.md).
+Las etiquetas de pre-release usan la forma `5.0.0-rc.1` / `5.1.0-beta.2`. Una
+política strict compartida solo acepta identificadores GA, `rc` y `beta` sin
+ceros iniciales. Un push de pre-release valida sin publicar; la publicación se
+hace ejecutando manualmente `release.yml` con `prerelease=true`, según
+[`RELEASING.md`](RELEASING.md).
 
 ### Qué cuenta como cambio rompedor
 
@@ -935,7 +936,7 @@ CI valida:
 
 ### CD
 
-CD se ejecuta solo en etiquetas semver puras:
+La publicación GA se ejecuta en etiquetas semver strict y puras:
 
 - `5.0.0`
 
@@ -946,10 +947,11 @@ Ejemplos de etiquetas inválidas:
 
 Responsabilidades del workflow de release:
 
+- verificar el exact tag, su ancestry en `main` y el `CHANGELOG.md` etiquetado
 - volver a ejecutar puertas de código/documentación
 - invocar la puerta reutilizable `platforms` y bloquear la publicación hasta que se complete correctamente; `./scripts/principle-gates.sh --platforms=all` solo comprueba la compilación local y no sustituye esas pruebas en tiempo de ejecución
 - construir DocC versionado
-- actualizar `/latest/`
+- actualizar `/latest/` solo si el GA no es menor que el GA publicado más alto
 - preservar docs versionados antiguos
 - publicar GitHub Release
 
