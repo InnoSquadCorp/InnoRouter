@@ -185,29 +185,11 @@ jobs:
           devices_json="$(mktemp)"
           xcrun simctl list devices available -j > "$devices_json"
 
-          simulator_udid="$(python3 - "$devices_json" '${{ matrix.platform.runtimePrefix }}' <<'PY'
-          import json
-          import sys
-
-          devices_path = sys.argv[1]
-          runtime_prefix = sys.argv[2]
-
-          with open(devices_path, encoding="utf-8") as handle:
-              payload = json.load(handle)
-
-          for runtime, devices in payload.get("devices", {}).items():
-              if runtime_prefix not in runtime:
-                  continue
-              for device in devices:
-                  if device.get("isAvailable", True):
-                      print(device["udid"])
-                      raise SystemExit(0)
-
-          raise SystemExit(1)
-          PY
-          )" || true
-
-          if [[ -z "$simulator_udid" ]]; then
+          if ! simulator_udid="$(
+            python3 ./scripts/select-simulator.py \
+              "$devices_json" \
+              '${{ matrix.platform.runtimePrefix }}'
+          )"; then
             echo "No available ${{ matrix.platform.name }} simulator found."
             cat "$devices_json"
             exit 1
