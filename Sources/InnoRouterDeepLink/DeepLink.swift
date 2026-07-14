@@ -334,18 +334,16 @@ struct DeepLinkParser: Sendable {
             let components = URLComponents(url: url, resolvingAgainstBaseURL: true)
             self.scheme = components?.scheme
             self.host = components?.host
-            // Normalise percent-encoded segments (for example
-            // `hello%20world` -> `hello world`, or any non-ASCII path
-            // segment such as `%E2%9C%93` -> a literal check mark) so
-            // that human-readable patterns declared in `DeepLinkMapping`
-            // match their URL-encoded counterparts. `URL.pathComponents`
-            // may return raw or decoded components depending on the URL
-            // form; applying `removingPercentEncoding` defensively keeps
-            // the contract platform-stable.
-            self.path = url.pathComponents
-                .filter { $0 != "/" }
-                .map { component in
-                    component.removingPercentEncoding ?? component
+            // Split the encoded path before decoding each segment exactly
+            // once. Splitting a decoded path would turn `%2F` into a new
+            // routing boundary, while decoding `URL.pathComponents` again
+            // would turn `%252F` into `/` instead of the literal `%2F`.
+            let encodedPath = components?.percentEncodedPath ?? url.path(percentEncoded: true)
+            self.path = encodedPath
+                .split(separator: "/")
+                .map { encodedComponent in
+                    let component = String(encodedComponent)
+                    return component.removingPercentEncoding ?? component
                 }
 
             var parsedQueryItems: [String: [String]] = [:]
@@ -355,10 +353,6 @@ struct DeepLinkParser: Sendable {
             self.queryItems = parsedQueryItems
 
             self.fragment = components?.fragment
-        }
-
-        var pathString: String {
-            "/" + path.joined(separator: "/")
         }
 
         var firstQueryItems: [String: String] {
@@ -424,10 +418,12 @@ struct DeepLinkPattern: Sendable {
     }
 
     func match(_ path: String) -> MatchResult? {
+        match(pathParts: path.split(separator: "/").map(String.init))
+    }
+
+    private func match(pathParts: [String]) -> MatchResult? {
         guard nonTerminalWildcardIndex == nil else { return nil }
         guard invalidParameterNameDiagnostics.isEmpty else { return nil }
-
-        let pathParts = path.split(separator: "/").map(String.init)
 
         let hasWildcard = patternParts.contains { part in
             if case .wildcard = part { return true }
@@ -457,7 +453,7 @@ struct DeepLinkPattern: Sendable {
     }
 
     func match(_ parsed: DeepLinkParser.ParsedURL) -> MatchResult? {
-        guard let result = match(parsed.pathString) else { return nil }
+        guard let result = match(pathParts: parsed.path) else { return nil }
         let mergedParameters = Self.merge(result.parameters, with: parsed.queryItems)
         return MatchResult(parameters: mergedParameters)
     }

@@ -86,6 +86,11 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Deep-link paths now split on their percent-encoded separators before each
+  segment is decoded exactly once. An encoded slash (`%2F`) remains data
+  inside one segment instead of matching a two-segment pattern, `%252F`
+  resolves to the literal `%2F` instead of being decoded twice, and path
+  segment limits use the same boundaries as pattern matching.
 - Reentrant `FlowStore.send(_:)` calls made by nested navigation or modal
   `onEvent` callbacks and telemetry sinks now wait for the originating
   inner-store operation and complete Flow mutation to finish. This includes
