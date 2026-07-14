@@ -33,7 +33,7 @@ public final class NavigationTestStore<R: Route> {
     // MARK: - Stored
 
     private let underlying: NavigationStore<R>
-    private let queue: TestEventQueue<NavigationTestEvent<R>>
+    private let queue: TestEventQueue<NavigationEvent<R>>
 
     // MARK: - Init
 
@@ -52,7 +52,7 @@ public final class NavigationTestStore<R: Route> {
         configuration: NavigationStoreConfiguration<R> = .init(),
         exhaustivity: TestExhaustivity = .strict
     ) {
-        let queue = TestEventQueue<NavigationTestEvent<R>>(
+        let queue = TestEventQueue<NavigationEvent<R>>(
             storeName: "NavigationTestStore",
             exhaustivity: exhaustivity
         )
@@ -108,7 +108,7 @@ public final class NavigationTestStore<R: Route> {
     }
 
     /// A snapshot of events that have been observed but not yet asserted.
-    public var unassertedEvents: [NavigationTestEvent<R>] {
+    public var unassertedEvents: [NavigationEvent<R>] {
         queue.remaining
     }
 
@@ -148,7 +148,7 @@ public final class NavigationTestStore<R: Route> {
     /// Swift Testing `Issue.record` if the queue is empty or the event
     /// differs.
     public func receive(
-        _ expected: NavigationTestEvent<R>,
+        _ expected: NavigationEvent<R>,
         fileID: String = #fileID,
         filePath: String = #filePath,
         line: Int = #line,
@@ -177,13 +177,13 @@ public final class NavigationTestStore<R: Route> {
     /// queue is empty or the predicate returns `false`.
     @discardableResult
     public func receive(
-        _ predicate: (NavigationTestEvent<R>) -> Bool,
+        _ predicate: (NavigationEvent<R>) -> Bool,
         failureMessage: @autoclosure () -> String = "predicate returned false",
         fileID: String = #fileID,
         filePath: String = #filePath,
         line: Int = #line,
         column: Int = #column
-    ) -> NavigationTestEvent<R>? {
+    ) -> NavigationEvent<R>? {
         guard let actual = queue.dequeue() else {
             recordTestStoreIssue(
                 "NavigationTestStore.receive(predicate) — queue is empty.",
@@ -405,7 +405,7 @@ public final class NavigationTestStore<R: Route> {
 
     private static func wrapConfiguration(
         _ original: NavigationStoreConfiguration<R>,
-        queue: TestEventQueue<NavigationTestEvent<R>>
+        queue: TestEventQueue<NavigationEvent<R>>
     ) -> NavigationStoreConfiguration<R> {
         var wrapped = original
         wrapped.onEvent = { @MainActor [queue] event in

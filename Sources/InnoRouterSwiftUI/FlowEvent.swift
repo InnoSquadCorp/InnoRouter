@@ -13,9 +13,7 @@ import InnoRouterCore
 /// "this intent triggered this specific internal command sequence"
 /// end-to-end from a single `AsyncStream`.
 ///
-/// Test harnesses (`InnoRouterTesting`) reuse this type directly — the
-/// legacy `FlowTestEvent<R>` is preserved as a typealias for source
-/// compatibility.
+/// Test harnesses (`InnoRouterTesting`) reuse this type directly.
 public enum FlowEvent<R: Route>: Sendable, Equatable {
     /// The projected flow path changed.
     case pathChanged(old: [RouteStep<R>], new: [RouteStep<R>])

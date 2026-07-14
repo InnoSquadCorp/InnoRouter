@@ -30,7 +30,7 @@ public final class FlowTestStore<R: Route> {
     // MARK: - Stored
 
     private let underlying: FlowStore<R>
-    private let queue: TestEventQueue<FlowTestEvent<R>>
+    private let queue: TestEventQueue<FlowEvent<R>>
 
     // MARK: - Init
 
@@ -39,7 +39,7 @@ public final class FlowTestStore<R: Route> {
         configuration: FlowStoreConfiguration<R> = .init(),
         exhaustivity: TestExhaustivity = .strict
     ) {
-        let queue = TestEventQueue<FlowTestEvent<R>>(
+        let queue = TestEventQueue<FlowEvent<R>>(
             storeName: "FlowTestStore",
             exhaustivity: exhaustivity
         )
@@ -69,7 +69,7 @@ public final class FlowTestStore<R: Route> {
         underlying.path
     }
 
-    public var unassertedEvents: [FlowTestEvent<R>] {
+    public var unassertedEvents: [FlowEvent<R>] {
         queue.remaining
     }
 
@@ -87,7 +87,7 @@ public final class FlowTestStore<R: Route> {
     // MARK: - Assertion
 
     public func receive(
-        _ expected: FlowTestEvent<R>,
+        _ expected: FlowEvent<R>,
         fileID: String = #fileID,
         filePath: String = #filePath,
         line: Int = #line,
@@ -176,7 +176,7 @@ public final class FlowTestStore<R: Route> {
     }
 
     public func receiveNavigation(
-        _ predicate: (NavigationTestEvent<R>) -> Bool = { _ in true },
+        _ predicate: (NavigationEvent<R>) -> Bool = { _ in true },
         fileID: String = #fileID,
         filePath: String = #filePath,
         line: Int = #line,
@@ -205,7 +205,7 @@ public final class FlowTestStore<R: Route> {
     }
 
     public func receiveModal(
-        _ predicate: (ModalTestEvent<R>) -> Bool = { _ in true },
+        _ predicate: (ModalEvent<R>) -> Bool = { _ in true },
         fileID: String = #fileID,
         filePath: String = #filePath,
         line: Int = #line,
@@ -497,7 +497,7 @@ public final class FlowTestStore<R: Route> {
     private func receiveNavigationCase<Payload>(
         label: String,
         expected: String,
-        extract: (NavigationTestEvent<R>) -> Payload?,
+        extract: (NavigationEvent<R>) -> Payload?,
         check: (Payload) -> Bool,
         fileID: String,
         filePath: String,
@@ -536,7 +536,7 @@ public final class FlowTestStore<R: Route> {
     private func receiveModalCase<Payload>(
         label: String,
         expected: String,
-        extract: (ModalTestEvent<R>) -> Payload?,
+        extract: (ModalEvent<R>) -> Payload?,
         check: (Payload) -> Bool,
         fileID: String,
         filePath: String,
@@ -572,7 +572,7 @@ public final class FlowTestStore<R: Route> {
         }
     }
 
-    private static func navigationCaseName(_ event: NavigationTestEvent<R>) -> String {
+    private static func navigationCaseName(_ event: NavigationEvent<R>) -> String {
         switch event {
         case .changed: return ".changed"
         case .batchExecuted: return ".batchExecuted"
@@ -582,7 +582,7 @@ public final class FlowTestStore<R: Route> {
         }
     }
 
-    private static func modalCaseName(_ event: ModalTestEvent<R>) -> String {
+    private static func modalCaseName(_ event: ModalEvent<R>) -> String {
         switch event {
         case .presented: return ".presented"
         case .dismissed: return ".dismissed"
@@ -595,7 +595,7 @@ public final class FlowTestStore<R: Route> {
 
     private static func wrapConfiguration(
         _ original: FlowStoreConfiguration<R>,
-        queue: TestEventQueue<FlowTestEvent<R>>
+        queue: TestEventQueue<FlowEvent<R>>
     ) -> FlowStoreConfiguration<R> {
         var wrapped = original
         wrapped.onEvent = { @MainActor [queue] event in

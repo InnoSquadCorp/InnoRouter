@@ -12,9 +12,7 @@ import InnoRouterCore
 /// pipelines can consume the same values delivered synchronously through
 /// `NavigationStoreConfiguration.onEvent`.
 ///
-/// Test harnesses (`InnoRouterTesting`) reuse this type directly — the
-/// legacy `NavigationTestEvent<R>` is preserved as a typealias for
-/// source compatibility.
+/// Test harnesses (`InnoRouterTesting`) reuse this type directly.
 public enum NavigationEvent<R: Route>: Sendable, Equatable {
     /// The navigation stack changed through a command or external path
     /// binding update.

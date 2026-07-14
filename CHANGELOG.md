@@ -168,6 +168,10 @@ are bare semver (no leading `v`).
   `matcher: matcher`; use the explicitly named `customResolver:` initializer
   only for arbitrary URL-to-route closures. No compatibility overload is
   provided.
+- `InnoRouterTesting` removes the legacy `NavigationTestEvent`,
+  `ModalTestEvent`, and `FlowTestEvent` aliases. Test stores now expose the
+  canonical `NavigationEvent`, `ModalEvent`, and `FlowEvent` types directly;
+  replace explicit alias annotations with those production event names.
 - `InnoRouterTesting` replaces the terminal-sounding
   `expectNoMoreEvents()` checkpoint with `assertNoPendingEvents()`.
   The renamed method reports and consumes only the current queue

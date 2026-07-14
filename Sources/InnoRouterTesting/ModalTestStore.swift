@@ -24,7 +24,7 @@ public final class ModalTestStore<M: Route> {
     // MARK: - Stored
 
     private let underlying: ModalStore<M>
-    private let queue: TestEventQueue<ModalTestEvent<M>>
+    private let queue: TestEventQueue<ModalEvent<M>>
 
     // MARK: - Init
 
@@ -35,7 +35,7 @@ public final class ModalTestStore<M: Route> {
         configuration: ModalStoreConfiguration<M> = .init(),
         exhaustivity: TestExhaustivity = .strict
     ) {
-        let queue = TestEventQueue<ModalTestEvent<M>>(
+        let queue = TestEventQueue<ModalEvent<M>>(
             storeName: "ModalTestStore",
             exhaustivity: exhaustivity
         )
@@ -74,7 +74,7 @@ public final class ModalTestStore<M: Route> {
     }
 
     /// Snapshot of unconsumed events.
-    public var unassertedEvents: [ModalTestEvent<M>] {
+    public var unassertedEvents: [ModalEvent<M>] {
         queue.remaining
     }
 
@@ -110,7 +110,7 @@ public final class ModalTestStore<M: Route> {
 
     /// Dequeues the next event and asserts equality with `expected`.
     public func receive(
-        _ expected: ModalTestEvent<M>,
+        _ expected: ModalEvent<M>,
         fileID: String = #fileID,
         filePath: String = #filePath,
         line: Int = #line,
@@ -332,7 +332,7 @@ public final class ModalTestStore<M: Route> {
 
     private static func wrapConfiguration(
         _ original: ModalStoreConfiguration<M>,
-        queue: TestEventQueue<ModalTestEvent<M>>
+        queue: TestEventQueue<ModalEvent<M>>
     ) -> ModalStoreConfiguration<M> {
         var wrapped = original
         wrapped.onEvent = { @MainActor [queue] event in

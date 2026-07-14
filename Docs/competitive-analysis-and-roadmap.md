@@ -304,9 +304,9 @@ Shape (landed):
 - In 5.0, the former per-event configuration callbacks are replaced by
   one typed `onEvent` callback per store. `events` provides the same
   cases as an asynchronous multicast channel.
-- `InnoRouterTesting`'s legacy `NavigationTestEvent` /
-  `ModalTestEvent` / `FlowTestEvent` types are preserved as
-  `typealias`es for source compatibility.
+- `InnoRouterTesting` uses the canonical `NavigationEvent` / `ModalEvent` /
+  `FlowEvent` types directly. The legacy test-only aliases are removed at the
+  5.0 boundary so production and test observation share one vocabulary.
 
 #### P2-2 `Codable` route stacks + `FlowPlan` + state restoration — **Shipped**
 

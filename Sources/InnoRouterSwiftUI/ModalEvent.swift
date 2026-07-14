@@ -11,9 +11,7 @@ import InnoRouterCore
 /// so callers can consume the same values delivered synchronously through
 /// `ModalStoreConfiguration.onEvent`.
 ///
-/// Test harnesses (`InnoRouterTesting`) reuse this type directly — the
-/// legacy `ModalTestEvent<M>` is preserved as a typealias for source
-/// compatibility.
+/// Test harnesses (`InnoRouterTesting`) reuse this type directly.
 public enum ModalEvent<M: Route>: Sendable, Equatable {
     /// A presentation became active.
     case presented(ModalPresentation<M>)
