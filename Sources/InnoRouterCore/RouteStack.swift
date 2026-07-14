@@ -32,6 +32,17 @@ public struct RouteStack<R: Route>: Sendable, Equatable {
         self.path = []
     }
 
+    /// Creates a stack after running `validator` against `path` once.
+    ///
+    /// > Important: The validator is a **construction-time gate**, not
+    /// > a persistent stack invariant. It is not stored on the stack
+    /// > (`RouteStack` stays `Equatable`/`Codable`, which a stored
+    /// > closure would break) and is never re-run by later
+    /// > `NavigationEngine` mutations — a stack created with
+    /// > ``RouteStackValidator/uniqueRoutes`` will still accept a
+    /// > `.push` that duplicates a route. To keep an invariant alive
+    /// > across mutations, enforce it in a `NavigationMiddleware`
+    /// > that vetoes violating commands.
     public init(
         validating path: [R],
         using validator: RouteStackValidator<R> = .permissive
