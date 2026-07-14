@@ -10,11 +10,12 @@ public enum RouteStackValidationError<R: Route>: Error, Equatable, Sendable {
 ///
 /// A validator runs **once at construction** and is then discarded —
 /// it does not travel with the stack, and subsequent mutations
-/// (pushes, pops, replaces applied by `NavigationEngine`) are not
+/// (pushes, pops, replaces applied by ``NavigationEngine``) are not
 /// re-validated against it. Use it to reject malformed initial or
-/// restored paths (for example a persisted stack decoded from disk).
+/// restored paths before adopting them (for example after decoding a
+/// persisted path).
 /// For invariants that must hold across mutations, use a
-/// `NavigationMiddleware` that intercepts violating commands instead.
+/// ``NavigationMiddleware`` that intercepts violating commands instead.
 public struct RouteStackValidator<R: Route>: Sendable {
     private let validateClosure: @Sendable ([R]) throws -> Void
 

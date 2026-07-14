@@ -604,13 +604,13 @@ Coordinator는 SwiftUI intent와 command 실행 사이에 위치하는 정책 �
 - 앱 shell이 조정 로직을 필요로 할 때
 - 여러 네비게이션 권한이 하나의 coordinator 뒤에 합성되어야 할 때
 
-`FlowCoordinator`와 `TabCoordinator`는 헬퍼이지 `NavigationStore`의 대체가 아닙니다.
+`StepCoordinator`와 `TabCoordinator`는 헬퍼이지 `NavigationStore`의 대체가 아닙니다.
 
 권장 분담:
 
 - `NavigationStore`: route-stack 권한
 - `TabCoordinator`: shell/tab 선택 상태
-- `FlowCoordinator`: destination 안의 local step 진행
+- `StepCoordinator`: destination 안의 local step 진행
 
 ### Child coordinator chaining
 

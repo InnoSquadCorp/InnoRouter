@@ -10,9 +10,8 @@ public protocol NavigationMiddleware<RouteType> {
     ) -> NavigationResult<RouteType>
 }
 
-@_spi(NavigationStoreInternals)
 @MainActor
-public protocol NavigationMiddlewareDiscardCleanup<RouteType> {
+package protocol NavigationMiddlewareDiscardCleanup<RouteType> {
     associatedtype RouteType: Route
 
     func discardExecution(
@@ -68,8 +67,7 @@ public struct AnyNavigationMiddleware<R: Route>: NavigationMiddleware, Sendable 
         _didExecute(command, result, state)
     }
 
-    @_spi(NavigationStoreInternals)
-    public func discardExecution(
+    package func discardExecution(
         _ command: NavigationCommand<R>,
         result: NavigationResult<R>,
         state: RouteStack<R>

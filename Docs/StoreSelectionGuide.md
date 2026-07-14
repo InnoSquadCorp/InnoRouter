@@ -36,7 +36,7 @@ Does this app surface need to push routes onto a stack?
                               events stream)
 ```
 
-`Coordinator` / `FlowCoordinator` / `TabCoordinator` /
+`Coordinator` / `StepCoordinator` / `TabCoordinator` /
 `ChildCoordinator` are not navigation authorities — they sit
 *between* views and stores when you need policy routing or a
 shell that owns a tab selection. Reach for them after you have

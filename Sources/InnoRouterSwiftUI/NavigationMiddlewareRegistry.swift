@@ -1,4 +1,4 @@
-@_spi(NavigationStoreInternals) import InnoRouterCore
+import InnoRouterCore
 
 @MainActor
 final class NavigationMiddlewareRegistry<R: Route> {

@@ -10,6 +10,7 @@ import Synchronization
 import SwiftUI
 import InnoRouter
 import InnoRouterEffects
+@testable import InnoRouterDeepLink
 @testable import InnoRouterSwiftUI
 
 // MARK: - DeepLink Tests

@@ -1,8 +1,7 @@
 import Foundation
 
 /// Logical execution domains used to correlate nested InnoRouter operations.
-@_spi(InternalTrace)
-public enum InternalExecutionTraceDomain: String, Sendable, Equatable {
+package enum InternalExecutionTraceDomain: String, Sendable, Equatable {
     /// Spans emitted by `NavigationStore` command execution and preview commit.
     case navigation
     /// Spans emitted by `ModalStore` preview commit and modal execution.
@@ -19,19 +18,18 @@ public enum InternalExecutionTraceDomain: String, Sendable, Equatable {
 /// reused by every nested span. `spanID` is unique per `withSpan` invocation.
 /// `parentSpanID` is the caller's active span when nesting occurs, or `nil`
 /// for the root span.
-@_spi(InternalTrace)
-public struct InternalExecutionTraceContext: Sendable, Equatable {
+package struct InternalExecutionTraceContext: Sendable, Equatable {
     /// Stable identifier shared by every span in the same traced operation tree.
-    public let rootID: String
+    package let rootID: String
     /// Identifier unique to this specific span.
-    public let spanID: String
+    package let spanID: String
     /// Parent span identifier when this span is nested inside another span.
-    public let parentSpanID: String?
+    package let parentSpanID: String?
     /// Domain that emitted the span.
-    public let domain: InternalExecutionTraceDomain
+    package let domain: InternalExecutionTraceDomain
 
     /// Creates an explicit execution-trace context.
-    public init(
+    package init(
         rootID: String,
         spanID: String,
         parentSpanID: String?,
@@ -45,8 +43,7 @@ public struct InternalExecutionTraceContext: Sendable, Equatable {
 }
 
 /// Trace events emitted around the lifetime of a span.
-@_spi(InternalTrace)
-public enum InternalExecutionTraceRecord: Sendable, Equatable {
+package enum InternalExecutionTraceRecord: Sendable, Equatable {
     /// Emitted immediately before entering the traced body.
     case start(
         context: InternalExecutionTraceContext,
@@ -62,17 +59,15 @@ public enum InternalExecutionTraceRecord: Sendable, Equatable {
 }
 
 /// Main-actor recorder invoked for `start`/`finish` records around a span.
-@_spi(InternalTrace)
-public typealias InternalExecutionTraceRecorder =
+package typealias InternalExecutionTraceRecorder =
     @MainActor @Sendable (InternalExecutionTraceRecord) -> Void
 
 /// Internal tracing helpers shared by stores and effect handlers.
-@_spi(InternalTrace)
-public enum InternalExecutionTrace {
+package enum InternalExecutionTrace {
     /// Task-local root span identifier inherited by nested spans in the same task.
-    @TaskLocal public static var currentRootID: String?
+    @TaskLocal package static var currentRootID: String?
     /// Task-local active span identifier inherited by nested spans in the same task.
-    @TaskLocal public static var currentSpanID: String?
+    @TaskLocal package static var currentSpanID: String?
 
     /// Runs a synchronous body inside a traced span on the main actor.
     ///
@@ -85,7 +80,7 @@ public enum InternalExecutionTrace {
     /// from `String(describing:)` (the common case for command/preview
     /// arguments) pay zero cost when `recorder` is `nil`.
     @MainActor
-    public static func withSpan<T>(
+    package static func withSpan<T>(
         domain: InternalExecutionTraceDomain,
         operation: String,
         recorder: InternalExecutionTraceRecorder?,
@@ -133,7 +128,7 @@ public enum InternalExecutionTrace {
     /// overload — when no recorder is installed, the dictionary expression is
     /// not evaluated.
     @MainActor
-    public static func withSpan<T>(
+    package static func withSpan<T>(
         domain: InternalExecutionTraceDomain,
         operation: String,
         recorder: InternalExecutionTraceRecorder?,
@@ -167,7 +162,7 @@ public enum InternalExecutionTrace {
 
     /// Runs a throwing asynchronous body inside a traced span on the main actor.
     @MainActor
-    public static func withSpan<T>(
+    package static func withSpan<T>(
         domain: InternalExecutionTraceDomain,
         operation: String,
         recorder: InternalExecutionTraceRecorder?,

@@ -630,13 +630,13 @@ Use `CoordinatorHost` o `CoordinatorSplitHost` cuando:
 - los shells de app necesitan lógica de coordinación
 - múltiples autoridades de navegación deberían componerse detrás de un coordinator
 
-`FlowCoordinator` y `TabCoordinator` son ayudantes, no reemplazos para `NavigationStore`.
+`StepCoordinator` y `TabCoordinator` son ayudantes, no reemplazos para `NavigationStore`.
 
 División recomendada:
 
 - `NavigationStore`: autoridad de route-stack
 - `TabCoordinator`: estado de selección de shell/tab
-- `FlowCoordinator`: progresión local de pasos dentro de un destino
+- `StepCoordinator`: progresión local de pasos dentro de un destino
 
 ### Encadenamiento de coordinator hijo
 

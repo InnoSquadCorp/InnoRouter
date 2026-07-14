@@ -5,7 +5,7 @@
 import Testing
 import Foundation
 import Synchronization
-@_spi(NavigationStoreInternals) import InnoRouterCore
+import InnoRouterCore
 import InnoRouter
 import InnoRouterSwiftUI
 

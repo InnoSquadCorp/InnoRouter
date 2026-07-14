@@ -2,7 +2,7 @@
 // InnoRouterSwiftUI - cross-cutting coordinator lifecycle signals
 // Copyright © 2026 Inno Squad. All rights reserved.
 //
-// `Coordinator`, `FlowCoordinator`, `TabCoordinator`, and
+// `Coordinator`, `StepCoordinator`, `TabCoordinator`, and
 // `ChildCoordinator` each have lifecycle moments that benefit
 // from a shared signal bag: parent-driven cancellation, host-
 // driven teardown, etc. `LifecycleSignals` is the value-typed
@@ -73,7 +73,7 @@ public struct LifecycleSignals: Sendable {
 /// `ChildCoordinator` requires this conformance because the parent
 /// push helper fires ``LifecycleSignals/fireParentCancel()`` on
 /// task cancellation. Other coordinator types (`Coordinator`,
-/// `FlowCoordinator`, `TabCoordinator`) opt in by adopting
+/// `StepCoordinator`, `TabCoordinator`) opt in by adopting
 /// `LifecycleAware` directly and declaring a
 /// ``lifecycleSignals`` storage property.
 @MainActor

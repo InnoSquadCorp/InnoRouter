@@ -3,7 +3,7 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Testing
-@_spi(NavigationStoreInternals) import InnoRouterCore
+import InnoRouterCore
 import InnoRouter
 import InnoRouterSwiftUI
 

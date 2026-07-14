@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-@_spi(NavigationStoreInternals) import InnoRouterCore
+import InnoRouterCore
 
 private let debouncingNavigatorLogger = Logger(
     subsystem: "io.innosquad.innorouter",

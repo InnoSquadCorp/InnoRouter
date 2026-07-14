@@ -9,7 +9,7 @@
 // that build a FlowMutationPlan via `mutationPlan(for:)` and route
 // it through `apply(_:intent:)`.
 
-@_spi(InternalTrace) import InnoRouterCore
+import InnoRouterCore
 
 extension FlowStore {
 

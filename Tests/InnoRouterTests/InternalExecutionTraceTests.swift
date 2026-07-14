@@ -4,7 +4,7 @@
 
 import Testing
 import Synchronization
-@_spi(InternalTrace) import InnoRouterCore
+import InnoRouterCore
 import InnoRouter
 import InnoRouterDeepLink
 @testable import InnoRouterSwiftUI

@@ -55,12 +55,12 @@ store / coordinator identity. The host modifiers do this for normal
 
 ## Flow and tab coordinators
 
-`FlowCoordinator` and `TabCoordinator` complement `NavigationStore`; they do not replace it.
+`StepCoordinator` and `TabCoordinator` complement `NavigationStore`; they do not replace it.
 
 Recommended mental model:
 
 - `NavigationStore` owns route-stack authority
 - `TabCoordinator` owns shell tab state
-- `FlowCoordinator` owns local step state inside a destination
+- `StepCoordinator` owns local step state inside a destination
 
 Use composition rather than trying to collapse all three responsibilities into one type.

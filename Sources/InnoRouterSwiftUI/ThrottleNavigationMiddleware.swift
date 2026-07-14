@@ -3,7 +3,7 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
-@_spi(NavigationStoreInternals) import InnoRouterCore
+import InnoRouterCore
 
 /// Cancels `NavigationCommand`s that arrive within a `minimumInterval`
 /// of a previously-accepted command sharing the same `Key`. Useful for
@@ -125,9 +125,8 @@ public final class ThrottleNavigationMiddleware<
     }
 }
 
-@_spi(NavigationStoreInternals)
 extension ThrottleNavigationMiddleware: NavigationMiddlewareDiscardCleanup {
-    public func discardExecution(
+    package func discardExecution(
         _ command: NavigationCommand<R>,
         result: NavigationResult<R>,
         state: RouteStack<R>

@@ -2,15 +2,6 @@ import Foundation
 
 import InnoRouterCore
 
-public protocol DeepLinkable: Route {
-    static func route(from url: URL) -> Self?
-    var deepLinkPath: String { get }
-}
-
-public extension DeepLinkable {
-    var deepLinkPath: String { "/" }
-}
-
 public struct PendingDeepLink<R: Route>: Sendable, Equatable {
     public let url: URL
     /// The route that triggered authentication deferral.

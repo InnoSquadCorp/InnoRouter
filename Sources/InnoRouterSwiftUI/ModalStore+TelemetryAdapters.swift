@@ -1,4 +1,4 @@
-@_spi(InternalTrace) import InnoRouterCore
+import InnoRouterCore
 
 // MARK: - Telemetry adapter helpers
 //

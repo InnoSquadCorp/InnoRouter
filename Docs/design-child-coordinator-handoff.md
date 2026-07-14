@@ -82,10 +82,10 @@ store layer:
 - **Child store persistence** between parent teardown and child finish.
   Parent keeps the strong ref — if the parent disappears, the child
   disappears with it; no rehydration contract.
-- **Modifying the existing `FlowCoordinator` wizard type**. That type
-  is a step-machine helper, not a coordinator tree. It keeps its own
-  `onComplete` closure surface. If a wizard needs Task-based
-  completion, wrap it in a `ChildCoordinator` adapter at the app layer.
+- **Modifying the existing `StepCoordinator` wizard type**. That type
+  is a step-machine helper, not a coordinator tree, and completion
+  remains app-owned. If a wizard needs Task-based completion, wrap it
+  in a `ChildCoordinator` adapter at the app layer.
 
 ## Implementation sketch
 

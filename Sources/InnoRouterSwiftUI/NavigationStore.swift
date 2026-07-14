@@ -1,5 +1,5 @@
 import OSLog
-@_spi(InternalTrace) import InnoRouterCore
+import InnoRouterCore
 import Observation
 import SwiftUI
 

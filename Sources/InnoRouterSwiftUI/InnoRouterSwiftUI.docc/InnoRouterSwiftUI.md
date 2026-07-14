@@ -14,7 +14,7 @@ This module owns:
 - `ModalStore` and `ModalHost`
 - `NavigationIntent` and `ModalIntent`
 - `EnvironmentNavigationIntent` and `EnvironmentModalIntent`
-- `FlowCoordinator` and `TabCoordinator`
+- `StepCoordinator` and `TabCoordinator`
 - `SceneDeclaration`, `SceneRegistry`
 - `SceneStore`, `SceneHost`, `SceneAnchor` (visionOS only)
 - `innoRouterOrnament(_:content:)` view modifier (no-op off visionOS)
@@ -76,6 +76,6 @@ is unavailable on that platform.
 ### Guides
 
 - <doc:Guide-SequenceVsBatchVsTransaction>
-- <doc:Guide-FlowCoordinatorVsFlowStore>
+- <doc:Guide-StepCoordinatorVsFlowStore>
 - <doc:Guide-EnvironmentMissingPolicy>
 - <doc:Guide-QueueCoalescePolicy>

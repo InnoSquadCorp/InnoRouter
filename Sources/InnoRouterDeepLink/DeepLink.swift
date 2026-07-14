@@ -26,11 +26,10 @@ public struct DeepLinkMatcherStrictError: Error, Sendable, Equatable {
     /// The diagnostics that triggered the failure.
     ///
     /// Strict matcher initializers only throw this error with a non-empty
-    /// collection, but the public initializer accepts any array so tests and
-    /// custom validators cannot accidentally crash the host app.
+    /// collection.
     public let diagnostics: [DeepLinkMatcherDiagnostic]
 
-    public init(diagnostics: [DeepLinkMatcherDiagnostic]) {
+    init(diagnostics: [DeepLinkMatcherDiagnostic]) {
         self.diagnostics = diagnostics
     }
 }
@@ -331,15 +330,15 @@ public struct DeepLinkParameters: Sendable, Equatable {
     }
 }
 
-public struct DeepLinkParser: Sendable {
-    public struct ParsedURL: Sendable, Equatable {
-        public let scheme: String?
-        public let host: String?
-        public let path: [String]
-        public let queryItems: [String: [String]]
-        public let fragment: String?
+struct DeepLinkParser: Sendable {
+    struct ParsedURL: Sendable, Equatable {
+        let scheme: String?
+        let host: String?
+        let path: [String]
+        let queryItems: [String: [String]]
+        let fragment: String?
 
-        public init(url: URL) {
+        init(url: URL) {
             let components = URLComponents(url: url, resolvingAgainstBaseURL: true)
             self.scheme = components?.scheme
             self.host = components?.host
@@ -366,36 +365,32 @@ public struct DeepLinkParser: Sendable {
             self.fragment = components?.fragment
         }
 
-        public var pathString: String {
+        var pathString: String {
             "/" + path.joined(separator: "/")
         }
 
-        public var firstQueryItems: [String: String] {
+        var firstQueryItems: [String: String] {
             queryItems.compactMapValues { $0.first }
         }
     }
 
-    public static func parse(_ urlString: String) -> ParsedURL? {
+    static func parse(_ urlString: String) -> ParsedURL? {
         guard let url = URL(string: urlString) else { return nil }
         return ParsedURL(url: url)
     }
 
-    public static func parse(_ url: URL) -> ParsedURL {
+    static func parse(_ url: URL) -> ParsedURL {
         ParsedURL(url: url)
     }
 }
 
-public struct DeepLinkPattern: Sendable {
-    public struct MatchResult: Sendable {
-        public let parameters: [String: [String]]
-        public let isMatched: Bool
+struct DeepLinkPattern: Sendable {
+    struct MatchResult: Sendable {
+        let parameters: [String: [String]]
 
-        public init(parameters: [String: [String]] = [:], isMatched: Bool = true) {
+        init(parameters: [String: [String]] = [:]) {
             self.parameters = parameters
-            self.isMatched = isMatched
         }
-
-        public static let noMatch = MatchResult(isMatched: false)
     }
 
     fileprivate let rawPattern: String
@@ -420,7 +415,7 @@ public struct DeepLinkPattern: Sendable {
         }
     }
 
-    public init(_ pattern: String) {
+    init(_ pattern: String) {
         self.rawPattern = pattern
         self.patternParts = pattern
             .split(separator: "/")
@@ -436,7 +431,7 @@ public struct DeepLinkPattern: Sendable {
             }
     }
 
-    public func match(_ path: String) -> MatchResult? {
+    func match(_ path: String) -> MatchResult? {
         guard nonTerminalWildcardIndex == nil else { return nil }
         guard invalidParameterNameDiagnostics.isEmpty else { return nil }
 
@@ -469,7 +464,7 @@ public struct DeepLinkPattern: Sendable {
         return MatchResult(parameters: parameters)
     }
 
-    public func match(_ parsed: DeepLinkParser.ParsedURL) -> MatchResult? {
+    func match(_ parsed: DeepLinkParser.ParsedURL) -> MatchResult? {
         guard let result = match(parsed.pathString) else { return nil }
         let mergedParameters = Self.merge(result.parameters, with: parsed.queryItems)
         return MatchResult(parameters: mergedParameters)
@@ -748,7 +743,7 @@ public struct DeepLinkMapping<R: Route>: Sendable {
     }
 }
 
-public extension DeepLinkMatcherDiagnostic {
+private extension DeepLinkMatcherDiagnostic {
     enum Kind: Sendable, Equatable {
         case wildcard
         case parameter

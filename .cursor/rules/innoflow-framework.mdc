@@ -28,7 +28,7 @@ InnoRouter/
 │   │   ├── NavStore.swift     # @Observable 네비게이션 스토어
 │   │   ├── NavigationHost.swift # NavigationStack 통합
 │   │   ├── Coordinator.swift  # Coordinator 프로토콜
-│   │   ├── FlowCoordinator.swift # 다단계 플로우
+│   │   ├── StepCoordinator.swift # 다단계 진행 상태
 │   │   ├── TabCoordinator.swift # 탭 네비게이션
 │   │   └── NavigatorEnvironment.swift # Environment 통합
 │   ├── InnoRouterDeepLink/    # 딥링크 처리

@@ -9,7 +9,7 @@ Pattern matching, pipeline planning, and pending deep-link handling for InnoRout
 This module owns:
 
 - `DeepLinkMatcher`
-- `DeepLinkPattern`
+- `DeepLinkMapping` and `DeepLinkParameters`
 - `DeepLinkMatcherConfiguration`
 - `DeepLinkPipeline`
 - `DeepLinkDecision`

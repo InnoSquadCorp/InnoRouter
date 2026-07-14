@@ -3,7 +3,7 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
-@_spi(InternalTrace) import InnoRouterCore
+import InnoRouterCore
 @_exported import InnoRouterCore
 @_exported import InnoRouterDeepLink
 

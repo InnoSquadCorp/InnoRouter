@@ -1,4 +1,4 @@
-// MARK: - FlowCoordinatorCoreTests.swift
+// MARK: - StepCoordinatorCoreTests.swift
 // InnoRouter Tests
 // Copyright © 2025 Inno Squad. All rights reserved.
 
@@ -12,52 +12,44 @@ import InnoRouter
 import InnoRouterEffects
 @testable import InnoRouterSwiftUI
 
-// MARK: - FlowCoordinator Tests
+// MARK: - StepCoordinator Tests
 
-@Suite("FlowCoordinator Tests")
-struct FlowCoordinatorTests {
+@Suite("StepCoordinator Tests")
+struct StepCoordinatorTests {
 
-    enum TestStep: Int, FlowStep, CaseIterable {
-        case step1 = 0
-        case step2 = 1
-        case step3 = 2
-
-        var index: Int { rawValue }
+    enum TestStep: CaseIterable, Hashable, Sendable {
+        case step1
+        case step2
+        case step3
     }
 
     @Observable
     @MainActor
-    final class TestFlowCoordinator: FlowCoordinator {
+    final class TestStepCoordinator: StepCoordinator {
         typealias Step = TestStep
-        typealias Result = String
 
         var currentStep: TestStep = .step1
         var completedSteps: Set<TestStep> = []
-        var onComplete: ((String) -> Void)?
 
         func canProceed(from step: TestStep) -> Bool {
             true
         }
-
-        func complete(with result: String) {
-            onComplete?(result)
-        }
     }
 
-    @Test("FlowCoordinator starts at first step")
+    @Test("StepCoordinator starts at first step")
     @MainActor
     func testInitialStep() {
-        let coordinator = TestFlowCoordinator()
+        let coordinator = TestStepCoordinator()
 
         #expect(coordinator.currentStep == .step1)
         #expect(coordinator.isAtStart)
         #expect(!coordinator.isAtEnd)
     }
 
-    @Test("FlowCoordinator progresses through steps")
+    @Test("StepCoordinator progresses through steps")
     @MainActor
     func testProgress() {
-        let coordinator = TestFlowCoordinator()
+        let coordinator = TestStepCoordinator()
 
         coordinator.next()
         #expect(coordinator.currentStep == .step2)
@@ -68,10 +60,10 @@ struct FlowCoordinatorTests {
         #expect(coordinator.isAtEnd)
     }
 
-    @Test("FlowCoordinator can go back")
+    @Test("StepCoordinator can go back")
     @MainActor
     func testPrevious() {
-        let coordinator = TestFlowCoordinator()
+        let coordinator = TestStepCoordinator()
         coordinator.next()
         coordinator.next()
 
@@ -79,10 +71,10 @@ struct FlowCoordinatorTests {
         #expect(coordinator.currentStep == .step2)
     }
 
-    @Test("FlowCoordinator reset clears progress")
+    @Test("StepCoordinator reset clears progress")
     @MainActor
     func testReset() {
-        let coordinator = TestFlowCoordinator()
+        let coordinator = TestStepCoordinator()
         coordinator.next()
         coordinator.next()
 
@@ -92,10 +84,10 @@ struct FlowCoordinatorTests {
         #expect(coordinator.completedSteps.isEmpty)
     }
 
-    @Test("FlowCoordinator progress calculation")
+    @Test("StepCoordinator progress calculation")
     @MainActor
     func testProgressCalculation() {
-        let coordinator = TestFlowCoordinator()
+        let coordinator = TestStepCoordinator()
 
         #expect(coordinator.progress == 1.0 / 3.0)
 
@@ -110,28 +102,22 @@ struct FlowCoordinatorTests {
 
     @Observable
     @MainActor
-    final class GatedFlowCoordinator: FlowCoordinator {
+    final class GatedStepCoordinator: StepCoordinator {
         typealias Step = TestStep
-        typealias Result = String
 
         var currentStep: TestStep = .step1
         var completedSteps: Set<TestStep> = []
-        var onComplete: ((String) -> Void)?
         var allowedSteps: Set<TestStep> = []
 
         func canProceed(from step: TestStep) -> Bool {
             allowedSteps.contains(step)
-        }
-
-        func complete(with result: String) {
-            onComplete?(result)
         }
     }
 
     @Test("jump(to:) forward is gated by canProceed, matching next()")
     @MainActor
     func testJumpForwardRespectsCanProceedGate() {
-        let coordinator = GatedFlowCoordinator()
+        let coordinator = GatedStepCoordinator()
 
         // canProceed(from: .step1) == false: neither next() nor a
         // forward jump may advance.
@@ -139,17 +125,19 @@ struct FlowCoordinatorTests {
         #expect(coordinator.currentStep == .step1)
         coordinator.jump(to: .step2)
         #expect(coordinator.currentStep == .step1)
+        #expect(!coordinator.completedSteps.contains(.step1))
 
         // Once the gate opens, the same forward jump succeeds.
         coordinator.allowedSteps = [.step1]
         coordinator.jump(to: .step2)
         #expect(coordinator.currentStep == .step2)
+        #expect(coordinator.completedSteps.contains(.step1))
     }
 
     @Test("jump(to:) cannot skip past the immediate next step")
     @MainActor
     func testJumpCannotSkipSteps() {
-        let coordinator = GatedFlowCoordinator()
+        let coordinator = GatedStepCoordinator()
         coordinator.allowedSteps = [.step1, .step2, .step3]
 
         coordinator.jump(to: .step3)
@@ -159,7 +147,7 @@ struct FlowCoordinatorTests {
     @Test("jump(to:) to completed or backward steps is always allowed")
     @MainActor
     func testJumpBackwardAndCompleted() {
-        let coordinator = GatedFlowCoordinator()
+        let coordinator = GatedStepCoordinator()
         coordinator.allowedSteps = [.step1, .step2]
         coordinator.next()
         coordinator.next()
@@ -176,40 +164,32 @@ struct FlowCoordinatorTests {
     }
 }
 
-// MARK: - Non-contiguous FlowStep indices
+// MARK: - Step ordering
 
-@Suite("FlowCoordinator gapped index Tests")
-struct FlowCoordinatorGappedIndexTests {
+@Suite("StepCoordinator ordering Tests")
+struct StepCoordinatorOrderingTests {
 
-    /// Indices intentionally leave gaps (0, 5, 10) — the documented
-    /// "insert steps later without renumbering" shape.
-    enum GappedStep: Int, FlowStep, CaseIterable {
-        case intro = 0
-        case detail = 5
-        case confirm = 10
-
-        var index: Int { rawValue }
+    /// Raw values intentionally do not describe progression. Synthesized
+    /// `allCases` declaration order is the only default ordering contract.
+    enum ArbitraryRawValueStep: Int, CaseIterable, Hashable, Sendable {
+        case intro = 10
+        case detail = 0
+        case confirm = 5
     }
 
     @Observable
     @MainActor
-    final class GappedFlowCoordinator: FlowCoordinator {
-        typealias Step = GappedStep
-        typealias Result = String
+    final class ArbitraryRawValueCoordinator: StepCoordinator {
+        typealias Step = ArbitraryRawValueStep
 
-        var currentStep: GappedStep = .intro
-        var completedSteps: Set<GappedStep> = []
-        var onComplete: ((String) -> Void)?
-
-        func complete(with result: String) {
-            onComplete?(result)
-        }
+        var currentStep: ArbitraryRawValueStep = .intro
+        var completedSteps: Set<ArbitraryRawValueStep> = []
     }
 
-    @Test("next() advances across index gaps")
+    @Test("next() follows declaration order instead of raw values")
     @MainActor
-    func testNextAdvancesAcrossGaps() {
-        let coordinator = GappedFlowCoordinator()
+    func testNextIgnoresRawValues() {
+        let coordinator = ArbitraryRawValueCoordinator()
 
         coordinator.next()
         #expect(coordinator.currentStep == .detail)
@@ -220,10 +200,10 @@ struct FlowCoordinatorGappedIndexTests {
         #expect(coordinator.isAtEnd)
     }
 
-    @Test("previous() rewinds across index gaps")
+    @Test("previous() follows declaration order instead of raw values")
     @MainActor
-    func testPreviousRewindsAcrossGaps() {
-        let coordinator = GappedFlowCoordinator()
+    func testPreviousIgnoresRawValues() {
+        let coordinator = ArbitraryRawValueCoordinator()
         coordinator.next()
         coordinator.next()
 
@@ -235,10 +215,10 @@ struct FlowCoordinatorGappedIndexTests {
         #expect(coordinator.isAtStart)
     }
 
-    @Test("progress and isAtEnd use progression position, not raw index")
+    @Test("progress and isAtEnd use declaration position, not raw value")
     @MainActor
     func testProgressUsesOrderedPosition() {
-        let coordinator = GappedFlowCoordinator()
+        let coordinator = ArbitraryRawValueCoordinator()
 
         #expect(coordinator.progress == 1.0 / 3.0)
         #expect(!coordinator.isAtEnd)
@@ -251,12 +231,12 @@ struct FlowCoordinatorGappedIndexTests {
         #expect(coordinator.isAtEnd)
     }
 
-    @Test("jump(to:) forward across a gap targets the next ordered step")
+    @Test("jump(to:) uses declaration order")
     @MainActor
-    func testJumpAcrossGap() {
-        let coordinator = GappedFlowCoordinator()
+    func testJumpUsesDeclarationOrder() {
+        let coordinator = ArbitraryRawValueCoordinator()
 
-        // .detail is the immediate next ordered step despite index 5.
+        // .detail is next even though its raw value is lower.
         coordinator.jump(to: .detail)
         #expect(coordinator.currentStep == .detail)
 
@@ -264,5 +244,36 @@ struct FlowCoordinatorGappedIndexTests {
         coordinator.jump(to: .intro)
         coordinator.jump(to: .confirm)
         #expect(coordinator.currentStep == .intro)
+    }
+
+    enum CustomOrderStep: CaseIterable, Hashable, Sendable {
+        case intro
+        case detail
+        case confirm
+
+        static let allCases: [Self] = [.detail, .intro, .confirm]
+    }
+
+    @Observable
+    @MainActor
+    final class CustomOrderCoordinator: StepCoordinator {
+        typealias Step = CustomOrderStep
+
+        var currentStep: CustomOrderStep = .intro
+        var completedSteps: Set<CustomOrderStep> = []
+    }
+
+    @Test("manual allCases defines custom progression and reset order")
+    @MainActor
+    func testCustomAllCasesOrder() {
+        let coordinator = CustomOrderCoordinator()
+
+        coordinator.reset()
+        #expect(coordinator.currentStep == .detail)
+        #expect(coordinator.isAtStart)
+
+        coordinator.next()
+        #expect(coordinator.currentStep == .intro)
+        #expect(coordinator.progress == 2.0 / 3.0)
     }
 }

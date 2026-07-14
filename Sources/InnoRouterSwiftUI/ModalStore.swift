@@ -2,7 +2,7 @@ import OSLog
 import Observation
 import SwiftUI
 
-@_spi(InternalTrace) import InnoRouterCore
+import InnoRouterCore
 
 /// View-layer intent dispatched to ``ModalStore/send(_:)``.
 ///

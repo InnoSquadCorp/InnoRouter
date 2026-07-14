@@ -10,8 +10,8 @@ relationship | conformsTo | OSLogModalTelemetrySink | ModalTelemetrySink |  |
 relationship | conformsTo | OSLogNavigationTelemetrySink | NavigationTelemetrySink |  |
 relationship | defaultImplementationOf | ChildCoordinator.parentDidCancel() | ChildCoordinator.parentDidCancel() |  |
 relationship | defaultImplementationOf | Coordinator.handle(_:) | Coordinator.handle(_:) |  |
-relationship | defaultImplementationOf | FlowCoordinator.canProceed(from:) | FlowCoordinator.canProceed(from:) |  |
 relationship | defaultImplementationOf | FlowNavigating.handle(_:) | FlowNavigating.handle(_:) |  |
+relationship | defaultImplementationOf | StepCoordinator.canProceed(from:) | StepCoordinator.canProceed(from:) |  |
 relationship | defaultImplementationOf | StoreObserver.handle(_:) | StoreObserver.handle(_:) |  |
 relationship | memberOf | AnyFlowTelemetrySink.RouteType | AnyFlowTelemetrySink |  |
 relationship | memberOf | AnyFlowTelemetrySink.init(_:) | AnyFlowTelemetrySink |  |
@@ -52,16 +52,6 @@ relationship | memberOf | EnvironmentModalIntent.init(_:) | EnvironmentModalInte
 relationship | memberOf | EnvironmentModalIntent.wrappedValue | EnvironmentModalIntent |  |
 relationship | memberOf | EnvironmentNavigationIntent.init(_:) | EnvironmentNavigationIntent |  |
 relationship | memberOf | EnvironmentNavigationIntent.wrappedValue | EnvironmentNavigationIntent |  |
-relationship | memberOf | FlowCoordinator.isAtEnd | FlowCoordinator |  |
-relationship | memberOf | FlowCoordinator.isAtStart | FlowCoordinator |  |
-relationship | memberOf | FlowCoordinator.jump(to:) | FlowCoordinator |  |
-relationship | memberOf | FlowCoordinator.next() | FlowCoordinator |  |
-relationship | memberOf | FlowCoordinator.previous() | FlowCoordinator |  |
-relationship | memberOf | FlowCoordinator.progress | FlowCoordinator |  |
-relationship | memberOf | FlowCoordinator.reset() | FlowCoordinator |  |
-relationship | memberOf | FlowCoordinator.totalSteps | FlowCoordinator |  |
-relationship | memberOf | FlowCoordinatorView.body | FlowCoordinatorView |  |
-relationship | memberOf | FlowCoordinatorView.init(coordinator:showProgress:content:) | FlowCoordinatorView |  |
 relationship | memberOf | FlowEvent.description | FlowEvent |  |
 relationship | memberOf | FlowEvent.intentRejected(_:_:) | FlowEvent |  |
 relationship | memberOf | FlowEvent.modal(_:) | FlowEvent |  |
@@ -361,6 +351,16 @@ relationship | memberOf | StateRestorationFailure.message | StateRestorationFail
 relationship | memberOf | StateRestorationFailure.target | StateRestorationFailure |  |
 relationship | memberOf | StateRestorationTarget.flowPlan | StateRestorationTarget |  |
 relationship | memberOf | StateRestorationTarget.navigationStack | StateRestorationTarget |  |
+relationship | memberOf | StepCoordinator.isAtEnd | StepCoordinator |  |
+relationship | memberOf | StepCoordinator.isAtStart | StepCoordinator |  |
+relationship | memberOf | StepCoordinator.jump(to:) | StepCoordinator |  |
+relationship | memberOf | StepCoordinator.next() | StepCoordinator |  |
+relationship | memberOf | StepCoordinator.previous() | StepCoordinator |  |
+relationship | memberOf | StepCoordinator.progress | StepCoordinator |  |
+relationship | memberOf | StepCoordinator.reset() | StepCoordinator |  |
+relationship | memberOf | StepCoordinator.totalSteps | StepCoordinator |  |
+relationship | memberOf | StepCoordinatorView.body | StepCoordinatorView |  |
+relationship | memberOf | StepCoordinatorView.init(coordinator:showProgress:content:) | StepCoordinatorView |  |
 relationship | memberOf | StoreObserverSubscription.cancel() | StoreObserverSubscription |  |
 relationship | memberOf | Tab.id | Tab |  |
 relationship | memberOf | TabCoordinator.badge(for:) | TabCoordinator |  |
@@ -386,13 +386,6 @@ relationship | requirementOf | Coordinator.RouteType | Coordinator |  |
 relationship | requirementOf | Coordinator.destination(for:) | Coordinator |  |
 relationship | requirementOf | Coordinator.handle(_:) | Coordinator |  |
 relationship | requirementOf | Coordinator.store | Coordinator |  |
-relationship | requirementOf | FlowCoordinator.Result | FlowCoordinator |  |
-relationship | requirementOf | FlowCoordinator.Step | FlowCoordinator |  |
-relationship | requirementOf | FlowCoordinator.canProceed(from:) | FlowCoordinator |  |
-relationship | requirementOf | FlowCoordinator.complete(with:) | FlowCoordinator |  |
-relationship | requirementOf | FlowCoordinator.completedSteps | FlowCoordinator |  |
-relationship | requirementOf | FlowCoordinator.currentStep | FlowCoordinator |  |
-relationship | requirementOf | FlowCoordinator.onComplete | FlowCoordinator |  |
 relationship | requirementOf | FlowNavigating.RouteType | FlowNavigating |  |
 relationship | requirementOf | FlowNavigating.flowStore | FlowNavigating |  |
 relationship | requirementOf | FlowNavigating.handle(_:) | FlowNavigating |  |
@@ -402,7 +395,6 @@ relationship | requirementOf | FlowStateReading.currentModalRoute | FlowStateRea
 relationship | requirementOf | FlowStateReading.hasModalTail | FlowStateReading |  |
 relationship | requirementOf | FlowStateReading.navigationPath | FlowStateReading |  |
 relationship | requirementOf | FlowStateReading.path | FlowStateReading |  |
-relationship | requirementOf | FlowStep.index | FlowStep |  |
 relationship | requirementOf | FlowTelemetrySink.RouteType | FlowTelemetrySink |  |
 relationship | requirementOf | FlowTelemetrySink.record(_:) | FlowTelemetrySink |  |
 relationship | requirementOf | LifecycleAware.lifecycleSignals | LifecycleAware |  |
@@ -412,6 +404,10 @@ relationship | requirementOf | NavigationPathReconciling.RouteType | NavigationP
 relationship | requirementOf | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | NavigationPathReconciling |  |
 relationship | requirementOf | NavigationTelemetrySink.RouteType | NavigationTelemetrySink |  |
 relationship | requirementOf | NavigationTelemetrySink.record(_:) | NavigationTelemetrySink |  |
+relationship | requirementOf | StepCoordinator.Step | StepCoordinator |  |
+relationship | requirementOf | StepCoordinator.canProceed(from:) | StepCoordinator |  |
+relationship | requirementOf | StepCoordinator.completedSteps | StepCoordinator |  |
+relationship | requirementOf | StepCoordinator.currentStep | StepCoordinator |  |
 relationship | requirementOf | StoreObserver.RouteType | StoreObserver |  |
 relationship | requirementOf | StoreObserver.handle(_:) | StoreObserver |  |
 relationship | requirementOf | Tab.icon | Tab |  |
@@ -424,14 +420,13 @@ relationship | requirementOf | TabCoordinator.tabBadges | TabCoordinator |  |
 symbol | swift.associatedtype | ChildCoordinator.Result | Result | associatedtype Result : Sendable | []
 symbol | swift.associatedtype | Coordinator.Destination | Destination | associatedtype Destination : View | []
 symbol | swift.associatedtype | Coordinator.RouteType | RouteType | associatedtype RouteType : Route | []
-symbol | swift.associatedtype | FlowCoordinator.Result | Result | associatedtype Result | []
-symbol | swift.associatedtype | FlowCoordinator.Step | Step | associatedtype Step : FlowStep | []
 symbol | swift.associatedtype | FlowNavigating.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | FlowStateReading.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | FlowTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | ModalTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | NavigationPathReconciling.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | NavigationTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
+symbol | swift.associatedtype | StepCoordinator.Step | Step | associatedtype Step : CaseIterable, Hashable, Sendable | []
 symbol | swift.associatedtype | StoreObserver.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | TabCoordinator.TabContent | TabContent | associatedtype TabContent : View | []
 symbol | swift.associatedtype | TabCoordinator.TabType | TabType | associatedtype TabType : Tab | []
@@ -590,7 +585,6 @@ symbol | swift.init | DebouncingNavigator.init(wrapping:interval:clock:) | init(
 symbol | swift.init | EnvironmentFlowIntent.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
 symbol | swift.init | EnvironmentModalIntent.init(_:) | init(_:) | @MainActor init(_ routeType: M.Type) | []
 symbol | swift.init | EnvironmentNavigationIntent.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
-symbol | swift.init | FlowCoordinatorView.init(coordinator:showProgress:content:) | init(coordinator:showProgress:content:) | @MainActor init(coordinator: C, showProgress: Bool = true, @ViewBuilder content: @escaping (C.Step) -> Content) | []
 symbol | swift.init | FlowHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: FlowStore<R>, @ViewBuilder destination: @escaping (R) -> Destination, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | FlowStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init()) | []
 symbol | swift.init | FlowStore.init(validating:configuration:) | init(validating:configuration:) | @MainActor convenience init(validating initial: [RouteStep<R>], configuration: FlowStoreConfiguration<R> = .init()) throws | []
@@ -628,6 +622,7 @@ symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: [
 symbol | swift.init | SceneStore.init() | init() | @MainActor init() | []
 symbol | swift.init | StateRestorationAdapter.init(persistence:onRestorationFailure:) | init(persistence:onRestorationFailure:) | @MainActor init(persistence: StatePersistence<R> = StatePersistence<R>(), onRestorationFailure: @escaping @MainActor (StateRestorationFailure) -> Void = { _ in }) | []
 symbol | swift.init | StateRestorationFailure.init(target:message:) | init(target:message:) | init(target: StateRestorationTarget, message: String) | []
+symbol | swift.init | StepCoordinatorView.init(coordinator:showProgress:content:) | init(coordinator:showProgress:content:) | @MainActor init(coordinator: C, showProgress: Bool = true, @ViewBuilder content: @escaping (C.Step) -> Content) | []
 symbol | swift.init | TabCoordinatorView.init(coordinator:) | init(coordinator:) | @MainActor init(coordinator: C) | []
 symbol | swift.init | ThrottleNavigationMiddleware.init(interval:) | init(interval:) | @MainActor convenience init(interval: Duration) | []
 symbol | swift.init | ThrottleNavigationMiddleware.init(interval:clock:key:) | init(interval:clock:key:) | @MainActor init(interval: Duration, clock: C, key: @escaping @MainActor (NavigationCommand<R>) -> ThrottleNavigationMiddleware<R, C>.Key?) | []
@@ -646,12 +641,6 @@ symbol | swift.method | Coordinator.push(child:) | push(child:) | @discardableRe
 symbol | swift.method | Coordinator.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<Self.RouteType>) | []
 symbol | swift.method | DebouncingNavigator.cancelPending() | cancelPending() | @MainActor func cancelPending() | []
 symbol | swift.method | DebouncingNavigator.debouncedExecute(_:) | debouncedExecute(_:) | @discardableResult @MainActor func debouncedExecute(_ command: NavigationCommand<N.RouteType>) async -> NavigationResult<N.RouteType>? | []
-symbol | swift.method | FlowCoordinator.canProceed(from:) | canProceed(from:) | @MainActor func canProceed(from step: Self.Step) -> Bool | []
-symbol | swift.method | FlowCoordinator.complete(with:) | complete(with:) | @MainActor func complete(with result: Self.Result) | []
-symbol | swift.method | FlowCoordinator.jump(to:) | jump(to:) | @MainActor func jump(to step: Self.Step) | []
-symbol | swift.method | FlowCoordinator.next() | next() | @MainActor func next() | []
-symbol | swift.method | FlowCoordinator.previous() | previous() | @MainActor func previous() | []
-symbol | swift.method | FlowCoordinator.reset() | reset() | @MainActor func reset() | []
 symbol | swift.method | FlowNavigating.handle(_:) | handle(_:) | @MainActor func handle(_ intent: FlowIntent<Self.RouteType>) | []
 symbol | swift.method | FlowStore.apply(_:) | apply(_:) | @discardableResult @MainActor func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> | []
 symbol | swift.method | FlowStore.observe(_:) | observe(_:) | @MainActor func observe<O>(_ observer: O) -> StoreObserverSubscription where R == O.RouteType, O : StoreObserver | []
@@ -708,6 +697,11 @@ symbol | swift.method | StateRestorationAdapter.restoreFlowPlan(from:into:) | re
 symbol | swift.method | StateRestorationAdapter.restoreNavigationStack(from:into:) | restoreNavigationStack(from:into:) | @discardableResult @MainActor func restoreNavigationStack(from data: Data, into store: NavigationStore<R>) -> Bool | []
 symbol | swift.method | StateRestorationAdapter.snapshotFlowPlan(from:) | snapshotFlowPlan(from:) | @MainActor func snapshotFlowPlan(from store: FlowStore<R>) throws -> Data | []
 symbol | swift.method | StateRestorationAdapter.snapshotNavigationStack(from:) | snapshotNavigationStack(from:) | @MainActor func snapshotNavigationStack(from store: NavigationStore<R>) throws -> Data | []
+symbol | swift.method | StepCoordinator.canProceed(from:) | canProceed(from:) | @MainActor func canProceed(from step: Self.Step) -> Bool | []
+symbol | swift.method | StepCoordinator.jump(to:) | jump(to:) | @MainActor func jump(to step: Self.Step) | []
+symbol | swift.method | StepCoordinator.next() | next() | @MainActor func next() | []
+symbol | swift.method | StepCoordinator.previous() | previous() | @MainActor func previous() | []
+symbol | swift.method | StepCoordinator.reset() | reset() | @MainActor func reset() | []
 symbol | swift.method | StoreObserver.handle(_:) | handle(_:) | @MainActor func handle(_ event: FlowEvent<Self.RouteType>) | []
 symbol | swift.method | StoreObserver.handle(_:) | handle(_:) | @MainActor func handle(_ event: ModalEvent<Self.RouteType>) | []
 symbol | swift.method | StoreObserver.handle(_:) | handle(_:) | @MainActor func handle(_ event: NavigationEvent<Self.RouteType>) | []
@@ -737,14 +731,6 @@ symbol | swift.property | EnvironmentFlowIntent.wrappedValue | wrappedValue | @M
 symbol | swift.property | EnvironmentModalIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: @MainActor (ModalIntent<M>) -> Void { get } | []
 symbol | swift.property | EnvironmentNavigationIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: @MainActor (NavigationIntent<R>) -> Void { get } | []
 symbol | swift.property | EnvironmentValues.innoRouterEnvironmentMissingPolicy | innoRouterEnvironmentMissingPolicy | var innoRouterEnvironmentMissingPolicy: EnvironmentMissingPolicy { get set } | []
-symbol | swift.property | FlowCoordinator.completedSteps | completedSteps | @MainActor var completedSteps: Set<Self.Step> { get set } | []
-symbol | swift.property | FlowCoordinator.currentStep | currentStep | @MainActor var currentStep: Self.Step { get set } | []
-symbol | swift.property | FlowCoordinator.isAtEnd | isAtEnd | @MainActor var isAtEnd: Bool { get } | []
-symbol | swift.property | FlowCoordinator.isAtStart | isAtStart | @MainActor var isAtStart: Bool { get } | []
-symbol | swift.property | FlowCoordinator.onComplete | onComplete | @MainActor var onComplete: ((Self.Result) -> Void)? { get set } | []
-symbol | swift.property | FlowCoordinator.progress | progress | @MainActor var progress: Double { get } | []
-symbol | swift.property | FlowCoordinator.totalSteps | totalSteps | @MainActor var totalSteps: Int { get } | []
-symbol | swift.property | FlowCoordinatorView.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | FlowEvent.description | description | var description: String { get } | []
 symbol | swift.property | FlowHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | FlowNavigating.flowStore | flowStore | @MainActor var flowStore: FlowStore<Self.RouteType> { get } | []
@@ -753,7 +739,6 @@ symbol | swift.property | FlowStateReading.currentModalRoute | currentModalRoute
 symbol | swift.property | FlowStateReading.hasModalTail | hasModalTail | @MainActor var hasModalTail: Bool { get } | []
 symbol | swift.property | FlowStateReading.navigationPath | navigationPath | @MainActor var navigationPath: [Self.RouteType] { get } | []
 symbol | swift.property | FlowStateReading.path | path | @MainActor var path: [RouteStep<Self.RouteType>] { get } | []
-symbol | swift.property | FlowStep.index | index | var index: Int { get } | []
 symbol | swift.property | FlowStore.currentModalPresentation | currentModalPresentation | @MainActor var currentModalPresentation: ModalPresentation<R>? { get } | []
 symbol | swift.property | FlowStore.currentModalRoute | currentModalRoute | @MainActor var currentModalRoute: R? { get } | []
 symbol | swift.property | FlowStore.events | events | @MainActor var events: AsyncStream<FlowEvent<R>> { get } | []
@@ -847,6 +832,13 @@ symbol | swift.property | SceneStore.events | events | @MainActor var events: As
 symbol | swift.property | SceneStore.pendingIntent | pendingIntent | @MainActor var pendingIntent: SceneIntent<R>? { get set } | []
 symbol | swift.property | StateRestorationFailure.message | message | let message: String | []
 symbol | swift.property | StateRestorationFailure.target | target | let target: StateRestorationTarget | []
+symbol | swift.property | StepCoordinator.completedSteps | completedSteps | @MainActor var completedSteps: Set<Self.Step> { get set } | []
+symbol | swift.property | StepCoordinator.currentStep | currentStep | @MainActor var currentStep: Self.Step { get set } | []
+symbol | swift.property | StepCoordinator.isAtEnd | isAtEnd | @MainActor var isAtEnd: Bool { get } | []
+symbol | swift.property | StepCoordinator.isAtStart | isAtStart | @MainActor var isAtStart: Bool { get } | []
+symbol | swift.property | StepCoordinator.progress | progress | @MainActor var progress: Double { get } | []
+symbol | swift.property | StepCoordinator.totalSteps | totalSteps | @MainActor var totalSteps: Int { get } | []
+symbol | swift.property | StepCoordinatorView.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | Tab.icon | icon | var icon: String { get } | []
 symbol | swift.property | Tab.id | id | var id: Self { get } | []
 symbol | swift.property | Tab.title | title | var title: String { get } | []
@@ -855,15 +847,14 @@ symbol | swift.property | TabCoordinator.tabBadges | tabBadges | @MainActor var 
 symbol | swift.property | TabCoordinatorView.body | body | @MainActor var body: some View { get } | []
 symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor protocol ChildCoordinator : LifecycleAware | []
 symbol | swift.protocol | Coordinator | Coordinator | @MainActor protocol Coordinator : AnyObject, Observable | []
-symbol | swift.protocol | FlowCoordinator | FlowCoordinator | @MainActor protocol FlowCoordinator : AnyObject, Observable | []
 symbol | swift.protocol | FlowNavigating | FlowNavigating | @MainActor protocol FlowNavigating : AnyObject | []
 symbol | swift.protocol | FlowStateReading | FlowStateReading | @MainActor protocol FlowStateReading<RouteType> : Sendable | []
-symbol | swift.protocol | FlowStep | FlowStep | protocol FlowStep : CaseIterable, Hashable, Sendable | []
 symbol | swift.protocol | FlowTelemetrySink | FlowTelemetrySink | @MainActor protocol FlowTelemetrySink : Sendable | []
 symbol | swift.protocol | LifecycleAware | LifecycleAware | @MainActor protocol LifecycleAware : AnyObject | []
 symbol | swift.protocol | ModalTelemetrySink | ModalTelemetrySink | @MainActor protocol ModalTelemetrySink : Sendable | []
 symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<RouteType> : Sendable | []
 symbol | swift.protocol | NavigationTelemetrySink | NavigationTelemetrySink | @MainActor protocol NavigationTelemetrySink : Sendable | []
+symbol | swift.protocol | StepCoordinator | StepCoordinator | @MainActor protocol StepCoordinator : AnyObject, Observable | []
 symbol | swift.protocol | StoreObserver | StoreObserver | @MainActor protocol StoreObserver : AnyObject | []
 symbol | swift.protocol | Tab | Tab | protocol Tab : CaseIterable, Hashable, Identifiable, Sendable | []
 symbol | swift.protocol | TabCoordinator | TabCoordinator | @MainActor protocol TabCoordinator : AnyObject, Observable | []
@@ -875,7 +866,6 @@ symbol | swift.struct | CoordinatorSplitHost | CoordinatorSplitHost | @MainActor
 symbol | swift.struct | EnvironmentFlowIntent | EnvironmentFlowIntent | @MainActor @propertyWrapper struct EnvironmentFlowIntent<R> where R : Route | []
 symbol | swift.struct | EnvironmentModalIntent | EnvironmentModalIntent | @MainActor @propertyWrapper struct EnvironmentModalIntent<M> where M : Route | []
 symbol | swift.struct | EnvironmentNavigationIntent | EnvironmentNavigationIntent | @MainActor @propertyWrapper struct EnvironmentNavigationIntent<R> where R : Route | []
-symbol | swift.struct | FlowCoordinatorView | FlowCoordinatorView | @MainActor struct FlowCoordinatorView<C, Content> where C : FlowCoordinator, Content : View | []
 symbol | swift.struct | FlowHost | FlowHost | @MainActor struct FlowHost<R, Destination, Root> where R : Route, Destination : View, Root : View | []
 symbol | swift.struct | FlowStoreConfiguration | FlowStoreConfiguration | struct FlowStoreConfiguration<R> where R : Route | []
 symbol | swift.struct | LifecycleSignals | LifecycleSignals | @MainActor struct LifecycleSignals | []
@@ -902,6 +892,7 @@ symbol | swift.struct | SceneDeclaration | SceneDeclaration | struct SceneDeclar
 symbol | swift.struct | SceneHost | SceneHost | @MainActor struct SceneHost<R> where R : Route | []
 symbol | swift.struct | SceneRegistry | SceneRegistry | struct SceneRegistry<R> where R : Route | []
 symbol | swift.struct | StateRestorationFailure | StateRestorationFailure | struct StateRestorationFailure | []
+symbol | swift.struct | StepCoordinatorView | StepCoordinatorView | @MainActor struct StepCoordinatorView<C, Content> where C : StepCoordinator, Content : View | []
 symbol | swift.struct | TabCoordinatorView | TabCoordinatorView | @MainActor struct TabCoordinatorView<C> where C : TabCoordinator | []
 symbol | swift.type.method | SceneDeclaration.immersive(_:id:style:) | immersive(_:id:style:) | static func immersive(_ route: R, id: String, style: ImmersiveStyle) -> SceneDeclaration<R> | []
 symbol | swift.type.method | SceneDeclaration.volumetric(_:id:size:) | volumetric(_:id:size:) | static func volumetric(_ route: R, id: String, size: VolumetricSize? = nil) -> SceneDeclaration<R> | []

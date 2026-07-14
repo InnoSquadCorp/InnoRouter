@@ -1,34 +1,17 @@
 import Observation
 import SwiftUI
 
-/// Marker protocol for the discrete steps of a `FlowCoordinator`-driven
-/// flow.
-///
-/// Adopters are typically value-typed enums whose case order tracks
-/// step progression. The required `index` property defines the
-/// progression order without depending on `CaseIterable`'s
-/// declaration order.
-public protocol FlowStep: Hashable, CaseIterable, Sendable {
-    /// Ordinal of the step within the flow. Progression follows
-    /// ascending `index` order over `allCases`, so indices may be
-    /// non-contiguous (for example `0, 5, 10`) — gaps let flows
-    /// insert steps later without renumbering. Indices must be
-    /// unique within a flow; duplicate indices leave the relative
-    /// order of the duplicates unspecified.
-    var index: Int { get }
-}
-
 /// A presentation-layer protocol for ordered, multi-step flows
 /// (onboarding, sign-up, KYC checklists, etc.).
 ///
-/// `FlowCoordinator` complements `FlowStore` rather than replacing it:
+/// `StepCoordinator` complements `FlowStore` rather than replacing it:
 /// `FlowStore` owns the typed navigation/modal stacks behind a flow,
-/// while `FlowCoordinator` focuses on the *step* progression — what's
+/// while `StepCoordinator` focuses on the *step* progression — what's
 /// the next step, what's already complete, when does the flow finish.
 ///
 /// ## Platform availability
 ///
-/// This protocol and its `FlowCoordinatorView` companion are available
+/// This protocol and its `StepCoordinatorView` companion are available
 /// on every InnoRouter-supported platform. The view relies on plain
 /// `VStack` + `ProgressView` (without `NavigationSplitView`), so it
 /// does not require the watchOS fallback that ``NavigationSplitHost``
@@ -42,67 +25,95 @@ public protocol FlowStep: Hashable, CaseIterable, Sendable {
 ///
 /// ```swift
 /// @Observable @MainActor
-/// final class SignUpCoordinator: FlowCoordinator {
-///     enum Step: Int, FlowStep { case email, password, profile
-///         var index: Int { rawValue }
+/// final class SignUpCoordinator: StepCoordinator {
+///     enum Step: CaseIterable, Hashable, Sendable {
+///         case email, password, profile
 ///     }
 ///     var currentStep: Step = .email
 ///     var completedSteps: Set<Step> = []
-///     var onComplete: ((Profile) -> Void)?
-///     func complete(with profile: Profile) { onComplete?(profile) }
 /// }
 /// ```
+///
+/// Progression follows `Step.allCases`. Synthesized `CaseIterable`
+/// conformance uses declaration order; a step type can provide its own
+/// `allCases` when the progression order must differ. The collection must
+/// be non-empty, contain unique steps, and include any `currentStep` value
+/// used by the coordinator. Completion output remains app-owned because the
+/// coordinator's transition helpers do not manufacture or consume a result
+/// value.
 @MainActor
-public protocol FlowCoordinator: AnyObject, Observable {
-    associatedtype Step: FlowStep
-    associatedtype Result
+public protocol StepCoordinator: AnyObject, Observable {
+    associatedtype Step: CaseIterable & Hashable & Sendable
 
     var currentStep: Step { get set }
     var completedSteps: Set<Step> { get set }
-    var onComplete: ((Result) -> Void)? { get set }
 
+    /// Returns whether a new forward transition may leave `step`.
+    /// Both ``next()`` and a forward ``jump(to:)`` consult this gate.
     func canProceed(from step: Step) -> Bool
-    func complete(with result: Result)
 }
 
-public extension FlowCoordinator {
-    var totalSteps: Int { Step.allCases.count }
+public extension StepCoordinator {
+    var totalSteps: Int { orderedSteps.count }
 
-    /// All steps sorted by ascending `index` — the canonical
-    /// progression order. Every default implementation below derives
-    /// position from this order rather than from raw `index`
-    /// arithmetic, so non-contiguous indices progress correctly.
+    /// The canonical progression order. Synthesized `CaseIterable`
+    /// conformance preserves declaration order, while a manually
+    /// implemented `allCases` can opt into a different order.
     private var orderedSteps: [Step] {
-        Step.allCases.sorted { $0.index < $1.index }
+        let steps = Array(Step.allCases)
+        precondition(
+            !steps.isEmpty,
+            "StepCoordinator.Step.allCases must not be empty."
+        )
+        precondition(
+            Set(steps).count == steps.count,
+            "StepCoordinator.Step.allCases must contain unique steps."
+        )
+        return steps
+    }
+
+    private func position(of step: Step, in steps: [Step]) -> Int {
+        guard let position = steps.firstIndex(of: step) else {
+            preconditionFailure(
+                "StepCoordinator steps must be present in Step.allCases."
+            )
+        }
+        return position
     }
 
     var progress: Double {
         let steps = orderedSteps
-        guard !steps.isEmpty,
-              let position = steps.firstIndex(of: currentStep) else { return 0 }
-        return Double(position + 1) / Double(steps.count)
+        let currentPosition = position(of: currentStep, in: steps)
+        return Double(currentPosition + 1) / Double(steps.count)
     }
 
-    var isAtStart: Bool { orderedSteps.first == currentStep }
-    var isAtEnd: Bool { orderedSteps.last == currentStep }
+    var isAtStart: Bool {
+        let steps = orderedSteps
+        return position(of: currentStep, in: steps) == 0
+    }
+
+    var isAtEnd: Bool {
+        let steps = orderedSteps
+        return position(of: currentStep, in: steps) == steps.count - 1
+    }
 
     func next() {
+        let steps = orderedSteps
+        let currentPosition = position(of: currentStep, in: steps)
         guard canProceed(from: currentStep) else { return }
 
         completedSteps.insert(currentStep)
 
-        let steps = orderedSteps
-        if let position = steps.firstIndex(of: currentStep),
-           position < steps.count - 1 {
-            currentStep = steps[position + 1]
+        if currentPosition < steps.count - 1 {
+            currentStep = steps[currentPosition + 1]
         }
     }
 
     func previous() {
         let steps = orderedSteps
-        if let position = steps.firstIndex(of: currentStep),
-           position > 0 {
-            currentStep = steps[position - 1]
+        let currentPosition = position(of: currentStep, in: steps)
+        if currentPosition > 0 {
+            currentStep = steps[currentPosition - 1]
         }
     }
 
@@ -114,34 +125,34 @@ public extension FlowCoordinator {
     /// `canProceed(from:)` gate as ``next()``, so `jump(to:)` cannot
     /// skip past a step that `next()` would have blocked.
     func jump(to step: Step) {
+        let steps = orderedSteps
+        let targetPosition = position(of: step, in: steps)
+        let currentPosition = position(of: currentStep, in: steps)
+
         if completedSteps.contains(step) {
             currentStep = step
             return
         }
 
-        let steps = orderedSteps
-        guard let targetPosition = steps.firstIndex(of: step),
-              let currentPosition = steps.firstIndex(of: currentStep) else { return }
-
         if targetPosition <= currentPosition {
             currentStep = step
         } else if targetPosition == currentPosition + 1,
                   canProceed(from: currentStep) {
+            completedSteps.insert(currentStep)
             currentStep = step
         }
     }
 
     func reset() {
+        let steps = orderedSteps
         completedSteps.removeAll()
-        if let firstStep = orderedSteps.first {
-            currentStep = firstStep
-        }
+        currentStep = steps[0]
     }
 
     func canProceed(from step: Step) -> Bool { true }
 }
 
-public struct FlowCoordinatorView<C: FlowCoordinator, Content: View>: View {
+public struct StepCoordinatorView<C: StepCoordinator, Content: View>: View {
     @Bindable private var coordinator: C
     private let content: (C.Step) -> Content
     private let showProgress: Bool
@@ -169,7 +180,7 @@ public struct FlowCoordinatorView<C: FlowCoordinator, Content: View>: View {
                     insertion: .move(edge: .trailing).combined(with: .opacity),
                     removal: .move(edge: .leading).combined(with: .opacity)
                 ))
-                .animation(.easeInOut, value: coordinator.currentStep.index)
+                .animation(.easeInOut, value: coordinator.currentStep)
         }
     }
 }

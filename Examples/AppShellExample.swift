@@ -38,27 +38,19 @@ enum AppShellTab: String, InnoRouter.Tab {
     }
 }
 
-enum CheckoutStep: Int, FlowStep, CaseIterable {
+enum CheckoutStep: CaseIterable, Hashable, Sendable {
     case cart
     case shipping
     case review
-
-    var index: Int { rawValue }
 }
 
 @Observable
 @MainActor
-final class CheckoutFlowCoordinator: FlowCoordinator {
+final class CheckoutStepCoordinator: StepCoordinator {
     typealias Step = CheckoutStep
-    typealias Result = String
 
     var currentStep: CheckoutStep = .cart
     var completedSteps: Set<CheckoutStep> = []
-    var onComplete: ((String) -> Void)?
-
-    func complete(with result: String) {
-        onComplete?(result)
-    }
 }
 
 @Observable
@@ -77,7 +69,7 @@ final class AppShellCoordinator: TabCoordinator {
             logger: Logger(subsystem: "com.example.innorouter", category: "modal")
         )
     )
-    let checkoutFlow = CheckoutFlowCoordinator()
+    let checkoutFlow = CheckoutStepCoordinator()
 
     func content(for tab: AppShellTab) -> AnyView {
         switch tab {
@@ -126,8 +118,8 @@ struct AppShellHomeScene: View {
                 case .dashboard:
                     HomeDashboardView()
                 case .checkoutFlow:
-                    FlowCoordinatorView(coordinator: coordinator.checkoutFlow) { step in
-                        Text("Checkout step: \(step.index + 1)")
+                    StepCoordinatorView(coordinator: coordinator.checkoutFlow) { step in
+                        Text("Checkout step: \((CheckoutStep.allCases.firstIndex(of: step) ?? 0) + 1)")
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }

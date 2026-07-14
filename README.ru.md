@@ -644,14 +644,14 @@ Coordinators — это объекты политики, которые сидя
 - app shells нуждаются в логике координации
 - несколько авторитетов навигации должны быть составлены за одним coordinator
 
-`FlowCoordinator` и `TabCoordinator` — это помощники, не замены
+`StepCoordinator` и `TabCoordinator` — это помощники, не замены
 `NavigationStore`.
 
 Рекомендуемое разделение:
 
 - `NavigationStore`: авторитет route-stack
 - `TabCoordinator`: состояние выбора shell/tab
-- `FlowCoordinator`: локальная прогрессия шагов внутри назначения
+- `StepCoordinator`: локальная прогрессия шагов внутри назначения
 
 ### Цепочка дочернего coordinator
 

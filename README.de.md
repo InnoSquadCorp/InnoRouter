@@ -626,13 +626,13 @@ Verwenden Sie `CoordinatorHost` oder `CoordinatorSplitHost`, wenn:
 - App-Shells Koordinationslogik benötigen
 - mehrere Navigationsautoritäten hinter einem Coordinator komponiert werden sollen
 
-`FlowCoordinator` und `TabCoordinator` sind Helfer, kein Ersatz für `NavigationStore`.
+`StepCoordinator` und `TabCoordinator` sind Helfer, kein Ersatz für `NavigationStore`.
 
 Empfohlene Aufteilung:
 
 - `NavigationStore`: Route-Stack-Autorität
 - `TabCoordinator`: Shell-/Tab-Auswahl-Zustand
-- `FlowCoordinator`: lokale Schritt-Progression in einem Ziel
+- `StepCoordinator`: lokale Schritt-Progression in einem Ziel
 
 ### Child-Coordinator-Verkettung
 

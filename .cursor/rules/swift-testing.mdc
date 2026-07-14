@@ -176,34 +176,10 @@ func testSequenceRunsMiddlewarePerStep() {
 
 ## DeepLink 테스트
 
-### DeepLinkParser 테스트
+`DeepLinkParser`와 `DeepLinkPattern`은 구현 상세입니다. 소비자 관점의
+테스트는 공개 `DeepLinkMatcher`/`DeepLinkMapping` 경계를 통해 작성합니다.
 
-```swift
-@Test("DeepLinkParser parses URL correctly")
-func testParser() {
-    let parsed = DeepLinkParser.parse("myapp://example.com/products/123?category=electronics")!
-    
-    #expect(parsed.scheme == "myapp")
-    #expect(parsed.host == "example.com")
-    #expect(parsed.path == ["products", "123"])
-    #expect(parsed.queryItems["category"] == "electronics")
-}
-```
-
-### DeepLinkPattern 테스트
-
-```swift
-@Test("DeepLinkPattern matches parameter")
-func testPatternParameter() {
-    let pattern = DeepLinkPattern("/products/:id")
-    
-    let result = pattern.match("/products/123")
-    #expect(result != nil)
-    #expect(result?.params["id"] == "123")
-}
-```
-
-### DeepLinkMatcher 테스트
+### DeepLinkMatcher 공개 동작 테스트
 
 ```swift
 @Test("DeepLinkMatcher finds matching route")
@@ -211,7 +187,7 @@ func testMatcher() {
     let matcher = DeepLinkMatcher<TestRoute> {
         DeepLinkMapping("/home") { _ in .home }
         DeepLinkMapping("/detail/:id") { params in
-            guard let id = params["id"] else { return nil }
+            guard let id = params.firstValue(forName: "id") else { return nil }
             return .detail(id: id)
         }
     }

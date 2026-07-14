@@ -6,6 +6,20 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+### Breaking
+
+- `FlowCoordinator` and `FlowCoordinatorView` are now
+  `StepCoordinator` and `StepCoordinatorView`, clarifying that this
+  helper owns checklist progress rather than navigation/modal state.
+  The separate `FlowStep.index` contract is removed; step order now
+  follows `Step.allCases`, including a manually supplied non-empty,
+  unique order. The unused `Result`, `onComplete`, and
+  `complete(with:)` protocol requirements are also removed so
+  completion remains app-owned.
+- `DeepLinkParser`, `DeepLinkPattern`, and their nested result types
+  are now implementation details behind `DeepLinkMatcher` and
+  `DeepLinkMapping`. The unused `DeepLinkable` protocol is removed.
+
 ### Changed
 
 - Deep-link matching now parses accepted-size URLs at most once per
@@ -17,16 +31,12 @@ are bare semver (no leading `v`).
   independently); they now thread a single parsed value through
   content-limit validation and pattern matching. URLs rejected by the
   entry point's raw-length gate are not parsed.
+- Package-only execution tracing and middleware cleanup hooks now use
+  Swift's `package` access level instead of public SPI declarations.
 
 ### Fixed
 
-- `FlowCoordinator` default implementations now honor the documented
-  non-contiguous `FlowStep.index` contract. `next()`, `previous()`,
-  `progress`, `isAtStart`, `isAtEnd`, and `reset()` derive position
-  from the ascending-index order of `Step.allCases` instead of raw
-  `index` arithmetic, so flows with gapped indices (for example
-  `0, 5, 10`) advance instead of silently wedging on the first gap.
-- `FlowCoordinator.jump(to:)` now applies the same `canProceed(from:)`
+- `StepCoordinator.jump(to:)` now applies the same `canProceed(from:)`
   gate as `next()` when jumping forward, and only permits forward
   jumps to the immediate next step in progression order. Backward
   jumps and jumps to already-completed steps remain unrestricted.

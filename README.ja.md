@@ -636,14 +636,14 @@ InnoRouter はスプリットレイアウトでは詳細スタックのみを所
 - アプリシェルが調整ロジックを必要とする
 - 複数のナビゲーション権限が 1 つのコーディネーターの背後で構成されるべき
 
-`FlowCoordinator` と `TabCoordinator` はヘルパーであり、
+`StepCoordinator` と `TabCoordinator` はヘルパーであり、
 `NavigationStore` の代替ではありません。
 
 推奨される分担:
 
 - `NavigationStore`:route-stack の権限
 - `TabCoordinator`:シェル/タブ選択状態
-- `FlowCoordinator`:目的地内のローカルステップ進行
+- `StepCoordinator`:目的地内のローカルステップ進行
 
 ### 子コーディネーターのチェイニング
 

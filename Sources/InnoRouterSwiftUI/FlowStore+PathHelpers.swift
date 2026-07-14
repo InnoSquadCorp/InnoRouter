@@ -1,4 +1,4 @@
-@_spi(InternalTrace) import InnoRouterCore
+import InnoRouterCore
 
 // MARK: - Path validation, decomposition, and trace helpers
 //

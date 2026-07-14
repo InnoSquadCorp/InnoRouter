@@ -587,13 +587,13 @@ Coordinator 是位于 SwiftUI intent 和命令执行之间的策略对象。
 - 应用 shell 需要协调逻辑
 - 多个导航权限应在一个 coordinator 后组合
 
-`FlowCoordinator` 和 `TabCoordinator` 是助手,而不是 `NavigationStore` 的替代品。
+`StepCoordinator` 和 `TabCoordinator` 是助手,而不是 `NavigationStore` 的替代品。
 
 推荐分工:
 
 - `NavigationStore`:route-stack 权限
 - `TabCoordinator`:shell/tab 选择状态
-- `FlowCoordinator`:目的地内的局部步骤进展
+- `StepCoordinator`:目的地内的局部步骤进展
 
 ### 子 coordinator 链接
 

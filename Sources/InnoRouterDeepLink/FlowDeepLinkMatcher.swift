@@ -29,8 +29,8 @@ import InnoRouterCore
 /// ```
 ///
 /// Pattern syntax (`:parameter`, terminal `*`) and parameter
-/// extraction are identical to ``DeepLinkMatcher`` — the same
-/// underlying ``DeepLinkPattern`` is reused.
+/// extraction are identical to ``DeepLinkMatcher``; both surfaces
+/// use the same internal matching implementation.
 public struct FlowDeepLinkMapping<R: Route>: Sendable {
     fileprivate let pattern: DeepLinkPattern
     private let handler: @Sendable (DeepLinkParameters) -> FlowPlan<R>?

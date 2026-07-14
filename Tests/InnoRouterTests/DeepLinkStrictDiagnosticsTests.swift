@@ -135,10 +135,4 @@ struct DeepLinkStrictDiagnosticsTests {
             Issue.record("Unexpected error: \(error)")
         }
     }
-
-    @Test("Strict error public initializer accepts an empty diagnostics array")
-    func strictErrorInitializerDoesNotTrapOnEmptyDiagnostics() {
-        let error = DeepLinkMatcherStrictError(diagnostics: [])
-        #expect(error.diagnostics.isEmpty)
-    }
 }

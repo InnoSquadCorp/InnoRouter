@@ -64,7 +64,7 @@ swift build --target InnoRouterDeepLinkEffects
 - `ModalStore`, `ModalStoreConfiguration`, `ModalHost`
 - `NavigationIntent`, `ModalIntent`
 - `@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`
-- `FlowCoordinator`, `TabCoordinator`
+- `StepCoordinator`, `TabCoordinator`
 
 ### InnoRouterDeepLink
 

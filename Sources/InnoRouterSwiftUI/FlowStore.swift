@@ -1,6 +1,6 @@
 import Observation
 
-@_spi(InternalTrace) import InnoRouterCore
+import InnoRouterCore
 
 /// Unified router store that represents push + modal progression as a single
 /// array of `RouteStep`s, delegating execution to an inner `NavigationStore`

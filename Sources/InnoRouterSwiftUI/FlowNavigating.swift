@@ -4,10 +4,9 @@ import InnoRouterCore
 /// `FlowIntent` values through it.
 ///
 /// `FlowNavigating` mirrors the convention established by `Coordinator`
-/// (navigation) and exists as a distinct protocol to avoid a naming collision
-/// with the existing wizard-shaped `FlowCoordinator`. Consumers implement
-/// `flowStore` and optionally override `handle(_:)`; the default
-/// implementation forwards to `flowStore.send(_:)`.
+/// (navigation), but targets `FlowStore`'s combined navigation and modal
+/// authority. Consumers implement `flowStore` and optionally override
+/// `handle(_:)`; the default implementation forwards to `flowStore.send(_:)`.
 @MainActor
 public protocol FlowNavigating: AnyObject {
     associatedtype RouteType: Route
