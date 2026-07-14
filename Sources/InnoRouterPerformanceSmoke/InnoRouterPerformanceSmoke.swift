@@ -41,6 +41,12 @@ private struct SmokeMemoryFootprint: Codable {
 
 private let clock = ContinuousClock()
 private let measurementPairCount = 5
+private let expectedSampleNames = [
+    "navigation_replace_reset_scaling",
+    "modal_queue_promote_scaling",
+    "middleware_chain_scaling",
+    "deep_link_pipeline_scaling",
+]
 
 private func median(_ values: [Double]) -> Double? {
     guard !values.isEmpty,
@@ -493,11 +499,12 @@ enum InnoRouterPerformanceSmokeMain {
             ),
         ]
 
+        let hasExpectedSamples = samples.map(\.name) == expectedSampleNames
         let report = SmokeReport(
             generatedAt: ISO8601DateFormatter().string(from: Date()),
             aggregation: "median",
             measurementPairs: measurementPairCount,
-            passed: samples.allSatisfy(\.passed),
+            passed: hasExpectedSamples && samples.allSatisfy(\.passed),
             memoryFootprint: SmokeMemoryFootprint(
                 residentBytes: currentResidentMemoryBytes()
             ),
