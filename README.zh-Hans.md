@@ -70,21 +70,26 @@ InnoRouter 通过 SwiftUI 在每个 Apple 平台上发布。无需 UIKit 或 App
 | `ModalHost` `.fullScreenCover` 原生 | ✅ | ✅ | ⚠ 降级 | ✅ | ⚠ 降级 | ⚠ 降级 |
 | `TabCoordinator.badge` 状态 API / 原生视觉效果 | ✅ | ✅ | ✅ | ⚠ 仅状态 | ⚠ 仅状态 | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `innoRouterSceneHost` (windows、volumetric、immersive) | — | — | — | — | — | ✅ |
-| `innoRouterOrnament(_:content:)` 视图 modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
+| `InnoRouterSpatial`：`SceneStore` / `innoRouterSceneHost` (windows、volumetric、immersive) | — | — | — | — | — | ✅ |
+| `InnoRouterSpatial`：`innoRouterOrnament(_:content:)` 视图 modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ 降级` 表示 store API 不变地接受请求,但 SwiftUI host 因为 `.fullScreenCover`
 不可用而将其渲染为 `.sheet`。`⚠ 仅状态` 表示 coordinator 存储并暴露 badge 状态,
 但 `TabCoordinatorView` 因为 `.badge(_:)` 不可用而省略了 SwiftUI 的原生视觉
 badge。`❌` 表示该符号在该平台上未声明;请用 `#if !os(...)` 包住构建。
+空间路由表面是 5.0 的正式 opt-in API，不再标记为 experimental。
 
 ## 安装
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.3.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "5.0.0")
 ]
 ```
+
+请在应用目标中添加用于基础路由的 `InnoRouter` 产品。使用 visionOS scene 或 ornament
+的目标还必须显式添加 `InnoRouterSpatial` 产品。`InnoRouter` 伞形目标不会重新导出
+`InnoRouterSpatial`。
 
 InnoRouter 作为纯源码 SwiftPM 包发布。它不发布二进制工件,并且 library evolution
 有意关闭,以便在 Apple 平台上保持源码构建的简单性。
@@ -105,7 +110,7 @@ _ = compileCheckedStack.path
 ## 4.0.0 OSS 发布合约
 
 `4.0.0` 是 InnoRouter 的首个 OSS 发布,也是公开 SemVer 合约覆盖的第一个版本。
-新的采用者应该从 `4.3.0` 或更新版本安装。早期的私有/内部包快照不属于 OSS
+新的采用者应该从 `5.0.0` 或更新版本安装。早期的私有/内部包快照不属于 OSS
 兼容性线;测试过它们的团队应该作为一次性源代码迁移,根据 4.x 文档验证公开 API 使用。
 
 ### 4.x 线的 SemVer 承诺
@@ -151,17 +156,19 @@ _ = compileCheckedStack.path
 
 `4.1.0` 是预用户清理 pass 之后的采用基线。它移除了未使用的 dispatcher 对象 API,
 将 `replaceStack` 保留为唯一的全栈替换 intent,并将 effect 观察转移到显式事件流。
-这是 4.x 线中唯一文档化的源码破坏性例外。新应用应从 `4.1.0` 开始;
+这是 4.x 线中唯一文档化的源码破坏性例外。新应用应从 `5.0.0` 开始;
 `4.0.0` 标签仍可用作首个 OSS 快照。
 
 ### Imports
 
 伞形目标 `InnoRouter` 重新导出 `InnoRouterCore`、`InnoRouterSwiftUI` 和
-`InnoRouterDeepLink`。App-boundary effects 与 macros 保持 opt-in，使未使用它们的
-文件无需承担额外 API 和 macro 插件解析成本:
+`InnoRouterDeepLink`。空间路由、app-boundary effects 与 macros 保持 opt-in，使未使用
+它们的文件无需承担额外 API 和 macro 插件解析成本。`InnoRouter` 不会重新导出
+`InnoRouterSpatial`:
 
 ```swift skip doc-fragment
-import InnoRouter            // stores、hosts、intents、deep links、scenes
+import InnoRouter            // stores、stack/modal hosts、intents、deep links
+import InnoRouterSpatial     // 仅在使用 visionOS scenes 和 ornaments 时
 import InnoRouterEffects     // app-boundary 执行与 pending replay
 import InnoRouterMacros      // 仅在使用 @Routable / @CasePathable 的文件中
 ```
@@ -176,7 +183,8 @@ macro 包拆分应在测量 `swift package show-traits`、
 
 | 产品 | 何时导入 |
 |---|---|
-| `InnoRouter` | 需要 stores、hosts、intents、coordinators、deep links、scenes 或持久化助手的应用代码。 |
+| `InnoRouter` | 需要 stores、stack/modal hosts、intents、coordinators、deep links 或持久化助手的应用代码。 |
+| `InnoRouterSpatial` | 使用 visionOS scenes、immersive spaces 或 ornaments 路由的应用目标。请与 `InnoRouter` 分开添加并导入该产品。 |
 | `InnoRouterMacros` | 仅使用 `@Routable` 或 `@CasePathable` 的文件。 |
 | `InnoRouterEffects` | 执行 `NavigationCommand` 值并处理或恢复挂起深链接的应用边界代码。 |
 | `InnoRouterTesting` | 想要无 host 的 `NavigationTestStore`、`ModalTestStore` 或 `FlowTestStore` 的测试目标。 |
@@ -186,6 +194,7 @@ macro 包拆分应在测量 `swift package show-traits`、
 - `InnoRouter`:`InnoRouterCore`、`InnoRouterSwiftUI` 和 `InnoRouterDeepLink` 的伞形重新导出
 - `InnoRouterCore`:route stack、validators、commands、results、batch/transaction executors、middleware
 - `InnoRouterSwiftUI`:stores、stack/split/modal hosts、coordinators、environment intent dispatch
+- `InnoRouterSpatial`:opt-in visionOS scene/immersive-space stores、hosts、anchors 和 ornaments
 - `InnoRouterDeepLink`:模式匹配、诊断、pipeline 规划、挂起深链接
 - `InnoRouterEffects`:用于应用边界的导航与深链接执行助手
 - `InnoRouterMacros`:`@Routable` 和 `@CasePathable`
@@ -202,12 +211,14 @@ macro 包拆分应在测量 `swift package show-traits`、
 | Push + modal 流程、恢复或多步深链接 | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL 转 push-only 命令计划 | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL 转 push-prefix 加 modal-tail 流程 | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS windows、volumes、immersive spaces | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
+| visionOS windows、volumes、immersive spaces | `InnoRouterSpatial` + `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer、effect 或应用边界执行 | `InnoRouterEffects` |
 | 无 SwiftUI hosts 的 router 断言 | `InnoRouterTesting` |
 
 `NavigationStore`、`FlowStore`、`ModalStore`、`SceneStore`、effects 和 testing
-有意分离。该库保持这些权限明确,以便应用只采用与其路由边界匹配的部分。
+有意分离。选择 visionOS 空间表面时，请在应用目标中添加 `InnoRouterSpatial` 产品，
+并在相关源码文件中使用 `import InnoRouterSpatial`。该库保持这些权限明确,以便应用只采用
+与其路由边界匹配的部分。
 
 ### 快速决策流程图
 
@@ -248,7 +259,7 @@ GitHub 源代码视图和离线 `swift package generate-documentation` 构建都
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | 用 `FlowHost` 替换嵌套的 `NavigationHost` + `ModalHost` 栈 |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | 配合确定性测试 clock 使用 `ThrottleNavigationMiddleware` |
 | [Tutorial-StoreObserver](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-StoreObserver.md) | `InnoRouterSwiftUI` | 在统一 `events` 流之上采用 `StoreObserver` |
-| [Tutorial-VisionOSScenes](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSwiftUI` | 从 `SceneStore` 驱动 visionOS windows、volumetric scenes 和 immersive spaces |
+| [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | 从 `SceneStore` 驱动 visionOS windows、volumetric scenes 和 immersive spaces |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | 通过 `FlowDeepLinkPipeline` 构建组合 push + modal 深链接 |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | 使用 `StatePersistence` 跨启动持久化 `FlowPlan` / `RouteStack` |
 | [Tutorial-TestingFlows](Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/Tutorial-TestingFlows.md) | `InnoRouterTesting` | 通过 `FlowTestStore` 进行无 host 的 Swift Testing 断言 |

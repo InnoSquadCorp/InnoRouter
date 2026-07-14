@@ -8,6 +8,7 @@ InnoRouter is a SwiftUI-native navigation framework with:
 
 - typed stack state in `InnoRouterCore`
 - SwiftUI authority in `InnoRouterSwiftUI`
+- opt-in spatial scene authority in `InnoRouterSpatial`
 - deep-link parsing and planning in `InnoRouterDeepLink`
 - app-boundary execution helpers in `InnoRouterEffects`
 - optional route/case-path macros in `InnoRouterMacros`
@@ -42,6 +43,7 @@ swift test
 swift build --target InnoRouter
 swift build --target InnoRouterCore
 swift build --target InnoRouterSwiftUI
+swift build --target InnoRouterSpatial
 swift build --target InnoRouterEffects
 ```
 
@@ -72,6 +74,14 @@ swift build --target InnoRouterEffects
 - `DeepLinkDecision`
 - `PendingDeepLink`
 - `NavigationPlan`
+
+### InnoRouterSpatial
+
+- `ScenePresentation`, `SceneDeclaration`, `SceneRegistry`
+- `SceneStore`, `SceneIntent`, `SceneEvent`
+- `innoRouterSceneHost`, `innoRouterSceneAnchor`
+- `OrnamentAnchor`, `innoRouterOrnament`
+- explicit opt-in product; not re-exported by `InnoRouter`
 
 ### InnoRouterEffects
 
@@ -128,7 +138,7 @@ Both must stay aligned with the same public feature surface.
 
 ## Release and Pages policy
 
-- release tags are bare semver only, such as `3.0.0`
+- release tags are bare semver only, such as `5.0.0`
 - never use a leading `v` in release tags
 - a release tag publishes both GitHub Release and versioned DocC
 - latest docs live under `/latest/`

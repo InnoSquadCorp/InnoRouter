@@ -74,22 +74,27 @@ AppKit 브릿지 모듈은 필요하지 않습니다.
 | `ModalHost` `.fullScreenCover` 네이티브 | ✅ | ✅ | ⚠ degrades | ✅ | ⚠ degrades | ⚠ degrades |
 | `TabCoordinator.badge` 상태 API / 네이티브 시각 표현 | ✅ | ✅ | ✅ | ⚠ 상태 only | ⚠ 상태 only | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
-| `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
+| `InnoRouterSpatial`: `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `InnoRouterSpatial`: `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ degrades`는 store API가 요청을 그대로 수락하지만 SwiftUI host가 `.fullScreenCover`를
 사용할 수 없어 `.sheet`로 렌더링한다는 뜻입니다. `⚠ 상태 only`는 coordinator가
 badge 상태를 저장·노출하지만, `.badge(_:)`가 사용 불가능해 `TabCoordinatorView`가
 SwiftUI의 네이티브 시각 badge를 생략한다는 뜻입니다. `❌`는 해당 플랫폼에서
 심볼이 선언되지 않는다는 뜻이며, `#if !os(...)` 뒤에서 빌드해야 합니다.
+공간 라우팅 surface는 5.0의 정식 opt-in API이며 experimental로 분류되지 않습니다.
 
 ## 설치
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.3.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "5.0.0")
 ]
 ```
+
+앱 타깃에는 기본 라우팅을 위한 `InnoRouter` product를 추가하세요. visionOS scene이나
+ornament를 사용하는 타깃에는 `InnoRouterSpatial` product도 명시적으로 추가해야 합니다.
+`InnoRouter` umbrella는 `InnoRouterSpatial`을 re-export하지 않습니다.
 
 InnoRouter는 source-only SwiftPM 패키지로 배포됩니다. 바이너리 아티팩트를 제공하지
 않으며, library evolution은 의도적으로 꺼져 있어 Apple 플랫폼 전반에서 source 빌드가
@@ -112,7 +117,7 @@ _ = compileCheckedStack.path
 ## 4.0.0 OSS 릴리즈 계약
 
 `4.0.0`은 InnoRouter의 첫 OSS 릴리즈이며, public SemVer 계약이 적용되는 첫 버전입니다.
-신규 채택자는 `4.3.0` 이상에서 시작해야 합니다. 이전의 비공개/내부 패키지 스냅샷은
+신규 채택자는 `5.0.0` 이상에서 시작해야 합니다. 이전의 비공개/내부 패키지 스냅샷은
 OSS 호환성 라인의 일부가 아닙니다. 이전 버전을 테스트한 팀은 4.x 문서에 맞춰 public API
 사용을 일회성 source migration으로 검증해야 합니다.
 
@@ -164,17 +169,19 @@ pre-release 태그는 [`RELEASING.md`](RELEASING.md)에 문서화된 별도 수�
 `4.1.0`은 사용자 유입 전 cleanup 패스 이후의 채택 baseline입니다. 사용되지 않던
 dispatcher-object API들을 제거하고, `replaceStack`을 단일 풀-스택 교체 intent로
 유지하며, effect 관찰을 명시적 이벤트 스트림으로 옮겼습니다. 이는 4.x 라인에서
-문서화된 유일한 source-breaking 예외입니다. 신규 앱은 `4.1.0`에서 시작해야 하며,
+문서화된 유일한 source-breaking 예외입니다. 신규 앱은 `5.0.0`에서 시작해야 하며,
 `4.0.0` 태그는 첫 OSS 스냅샷으로 남아 있습니다.
 
 ### Imports
 
 umbrella 타깃 `InnoRouter`는 `InnoRouterCore`, `InnoRouterSwiftUI`,
-`InnoRouterDeepLink`를 re-export합니다. App-boundary effects와 macros는 opt-in으로
-남겨, 사용하지 않는 파일이 추가 API와 macro plugin 해결 비용을 부담하지 않게 합니다:
+`InnoRouterDeepLink`를 re-export합니다. 공간 라우팅, app-boundary effects, macros는
+opt-in으로 남겨, 사용하지 않는 파일이 추가 API와 macro plugin 해결 비용을 부담하지
+않게 합니다. `InnoRouter`는 `InnoRouterSpatial`을 re-export하지 않습니다:
 
 ```swift skip doc-fragment
-import InnoRouter            // stores, hosts, intents, deep links, scenes
+import InnoRouter            // stores, stack/modal hosts, intents, deep links
+import InnoRouterSpatial     // visionOS scenes와 ornaments를 사용할 때만
 import InnoRouterEffects     // app-boundary 실행과 pending replay
 import InnoRouterMacros      // @Routable / @CasePathable 사용 파일에서만
 ```
@@ -189,7 +196,8 @@ package-traits 또는 매크로-패키지 분리는 `swift package show-traits`,
 
 | Product | 언제 import할지 |
 |---|---|
-| `InnoRouter` | store, host, intent, coordinator, deep link, scene, persistence 헬퍼가 필요한 앱 코드. |
+| `InnoRouter` | store, stack/modal host, intent, coordinator, deep link, persistence 헬퍼가 필요한 앱 코드. |
+| `InnoRouterSpatial` | visionOS scene, immersive space, ornament 라우팅을 사용하는 앱 타깃. `InnoRouter`와 별도로 product를 추가하고 import합니다. |
 | `InnoRouterMacros` | `@Routable` 또는 `@CasePathable`을 사용하는 파일에서만. |
 | `InnoRouterEffects` | `NavigationCommand` 값을 실행하고 pending 딥링크를 처리하거나 재개하는 앱-경계 코드. |
 | `InnoRouterTesting` | host-less `NavigationTestStore` / `ModalTestStore` / `FlowTestStore`를 원하는 테스트 타깃. |
@@ -199,6 +207,7 @@ package-traits 또는 매크로-패키지 분리는 `swift package show-traits`,
 - `InnoRouter`: `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`의 umbrella re-export
 - `InnoRouterCore`: route stack, validator, command, result, batch/transaction executor, middleware
 - `InnoRouterSwiftUI`: store, stack/split/modal host, coordinator, environment intent dispatch
+- `InnoRouterSpatial`: opt-in visionOS scene/immersive-space store, host, anchor, ornament
 - `InnoRouterDeepLink`: 패턴 매칭, 진단, pipeline planning, pending 딥링크
 - `InnoRouterEffects`: 앱 경계용 네비게이션·딥링크 실행 헬퍼
 - `InnoRouterMacros`: `@Routable`과 `@CasePathable`
@@ -215,13 +224,15 @@ package-traits 또는 매크로-패키지 분리는 `swift package show-traits`,
 | push + modal 흐름, 복원, 또는 multi-step 딥링크 | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL을 push-only command plan으로 변환 | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL을 push-prefix + modal-tail 흐름으로 변환 | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS window, volume, immersive space | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
+| visionOS window, volume, immersive space | `InnoRouterSpatial` + `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer, effect, 또는 앱-경계 실행 | `InnoRouterEffects` |
 | SwiftUI host 없는 router assertion | `InnoRouterTesting` |
 
 `NavigationStore`, `FlowStore`, `ModalStore`, `SceneStore`, effects, testing은
-의도적으로 분리되어 있습니다. 이 라이브러리는 이 권한들을 명시적으로 유지해서
-앱이 라우팅 경계에 맞는 조각만 채택할 수 있게 합니다.
+의도적으로 분리되어 있습니다. visionOS 공간 surface를 선택했다면 앱 타깃에
+`InnoRouterSpatial` product를 추가하고 해당 소스 파일에서 `import InnoRouterSpatial`을
+사용하세요. 이 라이브러리는 이 권한들을 명시적으로 유지해서 앱이 라우팅 경계에 맞는
+조각만 채택할 수 있게 합니다.
 
 ### 빠른 의사결정 흐름도
 
@@ -263,7 +274,7 @@ DocC는 상세한 모듈 레벨 레퍼런스 모음입니다.
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | 중첩된 `NavigationHost` + `ModalHost` stack을 `FlowHost`로 교체 |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | 결정론적 test clock과 `ThrottleNavigationMiddleware` 사용 |
 | [Tutorial-StoreObserver](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-StoreObserver.md) | `InnoRouterSwiftUI` | 통합 `events` 스트림 위에서 `StoreObserver` 채택 |
-| [Tutorial-VisionOSScenes](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSwiftUI` | `SceneStore`로 visionOS window, volumetric scene, immersive space 구동 |
+| [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | `SceneStore`로 visionOS window, volumetric scene, immersive space 구동 |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | `FlowDeepLinkPipeline`을 통한 push + modal 합성 딥링크 |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | `StatePersistence`로 launch 간 `FlowPlan` / `RouteStack` 영속화 |
 | [Tutorial-TestingFlows](Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/Tutorial-TestingFlows.md) | `InnoRouterTesting` | `FlowTestStore`를 통한 host-less Swift Testing assertion |

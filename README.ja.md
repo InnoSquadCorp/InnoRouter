@@ -76,8 +76,8 @@ UIKit や AppKit のブリッジモジュールは不要です。
 | `ModalHost` `.fullScreenCover` ネイティブ | ✅ | ✅ | ⚠ ダウングレード | ✅ | ⚠ ダウングレード | ⚠ ダウングレード |
 | `TabCoordinator.badge` 状態 API / ネイティブビジュアル | ✅ | ✅ | ✅ | ⚠ 状態のみ | ⚠ 状態のみ | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `innoRouterSceneHost` (windows、volumetric、immersive) | — | — | — | — | — | ✅ |
-| `innoRouterOrnament(_:content:)` ビュー modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
+| `InnoRouterSpatial`: `SceneStore` / `innoRouterSceneHost` (windows、volumetric、immersive) | — | — | — | — | — | ✅ |
+| `InnoRouterSpatial`: `innoRouterOrnament(_:content:)` ビュー modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ ダウングレード` は、ストア API がリクエストをそのまま受け入れますが、
 SwiftUI ホストが `.fullScreenCover` を利用できないため `.sheet` として
@@ -91,13 +91,15 @@ SwiftUI ホストが `.fullScreenCover` を利用できないため `.sheet` と
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.3.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "5.0.0")
 ]
 ```
 
 InnoRouter はソースのみの SwiftPM パッケージとして配布されます。バイナリ
 アーティファクトは出荷せず、library evolution は意図的にオフになっており、
 Apple プラットフォーム全体でソースビルドがシンプルに保たれます。
+visionOS のシーンルーティングを使用するターゲットには、opt-in product
+`InnoRouterSpatial` も明示的に追加してください。
 
 ドキュメントゲートはまた、少なくとも 1 つの完全な Swift スニペットを
 パッケージに対して型チェックします:
@@ -116,7 +118,7 @@ _ = compileCheckedStack.path
 ## 4.0.0 OSS リリース契約
 
 `4.0.0` は InnoRouter の最初の OSS リリースであり、パブリック SemVer
-契約でカバーされる最初のバージョンです。新しい採用者は `4.3.0` 以降から
+契約でカバーされる最初のバージョンです。新しい採用者は `5.0.0` 以降から
 インストールするべきです。以前のプライベート/内部パッケージスナップショットは
 OSS 互換性ラインの一部ではありません。それらをテストしたチームは、
 4.x ドキュメントに対するパブリック API 使用法を一回限りのソース移行として
@@ -179,18 +181,20 @@ OSS 互換性ラインの一部ではありません。それらをテストし�
 ディスパッチャオブジェクト API を削除し、`replaceStack` を唯一のフルスタック
 置換 intent として保持し、effect 観察を明示的なイベントストリームに
 移動します。これは 4.x ラインで文書化された唯一の source-breaking 例外です。
-新しいアプリは `4.1.0` から開始するべきです。`4.0.0` タグは最初の OSS
+新しいアプリは `5.0.0` から開始するべきです。`4.0.0` タグは最初の OSS
 スナップショットとして利用可能なまま残ります。
 
 ### Imports
 
 アンブレラターゲット `InnoRouter` は `InnoRouterCore`、
 `InnoRouterSwiftUI`、`InnoRouterDeepLink` を re-export します。
-App-boundary effects と macros は opt-in のままにし、使用しないファイルが
-追加 API やマクロプラグイン解決コストを負担しないようにします:
+`InnoRouterSpatial` は re-export されません。Spatial、app-boundary effects、
+macros は opt-in のままにし、使用しないファイルが追加 API やマクロプラグイン
+解決コストを負担しないようにします:
 
 ```swift skip doc-fragment
-import InnoRouter            // stores、hosts、intents、deep links、scenes
+import InnoRouter            // stores、hosts、intents、deep links
+import InnoRouterSpatial     // visionOS scenes、anchors、ornaments
 import InnoRouterEffects     // app-boundary 実行と pending replay
 import InnoRouterMacros      // @Routable / @CasePathable を使用するファイルのみ
 ```
@@ -207,16 +211,18 @@ SwiftSyntax がバックエンドのマクロ実装は 4.x ラインの間この
 
 | Product | いつ import するか |
 |---|---|
-| `InnoRouter` | stores、hosts、intents、coordinators、deep links、scenes、または永続化ヘルパーを必要とするアプリコード。 |
+| `InnoRouter` | stores、hosts、intents、coordinators、deep links、または永続化ヘルパーを必要とするアプリコード。 |
+| `InnoRouterSpatial` | visionOS の windows、volumes、immersive spaces、anchors、ornaments を扱うアプリコード。ターゲット依存関係にもこの product を明示的に追加します。 |
 | `InnoRouterMacros` | `@Routable` または `@CasePathable` を使用するファイルのみ。 |
 | `InnoRouterEffects` | `NavigationCommand` 値を実行し、保留中のディープリンクを処理または再開するアプリ境界コード。 |
 | `InnoRouterTesting` | ホストレスの `NavigationTestStore`、`ModalTestStore`、`FlowTestStore` を望むテストターゲット。 |
 
 ## モジュール
 
-- `InnoRouter`:`InnoRouterCore`、`InnoRouterSwiftUI`、`InnoRouterDeepLink` のアンブレラ re-export
+- `InnoRouter`:`InnoRouterCore`、`InnoRouterSwiftUI`、`InnoRouterDeepLink` のアンブレラ re-export（`InnoRouterSpatial` は含みません）
 - `InnoRouterCore`:route stack、validators、commands、results、batch/transaction executors、middleware
 - `InnoRouterSwiftUI`:stores、stack/split/modal hosts、coordinators、environment intent dispatch
+- `InnoRouterSpatial`:opt-in の visionOS scene declarations、`SceneStore`、scene host/anchor/ornament modifiers
 - `InnoRouterDeepLink`:パターンマッチング、診断、pipeline プランニング、保留中ディープリンク
 - `InnoRouterEffects`:アプリ境界用のナビゲーションとディープリンク実行ヘルパー
 - `InnoRouterMacros`:`@Routable` と `@CasePathable`
@@ -233,7 +239,7 @@ SwiftSyntax がバックエンドのマクロ実装は 4.x ラインの間この
 | Push + modal フロー、復元、または複数ステップディープリンク | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL を push のみのコマンドプランへ | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL を push 接頭辞 + modal 末尾フローへ | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS windows、volumes、immersive spaces | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
+| visionOS windows、volumes、immersive spaces | `InnoRouterSpatial` を追加・import し、`SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` を使用 |
 | Reducer、effect、またはアプリ境界の実行 | `InnoRouterEffects` |
 | SwiftUI ホストなしの router アサーション | `InnoRouterTesting` |
 
@@ -283,7 +289,7 @@ DocC カタログ内に存在し、レンダリングされた DocC サイト、
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | 入れ子の `NavigationHost` + `ModalHost` スタックを `FlowHost` で置換 |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | 決定論的テストクロックを伴う `ThrottleNavigationMiddleware` の使用 |
 | [Tutorial-StoreObserver](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-StoreObserver.md) | `InnoRouterSwiftUI` | 統一 `events` ストリーム上で `StoreObserver` を採用 |
-| [Tutorial-VisionOSScenes](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSwiftUI` | `SceneStore` から visionOS windows、volumetric scenes、immersive spaces を駆動 |
+| [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | `SceneStore` から visionOS windows、volumetric scenes、immersive spaces を駆動 |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | `FlowDeepLinkPipeline` を介して合成 push + modal ディープリンクを構築 |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | `StatePersistence` で起動間に `FlowPlan` / `RouteStack` を永続化 |
 | [Tutorial-TestingFlows](Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/Tutorial-TestingFlows.md) | `InnoRouterTesting` | `FlowTestStore` を介したホストレスの Swift Testing アサーション |

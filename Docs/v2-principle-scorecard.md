@@ -8,13 +8,14 @@ This scorecard maps the current implementation to SwiftUI philosophy, SOLID, typ
 |---|---|---|---|
 | Core semantics | Typed route stack, command algebra, batch, and transaction execution | `Sources/InnoRouterCore` | Enforced |
 | SwiftUI authority | Stack, split-detail, and modal surfaces are separated by host/store responsibility | `Sources/InnoRouterSwiftUI` | Enforced |
+| Spatial authority | visionOS windows, volumes, immersive spaces, and ornaments live in an explicit opt-in product outside the default umbrella | `Sources/InnoRouterSpatial` | Enforced |
 | Deep-link planning | URL matching and policy flow are explicit, typed, and replay-friendly | `Sources/InnoRouterDeepLink` | Enforced |
 | App boundary effects | Navigation and deep-link execution share one opt-in app-boundary module | `Sources/InnoRouterEffects` | Enforced |
 | Host-less testability | `NavigationTestStore`, `ModalTestStore`, and `FlowTestStore` expose a shippable Swift Testing harness over the public observation surface | `Sources/InnoRouterTesting` | Enforced |
 | Coordinator composition | `ChildCoordinator` + `parent.push(child:) -> Task<Result?, Never>` give child → parent finish chaining with inline `await`, symmetric with SwiftUI authority boundaries | `Sources/InnoRouterSwiftUI/ChildCoordinator.swift`, `Docs/design-child-coordinator-handoff.md` | Enforced |
-| Unified observation stream | Every store publishes one typed configuration `onEvent` callback and a matching `events: AsyncStream<Event>`, with `FlowStore` wrapping inner navigation / modal emissions so either channel sees the complete chain | `Sources/InnoRouterSwiftUI/{NavigationEvent,ModalEvent,FlowEvent,EventBroadcaster}.swift` | Enforced |
+| Unified observation stream | Navigation, Modal, and Flow stores publish a typed configuration `onEvent` callback; every authority, including `SceneStore`, publishes a matching `events: AsyncStream<Event>`. `FlowStore` wraps inner navigation / modal emissions so either channel sees the complete chain. | `Sources/InnoRouterCore/EventBroadcaster.swift`, `Sources/InnoRouterSwiftUI/{NavigationEvent,ModalEvent,FlowEvent}.swift`, `Sources/InnoRouterSpatial/SceneStore.swift` | Enforced |
 | Codable state restoration | Opt-in `Codable` on `RouteStack`, `RouteStep`, and `FlowPlan` with a typed `StatePersistence<R>` Data-boundary helper. No file I/O policy is baked in — apps own the transport. | `Sources/InnoRouterCore/StatePersistence.swift`, Codable extensions on value types | Enforced |
-| Tutorial-grade DocC | Narrative articles sit beside the symbol reference, covering onboarding flows, deep-link reconciliation, middleware composition, host migration, composite URL rehydration, and host-less testing | `Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/`, `Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/`, `Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/` | Enforced |
+| Tutorial-grade DocC | Narrative articles sit beside the symbol reference, covering onboarding flows, deep-link reconciliation, middleware composition, host migration, spatial scenes, composite URL rehydration, and host-less testing | `Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/`, `Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/`, `Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/`, `Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/` | Enforced |
 | Composite deep-link rehydration | A single URL maps to a `FlowPlan<R>` carrying both a push prefix and an optional modal terminal step. `FlowDeepLinkEffectHandler` drives the plan through `FlowStore.apply` atomically, with the same authentication-deferral loop as the push-only pipeline. | `Sources/InnoRouterDeepLink/{DeepLink,FlowDeepLinkPipeline}.swift`, `Sources/InnoRouterEffects/FlowDeepLinkEffectHandler.swift` | Enforced |
 | Command algebra + rate-limiting | `.whenCancelled(primary, fallback:)` is a synchronous fallback primitive with a savepoint per leg, so only one successful leg commits; `ThrottleNavigationMiddleware` is a Clock-generic middleware that cancels commands within a minimum interval of a previously accepted key. Both compose through the existing middleware + engine pipeline. | `Sources/InnoRouterCore/NavigationCommand.swift`, `Sources/InnoRouterSwiftUI/ThrottleNavigationMiddleware.swift` | Enforced |
 | Cross-launch pending deep links | `FlowPendingDeepLink` is opt-in `Codable` when the route is `Codable`. `FlowPendingDeepLinkPersistence<R>` bridges to `Data`, and `FlowDeepLinkEffectHandler.restore(pending:)` re-installs a decoded pending link for replay through the authentication policy. | `Sources/InnoRouterDeepLink/FlowPendingDeepLinkPersistence.swift` | Enforced |
@@ -68,6 +69,9 @@ The repository now treats documentation as a first-class artifact:
 - Case-typed destination bindings (`NavigationStore.binding(case:)`, `ModalStore.binding(case:style:)`) route every SwiftUI set through the existing command pipeline so middleware and telemetry observe them identically to direct `execute(...)`.
 - High-frequency navigation intents (`replaceStack`, `backOrPush`, `pushUniqueRoot`) compose from existing `NavigationCommand` primitives so the engine stays minimal while app code stays declarative.
 - Human-facing examples and smoke fixtures are intentionally separated.
+- `InnoRouterSpatial` keeps multi-scene authority out of the default umbrella;
+  consumers pay for and import the surface only in targets that own spatial
+  scene declarations.
 
 ## Remaining trade-offs
 
@@ -77,15 +81,11 @@ The repository now treats documentation as a first-class artifact:
 
 These are intentional scope boundaries, not accidental omissions.
 
-## Experimental surface
+## Spatial module boundary
 
-Some surfaces ship as **experimental** and are explicitly outside the
-4.x SemVer additive guarantee. Their shape and behaviour may change in
-any 4.x minor release until the marker is removed.
-
-| Surface | Module | Markers |
-| --- | --- | --- |
-| `SceneStore` / `innoRouterSceneHost` / `innoRouterSceneAnchor` / `ScenePresentation` / `SceneIntent` / `SceneEvent` / `SceneRegistry` / `SceneDeclaration` (visionOS spatial scene authority) | `InnoRouterSwiftUI` | `> Experimental` admonition on `SceneStore`'s main doc comment, `⚠ experimental` cells in the README "Platform support" / "Choosing the right surface" tables, file-header MARK comments on every Scene*.swift file. |
-
-Apps adopting an experimental surface should pin to an exact 4.x
-release rather than `from:` until the surface graduates.
+The 5.0 API promotes spatial routing from its 4.x experimental location in
+`InnoRouterSwiftUI` to the stable, opt-in `InnoRouterSpatial` product.
+The default `InnoRouter` umbrella intentionally does not re-export it.
+Scene declarations and ornaments remain available cross-platform where their
+types are meaningful; `SceneStore` and the scene host/anchor modifiers are
+declared only on visionOS.

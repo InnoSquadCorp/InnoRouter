@@ -76,8 +76,8 @@ InnoRouter поставляется на каждой платформе Apple �
 | `ModalHost` `.fullScreenCover` нативно | ✅ | ✅ | ⚠ деградирует | ✅ | ⚠ деградирует | ⚠ деградирует |
 | `TabCoordinator.badge` API состояния / нативное визуальное представление | ✅ | ✅ | ✅ | ⚠ только состояние | ⚠ только состояние | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
-| `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
+| `InnoRouterSpatial`: `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `InnoRouterSpatial`: `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ деградирует` означает, что store API принимает запрос без изменений, но
 SwiftUI host рендерит его как `.sheet`, потому что `.fullScreenCover`
@@ -90,13 +90,15 @@ SwiftUI host рендерит его как `.sheet`, потому что `.full
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.3.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "5.0.0")
 ]
 ```
 
 InnoRouter распространяется как SwiftPM-пакет только из исходников. Он не
 поставляет бинарные артефакты, и library evolution намеренно отключена,
 чтобы сборки из исходников оставались простыми на всех платформах Apple.
+Для target, использующего маршрутизацию сцен visionOS, также явно добавьте
+opt-in product `InnoRouterSpatial`.
 
 Шлюз документации также удерживает по крайней мере один полный Swift
 сниппет, проверенный по типам относительно пакета:
@@ -116,7 +118,7 @@ _ = compileCheckedStack.path
 
 `4.0.0` — это первый OSS-релиз InnoRouter и первая версия, покрытая
 публичным контрактом SemVer. Новые усыновители должны устанавливать с
-`4.3.0` или новее. Более ранние приватные/внутренние снимки пакета не
+`5.0.0` или новее. Более ранние приватные/внутренние снимки пакета не
 являются частью линии OSS-совместимости; команды, которые их тестировали,
 должны проверить использование публичного API относительно документов 4.x
 как одноразовую миграцию исходного кода.
@@ -182,17 +184,19 @@ minor релиз:
 сохраняется как единственный intent полной замены стека, и наблюдение
 эффектов перемещается в явные потоки событий. Это единственное
 задокументированное source-breaking исключение в линии 4.x. Новые приложения
-должны начинать с `4.1.0`; тег `4.0.0` остаётся доступным как первый OSS-снимок.
+должны начинать с `5.0.0`; тег `4.0.0` остаётся доступным как первый OSS-снимок.
 
 ### Imports
 
 Зонтичный target `InnoRouter` re-export `InnoRouterCore`,
-`InnoRouterSwiftUI` и `InnoRouterDeepLink`. App-boundary effects и macros
-остаются opt-in, чтобы неиспользующие их файлы не получали лишний API и не
-платили цену разрешения macro plugin:
+`InnoRouterSwiftUI` и `InnoRouterDeepLink`. `InnoRouterSpatial` не
+реэкспортируется. Spatial, app-boundary effects и macros остаются opt-in, чтобы
+неиспользующие их файлы не получали лишний API и не платили цену разрешения
+macro plugin:
 
 ```swift skip doc-fragment
-import InnoRouter            // stores, hosts, intents, deep links, scenes
+import InnoRouter            // stores, hosts, intents, deep links
+import InnoRouterSpatial     // visionOS scenes, anchors, ornaments
 import InnoRouterEffects     // app-boundary выполнение и pending replay
 import InnoRouterMacros      // только в файлах, которые используют @Routable / @CasePathable
 ```
@@ -209,16 +213,18 @@ property wrapper или view modifier приходят из `InnoRouter`, а н�
 
 | Product | Когда импортировать |
 |---|---|
-| `InnoRouter` | Код приложения, которому нужны stores, hosts, intents, coordinators, deep links, scenes или помощники persistence. |
+| `InnoRouter` | Код приложения, которому нужны stores, hosts, intents, coordinators, deep links или помощники persistence. |
+| `InnoRouterSpatial` | Код приложения для windows, volumes, immersive spaces, anchors и ornaments visionOS. Явно добавьте этот product также в зависимости target. |
 | `InnoRouterMacros` | Только файлы, которые используют `@Routable` или `@CasePathable`. |
 | `InnoRouterEffects` | Код границы приложения, который выполняет значения `NavigationCommand` и обрабатывает или возобновляет ожидающие deep links. |
 | `InnoRouterTesting` | Test targets, которые хотят host-less `NavigationTestStore`, `ModalTestStore` или `FlowTestStore`. |
 
 ## Модули
 
-- `InnoRouter`: зонтичный re-export `InnoRouterCore`, `InnoRouterSwiftUI` и `InnoRouterDeepLink`
+- `InnoRouter`: зонтичный re-export `InnoRouterCore`, `InnoRouterSwiftUI` и `InnoRouterDeepLink` (без `InnoRouterSpatial`)
 - `InnoRouterCore`: route stack, validators, commands, results, batch/transaction executors, middleware
 - `InnoRouterSwiftUI`: stores, stack/split/modal hosts, coordinators, environment intent dispatch
+- `InnoRouterSpatial`: opt-in declarations сцен visionOS, `SceneStore`, modifiers host/anchor/ornament для сцен
 - `InnoRouterDeepLink`: сопоставление шаблонов, диагностика, планирование pipeline, ожидающие deep links
 - `InnoRouterEffects`: помощники выполнения навигации и deep-link для границ приложения
 - `InnoRouterMacros`: `@Routable` и `@CasePathable`
@@ -236,7 +242,7 @@ property wrapper или view modifier приходят из `InnoRouter`, а н�
 | Push + modal flows, восстановление или multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL в push-only план команд | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL в push-prefix плюс modal-tail flow | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS windows, volumes, immersive spaces | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
+| visionOS windows, volumes, immersive spaces | Добавьте и импортируйте `InnoRouterSpatial`, затем используйте `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer, effect или выполнение на границе приложения | `InnoRouterEffects` |
 | Утверждения router без SwiftUI hosts | `InnoRouterTesting` |
 
@@ -287,7 +293,7 @@ DocC — детальный модульный набор справочнико
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | Замена вложенных стеков `NavigationHost` + `ModalHost` на `FlowHost` |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | Использование `ThrottleNavigationMiddleware` с детерминированными test clocks |
 | [Tutorial-StoreObserver](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-StoreObserver.md) | `InnoRouterSwiftUI` | Принятие `StoreObserver` поверх единого потока `events` |
-| [Tutorial-VisionOSScenes](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSwiftUI` | Управление visionOS windows, volumetric scenes и immersive spaces из `SceneStore` |
+| [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | Управление visionOS windows, volumetric scenes и immersive spaces из `SceneStore` |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | Создание составных push + modal deep links через `FlowDeepLinkPipeline` |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | Сохранение `FlowPlan` / `RouteStack` между запусками с `StatePersistence` |
 | [Tutorial-TestingFlows](Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/Tutorial-TestingFlows.md) | `InnoRouterTesting` | Host-less Swift Testing утверждения через `FlowTestStore` |

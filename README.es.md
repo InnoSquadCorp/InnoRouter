@@ -76,8 +76,8 @@ módulos puente de UIKit o AppKit.
 | `ModalHost` `.fullScreenCover` nativo | ✅ | ✅ | ⚠ degrada | ✅ | ⚠ degrada | ⚠ degrada |
 | API de estado `TabCoordinator.badge` / visual nativo | ✅ | ✅ | ✅ | ⚠ solo estado | ⚠ solo estado | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
-| Modificador de vista `innoRouterOrnament(_:content:)` | no-op | no-op | no-op | no-op | no-op | ✅ |
+| `InnoRouterSpatial`: `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `InnoRouterSpatial`: modificador de vista `innoRouterOrnament(_:content:)` | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ degrada` significa que la API del store acepta la solicitud sin cambios pero
 el host de SwiftUI la renderiza como `.sheet` porque `.fullScreenCover` no está
@@ -86,17 +86,25 @@ estado del badge, pero `TabCoordinatorView` omite el badge visual nativo de
 SwiftUI porque `.badge(_:)` no está disponible. `❌` significa que el símbolo
 no está declarado en esa plataforma; constrúyalo detrás de `#if !os(...)`.
 
+Para escenas de visionOS, agregue explícitamente el producto
+`InnoRouterSpatial` al target de la app e importe `InnoRouterSpatial` en los
+archivos que lo usen. El producto paraguas `InnoRouter` no re-exporta el módulo
+spatial.
+
 ## Instalación
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.3.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "5.0.0")
 ]
 ```
 
 InnoRouter se distribuye como un paquete SwiftPM solo de fuente. No incluye
 artefactos binarios, y la library evolution está intencionalmente desactivada
 para que las builds de fuente permanezcan simples en todas las plataformas Apple.
+
+Para routing de escenas, anchors y ornaments en visionOS, agregue también el
+producto opt-in `InnoRouterSpatial` a las dependencias del target.
 
 La puerta de documentación también mantiene al menos un fragmento Swift completo
 verificado contra el paquete:
@@ -116,7 +124,7 @@ _ = compileCheckedStack.path
 
 `4.0.0` es el primer release OSS de InnoRouter y la primera versión cubierta por
 el contrato público de SemVer. Los nuevos adoptantes deberían instalar desde
-`4.3.0` o más reciente. Las instantáneas privadas/internas anteriores no son
+`5.0.0` o más reciente. Las instantáneas privadas/internas anteriores no son
 parte de la línea de compatibilidad OSS; los equipos que las probaron deberían
 validar el uso de la API pública contra los documentos 4.x como una migración
 de fuente única.
@@ -180,18 +188,20 @@ El barrido completo de la línea base 4.0 se resume en
 Elimina APIs de objetos dispatcher no usadas, mantiene `replaceStack` como el
 único intent de reemplazo de stack completo, y mueve la observación de efectos
 a flujos de eventos explícitos. Es la única excepción source-breaking
-documentada en la línea 4.x. Las nuevas apps deberían comenzar desde `4.1.0`;
+documentada en la línea 4.x. Las nuevas apps deberían comenzar desde `5.0.0`;
 la etiqueta `4.0.0` permanece disponible como la primera instantánea OSS.
 
 ### Imports
 
 El target paraguas `InnoRouter` re-exporta `InnoRouterCore`,
-`InnoRouterSwiftUI` e `InnoRouterDeepLink`. Los effects de límite de app y las
-macros siguen siendo opt-in para evitar API adicional y el costo de resolución
-del plugin cuando no se usan:
+`InnoRouterSwiftUI` e `InnoRouterDeepLink`. El routing spatial, los effects de
+límite de app y las macros siguen siendo opt-in para evitar API adicional y el
+costo de resolución del plugin cuando no se usan. `InnoRouter` no re-exporta
+`InnoRouterSpatial`:
 
 ```swift skip doc-fragment
-import InnoRouter            // stores, hosts, intents, deep links, scenes
+import InnoRouter            // stores, hosts de stack/split/modal, intents, deep links
+import InnoRouterSpatial     // escenas, anchors y ornaments de visionOS
 import InnoRouterEffects     // ejecución de límite de app y pending replay
 import InnoRouterMacros      // solo en archivos que usan @Routable / @CasePathable
 ```
@@ -208,7 +218,8 @@ contra el costo de migración.
 
 | Producto | Cuándo importar |
 |---|---|
-| `InnoRouter` | Código de app que necesita stores, hosts, intents, coordinators, deep links, scenes o ayudantes de persistencia. |
+| `InnoRouter` | Código de app que necesita stores de stack/modal, hosts, intents, coordinators, deep links o ayudantes de persistencia. |
+| `InnoRouterSpatial` | Código de visionOS que usa `SceneStore`, modificadores de scene host/anchor u ornaments. Agréguelo explícitamente como dependencia de producto e import. |
 | `InnoRouterMacros` | Solo archivos que usan `@Routable` o `@CasePathable`. |
 | `InnoRouterEffects` | Código en el límite de la app que ejecuta valores `NavigationCommand` y maneja o reanuda deep links pendientes. |
 | `InnoRouterTesting` | Targets de test que quieren `NavigationTestStore`, `ModalTestStore` o `FlowTestStore` sin host. |
@@ -218,6 +229,7 @@ contra el costo de migración.
 - `InnoRouter`: re-exportación paraguas de `InnoRouterCore`, `InnoRouterSwiftUI` e `InnoRouterDeepLink`
 - `InnoRouterCore`: route stack, validators, comandos, resultados, ejecutores de batch/transaction, middleware
 - `InnoRouterSwiftUI`: stores, hosts de stack/split/modal, coordinators, dispatch de intent vía environment
+- `InnoRouterSpatial`: routing opt-in para escenas de visionOS, modificadores de scene host/anchor y ornaments; no se re-exporta desde el módulo paraguas
 - `InnoRouterDeepLink`: coincidencia de patrones, diagnósticos, planificación de pipeline, deep links pendientes
 - `InnoRouterEffects`: ayudantes de ejecución de navegación y deep links para límites de app
 - `InnoRouterMacros`: `@Routable` y `@CasePathable`
@@ -234,7 +246,7 @@ Use la superficie más pequeña que posea la autoridad de transición que necesi
 | Flujos push + modal, restauración o deep links multi-paso | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL a plan de comandos solo-push | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL a flujo prefijo-push más cola-modal | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| Windows, volúmenes, immersive spaces de visionOS | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
+| Windows, volúmenes, immersive spaces de visionOS | `InnoRouterSpatial`: `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer, efecto o ejecución en límite de app | `InnoRouterEffects` |
 | Aserciones de router sin hosts SwiftUI | `InnoRouterTesting` |
 
@@ -285,7 +297,7 @@ muestren todos el mismo contenido.
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | Reemplazar stacks anidados `NavigationHost` + `ModalHost` con `FlowHost` |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | Usar `ThrottleNavigationMiddleware` con clocks de test deterministas |
 | [Tutorial-StoreObserver](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-StoreObserver.md) | `InnoRouterSwiftUI` | Adoptar `StoreObserver` sobre el flujo unificado `events` |
-| [Tutorial-VisionOSScenes](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSwiftUI` | Conducir windows visionOS, escenas volumétricas y immersive spaces desde `SceneStore` |
+| [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | Conducir windows visionOS, escenas volumétricas y immersive spaces desde `SceneStore` |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | Construir deep links push + modal compuestos a través de `FlowDeepLinkPipeline` |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | Persistir `FlowPlan` / `RouteStack` entre lanzamientos con `StatePersistence` |
 | [Tutorial-TestingFlows](Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/Tutorial-TestingFlows.md) | `InnoRouterTesting` | Aserciones Swift Testing sin host vía `FlowTestStore` |

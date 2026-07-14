@@ -1,7 +1,7 @@
 # Store Selection Guide
 
 InnoRouter exposes four navigation authorities: `NavigationStore`,
-`ModalStore`, `FlowStore`, and (experimentally) `SceneStore`. Picking
+`ModalStore`, `FlowStore`, and `SceneStore`. Picking
 the right one is the most common adoption question. This guide
 answers it with a decision tree and four worked examples.
 
@@ -42,10 +42,9 @@ Does this app surface need to push routes onto a stack?
 shell that owns a tab selection. Reach for them after you have
 picked a store, not instead of one.
 
-`SceneStore` is the experimental visionOS spatial-scene authority.
-It does not interact with the stack/modal axes above; treat it as a
-parallel surface. See [`v2-principle-scorecard.md`](v2-principle-scorecard.md#experimental-surface)
-for the stability statement.
+`SceneStore` is the visionOS spatial-scene authority. It lives in the
+opt-in `InnoRouterSpatial` product rather than the default umbrella and does
+not interact with the stack/modal axes above; treat it as a parallel surface.
 
 ## Four worked examples
 
@@ -230,8 +229,8 @@ principle (`Docs/v2-principle-scorecard.md` § Remaining trade-offs).
   `NavigationStore + ModalStore` as iOS. Reach for `SceneStore`
   only when you actually open multiple windows / volumes /
   immersive spaces *and* want a single authority over their
-  open/dismiss lifecycle. The surface is currently
-  [experimental](v2-principle-scorecard.md#experimental-surface).
+  open/dismiss lifecycle. Add and import `InnoRouterSpatial` only in
+  the targets that own those scene declarations.
 
 ## Cross-references
 

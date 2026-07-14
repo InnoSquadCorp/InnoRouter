@@ -42,12 +42,23 @@ InnoRouter는 Swift tools 6.2, Swift 6 언어 모드를 사용하는 멀티 타�
   `DeepLinkPipeline`, `DeepLinkDecision`, `NavigationPlan`, `PendingDeepLink`
 - URL 해석과 plan 생성만 담당하며 SwiftUI store를 직접 소유하지 않습니다.
 
+### InnoRouterSpatial
+
+- 경로: `Sources/InnoRouterSpatial/`
+- 의존성: `InnoRouterCore`
+- 주요 API: `ScenePresentation`, `SceneDeclaration`, `SceneRegistry`,
+  `SceneStore`, `SceneIntent`, `SceneEvent`, `innoRouterSceneHost`,
+  `innoRouterSceneAnchor`, `OrnamentAnchor`, `innoRouterOrnament`
+- visionOS multi-scene authority를 소유하는 opt-in product이며 `InnoRouter`
+  umbrella가 재노출하지 않습니다.
+
 ### InnoRouter
 
 - 경로: `Sources/InnoRouterUmbrella/`
 - 의존성: `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`
 - 세 런타임 모듈만 재노출하는 권장 umbrella product
 - App-boundary 조합과 실행 상태는 opt-in `InnoRouterEffects`가 소유합니다.
+- Spatial scene 상태와 SwiftUI bridge는 opt-in `InnoRouterSpatial`이 소유합니다.
 
 ## 선택 모듈
 
@@ -73,12 +84,14 @@ InnoRouter는 Swift tools 6.2, Swift 6 언어 모드를 사용하는 멀티 타�
 ```text
 InnoRouterCore
 ├── InnoRouterSwiftUI
+├── InnoRouterSpatial
 ├── InnoRouterDeepLink
 ├── InnoRouterEffects
 ├── InnoRouterMacros
 └── InnoRouterTesting
 
 InnoRouter = Core + SwiftUI + DeepLink
+InnoRouterSpatial = Core
 InnoRouterEffects = Core + DeepLink
 InnoRouterMacros = Core + MacrosPlugin
 ```
@@ -93,6 +106,7 @@ InnoRouterMacros = Core + MacrosPlugin
 - `InnoRouter` — 앱 소비자에게 권장하는 runtime umbrella
 - `InnoRouterCore`
 - `InnoRouterSwiftUI`
+- `InnoRouterSpatial`
 - `InnoRouterDeepLink`
 - `InnoRouterEffects`
 - `InnoRouterMacros`

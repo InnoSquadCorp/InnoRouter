@@ -21,6 +21,7 @@ InnoRouter is responsible for:
 - modal authority for `sheet` and `fullScreenCover` through `ModalStore`
 - deep-link matching and planning through `DeepLinkMatcher` and `DeepLinkPipeline`
 - app-boundary execution helpers through `InnoRouterEffects`
+- opt-in spatial scene authority through `InnoRouterSpatial`
 
 It is intentionally not a general application state machine.
 
@@ -76,27 +77,27 @@ AppKit bridge modules are required.
 | `ModalHost` `.fullScreenCover` native | ✅ | ✅ | ⚠ degrades | ✅ | ⚠ degrades | ⚠ degrades |
 | `TabCoordinator.badge` state API / native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) ⚠ experimental | — | — | — | — | — | ✅ |
-| `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
+| `InnoRouterSpatial`: `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `InnoRouterSpatial`: `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ degrades` means the store API accepts the request unchanged but the
 SwiftUI host renders it as a `.sheet` because `.fullScreenCover` is
 unavailable. `⚠ state only` means the coordinator stores and exposes badge
 state, but `TabCoordinatorView` omits SwiftUI's native visual badge because
 `.badge(_:)` is unavailable. `❌` means the symbol is not declared on that
-platform; build it behind `#if !os(...)`. `⚠ experimental` means the
-surface is **not under the 4.x SemVer additive guarantee**: shape and
-behavior may change between minor releases until it graduates. See
-[`Docs/v2-principle-scorecard.md`](Docs/v2-principle-scorecard.md) for the
-current experimental list.
+platform; build it behind `#if !os(...)`.
 
 ## Installation
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.3.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "5.0.0")
 ]
 ```
+
+The default `InnoRouter` product does not include spatial scene routing.
+Targets that own visionOS windows, volumes, immersive spaces, or ornaments
+must also add the `InnoRouterSpatial` product explicitly.
 
 InnoRouter is distributed as a source-only SwiftPM package. It does
 not ship binary artifacts, and library evolution is intentionally off
@@ -120,7 +121,7 @@ _ = compileCheckedStack.path
 
 `4.0.0` is InnoRouter's first OSS release and the first version
 covered by the public SemVer contract. New adopters should install
-from `4.3.0` or newer. Earlier private/internal package snapshots are
+from `5.0.0` or newer. Earlier private/internal package snapshots are
 not part of the OSS compatibility line; teams that tested them should
 validate public API usage against the 4.x docs as a one-time source
 migration.
@@ -184,18 +185,19 @@ The full 4.0 baseline sweep is summarized in
 removes unused dispatcher-object APIs, keeps `replaceStack` as the
 single full-stack replacement intent, and moves effect observation to
 explicit event streams. This is the only documented source-breaking
-exception in the 4.x line; new apps should start from `4.3.0`, and the
+exception in the 4.x line; new apps should start from `5.0.0`, and the
 `4.0.0` tag remains available as the first OSS snapshot.
 
 ### Imports
 
 The umbrella target `InnoRouter` re-exports `InnoRouterCore`,
-`InnoRouterSwiftUI`, and `InnoRouterDeepLink`. App-boundary effects and macros
-stay opt-in so files that do not use them avoid the extra API and macro-plugin
-resolution cost:
+`InnoRouterSwiftUI`, and `InnoRouterDeepLink`. Spatial scenes, app-boundary
+effects, and macros stay opt-in so files that do not use them avoid the extra
+API and macro-plugin resolution cost:
 
 ```swift skip doc-fragment
-import InnoRouter            // stores, hosts, intents, deep links, scenes
+import InnoRouter            // stores, hosts, intents, and deep links
+import InnoRouterSpatial     // visionOS scenes and ornaments
 import InnoRouterEffects     // app-boundary execution and pending replay
 import InnoRouterMacros      // only in files that use @Routable / @CasePathable
 ```
@@ -204,15 +206,16 @@ import InnoRouterMacros      // only in files that use @Routable / @CasePathable
 other property-wrapper or view modifier come from `InnoRouter`, not
 from `InnoRouterMacros`.
 
-The SwiftSyntax-backed macro implementation remains in this package
-for the 4.x line. A package-traits or separate-macro-package split should be
+The SwiftSyntax-backed macro implementation remains in this package.
+A package-traits or separate-macro-package split should be
 evaluated only after measuring `swift package show-traits`,
 `swift build --target InnoRouter`, and
 `swift build --target InnoRouterMacros` against the migration cost.
 
 | Product | Import when |
 |---|---|
-| `InnoRouter` | App code that needs stores, hosts, intents, coordinators, deep links, scenes, or persistence helpers. |
+| `InnoRouter` | App code that needs stack/modal/flow stores, hosts, intents, coordinators, deep links, or persistence helpers. |
+| `InnoRouterSpatial` | Targets that own visionOS windows, volumes, immersive spaces, scene lifecycle, or ornaments. This product is not re-exported by `InnoRouter`. |
 | `InnoRouterMacros` | Only files that use `@Routable` or `@CasePathable`. |
 | `InnoRouterEffects` | App-boundary code that executes `NavigationCommand` values, handles or resumes deep links, or both. |
 | `InnoRouterTesting` | Test targets that want host-less `NavigationTestStore`, `ModalTestStore`, or `FlowTestStore`. |
@@ -222,6 +225,7 @@ evaluated only after measuring `swift package show-traits`,
 - `InnoRouter`: umbrella re-export of `InnoRouterCore`, `InnoRouterSwiftUI`, and `InnoRouterDeepLink`
 - `InnoRouterCore`: route stack, validators, commands, results, batch/transaction executors, middleware
 - `InnoRouterSwiftUI`: stores, stack/split/modal hosts, coordinators, environment intent dispatch
+- `InnoRouterSpatial`: opt-in scene registry/store, visionOS scene host/anchor modifiers, and ornaments
 - `InnoRouterDeepLink`: pattern matching, diagnostics, pipeline planning, pending deep links
 - `InnoRouterEffects`: opt-in app-boundary navigation and deep-link execution helpers
 - `InnoRouterMacros`: `@Routable` and `@CasePathable`
@@ -244,14 +248,14 @@ Use the smallest surface that owns the transition authority you need:
 | Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL to push-only command plan | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL to push-prefix plus modal-tail flow | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS windows, volumes, immersive spaces | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` ⚠ experimental |
+| visionOS windows, volumes, immersive spaces | `InnoRouterSpatial`: `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer, effect, or app-boundary execution | `InnoRouterEffects` |
 | Router assertions without SwiftUI hosts | `InnoRouterTesting` |
 
-`NavigationStore`, `FlowStore`, `ModalStore`, `SceneStore`, effects,
-and testing are intentionally separate. The library keeps these
-authorities explicit so apps can adopt only the pieces that match
-their routing boundary.
+`NavigationStore`, `FlowStore`, `ModalStore`, the opt-in spatial product,
+effects, and testing are intentionally separate. The library keeps these
+authorities explicit so apps can adopt only the pieces that match their
+routing boundary.
 
 ### Quick decision flowchart
 
@@ -295,7 +299,7 @@ generate-documentation` build all show the same content.
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | Replacing nested `NavigationHost` + `ModalHost` stacks with `FlowHost` |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | Using `ThrottleNavigationMiddleware` with deterministic test clocks |
 | [Tutorial-StoreObserver](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-StoreObserver.md) | `InnoRouterSwiftUI` | Adopting `StoreObserver` over the unified `events` stream |
-| [Tutorial-VisionOSScenes](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSwiftUI` | Driving visionOS windows, volumetric scenes, and immersive spaces from `SceneStore` |
+| [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | Driving visionOS windows, volumetric scenes, and immersive spaces from `SceneStore` |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | Building composite push + modal deep links through `FlowDeepLinkPipeline` |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | Persisting `FlowPlan` / `RouteStack` across launches with `StatePersistence` |
 | [Tutorial-TestingFlows](Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/Tutorial-TestingFlows.md) | `InnoRouterTesting` | Host-less Swift Testing assertions via `FlowTestStore` |

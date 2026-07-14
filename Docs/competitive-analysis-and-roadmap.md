@@ -1,6 +1,7 @@
 # Competitive Analysis and Improvement Roadmap
 
-_Last updated: 2026-05-06 · Maintainer snapshot for 4.1.0 GA readiness after the documented historical cleanup exception_
+_Maintainer snapshot for 5.0 main readiness; external comparison sources were
+last inspected on 2026-05-06._
 
 This document positions InnoRouter against comparable SwiftUI navigation
 libraries and derives a prioritised improvement backlog from the gaps.
@@ -42,7 +43,7 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 | iOS floor | **18+** | 13+ / 17+ for Observation | 13+ | 16+ | 13+ | 14+ | 17+ | 16+ |
 | Cross-surface (UIKit / AppKit) | ❌ SwiftUI only (by choice) | ⚠ | ✅ **4 products** | ❌ | ⚠ | ⚠ | ❌ | ❌ |
 | **All Apple platforms via SwiftUI** (iOS / iPadOS / macOS / tvOS / watchOS / visionOS) | ✅ **all 6 with per-platform CI + platform matrix docs** | ⚠ SwiftUI adopters only | ⚠ SwiftUI module only | ⚠ | ⚠ | ⚠ | ⚠ | ⚠ |
-| **visionOS spatial presentations** (ornament / volumetric / immersive space) | ✅ `SceneStore` + `innoRouterSceneHost` + `innoRouterOrnament` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **visionOS spatial presentations** (ornament / volumetric / immersive space) | ✅ opt-in `InnoRouterSpatial`: `SceneStore` + `innoRouterSceneHost` + `innoRouterOrnament` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Coordinator composition (child → parent) | ✅ `ChildCoordinator` + `parent.push(child:) -> Task<Result?>` | ✅ reducer `forEach` | ❌ | ✅ | ✅ | ✅ | ⚠ | ⚠ |
 | Case-typed destination bindings | ✅ `store.binding(case:)` on Nav + Modal | ⚠ via `@Presents` | ✅ `@CasePathable` | ⚠ | ⚠ | ❌ | ❌ | ❌ |
 
@@ -465,7 +466,7 @@ Shape (landed):
 | P3 | FlowIntent modal-aware variants | ergonomics | small | **shipped** |
 | P3 | `ChildCoordinatorTaskTracker` | cancellation ergonomics | small | **shipped** |
 | P3 | Cross-launch pending deep links (Codable `FlowPendingDeepLink` + persistence) | state restoration | small | **shipped** |
-| All-platform | All six Apple platforms via SwiftUI + visionOS spatial presentations | positioning | medium | **shipped** |
+| All-platform | All six Apple platforms via SwiftUI + opt-in visionOS spatial presentations | positioning | medium | **shipped** |
 
 ## 6. Suggested next work
 
@@ -474,14 +475,15 @@ With the P3 polish cluster shipped (macro FixIts, `.whenCancelled`,
 `StoreObserver`, property-based tests, modal-aware FlowIntent
 variants, `ChildCoordinatorTaskTracker`,
 `FlowPendingDeepLinkPersistence`) **and the all-platform /
-visionOS-spatial extension** (`ScenePresentation`, `SceneDeclaration`,
-`SceneRegistry`, `SceneStore`, `innoRouterSceneHost`, `innoRouterOrnament`,
-per-platform CI), the P0 / P1 / P3 backlog is **empty** and
+visionOS-spatial product** (`InnoRouterSpatial`, `ScenePresentation`,
+`SceneDeclaration`, `SceneRegistry`, `SceneStore`, `innoRouterSceneHost`,
+`innoRouterSceneAnchor`, `innoRouterOrnament`, per-platform CI), the P0 / P1 /
+P3 backlog is **empty** and
 SwiftUI-only is the final positioning stance.
 
-Current investment direction: **carry the 4.1.0 GA adoption baseline
-forward with adoption evidence, consumer feedback, and measured macro
-dependency cost before considering packaging changes**.
+Current investment direction: **stabilize the 5.0 module and public-API
+baseline with consumer feedback and measured macro dependency cost before
+considering further packaging changes**.
 
 - **P2-3 UIKit escape hatch** — declined. SwiftUI-only positioning
   is now explicit in the roadmap and in the README platform-support
@@ -489,7 +491,7 @@ dependency cost before considering packaging changes**.
   swift-navigation for those surfaces alongside InnoRouter for
   stack / modal / flow authority.
 - **Macro dependency cost spike** — keep `InnoRouterMacros` in this
-  package for the 4.x line. Before introducing package traits or a separate
+  package for the 5.0 line. Before introducing package traits or a separate
   macro package, compare `swift package show-traits`,
   `swift build --target InnoRouter`, and
   `swift build --target InnoRouterMacros` against the migration cost
