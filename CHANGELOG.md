@@ -126,6 +126,12 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Push and flow deep-link effect handlers now identify pending replay requests
+  by an internal revision instead of value equality. If an equal URL and plan
+  is handled again—or, for flow links, restored—while an asynchronous
+  authorization probe is in flight, the older probe no longer consumes the
+  newer request; it returns the replacement as `.pending` for an explicit
+  replay.
 - Push deep-link pipelines and `DeepLinkEffectHandler` now preserve a
   matcher's input-limit violation as
   `.rejected(.inputLimitExceeded(...))`. Wrapping `matcher.match` in the old

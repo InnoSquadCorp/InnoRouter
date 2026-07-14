@@ -164,6 +164,48 @@ struct DeepLinkEffectHandlerTests {
         #expect(store.state.path.isEmpty)
     }
 
+    @Test("Async deep-link guard preserves an equal pending replacement")
+    @MainActor
+    func testResumePendingDeepLinkIfAllowedDoesNotConsumeEqualReplacement() async {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/settings") { _ in .settings }
+        }
+        let authState = Mutex(false)
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyBatchNavigator(store),
+            matcher: matcher,
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { _ in true },
+                isAuthenticated: { authState.withLock { $0 } }
+            ),
+            plan: { route in NavigationPlan(commands: [.push(route)]) }
+        )
+        let url = URL(string: "myapp://myapp.com/settings")!
+
+        guard case .pending(let original) = handler.handle(url) else {
+            Issue.record("Expected pending result")
+            return
+        }
+
+        let resumed = await handler.resumePendingDeepLinkIfAllowed { captured in
+            #expect(handler.handle(url) == .pending(captured))
+            authState.withLock { $0 = true }
+            return true
+        }
+
+        #expect(resumed == .pending(original))
+        #expect(handler.pendingDeepLink == original)
+        #expect(store.state.path.isEmpty)
+
+        guard case .executed = handler.resumePendingDeepLink() else {
+            Issue.record("Expected the replacement to remain replayable")
+            return
+        }
+        #expect(handler.pendingDeepLink == nil)
+        #expect(store.state.path == [.settings])
+    }
+
     @Test("Async deep-link guard returns the current pending deep link after denied stale authorization")
     @MainActor
     func testResumePendingDeepLinkIfAllowedDeniedUsesCurrentPendingIdentity() async {

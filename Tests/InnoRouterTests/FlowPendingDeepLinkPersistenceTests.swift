@@ -99,4 +99,53 @@ struct FlowPendingDeepLinkPersistenceTests {
         #expect(secondStore.path == [.push(.secure)])
         #expect(secondHandler.pendingDeepLink == nil)
     }
+
+    @Test("Async flow guard preserves an equal restored pending replacement")
+    @MainActor
+    func restoredPendingSupersedesInFlightAuthorization() async throws {
+        let isAuthed = Mutex<Bool>(false)
+        let matcher = DeepLinkMatcher<FlowPlan<PendingRoute>> {
+            DeepLinkMapping("/secure") { _ in
+                FlowPlan(steps: [.push(.secure)])
+            }
+        }
+        let pipeline = FlowDeepLinkPipeline<PendingRoute>(
+            allowedSchemes: ["myapp"],
+            matcher: matcher,
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { $0 == .secure },
+                isAuthenticated: { isAuthed.withLock { $0 } }
+            )
+        )
+        let store = FlowStore<PendingRoute>()
+        let handler = FlowDeepLinkEffectHandler<PendingRoute>(
+            pipeline: pipeline,
+            applier: store
+        )
+        let persistence = FlowPendingDeepLinkPersistence<PendingRoute>()
+
+        guard case .pending(let original) = handler.handle(URL(string: "myapp://app/secure")!) else {
+            Issue.record("Expected pending result")
+            return
+        }
+        let restored = try persistence.decode(persistence.encode(original))
+
+        let resumed = await handler.resumePendingDeepLinkIfAllowed { captured in
+            #expect(restored == captured)
+            handler.restore(pending: restored)
+            isAuthed.withLock { $0 = true }
+            return true
+        }
+
+        #expect(resumed == .pending(restored))
+        #expect(handler.pendingDeepLink == restored)
+        #expect(store.path.isEmpty)
+
+        guard case .executed = handler.resumePendingDeepLink() else {
+            Issue.record("Expected the restored replacement to remain replayable")
+            return
+        }
+        #expect(handler.pendingDeepLink == nil)
+        #expect(store.path == [.push(.secure)])
+    }
 }

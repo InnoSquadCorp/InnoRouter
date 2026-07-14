@@ -26,8 +26,11 @@ public final class DeepLinkEffectHandler<R: Route> {
 
     private let pipeline: DeepLinkPipeline<R>
     private let navigationHandler: NavigationEffectHandler<R>
+    private var pendingReplaySlot = PendingReplaySlot<PendingDeepLink<R>>()
 
-    public private(set) var pendingDeepLink: PendingDeepLink<R>?
+    public var pendingDeepLink: PendingDeepLink<R>? {
+        pendingReplaySlot.current
+    }
 
     public init<N: Navigator & NavigationBatchExecutor & NavigationTransactionExecutor>(
         navigator: N,
@@ -58,10 +61,10 @@ public final class DeepLinkEffectHandler<R: Route> {
         case .unhandled(let unhandledURL):
             return .unhandled(url: unhandledURL)
         case .pending(let pendingDeepLink):
-            self.pendingDeepLink = pendingDeepLink
+            pendingReplaySlot.replace(with: pendingDeepLink)
             return .pending(pendingDeepLink)
         case .plan(let plan):
-            self.pendingDeepLink = nil
+            pendingReplaySlot.replace(with: nil)
             return result(for: plan)
         }
     }
@@ -74,43 +77,52 @@ public final class DeepLinkEffectHandler<R: Route> {
     }
 
     public func resumePendingDeepLink() -> Result {
-        guard let pendingDeepLink else {
+        guard let ticket = pendingReplaySlot.capture() else {
             return .noPendingDeepLink
         }
-
-        if !canResume(pendingDeepLink) {
-            return .pending(pendingDeepLink)
-        }
-
-        self.pendingDeepLink = nil
-        return result(for: pendingDeepLink.plan)
+        return result(for: ticket, externallyAuthorized: true)
     }
 
+    /// Awaits a live authorization probe before re-evaluating the pipeline's
+    /// gate. A pending request replaced while the probe is suspended remains
+    /// pending, even when the replacement has the same URL and plan.
     public func resumePendingDeepLinkIfAllowed(
         _ authorize: @escaping @MainActor @Sendable (PendingDeepLink<R>) async throws -> Bool
     ) async rethrows -> Result {
-        guard let pendingDeepLink else {
+        guard let ticket = pendingReplaySlot.capture() else {
             return .noPendingDeepLink
         }
-        let capturedPendingDeepLink = pendingDeepLink
-        let isAuthorized = try await authorize(capturedPendingDeepLink)
-
-        guard self.pendingDeepLink == capturedPendingDeepLink else {
-            if let currentPendingDeepLink = self.pendingDeepLink {
-                return .pending(currentPendingDeepLink)
-            }
-            return .noPendingDeepLink
-        }
-
-        guard isAuthorized else {
-            return .pending(capturedPendingDeepLink)
-        }
-
-        return resumePendingDeepLink()
+        let isAuthorized = try await authorize(ticket.value)
+        return result(for: ticket, externallyAuthorized: isAuthorized)
     }
 
     public func clearPendingDeepLink() {
-        pendingDeepLink = nil
+        pendingReplaySlot.replace(with: nil)
+    }
+
+    private func result(
+        for ticket: PendingReplaySlot<PendingDeepLink<R>>.Ticket,
+        externallyAuthorized: Bool
+    ) -> Result {
+        guard pendingReplaySlot.isCurrent(ticket) else {
+            return result(for: pendingReplaySlot.resolve(ticket, allowReplay: false))
+        }
+
+        let allowReplay = externallyAuthorized && canResume(ticket.value)
+        return result(for: pendingReplaySlot.resolve(ticket, allowReplay: allowReplay))
+    }
+
+    private func result(
+        for resolution: PendingReplaySlot<PendingDeepLink<R>>.Resolution
+    ) -> Result {
+        switch resolution {
+        case .noPending:
+            return .noPendingDeepLink
+        case .pending(let pending):
+            return .pending(pending)
+        case .replay(let pending):
+            return result(for: pending.plan)
+        }
     }
 
     private func result(for plan: NavigationPlan<R>) -> Result {

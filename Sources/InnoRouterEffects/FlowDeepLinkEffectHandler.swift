@@ -44,10 +44,14 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
         case noPendingDeepLink
     }
 
-    public private(set) var pendingDeepLink: FlowPendingDeepLink<R>?
     private let pipeline: FlowDeepLinkPipeline<R>
     private let applier: any FlowPlanApplier<R>
+    private var pendingReplaySlot = PendingReplaySlot<FlowPendingDeepLink<R>>()
     private var traceRecorder: InternalExecutionTraceRecorder?
+
+    public var pendingDeepLink: FlowPendingDeepLink<R>? {
+        pendingReplaySlot.current
+    }
 
     public init(
         pipeline: FlowDeepLinkPipeline<R>,
@@ -73,10 +77,10 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
             case .unhandled(let unhandledURL):
                 return .unhandled(url: unhandledURL)
             case .pending(let pending):
-                self.pendingDeepLink = pending
+                pendingReplaySlot.replace(with: pending)
                 return .pending(pending)
             case .flowPlan(let plan):
-                self.pendingDeepLink = nil
+                pendingReplaySlot.replace(with: nil)
                 return result(for: plan)
             }
         } outcome: { result in
@@ -102,21 +106,19 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
             operation: "resumePendingDeepLink",
             recorder: traceRecorder
         ) {
-            guard let pending = pendingDeepLink else {
+            guard let ticket = pendingReplaySlot.capture() else {
                 return .noPendingDeepLink
             }
-            guard canResume(pending) else {
-                return .pending(pending)
-            }
-            self.pendingDeepLink = nil
-            return result(for: pending.plan)
+            return result(for: ticket, externallyAuthorized: true)
         } outcome: { result in
             Self.traceOutcome(for: result)
         }
     }
 
     /// Allows the caller to await either a throwing or nonthrowing live
-    /// authentication probe before re-evaluating the gate.
+    /// authentication probe before re-evaluating the gate. A pending request
+    /// replaced while the probe is suspended remains pending, even when the
+    /// replacement has the same URL and plan.
     @discardableResult
     public func resumePendingDeepLinkIfAllowed(
         _ authorize: @escaping @MainActor @Sendable (FlowPendingDeepLink<R>) async throws -> Bool
@@ -126,30 +128,18 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
             operation: "resumePendingDeepLinkIfAllowed",
             recorder: traceRecorder
         ) {
-            guard let pending = pendingDeepLink else {
+            guard let ticket = pendingReplaySlot.capture() else {
                 return .noPendingDeepLink
             }
-            let captured = pending
-            let isAuthorized = try await authorize(captured)
-
-            guard self.pendingDeepLink == captured else {
-                if let current = self.pendingDeepLink {
-                    return .pending(current)
-                }
-                return .noPendingDeepLink
-            }
-
-            guard isAuthorized else {
-                return .pending(captured)
-            }
-            return resumePendingDeepLink()
+            let isAuthorized = try await authorize(ticket.value)
+            return result(for: ticket, externallyAuthorized: isAuthorized)
         } outcome: { result in
             Self.traceOutcome(for: result)
         }
     }
 
     public func clearPendingDeepLink() {
-        pendingDeepLink = nil
+        pendingReplaySlot.replace(with: nil)
     }
 
     func installTraceRecorder(_ recorder: InternalExecutionTraceRecorder?) {
@@ -163,13 +153,38 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
     /// re-consult the authentication policy and apply the stored
     /// plan if permitted.
     public func restore(pending: FlowPendingDeepLink<R>) {
-        self.pendingDeepLink = pending
+        pendingReplaySlot.replace(with: pending)
     }
 
     // MARK: - Internals
 
     private func canResume(_ pending: FlowPendingDeepLink<R>) -> Bool {
         pipeline.canResume(pending.gatedRoute)
+    }
+
+    private func result(
+        for ticket: PendingReplaySlot<FlowPendingDeepLink<R>>.Ticket,
+        externallyAuthorized: Bool
+    ) -> Result {
+        guard pendingReplaySlot.isCurrent(ticket) else {
+            return result(for: pendingReplaySlot.resolve(ticket, allowReplay: false))
+        }
+
+        let allowReplay = externallyAuthorized && canResume(ticket.value)
+        return result(for: pendingReplaySlot.resolve(ticket, allowReplay: allowReplay))
+    }
+
+    private func result(
+        for resolution: PendingReplaySlot<FlowPendingDeepLink<R>>.Resolution
+    ) -> Result {
+        switch resolution {
+        case .noPending:
+            return .noPendingDeepLink
+        case .pending(let pending):
+            return .pending(pending)
+        case .replay(let pending):
+            return result(for: pending.plan)
+        }
     }
 
     private func result(for plan: FlowPlan<R>) -> Result {

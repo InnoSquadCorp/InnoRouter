@@ -235,6 +235,53 @@ struct FlowDeepLinkEffectHandlerTests {
         }
     }
 
+    @Test("Async flow guard preserves an equal pending replacement")
+    @MainActor
+    func resumePendingDeepLinkIfAllowedDoesNotConsumeEqualReplacement() async {
+        let isAuthed = Mutex(false)
+        let matcher = DeepLinkMatcher<FlowPlan<EffectRoute>> {
+            DeepLinkMapping("/secure") { _ in
+                FlowPlan(steps: [.push(.secure)])
+            }
+        }
+        let pipeline = FlowDeepLinkPipeline<EffectRoute>(
+            allowedSchemes: ["myapp"],
+            matcher: matcher,
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { $0 == .secure },
+                isAuthenticated: { isAuthed.withLock { $0 } }
+            )
+        )
+        let store = FlowStore<EffectRoute>()
+        let handler = FlowDeepLinkEffectHandler(
+            pipeline: pipeline,
+            applier: store
+        )
+        let url = URL(string: "myapp://app/secure")!
+
+        guard case .pending(let original) = handler.handle(url) else {
+            Issue.record("Expected pending result")
+            return
+        }
+
+        let resumed = await handler.resumePendingDeepLinkIfAllowed { captured in
+            #expect(handler.handle(url) == .pending(captured))
+            isAuthed.withLock { $0 = true }
+            return true
+        }
+
+        #expect(resumed == .pending(original))
+        #expect(handler.pendingDeepLink == original)
+        #expect(store.path.isEmpty)
+
+        guard case .executed = handler.resumePendingDeepLink() else {
+            Issue.record("Expected the replacement to remain replayable")
+            return
+        }
+        #expect(handler.pendingDeepLink == nil)
+        #expect(store.path == [.push(.secure)])
+    }
+
     @Test("clearPendingDeepLink drops a queued link without applying it")
     @MainActor
     func clearPending() {
