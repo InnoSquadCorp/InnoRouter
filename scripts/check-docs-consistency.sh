@@ -228,6 +228,15 @@ check_absent "$ROOT_DIR/.github/workflows/principle-gates.yml" \
   'Swift 6.2 is the floor' \
   "principle-gates workflow still documents the old Swift floor"
 
+echo "[check-docs-consistency] Checking public-product snippet coverage"
+check_present "$ROOT_DIR/scripts/check-docs-code-blocks.sh" \
+  '.product(name: "InnoRouterEffects", package: "InnoRouter")' \
+  "documentation snippet consumer omits the opt-in Effects product"
+check_present \
+  "$ROOT_DIR/Sources/InnoRouterEffects/InnoRouterEffects.docc/InnoRouterEffects.md" \
+  '```swift compile' \
+  "Effects documentation does not compile an import/use example"
+
 echo "[check-docs-consistency] Checking rejection catalog enum coverage"
 check_enum_cases_documented \
   "$ROOT_DIR/Sources/InnoRouterCore/NavigationInterception.swift" \

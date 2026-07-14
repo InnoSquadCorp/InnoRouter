@@ -13,6 +13,17 @@ The 5.0 module owns the complete effects surface directly:
 - `NavigationEffect` and `DeepLinkEffect` adapt feature effects without making
   the core runtime depend on a reducer framework.
 
+```swift compile
+import InnoRouterEffects
+
+enum EffectsRoute: Route {
+    case home
+}
+
+let command: NavigationCommand<EffectsRoute> = .push(.home)
+_ = command
+```
+
 ## Topics
 
 ### Navigation execution

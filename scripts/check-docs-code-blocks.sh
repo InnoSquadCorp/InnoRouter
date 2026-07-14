@@ -46,6 +46,7 @@ let package = Package(
                 .product(name: "InnoRouterSwiftUI", package: "InnoRouter"),
                 .product(name: "InnoRouterSpatial", package: "InnoRouter"),
                 .product(name: "InnoRouterDeepLink", package: "InnoRouter"),
+                .product(name: "InnoRouterEffects", package: "InnoRouter"),
                 .product(name: "InnoRouterMacros", package: "InnoRouter"),
                 .product(name: "InnoRouterTesting", package: "InnoRouter")
             ]

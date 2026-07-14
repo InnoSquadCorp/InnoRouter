@@ -187,6 +187,9 @@ are bare semver (no leading `v`).
 
 ### Changed
 
+- The documentation snippet gate now depends on every public product and
+  compile-checks an `InnoRouterEffects` import/use example, closing the only
+  opt-in product coverage gap in the consumer fixture.
 - Changelog contributions now edit `CHANGELOG.md` under `## Unreleased`
   directly. The unused `.changes` fragment convention is removed; release cut
   moves those entries under the version/date heading and reopens `Unreleased`.
