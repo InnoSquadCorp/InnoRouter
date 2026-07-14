@@ -1,5 +1,5 @@
 // MARK: - SceneStoreIntegrationTests.swift
-// Integration coverage for the three visionOS SceneStore hardening
+// InnoRouterPlatformTests — integration coverage for the three visionOS SceneStore hardening
 // paths. Exercises SceneStore + SceneDispatchDriver end-to-end via
 // mocked environment closures, without requiring a live SwiftUI view
 // hierarchy. Scene types are #if os(visionOS), so this test file is
@@ -88,7 +88,7 @@ private func collectEvent<R: Route>(
     let deadlineNanoseconds = UInt64(timeoutSeconds * 1_000_000_000)
 
     return await withTaskGroup(of: SceneEvent<R>?.self) { group in
-        group.addTask { @MainActor in
+        group.addTask {
             for await event in events {
                 if predicate(event) {
                     return event

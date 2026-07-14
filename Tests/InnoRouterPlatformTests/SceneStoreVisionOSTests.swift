@@ -18,6 +18,7 @@
 
 #if os(visionOS)
 
+import Foundation
 import Testing
 
 import InnoRouterCore
