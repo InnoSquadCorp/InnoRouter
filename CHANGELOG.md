@@ -8,6 +8,11 @@ are bare semver (no leading `v`).
 
 ### Breaking
 
+- `executeTransaction([])` now returns `isCommitted == false`, matching the
+  existing empty `.sequence([])` and empty batch failure semantics. Its
+  `failureIndex` remains `nil` because no command ran. Concrete commands with
+  empty payloads keep their established meanings: `.pushAll([])` is a
+  successful no-op and `.replace([])` successfully clears the stack.
 - The duplicate Umbrella `DeepLinkCoordinating` protocol and
   `DeepLinkCoordinationOutcome` enum are removed. Coordinator-based apps now
   add the opt-in `InnoRouterEffects` product and own one

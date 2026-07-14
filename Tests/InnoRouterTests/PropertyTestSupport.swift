@@ -1799,7 +1799,7 @@ func modelNavigationTransaction(
         }
     }
 
-    let isCommitted = failureIndex == nil
+    let isCommitted = !commands.isEmpty && failureIndex == nil
     let transaction = NavigationTransactionResult<PropertyRoute>(
         requestedCommands: commands,
         executedCommands: leafOutcomes.flatMap(\.executedCommands),

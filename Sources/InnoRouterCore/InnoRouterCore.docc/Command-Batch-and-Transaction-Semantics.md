@@ -72,6 +72,7 @@ Use batch execution when the caller wants one “transition event” while still
 
 Transactions:
 
+- reject an empty command list as uncommitted, with no failure index because no step ran
 - preview commands on a shadow stack
 - abort on the first failure or cancellation
 - leave the real state unchanged on failure

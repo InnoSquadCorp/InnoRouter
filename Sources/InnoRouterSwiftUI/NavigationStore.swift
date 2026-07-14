@@ -352,7 +352,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                     }
                 }
 
-                let isCommitted = failureIndex == nil
+                let isCommitted = !commands.isEmpty && failureIndex == nil
                 let executedCommands = journals.flatMap(\.executedCommands)
                 let results: [NavigationResult<R>]
                 if isCommitted {
@@ -380,7 +380,11 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 emitObservationEvent(.transactionExecuted(transaction))
                 return transaction
             } outcome: { transaction in
-                transaction.isCommitted ? "committed" : "rolledBack"
+                if commands.isEmpty {
+                    "empty"
+                } else {
+                    transaction.isCommitted ? "committed" : "rolledBack"
+                }
             }
         }
     }

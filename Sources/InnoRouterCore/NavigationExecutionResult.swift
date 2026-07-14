@@ -27,9 +27,10 @@
 ///   coalesced observation, `hasStoppedOnFailure` reports whether
 ///   `stopOnFailure` cut the batch short.
 /// - ``NavigationTransactionResult`` — atomic preview/commit
-///   semantics, `isCommitted` reports the all-or-nothing outcome
-///   and `failureIndex` points at the first failing step on
-///   rollback.
+///   semantics, `isCommitted` reports the all-or-nothing outcome,
+///   and `failureIndex` points at the first failing step on rollback.
+///   Empty transactions are uncommitted with no failure index because
+///   no command ran.
 ///
 /// The protocol exposes the shared shape and a unified `isSuccess`
 /// predicate so generic helpers (for example a logging middleware
@@ -59,8 +60,8 @@ public protocol NavigationExecutionResult<R>: Sendable, Equatable {
 
     /// Navigation state after the aggregate execution finished.
     ///
-    /// For an all-or-nothing transaction that rolled back, this is
-    /// the same snapshot as ``stateBefore``.
+    /// For an all-or-nothing transaction that did not commit, this
+    /// is the same snapshot as ``stateBefore``.
     var stateAfter: RouteStack<R> { get }
 
     /// Indicates whether the aggregate execution succeeded as a
@@ -81,6 +82,6 @@ extension NavigationTransactionResult: NavigationExecutionResult {
 
     /// Mirrors ``isCommitted`` to satisfy ``NavigationExecutionResult``.
     /// A committed transaction is the transactional analogue of
-    /// "every step succeeded" on a batch.
+    /// "every step succeeded" on a non-empty batch.
     public var isSuccess: Bool { isCommitted }
 }

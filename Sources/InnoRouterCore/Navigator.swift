@@ -39,7 +39,8 @@ public protocol NavigationTransactionExecutor: AnyObject {
     associatedtype RouteType: Route
 
     @discardableResult
-    /// Executes commands on a shadow stack and commits only when every step succeeds.
+    /// Executes a non-empty command list on a shadow stack and commits only
+    /// when every step succeeds. An empty list returns an uncommitted result.
     func executeTransaction(
         _ commands: [NavigationCommand<RouteType>]
     ) -> NavigationTransactionResult<RouteType>

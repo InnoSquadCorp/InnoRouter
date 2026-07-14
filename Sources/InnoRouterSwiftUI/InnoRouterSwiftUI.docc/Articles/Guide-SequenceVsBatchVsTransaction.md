@@ -36,7 +36,9 @@ or rejected, and only commits if every step succeeds. On failure,
 the journal walks back through the discarded acceptances so
 middleware see consistent before/after states. Use it for
 correctness-critical compound actions ("if any step rejects, the
-user sees no half-applied state").
+user sees no half-applied state"). An empty command list is not a
+transactional success: it returns an uncommitted result with no
+failure index because no command ran.
 
 ## Worked examples
 

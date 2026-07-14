@@ -23,7 +23,7 @@ public enum NavigationEvent<R: Route>: Sendable, Equatable {
     /// A batch execution completed.
     case batchExecuted(NavigationBatchResult<R>)
 
-    /// A transaction execution committed or rolled back.
+    /// A transaction execution committed or did not commit.
     case transactionExecuted(NavigationTransactionResult<R>)
 
     /// A middleware registry mutation succeeded.

@@ -10,11 +10,14 @@ public struct NavigationTransactionResult<R: Route>: Sendable, Equatable {
     public let stateBefore: RouteStack<R>
     /// Navigation state after the transaction finished.
     ///
-    /// On rollback, this is the same snapshot as `stateBefore`.
+    /// When the transaction does not commit, this is the same snapshot as
+    /// `stateBefore`.
     public let stateAfter: RouteStack<R>
-    /// The index of the first failed top-level command, or `nil` on commit.
+    /// The index of the first failed top-level command. This is `nil` both on
+    /// commit and when an empty request is rejected before any command runs.
     public let failureIndex: Int?
-    /// `true` when the transaction committed, `false` when it rolled back.
+    /// `true` when at least one command was requested and every command
+    /// committed; `false` on rollback or for an empty request.
     public let isCommitted: Bool
 
     /// Creates a transaction execution result.

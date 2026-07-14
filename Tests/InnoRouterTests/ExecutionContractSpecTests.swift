@@ -99,6 +99,42 @@ struct ExecutionContractSpecTests {
         #expect(store.state.path == [.home, .detail])
     }
 
+    @Test("Empty sequence, batch, and transaction all reject missing work")
+    @MainActor
+    func emptyCompositeExecutionsAreNotSuccessful() {
+        let sequenceStore = NavigationStore<ContractRoute>()
+        let batchStore = NavigationStore<ContractRoute>()
+        let transactionStore = NavigationStore<ContractRoute>()
+
+        let sequence = sequenceStore.execute(.sequence([]))
+        let batch = batchStore.executeBatch([])
+        let transaction = transactionStore.executeTransaction([])
+
+        #expect(!sequence.isSuccess)
+        #expect(!batch.isSuccess)
+        #expect(!transaction.isCommitted)
+        #expect(transaction.failureIndex == nil)
+        #expect(transaction.requestedCommands.isEmpty)
+        #expect(transaction.executedCommands.isEmpty)
+        #expect(transaction.results.isEmpty)
+        #expect(transaction.stateBefore == transaction.stateAfter)
+        #expect(transactionStore.state == transaction.stateBefore)
+    }
+
+    @Test("Concrete commands keep their empty-payload semantics")
+    @MainActor
+    func concreteEmptyPayloadCommandsRemainSuccessful() throws {
+        let store = try NavigationStore<ContractRoute>(initialPath: [.home])
+
+        let pushAll = store.execute(.pushAll([]))
+        #expect(pushAll.isSuccess)
+        #expect(store.state.path == [.home])
+
+        let replace = store.execute(.replace([]))
+        #expect(replace.isSuccess)
+        #expect(store.state.path.isEmpty)
+    }
+
     @Test("Batch stopOnFailure controls whether later commands run after a failure")
     @MainActor
     func batchStopOnFailureControlsContinuation() {
