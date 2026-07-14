@@ -39,17 +39,17 @@ InnoRouter 负责:
 - tvOS 18+
 - watchOS 11+
 - visionOS 2+
-- Swift 6.2+
+- Swift 6.3+
 
-iOS 18 floor 和 `swift-tools-version: 6.2` 包基线是有意为之:它们让每个公开类型
+iOS 18 floor 和 `swift-tools-version: 6.3` 包基线是有意为之:它们让每个公开类型
 都能采用严格并发和 `Sendable`,而无需 `@preconcurrency` / `@unchecked Sendable`
 逃生口,这意味着导航状态绝不会在视图代码和 store 之间的边界悄悄泄漏出 main actor。
 代价是比那些目标 iOS 13–16 的库更小的采用窗口;好处是 router 的 `Sendable`/`@MainActor`
 纪律由编译器检查而不是文字描述。
 
-宏目标当前依赖 `swift-syntax` `603.0.1`,使用 `.upToNextMinor` 约束。该依赖和
-CI 中固定的 Xcode/Swift toolchain 可能用更新的 Swift host build(例如 Swift 6.3)
-来验证包,但支持的包基线仍保持 Swift 6.2,直到主版本明确提升它。
+宏目标依赖 `swift-syntax` `603.0.1`,使用 `.upToNextMinor` 约束。InnoRouter 5.0
+将包基线提升到 Swift 6.3,与该 host 依赖和 CI 固定的 Xcode 26.3 toolchain 对齐。
+后续 Swift 基线提升仍只在主版本中进行。
 
 | 并发态度 | InnoRouter | iOS 13+ 上的 TCA / FlowStacks / 其他 |
 |---|---|---|

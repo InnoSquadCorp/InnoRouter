@@ -39,9 +39,9 @@ InnoRouter отвечает за:
 - tvOS 18+
 - watchOS 11+
 - visionOS 2+
-- Swift 6.2+
+- Swift 6.3+
 
-Минимум iOS 18 и базовая линия пакета `swift-tools-version: 6.2` — это
+Минимум iOS 18 и базовая линия пакета `swift-tools-version: 6.3` — это
 осознанный выбор: они позволяют каждому публичному типу принять строгую
 concurrency и `Sendable` без аварийных выходов `@preconcurrency` /
 `@unchecked Sendable`, что означает, что состояние навигации никогда тихо
@@ -50,11 +50,10 @@ concurrency и `Sendable` без аварийных выходов `@preconcurre
 маршрутизатор, чья дисциплина `Sendable`/`@MainActor` проверяется
 компилятором, а не задокументирована в прозе.
 
-Macros target в настоящее время зависит от `swift-syntax` `603.0.1` с
-ограничением `.upToNextMinor`. Эта зависимость и закреплённый в CI
-toolchain Xcode/Swift могут проверять пакет с более новой Swift host
-сборкой (например, Swift 6.3), но поддерживаемая базовая линия пакета
-остаётся на Swift 6.2 до тех пор, пока major релиз не поднимет её явно.
+Macros target зависит от `swift-syntax` `603.0.1` с ограничением
+`.upToNextMinor`. InnoRouter 5.0 поднимает базовую линию пакета до Swift 6.3,
+согласуя её с этой host-зависимостью и закреплённым в CI toolchain Xcode 26.3.
+Дальнейшие повышения минимума Swift остаются изменениями major-версии.
 
 | Стойка concurrency | InnoRouter | TCA / FlowStacks / другие на iOS 13+ |
 |---|---|---|

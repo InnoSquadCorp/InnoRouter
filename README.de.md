@@ -39,9 +39,9 @@ Halten Sie diese Anliegen außerhalb von InnoRouter:
 - tvOS 18+
 - watchOS 11+
 - visionOS 2+
-- Swift 6.2+
+- Swift 6.3+
 
-Die iOS-18-Untergrenze und die `swift-tools-version: 6.2` Paketbasis sind
+Die iOS-18-Untergrenze und die `swift-tools-version: 6.3` Paketbasis sind
 bewusst gewählt: Sie ermöglichen es jedem öffentlichen Typ, strikte Concurrency
 und `Sendable` ohne die `@preconcurrency` / `@unchecked Sendable` Auswege zu
 übernehmen, was bedeutet, dass der Navigationszustand nie unbemerkt vom
@@ -50,11 +50,11 @@ Adoptionsfenster als bei Bibliotheken, die iOS 13–16 ansprechen; der Vorteil
 ist ein Router, dessen `Sendable`/`@MainActor`-Disziplin vom Compiler
 überprüft statt in Prosa dokumentiert wird.
 
-Das Macro-Target hängt derzeit von `swift-syntax` `603.0.1` mit einer
-`.upToNextMinor`-Beschränkung ab. Diese Abhängigkeit und der in CI gepinnte
-Xcode/Swift-Toolchain können das Paket mit einem neueren Swift-Host-Build
-(z. B. Swift 6.3) validieren, aber die unterstützte Paketbasis bleibt bei
-Swift 6.2, bis ein Major-Release sie ausdrücklich anhebt.
+Das Macro-Target hängt von `swift-syntax` `603.0.1` mit einer
+`.upToNextMinor`-Beschränkung ab. InnoRouter 5.0 hebt die Paketbasis auf
+Swift 6.3 an und richtet sie damit an dieser Host-Abhängigkeit sowie dem in CI
+gepinnten Xcode-26.3-Toolchain aus. Weitere Swift-Anhebungen bleiben
+Major-Versionen vorbehalten.
 
 | Concurrency-Haltung | InnoRouter | TCA / FlowStacks / andere auf iOS 13+ |
 |---|---|---|

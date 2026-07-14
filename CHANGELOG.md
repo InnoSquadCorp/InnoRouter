@@ -8,6 +8,10 @@ are bare semver (no leading `v`).
 
 ### Breaking
 
+- The minimum supported Swift version is now 6.3
+  (`swift-tools-version: 6.3`), aligned with `swift-syntax` 603.x and the
+  Xcode 26.3 / Swift 6.3 release gates. Consumers building with Swift 6.2 must
+  upgrade their toolchain before adopting InnoRouter 5.0.
 - visionOS scene routing and ornaments now ship in the opt-in
   `InnoRouterSpatial` product. Add that product dependency and
   `import InnoRouterSpatial` at spatial call sites. `ScenePresentation`,

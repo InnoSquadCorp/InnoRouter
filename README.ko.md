@@ -39,9 +39,9 @@ InnoRouter는 의도적으로 범용 애플리케이션 state machine이 아닙�
 - tvOS 18+
 - watchOS 11+
 - visionOS 2+
-- Swift 6.2+
+- Swift 6.3+
 
-iOS 18 floor와 `swift-tools-version: 6.2` package baseline은 의도적인 선택입니다.
+iOS 18 floor와 `swift-tools-version: 6.3` package baseline은 의도적인 선택입니다.
 이 floor 덕분에 모든 public 타입이 `@preconcurrency` / `@unchecked Sendable`
 탈출구 없이 strict concurrency와 `Sendable`을 채택할 수 있고, 결과적으로
 view 코드와 store 사이 경계에서 네비게이션 상태가 main actor 밖으로 은밀하게
@@ -49,10 +49,9 @@ view 코드와 store 사이 경계에서 네비게이션 상태가 main actor �
 좁다는 점이고, 이득은 라이브러리의 `Sendable`/`@MainActor` 규율이 산문이 아닌
 컴파일러로 검증된다는 점입니다.
 
-매크로 타깃은 현재 `swift-syntax` `603.0.1`에 `.upToNextMinor` 제약으로 의존합니다.
-이 의존성과 CI에 핀된 Xcode / Swift toolchain은 더 새로운 Swift host 빌드(예: Swift 6.3)
-에서 패키지를 검증할 수 있지만, 지원되는 패키지 floor는 메이저 릴리즈가 명시적으로
-올리기 전까지는 Swift 6.2로 유지됩니다.
+매크로 타깃은 `swift-syntax` `603.0.1`에 `.upToNextMinor` 제약으로 의존합니다.
+InnoRouter 5.0은 이 host 의존성과 CI에 핀된 Xcode 26.3 toolchain에 맞춰 package
+floor를 Swift 6.3으로 올립니다. 이후 Swift floor 상향도 메이저 버전에서만 진행합니다.
 
 | Concurrency 자세 | InnoRouter | iOS 13+ 타깃의 TCA / FlowStacks 등 |
 |---|---|---|

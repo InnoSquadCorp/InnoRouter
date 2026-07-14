@@ -19,7 +19,7 @@ libraries and derives a prioritised improvement backlog from the gaps.
 > sits between FlowStacks' coordinator ergonomics and TCA's typed
 > observability, without forcing adoption of a full app architecture.
 
-Platform floor (iOS 18 / Swift 6.2) and mandatory strict concurrency are
+Platform floor (iOS 18 / Swift 6.3) and mandatory strict concurrency are
 the most aggressive among peers — higher adoption cost in exchange for a
 smaller, simpler implementation surface.
 

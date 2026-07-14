@@ -39,9 +39,9 @@ Mantenga estas preocupaciones fuera de InnoRouter:
 - tvOS 18+
 - watchOS 11+
 - visionOS 2+
-- Swift 6.2+
+- Swift 6.3+
 
-El piso de iOS 18 y la línea base del paquete `swift-tools-version: 6.2` son
+El piso de iOS 18 y la línea base del paquete `swift-tools-version: 6.3` son
 deliberados: permiten que cada tipo público adopte concurrencia estricta y
 `Sendable` sin las salidas de escape `@preconcurrency` / `@unchecked Sendable`,
 lo que significa que el estado de navegación nunca se filtra silenciosamente
@@ -50,11 +50,11 @@ El costo es una ventana de adopción más pequeña que las bibliotecas que apunt
 a iOS 13–16; el beneficio es un router cuya disciplina `Sendable`/`@MainActor`
 es verificada por el compilador en lugar de documentada en prosa.
 
-El target de macros depende actualmente de `swift-syntax` `603.0.1` con una
-restricción `.upToNextMinor`. Esa dependencia y el toolchain Xcode/Swift fijado
-en CI pueden validar el paquete con una build de Swift host más reciente
-(por ejemplo Swift 6.3), pero el piso del paquete soportado permanece en
-Swift 6.2 hasta que un release mayor lo eleve explícitamente.
+El target de macros depende de `swift-syntax` `603.0.1` con una restricción
+`.upToNextMinor`. InnoRouter 5.0 eleva el piso del paquete a Swift 6.3 para
+alinearlo con esa dependencia host y con el toolchain Xcode 26.3 fijado en CI.
+Los futuros aumentos del piso de Swift seguirán reservados para versiones
+mayores.
 
 | Postura de concurrencia | InnoRouter | TCA / FlowStacks / otros en iOS 13+ |
 |---|---|---|

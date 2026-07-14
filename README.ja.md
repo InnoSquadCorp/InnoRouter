@@ -39,9 +39,9 @@ InnoRouter は以下を担当します:
 - tvOS 18+
 - watchOS 11+
 - visionOS 2+
-- Swift 6.2+
+- Swift 6.3+
 
-iOS 18 フロアと `swift-tools-version: 6.2` パッケージベースラインは
+iOS 18 フロアと `swift-tools-version: 6.3` パッケージベースラインは
 意図的なものです:すべてのパブリック型が `@preconcurrency` /
 `@unchecked Sendable` のエスケープハッチなしで strict concurrency と
 `Sendable` を採用できるようにし、これによりナビゲーション状態がビュー
@@ -50,11 +50,10 @@ iOS 18 フロアと `swift-tools-version: 6.2` パッケージベースライン
 ことであり、利点はルーターの `Sendable`/`@MainActor` 規律が散文ではなく
 コンパイラによってチェックされることです。
 
-マクロターゲットは現在 `swift-syntax` `603.0.1` に `.upToNextMinor` 制約で
-依存しています。その依存と CI の固定 Xcode/Swift toolchain は新しい Swift
-ホストビルド(例 Swift 6.3)でパッケージを検証する可能性がありますが、
-サポートされるパッケージフロアはメジャーリリースが明示的に引き上げるまで
-Swift 6.2 のままです。
+マクロターゲットは `swift-syntax` `603.0.1` に `.upToNextMinor` 制約で
+依存しています。InnoRouter 5.0 は、このホスト依存と CI で固定した Xcode 26.3
+toolchain に合わせてパッケージフロアを Swift 6.3 に引き上げます。今後の
+Swift フロア引き上げもメジャーバージョンでのみ行います。
 
 | 並行性スタンス | InnoRouter | iOS 13+ の TCA / FlowStacks / その他 |
 |---|---|---|

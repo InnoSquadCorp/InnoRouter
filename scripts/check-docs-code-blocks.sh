@@ -21,7 +21,7 @@ mkdir -p "$TMP_DIR/Sources/DocSnippetCompile"
 export CLANG_MODULE_CACHE_PATH="$ROOT_DIR/.build/doc-snippet-module-cache"
 
 cat >"$TMP_DIR/Package.swift" <<EOF
-// swift-tools-version: 6.2
+// swift-tools-version: 6.3
 
 import PackageDescription
 

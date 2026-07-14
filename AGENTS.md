@@ -20,7 +20,7 @@ Requirements:
 - tvOS 18+
 - watchOS 11+
 - visionOS 2+
-- Swift 6.2+
+- Swift 6.3+
 
 ## Common commands
 

@@ -222,7 +222,7 @@ no longer needs reducer-level modeling.
   intents directly; the reducer never sees a navigation action
   unless you explicitly want to gate one through middleware.
 - **Strict concurrency floor.** InnoRouter requires iOS 18 /
-  Swift 6.2. If the project still targets iOS 13–17, plan the
+  Swift 6.3. If the project still targets iOS 13–17, plan the
   platform bump as a separate PR before the navigation
   migration.
 - **`@Bindable store` ergonomics.** `NavigationStore` is

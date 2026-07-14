@@ -13,7 +13,7 @@ Extracts public symbol graphs for every public library product, normalizes
 them into a stable text baseline, and compares the result against
 Baselines/PublicAPI.
 
-Regenerate baselines only with the same Swift 6.2 toolchain used by CI so
+Regenerate baselines only with the same Swift 6.3 toolchain used by CI so
 symbol graph output stays comparable.
 
 Options:

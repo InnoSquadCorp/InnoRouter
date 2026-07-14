@@ -79,27 +79,26 @@ graph still count).
 
 `xcode-version` in `.github/workflows/principle-gates.yml`,
 `.github/workflows/platforms.yml`, `.github/workflows/release.yml`,
-`.github/workflows/docs-ci.yml`, and
+`.github/workflows/docs-ci.yml`, `.github/workflows/coverage.yml`, and
 `.github/workflows/performance-smoke.yml` is pinned to a specific
 Xcode release rather than a floating Xcode channel so CI, release tags, DocC
 publishing, and performance smoke validation all exercise the same
 toolchain family. **When cutting a new release, audit and optionally
 bump that pin everywhere** — see the release checklist below.
 
-`swift-tools-version: 6.2` is the package floor. The macro target
-currently pins `swift-syntax` with `.upToNextMinor(from: "603.0.1")`,
-and CI may validate the release on a pinned Xcode whose host compiler
-reports Swift 6.3. Treat that as additional validation, not as a raised
-minimum supported Swift version. Raising the Swift floor belongs in a
-major release note.
+`swift-tools-version: 6.3` is the package floor. The macro target pins
+`swift-syntax` with `.upToNextMinor(from: "603.0.1")`, and every release
+workflow selects Xcode 26.3 whose host compiler reports Swift 6.3. These
+three levers are intentionally aligned for 5.0. Raising the Swift floor
+again belongs in a major release note.
 
 #### Toolchain pin matrix
 
 | Lever | Current value | Source of truth | Notes |
 | --- | --- | --- | --- |
 | Minimum Xcode for releasing | **26.3** | `xcode-version` in every workflow under `.github/workflows/` | Bumping requires updating every workflow file in the same commit. |
-| Bundled Swift host compiler | Swift 6.3 (with Xcode 26.3) | `swift --version` on the pinned Xcode | Used to validate releases — *not* the supported floor. |
-| Package supported Swift floor | **Swift 6.2** | `swift-tools-version` line in `Package.swift` | Raising belongs in a major release. |
+| Bundled Swift host compiler | Swift 6.3 (with Xcode 26.3) | `swift --version` on the pinned Xcode | Must match the package's supported Swift line. |
+| Package supported Swift floor | **Swift 6.3** | `swift-tools-version` line in `Package.swift` | Raising belongs in a major release. |
 | `swift-syntax` constraint | `.upToNextMinor(from: "603.0.1")` (i.e. `603.0.x`) | `Package.swift` macro plugin dependency | Allows patch bumps; minor / major bumps require a deliberate audit. |
 | Apple platform floor | iOS 18 / iPadOS 18 / macOS 15 / tvOS 18 / watchOS 11 / visionOS 2 | `platforms` block in `Package.swift` | Raising belongs in a major release. |
 | Macro host availability | macOS only (SwiftSyntax host plugin) | `Tests/InnoRouterMacrosTests`, `Tests/InnoRouterMacrosBehaviorTests` | Linux CI builds the plugin but cannot expand macros. |

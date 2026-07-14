@@ -82,7 +82,7 @@ public final class NavigationTestStore<R: Route> {
     }
 
     isolated deinit {
-        // @MainActor-isolated deinit (SE-0371 / Swift 6.2). Safe to touch
+        // @MainActor-isolated deinit (SE-0371 / Swift 6.3 package floor). Safe to touch
         // MainActor state because the runtime schedules the deinit body
         // onto the MainActor executor.
         queue.finishAtDeinitialization(

@@ -27,6 +27,23 @@ check_absent() {
   fi
 }
 
+check_present() {
+  local file_path="$1"
+  local pattern="$2"
+  local message="$3"
+
+  if [[ ! -f "$file_path" ]]; then
+    echo "[check-docs-consistency] Failed: required file not found: $file_path" >&2
+    failures=1
+    return
+  fi
+
+  if ! grep -F "$pattern" "$file_path" >/dev/null 2>&1; then
+    echo "[check-docs-consistency] Failed: $message" >&2
+    failures=1
+  fi
+}
+
 check_enum_cases_documented() {
   local source_path="$1"
   local enum_name="$2"
@@ -102,6 +119,41 @@ check_absent "$CHANGELOG_PATH" '### Deferred to 4.1' \
   "changelog still has a 4.1 deferred section after the 4.0 release sweep"
 check_absent "$README_PATH" 'deferred from P3-4' \
   "README still claims debounce is deferred from P3-4"
+
+echo "[check-docs-consistency] Checking Swift toolchain contract"
+if [[ "$(head -n 1 "$ROOT_DIR/Package.swift")" != '// swift-tools-version: 6.3' ]]; then
+  echo "[check-docs-consistency] Failed: Package.swift must declare the Swift 6.3 floor" >&2
+  failures=1
+fi
+
+for readme_path in "$ROOT_DIR"/README*.md; do
+  check_present "$readme_path" 'Swift 6.3+' \
+    "$(basename "$readme_path") does not declare Swift 6.3+"
+  check_present "$readme_path" 'swift-tools-version: 6.3' \
+    "$(basename "$readme_path") does not match Package.swift's tools version"
+done
+
+check_present "$ROOT_DIR/AGENTS.md" 'Swift 6.3+' \
+  "AGENTS.md does not match the package Swift floor"
+check_present "$ROOT_DIR/CLAUDE.md" 'Swift 6.3+' \
+  "CLAUDE.md does not match the package Swift floor"
+check_present "$ROOT_DIR/RELEASING.md" 'swift-tools-version: 6.3' \
+  "RELEASING.md does not match the package Swift floor"
+check_present "$ROOT_DIR/scripts/check-docs-code-blocks.sh" '// swift-tools-version: 6.3' \
+  "documentation snippet package does not match the package Swift floor"
+check_present "$ROOT_DIR/scripts/check-public-api.sh" 'same Swift 6.3 toolchain used by CI' \
+  "public API guidance does not match the CI Swift line"
+check_present "$ROADMAP_PATH" 'iOS 18 / Swift 6.3' \
+  "roadmap does not match the package Swift floor"
+
+swift_syntax_series="$(
+  sed -nE 's/.*\.upToNextMinor\(from: "([0-9]{3})\.[^"]+"\).*/\1/p' \
+    "$ROOT_DIR/Package.swift" | head -n 1
+)"
+if [[ "$swift_syntax_series" != '603' ]]; then
+  echo "[check-docs-consistency] Failed: Swift 6.3 floor must stay aligned with swift-syntax 603.x" >&2
+  failures=1
+fi
 
 echo "[check-docs-consistency] Checking rejection catalog enum coverage"
 check_enum_cases_documented \
