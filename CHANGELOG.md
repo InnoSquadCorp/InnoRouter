@@ -206,10 +206,12 @@ are bare semver (no leading `v`).
   no-ops; manual `prerelease=true` dispatch remains the publishing path.
 - Release preflight now validates `CHANGELOG.md` from the tag commit. GA cuts
   must empty `Unreleased` and place the tagged version immediately below it;
-  pre-releases keep non-empty notes under `Unreleased` until the GA cut.
-- Apple-platform CI now compiles the shipped Effects and Testing products
-  explicitly, guards the Swift/Xcode pin matrix, and runs `actionlint` on every
-  pull request and branch push.
+  pre-releases keep non-empty notes under a leading `Unreleased` section until
+  the GA cut; placing it below an existing release is rejected.
+- Apple-platform CI now compiles all eight public library products explicitly,
+  guards the Swift/Xcode pin matrix, and runs `actionlint` on every pull request
+  and branch push. Pull-request concurrency uses the repository-unique PR number
+  so identically named branches from different forks cannot cancel one another.
 - The documentation snippet gate now depends on every public product and
   compile-checks an `InnoRouterEffects` import/use example, closing the only
   opt-in product coverage gap in the consumer fixture.
@@ -254,14 +256,19 @@ are bare semver (no leading `v`).
   be checked out or lacks its root portal, and every version unconditionally
   merges that snapshot before deployment. All release runs share a queued
   concurrency group, preventing simultaneous tags from publishing stale site
-  snapshots that erase one another or older versioned documentation.
+  snapshots that erase one another or older versioned documentation. The two
+  third-party actions receiving write tokens are pinned to immutable commits.
 - Versioned DocC publication compares every GA against the highest existing GA
   before rebuilding `/latest/`, so rerunning an older tag cannot roll the alias
-  back. The root portal now uses the shared SemVer ordering, placing a GA ahead
-  of its `rc`/`beta` builds and ordering numeric prerelease ordinals correctly.
+  back. GitHub's Latest Release flag follows the same monotonic decision instead
+  of its default newest-publication behavior. The root portal uses the shared
+  SemVer ordering, placing a GA ahead of its `rc`/`beta` builds and ordering
+  numeric prerelease ordinals correctly.
 - Apple-platform runtime CI now treats a timed-out asynchronous `simctl boot`
   request as provisional and lets authoritative `bootstatus` decide readiness,
   avoiding false failures when the simulator continues booting successfully.
+  When several runtime images are installed, it deterministically selects the
+  highest available version instead of relying on JSON enumeration order.
 - Versioned DocC source links now use the exact GA, release-candidate, or beta
   tag. Pre-release builds such as `5.0.0-rc.1` no longer send “View Source”
   links to a potentially newer `main`; preview builds remain pinned to their
