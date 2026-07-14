@@ -37,7 +37,7 @@ early with a clear message if it is missing.
 | --- | --- | --- | --- |
 | 1 | `swift test` | Full Swift Testing suite (`Tests/`). | `swift test` |
 | 2 | DocC preview build | Rebuilds every `.docc` catalog; catches symbol drift and broken cross-refs. | `./scripts/build-docc-site.sh --version preview --skip-latest` |
-| 3 | Public API baselines | Diff against recorded baselines under `Baselines/`. SemVer 4.x is additive only — removals/renames fail. | `./scripts/check-public-api.sh` |
+| 3 | Public API baselines | Diff against recorded baselines under `Baselines/`. Any unrecorded addition, removal, or rename fails. | `./scripts/check-public-api.sh` |
 | 4 | Maintainer docs consistency | README / CLAUDE.md / AGENTS.md / RELEASING.md / CHANGELOG.md cross-reference and version-string sync. | `./scripts/check-docs-consistency.sh` |
 | 5 | Doc Swift code blocks | Code blocks tagged `swift compile` / `swift skip` typecheck against the published API. | `./scripts/check-docs-code-blocks.sh` |
 | 6 | Examples ↔ ExamplesSmoke parity | 1:1 file alignment between the two example trees. See `Examples/README.md` for which side to edit. | `./scripts/check-examples-parity.sh` |
@@ -62,9 +62,10 @@ Rules:
 - Empty value (`--platforms=`) is rejected.
 - `all` cannot be combined with explicit names — `--platforms=all,ios`
   is rejected to keep the flag unambiguous.
-- Each requested platform invokes `xcodebuild build -scheme
-  InnoRouterSwiftUI -destination "<generic>"`. Generic destinations
-  avoid drift between local toolchains and CI runners.
+- Each requested platform invokes `xcodebuild build` for both the
+  `InnoRouterSwiftUI` and `InnoRouterSpatial` schemes against the selected
+  generic destination. Generic destinations avoid drift between local
+  toolchains and CI runners.
 - `xcodebuild` must be available; the gate aborts otherwise.
 - This flag is compile-only. It does not replace the runtime tests in
   the GitHub `platforms` workflow.
@@ -76,7 +77,7 @@ Every gate above runs under one of the workflows in `.github/workflows/`:
 | Workflow | Gates |
 | --- | --- |
 | `principle-gates.yml` | 1–12 (every PR / push to `main`) |
-| `platforms.yml` | 13 (full Apple compile matrix) plus tvOS, watchOS, and visionOS runtime tests with minimum executed-test counts |
+| `platforms.yml` | 13 (full Apple compile matrix for SwiftUI and Spatial), a visionOS Spatial consumer build, plus tvOS, watchOS, and visionOS runtime tests with minimum executed-test counts |
 | `docs-ci.yml` | 2 (DocC build validation) |
 | `coverage.yml` | 1 (with coverage instrumentation) |
 | `performance-smoke.yml` | 9 (perf regression detection) |
@@ -95,9 +96,9 @@ Default response order:
 3. If the failure is genuine, fix the underlying cause rather than
    the symptom. Bypassing a gate (`--no-verify`, environment
    override) is not the intended workflow.
-4. If the failure is a baseline drift (Gate 3) caused by a deliberate
-   *additive* change, regenerate the baseline through the dedicated
-   helper documented in `scripts/check-public-api.sh`.
+4. If the failure is a baseline drift (Gate 3) caused by a deliberate API
+   change, regenerate the baseline through the dedicated helper documented
+   in `scripts/check-public-api.sh` and review the diff before committing it.
 
 ## See also
 

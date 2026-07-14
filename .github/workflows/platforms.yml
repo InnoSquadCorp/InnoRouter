@@ -67,18 +67,24 @@ jobs:
           xcodebuild -version
           swift --version
 
-      # InnoRouterSwiftUI is the only target that actually exercises the
-      # platform-specific SwiftUI hosts. Building it per platform gates
-      # any latent #if os(...) breakage (e.g. NavigationSplitView on
-      # watchOS, .fullScreenCover on macOS/visionOS, ornaments on
-      # visionOS). Generic simulator destinations are intentional so
-      # the compile-only gate does not depend on runner-specific device
-      # names or installed runtime image names. The scheme naming
-      # matches `xcodebuild -list` output from the Swift package.
+      # InnoRouterSwiftUI owns stack/modal hosts and InnoRouterSpatial owns
+      # the opt-in scene/ornament surface. Build both per platform so moving
+      # Spatial out of SwiftUI cannot silently remove #if os(...) coverage.
+      # Generic simulator destinations are intentional so the compile-only
+      # gate does not depend on runner-specific device names or installed
+      # runtime image names. The scheme names match `xcodebuild -list`
+      # output from the Swift package.
       - name: Build InnoRouterSwiftUI for ${{ matrix.platform.name }}
         run: |
           xcodebuild build \
             -scheme InnoRouterSwiftUI \
+            -destination '${{ matrix.platform.destination }}' \
+            -quiet
+
+      - name: Build InnoRouterSpatial for ${{ matrix.platform.name }}
+        run: |
+          xcodebuild build \
+            -scheme InnoRouterSpatial \
             -destination '${{ matrix.platform.destination }}' \
             -quiet
 
@@ -93,6 +99,15 @@ jobs:
         run: |
           xcodebuild build \
             -scheme InnoRouterDeepLink \
+            -destination '${{ matrix.platform.destination }}' \
+            -quiet
+
+      - name: Build visionOS spatial consumer smoke
+        if: matrix.platform.name == 'visionOS'
+        run: |
+          xcodebuild build \
+            -workspace .github/platform-tests.xcworkspace \
+            -scheme InnoRouterSpatialConsumerSmoke \
             -destination '${{ matrix.platform.destination }}' \
             -quiet
 
@@ -115,7 +130,7 @@ jobs:
           - name: visionOS
             destination: "visionOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.xrOS"
-            minimumPassedTests: 49
+            minimumPassedTests: 50
 
     steps:
       - name: Checkout
