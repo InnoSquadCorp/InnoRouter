@@ -12,6 +12,11 @@ public struct NavigationBatchResult<R: Route>: Sendable, Equatable {
     /// Indicates whether execution stopped early because `stopOnFailure` was enabled.
     public let hasStoppedOnFailure: Bool
 
+    /// `true` when the batch executed at least one command and every
+    /// per-step result succeeded. An empty batch is *not* a success —
+    /// mirroring `NavigationResult.multiple([])` — because requesting
+    /// zero commands is treated as a programming error rather than a
+    /// vacuous success.
     public var isSuccess: Bool {
         !results.isEmpty && results.allSatisfy(\.isSuccess)
     }

@@ -5,6 +5,14 @@
 ///
 /// 1. **Success** — ``isSuccess`` returns `true` for ``success`` and for
 ///    ``multiple(_:)`` whose every nested result is itself successful.
+///    An **empty** ``multiple(_:)`` is deliberately *not* a success: an
+///    empty composite (`.sequence([])`, an empty batch) means the caller
+///    requested nothing, which is treated as a programming error rather
+///    than a vacuous success. This differs from concrete commands with
+///    empty payloads — `.pushAll([])` is a successful no-op and
+///    `.replace([])` successfully clears the stack — because those
+///    describe a real (if trivial) target state, while an empty composite
+///    describes no work at all.
 /// 2. **Engine failures** — ``isEngineFailure`` returns `true` for the
 ///    deterministic stack rejections (``emptyStack``, ``invalidPopCount(_:)``,
 ///    ``insufficientStackDepth(requested:available:)``, ``routeNotFound(_:)``).
