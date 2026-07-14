@@ -127,6 +127,7 @@ jobs:
       version: ${{ needs.preflight.outputs.version }}
       prerelease: ${{ needs.preflight.outputs.prerelease }}
       update_latest: ${{ needs.preflight.outputs.update_latest }}
+      make_latest: ${{ steps.github_latest.outputs.make_latest }}
 
     steps:
       - name: Checkout
@@ -160,6 +161,40 @@ jobs:
             echo "The existing gh-pages site is unavailable; refusing a destructive replacement." >&2
             exit 1
           fi
+
+      - name: Resolve GitHub Latest Release Policy
+        id: github_latest
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+          RELEASE_PRERELEASE: ${{ needs.preflight.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          make_latest=false
+          if [[ "$RELEASE_PRERELEASE" != "true" ]]; then
+            decision="$(
+              find .build/gh-pages-cache \
+                -mindepth 1 \
+                -maxdepth 1 \
+                -type d \
+                ! -name latest \
+                -exec basename {} \; |
+                python3 ./scripts/release-version-policy.py latest-action "$RELEASE_VERSION"
+            )"
+
+            read -r latest_action _ <<< "$decision"
+            case "$latest_action" in
+              update) make_latest=true ;;
+              preserve) ;;
+              *)
+                echo "Unexpected latest release policy: $decision" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          echo "make_latest=$make_latest" >> "$GITHUB_OUTPUT"
 
       - name: Run Principle Gates
         run: ./scripts/principle-gates.sh
@@ -228,6 +263,7 @@ jobs:
           tag_name: ${{ needs.build.outputs.version }}
           name: InnoRouter ${{ needs.build.outputs.version }}
           prerelease: ${{ needs.build.outputs.prerelease == 'true' }}
+          make_latest: ${{ needs.build.outputs.make_latest }}
           generate_release_notes: true
           body: |
             Documentation
