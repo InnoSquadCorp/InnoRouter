@@ -42,7 +42,7 @@ import InnoRouterCore
 ///   host already reconciles its own scene.
 /// - Anchors never emit public lifecycle events for inventory
 ///   transitions; only explicit command paths broadcast ``SceneEvent``.
-public struct SceneAnchor<R: Route>: ViewModifier {
+internal struct SceneAnchor<R: Route>: ViewModifier {
     @Bindable private var store: SceneStore<R>
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
@@ -63,7 +63,7 @@ public struct SceneAnchor<R: Route>: ViewModifier {
     ///   - scenes: scene declarations shared with the app's
     ///     `WindowGroup` / `ImmersiveSpace` definitions.
     ///   - attachedTo: the route declared for the containing scene.
-    public init(
+    internal init(
         store: SceneStore<R>,
         scenes: SceneRegistry<R>,
         attachedTo: R
@@ -81,7 +81,7 @@ public struct SceneAnchor<R: Route>: ViewModifier {
     /// Pass the value supplied by `WindowGroup(id:for:...)` so each
     /// window or volumetric root can reconcile the exact instance that
     /// SwiftUI opened.
-    public init(
+    internal init(
         store: SceneStore<R>,
         scenes: SceneRegistry<R>,
         attachedTo: R,
@@ -125,7 +125,7 @@ public struct SceneAnchor<R: Route>: ViewModifier {
         self.instanceID = instanceID
     }
 
-    public func body(content: Content) -> some View {
+    internal func body(content: Content) -> some View {
         content
             .onAppear {
                 attachedPresentation = store.attachDeclaredScene(

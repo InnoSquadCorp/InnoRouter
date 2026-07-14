@@ -76,7 +76,7 @@ keine UIKit- oder AppKit-Bridge-Module erforderlich.
 | `ModalHost` `.fullScreenCover` nativ | ✅ | ✅ | ⚠ degradiert | ✅ | ⚠ degradiert | ⚠ degradiert |
 | `TabCoordinator.badge` Status-API / native Darstellung | ✅ | ✅ | ✅ | ⚠ nur Status | ⚠ nur Status | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `SceneHost` (Windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `SceneStore` / `innoRouterSceneHost` (Windows, volumetric, immersive) | — | — | — | — | — | ✅ |
 | `innoRouterOrnament(_:content:)` View-Modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ degradiert` bedeutet, dass die Store-API die Anfrage unverändert akzeptiert,
@@ -234,7 +234,7 @@ Nutzen Sie die kleinste Oberfläche, die die benötigte Übergangsautorität bes
 | Push-+-Modal-Flows, Wiederherstellung oder Multi-Step-Deep-Links | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL zu Push-only-Befehlsplan | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL zu Push-Prefix plus Modal-Tail-Flow | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS-Windows, Volumes, Immersive Spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
+| visionOS-Windows, Volumes, Immersive Spaces | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer, Effekt oder App-Grenze-Ausführung | `InnoRouterEffects` |
 | Router-Assertions ohne SwiftUI-Hosts | `InnoRouterTesting` |
 

@@ -70,7 +70,7 @@ InnoRouter 通过 SwiftUI 在每个 Apple 平台上发布。无需 UIKit 或 App
 | `ModalHost` `.fullScreenCover` 原生 | ✅ | ✅ | ⚠ 降级 | ✅ | ⚠ 降级 | ⚠ 降级 |
 | `TabCoordinator.badge` 状态 API / 原生视觉效果 | ✅ | ✅ | ✅ | ⚠ 仅状态 | ⚠ 仅状态 | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `SceneHost` (windows、volumetric、immersive) | — | — | — | — | — | ✅ |
+| `SceneStore` / `innoRouterSceneHost` (windows、volumetric、immersive) | — | — | — | — | — | ✅ |
 | `innoRouterOrnament(_:content:)` 视图 modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ 降级` 表示 store API 不变地接受请求,但 SwiftUI host 因为 `.fullScreenCover`
@@ -202,7 +202,7 @@ macro 包拆分应在测量 `swift package show-traits`、
 | Push + modal 流程、恢复或多步深链接 | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL 转 push-only 命令计划 | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL 转 push-prefix 加 modal-tail 流程 | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS windows、volumes、immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
+| visionOS windows、volumes、immersive spaces | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer、effect 或应用边界执行 | `InnoRouterEffects` |
 | 无 SwiftUI hosts 的 router 断言 | `InnoRouterTesting` |
 

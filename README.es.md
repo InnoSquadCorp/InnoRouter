@@ -76,7 +76,7 @@ módulos puente de UIKit o AppKit.
 | `ModalHost` `.fullScreenCover` nativo | ✅ | ✅ | ⚠ degrada | ✅ | ⚠ degrada | ⚠ degrada |
 | API de estado `TabCoordinator.badge` / visual nativo | ✅ | ✅ | ✅ | ⚠ solo estado | ⚠ solo estado | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `SceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
 | Modificador de vista `innoRouterOrnament(_:content:)` | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ degrada` significa que la API del store acepta la solicitud sin cambios pero
@@ -234,7 +234,7 @@ Use la superficie más pequeña que posea la autoridad de transición que necesi
 | Flujos push + modal, restauración o deep links multi-paso | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL a plan de comandos solo-push | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL a flujo prefijo-push más cola-modal | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| Windows, volúmenes, immersive spaces de visionOS | `SceneStore` + `SceneHost` / `SceneAnchor` |
+| Windows, volúmenes, immersive spaces de visionOS | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer, efecto o ejecución en límite de app | `InnoRouterEffects` |
 | Aserciones de router sin hosts SwiftUI | `InnoRouterTesting` |
 

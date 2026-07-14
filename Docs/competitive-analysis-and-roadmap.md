@@ -42,7 +42,7 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 | iOS floor | **18+** | 13+ / 17+ for Observation | 13+ | 16+ | 13+ | 14+ | 17+ | 16+ |
 | Cross-surface (UIKit / AppKit) | ❌ SwiftUI only (by choice) | ⚠ | ✅ **4 products** | ❌ | ⚠ | ⚠ | ❌ | ❌ |
 | **All Apple platforms via SwiftUI** (iOS / iPadOS / macOS / tvOS / watchOS / visionOS) | ✅ **all 6 with per-platform CI + platform matrix docs** | ⚠ SwiftUI adopters only | ⚠ SwiftUI module only | ⚠ | ⚠ | ⚠ | ⚠ | ⚠ |
-| **visionOS spatial presentations** (ornament / volumetric / immersive space) | ✅ `SceneStore` + `SceneHost` + `innoRouterOrnament` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **visionOS spatial presentations** (ornament / volumetric / immersive space) | ✅ `SceneStore` + `innoRouterSceneHost` + `innoRouterOrnament` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Coordinator composition (child → parent) | ✅ `ChildCoordinator` + `parent.push(child:) -> Task<Result?>` | ✅ reducer `forEach` | ❌ | ✅ | ✅ | ✅ | ⚠ | ⚠ |
 | Case-typed destination bindings | ✅ `store.binding(case:)` on Nav + Modal | ⚠ via `@Presents` | ✅ `@CasePathable` | ⚠ | ⚠ | ❌ | ❌ | ❌ |
 
@@ -475,7 +475,7 @@ With the P3 polish cluster shipped (macro FixIts, `.whenCancelled`,
 variants, `ChildCoordinatorTaskTracker`,
 `FlowPendingDeepLinkPersistence`) **and the all-platform /
 visionOS-spatial extension** (`ScenePresentation`, `SceneDeclaration`,
-`SceneRegistry`, `SceneStore`, `SceneHost`, `innoRouterOrnament`,
+`SceneRegistry`, `SceneStore`, `innoRouterSceneHost`, `innoRouterOrnament`,
 per-platform CI), the P0 / P1 / P3 backlog is **empty** and
 SwiftUI-only is the final positioning stance.
 

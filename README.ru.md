@@ -76,7 +76,7 @@ InnoRouter поставляется на каждой платформе Apple �
 | `ModalHost` `.fullScreenCover` нативно | ✅ | ✅ | ⚠ деградирует | ✅ | ⚠ деградирует | ⚠ деградирует |
 | `TabCoordinator.badge` API состояния / нативное визуальное представление | ✅ | ✅ | ✅ | ⚠ только состояние | ⚠ только состояние | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `SceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
 | `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ деградирует` означает, что store API принимает запрос без изменений, но
@@ -236,7 +236,7 @@ property wrapper или view modifier приходят из `InnoRouter`, а н�
 | Push + modal flows, восстановление или multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL в push-only план команд | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL в push-prefix плюс modal-tail flow | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
+| visionOS windows, volumes, immersive spaces | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer, effect или выполнение на границе приложения | `InnoRouterEffects` |
 | Утверждения router без SwiftUI hosts | `InnoRouterTesting` |
 

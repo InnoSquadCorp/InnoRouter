@@ -16,7 +16,7 @@ This module owns:
 - `EnvironmentNavigationIntent` and `EnvironmentModalIntent`
 - `StepCoordinator` and `TabCoordinator`
 - `SceneDeclaration`, `SceneRegistry`
-- `SceneStore`, `SceneHost`, `SceneAnchor` (visionOS only)
+- `SceneStore`, `innoRouterSceneHost`, `innoRouterSceneAnchor` (visionOS only)
 - `innoRouterOrnament(_:content:)` view modifier (no-op off visionOS)
 
 The guiding rule is simple: views emit intent, stores own transition authority, and hosts bridge system UI state back into those authorities.
@@ -31,7 +31,7 @@ Pick the narrowest authority that matches the app boundary:
 | Split-view stack on supported platforms | `NavigationStore` + `NavigationSplitHost` |
 | Sheet / cover authority | `ModalStore` + `ModalHost` |
 | Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
-| visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
+| visionOS windows, volumes, immersive spaces | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer, effect, or app-boundary execution | `InnoRouterEffects` |
 | Host-less router assertions | `InnoRouterTesting` |
 
@@ -46,7 +46,7 @@ InnoRouter ships on every Apple platform it currently supports:
 | `ModalHost` `.sheet` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `ModalHost` `.fullScreenCover` (native) | ✅ | ✅ | ⚠ degrades to `.sheet` | ✅ | ⚠ degrades to `.sheet` | ⚠ degrades to `.sheet` |
 | `TabCoordinator.badge` state API / native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
-| `SceneStore`, `SceneHost` | — | — | — | — | — | ✅ |
+| `SceneStore`, `innoRouterSceneHost` | — | — | — | — | — | ✅ |
 | `innoRouterOrnament` | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ state only` means `TabCoordinator` stores and exposes badge state, but

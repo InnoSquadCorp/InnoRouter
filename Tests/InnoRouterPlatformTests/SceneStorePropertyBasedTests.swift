@@ -70,7 +70,15 @@ struct SceneStorePropertyBasedTests {
             store.openImmersive(.theatre, style: .mixed)
         }
 
-        let pending = try #require(store.pendingIntent)
+        let dispatcherToken = UUID()
+        #expect(store.registerDispatcherHost(dispatcherToken))
+        let requestID = try #require(store.currentPendingRequestID)
+        let pending = try #require(
+            store.claimPendingRequest(
+                requestID,
+                dispatcherToken: dispatcherToken
+            )
+        )
         guard case .open(.immersive(.theatre, style: .mixed, id: _)) = pending else {
             Issue.record("Expected pending immersive open, got \(pending)")
             return

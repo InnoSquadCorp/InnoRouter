@@ -76,7 +76,7 @@ AppKit bridge modules are required.
 | `ModalHost` `.fullScreenCover` native | ✅ | ✅ | ⚠ degrades | ✅ | ⚠ degrades | ⚠ degrades |
 | `TabCoordinator.badge` state API / native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `SceneHost` (windows, volumetric, immersive) ⚠ experimental | — | — | — | — | — | ✅ |
+| `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) ⚠ experimental | — | — | — | — | — | ✅ |
 | `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ degrades` means the store API accepts the request unchanged but the
@@ -244,7 +244,7 @@ Use the smallest surface that owns the transition authority you need:
 | Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL to push-only command plan | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL to push-prefix plus modal-tail flow | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` ⚠ experimental |
+| visionOS windows, volumes, immersive spaces | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` ⚠ experimental |
 | Reducer, effect, or app-boundary execution | `InnoRouterEffects` |
 | Router assertions without SwiftUI hosts | `InnoRouterTesting` |
 

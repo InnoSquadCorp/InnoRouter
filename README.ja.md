@@ -76,7 +76,7 @@ UIKit や AppKit のブリッジモジュールは不要です。
 | `ModalHost` `.fullScreenCover` ネイティブ | ✅ | ✅ | ⚠ ダウングレード | ✅ | ⚠ ダウングレード | ⚠ ダウングレード |
 | `TabCoordinator.badge` 状態 API / ネイティブビジュアル | ✅ | ✅ | ✅ | ⚠ 状態のみ | ⚠ 状態のみ | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `SceneHost` (windows、volumetric、immersive) | — | — | — | — | — | ✅ |
+| `SceneStore` / `innoRouterSceneHost` (windows、volumetric、immersive) | — | — | — | — | — | ✅ |
 | `innoRouterOrnament(_:content:)` ビュー modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ ダウングレード` は、ストア API がリクエストをそのまま受け入れますが、
@@ -233,7 +233,7 @@ SwiftSyntax がバックエンドのマクロ実装は 4.x ラインの間この
 | Push + modal フロー、復元、または複数ステップディープリンク | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL を push のみのコマンドプランへ | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL を push 接頭辞 + modal 末尾フローへ | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS windows、volumes、immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
+| visionOS windows、volumes、immersive spaces | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer、effect、またはアプリ境界の実行 | `InnoRouterEffects` |
 | SwiftUI ホストなしの router アサーション | `InnoRouterTesting` |
 

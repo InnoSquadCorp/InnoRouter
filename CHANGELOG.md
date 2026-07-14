@@ -8,6 +8,13 @@ are bare semver (no leading `v`).
 
 ### Breaking
 
+- The visionOS spatial surface now exposes only app-facing authority.
+  `SceneHost` and `SceneAnchor` are implementation details behind
+  `View.innoRouterSceneHost` and `View.innoRouterSceneAnchor`;
+  `SceneStore.pendingIntent`, `completeOpen`, `completeDismissal`, and
+  `completeRejection` were host-dispatch plumbing and have been removed.
+  Apps should issue requests through `SceneStore`, observe `events`, and attach
+  the public view modifiers instead of driving dispatch completion directly.
 - `.whenCancelled(primary, fallback:)` now evaluates each attempted leg behind
   a separate savepoint. If the fallback also fails or is cancelled, its partial
   state is discarded, the original snapshot remains authoritative, and no

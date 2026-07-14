@@ -6,15 +6,11 @@
 // `openImmersiveSpace`, `dismissImmersiveSpace`, `dismissWindow`)
 // through SwiftUI's environment, not through a touch event stream.
 // The SceneStore + SceneHost pair translates those actions into a
-// typed routing surface. These tests pin the public envelope on
-// visionOS — handle accounting, ScenePresentation case shape,
-// open vs dismiss vs complete lifecycle — without standing up a
-// live SwiftUI view hierarchy.
-//
-// Surface stability: the spatial scene surface ships **experimental**
-// in 4.x; see Sources/InnoRouterSwiftUI/SceneStore.swift's main
-// doc comment. These tests guard the contract that ships today;
-// updating them when the surface evolves is expected.
+// typed routing surface. These tests exercise internal request claiming
+// and completion so handle accounting and lifecycle transitions remain
+// deterministic without standing up a live SwiftUI view hierarchy.
+// Public consumer compilation is covered separately by
+// SpatialPublicAPISmokeTests.
 
 #if os(visionOS)
 
@@ -59,6 +55,36 @@ private func claimPendingOpen(
         throw TestStoreError.unexpectedIntent
     }
     return presentation
+}
+
+@MainActor
+private func completeClaimedOpen(
+    in store: SceneStore<SpatialRoute>,
+    presentation: ScenePresentation<SpatialRoute>,
+    accepted: Bool
+) throws {
+    let requestID = try #require(store.currentClaimedRequestID)
+    _ = try #require(
+        store.completeClaimedOpen(
+            presentation,
+            accepted: accepted,
+            requestID: requestID
+        )
+    )
+}
+
+@MainActor
+private func completeClaimedDismissal(
+    in store: SceneStore<SpatialRoute>,
+    presentation: ScenePresentation<SpatialRoute>
+) throws {
+    let requestID = try #require(store.currentClaimedRequestID)
+    _ = try #require(
+        store.completeClaimedDismissal(
+            of: presentation,
+            requestID: requestID
+        )
+    )
 }
 
 private enum TestStoreError: Error {
@@ -134,14 +160,14 @@ struct SceneStoreVisionOSTests {
 
         store.openImmersive(.theatre, style: .mixed)
         let presentation = try claimPendingOpen(in: store, dispatcherToken: token)
-        store.completeOpen(presentation, accepted: true)
+        try completeClaimedOpen(in: store, presentation: presentation, accepted: true)
 
         #expect(store.activeScenes == [presentation])
         #expect(store.currentScene == presentation)
 
         store.dismissImmersive()
         #expect(try claimPendingIntent(in: store, dispatcherToken: token) == .dismissImmersive)
-        store.completeDismissal(of: presentation)
+        try completeClaimedDismissal(in: store, presentation: presentation)
 
         #expect(store.activeScenes.isEmpty)
         #expect(store.currentScene == nil)
@@ -154,14 +180,14 @@ struct SceneStoreVisionOSTests {
 
         store.openImmersive(.theatre, style: .full)
         let presentation = try claimPendingOpen(in: store, dispatcherToken: token)
-        store.completeOpen(presentation, accepted: true)
+        try completeClaimedOpen(in: store, presentation: presentation, accepted: true)
 
         #expect(store.activeScenes == [presentation])
         #expect(store.currentScene == presentation)
 
         store.dismissImmersive()
         #expect(try claimPendingIntent(in: store, dispatcherToken: token) == .dismissImmersive)
-        store.completeDismissal(of: presentation)
+        try completeClaimedDismissal(in: store, presentation: presentation)
 
         #expect(store.activeScenes.isEmpty)
         #expect(store.currentScene == nil)
@@ -169,13 +195,13 @@ struct SceneStoreVisionOSTests {
 
     // MARK: - Dismissal accounting
 
-    @Test("dismissWindow + completeDismissal closes the lifecycle on the original handle")
+    @Test("dismissWindow closes the lifecycle on the original handle")
     func dismissWindow_closesLifecycle() throws {
         let store = SceneStore<SpatialRoute>()
         let token = registerDispatcherHost(in: store)
         let presentation = store.openWindow(.main)
         #expect(try claimPendingOpen(in: store, dispatcherToken: token) == presentation)
-        store.completeOpen(presentation, accepted: true)
+        try completeClaimedOpen(in: store, presentation: presentation, accepted: true)
 
         #expect(store.activeScenes == [presentation])
         #expect(store.currentScene == presentation)
@@ -184,38 +210,40 @@ struct SceneStoreVisionOSTests {
         #expect(
             try claimPendingIntent(in: store, dispatcherToken: token) == .dismissWindow(presentation)
         )
-        store.completeDismissal(of: presentation)
+        try completeClaimedDismissal(in: store, presentation: presentation)
 
         #expect(store.activeScenes.isEmpty)
         #expect(store.currentScene == nil)
     }
 
-    @Test("completeOpen(accepted: true) acknowledges a successful environment dispatch")
-    func completeOpen_acceptedTrue_doesNotCrash() throws {
+    @Test("Accepted open dispatch commits the claimed presentation")
+    func acceptedOpenCommitsClaimedPresentation() throws {
         let store = SceneStore<SpatialRoute>()
         let token = registerDispatcherHost(in: store)
         let presentation = store.openWindow(.main)
         #expect(try claimPendingOpen(in: store, dispatcherToken: token) == presentation)
 
-        store.completeOpen(presentation, accepted: true)
+        try completeClaimedOpen(in: store, presentation: presentation, accepted: true)
 
         #expect(store.activeScenes == [presentation])
         #expect(store.currentScene == presentation)
-        #expect(store.pendingIntent == nil)
+        #expect(store.currentPendingRequestID == nil)
+        #expect(store.currentClaimedRequestID == nil)
     }
 
-    @Test("completeOpen(accepted: false) acknowledges a refused environment dispatch")
-    func completeOpen_acceptedFalse_doesNotCrash() throws {
+    @Test("Rejected open dispatch releases the claim without changing inventory")
+    func rejectedOpenReleasesClaim() throws {
         let store = SceneStore<SpatialRoute>()
         let token = registerDispatcherHost(in: store)
         let presentation = store.openWindow(.main)
         #expect(try claimPendingOpen(in: store, dispatcherToken: token) == presentation)
 
-        store.completeOpen(presentation, accepted: false)
+        try completeClaimedOpen(in: store, presentation: presentation, accepted: false)
 
         #expect(store.activeScenes.isEmpty)
         #expect(store.currentScene == nil)
-        #expect(store.pendingIntent == nil)
+        #expect(store.currentPendingRequestID == nil)
+        #expect(store.currentClaimedRequestID == nil)
     }
 }
 

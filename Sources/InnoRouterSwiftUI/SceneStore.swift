@@ -80,12 +80,6 @@ public final class SceneStore<R: Route> {
     /// Recency-ordered active scene inventory.
     public private(set) var activeScenes: [ScenePresentation<R>]
 
-    /// Next intent the host should act on. The host clears this field via
-    /// ``completeOpen(_:accepted:)`` / ``completeDismissal(of:)`` /
-    /// ``completeRejection(for:reason:)`` after dispatching the
-    /// corresponding SwiftUI environment action.
-    public fileprivate(set) var pendingIntent: SceneIntent<R>?
-
     internal private(set) var currentPendingRequestID: UUID?
     internal private(set) var currentClaimedRequestID: UUID?
     internal private(set) var dispatchSignal: UInt64
@@ -101,7 +95,6 @@ public final class SceneStore<R: Route> {
         self.dispatcherRegistry = SceneDispatcherRegistry()
         self.currentScene = state.currentScene
         self.activeScenes = state.activeScenes
-        self.pendingIntent = state.pendingIntent
         self.currentPendingRequestID = state.currentPendingRequestID
         self.currentClaimedRequestID = state.currentClaimedRequestID
         self.dispatchSignal = 0
@@ -159,38 +152,6 @@ public final class SceneStore<R: Route> {
         applyRequestMutation {
             $0.requestDismissWindow(presentation)
         }
-    }
-
-    /// Called by ``SceneHost`` after it has issued the matching SwiftUI
-    /// environment action for an `.open(_:)` intent. `accepted` reports
-    /// whether the action succeeded.
-    public func completeOpen(_ presentation: ScenePresentation<R>, accepted: Bool) {
-        _ = completeClaimedOpen(
-            presentation,
-            accepted: accepted,
-            requestID: currentClaimedRequestID ?? currentPendingRequestID
-        )
-    }
-
-    /// Called by ``SceneHost`` after it has issued a dismissal.
-    public func completeDismissal(of presentation: ScenePresentation<R>) {
-        _ = completeClaimedDismissal(
-            of: presentation,
-            requestID: currentClaimedRequestID ?? currentPendingRequestID
-        )
-    }
-
-    /// Called by ``SceneHost`` when a queued intent cannot be dispatched
-    /// because the active scene or registry does not match the request.
-    public func completeRejection(
-        for intent: SceneIntent<R>,
-        reason: SceneRejectionReason
-    ) {
-        _ = completeClaimedRejection(
-            for: intent,
-            reason: reason,
-            requestID: currentClaimedRequestID ?? currentPendingRequestID
-        )
     }
 
     internal var snapshot: SceneStoreSnapshot<R> {
@@ -418,7 +379,6 @@ public final class SceneStore<R: Route> {
     private func syncFromState() {
         currentScene = state.currentScene
         activeScenes = state.activeScenes
-        pendingIntent = state.pendingIntent
         currentPendingRequestID = state.currentPendingRequestID
         currentClaimedRequestID = state.currentClaimedRequestID
     }

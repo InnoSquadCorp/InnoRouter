@@ -278,9 +278,6 @@ relationship | memberOf | QueueCoalescePolicy.Action.preserve | QueueCoalescePol
 relationship | memberOf | QueueCoalescePolicy.custom(_:) | QueueCoalescePolicy |  |
 relationship | memberOf | QueueCoalescePolicy.dropQueued | QueueCoalescePolicy |  |
 relationship | memberOf | QueueCoalescePolicy.preserve | QueueCoalescePolicy |  |
-relationship | memberOf | SceneAnchor.body(content:) | SceneAnchor |  |
-relationship | memberOf | SceneAnchor.init(store:scenes:attachedTo:) | SceneAnchor |  |
-relationship | memberOf | SceneAnchor.init(store:scenes:attachedTo:instanceID:) | SceneAnchor |  |
 relationship | memberOf | SceneDeclaration.Kind | SceneDeclaration |  |
 relationship | memberOf | SceneDeclaration.Kind.immersive(style:) | SceneDeclaration.Kind |  |
 relationship | memberOf | SceneDeclaration.Kind.volumetric(size:) | SceneDeclaration.Kind |  |
@@ -296,10 +293,6 @@ relationship | memberOf | SceneEvent.dismissed(_:) | SceneEvent |  |
 relationship | memberOf | SceneEvent.hostRegistrationRejected(reason:) | SceneEvent |  |
 relationship | memberOf | SceneEvent.presented(_:) | SceneEvent |  |
 relationship | memberOf | SceneEvent.rejected(_:reason:) | SceneEvent |  |
-relationship | memberOf | SceneHost.body(content:) | SceneHost |  |
-relationship | memberOf | SceneHost.init(store:scenes:) | SceneHost |  |
-relationship | memberOf | SceneHost.init(store:scenes:attachedTo:) | SceneHost |  |
-relationship | memberOf | SceneHost.init(store:scenes:attachedTo:instanceID:) | SceneHost |  |
 relationship | memberOf | SceneIntent.dismissImmersive | SceneIntent |  |
 relationship | memberOf | SceneIntent.dismissWindow(_:) | SceneIntent |  |
 relationship | memberOf | SceneIntent.open(_:) | SceneIntent |  |
@@ -319,9 +312,6 @@ relationship | memberOf | SceneRejectionReason.sceneInstanceNotActive | SceneRej
 relationship | memberOf | SceneRejectionReason.sceneNotDeclared | SceneRejectionReason |  |
 relationship | memberOf | SceneRejectionReason.supersededByNewerIntent | SceneRejectionReason |  |
 relationship | memberOf | SceneStore.activeScenes | SceneStore |  |
-relationship | memberOf | SceneStore.completeDismissal(of:) | SceneStore |  |
-relationship | memberOf | SceneStore.completeOpen(_:accepted:) | SceneStore |  |
-relationship | memberOf | SceneStore.completeRejection(for:reason:) | SceneStore |  |
 relationship | memberOf | SceneStore.currentScene | SceneStore |  |
 relationship | memberOf | SceneStore.dismissImmersive() | SceneStore |  |
 relationship | memberOf | SceneStore.dismissWindow(_:) | SceneStore |  |
@@ -330,7 +320,6 @@ relationship | memberOf | SceneStore.init() | SceneStore |  |
 relationship | memberOf | SceneStore.openImmersive(_:style:) | SceneStore |  |
 relationship | memberOf | SceneStore.openVolumetric(_:size:) | SceneStore |  |
 relationship | memberOf | SceneStore.openWindow(_:) | SceneStore |  |
-relationship | memberOf | SceneStore.pendingIntent | SceneStore |  |
 relationship | memberOf | StateRestorationAdapter.init(persistence:onRestorationFailure:) | StateRestorationAdapter |  |
 relationship | memberOf | StateRestorationAdapter.restoreFlowPlan(from:into:) | StateRestorationAdapter |  |
 relationship | memberOf | StateRestorationAdapter.restoreNavigationStack(from:into:) | StateRestorationAdapter |  |
@@ -601,12 +590,7 @@ symbol | swift.init | NavigationStoreConfiguration.init(engine:middlewares:route
 symbol | swift.init | OSLogFlowTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogModalTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogNavigationTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
-symbol | swift.init | SceneAnchor.init(store:scenes:attachedTo:) | init(store:scenes:attachedTo:) | @MainActor init(store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R) | []
-symbol | swift.init | SceneAnchor.init(store:scenes:attachedTo:instanceID:) | init(store:scenes:attachedTo:instanceID:) | @MainActor init(store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R, instanceID: UUID) | []
 symbol | swift.init | SceneDeclaration.init(route:id:kind:) | init(route:id:kind:) | init(route: R, id: String, kind: SceneDeclaration<R>.Kind) | []
-symbol | swift.init | SceneHost.init(store:scenes:) | init(store:scenes:) | @MainActor init(store: SceneStore<R>, scenes: SceneRegistry<R>) | []
-symbol | swift.init | SceneHost.init(store:scenes:attachedTo:) | init(store:scenes:attachedTo:) | @MainActor init(store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R) | []
-symbol | swift.init | SceneHost.init(store:scenes:attachedTo:instanceID:) | init(store:scenes:attachedTo:instanceID:) | @MainActor init(store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R, instanceID: UUID) | []
 symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: SceneDeclaration<R>...) | []
 symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: [SceneDeclaration<R>]) | []
 symbol | swift.init | SceneStore.init() | init() | @MainActor init() | []
@@ -671,13 +655,8 @@ symbol | swift.method | NavigationTelemetrySink.record(_:) | record(_:) | @MainA
 symbol | swift.method | OSLogFlowTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: FlowTelemetryEvent<R>) | []
 symbol | swift.method | OSLogModalTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: ModalTelemetryEvent<M>) | []
 symbol | swift.method | OSLogNavigationTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: NavigationTelemetryEvent<R>) | []
-symbol | swift.method | SceneAnchor.body(content:) | body(content:) | @MainActor func body(content: SceneAnchor<R>.Content) -> some View | []
-symbol | swift.method | SceneHost.body(content:) | body(content:) | @MainActor func body(content: SceneHost<R>.Content) -> some View | []
 symbol | swift.method | SceneRegistry.declaration(for:) | declaration(for:) | func declaration(for route: R) -> SceneDeclaration<R>? | []
 symbol | swift.method | SceneRegistry.declaration(id:) | declaration(id:) | func declaration(id: String) -> SceneDeclaration<R>? | []
-symbol | swift.method | SceneStore.completeDismissal(of:) | completeDismissal(of:) | @MainActor func completeDismissal(of presentation: ScenePresentation<R>) | []
-symbol | swift.method | SceneStore.completeOpen(_:accepted:) | completeOpen(_:accepted:) | @MainActor func completeOpen(_ presentation: ScenePresentation<R>, accepted: Bool) | []
-symbol | swift.method | SceneStore.completeRejection(for:reason:) | completeRejection(for:reason:) | @MainActor func completeRejection(for intent: SceneIntent<R>, reason: SceneRejectionReason) | []
 symbol | swift.method | SceneStore.dismissImmersive() | dismissImmersive() | @MainActor func dismissImmersive() | []
 symbol | swift.method | SceneStore.dismissWindow(_:) | dismissWindow(_:) | @MainActor func dismissWindow(_ presentation: ScenePresentation<R>) | []
 symbol | swift.method | SceneStore.openImmersive(_:style:) | openImmersive(_:style:) | @MainActor func openImmersive(_ route: R, style: ImmersiveStyle) | []
@@ -809,7 +788,6 @@ symbol | swift.property | SceneRejectionReason.localizedDescription | localizedD
 symbol | swift.property | SceneStore.activeScenes | activeScenes | @MainActor var activeScenes: [ScenePresentation<R>] { get set } | []
 symbol | swift.property | SceneStore.currentScene | currentScene | @MainActor var currentScene: ScenePresentation<R>? { get set } | []
 symbol | swift.property | SceneStore.events | events | @MainActor var events: AsyncStream<SceneEvent<R>> { get } | []
-symbol | swift.property | SceneStore.pendingIntent | pendingIntent | @MainActor var pendingIntent: SceneIntent<R>? { get set } | []
 symbol | swift.property | StateRestorationFailure.message | message | let message: String | []
 symbol | swift.property | StateRestorationFailure.target | target | let target: StateRestorationTarget | []
 symbol | swift.property | StepCoordinator.completedSteps | completedSteps | @MainActor var completedSteps: Set<Self.Step> { get set } | []
@@ -867,9 +845,7 @@ symbol | swift.struct | NavigationStoreConfiguration | NavigationStoreConfigurat
 symbol | swift.struct | OSLogFlowTelemetrySink | OSLogFlowTelemetrySink | @MainActor struct OSLogFlowTelemetrySink<R> where R : Route | []
 symbol | swift.struct | OSLogModalTelemetrySink | OSLogModalTelemetrySink | @MainActor struct OSLogModalTelemetrySink<M> where M : Route | []
 symbol | swift.struct | OSLogNavigationTelemetrySink | OSLogNavigationTelemetrySink | @MainActor struct OSLogNavigationTelemetrySink<R> where R : Route | []
-symbol | swift.struct | SceneAnchor | SceneAnchor | @MainActor struct SceneAnchor<R> where R : Route | []
 symbol | swift.struct | SceneDeclaration | SceneDeclaration | struct SceneDeclaration<R> where R : Route | []
-symbol | swift.struct | SceneHost | SceneHost | @MainActor struct SceneHost<R> where R : Route | []
 symbol | swift.struct | SceneRegistry | SceneRegistry | struct SceneRegistry<R> where R : Route | []
 symbol | swift.struct | StateRestorationFailure | StateRestorationFailure | struct StateRestorationFailure | []
 symbol | swift.struct | StepCoordinatorView | StepCoordinatorView | @MainActor struct StepCoordinatorView<C, Content> where C : StepCoordinator, Content : View | []

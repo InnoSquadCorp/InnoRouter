@@ -85,7 +85,7 @@ any 4.x minor release until the marker is removed.
 
 | Surface | Module | Markers |
 | --- | --- | --- |
-| `SceneStore` / `SceneHost` / `SceneAnchor` / `ScenePresentation` / `SceneIntent` / `SceneEvent` / `SceneRegistry` / `SceneDeclaration` (visionOS spatial scene authority) | `InnoRouterSwiftUI` | `> Experimental` admonition on `SceneStore`'s main doc comment, `⚠ experimental` cells in the README "Platform support" / "Choosing the right surface" tables, file-header MARK comments on every Scene*.swift file. |
+| `SceneStore` / `innoRouterSceneHost` / `innoRouterSceneAnchor` / `ScenePresentation` / `SceneIntent` / `SceneEvent` / `SceneRegistry` / `SceneDeclaration` (visionOS spatial scene authority) | `InnoRouterSwiftUI` | `> Experimental` admonition on `SceneStore`'s main doc comment, `⚠ experimental` cells in the README "Platform support" / "Choosing the right surface" tables, file-header MARK comments on every Scene*.swift file. |
 
 Apps adopting an experimental surface should pin to an exact 4.x
 release rather than `from:` until the surface graduates.

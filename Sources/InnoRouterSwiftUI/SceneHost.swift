@@ -104,7 +104,7 @@ internal func handleSceneHostSignal<R: Route>(
 /// ``SwiftUI/View/innoRouterSceneHost(_:scenes:)`` or
 /// ``SwiftUI/View/innoRouterSceneHost(_:scenes:attachedTo:instanceID:)`` instead
 /// of instantiating the modifier directly.
-public struct SceneHost<R: Route>: ViewModifier {
+internal struct SceneHost<R: Route>: ViewModifier {
     @Bindable private var store: SceneStore<R>
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
@@ -122,7 +122,7 @@ public struct SceneHost<R: Route>: ViewModifier {
     ///   - store: the scene store driving this host.
     ///   - scenes: scene declarations shared with the app's
     ///     `WindowGroup` / `ImmersiveSpace` definitions.
-    public init(store: SceneStore<R>, scenes: SceneRegistry<R>) {
+    internal init(store: SceneStore<R>, scenes: SceneRegistry<R>) {
         self.init(store: store, scenes: scenes, attachedPresentation: nil)
     }
 
@@ -138,7 +138,7 @@ public struct SceneHost<R: Route>: ViewModifier {
     ///   - scenes: scene declarations shared with the app's
     ///     `WindowGroup` / `ImmersiveSpace` definitions.
     ///   - attachedTo: the route declared for the containing scene.
-    public init(
+    internal init(
         store: SceneStore<R>,
         scenes: SceneRegistry<R>,
         attachedTo: R
@@ -156,7 +156,7 @@ public struct SceneHost<R: Route>: ViewModifier {
     ///
     /// Pass the value supplied by `WindowGroup(id:for:...)` so the host
     /// scene does not also need a redundant same-scene ``SceneAnchor``.
-    public init(
+    internal init(
         store: SceneStore<R>,
         scenes: SceneRegistry<R>,
         attachedTo: R,
@@ -213,7 +213,7 @@ public struct SceneHost<R: Route>: ViewModifier {
         self.attachedPresentation = attachedPresentation
     }
 
-    public func body(content: Content) -> some View {
+    internal func body(content: Content) -> some View {
         content
             .onAppear {
                 // If another SceneHost is already primary the store

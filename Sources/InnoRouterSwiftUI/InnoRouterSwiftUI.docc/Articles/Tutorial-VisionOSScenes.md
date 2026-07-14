@@ -5,7 +5,7 @@
 }
 
 Coordinate visionOS spatial presentations through `SceneStore`,
-`SceneHost`, and `innoRouterOrnament`.
+`innoRouterSceneHost`, and `innoRouterOrnament`.
 
 ## Overview
 
@@ -19,7 +19,7 @@ modelled by `NavigationStore` / `ModalStore`:
 SwiftUI's openers for these (`@Environment(\.openWindow)`,
 `@Environment(\.openImmersiveSpace)`, `@Environment(\.dismissImmersiveSpace)`,
 `@Environment(\.dismissWindow)`) are only reachable from a view's
-`body`. InnoRouter provides a thin `SceneStore` / `SceneHost` pair
+`body`. InnoRouter provides a thin `SceneStore` / `innoRouterSceneHost` pair
 that mirrors the `NavigationStore` / `NavigationHost` discipline:
 
 - the store owns the desired scene state and publishes intents

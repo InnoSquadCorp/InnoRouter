@@ -74,7 +74,7 @@ AppKit 브릿지 모듈은 필요하지 않습니다.
 | `ModalHost` `.fullScreenCover` 네이티브 | ✅ | ✅ | ⚠ degrades | ✅ | ⚠ degrades | ⚠ degrades |
 | `TabCoordinator.badge` 상태 API / 네이티브 시각 표현 | ✅ | ✅ | ✅ | ⚠ 상태 only | ⚠ 상태 only | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `SceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
 | `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ degrades`는 store API가 요청을 그대로 수락하지만 SwiftUI host가 `.fullScreenCover`를
@@ -215,7 +215,7 @@ package-traits 또는 매크로-패키지 분리는 `swift package show-traits`,
 | push + modal 흐름, 복원, 또는 multi-step 딥링크 | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL을 push-only command plan으로 변환 | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL을 push-prefix + modal-tail 흐름으로 변환 | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS window, volume, immersive space | `SceneStore` + `SceneHost` / `SceneAnchor` |
+| visionOS window, volume, immersive space | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer, effect, 또는 앱-경계 실행 | `InnoRouterEffects` |
 | SwiftUI host 없는 router assertion | `InnoRouterTesting` |
 
