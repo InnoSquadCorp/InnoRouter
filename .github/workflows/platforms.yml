@@ -210,11 +210,18 @@ jobs:
           import sys
 
           udid = sys.argv[1]
-          subprocess.run(
-              ["xcrun", "simctl", "boot", udid],
-              check=False,
-              timeout=60,
-          )
+          try:
+              subprocess.run(
+                  ["xcrun", "simctl", "boot", udid],
+                  check=False,
+                  timeout=60,
+              )
+          except subprocess.TimeoutExpired:
+              print(
+                  f"simctl boot timed out for {udid}; continuing with bootstatus",
+                  file=sys.stderr,
+              )
+
           subprocess.run(
               ["xcrun", "simctl", "bootstatus", udid, "-b"],
               check=True,
