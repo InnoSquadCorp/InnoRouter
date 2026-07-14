@@ -239,7 +239,7 @@ jobs:
           tar -xzf .build/release-site-artifact/docc-site-release.tar.gz -C .build
 
       - name: Publish gh-pages Storage Branch
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
@@ -258,7 +258,7 @@ jobs:
 
     steps:
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
           tag_name: ${{ needs.build.outputs.version }}
           name: InnoRouter ${{ needs.build.outputs.version }}
