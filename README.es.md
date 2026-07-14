@@ -1063,7 +1063,7 @@ func pushHomeThenDetail() {
     store.receiveChange { _, new in new.path == [.home, .detail("42")] }
     store.receiveBatch { $0.isSuccess }
 
-    store.expectNoMoreEvents()
+    store.finish()
 }
 ```
 

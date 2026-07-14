@@ -34,7 +34,7 @@ struct TestStorePathMismatchTests {
             event.oldPath == [.root] && event.newPath == [.unrelated]
         }
         store.receiveChange { _, new in new.path == [.unrelated] }
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("User-supplied onPathMismatch still fires (callback chaining preserved)")
@@ -55,7 +55,7 @@ struct TestStorePathMismatchTests {
         store.store.pathBinding.wrappedValue = [.other]
         store.receivePathMismatch()
         store.receiveChange()
-        store.expectNoMoreEvents()
+        store.finish()
 
         #expect(captured.withLock { $0.count } == 1)
     }

@@ -48,7 +48,7 @@ func pushingPreAuthEmitsNavigationAndPathChange() {
     store.receivePathChanged { old, new in
         old.isEmpty && new == [.push(.preAuth)]
     }
-    store.expectNoMoreEvents()
+    store.finish()
 }
 ```
 
@@ -92,7 +92,7 @@ func sheetBlockingMiddlewareCancelsTheIntent() {
         reason: .middlewareRejected(debugName: "BlockSheet")
     )
     #expect(store.path.isEmpty)
-    store.expectNoMoreEvents()
+    store.finish()
 }
 ```
 
@@ -126,6 +126,12 @@ let store = FlowTestStore<AppRoute>(exhaustivity: .off)
 
 `.off` preserves per-call assertions; only the end-of-life drain
 check is silenced. Useful when migrating a legacy test in stages.
+
+Use `assertNoPendingEvents()` between test phases when you need a
+non-terminal checkpoint. It reports and consumes the current pending
+snapshot, but later operations continue to enqueue. After awaiting all
+work, call `finish()` once: it closes observation, and the first event
+emitted past that boundary is an issue in either exhaustivity mode.
 
 ## Direct state inspection
 
@@ -194,7 +200,7 @@ func middlewareCancelsSignupButNotWelcome() {
     store.receiveIntercepted(reason: .middleware(debugName: "BlockSignup", command: .push(.signup)))
 
     #expect(middleware.seenCommands.count == 2)
-    store.expectNoMoreEvents()
+    store.finish()
 }
 ```
 

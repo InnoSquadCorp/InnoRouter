@@ -35,13 +35,13 @@ struct TestStoreFailureReportingTests {
         }
     }
 
-    @Test("expectNoMoreEvents with queued event fires an issue")
+    @Test("assertNoPendingEvents with queued event fires an issue")
     @MainActor
-    func expectNoMoreEventsFiresWhenQueued() {
+    func assertNoPendingEventsFiresWhenQueued() {
         withKnownIssue {
             let store = NavigationTestStore<FailRoute>(exhaustivity: .off)
             store.send(.go(.a))
-            store.expectNoMoreEvents()
+            store.assertNoPendingEvents()
         }
     }
 

@@ -19,6 +19,14 @@ are bare semver (no leading `v`).
 - `DeepLinkParser`, `DeepLinkPattern`, and their nested result types
   are now implementation details behind `DeepLinkMatcher` and
   `DeepLinkMapping`. The unused `DeepLinkable` protocol is removed.
+- `InnoRouterTesting` replaces the terminal-sounding
+  `expectNoMoreEvents()` checkpoint with `assertNoPendingEvents()`.
+  The renamed method reports and consumes only the current queue
+  snapshot. `finish()` is now the sole terminal operation: it drains
+  the final snapshot, is idempotent, and reports the first event emitted
+  after completion even when exhaustivity is `.off`. Migrate end-of-test
+  calls to `finish()`; use `assertNoPendingEvents()` only for checkpoints
+  between test phases.
 
 ### Changed
 

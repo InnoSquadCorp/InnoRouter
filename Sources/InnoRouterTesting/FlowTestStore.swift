@@ -34,8 +34,6 @@ public final class FlowTestStore<R: Route> {
 
     private let underlying: FlowStore<R>
     private let queue: TestEventQueue<FlowTestEvent<R>>
-    private var exhaustivity: TestExhaustivity
-    private var hasFinished: Bool
 
     // MARK: - Init
 
@@ -44,10 +42,11 @@ public final class FlowTestStore<R: Route> {
         configuration: FlowStoreConfiguration<R> = .init(),
         exhaustivity: TestExhaustivity = .strict
     ) {
-        let queue = TestEventQueue<FlowTestEvent<R>>()
+        let queue = TestEventQueue<FlowTestEvent<R>>(
+            storeName: "FlowTestStore",
+            exhaustivity: exhaustivity
+        )
         self.queue = queue
-        self.exhaustivity = exhaustivity
-        self.hasFinished = false
         self.underlying = FlowStore(
             initial: initial,
             configuration: Self.wrapConfiguration(configuration, queue: queue)
@@ -55,14 +54,12 @@ public final class FlowTestStore<R: Route> {
     }
 
     isolated deinit {
-        if !hasFinished {
-            performExhaustivityCheck(
-                fileID: #fileID,
-                filePath: #filePath,
-                line: #line,
-                column: #column
-            )
-        }
+        queue.finishAtDeinitialization(
+            fileID: #fileID,
+            filePath: #filePath,
+            line: #line,
+            column: #column
+        )
     }
 
     // MARK: - Accessors
@@ -462,30 +459,36 @@ public final class FlowTestStore<R: Route> {
 
     // MARK: - Completion
 
-    public func expectNoMoreEvents(
+    /// Asserts and consumes currently queued events without finishing the store.
+    /// Later operations continue to enqueue normally.
+    public func assertNoPendingEvents(
         fileID: String = #fileID,
         filePath: String = #filePath,
         line: Int = #line,
         column: Int = #column
     ) {
-        guard !queue.isEmpty else { return }
-        recordTestStoreIssue(
-            """
-            FlowTestStore has \(queue.count) unasserted event(s):
-            \(queue.remaining.map { "  - \($0)" }.joined(separator: "\n"))
-            """,
-            fileID: fileID, filePath: filePath, line: line, column: column
+        queue.assertNoPendingEvents(
+            fileID: fileID,
+            filePath: filePath,
+            line: line,
+            column: column
         )
     }
 
+    /// Runs the final exhaustivity check and closes the observation queue.
+    /// The first later event reports an issue in either exhaustivity mode.
     public func finish(
         fileID: String = #fileID,
         filePath: String = #filePath,
         line: Int = #line,
         column: Int = #column
     ) {
-        guard !hasFinished else { return }
-        performExhaustivityCheck(fileID: fileID, filePath: filePath, line: line, column: column)
+        queue.finish(
+            fileID: fileID,
+            filePath: filePath,
+            line: line,
+            column: column
+        )
     }
 
     public func skipReceivedEvents() {
@@ -591,24 +594,6 @@ public final class FlowTestStore<R: Route> {
         case .commandIntercepted: return ".commandIntercepted"
         case .middlewareMutation: return ".middlewareMutation"
         }
-    }
-
-    private func performExhaustivityCheck(
-        fileID: String,
-        filePath: String,
-        line: Int,
-        column: Int
-    ) {
-        hasFinished = true
-        guard exhaustivity == .strict else { return }
-        guard !queue.isEmpty else { return }
-        recordTestStoreIssue(
-            """
-            FlowTestStore deallocated with \(queue.count) unasserted event(s):
-            \(queue.remaining.map { "  - \($0)" }.joined(separator: "\n"))
-            """,
-            fileID: fileID, filePath: filePath, line: line, column: column
-        )
     }
 
     private static func wrapConfiguration(

@@ -16,7 +16,7 @@ to FlowStore internals; configure inner navigation / modal behavior through
 
 ### Event queue model
 
-Each test store owns a FIFO queue. Every time the underlying store emits an observation callback, the corresponding event is appended. Tests consume events in order via `receive(...)` or its typed helpers (`receiveChange`, `receivePresented`, `receiveIntentRejected`, and so on). A strict-mode test store fails via Swift Testing `Issue.record` if any events are left unasserted at deinit.
+Each test store owns a FIFO queue. Every time the underlying store emits an observation callback, the corresponding event is appended. Tests consume events in order via `receive(...)` or its typed helpers (`receiveChange`, `receivePresented`, `receiveIntentRejected`, and so on). A strict-mode test store fails via Swift Testing `Issue.record` if any events are left unasserted at `finish()` or deinit.
 
 ```swift skip doc-fragment
 import Testing
@@ -36,9 +36,11 @@ func pushHomeLogsChangeEvent() {
 
 ### Exhaustivity
 
-The default mode is `TestExhaustivity.strict`: unasserted events at store deinit (or at an explicit `finish()`) are reported as test issues. `TestExhaustivity.off` preserves the `receive(...)` assertions but silences the final drain check — useful when incrementally migrating large legacy suites.
+The default mode is `TestExhaustivity.strict`: unasserted events at store deinit (or at an explicit `finish()`) are reported as test issues. `TestExhaustivity.off` preserves explicit assertions but silences the final pending-event check — useful when incrementally migrating large legacy suites.
 
-> Note: Swift Testing currently attributes issues recorded inside an isolated `deinit` to an *unknown test*, so a deinit-time leftover-event failure can be hard to trace back to the test that owned the store. Prefer ending each test with an explicit `finish()` (or `expectNoMoreEvents()`), as the examples on this page do — it runs the same strict check immediately with correct source attribution and disarms the deinit-time fallback.
+`assertNoPendingEvents()` is a non-terminal checkpoint. If events are pending, it reports and consumes that snapshot so the same failure is not repeated at deinit; later operations continue to enqueue normally. `finish()` consumes the final snapshot and closes observation. The first event emitted after `finish()` is always an issue, even in `.off`, and later events are discarded to avoid failure storms.
+
+> Note: Swift Testing currently attributes issues recorded inside an isolated `deinit` to an *unknown test*, so a deinit-time leftover-event failure can be hard to trace back to the test that owned the store. Await all work and end each test with an explicit `finish()`, as the examples on this page do. It runs the strict check with the caller's source location and disarms the deinit-time fallback.
 
 ### User callbacks are preserved
 
@@ -67,7 +69,7 @@ store.receiveIntentRejected(
     intent: .presentSheet(.onboarding),
     reason: .middlewareRejected(debugName: "BlockSheet")
 )
-store.expectNoMoreEvents()
+store.finish()
 ```
 
 ## Topics

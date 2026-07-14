@@ -45,7 +45,7 @@ struct ModalTestStoreTests {
                case .executed = result { return true }
             return false
         }
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("dismissCurrent with queued emits dismissed → queueChanged → presented → intercept")
@@ -72,7 +72,7 @@ struct ModalTestStoreTests {
             if case .executed = result { return true }
             return false
         }
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("middleware cancel emits a single .commandIntercepted(.cancelled) and no .presented")
@@ -92,7 +92,7 @@ struct ModalTestStoreTests {
             return false
         }
         #expect(store.currentPresentation == nil)
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("middleware mutation emits .middlewareMutation")
@@ -103,6 +103,6 @@ struct ModalTestStoreTests {
         _ = store.store.addMiddleware(passthroughModalMiddleware(), debugName: "noop")
 
         store.receiveMiddlewareMutation(action: .added)
-        store.expectNoMoreEvents()
+        store.finish()
     }
 }

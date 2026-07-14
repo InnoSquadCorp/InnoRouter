@@ -40,7 +40,7 @@ struct FlowTestStoreTests {
         store.receivePathChanged { old, new in
             old.isEmpty && new == [.push(.landing)]
         }
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test(".presentSheet emits .modal(.presented) → .modal(.commandIntercepted) → .pathChanged")
@@ -61,7 +61,7 @@ struct FlowTestStoreTests {
             return false
         }
         store.receivePathChanged { _, new in new == [.sheet(.sheet)] }
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("Push after modal tail emits .intentRejected(.pushBlockedByModalTail), no path change")
@@ -79,7 +79,7 @@ struct FlowTestStoreTests {
             reason: .pushBlockedByModalTail
         )
         #expect(store.path == [.sheet(.sheet)])
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("End-to-end: sheet-blocking modal middleware cancels FlowStore presentSheet")
@@ -105,7 +105,7 @@ struct FlowTestStoreTests {
         #expect(store.path.isEmpty)
         #expect(store.store.navigationStore.state.path.isEmpty)
         #expect(store.store.modalStore.currentPresentation == nil)
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("Navigation path mismatch surfaces through FlowTestStore in FIFO order")
@@ -135,6 +135,6 @@ struct FlowTestStoreTests {
         }
         #expect(store.path == [.push(.details)])
         #expect(store.store.navigationStore.state.path == [.details])
-        store.expectNoMoreEvents()
+        store.finish()
     }
 }

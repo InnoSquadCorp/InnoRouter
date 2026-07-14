@@ -159,7 +159,7 @@ func entitlementGateBlocksPremiumPush() {
         intent: .push(.premiumDetail),
         reason: .middlewareRejected(debugName: "gate")
     )
-    store.expectNoMoreEvents()
+    store.finish()
 }
 ```
 

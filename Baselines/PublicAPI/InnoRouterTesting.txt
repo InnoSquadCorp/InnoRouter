@@ -1,6 +1,6 @@
 # Public API baseline for InnoRouterTesting
 relationship | memberOf | FlowTestStore.apply(_:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.expectNoMoreEvents(fileID:filePath:line:column:) | FlowTestStore |  |
+relationship | memberOf | FlowTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | FlowTestStore |  |
 relationship | memberOf | FlowTestStore.finish(fileID:filePath:line:column:) | FlowTestStore |  |
 relationship | memberOf | FlowTestStore.init(initial:configuration:exhaustivity:) | FlowTestStore |  |
 relationship | memberOf | FlowTestStore.path | FlowTestStore |  |
@@ -23,11 +23,11 @@ relationship | memberOf | FlowTestStore.send(_:) | FlowTestStore |  |
 relationship | memberOf | FlowTestStore.skipReceivedEvents() | FlowTestStore |  |
 relationship | memberOf | FlowTestStore.store | FlowTestStore |  |
 relationship | memberOf | FlowTestStore.unassertedEvents | FlowTestStore |  |
+relationship | memberOf | ModalTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.currentPresentation | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.dismissAll() | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.dismissCurrent() | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.execute(_:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.expectNoMoreEvents(fileID:filePath:line:column:) | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.finish(fileID:filePath:line:column:) | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.init(currentPresentation:queuedPresentations:configuration:exhaustivity:) | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.present(_:style:) | ModalTestStore |  |
@@ -42,10 +42,10 @@ relationship | memberOf | ModalTestStore.send(_:) | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.skipReceivedEvents() | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.store | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.unassertedEvents | ModalTestStore |  |
+relationship | memberOf | NavigationTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | NavigationTestStore |  |
 relationship | memberOf | NavigationTestStore.execute(_:) | NavigationTestStore |  |
 relationship | memberOf | NavigationTestStore.executeBatch(_:stopOnFailure:) | NavigationTestStore |  |
 relationship | memberOf | NavigationTestStore.executeTransaction(_:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.expectNoMoreEvents(fileID:filePath:line:column:) | NavigationTestStore |  |
 relationship | memberOf | NavigationTestStore.finish(fileID:filePath:line:column:) | NavigationTestStore |  |
 relationship | memberOf | NavigationTestStore.init(initial:configuration:exhaustivity:) | NavigationTestStore |  |
 relationship | memberOf | NavigationTestStore.init(initialPath:configuration:exhaustivity:) | NavigationTestStore |  |
@@ -74,7 +74,7 @@ symbol | swift.init | ModalTestStore.init(currentPresentation:queuedPresentation
 symbol | swift.init | NavigationTestStore.init(initial:configuration:exhaustivity:) | init(initial:configuration:exhaustivity:) | @MainActor init(initial: RouteStack<R> = .init(), configuration: NavigationStoreConfiguration<R> = .init(), exhaustivity: TestExhaustivity = .strict) | []
 symbol | swift.init | NavigationTestStore.init(initialPath:configuration:exhaustivity:) | init(initialPath:configuration:exhaustivity:) | @MainActor convenience init(initialPath: [R], configuration: NavigationStoreConfiguration<R> = .init(), exhaustivity: TestExhaustivity = .strict) throws | []
 symbol | swift.method | FlowTestStore.apply(_:) | apply(_:) | @discardableResult @MainActor func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> | []
-symbol | swift.method | FlowTestStore.expectNoMoreEvents(fileID:filePath:line:column:) | expectNoMoreEvents(fileID:filePath:line:column:) | @MainActor func expectNoMoreEvents(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
+symbol | swift.method | FlowTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | assertNoPendingEvents(fileID:filePath:line:column:) | @MainActor func assertNoPendingEvents(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | FlowTestStore.finish(fileID:filePath:line:column:) | finish(fileID:filePath:line:column:) | @MainActor func finish(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | FlowTestStore.receive(_:fileID:filePath:line:column:) | receive(_:fileID:filePath:line:column:) | @MainActor func receive(_ expected: FlowTestEvent<R>, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | FlowTestStore.receiveIntentRejected(intent:reason:fileID:filePath:line:column:) | receiveIntentRejected(intent:reason:fileID:filePath:line:column:) | @MainActor func receiveIntentRejected(intent: FlowIntent<R>, reason: FlowRejectionReason, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
@@ -93,10 +93,10 @@ symbol | swift.method | FlowTestStore.receiveNavigationTransaction(_:fileID:file
 symbol | swift.method | FlowTestStore.receivePathChanged(_:fileID:filePath:line:column:) | receivePathChanged(_:fileID:filePath:line:column:) | @MainActor func receivePathChanged(_ predicate: ([RouteStep<R>], [RouteStep<R>]) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | FlowTestStore.send(_:) | send(_:) | @MainActor func send(_ intent: FlowIntent<R>) | []
 symbol | swift.method | FlowTestStore.skipReceivedEvents() | skipReceivedEvents() | @MainActor func skipReceivedEvents() | []
+symbol | swift.method | ModalTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | assertNoPendingEvents(fileID:filePath:line:column:) | @MainActor func assertNoPendingEvents(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | ModalTestStore.dismissAll() | dismissAll() | @MainActor func dismissAll() | []
 symbol | swift.method | ModalTestStore.dismissCurrent() | dismissCurrent() | @MainActor func dismissCurrent() | []
 symbol | swift.method | ModalTestStore.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: ModalCommand<M>) -> ModalExecutionResult<M> | []
-symbol | swift.method | ModalTestStore.expectNoMoreEvents(fileID:filePath:line:column:) | expectNoMoreEvents(fileID:filePath:line:column:) | @MainActor func expectNoMoreEvents(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | ModalTestStore.finish(fileID:filePath:line:column:) | finish(fileID:filePath:line:column:) | @MainActor func finish(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | ModalTestStore.present(_:style:) | present(_:style:) | @MainActor func present(_ route: M, style: ModalPresentationStyle = .sheet) | []
 symbol | swift.method | ModalTestStore.receive(_:fileID:filePath:line:column:) | receive(_:fileID:filePath:line:column:) | @MainActor func receive(_ expected: ModalTestEvent<M>, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
@@ -107,10 +107,10 @@ symbol | swift.method | ModalTestStore.receivePresented(_:fileID:filePath:line:c
 symbol | swift.method | ModalTestStore.receiveQueueChanged(_:fileID:filePath:line:column:) | receiveQueueChanged(_:fileID:filePath:line:column:) | @MainActor func receiveQueueChanged(_ predicate: ([ModalPresentation<M>], [ModalPresentation<M>]) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | ModalTestStore.send(_:) | send(_:) | @MainActor func send(_ intent: ModalIntent<M>) | []
 symbol | swift.method | ModalTestStore.skipReceivedEvents() | skipReceivedEvents() | @MainActor func skipReceivedEvents() | []
+symbol | swift.method | NavigationTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | assertNoPendingEvents(fileID:filePath:line:column:) | @MainActor func assertNoPendingEvents(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | NavigationTestStore.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> | []
 symbol | swift.method | NavigationTestStore.executeBatch(_:stopOnFailure:) | executeBatch(_:stopOnFailure:) | @discardableResult @MainActor func executeBatch(_ commands: [NavigationCommand<R>], stopOnFailure: Bool = false) -> NavigationBatchResult<R> | []
 symbol | swift.method | NavigationTestStore.executeTransaction(_:) | executeTransaction(_:) | @discardableResult @MainActor func executeTransaction(_ commands: [NavigationCommand<R>]) -> NavigationTransactionResult<R> | []
-symbol | swift.method | NavigationTestStore.expectNoMoreEvents(fileID:filePath:line:column:) | expectNoMoreEvents(fileID:filePath:line:column:) | @MainActor func expectNoMoreEvents(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | NavigationTestStore.finish(fileID:filePath:line:column:) | finish(fileID:filePath:line:column:) | @MainActor func finish(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | NavigationTestStore.receive(_:failureMessage:fileID:filePath:line:column:) | receive(_:failureMessage:fileID:filePath:line:column:) | @discardableResult @MainActor func receive(_ predicate: (NavigationTestEvent<R>) -> Bool, failureMessage: @autoclosure () -> String = "predicate returned false", fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) -> NavigationTestEvent<R>? | []
 symbol | swift.method | NavigationTestStore.receive(_:fileID:filePath:line:column:) | receive(_:fileID:filePath:line:column:) | @MainActor func receive(_ expected: NavigationTestEvent<R>, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []

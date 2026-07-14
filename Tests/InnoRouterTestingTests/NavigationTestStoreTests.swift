@@ -33,7 +33,7 @@ struct NavigationTestStoreTests {
         store.receiveChange { old, new in
             old.path.isEmpty && new.path == [.home]
         }
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("executeBatch emits a single coalesced .changed then .batchExecuted")
@@ -48,7 +48,7 @@ struct NavigationTestStoreTests {
         // then fires onBatchExecuted. TestStore preserves that order.
         store.receiveChange { _, new in new.path == [.home, .detail] }
         store.receiveBatch { $0.executedCommands.count == 2 && $0.isSuccess }
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("executeTransaction commits — emits .changed and .transactionExecuted in order")
@@ -60,7 +60,7 @@ struct NavigationTestStoreTests {
 
         store.receiveChange { _, new in new.path == [.home, .detail] }
         store.receiveTransaction { $0.isCommitted && $0.stateAfter.path == [.home, .detail] }
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("middleware mutation emits .middlewareMutation via public callback")
@@ -71,7 +71,7 @@ struct NavigationTestStoreTests {
         _ = store.store.addMiddleware(noopMiddleware(), debugName: "obs")
 
         store.receiveMiddlewareMutation(action: .added)
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("Preserves user-supplied onChange callback (chains, does not replace)")

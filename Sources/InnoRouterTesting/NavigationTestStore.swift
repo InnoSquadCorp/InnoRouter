@@ -35,8 +35,6 @@ public final class NavigationTestStore<R: Route> {
 
     private let underlying: NavigationStore<R>
     private let queue: TestEventQueue<NavigationTestEvent<R>>
-    private var exhaustivity: TestExhaustivity
-    private var hasFinished: Bool
 
     // MARK: - Init
 
@@ -55,10 +53,11 @@ public final class NavigationTestStore<R: Route> {
         configuration: NavigationStoreConfiguration<R> = .init(),
         exhaustivity: TestExhaustivity = .strict
     ) {
-        let queue = TestEventQueue<NavigationTestEvent<R>>()
+        let queue = TestEventQueue<NavigationTestEvent<R>>(
+            storeName: "NavigationTestStore",
+            exhaustivity: exhaustivity
+        )
         self.queue = queue
-        self.exhaustivity = exhaustivity
-        self.hasFinished = false
         self.underlying = NavigationStore(
             initial: initial,
             configuration: Self.wrapConfiguration(configuration, queue: queue)
@@ -87,14 +86,12 @@ public final class NavigationTestStore<R: Route> {
         // @MainActor-isolated deinit (SE-0371 / Swift 6.2). Safe to touch
         // MainActor state because the runtime schedules the deinit body
         // onto the MainActor executor.
-        if !hasFinished {
-            performExhaustivityCheck(
-                fileID: #fileID,
-                filePath: #filePath,
-                line: #line,
-                column: #column
-            )
-        }
+        queue.finishAtDeinitialization(
+            fileID: #fileID,
+            filePath: #filePath,
+            line: #line,
+            column: #column
+        )
     }
 
     // MARK: - Accessors
@@ -361,34 +358,41 @@ public final class NavigationTestStore<R: Route> {
 
     // MARK: - Completion
 
-    /// Asserts that no more events are queued. Fails if any remain.
-    public func expectNoMoreEvents(
+    /// Asserts and consumes events that are currently queued.
+    ///
+    /// This is a non-terminal checkpoint. Later store operations continue to
+    /// enqueue events. Use `finish()` once all test work has completed.
+    public func assertNoPendingEvents(
         fileID: String = #fileID,
         filePath: String = #filePath,
         line: Int = #line,
         column: Int = #column
     ) {
-        guard !queue.isEmpty else { return }
-        recordTestStoreIssue(
-            """
-            NavigationTestStore has \(queue.count) unasserted event(s):
-            \(queue.remaining.map { "  - \($0)" }.joined(separator: "\n"))
-            """,
-            fileID: fileID, filePath: filePath, line: line, column: column
+        queue.assertNoPendingEvents(
+            fileID: fileID,
+            filePath: filePath,
+            line: line,
+            column: column
         )
     }
 
-    /// Runs the exhaustivity check immediately, before the store deallocates.
-    /// Idempotent — subsequent `finish` calls and the automatic deinit check
-    /// are suppressed once invoked.
+    /// Runs the final exhaustivity check and closes the observation queue.
+    ///
+    /// The first event emitted after this call reports an issue in either
+    /// exhaustivity mode. Idempotent — subsequent calls and the automatic
+    /// deinit check are suppressed.
     public func finish(
         fileID: String = #fileID,
         filePath: String = #filePath,
         line: Int = #line,
         column: Int = #column
     ) {
-        guard !hasFinished else { return }
-        performExhaustivityCheck(fileID: fileID, filePath: filePath, line: line, column: column)
+        queue.finish(
+            fileID: fileID,
+            filePath: filePath,
+            line: line,
+            column: column
+        )
     }
 
     /// Drains any unasserted events without firing. Useful in `.off`
@@ -399,24 +403,6 @@ public final class NavigationTestStore<R: Route> {
     }
 
     // MARK: - Internals
-
-    private func performExhaustivityCheck(
-        fileID: String,
-        filePath: String,
-        line: Int,
-        column: Int
-    ) {
-        hasFinished = true
-        guard exhaustivity == .strict else { return }
-        guard !queue.isEmpty else { return }
-        recordTestStoreIssue(
-            """
-            NavigationTestStore deallocated with \(queue.count) unasserted event(s):
-            \(queue.remaining.map { "  - \($0)" }.joined(separator: "\n"))
-            """,
-            fileID: fileID, filePath: filePath, line: line, column: column
-        )
-    }
 
     private static func wrapConfiguration(
         _ original: NavigationStoreConfiguration<R>,

@@ -32,7 +32,7 @@ struct FlowTestStoreTypedReceiversTests {
         // The .pathChanged event still trails — drain it via predicate-free
         // helper to keep the harness exhaustive.
         store.receivePathChanged()
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("receiveNavigationChanged without predicate accepts any payload")
@@ -44,7 +44,7 @@ struct FlowTestStoreTypedReceiversTests {
 
         store.receiveNavigationChanged()
         store.receivePathChanged()
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     // MARK: - Modal success paths
@@ -62,7 +62,7 @@ struct FlowTestStoreTypedReceiversTests {
         // Trailing .commandIntercepted + .pathChanged events.
         store.receiveModalCommandIntercepted()
         store.receivePathChanged()
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     @Test("receiveModalCommandIntercepted matches an .executed result")
@@ -79,7 +79,7 @@ struct FlowTestStoreTypedReceiversTests {
             return false
         }
         store.receivePathChanged()
-        store.expectNoMoreEvents()
+        store.finish()
     }
 
     // MARK: - Wrong-case failure paths
