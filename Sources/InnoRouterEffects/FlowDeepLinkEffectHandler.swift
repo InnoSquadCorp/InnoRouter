@@ -3,8 +3,8 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
-@_exported import InnoRouterCore
-@_exported import InnoRouterDeepLink
+import InnoRouterCore
+import InnoRouterDeepLink
 
 /// Bridges ``FlowDeepLinkPipeline`` output into a ``FlowPlanApplier``
 /// (typically a `FlowStore`) so a single URL rehydrates a push +
@@ -110,42 +110,8 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
         }
     }
 
-    /// Async variant: allows the caller to await a live
-    /// authentication probe (e.g. a token refresh) before
-    /// re-evaluating the gate.
-    @discardableResult
-    public func resumePendingDeepLinkIfAllowed(
-        _ authorize: @escaping @MainActor @Sendable (FlowPendingDeepLink<R>) async -> Bool
-    ) async -> Result {
-        await InternalExecutionTrace.withSpan(
-            domain: .deepLink,
-            operation: "resumePendingDeepLinkIfAllowed",
-            recorder: traceRecorder
-        ) {
-            guard let pending = pendingDeepLink else {
-                return .noPendingDeepLink
-            }
-            let captured = pending
-            let isAuthorized = await authorize(captured)
-
-            guard self.pendingDeepLink == captured else {
-                if let current = self.pendingDeepLink {
-                    return .pending(current)
-                }
-                return .noPendingDeepLink
-            }
-
-            guard isAuthorized else {
-                return .pending(captured)
-            }
-            return resumePendingDeepLink()
-        } outcome: { result in
-            Self.traceOutcome(for: result)
-        }
-    }
-
-    /// Throwing async variant for auth probes that can fail before a
-    /// boolean authorization decision is available.
+    /// Allows the caller to await either a throwing or nonthrowing live
+    /// authentication probe before re-evaluating the gate.
     @discardableResult
     public func resumePendingDeepLinkIfAllowed(
         _ authorize: @escaping @MainActor @Sendable (FlowPendingDeepLink<R>) async throws -> Bool

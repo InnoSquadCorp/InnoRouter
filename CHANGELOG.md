@@ -8,6 +8,19 @@ are bare semver (no leading `v`).
 
 ### Breaking
 
+- `NavigationEffectHandler` now exposes only result-bearing command, batch,
+  transaction, and guarded execution methods. The result-discarding `push`,
+  `pop`, `popToRoot`, and `replace(with:)` wrappers are removed; call
+  `execute(_:)` with the corresponding `NavigationCommand` and inspect its
+  result. The two batch overloads are folded into
+  `execute(_:stopOnFailure:)`, whose default remains `false`, so existing
+  batch call syntax is unchanged. The unused `canExecuteSequentially(_:)`
+  helper and public `state` mirror are also removed. Retain the injected
+  navigator when its state must be read independently, and use
+  `NavigationPlan.validationFailure(on:)` when preflighting a deep-link plan.
+- Both deep-link effect handlers replace duplicate throwing and nonthrowing
+  `resumePendingDeepLinkIfAllowed(_:)` overloads with one `async rethrows`
+  method. Existing throwing and nonthrowing call sites keep the same syntax.
 - The source-compatibility `InnoRouterNavigationEffects` and
   `InnoRouterDeepLinkEffects` products and modules are removed as planned for
   the 5.0 boundary. Their handlers, effect protocols, and DocC articles now

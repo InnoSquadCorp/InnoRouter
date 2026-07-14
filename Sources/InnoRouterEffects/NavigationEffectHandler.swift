@@ -3,7 +3,7 @@
 // Copyright © 2025 Inno Squad. All rights reserved.
 
 import Foundation
-@_exported import InnoRouterCore
+import InnoRouterCore
 
 /// App-boundary helper that executes navigation intents emitted from
 /// non-SwiftUI features (InnoFlow effects, coordinator-owned async
@@ -53,14 +53,9 @@ public final class NavigationEffectHandler<R: Route> {
     }
 
     @discardableResult
-    public func execute(_ commands: [NavigationCommand<R>]) -> NavigationBatchResult<R> {
-        execute(commands, stopOnFailure: false)
-    }
-
-    @discardableResult
     public func execute(
         _ commands: [NavigationCommand<R>],
-        stopOnFailure: Bool
+        stopOnFailure: Bool = false
     ) -> NavigationBatchResult<R> {
         let batchResult = executeBatchCommands(commands, stopOnFailure)
         broadcaster.broadcast(.batch(commands: commands, result: batchResult))
@@ -76,23 +71,7 @@ public final class NavigationEffectHandler<R: Route> {
         return transactionResult
     }
 
-    public func push(_ route: R) {
-        _ = execute(.push(route))
-    }
-
-    public func pop() {
-        _ = execute(.pop)
-    }
-
-    public func popToRoot() {
-        _ = execute(.popToRoot)
-    }
-
-    public func replace(with routes: [R]) {
-        _ = execute(.replace(routes))
-    }
-
-    public var state: RouteStack<R> {
+    var state: RouteStack<R> {
         readState()
     }
 
@@ -107,20 +86,6 @@ public final class NavigationEffectHandler<R: Route> {
             return result
         }
         return execute(command)
-    }
-
-    /// Returns `true` when every command in the batch would succeed against the current
-    /// ``RouteStack`` when executed sequentially. Used by async guards to pre-flight a
-    /// plan after `await` without committing any change.
-    public func canExecuteSequentially(_ commands: [NavigationCommand<R>]) -> Bool {
-        var preview = readState()
-        let engine = NavigationEngine<R>()
-        for command in commands {
-            if !engine.apply(command, to: &preview).isSuccess {
-                return false
-            }
-        }
-        return true
     }
 
     @discardableResult

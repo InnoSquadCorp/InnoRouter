@@ -3,8 +3,8 @@
 // Copyright © 2025 Inno Squad. All rights reserved.
 
 import Foundation
-@_exported import InnoRouterCore
-@_exported import InnoRouterDeepLink
+import InnoRouterCore
+import InnoRouterDeepLink
 
 /// App-boundary helper that runs a `DeepLinkPipeline` against an
 /// incoming URL and dispatches the resulting `NavigationPlan` through
@@ -83,29 +83,6 @@ public final class DeepLinkEffectHandler<R: Route> {
 
         self.pendingDeepLink = nil
         return result(for: pendingDeepLink.plan)
-    }
-
-    public func resumePendingDeepLinkIfAllowed(
-        _ authorize: @escaping @MainActor @Sendable (PendingDeepLink<R>) async -> Bool
-    ) async -> Result {
-        guard let pendingDeepLink else {
-            return .noPendingDeepLink
-        }
-        let capturedPendingDeepLink = pendingDeepLink
-        let isAuthorized = await authorize(capturedPendingDeepLink)
-
-        guard self.pendingDeepLink == capturedPendingDeepLink else {
-            if let currentPendingDeepLink = self.pendingDeepLink {
-                return .pending(currentPendingDeepLink)
-            }
-            return .noPendingDeepLink
-        }
-
-        guard isAuthorized else {
-            return .pending(capturedPendingDeepLink)
-        }
-
-        return resumePendingDeepLink()
     }
 
     public func resumePendingDeepLinkIfAllowed(

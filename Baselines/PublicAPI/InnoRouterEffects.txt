@@ -30,7 +30,6 @@ relationship | memberOf | FlowDeepLinkEffectHandler.pendingDeepLink | FlowDeepLi
 relationship | memberOf | FlowDeepLinkEffectHandler.restore(pending:) | FlowDeepLinkEffectHandler |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.resumePendingDeepLink() | FlowDeepLinkEffectHandler |  |
 relationship | memberOf | FlowDeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | FlowDeepLinkEffectHandler |  |
-relationship | memberOf | NavigationEffectHandler.canExecuteSequentially(_:) | NavigationEffectHandler |  |
 relationship | memberOf | NavigationEffectHandler.events | NavigationEffectHandler |  |
 relationship | memberOf | NavigationEffectHandler.execute(_:) | NavigationEffectHandler |  |
 relationship | memberOf | NavigationEffectHandler.execute(_:stopOnFailure:) | NavigationEffectHandler |  |
@@ -39,11 +38,6 @@ relationship | memberOf | NavigationEffectHandler.executeIf(_:command:) | Naviga
 relationship | memberOf | NavigationEffectHandler.executeTransaction(_:) | NavigationEffectHandler |  |
 relationship | memberOf | NavigationEffectHandler.handle(_:) | NavigationEffectHandler |  |
 relationship | memberOf | NavigationEffectHandler.init(navigator:) | NavigationEffectHandler |  |
-relationship | memberOf | NavigationEffectHandler.pop() | NavigationEffectHandler |  |
-relationship | memberOf | NavigationEffectHandler.popToRoot() | NavigationEffectHandler |  |
-relationship | memberOf | NavigationEffectHandler.push(_:) | NavigationEffectHandler |  |
-relationship | memberOf | NavigationEffectHandler.replace(with:) | NavigationEffectHandler |  |
-relationship | memberOf | NavigationEffectHandler.state | NavigationEffectHandler |  |
 relationship | memberOf | NavigationEffectHandlerEvent.batch(commands:result:) | NavigationEffectHandlerEvent |  |
 relationship | memberOf | NavigationEffectHandlerEvent.command(command:result:) | NavigationEffectHandlerEvent |  |
 relationship | memberOf | NavigationEffectHandlerEvent.transaction(commands:result:) | NavigationEffectHandlerEvent |  |
@@ -86,7 +80,6 @@ symbol | swift.method | DeepLinkEffectHandler.handle(_:) | handle(_:) | @MainAct
 symbol | swift.method | DeepLinkEffectHandler.handle(_:) | handle(_:) | @MainActor func handle(_ urlString: String) -> DeepLinkEffectHandler<R>.Result | []
 symbol | swift.method | DeepLinkEffectHandler.handle(_:) | handle(_:) | @MainActor func handle<E>(_ effect: E) -> DeepLinkEffectHandler<R>.Result where E : DeepLinkEffect | []
 symbol | swift.method | DeepLinkEffectHandler.resumePendingDeepLink() | resumePendingDeepLink() | @MainActor func resumePendingDeepLink() -> DeepLinkEffectHandler<R>.Result | []
-symbol | swift.method | DeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | resumePendingDeepLinkIfAllowed(_:) | @MainActor func resumePendingDeepLinkIfAllowed(_ authorize: @escaping @MainActor (PendingDeepLink<R>) async -> Bool) async -> DeepLinkEffectHandler<R>.Result | []
 symbol | swift.method | DeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | resumePendingDeepLinkIfAllowed(_:) | @MainActor func resumePendingDeepLinkIfAllowed(_ authorize: @escaping @MainActor (PendingDeepLink<R>) async throws -> Bool) async rethrows -> DeepLinkEffectHandler<R>.Result | []
 symbol | swift.method | FlowDeepLinkEffectHandler.clearPendingDeepLink() | clearPendingDeepLink() | @MainActor func clearPendingDeepLink() | []
 symbol | swift.method | FlowDeepLinkEffectHandler.handle(_:) | handle(_:) | @discardableResult @MainActor func handle(_ url: URL) -> FlowDeepLinkEffectHandler<R>.Result | []
@@ -94,26 +87,18 @@ symbol | swift.method | FlowDeepLinkEffectHandler.handle(_:) | handle(_:) | @dis
 symbol | swift.method | FlowDeepLinkEffectHandler.handle(_:) | handle(_:) | @discardableResult @MainActor func handle<E>(_ effect: E) -> FlowDeepLinkEffectHandler<R>.Result where E : DeepLinkEffect | []
 symbol | swift.method | FlowDeepLinkEffectHandler.restore(pending:) | restore(pending:) | @MainActor func restore(pending: FlowPendingDeepLink<R>) | []
 symbol | swift.method | FlowDeepLinkEffectHandler.resumePendingDeepLink() | resumePendingDeepLink() | @discardableResult @MainActor func resumePendingDeepLink() -> FlowDeepLinkEffectHandler<R>.Result | []
-symbol | swift.method | FlowDeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | resumePendingDeepLinkIfAllowed(_:) | @discardableResult @MainActor func resumePendingDeepLinkIfAllowed(_ authorize: @escaping @MainActor (FlowPendingDeepLink<R>) async -> Bool) async -> FlowDeepLinkEffectHandler<R>.Result | []
 symbol | swift.method | FlowDeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | resumePendingDeepLinkIfAllowed(_:) | @discardableResult @MainActor func resumePendingDeepLinkIfAllowed(_ authorize: @escaping @MainActor (FlowPendingDeepLink<R>) async throws -> Bool) async rethrows -> FlowDeepLinkEffectHandler<R>.Result | []
-symbol | swift.method | NavigationEffectHandler.canExecuteSequentially(_:) | canExecuteSequentially(_:) | @MainActor func canExecuteSequentially(_ commands: [NavigationCommand<R>]) -> Bool | []
 symbol | swift.method | NavigationEffectHandler.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> | []
-symbol | swift.method | NavigationEffectHandler.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ commands: [NavigationCommand<R>]) -> NavigationBatchResult<R> | []
-symbol | swift.method | NavigationEffectHandler.execute(_:stopOnFailure:) | execute(_:stopOnFailure:) | @discardableResult @MainActor func execute(_ commands: [NavigationCommand<R>], stopOnFailure: Bool) -> NavigationBatchResult<R> | []
+symbol | swift.method | NavigationEffectHandler.execute(_:stopOnFailure:) | execute(_:stopOnFailure:) | @discardableResult @MainActor func execute(_ commands: [NavigationCommand<R>], stopOnFailure: Bool = false) -> NavigationBatchResult<R> | []
 symbol | swift.method | NavigationEffectHandler.executeGuarded(_:prepare:) | executeGuarded(_:prepare:) | @discardableResult @MainActor func executeGuarded(_ command: NavigationCommand<R>, prepare: @escaping @MainActor (NavigationCommand<R>) async -> NavigationInterception<R>) async -> NavigationResult<R> | []
 symbol | swift.method | NavigationEffectHandler.executeIf(_:command:) | executeIf(_:command:) | @discardableResult @MainActor func executeIf(_ shouldExecute: @escaping () -> Bool, command: NavigationCommand<R>) -> NavigationResult<R> | []
 symbol | swift.method | NavigationEffectHandler.executeTransaction(_:) | executeTransaction(_:) | @discardableResult @MainActor func executeTransaction(_ commands: [NavigationCommand<R>]) -> NavigationTransactionResult<R> | []
 symbol | swift.method | NavigationEffectHandler.handle(_:) | handle(_:) | @discardableResult @MainActor func handle<E>(_ effect: E) -> NavigationResult<R>? where R == E.RouteType, E : NavigationEffect | []
-symbol | swift.method | NavigationEffectHandler.pop() | pop() | @MainActor func pop() | []
-symbol | swift.method | NavigationEffectHandler.popToRoot() | popToRoot() | @MainActor func popToRoot() | []
-symbol | swift.method | NavigationEffectHandler.push(_:) | push(_:) | @MainActor func push(_ route: R) | []
-symbol | swift.method | NavigationEffectHandler.replace(with:) | replace(with:) | @MainActor func replace(with routes: [R]) | []
 symbol | swift.property | DeepLinkEffect.deepLinkURL | deepLinkURL | var deepLinkURL: URL? { get } | []
 symbol | swift.property | DeepLinkEffectHandler.pendingDeepLink | pendingDeepLink | @MainActor var pendingDeepLink: PendingDeepLink<R>? { get } | []
 symbol | swift.property | FlowDeepLinkEffectHandler.pendingDeepLink | pendingDeepLink | @MainActor var pendingDeepLink: FlowPendingDeepLink<R>? { get } | []
 symbol | swift.property | NavigationEffect.navigationCommand | navigationCommand | var navigationCommand: NavigationCommand<Self.RouteType>? { get } | []
 symbol | swift.property | NavigationEffectHandler.events | events | @MainActor var events: AsyncStream<NavigationEffectHandlerEvent<R>> { get } | []
-symbol | swift.property | NavigationEffectHandler.state | state | @MainActor var state: RouteStack<R> { get } | []
 symbol | swift.protocol | DeepLinkEffect | DeepLinkEffect | protocol DeepLinkEffect | []
 symbol | swift.protocol | NavigationEffect | NavigationEffect | protocol NavigationEffect | []
 symbol | swift.type.method | DeepLinkEffect.deepLink(_:) | deepLink(_:) | static func deepLink(_ url: URL) -> Self | []

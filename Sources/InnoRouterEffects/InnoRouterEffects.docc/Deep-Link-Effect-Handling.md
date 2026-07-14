@@ -28,6 +28,6 @@ The handler keeps deep-link execution explicit:
 - it lets callers drop the slot explicitly via `clearPendingDeepLink()`
 
 Use `resumePendingDeepLinkIfAllowed` when auth state must be checked
-asynchronously before replaying a stored plan. A throwing overload is
-available for token refresh or session probes that can fail before a
-boolean authorization decision exists.
+asynchronously before replaying a stored plan. Its `rethrows` contract accepts
+both nonthrowing authorization checks and token refresh or session probes that
+can fail before a boolean authorization decision exists.

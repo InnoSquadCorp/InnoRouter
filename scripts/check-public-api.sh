@@ -161,13 +161,13 @@ checks = [
     (
         "Sources/InnoRouterEffects/DeepLinkEffectHandler.swift",
         [
-            "_ authorize: @escaping @MainActor @Sendable (PendingDeepLink<R>) async -> Bool",
+            "_ authorize: @escaping @MainActor @Sendable (PendingDeepLink<R>) async throws -> Bool",
         ],
     ),
     (
         "Sources/InnoRouterEffects/FlowDeepLinkEffectHandler.swift",
         [
-            "_ authorize: @escaping @MainActor @Sendable (FlowPendingDeepLink<R>) async -> Bool",
+            "_ authorize: @escaping @MainActor @Sendable (FlowPendingDeepLink<R>) async throws -> Bool",
         ],
     ),
     (
