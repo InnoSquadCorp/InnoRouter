@@ -22,7 +22,6 @@ import Synchronization
 import InnoRouter
 import InnoRouterDeepLink
 import InnoRouterEffects
-import InnoRouterMacros
 
 // MARK: - Routes
 

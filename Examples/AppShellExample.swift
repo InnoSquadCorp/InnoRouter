@@ -2,7 +2,6 @@ import OSLog
 import SwiftUI
 
 import InnoRouter
-import InnoRouterMacros
 
 @Routable
 enum HomeShellRoute {

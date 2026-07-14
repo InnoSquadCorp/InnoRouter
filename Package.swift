@@ -7,8 +7,8 @@ import CompilerPluginSupport
 //
 // Every per-file example target has the identical shape:
 // `path: <directory>`, exclude every sibling source, include only
-// the named source, depend on the InnoRouter umbrella (+ optionally
-// `InnoRouterMacros`). Hand-rolling that for nine targets repeats
+// the named source, and depend on the macro-first InnoRouter umbrella.
+// Hand-rolling that for nine targets repeats
 // the same exclude list nine times and is the source of every
 // "added a new example, forgot to update sibling exclude lists"
 // drift. The two helpers below collapse the boilerplate to a
@@ -70,7 +70,7 @@ private func exampleTarget(
     source: String,
     additionalDependencies: [Target.Dependency] = []
 ) -> Target {
-    let dependencies: [Target.Dependency] = ["InnoRouter", "InnoRouterMacros"] + additionalDependencies
+    let dependencies: [Target.Dependency] = ["InnoRouter"] + additionalDependencies
 
     return .target(
         name: name,
@@ -209,7 +209,7 @@ let package = Package(
         // MARK: - Umbrella Target
         .target(
             name: "InnoRouter",
-            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterDeepLink"],
+            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterDeepLink", "InnoRouterMacros"],
             path: "Sources/InnoRouterUmbrella",
             resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6)]
@@ -285,7 +285,7 @@ let package = Package(
         // `soloSmokeSources` — the shared target picks it up automatically.
         .target(
             name: "InnoRouterExamplesSmoke",
-            dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterMacros", "InnoRouterSpatial"],
+            dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterSpatial"],
             path: "ExamplesSmoke",
             exclude: soloSmokeSources + ["README.md"],
             sources: smokeSources.filter { !soloSmokeSources.contains($0) },

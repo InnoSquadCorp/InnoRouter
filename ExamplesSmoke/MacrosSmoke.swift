@@ -1,5 +1,15 @@
+import SwiftUI
+
 import InnoRouter
-import InnoRouterMacros
+
+@Router
+enum RouterMacroSmokeRoute {
+    case settings
+
+    var destination: some View {
+        Text("Settings")
+    }
+}
 
 @Routable
 enum MacrosSmokeRoute {
@@ -19,6 +29,11 @@ enum MacrosSmokeEvent {
 @MainActor
 enum MacrosSmokeConsumer {
     static func exercise() {
+        let routerHost = RouterHost(RouterMacroSmokeRoute.self) {
+            Text("Root")
+        }
+        _ = routerHost.body
+
         let route = MacrosSmokeRoute.detail(id: "42")
         let preview = MacrosSmokeRoute.preview("99", section: 2)
 

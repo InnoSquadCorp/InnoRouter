@@ -8,7 +8,6 @@
 import SwiftUI
 
 import InnoRouter
-import InnoRouterMacros
 
 @Routable
 enum MultiPlatformRoute {

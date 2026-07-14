@@ -1,7 +1,6 @@
 import SwiftUI
 
 import InnoRouter
-import InnoRouterMacros
 
 @Routable
 enum AppRoute {

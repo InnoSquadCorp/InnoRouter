@@ -1,44 +1,40 @@
 import SwiftUI
 
 import InnoRouter
-import InnoRouterMacros
 
-@Routable
+@Router
 enum HomeRoute {
-    case list
     case detail(id: String)
     case settings
+
+    var destination: some View {
+        switch self {
+        case .detail(let id):
+            Text("Detail \(id)")
+        case .settings:
+            Text("Settings")
+        }
+    }
 }
 
 struct StandaloneExampleView: View {
-    @State private var store = NavigationStore<HomeRoute>()
-
     var body: some View {
-        NavigationHost(store: store) { route in
-            switch route {
-            case .list:
-                HomeListView()
-            case .detail(let id):
-                Text("Detail \(id)")
-            case .settings:
-                Text("Settings")
-            }
-        } root: {
+        RouterHost(HomeRoute.self) {
             HomeListView()
         }
     }
 }
 
 struct HomeListView: View {
-    @EnvironmentNavigationIntent(HomeRoute.self) private var navigationIntent
+    @EnvironmentRouter(HomeRoute.self) private var router
 
     var body: some View {
         List {
             Button("Go Detail") {
-                navigationIntent(.go(.detail(id: "123")))
+                router.go(.detail(id: "123"))
             }
             Button("Go Settings") {
-                navigationIntent(.go(.settings))
+                router.go(.settings)
             }
         }
         .navigationTitle("Home")
