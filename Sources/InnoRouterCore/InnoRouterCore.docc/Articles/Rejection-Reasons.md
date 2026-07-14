@@ -32,7 +32,7 @@ associated values.
 
 | Case | When it fires | Typical handling |
 |---|---|---|
-| `.cancelled(reason)` | Middleware cancelled the command | Inspect `reason` (`.middleware`, `.conditionFailed`, `.custom(_)`) |
+| `.cancelled(reason)` | Middleware or guarded execution cancelled the command | Inspect `reason` (`.middleware`, `.conditionFailed`, `.custom(_)`, `.staleAfterPrepare`) |
 | `.emptyStack` | `.pop` / `.popCount` / `.popToRoot` on an already-empty stack | Treat as no-op, or gate the intent upstream |
 | `.invalidPopCount(Int)` | Negative or zero pop count | App-level validation bug; audit the call site |
 | `.insufficientStackDepth(requested:available:)` | Asked to pop more frames than exist | Clamp the pop count or treat as `popToRoot` |
@@ -46,6 +46,7 @@ associated values.
 | `.middleware(debugName:command:)` | A registered middleware cancelled the command; `debugName` identifies which one |
 | `.conditionFailed` | A `NavigationInterception.cancel(.conditionFailed)` was returned |
 | `.custom(String)` | A middleware surfaced a custom reason string |
+| `.staleAfterPrepare(command:)` | An async guarded command was valid before `prepare` suspended but no longer valid against the current stack when preparation finished |
 
 ## Modal
 
@@ -55,8 +56,10 @@ associated values.
 
 ### `ModalCancellationReason`
 
-Identical shape to `NavigationCancellationReason` but parameterised on
-`ModalCommand<M>`:
+Shares the middleware, condition, and custom cases with
+`NavigationCancellationReason`, parameterised on `ModalCommand<M>`.
+Navigation's async guarded-execution-only `.staleAfterPrepare` case has no
+modal equivalent.
 
 | Case | When it fires |
 |---|---|
@@ -91,10 +94,11 @@ Identical shape to `NavigationCancellationReason` but parameterised on
 | Case | When it fires | Typical handling |
 |---|---|---|
 | `.environmentReturnedFailure` | `OpenImmersiveSpaceAction.Result` was `.userCancelled` or `.error` | User intent; surface a retry affordance if appropriate |
-| `.nothingActive` | `dismissImmersive()` called with no active immersive space | Gate upstream; or ignore as idempotent |
-| `.activeSceneMismatch` | Dismiss target does not match the active scene | Inventory is out of sync; inspect `store.currentScene` |
+| `.nothingActive` | `dismissImmersive()` called while the entire scene inventory is empty | Gate upstream; or ignore as idempotent |
+| `.activeSceneMismatch` | `dismissImmersive()` called with no active immersive space while another window or volume remains active | Inspect `store.activeScenes`; dismiss the intended scene type instead |
 | `.sceneNotDeclared` | Requested route missing from the shared `SceneRegistry` | Add the declaration, or fix the route |
 | `.sceneDeclarationMismatch` | Presentation kind / size / style does not match the registry entry | Use the registry's declaration unchanged |
+| `.sceneInstanceNotActive` | `dismissWindow(_:)` received a window or volume presentation UUID that is not active in the inventory | Keep the exact presentation returned by `openWindow` / `openVolumetric`, and avoid stale handles |
 | `.supersededByNewerIntent` | A newer intent replaced the pending one before the host committed it | Expected during rapid intent bursts; no action |
 | `.fallbackCannotDispatch` | A fallback `innoRouterSceneAnchor` cannot serve a cross-scene open (the primary host scene is not live) | Re-attach `innoRouterSceneHost`, or surface UI asking the user to focus the target scene |
 | `.duplicateHostRegistration` | A second `innoRouterSceneHost` tried to register with the same store | Enforce one host per store; usually a SwiftUI scene-rehydration artefact |
@@ -112,6 +116,7 @@ Identical shape to `NavigationCancellationReason` but parameterised on
 |---|---|---|
 | `.schemeNotAllowed(actualScheme:)` | URL scheme not in `allowedSchemes` | Log, drop the URL silently, or surface a diagnostic |
 | `.hostNotAllowed(actualHost:)` | URL host not in `allowedHosts` | Same |
+| `.inputLimitExceeded(violation)` | Raw URL length, path segment count, query item count, or decoded component size exceeds `DeepLinkInputLimits` | Reject the input without retrying; adjust limits only when the app intentionally accepts a larger contract |
 
 ### Deep-link effect results
 
@@ -124,7 +129,7 @@ The typed outcome from `DeepLinkEffectHandler` / `FlowDeepLinkEffectHandler`:
 | `.applicationRejected(plan:failure:)` | The push-only handler's preflight rejected the plan before batch execution, so navigation state is unchanged |
 | `.applicationRejected(plan:path:reason:)` | The flow authority rejected an atomic plan; `path` is its snapshot at the rejection point and `reason` preserves the exact `FlowRejectionReason` |
 | `.pending(_)` | Authorisation deferred; plan stored as `pendingDeepLink` for later replay |
-| `.rejected(reason:)` | URL rejected by scheme/host policy — see `DeepLinkRejectionReason` above |
+| `.rejected(reason:)` | URL rejected by scheme, host, or input-limit policy — see `DeepLinkRejectionReason` above |
 | `.unhandled(url:)` | URL did not resolve to any route |
 | `.invalidURL(input:)` | A string input could not be parsed as a URL |
 | `.missingDeepLinkURL` | A `DeepLinkEffect` carried no URL |

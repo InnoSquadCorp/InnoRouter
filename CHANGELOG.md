@@ -199,6 +199,10 @@ are bare semver (no leading `v`).
   exact presentation UUID. A value-based window can therefore open another
   instance of its own declared scene while the primary host is absent; genuinely
   cross-scene opens remain rejected with `.fallbackCannotDispatch`.
+- The rejection-reasons catalog now covers every cancellation/rejection enum
+  case and reflects the actual immersive-dismiss distinction between an empty
+  inventory and a non-immersive active scene. The docs consistency gate now
+  fails when a new reason is added without a matching catalog entry.
 - Push and flow deep-link effect handlers now identify pending replay requests
   by an internal revision instead of value equality. If an equal URL and plan
   is handled again—or, for flow links, restored—while an asynchronous

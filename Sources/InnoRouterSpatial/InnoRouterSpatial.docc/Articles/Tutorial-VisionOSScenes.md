@@ -145,8 +145,9 @@ the host emits a
 and leaves the active scene inventory untouched. `currentScene` remains
 a recency-ordered summary of that inventory, while `activeScenes`
 exposes the full inventory. Calling `dismissImmersive()` without an active
-immersive scene emits
-`SceneEvent.rejected(.dismissImmersive, reason: .nothingActive)`.
+immersive scene emits `.nothingActive` only when the entire inventory is empty.
+If a window or volume remains active, it emits
+`SceneEvent.rejected(.dismissImmersive, reason: .activeSceneMismatch)` instead.
 `innoRouterSceneAnchor` still never emits public lifecycle events; it reconciles
 inventory when the system opens or closes a scene outside the store's
 explicit command path and can temporarily forward commands while the
