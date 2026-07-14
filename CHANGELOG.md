@@ -212,6 +212,10 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Cancelling a visionOS scene host while it awaits cleanup of a superseded
+  immersive open now reconciles and releases the claimed request before the
+  dispatch loop exits. Queued scene requests no longer remain permanently
+  blocked behind an `awaitingSupersededImmersiveOpenCleanup` claim.
 - Release publishing now fails closed when the existing `gh-pages` site cannot
   be checked out or lacks its root portal, and every version unconditionally
   merges that snapshot before deployment. All release runs share a queued

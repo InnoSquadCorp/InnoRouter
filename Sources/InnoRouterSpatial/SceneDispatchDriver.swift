@@ -92,12 +92,16 @@ internal struct SceneDispatchDriver<R: Route> {
 
                 if completion == .cleanupSupersededImmersiveOpen {
                     await dismissImmersiveSpace()
+
+                    // The environment dismissal has completed even when
+                    // cancellation arrived while it was suspended. Reconcile
+                    // the cleanup before leaving so the superseded claim
+                    // cannot permanently block queued requests.
+                    _ = store.finishSupersededImmersiveOpenCleanup(requestID: requestID)
+
                     if Task.isCancelled {
-                        // The cleanup transition already released the
-                        // superseded claim in state; nothing to abandon.
                         break dispatchLoop
                     }
-                    _ = store.finishSupersededImmersiveOpenCleanup(requestID: requestID)
                 }
 
             case .dismissWindow(let id, let value, let presentation):

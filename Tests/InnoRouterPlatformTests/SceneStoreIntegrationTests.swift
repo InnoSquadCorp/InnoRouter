@@ -664,6 +664,74 @@ struct SceneStoreIntegrationTests {
         #expect(await dismissCount.read() == 0)
         #expect(store.currentScene == theatrePresentation)
     }
+
+    @Test("Cancelling superseded immersive cleanup releases the claim for the next dispatcher")
+    @MainActor
+    func cancelledSupersededImmersiveCleanupReleasesClaim() async throws {
+        let store = SceneStore<SpatialRoute>()
+        let scenes = makeRegistry()
+        let openEntered = AsyncSignal()
+        let dismissEntered = AsyncSignal()
+
+        let hostToken = UUID()
+        _ = store.registerDispatcherHost(hostToken)
+
+        store.openImmersive(.theatre, style: .mixed)
+
+        let driver = SceneDispatchDriver<SpatialRoute>(
+            store: store,
+            scenes: scenes,
+            dispatcherToken: hostToken,
+            capability: .primaryHost,
+            openWindow: { _, _ in },
+            openImmersiveSpace: { _ in
+                await openEntered.signal()
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                return .opened
+            },
+            dismissImmersiveSpace: {
+                await dismissEntered.signal()
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+            },
+            dismissWindow: { _, _ in }
+        )
+
+        let driverTask = Task { @MainActor in
+            await driver.run()
+        }
+
+        await openEntered.wait()
+        store.openWindow(.main)
+        await dismissEntered.wait()
+        driverTask.cancel()
+        _ = await driverTask.value
+
+        #expect(store.currentClaimedRequestID == nil)
+        #expect(store.currentPendingRequestID != nil)
+
+        var openedWindowIDs: [String] = []
+        let replacementDriver = SceneDispatchDriver<SpatialRoute>(
+            store: store,
+            scenes: scenes,
+            dispatcherToken: hostToken,
+            capability: .primaryHost,
+            openWindow: { id, _ in openedWindowIDs.append(id) },
+            openImmersiveSpace: { _ in
+                Issue.record("replacement driver must not reopen the superseded immersive scene")
+                return .userCancelled
+            },
+            dismissImmersiveSpace: {
+                Issue.record("replacement driver must not repeat completed immersive cleanup")
+            },
+            dismissWindow: { _, _ in }
+        )
+
+        await replacementDriver.run()
+
+        #expect(openedWindowIDs == ["main"])
+        #expect(store.currentClaimedRequestID == nil)
+        #expect(store.currentPendingRequestID == nil)
+    }
 }
 
 #endif
