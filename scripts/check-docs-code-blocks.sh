@@ -103,6 +103,7 @@ for file_path in "${DOC_FILES[@]}"; do
   block_body=""
   line_number=0
 
+  # shellcheck disable=SC2094 # The loop reads file_path while snippets are written only under TMP_DIR.
   while IFS= read -r line || [[ -n "$line" ]]; do
     line_number=$((line_number + 1))
 

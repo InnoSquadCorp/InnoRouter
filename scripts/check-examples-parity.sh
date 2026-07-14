@@ -28,7 +28,7 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 
 EXAMPLES_DIR="Examples"
 SMOKE_DIR="ExamplesSmoke"
@@ -146,4 +146,4 @@ if (( errors > 0 )); then
     exit 1
 fi
 
-echo "✅ Examples↔ExamplesSmoke parity OK ("${#example_bases[@]}" examples, "${#smoke_files[@]}" smokes)"
+echo "✅ Examples↔ExamplesSmoke parity OK (${#example_bases[@]} examples, ${#smoke_files[@]} smokes)"
