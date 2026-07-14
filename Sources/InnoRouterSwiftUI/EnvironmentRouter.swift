@@ -18,22 +18,10 @@ public struct RouterActions<R: Route>: Sendable {
         dispatch(intent)
     }
 
-    /// Pushes `route`. This enables the shorthand `router(.detail)`.
-    @MainActor
-    public func callAsFunction(_ route: R) {
-        go(route)
-    }
-
     /// Pushes one route.
     @MainActor
     public func go(_ route: R) {
         dispatch(.go(route))
-    }
-
-    /// Pushes routes in order.
-    @MainActor
-    public func goMany(_ routes: [R]) {
-        dispatch(.goMany(routes))
     }
 
     /// Pops one route.
@@ -60,23 +48,6 @@ public struct RouterActions<R: Route>: Sendable {
         dispatch(.backToRoot)
     }
 
-    /// Replaces the complete pushed-route stack.
-    @MainActor
-    public func replaceStack(with routes: [R]) {
-        dispatch(.replaceStack(routes))
-    }
-
-    /// Pops to `route` when present, otherwise pushes it.
-    @MainActor
-    public func backOrGo(to route: R) {
-        dispatch(.backOrPush(route))
-    }
-
-    /// Pushes `route` only when an equal route is not already present.
-    @MainActor
-    public func goIfNeeded(_ route: R) {
-        dispatch(.pushUniqueRoot(route))
-    }
 }
 
 /// Reads navigation actions for a route type from the nearest InnoRouter host.

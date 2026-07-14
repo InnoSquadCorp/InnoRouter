@@ -33,28 +33,18 @@ struct MacroFirstRuntimeTests {
             recorder.intents.append(intent)
         }
 
-        router(.detail(id: "call"))
         router.go(.detail(id: "go"))
-        router.goMany([.settings, .detail(id: "many")])
         router.back()
         router.back(by: 2)
         router.back(to: .settings)
         router.backToRoot()
-        router.replaceStack(with: [.settings])
-        router.backOrGo(to: .detail(id: "fallback"))
-        router.goIfNeeded(.settings)
 
         #expect(recorder.intents == [
-            .go(.detail(id: "call")),
             .go(.detail(id: "go")),
-            .goMany([.settings, .detail(id: "many")]),
             .back,
             .backBy(2),
             .backTo(.settings),
             .backToRoot,
-            .replaceStack([.settings]),
-            .backOrPush(.detail(id: "fallback")),
-            .pushUniqueRoot(.settings),
         ])
     }
 
@@ -66,9 +56,17 @@ struct MacroFirstRuntimeTests {
             recorder.intents.append(intent)
         }
 
-        router.send(.backToRoot)
+        router.send(.goMany([.settings, .detail(id: "many")]))
+        router.send(.replaceStack([.settings]))
+        router.send(.backOrPush(.detail(id: "fallback")))
+        router.send(.pushUniqueRoot(.settings))
 
-        #expect(recorder.intents == [.backToRoot])
+        #expect(recorder.intents == [
+            .goMany([.settings, .detail(id: "many")]),
+            .replaceStack([.settings]),
+            .backOrPush(.detail(id: "fallback")),
+            .pushUniqueRoot(.settings),
+        ])
     }
 
     @Test("DestinationRoute removes the destination closure from NavigationHost")
