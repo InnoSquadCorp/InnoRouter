@@ -64,23 +64,14 @@ public extension NavigationCommand {
     /// This makes command legality explicit without mutating router state or
     /// introducing a generic state-machine layer above navigation.
     ///
-    /// - Parameters:
-    ///   - state: The current `RouteStack` to validate against.
-    ///   - engine: The navigation engine to use. Defaults to a freshly
-    ///     constructed `NavigationEngine`. The engine is a stateless `struct`
-    ///     so the default initialiser is cheap, but if you call `validate`
-    ///     in a hot loop (e.g. property-based tests, plan synthesis,
-    ///     middleware that pre-flights every step) prefer passing a single
-    ///     reused engine to keep the call site allocation-free.
-    func validate(on state: RouteStack<R>, using engine: NavigationEngine<R> = .init()) -> NavigationResult<R> {
+    /// - Parameter state: The current `RouteStack` to validate against.
+    func validate(on state: RouteStack<R>) -> NavigationResult<R> {
         var preview = state
-        return engine.apply(self, to: &preview)
+        return NavigationEngine<R>().apply(self, to: &preview)
     }
 
     /// Returns `true` when the command can succeed on the provided stack.
-    ///
-    /// The same `engine` reuse advice from ``validate(on:using:)`` applies.
-    func canExecute(on state: RouteStack<R>, using engine: NavigationEngine<R> = .init()) -> Bool {
-        validate(on: state, using: engine).isSuccess
+    func canExecute(on state: RouteStack<R>) -> Bool {
+        validate(on: state).isSuccess
     }
 }

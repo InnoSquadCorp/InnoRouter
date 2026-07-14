@@ -95,7 +95,7 @@ relationship | memberOf | NavigationCancellationReason.localizedDescription | Na
 relationship | memberOf | NavigationCancellationReason.middleware(debugName:command:) | NavigationCancellationReason |  |
 relationship | memberOf | NavigationCancellationReason.staleAfterPrepare(command:) | NavigationCancellationReason |  |
 relationship | memberOf | NavigationCommand.==(_:_:) | NavigationCommand |  |
-relationship | memberOf | NavigationCommand.canExecute(on:using:) | NavigationCommand |  |
+relationship | memberOf | NavigationCommand.canExecute(on:) | NavigationCommand |  |
 relationship | memberOf | NavigationCommand.pop | NavigationCommand |  |
 relationship | memberOf | NavigationCommand.popCount(_:) | NavigationCommand |  |
 relationship | memberOf | NavigationCommand.popTo(_:) | NavigationCommand |  |
@@ -104,7 +104,7 @@ relationship | memberOf | NavigationCommand.push(_:) | NavigationCommand |  |
 relationship | memberOf | NavigationCommand.pushAll(_:) | NavigationCommand |  |
 relationship | memberOf | NavigationCommand.replace(_:) | NavigationCommand |  |
 relationship | memberOf | NavigationCommand.sequence(_:) | NavigationCommand |  |
-relationship | memberOf | NavigationCommand.validate(on:using:) | NavigationCommand |  |
+relationship | memberOf | NavigationCommand.validate(on:) | NavigationCommand |  |
 relationship | memberOf | NavigationCommand.whenCancelled(_:fallback:) | NavigationCommand |  |
 relationship | memberOf | NavigationEngine.apply(_:to:) | NavigationEngine |  |
 relationship | memberOf | NavigationEngine.init() | NavigationEngine |  |
@@ -304,8 +304,8 @@ symbol | swift.method | FlowPlanApplier.apply(_:) | apply(_:) | @MainActor func 
 symbol | swift.method | ModalMiddleware.didExecute(_:currentPresentation:queuedPresentations:) | didExecute(_:currentPresentation:queuedPresentations:) | @MainActor func didExecute(_ command: ModalCommand<Self.RouteType>, currentPresentation: ModalPresentation<Self.RouteType>?, queuedPresentations: [ModalPresentation<Self.RouteType>]) | []
 symbol | swift.method | ModalMiddleware.willExecute(_:currentPresentation:queuedPresentations:) | willExecute(_:currentPresentation:queuedPresentations:) | @MainActor func willExecute(_ command: ModalCommand<Self.RouteType>, currentPresentation: ModalPresentation<Self.RouteType>?, queuedPresentations: [ModalPresentation<Self.RouteType>]) -> ModalInterception<Self.RouteType> | []
 symbol | swift.method | NavigationBatchExecutor.executeBatch(_:stopOnFailure:) | executeBatch(_:stopOnFailure:) | @discardableResult @MainActor func executeBatch(_ commands: [NavigationCommand<Self.RouteType>], stopOnFailure: Bool) -> NavigationBatchResult<Self.RouteType> | []
-symbol | swift.method | NavigationCommand.canExecute(on:using:) | canExecute(on:using:) | func canExecute(on state: RouteStack<R>, using engine: NavigationEngine<R> = .init()) -> Bool | []
-symbol | swift.method | NavigationCommand.validate(on:using:) | validate(on:using:) | func validate(on state: RouteStack<R>, using engine: NavigationEngine<R> = .init()) -> NavigationResult<R> | []
+symbol | swift.method | NavigationCommand.canExecute(on:) | canExecute(on:) | func canExecute(on state: RouteStack<R>) -> Bool | []
+symbol | swift.method | NavigationCommand.validate(on:) | validate(on:) | func validate(on state: RouteStack<R>) -> NavigationResult<R> | []
 symbol | swift.method | NavigationCommandExecutor.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<Self.RouteType>) -> NavigationResult<Self.RouteType> | []
 symbol | swift.method | NavigationEngine.apply(_:to:) | apply(_:to:) | func apply(_ command: NavigationCommand<R>, to state: inout RouteStack<R>) -> NavigationResult<R> | []
 symbol | swift.method | NavigationMiddleware.didExecute(_:result:state:) | didExecute(_:result:state:) | @MainActor func didExecute(_ command: NavigationCommand<Self.RouteType>, result: NavigationResult<Self.RouteType>, state: RouteStack<Self.RouteType>) -> NavigationResult<Self.RouteType> | []

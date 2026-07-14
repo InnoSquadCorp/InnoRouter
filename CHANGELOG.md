@@ -40,7 +40,11 @@ are bare semver (no leading `v`).
   removed. `NavigationEngine` is stateless and had no interchangeable
   implementation, so every `NavigationStore` now creates the same engine
   internally. Direct `NavigationEngine` use remains public for command-model
-  validation and standalone state transitions.
+  validation and standalone state transitions. For the same reason,
+  `NavigationCommand.validate(on:using:)` and `canExecute(on:using:)` remove
+  their redundant `using:` argument; call `validate(on:)` or `canExecute(on:)`,
+  or invoke `NavigationEngine.apply(_:to:)` directly when applying a sequence
+  against one mutable preview stack.
 - The `logger` stored by each `OSLog*TelemetrySink` is now private. Configure
   these adapters through `init(logger:)`; retain the original `Logger`
   separately if the app also needs to use it directly.
