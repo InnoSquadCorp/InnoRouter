@@ -8,7 +8,7 @@ import InnoRouterCore
 import InnoRouter
 import InnoRouterDeepLink
 @testable import InnoRouterSwiftUI
-@testable import InnoRouterDeepLinkEffects
+@testable import InnoRouterEffects
 
 private struct TraceStart: Equatable {
     let context: InternalExecutionTraceContext

@@ -100,7 +100,7 @@ in a stable owner rather than rebuilding it inside a SwiftUI body.
 import Foundation
 import SwiftUI
 import InnoRouter
-import InnoRouterDeepLinkEffects
+import InnoRouterEffects
 
 private final class SessionStore {
     static let shared = SessionStore()

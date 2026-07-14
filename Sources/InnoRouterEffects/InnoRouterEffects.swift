@@ -1,15 +1,13 @@
 // MARK: - InnoRouterEffects.swift
-// InnoRouterEffects - Effect Integration Umbrella
+// InnoRouterEffects - App-boundary Effect Integration
 // Copyright © 2025 Inno Squad. All rights reserved.
 
 @_exported import InnoRouterCore
 @_exported import InnoRouterDeepLink
-@_exported import InnoRouterNavigationEffects
-@_exported import InnoRouterDeepLinkEffects
 
 // MARK: - Module Overview
 //
-// InnoRouterEffects re-exports the split effect modules for compatibility.
+// InnoRouterEffects owns the complete app-boundary effect surface.
 //
 // ## Key Types
 // - `NavigationEffectHandler`: Execute NavigationCommand as Effects

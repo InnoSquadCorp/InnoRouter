@@ -1,11 +1,10 @@
 // MARK: - DeepLinkEffectHandler.swift
-// InnoRouterDeepLinkEffects - DeepLink Effect Handler
+// InnoRouterEffects - DeepLink Effect Handler
 // Copyright © 2025 Inno Squad. All rights reserved.
 
 import Foundation
 @_exported import InnoRouterCore
 @_exported import InnoRouterDeepLink
-@_exported import InnoRouterNavigationEffects
 
 /// App-boundary helper that runs a `DeepLinkPipeline` against an
 /// incoming URL and dispatches the resulting `NavigationPlan` through

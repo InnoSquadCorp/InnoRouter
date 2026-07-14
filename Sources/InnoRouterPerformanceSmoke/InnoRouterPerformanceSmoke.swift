@@ -1,7 +1,7 @@
 import Foundation
 import Darwin.Mach
 import InnoRouter
-import InnoRouterDeepLinkEffects
+import InnoRouterEffects
 
 private struct SmokeRoute: Route, Codable {
     let id: Int

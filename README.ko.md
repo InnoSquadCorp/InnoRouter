@@ -20,7 +20,7 @@ InnoRouter는 다음을 책임집니다:
 - `NavigationStore`를 통한 SwiftUI 네비게이션 권한
 - `ModalStore`를 통한 `sheet`와 `fullScreenCover`의 모달 권한
 - `DeepLinkMatcher`와 `DeepLinkPipeline`을 통한 딥링크 매칭과 planning
-- `InnoRouterNavigationEffects`와 `InnoRouterDeepLinkEffects`를 통한 앱 경계 실행 헬퍼
+- `InnoRouterEffects`를 통한 앱 경계 실행 헬퍼
 
 InnoRouter는 의도적으로 범용 애플리케이션 state machine이 아닙니다.
 
@@ -191,9 +191,7 @@ package-traits 또는 매크로-패키지 분리는 `swift package show-traits`,
 |---|---|
 | `InnoRouter` | store, host, intent, coordinator, deep link, scene, persistence 헬퍼가 필요한 앱 코드. |
 | `InnoRouterMacros` | `@Routable` 또는 `@CasePathable`을 사용하는 파일에서만. |
-| `InnoRouterNavigationEffects` | SwiftUI view 외부에서 `NavigationCommand` 값을 실행하는 앱-경계 코드. |
-| `InnoRouterDeepLinkEffects` | pending 딥링크를 처리하거나 재개하는 앱-경계 코드. |
-| `InnoRouterEffects` | effect 모듈 두 개를 함께 re-export해야 하는 호환 import. |
+| `InnoRouterEffects` | `NavigationCommand` 값을 실행하고 pending 딥링크를 처리하거나 재개하는 앱-경계 코드. |
 | `InnoRouterTesting` | host-less `NavigationTestStore` / `ModalTestStore` / `FlowTestStore`를 원하는 테스트 타깃. |
 
 ## 모듈
@@ -202,9 +200,7 @@ package-traits 또는 매크로-패키지 분리는 `swift package show-traits`,
 - `InnoRouterCore`: route stack, validator, command, result, batch/transaction executor, middleware
 - `InnoRouterSwiftUI`: store, stack/split/modal host, coordinator, environment intent dispatch
 - `InnoRouterDeepLink`: 패턴 매칭, 진단, pipeline planning, pending 딥링크
-- `InnoRouterNavigationEffects`: 앱 경계용 동기 `@MainActor` 실행 헬퍼
-- `InnoRouterDeepLinkEffects`: 네비게이션 effect 위에 얹은 딥링크 실행 헬퍼
-- `InnoRouterEffects`: effect 모듈 두 개의 호환 umbrella
+- `InnoRouterEffects`: 앱 경계용 네비게이션·딥링크 실행 헬퍼
 - `InnoRouterMacros`: `@Routable`과 `@CasePathable`
 
 ## 적합한 surface 고르기
@@ -220,7 +216,7 @@ package-traits 또는 매크로-패키지 분리는 `swift package show-traits`,
 | URL을 push-only command plan으로 변환 | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL을 push-prefix + modal-tail 흐름으로 변환 | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
 | visionOS window, volume, immersive space | `SceneStore` + `SceneHost` / `SceneAnchor` |
-| Reducer, effect, 또는 앱-경계 실행 | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
+| Reducer, effect, 또는 앱-경계 실행 | `InnoRouterEffects` |
 | SwiftUI host 없는 router assertion | `InnoRouterTesting` |
 
 `NavigationStore`, `FlowStore`, `ModalStore`, `SceneStore`, effects, testing은
@@ -815,7 +811,7 @@ SwiftUI `NavigationStack(path:)` 업데이트는 시맨틱 command로 다시 매
 
 ## Effect 모듈
 
-### `InnoRouterNavigationEffects`
+### `InnoRouterEffects`
 
 앱 shell 코드가 navigator 경계 위의 작은 실행 façade를 원할 때 사용합니다.
 
@@ -827,8 +823,6 @@ SwiftUI `NavigationStack(path:)` 업데이트는 시맨틱 command로 다시 매
 - `executeGuarded(_:, prepare:)`
 
 명시적 async guard 헬퍼를 제외한 이 API들은 동기 `@MainActor` API입니다.
-
-### `InnoRouterDeepLinkEffects`
 
 앱 경계에서 typed 결과와 함께 딥링크 plan을 실행해야 할 때 사용합니다.
 

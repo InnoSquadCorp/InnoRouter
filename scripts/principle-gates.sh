@@ -108,8 +108,6 @@ echo "[principle-gates] Building example smoke targets"
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterExamplesSmoke
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterStandaloneExampleSmoke
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterCoordinatorExampleSmoke
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterNavigationEffects
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterDeepLinkEffects
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterEffects
 
 # Gate 8 — human-facing examples must build. These exercise the

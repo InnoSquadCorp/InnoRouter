@@ -76,6 +76,15 @@ if rg -n "deprecated|@available\\(" Sources --glob '*.swift' --glob '!Sources/In
   exit 1
 fi
 
+echo "[lint-source-gates] Checking single Effects product boundary"
+for legacy_effects_module in InnoRouterNavigationEffects InnoRouterDeepLinkEffects; do
+  if [[ -e "Sources/$legacy_effects_module" ]] \
+    || rg -q "name: \"$legacy_effects_module\"" Package.swift; then
+    echo "[lint-source-gates] Failed: $legacy_effects_module must be folded into InnoRouterEffects for 5.0"
+    exit 1
+  fi
+done
+
 echo "[lint-source-gates] Checking legacy SwiftUI navigator surface"
 if rg -n "@EnvironmentNavigator|public func navigator\\(" Sources Examples ExamplesSmoke README.md; then
   echo "[lint-source-gates] Failed: legacy navigator API found"
@@ -101,13 +110,7 @@ if rg -n "\\.deepLink\\(|case \\.deepLink" Sources/InnoRouterSwiftUI Sources/Inn
 fi
 
 echo "[lint-source-gates] Checking deep-link fallback removal"
-DEEP_LINK_FALLBACK_PATHS=()
-for path in Sources/InnoRouterEffects Sources/InnoRouterDeepLinkEffects Sources/InnoRouterNavigationEffects; do
-  if [[ -e "$path" ]]; then
-    DEEP_LINK_FALLBACK_PATHS+=("$path")
-  fi
-done
-if [[ ${#DEEP_LINK_FALLBACK_PATHS[@]} -gt 0 ]] && rg -n "about:blank|schemeNotAllowed\\(actualScheme: nil\\)" "${DEEP_LINK_FALLBACK_PATHS[@]}"; then
+if rg -n "about:blank|schemeNotAllowed\\(actualScheme: nil\\)" Sources/InnoRouterEffects; then
   echo "[lint-source-gates] Failed: legacy fallback found"
   exit 1
 fi

@@ -6,11 +6,9 @@
 // layer, and the deep-link planner together so callers do not have
 // to enumerate every sub-module by hand.
 //
-// Effects modules (`InnoRouterNavigationEffects`,
-// `InnoRouterDeepLinkEffects`) are deliberately *not* re-exported.
-// They are app-boundary helpers that depend on `UIKit` / `AppKit` and
-// pull in scene/window types — most callers do not need them in their
-// view-layer code, so we keep them as opt-in imports.
+// `InnoRouterEffects` is deliberately *not* re-exported. Its
+// app-boundary execution helpers are opt-in, so view-layer code that
+// only needs stores and hosts does not inherit that additional API.
 //
 // `InnoRouterMacros` is also deliberately excluded from the umbrella.
 // Importing the macros target triggers a SwiftSyntax plugin

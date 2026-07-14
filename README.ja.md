@@ -20,7 +20,7 @@ InnoRouter は以下を担当します:
 - `NavigationStore` を介した SwiftUI ナビゲーション権限
 - `ModalStore` を介した `sheet` と `fullScreenCover` のモーダル権限
 - `DeepLinkMatcher` と `DeepLinkPipeline` を介したディープリンクのマッチングとプランニング
-- `InnoRouterNavigationEffects` と `InnoRouterDeepLinkEffects` を介したアプリ境界実行ヘルパー
+- `InnoRouterEffects` を介したアプリ境界実行ヘルパー
 
 意図的に汎用アプリケーションステートマシンではありません。
 
@@ -209,9 +209,7 @@ SwiftSyntax がバックエンドのマクロ実装は 4.x ラインの間この
 |---|---|
 | `InnoRouter` | stores、hosts、intents、coordinators、deep links、scenes、または永続化ヘルパーを必要とするアプリコード。 |
 | `InnoRouterMacros` | `@Routable` または `@CasePathable` を使用するファイルのみ。 |
-| `InnoRouterNavigationEffects` | SwiftUI ビューの外側で `NavigationCommand` 値を実行するアプリ境界コード。 |
-| `InnoRouterDeepLinkEffects` | 保留中のディープリンクを処理または再開するアプリ境界コード。 |
-| `InnoRouterEffects` | 両方の effect モジュールを一緒に re-export する場合の互換 import。 |
+| `InnoRouterEffects` | `NavigationCommand` 値を実行し、保留中のディープリンクを処理または再開するアプリ境界コード。 |
 | `InnoRouterTesting` | ホストレスの `NavigationTestStore`、`ModalTestStore`、`FlowTestStore` を望むテストターゲット。 |
 
 ## モジュール
@@ -220,9 +218,7 @@ SwiftSyntax がバックエンドのマクロ実装は 4.x ラインの間この
 - `InnoRouterCore`:route stack、validators、commands、results、batch/transaction executors、middleware
 - `InnoRouterSwiftUI`:stores、stack/split/modal hosts、coordinators、environment intent dispatch
 - `InnoRouterDeepLink`:パターンマッチング、診断、pipeline プランニング、保留中ディープリンク
-- `InnoRouterNavigationEffects`:アプリ境界用の同期 `@MainActor` 実行ヘルパー
-- `InnoRouterDeepLinkEffects`:ナビゲーション effect 上に重ねたディープリンク実行ヘルパー
-- `InnoRouterEffects`:両方の effect モジュールの互換アンブレラ
+- `InnoRouterEffects`:アプリ境界用のナビゲーションとディープリンク実行ヘルパー
 - `InnoRouterMacros`:`@Routable` と `@CasePathable`
 
 ## 適切な surface を選ぶ
@@ -238,7 +234,7 @@ SwiftSyntax がバックエンドのマクロ実装は 4.x ラインの間この
 | URL を push のみのコマンドプランへ | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL を push 接頭辞 + modal 末尾フローへ | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
 | visionOS windows、volumes、immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
-| Reducer、effect、またはアプリ境界の実行 | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
+| Reducer、effect、またはアプリ境界の実行 | `InnoRouterEffects` |
 | SwiftUI ホストなしの router アサーション | `InnoRouterTesting` |
 
 `NavigationStore`、`FlowStore`、`ModalStore`、`SceneStore`、effects、testing は
@@ -864,7 +860,7 @@ SwiftUI の `NavigationStack(path:)` 更新は意味的なコマンドにマッ�
 
 ## Effect モジュール
 
-### `InnoRouterNavigationEffects`
+### `InnoRouterEffects`
 
 アプリシェルコードがナビゲーター境界の上に小さな実行ファサードを望むときに
 使用します。
@@ -877,8 +873,6 @@ SwiftUI の `NavigationStack(path:)` 更新は意味的なコマンドにマッ�
 - `executeGuarded(_:, prepare:)`
 
 明示的な async ガードヘルパー以外、これらの API は同期 `@MainActor` API です。
-
-### `InnoRouterDeepLinkEffects`
 
 ディープリンク計画が型付き結果を伴ってアプリ境界で実行されるべきときに
 使用します。

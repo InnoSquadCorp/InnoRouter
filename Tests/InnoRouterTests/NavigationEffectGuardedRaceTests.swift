@@ -8,8 +8,7 @@ import Synchronization
 import InnoRouter
 import InnoRouterSwiftUI
 import InnoRouterDeepLink
-import InnoRouterDeepLinkEffects
-import InnoRouterNavigationEffects
+import InnoRouterEffects
 
 private enum RaceRoute: Route {
     case home

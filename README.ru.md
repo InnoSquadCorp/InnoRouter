@@ -20,7 +20,7 @@ InnoRouter отвечает за:
 - авторитет навигации SwiftUI через `NavigationStore`
 - модальный авторитет для `sheet` и `fullScreenCover` через `ModalStore`
 - сопоставление и планирование deep-link через `DeepLinkMatcher` и `DeepLinkPipeline`
-- помощники выполнения на границе приложения через `InnoRouterNavigationEffects` и `InnoRouterDeepLinkEffects`
+- помощники выполнения на границе приложения через `InnoRouterEffects`
 
 Он намеренно не является общим state machine приложения.
 
@@ -210,9 +210,7 @@ property wrapper или view modifier приходят из `InnoRouter`, а н�
 |---|---|
 | `InnoRouter` | Код приложения, которому нужны stores, hosts, intents, coordinators, deep links, scenes или помощники persistence. |
 | `InnoRouterMacros` | Только файлы, которые используют `@Routable` или `@CasePathable`. |
-| `InnoRouterNavigationEffects` | Код границы приложения, который выполняет значения `NavigationCommand` вне SwiftUI view. |
-| `InnoRouterDeepLinkEffects` | Код границы приложения, который обрабатывает или возобновляет ожидающие deep links. |
-| `InnoRouterEffects` | Совместимый импорт, когда оба effect модуля должны быть re-export вместе. |
+| `InnoRouterEffects` | Код границы приложения, который выполняет значения `NavigationCommand` и обрабатывает или возобновляет ожидающие deep links. |
 | `InnoRouterTesting` | Test targets, которые хотят host-less `NavigationTestStore`, `ModalTestStore` или `FlowTestStore`. |
 
 ## Модули
@@ -221,9 +219,7 @@ property wrapper или view modifier приходят из `InnoRouter`, а н�
 - `InnoRouterCore`: route stack, validators, commands, results, batch/transaction executors, middleware
 - `InnoRouterSwiftUI`: stores, stack/split/modal hosts, coordinators, environment intent dispatch
 - `InnoRouterDeepLink`: сопоставление шаблонов, диагностика, планирование pipeline, ожидающие deep links
-- `InnoRouterNavigationEffects`: синхронные `@MainActor` помощники выполнения для границ приложения
-- `InnoRouterDeepLinkEffects`: помощники выполнения deep-link, наслоённые на эффекты навигации
-- `InnoRouterEffects`: совместимый зонт для обоих effect модулей
+- `InnoRouterEffects`: помощники выполнения навигации и deep-link для границ приложения
 - `InnoRouterMacros`: `@Routable` и `@CasePathable`
 
 ## Выбор правильной поверхности
@@ -240,7 +236,7 @@ property wrapper или view modifier приходят из `InnoRouter`, а н�
 | URL в push-only план команд | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL в push-prefix плюс modal-tail flow | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
 | visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
-| Reducer, effect или выполнение на границе приложения | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
+| Reducer, effect или выполнение на границе приложения | `InnoRouterEffects` |
 | Утверждения router без SwiftUI hosts | `InnoRouterTesting` |
 
 `NavigationStore`, `FlowStore`, `ModalStore`, `SceneStore`, effects и
@@ -874,7 +870,7 @@ Middleware не может напрямую мутировать состоян�
 
 ## Effect модули
 
-### `InnoRouterNavigationEffects`
+### `InnoRouterEffects`
 
 Используйте это, когда коду app shell нужен небольшой исполнительный
 фасад над границей navigator.
@@ -888,8 +884,6 @@ Middleware не может напрямую мутировать состоян�
 
 Эти API синхронные `@MainActor` API, за исключением явного async guard
 помощника.
-
-### `InnoRouterDeepLinkEffects`
 
 Используйте это, когда планы deep-link должны выполняться на границе
 приложения с типизированными результатами.

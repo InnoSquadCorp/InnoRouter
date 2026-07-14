@@ -190,7 +190,7 @@ Shape (landed):
   the matcher, and `DeepLinkAuthenticationPolicy<R>` (reused
   verbatim from the push-only pipeline). Auth policy scans the
   plan until it reaches the first protected route.
-- `FlowDeepLinkEffectHandler<R>` in `InnoRouterDeepLinkEffects`
+- `FlowDeepLinkEffectHandler<R>` in `InnoRouterEffects`
   drives a `FlowPlanApplier<R>` — new Core protocol that
   `FlowStore` already satisfies through its `apply(_:)` method.
   Keeps the effects module out of SwiftUI's dependency graph.

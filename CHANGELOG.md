@@ -8,6 +8,13 @@ are bare semver (no leading `v`).
 
 ### Breaking
 
+- The source-compatibility `InnoRouterNavigationEffects` and
+  `InnoRouterDeepLinkEffects` products and modules are removed as planned for
+  the 5.0 boundary. Their handlers, effect protocols, and DocC articles now
+  live directly in the single `InnoRouterEffects` product. Replace either
+  legacy import and any explicit package product dependency with
+  `InnoRouterEffects`; the public type names and runtime behavior are
+  otherwise unchanged.
 - Store observation configuration is consolidated into one callback per
   authority. `NavigationStoreConfiguration` removes `onChange`,
   `onBatchExecuted`, `onTransactionExecuted`, `onMiddlewareMutation`, and

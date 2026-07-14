@@ -67,11 +67,14 @@ private let smokeSources: [String] = [
 /// when a contributor-facing README sits in the source path.
 private func exampleTarget(
     name: String,
-    source: String
+    source: String,
+    additionalDependencies: [Target.Dependency] = []
 ) -> Target {
-    .target(
+    let dependencies: [Target.Dependency] = ["InnoRouter", "InnoRouterMacros"] + additionalDependencies
+
+    return .target(
         name: name,
-        dependencies: ["InnoRouter", "InnoRouterMacros"],
+        dependencies: dependencies,
         path: "Examples",
         exclude: exampleSources.filter { $0 != source } + ["README.md"],
         sources: [source],
@@ -134,15 +137,7 @@ let package = Package(
             targets: ["InnoRouterDeepLink"]
         ),
 
-        // MARK: - InnoFlow Adapter
-        .library(
-            name: "InnoRouterNavigationEffects",
-            targets: ["InnoRouterNavigationEffects"]
-        ),
-        .library(
-            name: "InnoRouterDeepLinkEffects",
-            targets: ["InnoRouterDeepLinkEffects"]
-        ),
+        // MARK: - App-Boundary Effects
         .library(
             name: "InnoRouterEffects",
             targets: ["InnoRouterEffects"]
@@ -208,30 +203,10 @@ let package = Package(
 
         // MARK: - Effects Target
         .target(
-            name: "InnoRouterNavigationEffects",
-            dependencies: [
-                "InnoRouterCore",
-            ],
-            path: "Sources/InnoRouterNavigationEffects",
-            resources: privacyManifestResources,
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterDeepLinkEffects",
+            name: "InnoRouterEffects",
             dependencies: [
                 "InnoRouterCore",
                 "InnoRouterDeepLink",
-                "InnoRouterNavigationEffects",
-            ],
-            path: "Sources/InnoRouterDeepLinkEffects",
-            resources: privacyManifestResources,
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterEffects",
-            dependencies: [
-                "InnoRouterNavigationEffects",
-                "InnoRouterDeepLinkEffects",
             ],
             path: "Sources/InnoRouterEffects",
             resources: privacyManifestResources,
@@ -253,7 +228,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "InnoRouterPerformanceSmoke",
-            dependencies: ["InnoRouter", "InnoRouterDeepLinkEffects"],
+            dependencies: ["InnoRouter", "InnoRouterEffects"],
             path: "Sources/InnoRouterPerformanceSmoke",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -275,7 +250,11 @@ let package = Package(
         exampleTarget(name: "InnoRouterAppShellExample",         source: "AppShellExample.swift"),
         exampleTarget(name: "InnoRouterMultiPlatformExample",    source: "MultiPlatformExample.swift"),
         exampleTarget(name: "InnoRouterVisionOSImmersiveExample", source: "VisionOSImmersiveExample.swift"),
-        exampleTarget(name: "InnoRouterSampleAppExample",        source: "SampleAppExample.swift"),
+        exampleTarget(
+            name: "InnoRouterSampleAppExample",
+            source: "SampleAppExample.swift",
+            additionalDependencies: ["InnoRouterEffects"]
+        ),
 
         // MARK: - Example Smoke Targets
         //
@@ -288,7 +267,7 @@ let package = Package(
         // `soloSmokeSources` — the shared target picks it up automatically.
         .target(
             name: "InnoRouterExamplesSmoke",
-            dependencies: ["InnoRouter", "InnoRouterMacros"],
+            dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterMacros"],
             path: "ExamplesSmoke",
             exclude: soloSmokeSources + ["README.md"],
             sources: smokeSources.filter { !soloSmokeSources.contains($0) },

@@ -8,7 +8,7 @@ import Synchronization
 import InnoRouter
 import InnoRouterSwiftUI
 import InnoRouterDeepLink
-import InnoRouterDeepLinkEffects
+import InnoRouterEffects
 
 @Suite("FlowDeepLink property-based tests")
 struct FlowDeepLinkPropertyBasedTests {

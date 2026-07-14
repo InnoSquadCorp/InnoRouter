@@ -32,7 +32,7 @@ Pick the narrowest authority that matches the app boundary:
 | Sheet / cover authority | `ModalStore` + `ModalHost` |
 | Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
 | visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
-| Reducer, effect, or app-boundary execution | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
+| Reducer, effect, or app-boundary execution | `InnoRouterEffects` |
 | Host-less router assertions | `InnoRouterTesting` |
 
 ## Platform support

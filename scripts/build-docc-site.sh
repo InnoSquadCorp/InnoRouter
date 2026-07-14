@@ -158,8 +158,7 @@ DOCC_MODULES=(
   "InnoRouterCore|Sources/InnoRouterCore/InnoRouterCore.docc|core|InnoRouterCore|com.innosquad.innorouter.docs.core"
   "InnoRouterSwiftUI|Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc|swiftui|InnoRouterSwiftUI|com.innosquad.innorouter.docs.swiftui"
   "InnoRouterDeepLink|Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc|deeplink|InnoRouterDeepLink|com.innosquad.innorouter.docs.deeplink"
-  "InnoRouterNavigationEffects|Sources/InnoRouterNavigationEffects/InnoRouterNavigationEffects.docc|navigation-effects|InnoRouterNavigationEffects|com.innosquad.innorouter.docs.navigationeffects"
-  "InnoRouterDeepLinkEffects|Sources/InnoRouterDeepLinkEffects/InnoRouterDeepLinkEffects.docc|deeplink-effects|InnoRouterDeepLinkEffects|com.innosquad.innorouter.docs.deeplinkeffects"
+  "InnoRouterEffects|Sources/InnoRouterEffects/InnoRouterEffects.docc|effects|InnoRouterEffects|com.innosquad.innorouter.docs.effects"
   "InnoRouterMacros|Sources/InnoRouterMacros/InnoRouterMacros.docc|macros|InnoRouterMacros|com.innosquad.innorouter.docs.macros"
   "InnoRouterTesting|Sources/InnoRouterTesting/InnoRouterTesting.docc|testing|InnoRouterTesting|com.innosquad.innorouter.docs.testing"
 )
@@ -169,8 +168,6 @@ SYMBOL_GRAPH_MODULES=(
   "InnoRouterCore"
   "InnoRouterSwiftUI"
   "InnoRouterDeepLink"
-  "InnoRouterNavigationEffects"
-  "InnoRouterDeepLinkEffects"
   "InnoRouterEffects"
   "InnoRouterMacros"
   "InnoRouterTesting"
@@ -397,8 +394,7 @@ render_version_portal() {
       <a class="card" href="./core/"><strong>InnoRouterCore</strong><p>Route stack, commands, validators, middleware, batch, and transaction execution.</p></a>
       <a class="card" href="./swiftui/"><strong>InnoRouterSwiftUI</strong><p>Stores, hosts, split layouts, modal routing, coordinators, and environment intent.</p></a>
       <a class="card" href="./deeplink/"><strong>InnoRouterDeepLink</strong><p>Pattern matching, diagnostics, pipelines, and pending deep-link replay.</p></a>
-      <a class="card" href="./navigation-effects/"><strong>InnoRouterNavigationEffects</strong><p>App-boundary command, batch, transaction, and guarded execution helpers.</p></a>
-      <a class="card" href="./deeplink-effects/"><strong>InnoRouterDeepLinkEffects</strong><p>Deep-link effect execution, typed outcomes, and pending resume helpers.</p></a>
+      <a class="card" href="./effects/"><strong>InnoRouterEffects</strong><p>App-boundary navigation and deep-link execution helpers with typed outcomes.</p></a>
       <a class="card" href="./macros/"><strong>InnoRouterMacros</strong><p>@Routable and @CasePathable for concise route declarations and extraction.</p></a>
       <a class="card" href="./testing/"><strong>InnoRouterTesting</strong><p>Host-less assertion test stores for NavigationStore, ModalStore, and FlowStore.</p></a>
     </div>

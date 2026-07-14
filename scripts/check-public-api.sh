@@ -152,20 +152,20 @@ checks = [
         ],
     ),
     (
-        "Sources/InnoRouterNavigationEffects/NavigationEffectHandler.swift",
+        "Sources/InnoRouterEffects/NavigationEffectHandler.swift",
         [
             "_ shouldExecute: @escaping @Sendable () -> Bool",
             "prepare: @escaping @MainActor @Sendable (NavigationCommand<R>) async -> NavigationInterception<R>",
         ],
     ),
     (
-        "Sources/InnoRouterDeepLinkEffects/DeepLinkEffectHandler.swift",
+        "Sources/InnoRouterEffects/DeepLinkEffectHandler.swift",
         [
             "_ authorize: @escaping @MainActor @Sendable (PendingDeepLink<R>) async -> Bool",
         ],
     ),
     (
-        "Sources/InnoRouterDeepLinkEffects/FlowDeepLinkEffectHandler.swift",
+        "Sources/InnoRouterEffects/FlowDeepLinkEffectHandler.swift",
         [
             "_ authorize: @escaping @MainActor @Sendable (FlowPendingDeepLink<R>) async -> Bool",
         ],

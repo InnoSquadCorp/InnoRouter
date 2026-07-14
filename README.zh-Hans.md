@@ -20,7 +20,7 @@ InnoRouter 负责:
 - 通过 `NavigationStore` 提供 SwiftUI 导航权限
 - 通过 `ModalStore` 提供 `sheet` 和 `fullScreenCover` 的模态权限
 - 通过 `DeepLinkMatcher` 和 `DeepLinkPipeline` 进行深链接匹配和规划
-- 通过 `InnoRouterNavigationEffects` 和 `InnoRouterDeepLinkEffects` 提供应用边界的执行助手
+- 通过 `InnoRouterEffects` 提供应用边界的执行助手
 
 它有意不是通用的应用程序状态机。
 
@@ -177,9 +177,7 @@ macro 包拆分应在测量 `swift package show-traits`、
 |---|---|
 | `InnoRouter` | 需要 stores、hosts、intents、coordinators、deep links、scenes 或持久化助手的应用代码。 |
 | `InnoRouterMacros` | 仅使用 `@Routable` 或 `@CasePathable` 的文件。 |
-| `InnoRouterNavigationEffects` | 在 SwiftUI 视图外部执行 `NavigationCommand` 值的应用边界代码。 |
-| `InnoRouterDeepLinkEffects` | 处理或恢复挂起深链接的应用边界代码。 |
-| `InnoRouterEffects` | 当两个 effect 模块应一起重新导出时的兼容性 import。 |
+| `InnoRouterEffects` | 执行 `NavigationCommand` 值并处理或恢复挂起深链接的应用边界代码。 |
 | `InnoRouterTesting` | 想要无 host 的 `NavigationTestStore`、`ModalTestStore` 或 `FlowTestStore` 的测试目标。 |
 
 ## 模块
@@ -188,9 +186,7 @@ macro 包拆分应在测量 `swift package show-traits`、
 - `InnoRouterCore`:route stack、validators、commands、results、batch/transaction executors、middleware
 - `InnoRouterSwiftUI`:stores、stack/split/modal hosts、coordinators、environment intent dispatch
 - `InnoRouterDeepLink`:模式匹配、诊断、pipeline 规划、挂起深链接
-- `InnoRouterNavigationEffects`:用于应用边界的同步 `@MainActor` 执行助手
-- `InnoRouterDeepLinkEffects`:在导航 effect 之上分层的深链接执行助手
-- `InnoRouterEffects`:两个 effect 模块的兼容性伞形
+- `InnoRouterEffects`:用于应用边界的导航与深链接执行助手
 - `InnoRouterMacros`:`@Routable` 和 `@CasePathable`
 
 ## 选择正确的表面
@@ -206,7 +202,7 @@ macro 包拆分应在测量 `swift package show-traits`、
 | URL 转 push-only 命令计划 | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL 转 push-prefix 加 modal-tail 流程 | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
 | visionOS windows、volumes、immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
-| Reducer、effect 或应用边界执行 | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
+| Reducer、effect 或应用边界执行 | `InnoRouterEffects` |
 | 无 SwiftUI hosts 的 router 断言 | `InnoRouterTesting` |
 
 `NavigationStore`、`FlowStore`、`ModalStore`、`SceneStore`、effects 和 testing
@@ -795,7 +791,7 @@ SwiftUI `NavigationStack(path:)` 更新被映射回语义命令。
 
 ## Effect 模块
 
-### `InnoRouterNavigationEffects`
+### `InnoRouterEffects`
 
 当应用 shell 代码想要 navigator 边界上的小型执行 façade 时使用。
 
@@ -807,8 +803,6 @@ SwiftUI `NavigationStack(path:)` 更新被映射回语义命令。
 - `executeGuarded(_:, prepare:)`
 
 除了显式 async guard 助手外,这些 API 都是同步 `@MainActor` API。
-
-### `InnoRouterDeepLinkEffects`
 
 当应在带类型化结果的应用边界执行深链接计划时使用。
 

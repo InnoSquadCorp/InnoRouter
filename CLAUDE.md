@@ -9,7 +9,7 @@ InnoRouter is a SwiftUI-native navigation framework with:
 - typed stack state in `InnoRouterCore`
 - SwiftUI authority in `InnoRouterSwiftUI`
 - deep-link parsing and planning in `InnoRouterDeepLink`
-- app-boundary execution helpers in `InnoRouterNavigationEffects` and `InnoRouterDeepLinkEffects`
+- app-boundary execution helpers in `InnoRouterEffects`
 - optional route/case-path macros in `InnoRouterMacros`
 
 Requirements:
@@ -42,8 +42,7 @@ swift test
 swift build --target InnoRouter
 swift build --target InnoRouterCore
 swift build --target InnoRouterSwiftUI
-swift build --target InnoRouterNavigationEffects
-swift build --target InnoRouterDeepLinkEffects
+swift build --target InnoRouterEffects
 ```
 
 ## Module map
@@ -74,15 +73,13 @@ swift build --target InnoRouterDeepLinkEffects
 - `PendingDeepLink`
 - `NavigationPlan`
 
-### InnoRouterNavigationEffects
+### InnoRouterEffects
 
 - `NavigationEffectHandler`
 - sync `@MainActor` single/batch/transaction helpers
 - async boundary helper `executeGuarded`
-
-### InnoRouterDeepLinkEffects
-
 - `DeepLinkEffectHandler`
+- `FlowDeepLinkEffectHandler`
 - typed deep-link outcomes
 - pending replay helper `resumePendingDeepLinkIfAllowed`
 

@@ -8,7 +8,7 @@ import Synchronization
 import InnoRouter
 @testable import InnoRouterSwiftUI
 import InnoRouterDeepLink
-import InnoRouterDeepLinkEffects
+import InnoRouterEffects
 
 private enum EffectRoute: Route {
     case home

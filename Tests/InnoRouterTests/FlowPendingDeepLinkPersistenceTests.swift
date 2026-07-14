@@ -8,7 +8,7 @@ import Synchronization
 import InnoRouter
 import InnoRouterSwiftUI
 import InnoRouterDeepLink
-import InnoRouterDeepLinkEffects
+import InnoRouterEffects
 
 private enum PendingRoute: String, Route, Codable {
     case home

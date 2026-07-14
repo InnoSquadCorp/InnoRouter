@@ -1,9 +1,8 @@
 // MARK: - FlowDeepLinkEffectHandler.swift
-// InnoRouterDeepLinkEffects - composite URL → FlowStore.apply bridge
+// InnoRouterEffects - composite URL → FlowStore.apply bridge
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
-import InnoRouterCore
 @_exported import InnoRouterCore
 @_exported import InnoRouterDeepLink
 

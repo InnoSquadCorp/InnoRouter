@@ -20,7 +20,7 @@ InnoRouter ist verantwortlich für:
 - SwiftUI-Navigationsautorität über `NavigationStore`
 - Modale Autorität für `sheet` und `fullScreenCover` über `ModalStore`
 - Deep-Link-Matching und -Planung über `DeepLinkMatcher` und `DeepLinkPipeline`
-- App-Grenze-Ausführungshelfer über `InnoRouterNavigationEffects` und `InnoRouterDeepLinkEffects`
+- App-Grenze-Ausführungshelfer über `InnoRouterEffects`
 
 Es ist absichtlich keine allgemeine Anwendungs-State-Machine.
 
@@ -209,9 +209,7 @@ gegen die Migrationskosten evaluiert werden.
 |---|---|
 | `InnoRouter` | App-Code, der Stores, Hosts, Intents, Coordinators, Deep Links, Scenes oder Persistenz-Helfer benötigt. |
 | `InnoRouterMacros` | Nur Dateien, die `@Routable` oder `@CasePathable` verwenden. |
-| `InnoRouterNavigationEffects` | App-Grenze-Code, der `NavigationCommand`-Werte außerhalb einer SwiftUI-View ausführt. |
-| `InnoRouterDeepLinkEffects` | App-Grenze-Code, der ausstehende Deep Links handhabt oder fortsetzt. |
-| `InnoRouterEffects` | Kompatibilitäts-Import, wenn beide Effect-Module zusammen re-exportiert werden sollen. |
+| `InnoRouterEffects` | App-Grenze-Code, der `NavigationCommand`-Werte ausführt und ausstehende Deep Links handhabt oder fortsetzt. |
 | `InnoRouterTesting` | Test-Targets, die host-loses `NavigationTestStore`, `ModalTestStore` oder `FlowTestStore` wollen. |
 
 ## Module
@@ -220,9 +218,7 @@ gegen die Migrationskosten evaluiert werden.
 - `InnoRouterCore`: Route-Stack, Validatoren, Befehle, Ergebnisse, Batch-/Transaction-Executoren, Middleware
 - `InnoRouterSwiftUI`: Stores, Stack-/Split-/Modal-Hosts, Coordinators, Environment-Intent-Dispatch
 - `InnoRouterDeepLink`: Pattern-Matching, Diagnostik, Pipeline-Planung, ausstehende Deep Links
-- `InnoRouterNavigationEffects`: synchrone `@MainActor`-Ausführungshelfer für App-Grenzen
-- `InnoRouterDeepLinkEffects`: Deep-Link-Ausführungshelfer auf Navigationseffekten
-- `InnoRouterEffects`: Kompatibilitäts-Umbrella für beide Effect-Module
+- `InnoRouterEffects`: Navigation- und Deep-Link-Ausführungshelfer für App-Grenzen
 - `InnoRouterMacros`: `@Routable` und `@CasePathable`
 
 ## Die richtige Oberfläche wählen
@@ -238,7 +234,7 @@ Nutzen Sie die kleinste Oberfläche, die die benötigte Übergangsautorität bes
 | URL zu Push-only-Befehlsplan | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL zu Push-Prefix plus Modal-Tail-Flow | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
 | visionOS-Windows, Volumes, Immersive Spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
-| Reducer, Effekt oder App-Grenze-Ausführung | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
+| Reducer, Effekt oder App-Grenze-Ausführung | `InnoRouterEffects` |
 | Router-Assertions ohne SwiftUI-Hosts | `InnoRouterTesting` |
 
 `NavigationStore`, `FlowStore`, `ModalStore`, `SceneStore`, Effects und Testing
@@ -847,7 +843,7 @@ Mismatch-Behandlung strukturierte Telemetrie.
 
 ## Effect-Module
 
-### `InnoRouterNavigationEffects`
+### `InnoRouterEffects`
 
 Verwenden Sie dies, wenn App-Shell-Code eine kleine Ausführungsfassade über einer
 Navigator-Grenze möchte.
@@ -861,8 +857,6 @@ Schlüssel-API:
 
 Diese APIs sind synchrone `@MainActor`-APIs, mit Ausnahme des expliziten
 async-Guard-Helfers.
-
-### `InnoRouterDeepLinkEffects`
 
 Verwenden Sie dies, wenn Deep-Link-Pläne an einer App-Grenze mit typisierten
 Ergebnissen ausgeführt werden sollen.

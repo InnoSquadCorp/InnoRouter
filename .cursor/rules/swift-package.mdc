@@ -53,9 +53,7 @@ InnoRouter는 Swift tools 6.2, Swift 6 언어 모드를 사용하는 멀티 타�
 
 ### Effects
 
-- `InnoRouterNavigationEffects`: Core 기반 `NavigationEffectHandler`
-- `InnoRouterDeepLinkEffects`: Core + DeepLink + NavigationEffects 기반 deep-link effect handler
-- `InnoRouterEffects`: 위 두 effect 모듈을 재노출하는 umbrella
+- `InnoRouterEffects`: Core + DeepLink 기반 navigation/deep-link app-boundary handler
 - 특정 상태관리 프레임워크에 결합하지 않습니다.
 
 ### Macros
@@ -76,13 +74,12 @@ InnoRouter는 Swift tools 6.2, Swift 6 언어 모드를 사용하는 멀티 타�
 InnoRouterCore
 ├── InnoRouterSwiftUI
 ├── InnoRouterDeepLink
-├── InnoRouterNavigationEffects
+├── InnoRouterEffects
 ├── InnoRouterMacros
 └── InnoRouterTesting
 
 InnoRouter = Core + SwiftUI + DeepLink
-InnoRouterDeepLinkEffects = Core + DeepLink + NavigationEffects
-InnoRouterEffects = NavigationEffects + DeepLinkEffects
+InnoRouterEffects = Core + DeepLink
 InnoRouterMacros = Core + MacrosPlugin
 ```
 
@@ -97,8 +94,6 @@ InnoRouterMacros = Core + MacrosPlugin
 - `InnoRouterCore`
 - `InnoRouterSwiftUI`
 - `InnoRouterDeepLink`
-- `InnoRouterNavigationEffects`
-- `InnoRouterDeepLinkEffects`
 - `InnoRouterEffects`
 - `InnoRouterMacros`
 - `InnoRouterTesting`
