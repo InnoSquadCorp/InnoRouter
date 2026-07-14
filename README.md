@@ -932,7 +932,7 @@ CI validates:
 
 - `swift test`
 - `principle-gates`
-- `platforms` workflow for per-platform SwiftUI coverage
+- `platforms` workflow for the full Apple compile matrix and tvOS/watchOS/visionOS runtime tests
 - example smoke builds
 - DocC preview build
 
@@ -950,7 +950,7 @@ Invalid tag examples:
 Release workflow responsibilities:
 
 - rerun code/documentation gates
-- require local `./scripts/principle-gates.sh --platforms=all` or a green GitHub `platforms` workflow before tagging
+- invoke the reusable `platforms` gate and block publishing until it is green; local `./scripts/principle-gates.sh --platforms=all` is compile-only and does not replace the runtime tests
 - build versioned DocC
 - update `/latest/`
 - preserve older versioned docs

@@ -1,8 +1,10 @@
 # CI Gates
 
-`scripts/principle-gates.sh` is the single entry point that mirrors the
-GitHub Actions release-readiness contract. Every commit landed on
-`main` is expected to pass it locally before the PR opens.
+`scripts/principle-gates.sh` is the single local entry point for the
+core release-readiness contract. Every commit landed on `main` is
+expected to pass it locally before the PR opens. Platform runtime tests
+remain a GitHub Actions gate because they require tvOS, watchOS, and
+visionOS Simulator runtimes.
 
 This document covers what each gate enforces, the failure signal
 operators see, and how to reproduce a single gate without running
@@ -11,7 +13,7 @@ the whole pipeline.
 ## Quick reference
 
 ```bash
-# Full pipeline — used in CI and on tag pushes.
+# Core pipeline — used in CI and on tag pushes.
 ./scripts/principle-gates.sh
 
 # Full pipeline + per-platform xcodebuild compile probe.
@@ -64,6 +66,8 @@ Rules:
   InnoRouterSwiftUI -destination "<generic>"`. Generic destinations
   avoid drift between local toolchains and CI runners.
 - `xcodebuild` must be available; the gate aborts otherwise.
+- This flag is compile-only. It does not replace the runtime tests in
+  the GitHub `platforms` workflow.
 
 ## CI workflow mapping
 
@@ -72,11 +76,11 @@ Every gate above runs under one of the workflows in `.github/workflows/`:
 | Workflow | Gates |
 | --- | --- |
 | `principle-gates.yml` | 1–12 (every PR / push to `main`) |
-| `platforms.yml` | 13 (full Apple matrix, `fail-fast: false`) |
+| `platforms.yml` | 13 (full Apple compile matrix) plus tvOS, watchOS, and visionOS runtime tests with minimum executed-test counts |
 | `docs-ci.yml` | 2 (DocC build validation) |
 | `coverage.yml` | 1 (with coverage instrumentation) |
 | `performance-smoke.yml` | 9 (perf regression detection) |
-| `release.yml` | reruns 1–13 + DocC publishing on bare semver tags |
+| `release.yml` | reruns 1–12, calls the reusable `platforms` workflow, then publishes DocC and the GitHub Release on bare semver tags |
 
 Tag format is bare semver (`4.2.0`) — leading-`v` or prefixed semver tags
 are rejected by the regex in `release.yml`.

@@ -941,7 +941,7 @@ CI валидирует:
 
 - `swift test`
 - `principle-gates`
-- workflow `platforms` для покрытия SwiftUI по платформе
+- workflow `platforms`, который компилирует все Apple-таргеты и запускает runtime-тесты на tvOS, watchOS и visionOS
 - smoke сборки примеров
 - DocC preview сборка
 
@@ -959,7 +959,7 @@ CD запускается только на чистых semver тегах:
 Обязанности release workflow:
 
 - перезапустить шлюзы кода/документации
-- требовать локального `./scripts/principle-gates.sh --platforms=all` или зелёного workflow `platforms` GitHub перед тегированием
+- вызывать переиспользуемый шлюз `platforms` и блокировать публикацию до его успешного завершения; локальный `./scripts/principle-gates.sh --platforms=all` выполняет только проверку компиляции и не заменяет эти runtime-тесты
 - собрать версионный DocC
 - обновить `/latest/`
 - сохранить старые версионные docs

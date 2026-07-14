@@ -21,6 +21,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  platform-gates:
+    name: Apple platform gates
+    uses: ./.github/workflows/platforms.yml
+    with:
+      ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    permissions:
+      contents: read
+
   build:
     runs-on: macos-15
     timeout-minutes: 45
@@ -121,7 +129,9 @@ jobs:
           path: .build/docc-site-release.tar.gz
 
   publish-gh-pages:
-    needs: build
+    needs:
+      - build
+      - platform-gates
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -150,6 +160,7 @@ jobs:
   create-release:
     needs:
       - build
+      - platform-gates
       - publish-gh-pages
     runs-on: ubuntu-latest
     permissions:

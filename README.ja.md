@@ -929,7 +929,7 @@ CI は以下を検証します:
 
 - `swift test`
 - `principle-gates`
-- プラットフォームごとの SwiftUI カバレッジのための `platforms` ワークフロー
+- すべての Apple ターゲットをコンパイルし、tvOS/watchOS/visionOS のランタイムテストを実行する `platforms` ワークフロー
 - 例の smoke ビルド
 - DocC プレビュービルド
 
@@ -947,7 +947,7 @@ CD は裸の semver タグでのみ実行されます:
 リリースワークフローの責務:
 
 - コード/ドキュメンテーションゲートを再実行
-- タグを付ける前にローカル `./scripts/principle-gates.sh --platforms=all` または GitHub のグリーンな `platforms` ワークフローを要求
+- 再利用可能な `platforms` ゲートを呼び出し、成功するまで公開をブロックする。ローカルの `./scripts/principle-gates.sh --platforms=all` はコンパイル確認のみで、ランタイムテストの代替にはならない
 - バージョン管理された DocC をビルド
 - `/latest/` を更新
 - 古いバージョン管理された docs を保持

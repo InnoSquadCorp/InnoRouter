@@ -914,7 +914,7 @@ CI validiert:
 
 - `swift test`
 - `principle-gates`
-- `platforms`-Workflow für Pro-Plattform-SwiftUI-Coverage
+- `platforms`-Workflow, der alle Apple-Targets kompiliert und Laufzeittests für tvOS, watchOS und visionOS ausführt
 - Beispiel-Smoke-Builds
 - DocC-Vorschau-Build
 
@@ -932,7 +932,7 @@ Ungültige Tag-Beispiele:
 Verantwortungen des Release-Workflows:
 
 - Code-/Dokumentations-Gates erneut ausführen
-- Vor dem Tagging ein lokales `./scripts/principle-gates.sh --platforms=all` oder einen grünen GitHub `platforms`-Workflow verlangen
+- das wiederverwendbare `platforms`-Gate aufrufen und die Veröffentlichung bis zum erfolgreichen Abschluss blockieren; `./scripts/principle-gates.sh --platforms=all` prüft lokal nur die Kompilierung und ersetzt diese Laufzeittests nicht
 - versioniertes DocC bauen
 - `/latest/` aktualisieren
 - ältere versionierte Docs erhalten

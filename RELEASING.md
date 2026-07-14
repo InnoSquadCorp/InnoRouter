@@ -144,9 +144,10 @@ swift test
 
 If you regenerate `Baselines/PublicAPI`, do it with the same pinned
 toolchain used in CI. The symbol-graph baseline gate is intentionally
-toolchain-sensitive. Before tagging, either run
-`./scripts/principle-gates.sh --platforms=all` locally or confirm the
-GitHub `platforms` workflow is green for the release commit.
+toolchain-sensitive. The local `--platforms=all` probe is compile-only;
+it does not execute platform tests. Confirm the GitHub `platforms`
+workflow is green for the release commit. The release workflow invokes
+that same reusable gate again before it publishes anything.
 
 ## CI and CD responsibilities
 
@@ -163,6 +164,12 @@ GitHub `platforms` workflow is green for the release commit.
 - builds a preview DocC site with `--version preview`
 - uploads the generated static site as an artifact
 
+`platforms.yml`
+
+- compiles the package across all supported Apple platforms
+- executes tvOS, watchOS, and visionOS Simulator tests
+- rejects zero-test and partial-discovery runs with minimum pass counts
+
 ### CD
 
 `release.yml`
@@ -171,6 +178,7 @@ GitHub `platforms` workflow is green for the release commit.
 - supports manual `workflow_dispatch` with `tag` and `prerelease=true`
   for `rc` / `beta` pre-releases
 - rebuilds and revalidates the package
+- invokes the reusable Apple platform gate and blocks publishing until it passes
 - builds versioned DocC output
 - merges new docs with existing released docs
 - updates `/latest/` only for GA releases
@@ -195,8 +203,8 @@ Migration guides are intentionally not part of this release process.
 - `Examples/` still match current human-facing API usage.
 - `ExamplesSmoke/` still compile and cover the same surface.
 - All `.docc` catalogs build locally.
-- GitHub `platforms` workflow is green for the release commit, or
-  local `./scripts/principle-gates.sh --platforms=all` has passed.
+- GitHub `platforms` workflow is green for the release commit. The local
+  `./scripts/principle-gates.sh --platforms=all` probe is compile-only.
 - `NavigationStore`, `ModalStore`, deep-link, effect, and macro docs reflect current symbols.
 - Release notes links point to the current README, RELEASING guide, and DocC portal.
 - `xcode-version` in `principle-gates.yml`, `platforms.yml`,

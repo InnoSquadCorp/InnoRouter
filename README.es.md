@@ -924,7 +924,7 @@ CI valida:
 
 - `swift test`
 - `principle-gates`
-- workflow `platforms` para cobertura SwiftUI por plataforma
+- workflow `platforms`, que compila todos los targets de Apple y ejecuta pruebas en tiempo de ejecución en tvOS, watchOS y visionOS
 - builds smoke de ejemplos
 - build de previsualización DocC
 
@@ -942,7 +942,7 @@ Ejemplos de etiquetas inválidas:
 Responsabilidades del workflow de release:
 
 - volver a ejecutar puertas de código/documentación
-- requerir `./scripts/principle-gates.sh --platforms=all` local o un workflow `platforms` verde de GitHub antes de etiquetar
+- invocar la puerta reutilizable `platforms` y bloquear la publicación hasta que se complete correctamente; `./scripts/principle-gates.sh --platforms=all` solo comprueba la compilación local y no sustituye esas pruebas en tiempo de ejecución
 - construir DocC versionado
 - actualizar `/latest/`
 - preservar docs versionados antiguos

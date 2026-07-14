@@ -858,7 +858,7 @@ CI 验证:
 
 - `swift test`
 - `principle-gates`
-- 用于每平台 SwiftUI 覆盖的 `platforms` 工作流
+- `platforms` 工作流：编译所有 Apple 平台目标，并运行 tvOS/watchOS/visionOS 运行时测试
 - 示例 smoke 构建
 - DocC 预览构建
 
@@ -876,7 +876,7 @@ CD 仅在裸 semver 标签上运行:
 发布工作流职责:
 
 - 重新运行代码/文档门
-- 在打标签之前要求本地 `./scripts/principle-gates.sh --platforms=all` 或绿色的 GitHub `platforms` 工作流
+- 调用可复用的 `platforms` 门禁，并在其通过前阻止发布；本地 `./scripts/principle-gates.sh --platforms=all` 仅执行编译检查，不能替代这些运行时测试
 - 构建版本化 DocC
 - 更新 `/latest/`
 - 保留旧版本化文档

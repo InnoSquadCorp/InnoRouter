@@ -38,10 +38,11 @@ swift test
 ./scripts/principle-gates.sh
 ```
 
-The principle-gates script is the authoritative correctness gate.
+The principle-gates script is the authoritative local core gate.
 Every PR must keep it green. Local platform coverage is not required
-for ordinary patches — the GitHub `platforms` workflow runs the
-matrix on every PR.
+for ordinary patches — the GitHub `platforms` workflow compiles every
+Apple target and runs tvOS, watchOS, and visionOS Simulator tests on
+every PR.
 
 ## Branching and PR conventions
 

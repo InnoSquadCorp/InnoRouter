@@ -877,7 +877,7 @@ CI는 다음을 검증합니다:
 
 - `swift test`
 - `principle-gates`
-- 플랫폼별 SwiftUI 커버리지를 위한 `platforms` 워크플로우
+- 전체 Apple 컴파일 매트릭스와 tvOS/watchOS/visionOS 런타임 테스트를 위한 `platforms` 워크플로우
 - 예제 smoke 빌드
 - DocC 미리보기 빌드
 
@@ -895,7 +895,7 @@ CD는 bare semver tag에서만 동작합니다:
 릴리즈 워크플로우 책임:
 
 - 코드/문서 게이트 재실행
-- tag 전 로컬 `./scripts/principle-gates.sh --platforms=all` 또는 GitHub `platforms` 워크플로우 green 요구
+- 재사용 가능한 `platforms` 게이트를 호출하고 green이 될 때까지 게시 차단; 로컬 `./scripts/principle-gates.sh --platforms=all`은 컴파일만 확인하며 런타임 테스트를 대체하지 않음
 - 버전별 DocC 빌드
 - `/latest/` 업데이트
 - 이전 버전별 docs 보존
