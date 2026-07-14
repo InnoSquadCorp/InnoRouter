@@ -167,6 +167,19 @@ struct DeepLinkTests {
         #expect(matcher.match(url3) == nil)
     }
 
+    @Test("DeepLinkMatcher falls through when a matching handler returns nil")
+    func testMatcherHandlerFallthrough() {
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/detail/:id") { _ in nil }
+            DeepLinkMapping("/detail/:id") { params in
+                guard let id = params.firstValue(forName: "id") else { return nil }
+                return .detail(id: id)
+            }
+        }
+
+        #expect(matcher.match("myapp://app/detail/99") == .detail(id: "99"))
+    }
+
     @Test("DeepLinkMatcher surfaces duplicate pattern diagnostics")
     func testMatcherDuplicatePatternDiagnostics() {
         let matcher = DeepLinkMatcher<TestRoute>(

@@ -656,8 +656,7 @@ struct DeepLinkPattern: Sendable {
 }
 
 public struct DeepLinkMatcher<R: Route>: Sendable {
-    private let mappings: [DeepLinkMapping<R>]
-    private let inputLimits: DeepLinkInputLimits
+    private let engine: DeepLinkMatchEngine<R>
     public let diagnostics: [DeepLinkMatcherDiagnostic]
 
     public init(@DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]) {
@@ -668,13 +667,12 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
         configuration: DeepLinkMatcherConfiguration = .default,
         @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]
     ) {
-        let resolvedMappings = mappings()
-        self.mappings = resolvedMappings
-        self.inputLimits = configuration.inputLimits
-        self.diagnostics = DeepLinkPattern.makeDiagnostics(
-            for: resolvedMappings.map(\.pattern)
+        let engine = DeepLinkMatchEngine(
+            mappings: mappings().map(\.implementation),
+            configuration: configuration
         )
-        DeepLinkMatcherDiagnostic.emit(self.diagnostics, configuration: configuration)
+        self.engine = engine
+        self.diagnostics = engine.diagnostics
     }
 
     /// Creates a matcher that promotes any structural diagnostic into a
@@ -690,56 +688,33 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
         inputLimits: DeepLinkInputLimits = .default,
         @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]
     ) throws {
-        let resolvedMappings = mappings()
-        let resolvedDiagnostics = DeepLinkPattern.makeDiagnostics(
-            for: resolvedMappings.map(\.pattern)
+        _ = strict
+        let engine = try DeepLinkMatchEngine(
+            validating: mappings().map(\.implementation),
+            logger: logger,
+            inputLimits: inputLimits
         )
-        if !resolvedDiagnostics.isEmpty {
-            // Surface the diagnostics through the optional logger before
-            // throwing so a CI run still has the structured warning trail.
-            for diagnostic in resolvedDiagnostics {
-                logger?.error("\(diagnostic.message, privacy: .public)")
-            }
-            throw DeepLinkMatcherStrictError(diagnostics: resolvedDiagnostics)
-        }
-        self.mappings = resolvedMappings
-        self.inputLimits = inputLimits
-        self.diagnostics = resolvedDiagnostics
+        self.engine = engine
+        self.diagnostics = engine.diagnostics
     }
 
     public func match(_ url: URL) -> R? {
-        guard inputLimits.urlLengthViolation(for: url) == nil else { return nil }
-        let parsed = DeepLinkParser.parse(url)
-        guard inputLimits.parsedContentViolation(for: parsed) == nil else { return nil }
-        for mapping in mappings {
-            if let route = mapping.match(parsed) {
-                return route
-            }
-        }
-        return nil
+        engine.match(url)
     }
 
     public func match(_ urlString: String) -> R? {
-        guard let url = URL(string: urlString) else { return nil }
-        return match(url)
+        engine.match(urlString)
     }
 }
 
 public struct DeepLinkMapping<R: Route>: Sendable {
-    fileprivate let pattern: DeepLinkPattern
-    private let handler: @Sendable (DeepLinkParameters) -> R?
+    let implementation: DeepLinkMatchMapping<R>
 
     public init(
         _ pattern: String,
         handler: @escaping @Sendable (DeepLinkParameters) -> R?
     ) {
-        self.pattern = DeepLinkPattern(pattern)
-        self.handler = handler
-    }
-
-    func match(_ parsed: DeepLinkParser.ParsedURL) -> R? {
-        guard let result = pattern.match(parsed) else { return nil }
-        return handler(DeepLinkParameters(valuesByName: result.parameters))
+        self.implementation = DeepLinkMatchMapping(pattern, handler: handler)
     }
 }
 

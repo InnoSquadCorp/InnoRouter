@@ -32,8 +32,7 @@ import InnoRouterCore
 /// extraction are identical to ``DeepLinkMatcher``; both surfaces
 /// use the same internal matching implementation.
 public struct FlowDeepLinkMapping<R: Route>: Sendable {
-    fileprivate let pattern: DeepLinkPattern
-    private let handler: @Sendable (DeepLinkParameters) -> FlowPlan<R>?
+    let implementation: DeepLinkMatchMapping<FlowPlan<R>>
 
     /// Creates a mapping from a pattern string plus a handler that
     /// builds the resulting `FlowPlan` from the extracted parameters.
@@ -46,13 +45,7 @@ public struct FlowDeepLinkMapping<R: Route>: Sendable {
         _ pattern: String,
         handler: @escaping @Sendable (DeepLinkParameters) -> FlowPlan<R>?
     ) {
-        self.pattern = DeepLinkPattern(pattern)
-        self.handler = handler
-    }
-
-    func match(_ parsed: DeepLinkParser.ParsedURL) -> FlowPlan<R>? {
-        guard let result = pattern.match(parsed) else { return nil }
-        return handler(DeepLinkParameters(valuesByName: result.parameters))
+        self.implementation = DeepLinkMatchMapping(pattern, handler: handler)
     }
 }
 
@@ -64,8 +57,7 @@ public struct FlowDeepLinkMapping<R: Route>: Sendable {
 /// callers whose URLs only need single-route resolution; the two
 /// matchers coexist so apps can adopt the flow matcher incrementally.
 public struct FlowDeepLinkMatcher<R: Route>: Sendable {
-    private let mappings: [FlowDeepLinkMapping<R>]
-    private let inputLimits: DeepLinkInputLimits
+    private let engine: DeepLinkMatchEngine<FlowPlan<R>>
     public let diagnostics: [DeepLinkMatcherDiagnostic]
 
     public init(@FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]) {
@@ -87,12 +79,12 @@ public struct FlowDeepLinkMatcher<R: Route>: Sendable {
         configuration: DeepLinkMatcherConfiguration = .default,
         mappings: [FlowDeepLinkMapping<R>]
     ) {
-        self.mappings = mappings
-        self.inputLimits = configuration.inputLimits
-        self.diagnostics = DeepLinkPattern.makeDiagnostics(
-            for: mappings.map(\.pattern)
+        let engine = DeepLinkMatchEngine(
+            mappings: mappings.map(\.implementation),
+            configuration: configuration
         )
-        DeepLinkMatcherDiagnostic.emit(self.diagnostics, configuration: configuration)
+        self.engine = engine
+        self.diagnostics = engine.diagnostics
     }
 
     /// Creates a flow matcher that promotes any structural diagnostic into a
@@ -123,53 +115,39 @@ public struct FlowDeepLinkMatcher<R: Route>: Sendable {
         inputLimits: DeepLinkInputLimits = .default,
         mappings: [FlowDeepLinkMapping<R>]
     ) throws {
-        let resolvedDiagnostics = DeepLinkPattern.makeDiagnostics(
-            for: mappings.map(\.pattern)
+        _ = strict
+        let engine = try DeepLinkMatchEngine(
+            validating: mappings.map(\.implementation),
+            logger: logger,
+            inputLimits: inputLimits
         )
-        if !resolvedDiagnostics.isEmpty {
-            for diagnostic in resolvedDiagnostics {
-                logger?.error("\(diagnostic.message, privacy: .public)")
-            }
-            throw DeepLinkMatcherStrictError(diagnostics: resolvedDiagnostics)
-        }
-        self.mappings = mappings
-        self.inputLimits = inputLimits
-        self.diagnostics = resolvedDiagnostics
+        self.engine = engine
+        self.diagnostics = engine.diagnostics
     }
 
     /// Walks every declared mapping and returns the first plan that
     /// the URL matches, or `nil` if none apply.
     public func match(_ url: URL) -> FlowPlan<R>? {
-        guard inputLimits.urlLengthViolation(for: url) == nil else { return nil }
-        let parsed = DeepLinkParser.parse(url)
-        guard inputLimits.parsedContentViolation(for: parsed) == nil else { return nil }
-        return match(parsed: parsed)
+        engine.match(url)
     }
 
     /// Convenience overload for string URLs.
     public func match(_ urlString: String) -> FlowPlan<R>? {
-        guard let url = URL(string: urlString) else { return nil }
-        return match(url)
+        engine.match(urlString)
     }
 
     /// Pattern-walk without the input-limit gate, for pipeline callers
     /// that have already checked the matcher limits against the same
     /// parsed value.
     func match(parsed: DeepLinkParser.ParsedURL) -> FlowPlan<R>? {
-        for mapping in mappings {
-            if let plan = mapping.match(parsed) {
-                return plan
-            }
-        }
-        return nil
+        engine.match(parsed: parsed)
     }
 
     func inputLimitViolation(
         for url: URL,
         parsed: DeepLinkParser.ParsedURL
     ) -> DeepLinkInputLimitViolation? {
-        inputLimits.urlLengthViolation(for: url)
-            ?? inputLimits.parsedContentViolation(for: parsed)
+        engine.inputLimitViolation(for: url, parsed: parsed)
     }
 }
 

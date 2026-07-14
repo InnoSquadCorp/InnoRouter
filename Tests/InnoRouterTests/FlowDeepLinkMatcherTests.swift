@@ -125,6 +125,31 @@ struct FlowDeepLinkMatcherTests {
         )
     }
 
+    @Test("Route and flow matchers keep encoded-path and diagnostic parity")
+    func routeAndFlowMatcherParity() {
+        let configuration = DeepLinkMatcherConfiguration(diagnosticsMode: .disabled)
+        let routeMatcher = DeepLinkMatcher<MatcherRoute>(configuration: configuration) {
+            DeepLinkMapping("/hello world/:id") { params in
+                params.firstValue(forName: "id").map(MatcherRoute.detail(id:))
+            }
+            DeepLinkMapping("/hello world/:slug") { _ in .privacyPolicy }
+        }
+        let flowMatcher = FlowDeepLinkMatcher<MatcherRoute>(configuration: configuration) {
+            FlowDeepLinkMapping("/hello world/:id") { params in
+                guard let id = params.firstValue(forName: "id") else { return nil }
+                return FlowPlan(steps: [.push(.detail(id: id))])
+            }
+            FlowDeepLinkMapping("/hello world/:slug") { _ in
+                FlowPlan(steps: [.push(.privacyPolicy)])
+            }
+        }
+
+        let url = "myapp://app/hello%20world/42"
+        #expect(routeMatcher.match(url) == .detail(id: "42"))
+        #expect(flowMatcher.match(url) == FlowPlan(steps: [.push(.detail(id: "42"))]))
+        #expect(routeMatcher.diagnostics == flowMatcher.diagnostics)
+    }
+
     @Test("FlowDeepLinkMatcher surfaces duplicate pattern diagnostics")
     func duplicatePatternDiagnostics() {
         let matcher = FlowDeepLinkMatcher<MatcherRoute>(
