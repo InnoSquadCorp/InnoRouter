@@ -109,7 +109,7 @@ again belongs in a major release note.
 | Package supported Swift floor | **Swift 6.3** | `swift-tools-version` line in `Package.swift` | Raising belongs in a major release. |
 | `swift-syntax` constraint | `.upToNextMinor(from: "603.0.1")` (i.e. `603.0.x`) | `Package.swift` macro plugin dependency | Allows patch bumps; minor / major bumps require a deliberate audit. |
 | Apple platform floor | iOS 18 / iPadOS 18 / macOS 15 / tvOS 18 / watchOS 11 / visionOS 2 | `platforms` block in `Package.swift` | Raising belongs in a major release. |
-| Macro host availability | macOS only (SwiftSyntax host plugin) | `Tests/InnoRouterMacrosTests`, `Tests/InnoRouterMacrosBehaviorTests` | Linux CI builds the plugin but cannot expand macros. |
+| Macro host availability | macOS only (SwiftSyntax host plugin) | `Tests/InnoRouterMacrosTests`, `Tests/InnoRouterMacrosBehaviorTests` | Macro expansion is exercised by the macOS test jobs. |
 
 To bump the Xcode pin, change `xcode-version` in every workflow file
 in a single commit, regenerate the public-API baseline with the same
@@ -248,15 +248,14 @@ Migration guides are intentionally not part of this release process.
 - `NavigationStore`, `ModalStore`, deep-link, effect, and macro docs reflect current symbols.
 - Release notes links point to the current README, RELEASING guide, and DocC portal.
 - `xcode-version` in `principle-gates.yml`, `platforms.yml`,
-  `release.yml`, `docs-ci.yml`, and `performance-smoke.yml` is
+  `release.yml`, `docs-ci.yml`, `coverage.yml`, and `performance-smoke.yml` is
   current — bump to the current release Xcode at release time
   if it has drifted, and re-run `principle-gates.sh` locally with
   the same toolchain.
 - Macro tests (`Tests/InnoRouterMacrosTests`,
   `Tests/InnoRouterMacrosBehaviorTests`) execute on macOS (host) only
-  — confirm CI runs them on a macOS runner. Linux CI may import
-  `InnoRouterMacrosPlugin` for build coverage but cannot expand
-  macros without SwiftSyntax host-plugin support.
+  — confirm the macOS test jobs execute them. Per-platform compile probes do
+  not replace host-side macro expansion tests.
 
 ## GitHub Pages note
 

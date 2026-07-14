@@ -243,7 +243,7 @@ case .unhandled(let url):
 
 ## 검증과 유지보수
 
-- 요구사항: iOS/iPadOS 18+, macOS 15+, tvOS 18+, watchOS 11+, visionOS 2+, Swift 6.2+.
+- 요구사항: iOS/iPadOS 18+, macOS 15+, tvOS 18+, watchOS 11+, visionOS 2+, Swift 6.3+.
 - public API를 바꾸면 `Baselines/PublicAPI`와 CHANGELOG를 함께 갱신하고 public API gate를 실행한다.
 - 사용자 예제는 `Examples/`와 `ExamplesSmoke/`의 build parity를 유지한다.
 - execution semantics 변경에는 단일 command, batch, transaction, middleware cancellation, observation ordering 회귀 테스트를 추가한다.

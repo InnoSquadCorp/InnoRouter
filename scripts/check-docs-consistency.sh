@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016 # Literal Markdown and shell snippets are search patterns.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -154,6 +155,38 @@ if [[ "$swift_syntax_series" != '603' ]]; then
   echo "[check-docs-consistency] Failed: Swift 6.3 floor must stay aligned with swift-syntax 603.x" >&2
   failures=1
 fi
+
+workflow_pin_expectations=(
+  'principle-gates.yml:1'
+  'platforms.yml:2'
+  'release.yml:1'
+  'docs-ci.yml:1'
+  'coverage.yml:1'
+  'performance-smoke.yml:1'
+)
+for expectation in "${workflow_pin_expectations[@]}"; do
+  workflow_name="${expectation%%:*}"
+  expected_count="${expectation##*:}"
+  workflow_path="$ROOT_DIR/.github/workflows/$workflow_name"
+  actual_count="$(grep -Fc 'xcode-version: "26.3"' "$workflow_path" || true)"
+  if [[ "$actual_count" != "$expected_count" ]]; then
+    echo "[check-docs-consistency] Failed: $workflow_name must pin Xcode 26.3 exactly $expected_count time(s)" >&2
+    failures=1
+  fi
+done
+
+check_absent "$ROOT_DIR/.github/workflows/platforms.yml" \
+  'Swift 6.2 is the floor' \
+  "platform workflow still documents the old Swift floor"
+check_present "$ROOT_DIR/.cursor/rules/innoflow-framework.mdc" \
+  'Swift 6.3+.' \
+  "framework rule does not match the package Swift floor"
+check_absent "$ROOT_DIR/RELEASING.md" \
+  'Linux CI builds the plugin' \
+  "RELEASING.md claims a Linux CI job that does not exist"
+check_absent "$ROOT_DIR/RELEASING.md" \
+  'Linux CI may import' \
+  "RELEASING.md claims a Linux CI job that does not exist"
 
 echo "[check-docs-consistency] Checking current major-version contract"
 for readme_path in "$ROOT_DIR"/README*.md; do

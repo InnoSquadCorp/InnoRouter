@@ -52,7 +52,7 @@ jobs:
       #
       # Xcode is pinned (rather than a floating latest channel) so the platform
       # matrix stays reproducible across the lifetime of a release.
-      # Swift 6.2 is the floor declared in Package.swift; the pinned
+      # Swift 6.3 is the floor declared in Package.swift; the pinned
       # Xcode below satisfies that. Bump this pin from RELEASING.md's
       # checklist when cutting a new release — see the "Toolchain pin"
       # section there for the policy.
