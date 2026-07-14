@@ -240,7 +240,9 @@ are bare semver (no leading `v`).
 - Swift 6.3 CI jobs now run on the `macos-26` runner image and pin Xcode 26.6.
   The previous `macos-15` / Xcode 26.3 combination selected Swift 6.2.4 and
   rejected the package manifest before tests, DocC, coverage, performance, or
-  platform gates could run.
+  platform gates could run. The visionOS discovery floor also follows Xcode
+  26.6's function-level `xcresult` summary while parameterized test iterations
+  remain validated by the test result itself.
 - Performance smoke measurements now alternate small/large input order, report
   median timings, and gate scaling on the median of five pair ratios instead of
   dividing two independently aggregated medians. Transient runner preemption no

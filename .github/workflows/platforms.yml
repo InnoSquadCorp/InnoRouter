@@ -158,7 +158,9 @@ jobs:
           - name: visionOS
             destination: "visionOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.xrOS"
-            minimumPassedTests: 50
+            # xcresult summary counts a parameterized @Test function once;
+            # its argument iterations are validated by the test result itself.
+            minimumPassedTests: 25
 
     steps:
       - name: Checkout
