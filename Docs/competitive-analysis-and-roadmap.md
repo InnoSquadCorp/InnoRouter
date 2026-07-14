@@ -392,7 +392,9 @@ Shape (landed):
   `.whenCancelled(NavigationCommand<R>, fallback:)` adds a
   synchronous fallback case to `NavigationCommand`, handled both
   by `NavigationEngine` (engine-level failures) and
-  `NavigationStore` (middleware-driven cancellation).
+  `NavigationStore` (middleware-driven cancellation). Primary and
+  fallback execute behind separate savepoints, so only one successful
+  leg can commit and a failed fallback cannot leak partial state.
   `ThrottleNavigationMiddleware<R, C>` adds a
   generic-over-Clock middleware for rate-limiting with
   deterministic test-clock injection. Debounce semantics shipped
@@ -407,8 +409,8 @@ Shape (landed):
   auto-cancellation.
 - **P3-6 Property-based tests** — `NavigationPropertyBasedTests`
   uses `@Test(arguments:)` to exercise compositionality of
-  `.sequence` and snapshot semantics of `.whenCancelled` across
-  many seeds. The pre-existing random-command test in
+  `.sequence` and both-leg savepoint semantics of `.whenCancelled`
+  across many seeds. The pre-existing random-command test in
   `NavigationCommandTests.swift` already used the same pattern; this
   complements it with engine-level invariants.
 - **P3-7 FlowIntent modal-aware variants** —

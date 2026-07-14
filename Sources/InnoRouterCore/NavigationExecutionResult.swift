@@ -4,7 +4,7 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 //
 // `NavigationBatchResult` and `NavigationTransactionResult` declare
-// the same set of fields (requested / executed commands, per-step
+// the same set of fields (requested / attempted commands, top-level
 // results, stateBefore / stateAfter, success predicate) by hand.
 // Tests, telemetry adapters, and middleware that want to write a
 // generic helper over either type previously had to either branch
@@ -48,11 +48,16 @@ public protocol NavigationExecutionResult<R>: Sendable, Equatable {
     /// Commands originally requested for execution.
     var requestedCommands: [NavigationCommand<R>] { get }
 
-    /// Commands actually executed after middleware interception
-    /// and rewriting.
+    /// Effective commands actually passed to the navigation engine after
+    /// middleware interception and rewriting, in attempt order. Interception
+    /// cancellations are absent; attempts later discarded by a savepoint or
+    /// transaction rollback remain present.
     var executedCommands: [NavigationCommand<R>] { get }
 
-    /// Per-step execution results in the order of `executedCommands`.
+    /// Top-level results for requested commands reached before execution
+    /// stopped, in request order. Composite commands, interception
+    /// cancellations, and discarded attempts mean this array does not have a
+    /// one-to-one index or count relationship with ``executedCommands``.
     var results: [NavigationResult<R>] { get }
 
     /// Navigation state before the aggregate execution started.

@@ -2,15 +2,15 @@
 
 Install logging, entitlement gating, and analytics middleware on
 both `NavigationStore` and `ModalStore`. Inspect the participant
-discipline that guarantees `didExecute` only runs for middlewares
-that accepted the command.
+discipline that pairs completion callbacks with the middlewares
+whose `willExecute` hook actually ran.
 
 ## Scenario
 
 Every `NavigationCommand` and `ModalCommand` should be logged
 before it executes. A feature-flagged screen must be gated behind
-an entitlement check. An analytics call must fire after the
-command commits — but only for middlewares that actually
+an entitlement check. An analytics call must fire after an
+execution attempt finishes — but only for middlewares that actually
 participated in the `willExecute` decision.
 
 ## Modeling routes
@@ -37,8 +37,8 @@ func loggingNavigationMiddleware() -> AnyNavigationMiddleware<AppRoute> {
             Log.debug("navigation command: \(command)")
             return .proceed(command)
         },
-        didExecute: { command, _, result in
-            Log.debug("navigation committed: \(command) -> \(result)")
+        didExecute: { command, result, _ in
+            Log.debug("navigation finished: \(command) -> \(result)")
             return result
         }
     )
@@ -52,7 +52,7 @@ func loggingModalMiddleware() -> AnyModalMiddleware<AppRoute> {
             return .proceed(command)
         },
         didExecute: { command, _, _ in
-            Log.debug("modal committed: \(command)")
+            Log.debug("modal finished: \(command)")
         }
     )
 }
@@ -104,16 +104,23 @@ let modalStore = ModalStore<AppRoute>(
 
 ## Participant discipline
 
-When a middleware cancels a command, only the middlewares that
-already returned `.proceed` observe `didExecute`. The ones that
-either didn't run yet (because a predecessor cancelled) or that
-themselves cancelled are not consulted.
+When a middleware cancels a command, every middleware whose
+`willExecute` hook ran is a participant, including the cancelling
+middleware itself. Middleware later in the chain did not run and
+therefore receives no completion callback.
 
 That guarantee is why the logger safely appears *before* the
 entitlement gate — the logger's `didExecute` fires even if the
 gate cancels, so the cancellation is still recorded. Reordering
 to `[entitlement-gate, logging]` would skip the logger's
 `didExecute` on cancellation.
+
+For direct and batch `.whenCancelled` execution, `didExecute` is
+attempt-level: it can run for a leg whose `RouteStack` change is
+later discarded. Use the aggregate result and `.changed` event to
+observe durable state. Transactions instead keep `didExecute`
+commit-only; its returned fold can change reporting after commit but
+cannot roll back the transaction.
 
 ## Observing a cancellation end-to-end
 

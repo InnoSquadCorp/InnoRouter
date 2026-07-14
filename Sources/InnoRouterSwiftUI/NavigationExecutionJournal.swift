@@ -93,13 +93,15 @@ struct NavigationExecutionJournal<R: Route> {
 
         case .whenCancelled(let primary, let fallback):
             let snapshot = currentState
+            var primaryState = snapshot
             let primaryJournal = planTransaction(
                 primary,
-                state: &currentState,
+                state: &primaryState,
                 middlewareRegistry: middlewareRegistry,
                 engine: engine
             )
             if primaryJournal.result.isSuccess {
+                currentState = primaryState
                 return .group(
                     kind: .whenCancelled,
                     requestedCommand: command,
@@ -111,21 +113,26 @@ struct NavigationExecutionJournal<R: Route> {
                 )
             }
 
-            currentState = snapshot
+            var fallbackState = snapshot
             let fallbackJournal = planTransaction(
                 fallback,
-                state: &currentState,
+                state: &fallbackState,
                 middlewareRegistry: middlewareRegistry,
                 engine: engine
             )
+            let fallbackSucceeded = fallbackJournal.result.isSuccess
+            currentState = fallbackSucceeded ? fallbackState : snapshot
             return .group(
                 kind: .whenCancelled,
                 requestedCommand: command,
                 result: fallbackJournal.result,
                 stateBefore: snapshot,
                 stateAfter: currentState,
-                children: [primaryJournal.forDiscardedTransaction(), fallbackJournal],
-                executedCommands: fallbackJournal.executedCommands
+                children: [
+                    primaryJournal.forDiscardedTransaction(),
+                    fallbackSucceeded ? fallbackJournal : fallbackJournal.forDiscardedTransaction(),
+                ],
+                executedCommands: primaryJournal.executedCommands + fallbackJournal.executedCommands
             )
 
         default:

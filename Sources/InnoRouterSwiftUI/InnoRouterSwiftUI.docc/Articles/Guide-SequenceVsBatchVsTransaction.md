@@ -40,6 +40,12 @@ user sees no half-applied state"). An empty command list is not a
 transactional success: it returns an uncommitted result with no
 failure index because no command ran.
 
+`.whenCancelled` adds a smaller savepoint *inside one command*:
+primary and fallback each start from the same local snapshot, and
+only one successful leg can change the stack. It does not turn a
+surrounding batch into a transaction; later batch commands still
+follow the batch's continuation policy.
+
 ## Worked examples
 
 ### Compose a single command that drives a deep link plan

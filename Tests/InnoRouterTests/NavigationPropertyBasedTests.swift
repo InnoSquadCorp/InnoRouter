@@ -137,4 +137,33 @@ struct NavigationPropertyBasedTests {
 
         #expect(wrapped == direct)
     }
+
+    @Test(
+        ".whenCancelled(primary, fallback) — failed fallback preserves the original snapshot",
+        arguments: Array(0..<50)
+    )
+    @MainActor
+    func whenCancelledFallbackFailurePreservesSnapshot(seed: Int) {
+        var rng = PBTGenerator(seed: seed)
+        let engine = NavigationEngine<PBTRoute>()
+        let snapshot = RouteStack<PBTRoute>(path: [.home])
+        let inserted = rng.nextRoute()
+        let missing: PBTRoute = switch inserted {
+        case .settings: .profile
+        default: .settings
+        }
+        let fallback: NavigationCommand<PBTRoute> = .sequence([
+            .push(inserted),
+            .popTo(missing),
+        ])
+        var wrapped = snapshot
+
+        let result = engine.apply(
+            .whenCancelled(.popCount(-1), fallback: fallback),
+            to: &wrapped
+        )
+
+        #expect(!result.isSuccess)
+        #expect(wrapped == snapshot)
+    }
 }

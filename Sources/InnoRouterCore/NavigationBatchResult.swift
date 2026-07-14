@@ -1,9 +1,13 @@
 public struct NavigationBatchResult<R: Route>: Sendable, Equatable {
     /// Commands originally requested for batch execution.
     public let requestedCommands: [NavigationCommand<R>]
-    /// Commands actually executed after middleware interception and rewriting.
+    /// Effective commands actually passed to the navigation engine after
+    /// middleware interception and rewriting, in attempt order. Interception
+    /// cancellations are absent; attempts later discarded by a savepoint
+    /// remain present.
     public let executedCommands: [NavigationCommand<R>]
-    /// Per-step execution results in the same order as the requested commands.
+    /// Top-level results for requested commands reached before execution
+    /// stopped, in request order.
     public let results: [NavigationResult<R>]
     /// Navigation state before the batch started.
     public let stateBefore: RouteStack<R>
@@ -13,7 +17,7 @@ public struct NavigationBatchResult<R: Route>: Sendable, Equatable {
     public let hasStoppedOnFailure: Bool
 
     /// `true` when the batch executed at least one command and every
-    /// per-step result succeeded. An empty batch is *not* a success —
+    /// top-level result succeeded. An empty batch is *not* a success —
     /// mirroring `NavigationResult.multiple([])` — because requesting
     /// zero commands is treated as a programming error rather than a
     /// vacuous success.

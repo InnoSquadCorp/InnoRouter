@@ -62,10 +62,9 @@ struct WhenCancelledBroadcastTests {
 
     // The contract: a `.whenCancelled(primary, fallback)` always emits
     // at most one `.changed` for the *net* transition seen by the
-    // store. Intermediate states reached during a partially-applied
-    // primary that is later rolled back must not leak as separate
-    // `.changed` events. The fallback's commit is emitted as a single
-    // `oldRoot → finalRoot` transition.
+    // store. Intermediate states from either attempted leg never leak.
+    // A successful leg emits one `oldRoot → finalRoot` transition; if
+    // both legs fail, no change is emitted.
 
     @Test("Primary success: one .changed from initial to primary's final state")
     @MainActor
@@ -101,6 +100,23 @@ struct WhenCancelledBroadcastTests {
         #expect(collector.changes.first?.from == [])
         #expect(collector.changes.first?.to == [.detail])
         #expect(store.state.path == [.detail])
+    }
+
+    @Test("Failed fallback sequence emits no transient .changed event")
+    @MainActor
+    func partialFallbackFailureEmitsNothing() throws {
+        let (store, collector) = try makeStore()
+
+        let result = store.execute(
+            .whenCancelled(
+                .pop,
+                fallback: .sequence([.push(.home), .popTo(.settings)])
+            )
+        )
+
+        #expect(result == .multiple([.success, .routeNotFound(.settings)]))
+        #expect(collector.changes.isEmpty)
+        #expect(store.state.path.isEmpty)
     }
 
     @Test("Middleware-cancelled primary: fallback's net change emits exactly once")

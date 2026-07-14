@@ -3,6 +3,14 @@ public protocol NavigationMiddleware<RouteType> {
     associatedtype RouteType: Route
 
     func willExecute(_ command: NavigationCommand<RouteType>, state: RouteStack<RouteType>) -> NavigationInterception<RouteType>
+    /// Finalizes an intercepted execution attempt and may fold its result.
+    ///
+    /// Direct and batch execution call this for attempted `.whenCancelled`
+    /// legs even when a surrounding savepoint later discards their state.
+    /// Transaction execution keeps this callback commit-only: leg selection
+    /// and commit use the preview result, then this callback runs for committed
+    /// leaves. A post-commit fold changes the reported result but cannot undo
+    /// the transaction or select another fallback.
     func didExecute(
         _ command: NavigationCommand<RouteType>,
         result: NavigationResult<RouteType>,

@@ -7,11 +7,11 @@ public enum NavigationCommand<R: Route>: Sendable, Equatable {
     case popTo(R)
     case replace([R])
     indirect case sequence([NavigationCommand<R>])
-    /// Attempts `primary`; if it reports anything other than
-    /// `.success`, rolls back any partial state change and applies
-    /// `fallback` instead. The returned result reflects whichever
-    /// command actually committed (primary on success, fallback
-    /// otherwise).
+    /// Attempts `primary` inside an internal savepoint. If it reports
+    /// anything other than success, discards that leg and attempts
+    /// `fallback` from the same starting state. Only a successful leg
+    /// commits. If the fallback also fails, its partial changes are
+    /// discarded and the returned result is the fallback failure.
     ///
     /// `NavigationStore` additionally routes `.whenCancelled`
     /// through the middleware layer recursively, so a middleware
@@ -25,16 +25,16 @@ public enum NavigationCommand<R: Route>: Sendable, Equatable {
     ///
     /// - Primary success: one event for `oldState → primaryFinalState`
     ///   (suppressed entirely if the final state equals `oldState`).
-    /// - Primary failure (engine or middleware): partial mutations
-    ///   reached during a partially-applied primary are rolled back
-    ///   *before* the fallback runs, and a single event is emitted
-    ///   for `oldState → fallbackFinalState`.
+    /// - Primary failure (engine or middleware), fallback success:
+    ///   partial primary mutations are discarded before the fallback
+    ///   runs, and one event reports `oldState → fallbackFinalState`.
+    /// - Both legs fail: both sets of partial mutations are discarded
+    ///   and no `.changed` event is emitted.
     ///
     /// In particular, when `primary` is itself a `.sequence`, the
-    /// per-step intermediate states reached by the sequence do not
-    /// leak as separate `.changed` events. The store internally drives
-    /// the recursive primary execution with broadcaster suppression
-    /// and only re-enables emission for the final coalesced
+    /// per-step intermediate states reached by either sequence do not
+    /// leak as separate `.changed` events. The store evaluates each leg
+    /// against a shadow state and only emits the final committed
     /// transition.
     indirect case whenCancelled(
         NavigationCommand<R>,

@@ -8,6 +8,14 @@ are bare semver (no leading `v`).
 
 ### Breaking
 
+- `.whenCancelled(primary, fallback:)` now evaluates each attempted leg behind
+  a separate savepoint. If the fallback also fails or is cancelled, its partial
+  state is discarded, the original snapshot remains authoritative, and no
+  `.changed` event is emitted. Transaction results now retain effective engine
+  attempts from both primary and fallback, including discarded attempts when
+  the fallback commits. Transaction leg selection still uses preview results so
+  `didExecute` remains commit-only; a post-commit result fold changes reporting
+  but cannot undo the commit or reopen fallback selection.
 - `executeTransaction([])` now returns `isCommitted == false`, matching the
   existing empty `.sequence([])` and empty batch failure semantics. Its
   `failureIndex` remains `nil` because no command ran. Concrete commands with

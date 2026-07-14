@@ -512,12 +512,14 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
         case .whenCancelled(let primary, let fallback):
             let snapshot = currentState
+            var primaryState = snapshot
             let primaryOutcome = executeSingle(
                 primary,
-                state: &currentState,
+                state: &primaryState,
                 shouldNotifyOnChange: false
             )
             if primaryOutcome.result.isSuccess {
+                currentState = primaryState
                 return ExecutionOutcome(
                     executedCommands: primaryOutcome.executedCommands,
                     result: primaryOutcome.result,
@@ -529,12 +531,13 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 )
             }
 
-            currentState = snapshot
+            var fallbackState = snapshot
             let fallbackOutcome = executeSingle(
                 fallback,
-                state: &currentState,
+                state: &fallbackState,
                 shouldNotifyOnChange: false
             )
+            currentState = fallbackOutcome.result.isSuccess ? fallbackState : snapshot
             return ExecutionOutcome(
                 executedCommands: primaryOutcome.executedCommands + fallbackOutcome.executedCommands,
                 result: fallbackOutcome.result,

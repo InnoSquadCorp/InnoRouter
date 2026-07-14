@@ -170,11 +170,16 @@ func applyReference(
 
     case .whenCancelled(let primary, let fallback):
         let snapshot = path
-        let primaryResult = applyReference(primary, to: &path)
+        var primaryPath = snapshot
+        let primaryResult = applyReference(primary, to: &primaryPath)
         if primaryResult.isSuccess {
+            path = primaryPath
             return primaryResult
         }
-        path = snapshot
-        return applyReference(fallback, to: &path)
+
+        var fallbackPath = snapshot
+        let fallbackResult = applyReference(fallback, to: &fallbackPath)
+        path = fallbackResult.isSuccess ? fallbackPath : snapshot
+        return fallbackResult
     }
 }

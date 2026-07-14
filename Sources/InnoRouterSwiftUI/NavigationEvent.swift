@@ -39,7 +39,7 @@ extension NavigationEvent: CustomStringConvertible {
         case .changed(let from, let to):
             return ".changed(from: \(from.path), to: \(to.path))"
         case .batchExecuted(let result):
-            return ".batchExecuted(executed: \(result.executedCommands.count), isSuccess: \(result.isSuccess))"
+            return ".batchExecuted(attempted: \(result.executedCommands.count), isSuccess: \(result.isSuccess))"
         case .transactionExecuted(let result):
             return ".transactionExecuted(isCommitted: \(result.isCommitted))"
         case .middlewareMutation(let event):

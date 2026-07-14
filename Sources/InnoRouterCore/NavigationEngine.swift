@@ -42,15 +42,18 @@ public struct NavigationEngine<R: Route>: Sendable {
             return .multiple(results)
 
         case .whenCancelled(let primary, let fallback):
-            // Snapshot-and-rollback so a partial primary that later
-            // fails doesn't leak into the fallback execution.
             let snapshot = state
-            let primaryResult = apply(primary, to: &state)
+            var primaryState = snapshot
+            let primaryResult = apply(primary, to: &primaryState)
             if primaryResult.isSuccess {
+                state = primaryState
                 return primaryResult
             }
-            state = snapshot
-            return apply(fallback, to: &state)
+
+            var fallbackState = snapshot
+            let fallbackResult = apply(fallback, to: &fallbackState)
+            state = fallbackResult.isSuccess ? fallbackState : snapshot
+            return fallbackResult
         }
     }
 }

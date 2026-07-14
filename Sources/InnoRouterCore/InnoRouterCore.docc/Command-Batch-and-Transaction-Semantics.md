@@ -39,15 +39,30 @@ Use `.sequence` when partial success is acceptable and the command stream itself
 
 ## Fallback semantics
 
-`.whenCancelled(primary, fallback:)` is also command algebra.
+`.whenCancelled(primary, fallback:)` is choice composition with an internal
+savepoint.
 
 That means:
 
-- `primary` runs first
-- if `primary` reports anything other than success, the store restores the snapshot and runs `fallback`
-- both legs still pass through middleware recursively
-- single-command execution only emits the committed state change
+- `primary` runs first against a shadow copy of the starting state
+- if `primary` succeeds, only its final state commits
+- if `primary` reports anything other than success, its shadow is discarded and `fallback` starts from the same snapshot
+- if `fallback` succeeds, only its final state commits
+- if both legs fail, both shadows are discarded, the starting `RouteStack` remains unchanged, and the fallback failure is returned
+- `NavigationStore` routes each attempted leg recursively through middleware; direct `NavigationEngine` execution has no middleware
+- single-command execution only emits the successful leg's committed state change
 - transaction execution keeps public middleware observation commit-only, while discarded preview legs run internal cleanup
+
+For direct and batch store execution, the folded `didExecute` result decides
+whether a leg succeeded. Transaction execution must choose and commit from its
+preview result so `didExecute` stays commit-only; a post-commit fold changes the
+reported result but cannot reopen fallback selection or undo the commit.
+
+`executedCommands` is an attempt log, not a commit log. It records effective
+commands passed to the engine, including attempts later discarded by either
+savepoint or transaction rollback; middleware interceptions cancelled before
+the engine are not included. The savepoint protects `RouteStack` authority, not
+arbitrary side effects performed by attempt-level middleware callbacks.
 
 Use `.whenCancelled` when rollback-to-fallback semantics belong to one logical command.
 

@@ -121,6 +121,9 @@ if result.isSuccess {
 }
 ```
 
+`whenCancelled`는 primary와 fallback을 같은 시작 snapshot의 별도 savepoint에서 실행한다.
+성공한 leg만 state에 반영하며 둘 다 실패하면 원래 state를 유지하고 fallback의 실패 결과를 반환한다.
+
 현재 `NavigationResult` 의미:
 
 - `.success`: 단일 command 성공

@@ -94,7 +94,9 @@ If the throttle middleware cancels the `.push(.detail)`, the
 fallback `.push(.home)` is attempted next. `NavigationStore`
 routes that fallback back through the full middleware chain, so a
 global throttle key can cancel the fallback too if it still lands
-inside the same throttle window.
+inside the same throttle window. Each leg runs behind an internal
+savepoint: if the fallback also fails or is cancelled, neither leg's
+partial state is committed.
 
 ## Debounce?
 

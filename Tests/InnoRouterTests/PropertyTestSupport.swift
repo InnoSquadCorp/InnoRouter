@@ -1753,7 +1753,7 @@ func modelNavigationExecute(
         )
         return PropertyNavigationExecutionModelResult(
             result: fallbackOutcome.result,
-            stateAfter: fallbackOutcome.stateAfter,
+            stateAfter: fallbackOutcome.result.isSuccess ? fallbackOutcome.stateAfter : initialState,
             executedCommands: primaryOutcome.executedCommands + fallbackOutcome.executedCommands,
             didExecuteCommands: primaryOutcome.didExecuteCommands + fallbackOutcome.didExecuteCommands
         )

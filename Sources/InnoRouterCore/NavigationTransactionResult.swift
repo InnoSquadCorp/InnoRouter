@@ -2,9 +2,13 @@
 public struct NavigationTransactionResult<R: Route>: Sendable, Equatable {
     /// Commands originally requested for transactional execution.
     public let requestedCommands: [NavigationCommand<R>]
-    /// Commands actually executed after middleware interception and rewriting.
+    /// Effective commands actually passed to the navigation engine after
+    /// middleware interception and rewriting, in attempt order. Interception
+    /// cancellations are absent; preview attempts later discarded by fallback
+    /// or transaction rollback remain present.
     public let executedCommands: [NavigationCommand<R>]
-    /// Top-level command results recorded in request order.
+    /// Top-level command results recorded in request order through the first
+    /// failed command, or for every requested command on commit.
     public let results: [NavigationResult<R>]
     /// Navigation state before the transaction started.
     public let stateBefore: RouteStack<R>
