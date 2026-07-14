@@ -174,8 +174,9 @@ struct SceneStoreIntegrationTests {
         let scenes = makeRegistry()
         let mainDeclaration = try #require(scenes.declaration(for: .main))
         let attachedWindow = mainDeclaration.presentation(id: UUID())
+        let lifecycleToken = UUID()
 
-        store.attachDeclaredScene(attachedWindow)
+        store.registerSceneLifecycle(attachedWindow, token: lifecycleToken)
 
         let anchorToken = UUID()
         store.registerFallbackDispatcher(anchorToken)
@@ -256,17 +257,22 @@ struct SceneStoreIntegrationTests {
     @MainActor
     func dormantSceneHostRetriesOnlyAfterDispatcherChanges() async {
         let store = SceneStore<SpatialRoute>()
+        let scenes = makeRegistry()
         let rejectionCounter = DuplicateHostRejectionCounter<SpatialRoute>()
-        let attachedPresentation = ScenePresentation<SpatialRoute>.window(.main)
+        let instanceID = UUID()
         let primaryRegistration = SceneHostRegistration(
             store: store,
             dispatcherToken: UUID(),
-            attachedPresentation: attachedPresentation
+            scenes: scenes,
+            attachedTo: .main,
+            instanceID: instanceID
         )
         let dormantRegistration = SceneHostRegistration(
             store: store,
             dispatcherToken: UUID(),
-            attachedPresentation: attachedPresentation
+            scenes: scenes,
+            attachedTo: .main,
+            instanceID: instanceID
         )
 
         let eventTask = Task { @MainActor in
@@ -304,8 +310,10 @@ struct SceneStoreIntegrationTests {
         #expect(isDormant == true)
         #expect(await rejectionCounter.read() == 1)
 
-        primaryRegistration.deactivateIfOwned()
+        primaryRegistration.deactivate(dispatcherOwned: true)
         await Task.yield()
+
+        #expect(store.activeScenes == [.window(.main, id: instanceID)])
 
         handleSceneHostSignal(
             .dispatcherChanged,
@@ -322,6 +330,143 @@ struct SceneStoreIntegrationTests {
         #expect(await rejectionCounter.read() == 1)
     }
 
+    @Test("Dormant host reconciles a distinct window lifecycle without disturbing the primary dispatcher")
+    @MainActor
+    func dormantHostReconcilesDistinctWindowLifecycle() throws {
+        let store = SceneStore<SpatialRoute>()
+        let scenes = makeRegistry()
+        let mainDeclaration = try #require(scenes.declaration(for: .main))
+        let primaryWindowID = UUID()
+        let dormantWindowID = UUID()
+        let primaryPresentation = mainDeclaration.presentation(id: primaryWindowID)
+        let dormantPresentation = mainDeclaration.presentation(id: dormantWindowID)
+        let primaryRegistration = SceneHostRegistration(
+            store: store,
+            dispatcherToken: UUID(),
+            scenes: scenes,
+            attachedTo: .main,
+            instanceID: primaryWindowID
+        )
+        let dormantRegistration = SceneHostRegistration(
+            store: store,
+            dispatcherToken: UUID(),
+            scenes: scenes,
+            attachedTo: .main,
+            instanceID: dormantWindowID
+        )
+
+        #expect(primaryRegistration.activate())
+        #expect(dormantRegistration.activate() == false)
+        #expect(store.activeScenes == [primaryPresentation, dormantPresentation])
+
+        dormantRegistration.deactivate(dispatcherOwned: false)
+        #expect(store.activeScenes == [primaryPresentation])
+
+        let requestedWindow = store.openWindow(.main)
+        let requestID = try #require(store.currentPendingRequestID)
+        let claimed = store.claimPendingRequest(
+            requestID,
+            dispatcherToken: primaryRegistration.dispatcherToken
+        )
+        #expect(claimed == .open(requestedWindow))
+
+        _ = store.completeClaimedRejection(
+            for: .open(requestedWindow),
+            reason: .environmentReturnedFailure,
+            requestID: requestID
+        )
+        primaryRegistration.deactivate(dispatcherOwned: true)
+        #expect(store.activeScenes.isEmpty)
+    }
+
+    @Test("A command-opened dormant window is removed when its scene root disappears")
+    @MainActor
+    func commandOpenedDormantWindowReconcilesSystemClose() throws {
+        let store = SceneStore<SpatialRoute>()
+        let scenes = makeRegistry()
+        let mainDeclaration = try #require(scenes.declaration(for: .main))
+        let primaryWindowID = UUID()
+        let primaryPresentation = mainDeclaration.presentation(id: primaryWindowID)
+        let primaryRegistration = SceneHostRegistration(
+            store: store,
+            dispatcherToken: UUID(),
+            scenes: scenes,
+            attachedTo: .main,
+            instanceID: primaryWindowID
+        )
+
+        #expect(primaryRegistration.activate())
+
+        let openedWindow = store.openWindow(.main)
+        let requestID = try #require(store.currentPendingRequestID)
+        #expect(
+            store.claimPendingRequest(
+                requestID,
+                dispatcherToken: primaryRegistration.dispatcherToken
+            ) == .open(openedWindow)
+        )
+        _ = store.completeClaimedOpen(
+            openedWindow,
+            accepted: true,
+            requestID: requestID
+        )
+        #expect(store.activeScenes == [primaryPresentation, openedWindow])
+
+        let openedWindowRegistration = SceneHostRegistration(
+            store: store,
+            dispatcherToken: UUID(),
+            scenes: scenes,
+            attachedTo: .main,
+            instanceID: openedWindow.id
+        )
+        #expect(openedWindowRegistration.activate() == false)
+
+        openedWindowRegistration.deactivate(dispatcherOwned: false)
+        #expect(store.activeScenes == [primaryPresentation])
+
+        primaryRegistration.deactivate(dispatcherOwned: true)
+        #expect(store.activeScenes.isEmpty)
+    }
+
+    @Test("Overlapping roots detach a shared scene only after the final lifecycle owner disappears")
+    @MainActor
+    func overlappingRootsRetainSharedSceneUntilLastOwnerDisappears() {
+        let store = SceneStore<SpatialRoute>()
+        let presentation = ScenePresentation<SpatialRoute>.window(.main)
+        let firstToken = UUID()
+        let secondToken = UUID()
+
+        store.registerSceneLifecycle(presentation, token: firstToken)
+        store.registerSceneLifecycle(presentation, token: secondToken)
+        #expect(store.activeScenes == [presentation])
+
+        store.unregisterSceneLifecycle(firstToken)
+        #expect(store.activeScenes == [presentation])
+
+        store.unregisterSceneLifecycle(secondToken)
+        #expect(store.activeScenes.isEmpty)
+        #expect(store.currentScene == nil)
+    }
+
+    @Test("A lifecycle token that is rebound to a new immersive identity leaves no stale presentation")
+    @MainActor
+    func lifecycleTokenRebindDoesNotLeakImmersivePresentation() {
+        let store = SceneStore<SpatialRoute>()
+        let token = UUID()
+        let first = ScenePresentation<SpatialRoute>.immersive(.theatre, style: .mixed)
+        let second = ScenePresentation<SpatialRoute>.immersive(.theatre, style: .mixed)
+
+        store.registerSceneLifecycle(first, token: token)
+        #expect(store.activeScenes == [first])
+
+        store.registerSceneLifecycle(second, token: token)
+        #expect(store.activeScenes == [second])
+
+        store.unregisterSceneLifecycle(token)
+        #expect(store.activeScenes.isEmpty)
+        #expect(store.currentScene == nil)
+    }
+
     @Test("Replacement host can take over and dismiss its attached window after the original host unregisters")
     @MainActor
     func replacementHostCanTakeOverAttachedSceneInventory() async throws {
@@ -334,12 +479,16 @@ struct SceneStoreIntegrationTests {
         let firstRegistration = SceneHostRegistration(
             store: store,
             dispatcherToken: UUID(),
-            attachedPresentation: mainPresentation
+            scenes: scenes,
+            attachedTo: .main,
+            instanceID: mainWindowID
         )
         let replacementRegistration = SceneHostRegistration(
             store: store,
             dispatcherToken: UUID(),
-            attachedPresentation: mainPresentation
+            scenes: scenes,
+            attachedTo: .main,
+            instanceID: mainWindowID
         )
 
         #expect(firstRegistration.activate() == true)
@@ -350,8 +499,8 @@ struct SceneStoreIntegrationTests {
         #expect(store.currentScene == mainPresentation)
         #expect(store.dispatcherSignal == 1)
 
-        firstRegistration.deactivateIfOwned()
-        #expect(store.currentScene == nil)
+        firstRegistration.deactivate(dispatcherOwned: true)
+        #expect(store.currentScene == mainPresentation)
         #expect(store.dispatcherSignal == 2)
 
         #expect(replacementRegistration.activate() == true)
@@ -463,7 +612,7 @@ struct SceneStoreIntegrationTests {
 
         let hostToken = UUID()
         _ = store.registerDispatcherHost(hostToken)
-        store.attachDeclaredScene(theatrePresentation)
+        store.registerSceneLifecycle(theatrePresentation, token: hostToken)
 
         store.openImmersive(.theatre, style: .mixed)
 

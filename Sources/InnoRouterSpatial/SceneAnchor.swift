@@ -128,10 +128,11 @@ internal struct SceneAnchor<R: Route>: ViewModifier {
     internal func body(content: Content) -> some View {
         content
             .onAppear {
-                attachedPresentation = store.attachDeclaredScene(
+                attachedPresentation = store.registerSceneLifecycle(
                     route: attachedTo,
                     scenes: scenes,
-                    instanceID: instanceID
+                    instanceID: instanceID,
+                    token: dispatcherToken
                 )
                 store.registerFallbackDispatcher(dispatcherToken)
                 spawnDispatchTask()
@@ -144,10 +145,8 @@ internal struct SceneAnchor<R: Route>: ViewModifier {
                 dispatchTask?.cancel()
                 dispatchTask = nil
 
-                if let attachedPresentation {
-                    store.detachDeclaredScene(attachedPresentation)
-                    self.attachedPresentation = nil
-                }
+                store.unregisterSceneLifecycle(dispatcherToken)
+                attachedPresentation = nil
                 store.unregisterFallbackDispatcher(dispatcherToken)
             }
             .onChange(of: store.dispatchSignal) { _, _ in

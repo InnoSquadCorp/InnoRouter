@@ -190,6 +190,11 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Spatial scene inventory now tracks each live host or anchor root independently
+  from primary-dispatcher election. Dormant value-based windows participate in
+  appear/disappear reconciliation, overlapping roots detach a shared scene only
+  after their final owner disappears, and immersive hosts unregister by a stable
+  lifecycle token so SwiftUI view recreation cannot leave a stale presentation.
 - Push and flow deep-link effect handlers now identify pending replay requests
   by an internal revision instead of value equality. If an equal URL and plan
   is handled again—or, for flow links, restored—while an asynchronous

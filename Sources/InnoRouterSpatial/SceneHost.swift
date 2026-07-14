@@ -18,19 +18,26 @@ import InnoRouterCore
 internal struct SceneHostRegistration<R: Route> {
     internal let store: SceneStore<R>
     internal let dispatcherToken: UUID
-    internal let attachedPresentation: ScenePresentation<R>
+    internal let scenes: SceneRegistry<R>
+    internal let attachedTo: R
+    internal let instanceID: UUID?
 
     @discardableResult
     internal func activate() -> Bool {
-        let didRegister = store.registerDispatcherHost(dispatcherToken)
-        guard didRegister else { return false }
-        store.attachDeclaredScene(attachedPresentation)
-        return true
+        store.registerSceneLifecycle(
+            route: attachedTo,
+            scenes: scenes,
+            instanceID: instanceID,
+            token: dispatcherToken
+        )
+        return store.registerDispatcherHost(dispatcherToken)
     }
 
-    internal func deactivateIfOwned() {
-        store.detachDeclaredScene(attachedPresentation)
-        store.unregisterDispatcherHost(dispatcherToken)
+    internal func deactivate(dispatcherOwned: Bool) {
+        store.unregisterSceneLifecycle(dispatcherToken)
+        if dispatcherOwned {
+            store.unregisterDispatcherHost(dispatcherToken)
+        }
     }
 }
 
@@ -73,11 +80,12 @@ internal func handleSceneHostSignal<R: Route>(
 ///
 /// Contract:
 ///
-/// - **Attach exactly one `SceneHost` per ``SceneStore``.** Secondary
-///   hosts receive a
+/// - **Designate one scene declaration as the host scene.** Every live root
+///   produced by a value-based `WindowGroup` reconciles its own inventory
+///   membership, while one root is elected to dispatch. Secondary roots receive a
 ///   ``SceneEvent/hostRegistrationRejected(reason:)`` event with
 ///   ``SceneRejectionReason/duplicateHostRegistration`` and stay
-///   dormant. They do not crash the app, so SwiftUI scene
+///   dormant for dispatch only. They do not crash the app, so SwiftUI scene
 ///   rehydration / hot-reload flows that momentarily overlap two
 ///   hosts are safe. Dormant hosts only retry registration after the
 ///   elected dispatcher changes; plain request traffic does not
@@ -104,7 +112,8 @@ internal struct SceneHost<R: Route>: ViewModifier {
     @State private var isDormant: Bool = false
     @State private var dispatchTask: Task<Void, Never>?
     private let scenes: SceneRegistry<R>
-    private let attachedPresentation: ScenePresentation<R>
+    private let attachedTo: R
+    private let instanceID: UUID?
 
     /// Creates a scene host that also reconciles the host scene's own
     /// inventory membership.
@@ -174,23 +183,10 @@ internal struct SceneHost<R: Route>: ViewModifier {
             }
         }
 
-        self.init(
-            store: store,
-            scenes: scenes,
-            attachedPresentation: instanceID.map {
-                declaration.presentation(id: $0)
-            } ?? declaration.presentation()
-        )
-    }
-
-    private init(
-        store: SceneStore<R>,
-        scenes: SceneRegistry<R>,
-        attachedPresentation: ScenePresentation<R>
-    ) {
         self.store = store
         self.scenes = scenes
-        self.attachedPresentation = attachedPresentation
+        self.attachedTo = attachedTo
+        self.instanceID = instanceID
     }
 
     internal func body(content: Content) -> some View {
@@ -214,11 +210,10 @@ internal struct SceneHost<R: Route>: ViewModifier {
                 dispatchTask?.cancel()
                 dispatchTask = nil
 
-                // Only unregister if this host actually owned the
-                // primary slot. A dormant host never registered and must
-                // not disturb the live primary's registration.
-                guard !isDormant else { return }
-                registration.deactivateIfOwned()
+                // Inventory ownership is independent from dispatcher
+                // election. Dormant hosts still represent live scene roots
+                // and must unregister that lifecycle token on teardown.
+                registration.deactivate(dispatcherOwned: !isDormant)
             }
             .onChange(of: store.dispatchSignal) { _, _ in
                 // Dormant hosts ignore plain dispatch traffic so one
@@ -263,7 +258,9 @@ internal struct SceneHost<R: Route>: ViewModifier {
         SceneHostRegistration(
             store: store,
             dispatcherToken: dispatcherToken,
-            attachedPresentation: attachedPresentation
+            scenes: scenes,
+            attachedTo: attachedTo,
+            instanceID: instanceID
         )
     }
 

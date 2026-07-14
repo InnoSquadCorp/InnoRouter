@@ -65,6 +65,14 @@ public final class SceneStore<R: Route> {
     @ObservationIgnored
     private var dispatcherRegistry: SceneDispatcherRegistry
 
+    /// Live SwiftUI scene roots keyed by the stable token owned by their
+    /// host or anchor modifier. Inventory lifetime is intentionally separate
+    /// from dispatcher election: dormant hosts still represent live scenes,
+    /// and overlapping roots for the same scene must detach only after the
+    /// final owner disappears.
+    @ObservationIgnored
+    private var lifecyclePresentationsByToken: [UUID: ScenePresentation<R>]
+
     /// Recency-ordered summary of the active scene inventory, or `nil`
     /// if nothing is active.
     public private(set) var currentScene: ScenePresentation<R>?
@@ -85,6 +93,7 @@ public final class SceneStore<R: Route> {
         let state = SceneStoreState<R>()
         self.state = state
         self.dispatcherRegistry = SceneDispatcherRegistry()
+        self.lifecyclePresentationsByToken = [:]
         self.currentScene = state.currentScene
         self.activeScenes = state.activeScenes
         self.currentPendingRequestID = state.currentPendingRequestID
@@ -150,28 +159,81 @@ public final class SceneStore<R: Route> {
         state.snapshot
     }
 
-    internal func attachDeclaredScene(_ presentation: ScenePresentation<R>) {
-        state.attach(presentation)
-        syncFromState()
-    }
-
     @discardableResult
-    internal func attachDeclaredScene(
+    internal func registerSceneLifecycle(
         route: R,
         scenes: SceneRegistry<R>,
-        instanceID: UUID?
+        instanceID: UUID?,
+        token: UUID
     ) -> ScenePresentation<R> {
-        let declaration = scenes.declaration(for: route)!
+        guard let declaration = scenes.declaration(for: route) else {
+            preconditionFailure(
+                "Scene lifecycle registration requires a declared route: \(String(describing: route))"
+            )
+        }
+
+        if let registered = lifecyclePresentationsByToken[token],
+           declaration.matches(registered),
+           instanceID == nil || registered.id == instanceID {
+            return registered
+        }
+
         let presentation = state.presentationForAttachment(
             declaration: declaration,
             instanceID: instanceID
         )
-        state.attach(presentation)
-        syncFromState()
+        registerSceneLifecycle(presentation, token: token)
         return presentation
     }
 
-    internal func detachDeclaredScene(_ presentation: ScenePresentation<R>) {
+    internal func registerSceneLifecycle(
+        _ presentation: ScenePresentation<R>,
+        token: UUID
+    ) {
+        let previousPresentation = lifecyclePresentationsByToken[token]
+        guard previousPresentation != presentation else { return }
+
+        let conflictingOwner = lifecyclePresentationsByToken.contains { ownerToken, ownedPresentation in
+            ownerToken != token &&
+                ownedPresentation.id == presentation.id &&
+                ownedPresentation != presentation
+        }
+        let conflictingActivePresentation = state.activeScenes.contains { activePresentation in
+            activePresentation.id == presentation.id &&
+                activePresentation != presentation &&
+                activePresentation != previousPresentation
+        }
+        precondition(
+            conflictingOwner == false && conflictingActivePresentation == false,
+            "Scene lifecycle registrations require one presentation contract per scene UUID."
+        )
+
+        let presentationAlreadyOwned = lifecyclePresentationsByToken.contains { ownerToken, ownedPresentation in
+            ownerToken != token && ownedPresentation == presentation
+        }
+        lifecyclePresentationsByToken[token] = presentation
+
+        if let previousPresentation {
+            let previousStillOwned = lifecyclePresentationsByToken.values.contains(previousPresentation)
+            if previousStillOwned == false {
+                state.detach(previousPresentation)
+            }
+        }
+
+        if presentationAlreadyOwned == false {
+            state.attach(presentation)
+        }
+        syncFromState()
+    }
+
+    internal func unregisterSceneLifecycle(_ token: UUID) {
+        guard let presentation = lifecyclePresentationsByToken.removeValue(forKey: token) else {
+            return
+        }
+        guard lifecyclePresentationsByToken.values.contains(presentation) == false else {
+            return
+        }
+
         state.detach(presentation)
         syncFromState()
     }

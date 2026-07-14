@@ -561,15 +561,25 @@ internal struct SceneStoreState<R: Route>: Equatable {
     }
 
     private mutating func deactivate(_ presentation: ScenePresentation<R>) {
+        let didDeactivate: Bool
         switch presentation {
         case .window, .volumetric:
-            openWindowsByID.removeValue(forKey: presentation.id)
+            if openWindowsByID[presentation.id] == presentation {
+                openWindowsByID.removeValue(forKey: presentation.id)
+                didDeactivate = true
+            } else {
+                didDeactivate = false
+            }
         case .immersive:
-            if activeImmersive?.id == presentation.id {
+            if activeImmersive == presentation {
                 activeImmersive = nil
+                didDeactivate = true
+            } else {
+                didDeactivate = false
             }
         }
 
+        guard didDeactivate else { return }
         activeScenesInRecencyOrder.removeAll { $0.id == presentation.id }
         syncCurrentScene()
     }

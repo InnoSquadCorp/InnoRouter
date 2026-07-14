@@ -280,6 +280,42 @@ struct SceneStoreStateTests {
         #expect(state.snapshot.windowPresentations(for: .main) == [duplicateMainWindow])
     }
 
+    @Test("A stale lifecycle detach cannot remove a replacement that reuses the scene UUID")
+    func staleDetachPreservesReplacementPresentation() {
+        var state = SceneStoreState<SceneTestRoute>()
+        let stalePresentation = mainWindowPresentation()
+        let replacementPresentation = ScenePresentation<SceneTestRoute>.window(
+            .secondary,
+            id: stalePresentation.id
+        )
+
+        state.attach(stalePresentation)
+        state.attach(replacementPresentation)
+        state.detach(stalePresentation)
+
+        #expect(state.currentScene == replacementPresentation)
+        #expect(state.snapshot.windowPresentation(id: stalePresentation.id) == replacementPresentation)
+        #expect(state.snapshot.activeScenes == [replacementPresentation])
+    }
+
+    @Test("A stale immersive detach cannot remove a replacement that reuses the scene UUID")
+    func staleImmersiveDetachPreservesReplacementPresentation() {
+        var state = SceneStoreState<SceneTestRoute>()
+        let stalePresentation = theatrePresentation()
+        let replacementPresentation = theatrePresentation(
+            route: .theatreTwo,
+            id: stalePresentation.id
+        )
+
+        state.attach(stalePresentation)
+        state.attach(replacementPresentation)
+        state.detach(stalePresentation)
+
+        #expect(state.currentScene == replacementPresentation)
+        #expect(state.snapshot.activeImmersive == replacementPresentation)
+        #expect(state.snapshot.activeScenes == [replacementPresentation])
+    }
+
     @Test("identical dismissWindow requests are deduplicated")
     func identicalDismissWindowRequestsAreDeduplicated() {
         var state = SceneStoreState<SceneTestRoute>()
