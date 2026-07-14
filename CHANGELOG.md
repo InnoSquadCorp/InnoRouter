@@ -4,6 +4,23 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
+## Unreleased
+
+### Fixed
+
+- `FlowCoordinator` default implementations now honor the documented
+  non-contiguous `FlowStep.index` contract. `next()`, `previous()`,
+  `progress`, `isAtStart`, `isAtEnd`, and `reset()` derive position
+  from the ascending-index order of `Step.allCases` instead of raw
+  `index` arithmetic, so flows with gapped indices (for example
+  `0, 5, 10`) advance instead of silently wedging on the first gap.
+- `FlowCoordinator.jump(to:)` now applies the same `canProceed(from:)`
+  gate as `next()` when jumping forward, and only permits forward
+  jumps to the immediate next step in progression order. Backward
+  jumps and jumps to already-completed steps remain unrestricted.
+  Previously a forward jump could bypass a step that `next()` would
+  have blocked.
+
 ## 4.3.0 - 2026-06-24
 
 4.3.0 keeps the 4.x public API surface compatible while hardening the

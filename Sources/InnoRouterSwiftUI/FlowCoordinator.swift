@@ -5,13 +5,16 @@ import SwiftUI
 /// flow.
 ///
 /// Adopters are typically value-typed enums whose case order tracks
-/// step progression. The required `index` property exists so the
-/// coordinator can advance / rewind in O(1) without depending on
-/// `CaseIterable`'s declaration order.
+/// step progression. The required `index` property defines the
+/// progression order without depending on `CaseIterable`'s
+/// declaration order.
 public protocol FlowStep: Hashable, CaseIterable, Sendable {
-    /// Zero-based ordinal of the step within the flow. Steps with
-    /// adjacent indices are siblings in the progression order; gaps
-    /// allow non-linear flows where some steps are skipped.
+    /// Ordinal of the step within the flow. Progression follows
+    /// ascending `index` order over `allCases`, so indices may be
+    /// non-contiguous (for example `0, 5, 10`) — gaps let flows
+    /// insert steps later without renumbering. Indices must be
+    /// unique within a flow; duplicate indices leave the relative
+    /// order of the duplicates unspecified.
     var index: Int { get }
 }
 
@@ -65,45 +68,72 @@ public protocol FlowCoordinator: AnyObject, Observable {
 public extension FlowCoordinator {
     var totalSteps: Int { Step.allCases.count }
 
-    var progress: Double {
-        guard totalSteps > 0 else { return 0 }
-        return Double(currentStep.index + 1) / Double(totalSteps)
+    /// All steps sorted by ascending `index` — the canonical
+    /// progression order. Every default implementation below derives
+    /// position from this order rather than from raw `index`
+    /// arithmetic, so non-contiguous indices progress correctly.
+    private var orderedSteps: [Step] {
+        Step.allCases.sorted { $0.index < $1.index }
     }
 
-    var isAtStart: Bool { currentStep.index == 0 }
-    var isAtEnd: Bool { currentStep.index == totalSteps - 1 }
+    var progress: Double {
+        let steps = orderedSteps
+        guard !steps.isEmpty,
+              let position = steps.firstIndex(of: currentStep) else { return 0 }
+        return Double(position + 1) / Double(steps.count)
+    }
+
+    var isAtStart: Bool { orderedSteps.first == currentStep }
+    var isAtEnd: Bool { orderedSteps.last == currentStep }
 
     func next() {
         guard canProceed(from: currentStep) else { return }
 
         completedSteps.insert(currentStep)
 
-        let allSteps = Array(Step.allCases)
-        let currentIndex = currentStep.index
-        if currentIndex < allSteps.count - 1,
-           let nextStep = allSteps.first(where: { $0.index == currentIndex + 1 }) {
-            currentStep = nextStep
+        let steps = orderedSteps
+        if let position = steps.firstIndex(of: currentStep),
+           position < steps.count - 1 {
+            currentStep = steps[position + 1]
         }
     }
 
     func previous() {
-        let allSteps = Array(Step.allCases)
-        let currentIndex = currentStep.index
-        if currentIndex > 0,
-           let prevStep = allSteps.first(where: { $0.index == currentIndex - 1 }) {
-            currentStep = prevStep
+        let steps = orderedSteps
+        if let position = steps.firstIndex(of: currentStep),
+           position > 0 {
+            currentStep = steps[position - 1]
         }
     }
 
+    /// Moves directly to `step`.
+    ///
+    /// Backward jumps and jumps to already-completed steps are always
+    /// allowed. A forward jump is allowed only to the immediate next
+    /// step in progression order and passes the same
+    /// `canProceed(from:)` gate as ``next()``, so `jump(to:)` cannot
+    /// skip past a step that `next()` would have blocked.
     func jump(to step: Step) {
-        if completedSteps.contains(step) || step.index <= currentStep.index + 1 {
+        if completedSteps.contains(step) {
+            currentStep = step
+            return
+        }
+
+        let steps = orderedSteps
+        guard let targetPosition = steps.firstIndex(of: step),
+              let currentPosition = steps.firstIndex(of: currentStep) else { return }
+
+        if targetPosition <= currentPosition {
+            currentStep = step
+        } else if targetPosition == currentPosition + 1,
+                  canProceed(from: currentStep) {
             currentStep = step
         }
     }
 
     func reset() {
         completedSteps.removeAll()
-        if let firstStep = Step.allCases.first {
+        if let firstStep = orderedSteps.first {
             currentStep = firstStep
         }
     }
