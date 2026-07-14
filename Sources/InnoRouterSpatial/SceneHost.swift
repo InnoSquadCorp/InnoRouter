@@ -18,22 +18,18 @@ import InnoRouterCore
 internal struct SceneHostRegistration<R: Route> {
     internal let store: SceneStore<R>
     internal let dispatcherToken: UUID
-    internal let attachedPresentation: ScenePresentation<R>?
+    internal let attachedPresentation: ScenePresentation<R>
 
     @discardableResult
     internal func activate() -> Bool {
         let didRegister = store.registerDispatcherHost(dispatcherToken)
         guard didRegister else { return false }
-        if let attachedPresentation {
-            store.attachDeclaredScene(attachedPresentation)
-        }
+        store.attachDeclaredScene(attachedPresentation)
         return true
     }
 
     internal func deactivateIfOwned() {
-        if let attachedPresentation {
-            store.detachDeclaredScene(attachedPresentation)
-        }
+        store.detachDeclaredScene(attachedPresentation)
         store.unregisterDispatcherHost(dispatcherToken)
     }
 }
@@ -94,10 +90,10 @@ internal func handleSceneHostSignal<R: Route>(
 ///   so system-driven appear/disappear events keep
 ///   ``SceneStore/currentScene`` and the internal inventory in sync.
 ///
-/// Use one of the convenience wrappers
-/// ``SwiftUI/View/innoRouterSceneHost(_:scenes:)`` or
-/// ``SwiftUI/View/innoRouterSceneHost(_:scenes:attachedTo:instanceID:)`` instead
-/// of instantiating the modifier directly.
+/// Use one of the attached-scene convenience wrappers
+/// ``SwiftUI/View/innoRouterSceneHost(_:scenes:attachedTo:)`` or
+/// ``SwiftUI/View/innoRouterSceneHost(_:scenes:attachedTo:instanceID:)``
+/// instead of instantiating the modifier directly.
 internal struct SceneHost<R: Route>: ViewModifier {
     @Bindable private var store: SceneStore<R>
     @Environment(\.openWindow) private var openWindow
@@ -108,17 +104,7 @@ internal struct SceneHost<R: Route>: ViewModifier {
     @State private var isDormant: Bool = false
     @State private var dispatchTask: Task<Void, Never>?
     private let scenes: SceneRegistry<R>
-    private let attachedPresentation: ScenePresentation<R>?
-
-    /// Creates a scene host.
-    ///
-    /// - Parameters:
-    ///   - store: the scene store driving this host.
-    ///   - scenes: scene declarations shared with the app's
-    ///     `WindowGroup` / `ImmersiveSpace` definitions.
-    internal init(store: SceneStore<R>, scenes: SceneRegistry<R>) {
-        self.init(store: store, scenes: scenes, attachedPresentation: nil)
-    }
+    private let attachedPresentation: ScenePresentation<R>
 
     /// Creates a scene host that also reconciles the host scene's own
     /// inventory membership.
@@ -200,7 +186,7 @@ internal struct SceneHost<R: Route>: ViewModifier {
     private init(
         store: SceneStore<R>,
         scenes: SceneRegistry<R>,
-        attachedPresentation: ScenePresentation<R>?
+        attachedPresentation: ScenePresentation<R>
     ) {
         self.store = store
         self.scenes = scenes
@@ -297,19 +283,6 @@ internal struct SceneHost<R: Route>: ViewModifier {
 }
 
 public extension View {
-    /// Attaches the primary scene host that bridges `store` to SwiftUI's
-    /// spatial scene environment actions.
-    ///
-    /// Available on visionOS only. On other platforms this modifier is
-    /// not declared; `SceneStore` and this host modifier exist only behind
-    /// `#if os(visionOS)`.
-    func innoRouterSceneHost<R: Route>(
-        _ store: SceneStore<R>,
-        scenes: SceneRegistry<R>
-    ) -> some View {
-        modifier(SceneHost(store: store, scenes: scenes))
-    }
-
     /// Attaches the primary scene host and also registers the containing
     /// scene in the store's active inventory.
     ///

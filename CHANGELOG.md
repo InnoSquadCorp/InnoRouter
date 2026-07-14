@@ -26,6 +26,9 @@ are bare semver (no leading `v`).
   `View.innoRouterSceneHost` and `View.innoRouterSceneAnchor`;
   `SceneStore.pendingIntent`, `completeOpen`, `completeDismissal`, and
   `completeRejection` were host-dispatch plumbing and have been removed.
+  The unattached `innoRouterSceneHost(_:scenes:)` overload is also removed;
+  every host now identifies its containing route, and window/volume hosts pass
+  the value-based `WindowGroup` instance ID so lifecycle inventory stays exact.
   Apps should issue requests through `SceneStore`, observe `events`, and attach
   the public view modifiers instead of driving dispatch completion directly.
 - `.whenCancelled(primary, fallback:)` now evaluates each attempted leg behind

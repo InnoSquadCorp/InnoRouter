@@ -257,15 +257,16 @@ struct SceneStoreIntegrationTests {
     func dormantSceneHostRetriesOnlyAfterDispatcherChanges() async {
         let store = SceneStore<SpatialRoute>()
         let rejectionCounter = DuplicateHostRejectionCounter<SpatialRoute>()
+        let attachedPresentation = ScenePresentation<SpatialRoute>.window(.main)
         let primaryRegistration = SceneHostRegistration(
             store: store,
             dispatcherToken: UUID(),
-            attachedPresentation: nil
+            attachedPresentation: attachedPresentation
         )
         let dormantRegistration = SceneHostRegistration(
             store: store,
             dispatcherToken: UUID(),
-            attachedPresentation: nil
+            attachedPresentation: attachedPresentation
         )
 
         let eventTask = Task { @MainActor in
