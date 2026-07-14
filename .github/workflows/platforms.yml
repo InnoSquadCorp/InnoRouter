@@ -1,6 +1,12 @@
 name: platforms
 
 on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or tag to check out
+        required: false
+        type: string
   pull_request:
   push:
     branches:
@@ -8,7 +14,7 @@ on:
       - develop
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: platforms-${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -36,6 +42,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       # This build job is compile-only. The authoritative macOS
       # correctness gate remains the `gates` workflow; these jobs catch
@@ -99,13 +107,21 @@ jobs:
           - name: tvOS
             destination: "tvOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.tvOS"
+            minimumPassedTests: 5
           - name: watchOS
             destination: "watchOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.watchOS"
+            minimumPassedTests: 3
+          - name: visionOS
+            destination: "visionOS Simulator"
+            runtimePrefix: "com.apple.CoreSimulator.SimRuntime.xrOS"
+            minimumPassedTests: 49
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Select pinned Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -156,12 +172,75 @@ jobs:
 
           echo "udid=$simulator_udid" >> "$GITHUB_OUTPUT"
 
-      - name: Test InnoRouterPlatformTests for ${{ matrix.platform.name }}
+      - name: Boot ${{ matrix.platform.name }} simulator
+        shell: bash
         run: |
+          set -euo pipefail
+          python3 - '${{ steps.simulator.outputs.udid }}' <<'PY'
+          import subprocess
+          import sys
+
+          udid = sys.argv[1]
+          subprocess.run(
+              ["xcrun", "simctl", "boot", udid],
+              check=False,
+              timeout=60,
+          )
+          subprocess.run(
+              ["xcrun", "simctl", "bootstatus", udid, "-b"],
+              check=True,
+              timeout=180,
+          )
+          PY
+
+      - name: Test InnoRouterPlatformTests for ${{ matrix.platform.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          result_bundle="$RUNNER_TEMP/InnoRouterPlatformTests-${{ matrix.platform.name }}.xcresult"
+          summary_json="$RUNNER_TEMP/InnoRouterPlatformTests-${{ matrix.platform.name }}-summary.json"
+          rm -rf "$result_bundle"
+
           xcodebuild test \
             -workspace .github/platform-tests.xcworkspace \
             -scheme InnoRouterPlatformTests \
             -destination 'platform=${{ matrix.platform.destination }},id=${{ steps.simulator.outputs.udid }}' \
             -destination-timeout 120 \
             -parallel-testing-enabled NO \
+            -resultBundlePath "$result_bundle" \
             -quiet
+
+          xcrun xcresulttool get test-results summary \
+            --path "$result_bundle" \
+            --compact > "$summary_json"
+
+          python3 - "$summary_json" '${{ matrix.platform.minimumPassedTests }}' <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              summary = json.load(handle)
+
+          minimum = int(sys.argv[2])
+          passed = summary.get("passedTests")
+          failed = summary.get("failedTests")
+          skipped = summary.get("skippedTests")
+          expected = summary.get("expectedFailures")
+          print(
+              f"result={summary.get('result')} "
+              f"total={summary.get('totalTestCount')} "
+              f"passed={passed} failed={failed} "
+              f"skipped={skipped} expected={expected}"
+          )
+
+          if summary.get("result") != "Passed" or not isinstance(passed, int):
+              raise SystemExit("platform test result was not a valid pass")
+          if failed != 0 or skipped != 0 or expected != 0:
+              raise SystemExit(
+                  "platform tests must pass without failures, skips, or expected failures"
+              )
+          if passed < minimum:
+              raise SystemExit(
+                  f"only {passed} tests passed; expected at least {minimum}"
+              )
+          PY
