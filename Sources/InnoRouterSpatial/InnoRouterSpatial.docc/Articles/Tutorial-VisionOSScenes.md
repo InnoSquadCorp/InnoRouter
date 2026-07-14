@@ -71,7 +71,7 @@ struct MyApp: App {
         // Non-host scene: innoRouterSceneAnchor only. Keeps the store's
         // inventory in sync with system-driven appear/disappear and
         // can temporarily serve dismissals if the host scene is gone;
-        // fallback opens are still limited to the same scene.
+        // fallback opens are still limited to this scene declaration.
         ImmersiveSpace(id: "theatre") {
             TheatreView()
                 .innoRouterSceneAnchor(
@@ -103,7 +103,9 @@ A mnemonic: **"one host per store, one anchor per non-host scene"**.
 `innoRouterSceneAnchor` is a
 lifecycle reconciler that also serves as a restricted fallback
 dispatcher for its own scene. Fallback anchors are deliberately
-limited to same-scene opens and any dismissal — a cross-scene open
+limited to opens for their own `SceneDeclaration` and any dismissal. For a
+value-based `WindowGroup`, another window UUID under that same declaration is
+allowed; a cross-scene open
 arriving while the host is gone is rejected with
 `SceneRejectionReason.fallbackCannotDispatch` so the queue advances
 rather than silently succeeding on a scene the anchor can't reach.

@@ -38,7 +38,10 @@ internal struct SceneDispatchDriver<R: Route> {
             // silent success would leave the store reporting "presented"
             // for a window that never appeared.
             if case .fallbackAnchor(let attachedPresentation) = capability,
-               !resolution.isServiceableByFallback(attachedTo: attachedPresentation) {
+               !resolution.isServiceableByFallback(
+                   attachedTo: attachedPresentation,
+                   declaredIn: scenes
+               ) {
                 _ = store.completeClaimedRejection(
                     for: intent,
                     reason: .fallbackCannotDispatch,

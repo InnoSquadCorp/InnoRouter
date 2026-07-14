@@ -25,8 +25,9 @@ import InnoRouterCore
 ///    ``SceneHost`` scene is not currently live, any anchor on a
 ///    sibling scene can temporarily claim pending intents. Fallback
 ///    anchors are deliberately limited: they can only execute
-///    **same-scene opens** (re-opens for the scene they are attached
-///    to) and **any dismissal**. Cross-scene opens are rejected with
+    ///    **same-declaration opens** (including a new value-based window
+    ///    instance for the declaration they are attached to) and
+    ///    **any dismissal**. Cross-scene opens are rejected with
 ///    ``SceneRejectionReason/fallbackCannotDispatch`` so the queue
 ///    advances instead of silently committing a result from a
 ///    dispatcher that cannot actually reach the target scene.

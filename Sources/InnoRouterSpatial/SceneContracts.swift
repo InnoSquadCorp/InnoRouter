@@ -121,8 +121,9 @@ internal enum SceneDispatchCapability<R: Route>: Equatable {
     case primaryHost
 
     /// Restricted dispatch authority, held by any ``SceneAnchor``.
-    /// Same-scene opens and any dismissal are serviceable; cross-scene
-    /// opens are refused.
+    /// Opens for the same scene declaration (including another value-based
+    /// window instance) and any dismissal are serviceable; cross-scene opens
+    /// are refused.
     case fallbackAnchor(attachedTo: ScenePresentation<R>)
 }
 

@@ -167,9 +167,9 @@ struct SceneStoreIntegrationTests {
         #expect(store.currentScene == nil)
     }
 
-    @Test("Fallback anchor rejects same-route opens for a different window instance")
+    @Test("Fallback anchor opens another window instance from its own scene declaration")
     @MainActor
-    func fallbackAnchorRejectsDifferentWindowInstanceWithSameRoute() async throws {
+    func fallbackAnchorOpensDifferentInstanceFromSameDeclaration() async throws {
         let store = SceneStore<SpatialRoute>()
         let scenes = makeRegistry()
         let mainDeclaration = try #require(scenes.declaration(for: .main))
@@ -184,13 +184,17 @@ struct SceneStoreIntegrationTests {
         let requestedWindow = store.openWindow(.main)
         #expect(requestedWindow != attachedWindow)
 
+        var openedSceneIDs: [String] = []
+        var openedWindowIDs: [UUID] = []
+
         let driver = SceneDispatchDriver<SpatialRoute>(
             store: store,
             scenes: scenes,
             dispatcherToken: anchorToken,
             capability: .fallbackAnchor(attachedTo: attachedWindow),
-            openWindow: { _, _ in
-                Issue.record("openWindow must not be called for a different window instance")
+            openWindow: { id, value in
+                openedSceneIDs.append(id)
+                openedWindowIDs.append(value)
             },
             openImmersiveSpace: { _ in
                 Issue.record("openImmersiveSpace must not be called")
@@ -206,7 +210,7 @@ struct SceneStoreIntegrationTests {
 
         let collectTask = Task { @MainActor in
             await collectEvent(from: store) { event in
-                if case .rejected(_, .fallbackCannotDispatch) = event {
+                if case .presented = event {
                     return true
                 }
                 return false
@@ -216,12 +220,11 @@ struct SceneStoreIntegrationTests {
         await driver.run()
         let collected = await collectTask.value
 
-        #expect(collected != nil)
-        if case .rejected(let intent, .fallbackCannotDispatch)? = collected {
-            #expect(intent == .open(requestedWindow))
-        }
-        #expect(store.currentScene == attachedWindow)
-        #expect(store.activeScenes == [attachedWindow])
+        #expect(collected == .presented(requestedWindow))
+        #expect(openedSceneIDs == ["main"])
+        #expect(openedWindowIDs == [requestedWindow.id])
+        #expect(store.currentScene == requestedWindow)
+        #expect(store.activeScenes == [attachedWindow, requestedWindow])
     }
 
     // MARK: - Hardening path 2: duplicate SceneHost registration does not crash

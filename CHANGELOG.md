@@ -195,6 +195,10 @@ are bare semver (no leading `v`).
   appear/disappear reconciliation, overlapping roots detach a shared scene only
   after their final owner disappears, and immersive hosts unregister by a stable
   lifecycle token so SwiftUI view recreation cannot leave a stale presentation.
+- Spatial fallback anchors now authorize opens by `SceneDeclaration` instead of
+  exact presentation UUID. A value-based window can therefore open another
+  instance of its own declared scene while the primary host is absent; genuinely
+  cross-scene opens remain rejected with `.fallbackCannotDispatch`.
 - Push and flow deep-link effect handlers now identify pending replay requests
   by an internal revision instead of value equality. If an equal URL and plan
   is handled again—or, for flow links, restored—while an asynchronous

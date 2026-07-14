@@ -631,6 +631,39 @@ struct SceneIntentResolverTests {
         #expect(immersiveResolution == .openImmersive(id: "theatre-space", presentation: immersive))
     }
 
+    @Test("fallback open authority follows the declaration rather than the window instance UUID")
+    func fallbackOpenAuthorityUsesSceneDeclaration() throws {
+        let scenes = makeSceneRegistry()
+        let resolver = SceneIntentResolver(scenes: scenes)
+        let mainDeclaration = try #require(scenes.declaration(for: .main))
+        let theatreDeclaration = try #require(scenes.declaration(for: .theatre))
+        let attachedWindow = mainDeclaration.presentation(id: SceneTestIDs.mainWindow)
+        let anotherWindow = mainDeclaration.presentation(id: SceneTestIDs.mainWindowDuplicate)
+        let theatre = theatreDeclaration.presentation(id: SceneTestIDs.theatre)
+
+        let sameDeclarationPlan = resolver.resolve(
+            .open(anotherWindow),
+            state: SceneStoreState<SceneTestRoute>().snapshot
+        )
+        let crossScenePlan = resolver.resolve(
+            .open(theatre),
+            state: SceneStoreState<SceneTestRoute>().snapshot
+        )
+
+        #expect(
+            sameDeclarationPlan.isServiceableByFallback(
+                attachedTo: attachedWindow,
+                declaredIn: scenes
+            )
+        )
+        #expect(
+            crossScenePlan.isServiceableByFallback(
+                attachedTo: attachedWindow,
+                declaredIn: scenes
+            ) == false
+        )
+    }
+
     @Test("dismissWindow resolves the specific instance even with duplicate routes")
     func dismissWindowUsesSpecificInstanceMembership() {
         let resolver = SceneIntentResolver(scenes: makeSceneRegistry())
