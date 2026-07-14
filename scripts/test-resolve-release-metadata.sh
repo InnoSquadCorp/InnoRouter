@@ -64,8 +64,16 @@ expect_failure 'manual prerelease requires flag' workflow_dispatch 5.0.0-rc.1 fa
 expect_failure 'manual GA rejects prerelease flag' workflow_dispatch 5.0.0 true
 expect_failure 'leading v is rejected' push v5.0.0 false
 expect_failure 'leading zero is rejected' push 05.0.0 false
+expect_failure 'leading-zero minor is rejected' push 5.00.0 false
+expect_failure 'leading-zero patch is rejected' push 5.0.00 false
+expect_failure 'leading-zero prerelease ordinal is rejected' workflow_dispatch 5.0.0-rc.01 true
 expect_failure 'unsupported prerelease channel is rejected' workflow_dispatch 5.0.0-alpha.1 true
+expect_failure 'build metadata is rejected' workflow_dispatch 5.0.0+build.1 false
+expect_failure 'whitespace is rejected' workflow_dispatch ' 5.0.0' false
+expect_failure 'newlines are rejected' workflow_dispatch $'5.0.0\nowned' false
 expect_failure 'shell metacharacters are rejected' workflow_dispatch '5.0.0;echo-owned' false
+# shellcheck disable=SC2016 # The command substitution must remain literal test input.
+expect_failure 'command substitution text is rejected' workflow_dispatch '5.0.0$(echo-owned)' false
 expect_failure 'invalid boolean is rejected' workflow_dispatch 5.0.0 yes
 expect_failure 'unsupported event is rejected' schedule 5.0.0 false
 

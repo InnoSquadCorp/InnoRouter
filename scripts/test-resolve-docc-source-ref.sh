@@ -25,6 +25,8 @@ assert_ref '0123456789abcdef' 'preview' '0123456789abcdef'
 assert_ref 'main' 'preview'
 assert_ref 'main' 'nightly' 'ignored-preview-ref'
 assert_ref 'main' '5.0.0-alpha.1'
+assert_ref 'main' '05.0.0'
+assert_ref 'main' '5.0.0-rc.01'
 
 if bash "$RESOLVER" >/dev/null 2>&1; then
   echo '[test-resolve-docc-source-ref] missing version unexpectedly succeeded' >&2

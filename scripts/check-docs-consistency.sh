@@ -244,6 +244,12 @@ check_present \
   "Effects documentation does not compile an import/use example"
 
 echo "[check-docs-consistency] Checking DocC source-ref contract"
+check_present "$ROOT_DIR/scripts/resolve-release-metadata.sh" \
+  'release-version-policy.py' \
+  "release metadata does not use the shared release-version policy"
+check_present "$ROOT_DIR/scripts/resolve-docc-source-ref.sh" \
+  'release-version-policy.py' \
+  "DocC source refs do not use the shared release-version policy"
 check_present "$ROOT_DIR/scripts/build-docc-site.sh" \
   'resolve-docc-source-ref.sh' \
   "DocC builder does not delegate source-ref selection to the tested resolver"

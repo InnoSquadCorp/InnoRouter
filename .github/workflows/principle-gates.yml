@@ -63,6 +63,9 @@ jobs:
       - name: Test release metadata contract
         run: bash ./scripts/test-resolve-release-metadata.sh
 
+      - name: Test release version policy
+        run: bash ./scripts/test-release-version-policy.sh
+
       - name: Test exact release ref contract
         run: bash ./scripts/test-verify-release-ref.sh
 

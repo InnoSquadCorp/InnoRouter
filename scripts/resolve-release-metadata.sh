@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
 usage() {
   cat <<'EOF'
 Usage: ./scripts/resolve-release-metadata.sh <event> <tag> <prerelease>
@@ -20,6 +22,11 @@ if [[ $# -ne 3 ]]; then
   exit 2
 fi
 
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "[resolve-release-metadata] python3 is required." >&2
+  exit 1
+fi
+
 case "$EVENT_NAME" in
   push|workflow_dispatch) ;;
   *)
@@ -36,9 +43,12 @@ case "$REQUESTED_PRERELEASE" in
     ;;
 esac
 
-numeric_identifier='(0|[1-9][0-9]*)'
-ga_regex="^${numeric_identifier}\.${numeric_identifier}\.${numeric_identifier}$"
-prerelease_regex="^${numeric_identifier}\.${numeric_identifier}\.${numeric_identifier}-(rc|beta)\.${numeric_identifier}$"
+if ! version_kind="$(
+  python3 "$ROOT_DIR/scripts/release-version-policy.py" classify "$TAG" 2>/dev/null
+)"; then
+  echo "[resolve-release-metadata] Unsupported release version: $TAG" >&2
+  exit 1
+fi
 
 publish="true"
 prerelease="false"
@@ -50,9 +60,9 @@ if [[ "$EVENT_NAME" == "push" ]]; then
     exit 1
   fi
 
-  if [[ "$TAG" =~ $ga_regex ]]; then
+  if [[ "$version_kind" == "ga" ]]; then
     :
-  elif [[ "$TAG" =~ $prerelease_regex ]]; then
+  elif [[ "$version_kind" == "prerelease" ]]; then
     # The broad GitHub tag glob also sees rc/beta pushes. Treat those runs as
     # successful no-ops; the documented manual dispatch performs publication.
     publish="false"
@@ -63,14 +73,14 @@ if [[ "$EVENT_NAME" == "push" ]]; then
     exit 1
   fi
 elif [[ "$REQUESTED_PRERELEASE" == "true" ]]; then
-  if [[ ! "$TAG" =~ $prerelease_regex ]]; then
+  if [[ "$version_kind" != "prerelease" ]]; then
     echo "[resolve-release-metadata] Pre-release tags must use <major>.<minor>.<patch>-(rc|beta).<n>." >&2
     exit 1
   fi
   prerelease="true"
   update_latest="false"
 else
-  if [[ ! "$TAG" =~ $ga_regex ]]; then
+  if [[ "$version_kind" != "ga" ]]; then
     echo "[resolve-release-metadata] GA release tags must use bare semantic versioning." >&2
     exit 1
   fi
