@@ -243,7 +243,9 @@ are bare semver (no leading `v`).
   longer masquerades as an input-scaling regression, while a slowdown present
   in at least three of five pairs still fails the unchanged ratio and
   absolute-time budgets. Failed runs also preserve the JSON report and print
-  every regressed sample instead of exiting before diagnostics.
+  every regressed sample instead of exiting before diagnostics. Deterministic
+  self-tests cover tolerated outliers and threshold/cap boundaries, while the
+  wrapper rejects empty, incomplete, or internally inconsistent reports.
 - Reopening an already-active immersive scene with the same route and style now
   reuses its presentation identity. A successful duplicate open can no longer
   replace the store's active UUID while the live SwiftUI root still owns the
@@ -261,9 +263,10 @@ are bare semver (no leading `v`).
 - Versioned DocC publication compares every GA against the highest existing GA
   before rebuilding `/latest/`, so rerunning an older tag cannot roll the alias
   back. GitHub's Latest Release flag follows the same monotonic decision instead
-  of its default newest-publication behavior. The root portal uses the shared
-  SemVer ordering, placing a GA ahead of its `rc`/`beta` builds and ordering
-  numeric prerelease ordinals correctly.
+  of its default newest-publication behavior. Both surfaces consume one tested
+  publication resolver covering lower, equal, higher, and prerelease versions.
+  The root portal uses the shared SemVer ordering, placing a GA ahead of its
+  `rc`/`beta` builds and ordering numeric prerelease ordinals correctly.
 - Apple-platform runtime CI now treats a timed-out asynchronous `simctl boot`
   request as provisional and lets authoritative `bootstatus` decide readiness,
   avoiding false failures when the simulator continues booting successfully.
