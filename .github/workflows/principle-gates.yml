@@ -44,9 +44,12 @@ jobs:
           # can diff the touched paths.
           fetch-depth: 0
 
+      - name: Test CHANGELOG sync gate
+        run: bash ./scripts/test-check-changelog-sync.sh
+
       - name: Verify CHANGELOG matches public-API baseline change
         env:
-          BASE_REF: origin/${{ github.base_ref || 'main' }}
+          BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: ./scripts/check-changelog-sync.sh
 
   gates:
@@ -59,7 +62,7 @@ jobs:
 
       # Xcode is pinned (rather than a floating latest channel) so runs of this
       # workflow are reproducible across the lifetime of a release.
-      # Swift 6.2 is the floor declared in Package.swift; the pinned
+      # Swift 6.3 is the floor declared in Package.swift; the pinned
       # Xcode below satisfies that. Bump this pin from RELEASING.md's
       # checklist when cutting a new release — see the "Toolchain pin"
       # section there for the policy.

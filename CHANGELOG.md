@@ -187,6 +187,9 @@ are bare semver (no leading `v`).
 
 ### Changed
 
+- Changelog contributions now edit `CHANGELOG.md` under `## Unreleased`
+  directly. The unused `.changes` fragment convention is removed; release cut
+  moves those entries under the version/date heading and reopens `Unreleased`.
 - The repository's active compatibility policy now describes the 5.x release
   line and reserves new source- or behavior-breaking changes for 6.0. Release,
   contribution, security, workflow, and localized README guidance use the same
@@ -206,6 +209,11 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- The public-API changelog gate now compares substantive `Unreleased` content
+  against the merge base, so an edit to historical release prose or whitespace
+  cannot satisfy a baseline change. Pull requests use the base SHA and branch
+  pushes use the event's previous SHA, preventing main/develop checks from
+  comparing `HEAD` with itself and silently skipping validation.
 - Spatial scene inventory now tracks each live host or anchor root independently
   from primary-dispatcher election. Dormant value-based windows participate in
   appear/disappear reconciliation, overlapping roots detach a shared scene only

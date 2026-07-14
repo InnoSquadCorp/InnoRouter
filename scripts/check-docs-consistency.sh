@@ -200,6 +200,34 @@ check_absent \
 check_absent "$ROOT_DIR/.swiftlint.yml" '4.1.x store split' \
   "SwiftLint configuration still describes a completed 4.1.x plan"
 
+echo "[check-docs-consistency] Checking changelog contribution contract"
+if [[ -e "$ROOT_DIR/.changes" ]]; then
+  echo "[check-docs-consistency] Failed: obsolete .changes fragment directory still exists" >&2
+  failures=1
+fi
+check_absent "$ROOT_DIR/CONTRIBUTING.md" '.changes/' \
+  "CONTRIBUTING.md still requires changelog fragments"
+check_present "$ROOT_DIR/CONTRIBUTING.md" \
+  'Add the user-visible impact to `CHANGELOG.md` under `## Unreleased`' \
+  "CONTRIBUTING.md does not require direct Unreleased entries"
+check_present "$ROOT_DIR/RELEASING.md" '## Changelog cut' \
+  "RELEASING.md does not explain how to cut Unreleased entries"
+check_present "$ROOT_DIR/scripts/check-changelog-sync.sh" \
+  'git merge-base "$BASE_REF" HEAD' \
+  "changelog gate does not compare from the merge base"
+check_present "$ROOT_DIR/scripts/check-changelog-sync.sh" \
+  'extract_unreleased' \
+  "changelog gate does not scope comparisons to Unreleased"
+check_present "$ROOT_DIR/.github/workflows/principle-gates.yml" \
+  'github.event.pull_request.base.sha || github.event.before' \
+  "changelog workflow does not select the real PR/push base SHA"
+check_present "$ROOT_DIR/.github/workflows/principle-gates.yml" \
+  'Test CHANGELOG sync gate' \
+  "changelog workflow does not run its regression scenarios"
+check_absent "$ROOT_DIR/.github/workflows/principle-gates.yml" \
+  'Swift 6.2 is the floor' \
+  "principle-gates workflow still documents the old Swift floor"
+
 echo "[check-docs-consistency] Checking rejection catalog enum coverage"
 check_enum_cases_documented \
   "$ROOT_DIR/Sources/InnoRouterCore/NavigationInterception.swift" \

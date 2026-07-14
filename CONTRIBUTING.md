@@ -69,15 +69,27 @@ If your PR touches the public surface:
 
 1. Update the matching `Baselines/PublicAPI/<Module>.txt` in the same
    commit. The principle-gates baseline diff is intentional.
-2. Drop a changelog fragment under `.changes/<slug>.<category>.md`
-   instead of editing `CHANGELOG.md` directly — see
-   [`.changes/README.md`](.changes/README.md) for the format and
-   categories. The release process collates fragments at cut time.
+2. Add the user-visible impact to `CHANGELOG.md` under `## Unreleased`
+   in the matching `Breaking`, `Added`, `Changed`, `Fixed`, `Deprecated`,
+   `Removed`, or `Security` section. Breaking entries include the required
+   call-site migration.
 3. Update the relevant DocC article under the affected
    `Sources/*/*.docc` catalog if the change affects how a feature is
    *used*, not just *named*. Create an `Articles/` directory in that
    catalog when the feature needs long-form guidance and one does not
    already exist.
+
+## Changelog entries
+
+Edit `CHANGELOG.md` directly in the same PR when a change affects public API,
+package products, supported versions, observable runtime behavior, a
+user-visible bug, security, or the contributor/release workflow. Keep entries
+under `## Unreleased` until release cut.
+
+Documentation-only and test-only changes, plus internal refactors with no
+observable effect, do not require an entry. The CI changelog gate requires a
+substantive `Unreleased` change whenever a public API baseline changes; edits
+to an older release section do not satisfy it.
 
 ## Macros
 

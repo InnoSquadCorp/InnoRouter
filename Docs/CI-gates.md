@@ -76,7 +76,7 @@ Every gate above runs under one of the workflows in `.github/workflows/`:
 
 | Workflow | Gates |
 | --- | --- |
-| `principle-gates.yml` | 1–12 (every PR / push to `main`) |
+| `principle-gates.yml` | 1–12 plus public-API / `Unreleased` changelog sync (every PR / push to `main` and `develop`) |
 | `platforms.yml` | 13 (full Apple compile matrix for SwiftUI and Spatial), a visionOS Spatial consumer build, plus tvOS, watchOS, and visionOS runtime tests with minimum executed-test counts |
 | `docs-ci.yml` | 2 (DocC build validation) |
 | `coverage.yml` | 1 (with coverage instrumentation) |

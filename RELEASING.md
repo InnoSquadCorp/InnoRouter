@@ -108,6 +108,18 @@ in a single commit, regenerate the public-API baseline with the same
 toolchain (`Baselines/PublicAPI` is symbol-graph–sensitive), and rerun
 `./scripts/principle-gates.sh` locally before tagging.
 
+## Changelog cut
+
+Every user-visible change lands directly in `CHANGELOG.md` under
+`## Unreleased`. Before creating a release tag:
+
+1. Move the current `Unreleased` categories and entries under a new
+   `## <version> - <YYYY-MM-DD>` heading.
+2. Recreate `## Unreleased` above it for the next development cycle.
+3. Review breaking entries for an explicit migration and commit the cut before
+   tagging. Historical release sections are immutable after publication except
+   for factual corrections.
+
 ## What a release publishes
 
 A release tag triggers:
@@ -200,6 +212,8 @@ Migration guides are intentionally not part of this release process.
 
 ## Release checklist
 
+- `CHANGELOG.md` has been cut from `Unreleased` to the release version/date,
+  and a new `## Unreleased` section exists above it.
 - Public APIs match current README and DocC examples.
 - All `.md` files use bare semver tags, not `v`-prefixed tags.
 - `Examples/` still match current human-facing API usage.

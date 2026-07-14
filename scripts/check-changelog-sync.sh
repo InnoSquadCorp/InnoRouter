@@ -2,10 +2,10 @@
 set -euo pipefail
 
 # Verifies that any change to a `Baselines/PublicAPI/*.txt` file in
-# the current branch is paired with a CHANGELOG.md change in the
-# same commit range. The intent is to surface the public-API
-# implications of a refactor before merge — not to police every
-# style edit.
+# the current branch is paired with a substantive change to the
+# `CHANGELOG.md` Unreleased section in the same commit range. The
+# intent is to surface the public-API implications of a refactor
+# before merge — not to police every style edit.
 #
 # Comparison range: defaults to `origin/main..HEAD`. Override with
 # `BASE_REF` for fork PRs or release branches:
@@ -25,18 +25,61 @@ if ! git rev-parse --verify --quiet "$BASE_REF" >/dev/null; then
   exit 1
 fi
 
-CHANGED_FILES="$(git diff --name-only "$BASE_REF"...HEAD)"
+MERGE_BASE="$(git merge-base "$BASE_REF" HEAD)"
+CHANGED_FILES="$(git diff --name-only "$MERGE_BASE" HEAD)"
+
+extract_unreleased() {
+  local changelog_path="$1"
+
+  awk '
+    /^## Unreleased[[:space:]]*$/ {
+      in_unreleased = 1
+      next
+    }
+    in_unreleased && /^## / {
+      exit
+    }
+    in_unreleased {
+      line = $0
+      sub(/^[[:space:]]+/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      if (line != "") {
+        print line
+      }
+    }
+  ' "$changelog_path"
+}
 
 if echo "$CHANGED_FILES" | grep -qE '^Baselines/PublicAPI/.*\.txt$'; then
-  if echo "$CHANGED_FILES" | grep -qE '^CHANGELOG\.md$'; then
-    echo "[check-changelog-sync] Baselines change paired with CHANGELOG entry — OK."
+  base_changelog="$(mktemp)"
+  head_changelog="$(mktemp)"
+  trap 'rm -f "$base_changelog" "$head_changelog"' EXIT
+
+  if ! git show "$MERGE_BASE:CHANGELOG.md" >"$base_changelog"; then
+    echo "[check-changelog-sync] Failed: CHANGELOG.md is missing at merge base $MERGE_BASE." >&2
+    exit 1
+  fi
+  if ! git show "HEAD:CHANGELOG.md" >"$head_changelog"; then
+    echo "[check-changelog-sync] Failed: CHANGELOG.md is missing at HEAD." >&2
+    exit 1
+  fi
+  if ! grep -qE '^## Unreleased[[:space:]]*$' "$head_changelog"; then
+    echo "[check-changelog-sync] Failed: CHANGELOG.md must retain an ## Unreleased section." >&2
+    exit 1
+  fi
+
+  base_unreleased="$(extract_unreleased "$base_changelog")"
+  head_unreleased="$(extract_unreleased "$head_changelog")"
+  if [[ "$base_unreleased" != "$head_unreleased" ]]; then
+    echo "[check-changelog-sync] Baselines change paired with an Unreleased entry — OK."
     exit 0
   fi
-  echo "[check-changelog-sync] Failed: a Baselines/PublicAPI/*.txt file changed but CHANGELOG.md did not."
+  echo "[check-changelog-sync] Failed: a Baselines/PublicAPI/*.txt file changed but"
+  echo "[check-changelog-sync] CHANGELOG.md's Unreleased content did not."
   echo "[check-changelog-sync]"
   echo "[check-changelog-sync] A public-API baseline change is, by definition, an"
-  echo "[check-changelog-sync] observable surface change. Document it in the matching"
-  echo "[check-changelog-sync] CHANGELOG release section before merging."
+  echo "[check-changelog-sync] observable surface change. Document its impact and"
+  echo "[check-changelog-sync] migration, when needed, under ## Unreleased before merging."
   echo "[check-changelog-sync]"
   echo "[check-changelog-sync] Files in the diff that triggered this check:"
   echo "$CHANGED_FILES" | grep -E '^Baselines/PublicAPI/.*\.txt$' | sed 's/^/[check-changelog-sync]   - /'
