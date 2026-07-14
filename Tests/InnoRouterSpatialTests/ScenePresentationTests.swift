@@ -1,6 +1,6 @@
 // MARK: - ScenePresentationTests.swift
 // Value-level tests for ScenePresentation + OrnamentAnchor.
-// These types live in InnoRouterCore and are platform-neutral, so the
+// These types live in InnoRouterSpatial and are platform-neutral, so the
 // tests run on every platform InnoRouter ships for (iOS, iPadOS, macOS,
 // tvOS, watchOS, visionOS).
 // Copyright © 2026 Inno Squad. All rights reserved.
@@ -9,6 +9,7 @@ import Foundation
 import Testing
 
 import InnoRouterCore
+import InnoRouterSpatial
 
 @Suite("ScenePresentation Tests", .tags(.unit))
 struct ScenePresentationTests {

@@ -10,6 +10,10 @@
 // app-boundary execution helpers are opt-in, so view-layer code that
 // only needs stores and hosts does not inherit that additional API.
 //
+// `InnoRouterSpatial` is also opt-in. Apps that coordinate visionOS
+// windows, volumes, immersive spaces, or ornaments import that product
+// explicitly; the umbrella remains free of spatial scene authority.
+//
 // `InnoRouterMacros` is also deliberately excluded from the umbrella.
 // Importing the macros target triggers a SwiftSyntax plugin
 // resolution step at compile time; pulling that in for every consumer

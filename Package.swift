@@ -131,6 +131,12 @@ let package = Package(
             targets: ["InnoRouterSwiftUI"]
         ),
 
+        // MARK: - Spatial Scene Integration
+        .library(
+            name: "InnoRouterSpatial",
+            targets: ["InnoRouterSpatial"]
+        ),
+
         // MARK: - DeepLink
         .library(
             name: "InnoRouterDeepLink",
@@ -187,6 +193,14 @@ let package = Package(
         // MARK: - SwiftUI Target
         .target(
             name: "InnoRouterSwiftUI",
+            dependencies: ["InnoRouterCore"],
+            resources: privacyManifestResources,
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+
+        // MARK: - Spatial Scene Target
+        .target(
+            name: "InnoRouterSpatial",
             dependencies: ["InnoRouterCore"],
             resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6)]
@@ -249,7 +263,11 @@ let package = Package(
         exampleTarget(name: "InnoRouterSplitCoordinatorExample", source: "SplitCoordinatorExample.swift"),
         exampleTarget(name: "InnoRouterAppShellExample",         source: "AppShellExample.swift"),
         exampleTarget(name: "InnoRouterMultiPlatformExample",    source: "MultiPlatformExample.swift"),
-        exampleTarget(name: "InnoRouterVisionOSImmersiveExample", source: "VisionOSImmersiveExample.swift"),
+        exampleTarget(
+            name: "InnoRouterVisionOSImmersiveExample",
+            source: "VisionOSImmersiveExample.swift",
+            additionalDependencies: ["InnoRouterSpatial"]
+        ),
         exampleTarget(
             name: "InnoRouterSampleAppExample",
             source: "SampleAppExample.swift",
@@ -267,7 +285,7 @@ let package = Package(
         // `soloSmokeSources` — the shared target picks it up automatically.
         .target(
             name: "InnoRouterExamplesSmoke",
-            dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterMacros"],
+            dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterMacros", "InnoRouterSpatial"],
             path: "ExamplesSmoke",
             exclude: soloSmokeSources + ["README.md"],
             sources: smokeSources.filter { !soloSmokeSources.contains($0) },
@@ -316,8 +334,13 @@ let package = Package(
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
+            name: "InnoRouterSpatialTests",
+            dependencies: ["InnoRouterCore", "InnoRouterSpatial"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
             name: "InnoRouterPlatformTests",
-            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
+            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterSpatial"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         // InnoRouterMacrosPlugin is a CompilerPlugin built host-only

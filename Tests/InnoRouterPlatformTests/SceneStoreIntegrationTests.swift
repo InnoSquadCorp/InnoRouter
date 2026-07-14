@@ -12,7 +12,7 @@ import Foundation
 import SwiftUI
 import Testing
 
-@testable import InnoRouterSwiftUI
+@testable import InnoRouterSpatial
 import InnoRouterCore
 
 private enum SpatialRoute: String, Route {

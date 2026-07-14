@@ -273,9 +273,9 @@ XR_SDK_PATH="$(xcrun --sdk xrsimulator --show-sdk-path)"
 [[ -n "$XR_SDK_PATH" ]] || { echo "[check-public-api] Failed to locate xrsimulator SDK path" >&2; exit 1; }
 XR_DERIVED_DATA_PATH="$temp_root/xros-derived-data"
 
-echo "[check-public-api] Building InnoRouterSwiftUI for visionOS symbol extraction"
+echo "[check-public-api] Building InnoRouterSpatial for visionOS symbol extraction"
 xcodebuild build \
-  -scheme InnoRouterSwiftUI \
+  -scheme InnoRouterSpatial \
   -destination 'generic/platform=visionOS Simulator' \
   -derivedDataPath "$XR_DERIVED_DATA_PATH" \
   -quiet
@@ -487,7 +487,7 @@ while IFS=$'\t' read -r product_name target_name; do
     "$HOST_RESOURCE_DIR" \
     "$HOST_PLATFORM_FRAMEWORKS_DIR"
 
-  if [[ "$product_name" == "InnoRouterSwiftUI" ]]; then
+  if [[ "$product_name" == "InnoRouterSpatial" ]]; then
     extract_product_symbols \
       "$target_name" \
       "$raw_dir/xros" \

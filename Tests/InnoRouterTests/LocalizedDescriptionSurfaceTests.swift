@@ -33,9 +33,4 @@ struct LocalizedDescriptionSurfaceTests {
         )
         #expect(reason.localizedDescription.contains("query"))
     }
-
-    @Test("scene rejection exposes localizedDescription")
-    func sceneRejectionDescription() {
-        #expect(SceneRejectionReason.sceneNotDeclared.localizedDescription.contains("declared"))
-    }
 }

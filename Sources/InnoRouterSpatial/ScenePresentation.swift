@@ -1,13 +1,14 @@
 import Foundation
 
+import InnoRouterCore
+
 /// Immersion style for an `ImmersiveSpace`-style scene presentation.
 ///
 /// Mirrors SwiftUI's `ImmersionStyle` cases but lives in
-/// ``InnoRouterCore`` so that the scene vocabulary is platform-neutral —
-/// `InnoRouterCore` does not import SwiftUI, so this enum is available on
-/// every platform InnoRouter supports. On visionOS the value is part of a
-/// scene declaration contract validated by `SceneHost`; non-visionOS
-/// hosts simply never act on it.
+/// ``InnoRouterSpatial`` as a plain value so the scene vocabulary remains
+/// available on every platform InnoRouter supports. On visionOS the value
+/// is part of a scene declaration contract validated by the scene host;
+/// non-visionOS hosts simply never act on it.
 public enum ImmersiveStyle: Sendable, Hashable, Codable {
     /// Mixed immersion — the user's passthrough environment stays visible
     /// around the app's content.
@@ -25,11 +26,10 @@ public enum ImmersiveStyle: Sendable, Hashable, Codable {
 ///
 /// visionOS apps can request a specific volume size for a
 /// `WindowGroup` declared with `.windowStyle(.volumetric)`. Keeping the
-/// value type here in Core means the rest of the pipeline (and peers such
-/// as `StatePersistence`) can reason about scene presentations without
-/// importing SwiftUI or RealityKit. On visionOS the value participates in
-/// scene declaration validation rather than being passed dynamically to
-/// the environment opener.
+/// value type in the opt-in spatial module lets the rest of that pipeline
+/// reason about scene presentations without importing RealityKit. On
+/// visionOS the value participates in scene declaration validation rather
+/// than being passed dynamically to the environment opener.
 public struct VolumetricSize: Sendable, Hashable, Codable {
     /// Extent along the x axis, in metres.
     public let x: Double
@@ -57,7 +57,7 @@ public struct VolumetricSize: Sendable, Hashable, Codable {
 /// inside a single scene's navigation stack or modal layer.
 ///
 /// Today every case only materialises on visionOS — the `SceneStore` /
-/// `SceneHost` pair in `InnoRouterSwiftUI` is gated to `#if os(visionOS)`.
+/// scene-host pair in `InnoRouterSpatial` is gated to `#if os(visionOS)`.
 /// On other platforms the type still compiles (it is SwiftUI-free) but no
 /// host acts on it. This keeps the vocabulary future-proof: if Apple adds
 /// equivalent multi-scene affordances on other platforms, the store /

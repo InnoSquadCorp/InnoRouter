@@ -2,6 +2,7 @@
 import SwiftUI
 
 import InnoRouter
+import InnoRouterSpatial
 
 enum VisionOSSmokeRoute: String, Route {
     case main

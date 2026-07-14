@@ -11,6 +11,7 @@
 import SwiftUI
 
 import InnoRouter
+import InnoRouterSpatial
 
 enum SpatialRoute: String, Route {
     case main

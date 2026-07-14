@@ -61,9 +61,6 @@ relationship | memberOf | FlowRejectionReason.localizedDescription | FlowRejecti
 relationship | memberOf | FlowRejectionReason.middlewareRejected(debugName:) | FlowRejectionReason |  |
 relationship | memberOf | FlowRejectionReason.pushBlockedByModalTail | FlowRejectionReason |  |
 relationship | memberOf | FlowRejectionReason.reentrantApply | FlowRejectionReason |  |
-relationship | memberOf | ImmersiveStyle.full | ImmersiveStyle |  |
-relationship | memberOf | ImmersiveStyle.mixed | ImmersiveStyle |  |
-relationship | memberOf | ImmersiveStyle.progressive | ImmersiveStyle |  |
 relationship | memberOf | ModalCancellationReason.conditionFailed | ModalCancellationReason |  |
 relationship | memberOf | ModalCancellationReason.custom(_:) | ModalCancellationReason |  |
 relationship | memberOf | ModalCancellationReason.localizedDescription | ModalCancellationReason |  |
@@ -133,28 +130,6 @@ relationship | memberOf | NavigationTransactionResult.requestedCommands | Naviga
 relationship | memberOf | NavigationTransactionResult.results | NavigationTransactionResult |  |
 relationship | memberOf | NavigationTransactionResult.stateAfter | NavigationTransactionResult |  |
 relationship | memberOf | NavigationTransactionResult.stateBefore | NavigationTransactionResult |  |
-relationship | memberOf | OrnamentAnchor.Alignment | OrnamentAnchor |  |
-relationship | memberOf | OrnamentAnchor.Alignment.bottom | OrnamentAnchor.Alignment |  |
-relationship | memberOf | OrnamentAnchor.Alignment.bottomLeading | OrnamentAnchor.Alignment |  |
-relationship | memberOf | OrnamentAnchor.Alignment.bottomTrailing | OrnamentAnchor.Alignment |  |
-relationship | memberOf | OrnamentAnchor.Alignment.center | OrnamentAnchor.Alignment |  |
-relationship | memberOf | OrnamentAnchor.Alignment.leading | OrnamentAnchor.Alignment |  |
-relationship | memberOf | OrnamentAnchor.Alignment.top | OrnamentAnchor.Alignment |  |
-relationship | memberOf | OrnamentAnchor.Alignment.topLeading | OrnamentAnchor.Alignment |  |
-relationship | memberOf | OrnamentAnchor.Alignment.topTrailing | OrnamentAnchor.Alignment |  |
-relationship | memberOf | OrnamentAnchor.Alignment.trailing | OrnamentAnchor.Alignment |  |
-relationship | memberOf | OrnamentAnchor.Anchor | OrnamentAnchor |  |
-relationship | memberOf | OrnamentAnchor.Anchor.bottom | OrnamentAnchor.Anchor |  |
-relationship | memberOf | OrnamentAnchor.Anchor.bottomLeading | OrnamentAnchor.Anchor |  |
-relationship | memberOf | OrnamentAnchor.Anchor.bottomTrailing | OrnamentAnchor.Anchor |  |
-relationship | memberOf | OrnamentAnchor.Anchor.leading | OrnamentAnchor.Anchor |  |
-relationship | memberOf | OrnamentAnchor.Anchor.top | OrnamentAnchor.Anchor |  |
-relationship | memberOf | OrnamentAnchor.Anchor.topLeading | OrnamentAnchor.Anchor |  |
-relationship | memberOf | OrnamentAnchor.Anchor.topTrailing | OrnamentAnchor.Anchor |  |
-relationship | memberOf | OrnamentAnchor.Anchor.trailing | OrnamentAnchor.Anchor |  |
-relationship | memberOf | OrnamentAnchor.alignment | OrnamentAnchor |  |
-relationship | memberOf | OrnamentAnchor.anchor | OrnamentAnchor |  |
-relationship | memberOf | OrnamentAnchor.init(anchor:alignment:) | OrnamentAnchor |  |
 relationship | memberOf | RouteStack.init() | RouteStack |  |
 relationship | memberOf | RouteStack.init(validating:using:) | RouteStack |  |
 relationship | memberOf | RouteStack.path | RouteStack |  |
@@ -175,17 +150,10 @@ relationship | memberOf | RouteStep.modalStyle | RouteStep |  |
 relationship | memberOf | RouteStep.push(_:) | RouteStep |  |
 relationship | memberOf | RouteStep.route | RouteStep |  |
 relationship | memberOf | RouteStep.sheet(_:) | RouteStep |  |
-relationship | memberOf | ScenePresentation.immersive(_:style:id:) | ScenePresentation |  |
-relationship | memberOf | ScenePresentation.volumetric(_:size:id:) | ScenePresentation |  |
-relationship | memberOf | ScenePresentation.window(_:id:) | ScenePresentation |  |
 relationship | memberOf | StatePersistence.decode(_:) | StatePersistence |  |
 relationship | memberOf | StatePersistence.decodeStack(_:) | StatePersistence |  |
 relationship | memberOf | StatePersistence.encode(_:) | StatePersistence |  |
 relationship | memberOf | StatePersistence.init(encoder:decoder:) | StatePersistence |  |
-relationship | memberOf | VolumetricSize.init(x:y:z:) | VolumetricSize |  |
-relationship | memberOf | VolumetricSize.x | VolumetricSize |  |
-relationship | memberOf | VolumetricSize.y | VolumetricSize |  |
-relationship | memberOf | VolumetricSize.z | VolumetricSize |  |
 relationship | requirementOf | AsyncNavigationMiddleware.RouteType | AsyncNavigationMiddleware |  |
 relationship | requirementOf | AsyncNavigationMiddleware.didExecute(_:result:state:) | AsyncNavigationMiddleware |  |
 relationship | requirementOf | AsyncNavigationMiddleware.willExecute(_:state:) | AsyncNavigationMiddleware |  |
@@ -227,7 +195,6 @@ symbol | swift.enum | EventBufferingPolicy | EventBufferingPolicy | enum EventBu
 symbol | swift.enum | FlowPlanApplyResult | FlowPlanApplyResult | enum FlowPlanApplyResult<R> where R : Route | []
 symbol | swift.enum | FlowPlanValidationError | FlowPlanValidationError | enum FlowPlanValidationError | []
 symbol | swift.enum | FlowRejectionReason | FlowRejectionReason | enum FlowRejectionReason | []
-symbol | swift.enum | ImmersiveStyle | ImmersiveStyle | enum ImmersiveStyle | []
 symbol | swift.enum | ModalCancellationReason | ModalCancellationReason | enum ModalCancellationReason<M> where M : Route | []
 symbol | swift.enum | ModalCommand | ModalCommand | enum ModalCommand<M> where M : Route | []
 symbol | swift.enum | ModalDismissalReason | ModalDismissalReason | enum ModalDismissalReason | []
@@ -237,11 +204,8 @@ symbol | swift.enum | NavigationCancellationReason | NavigationCancellationReaso
 symbol | swift.enum | NavigationCommand | NavigationCommand | enum NavigationCommand<R> where R : Route | []
 symbol | swift.enum | NavigationInterception | NavigationInterception | enum NavigationInterception<R> where R : Route | []
 symbol | swift.enum | NavigationResult | NavigationResult | enum NavigationResult<R> where R : Route | []
-symbol | swift.enum | OrnamentAnchor.Alignment | OrnamentAnchor.Alignment | enum Alignment | []
-symbol | swift.enum | OrnamentAnchor.Anchor | OrnamentAnchor.Anchor | enum Anchor | []
 symbol | swift.enum | RouteStackValidationError | RouteStackValidationError | enum RouteStackValidationError<R> where R : Route | []
 symbol | swift.enum | RouteStep | RouteStep | enum RouteStep<R> where R : Route | []
-symbol | swift.enum | ScenePresentation | ScenePresentation | enum ScenePresentation<R> where R : Route | []
 symbol | swift.enum.case | EventBufferingPolicy.bufferingNewest(_:) | EventBufferingPolicy.bufferingNewest(_:) | case bufferingNewest(Int) | []
 symbol | swift.enum.case | EventBufferingPolicy.bufferingOldest(_:) | EventBufferingPolicy.bufferingOldest(_:) | case bufferingOldest(Int) | []
 symbol | swift.enum.case | EventBufferingPolicy.unbounded | EventBufferingPolicy.unbounded | case unbounded | []
@@ -253,9 +217,6 @@ symbol | swift.enum.case | FlowRejectionReason.invalidResetPath | FlowRejectionR
 symbol | swift.enum.case | FlowRejectionReason.middlewareRejected(debugName:) | FlowRejectionReason.middlewareRejected(debugName:) | case middlewareRejected(debugName: String?) | []
 symbol | swift.enum.case | FlowRejectionReason.pushBlockedByModalTail | FlowRejectionReason.pushBlockedByModalTail | case pushBlockedByModalTail | []
 symbol | swift.enum.case | FlowRejectionReason.reentrantApply | FlowRejectionReason.reentrantApply | case reentrantApply | []
-symbol | swift.enum.case | ImmersiveStyle.full | ImmersiveStyle.full | case full | []
-symbol | swift.enum.case | ImmersiveStyle.mixed | ImmersiveStyle.mixed | case mixed | []
-symbol | swift.enum.case | ImmersiveStyle.progressive | ImmersiveStyle.progressive | case progressive | []
 symbol | swift.enum.case | ModalCancellationReason.conditionFailed | ModalCancellationReason.conditionFailed | case conditionFailed | []
 symbol | swift.enum.case | ModalCancellationReason.custom(_:) | ModalCancellationReason.custom(_:) | case custom(String) | []
 symbol | swift.enum.case | ModalCancellationReason.middleware(debugName:command:) | ModalCancellationReason.middleware(debugName:command:) | case middleware(debugName: String?, command: ModalCommand<M>) | []
@@ -293,23 +254,6 @@ symbol | swift.enum.case | NavigationResult.invalidPopCount(_:) | NavigationResu
 symbol | swift.enum.case | NavigationResult.multiple(_:) | NavigationResult.multiple(_:) | case multiple([NavigationResult<R>]) | []
 symbol | swift.enum.case | NavigationResult.routeNotFound(_:) | NavigationResult.routeNotFound(_:) | case routeNotFound(R) | []
 symbol | swift.enum.case | NavigationResult.success | NavigationResult.success | case success | []
-symbol | swift.enum.case | OrnamentAnchor.Alignment.bottom | OrnamentAnchor.Alignment.bottom | case bottom | []
-symbol | swift.enum.case | OrnamentAnchor.Alignment.bottomLeading | OrnamentAnchor.Alignment.bottomLeading | case bottomLeading | []
-symbol | swift.enum.case | OrnamentAnchor.Alignment.bottomTrailing | OrnamentAnchor.Alignment.bottomTrailing | case bottomTrailing | []
-symbol | swift.enum.case | OrnamentAnchor.Alignment.center | OrnamentAnchor.Alignment.center | case center | []
-symbol | swift.enum.case | OrnamentAnchor.Alignment.leading | OrnamentAnchor.Alignment.leading | case leading | []
-symbol | swift.enum.case | OrnamentAnchor.Alignment.top | OrnamentAnchor.Alignment.top | case top | []
-symbol | swift.enum.case | OrnamentAnchor.Alignment.topLeading | OrnamentAnchor.Alignment.topLeading | case topLeading | []
-symbol | swift.enum.case | OrnamentAnchor.Alignment.topTrailing | OrnamentAnchor.Alignment.topTrailing | case topTrailing | []
-symbol | swift.enum.case | OrnamentAnchor.Alignment.trailing | OrnamentAnchor.Alignment.trailing | case trailing | []
-symbol | swift.enum.case | OrnamentAnchor.Anchor.bottom | OrnamentAnchor.Anchor.bottom | case bottom | []
-symbol | swift.enum.case | OrnamentAnchor.Anchor.bottomLeading | OrnamentAnchor.Anchor.bottomLeading | case bottomLeading | []
-symbol | swift.enum.case | OrnamentAnchor.Anchor.bottomTrailing | OrnamentAnchor.Anchor.bottomTrailing | case bottomTrailing | []
-symbol | swift.enum.case | OrnamentAnchor.Anchor.leading | OrnamentAnchor.Anchor.leading | case leading | []
-symbol | swift.enum.case | OrnamentAnchor.Anchor.top | OrnamentAnchor.Anchor.top | case top | []
-symbol | swift.enum.case | OrnamentAnchor.Anchor.topLeading | OrnamentAnchor.Anchor.topLeading | case topLeading | []
-symbol | swift.enum.case | OrnamentAnchor.Anchor.topTrailing | OrnamentAnchor.Anchor.topTrailing | case topTrailing | []
-symbol | swift.enum.case | OrnamentAnchor.Anchor.trailing | OrnamentAnchor.Anchor.trailing | case trailing | []
 symbol | swift.enum.case | RouteStackValidationError.duplicateRoute(_:) | RouteStackValidationError.duplicateRoute(_:) | case duplicateRoute(R) | []
 symbol | swift.enum.case | RouteStackValidationError.emptyStackNotAllowed | RouteStackValidationError.emptyStackNotAllowed | case emptyStackNotAllowed | []
 symbol | swift.enum.case | RouteStackValidationError.invalidRoot(expected:actual:) | RouteStackValidationError.invalidRoot(expected:actual:) | case invalidRoot(expected: R, actual: R) | []
@@ -317,9 +261,6 @@ symbol | swift.enum.case | RouteStackValidationError.missingRequiredRoot(expecte
 symbol | swift.enum.case | RouteStep.cover(_:) | RouteStep.cover(_:) | case cover(R) | []
 symbol | swift.enum.case | RouteStep.push(_:) | RouteStep.push(_:) | case push(R) | []
 symbol | swift.enum.case | RouteStep.sheet(_:) | RouteStep.sheet(_:) | case sheet(R) | []
-symbol | swift.enum.case | ScenePresentation.immersive(_:style:id:) | ScenePresentation.immersive(_:style:id:) | case immersive(R, style: ImmersiveStyle, id: UUID = UUID()) | []
-symbol | swift.enum.case | ScenePresentation.volumetric(_:size:id:) | ScenePresentation.volumetric(_:size:id:) | case volumetric(R, size: VolumetricSize? = nil, id: UUID = UUID()) | []
-symbol | swift.enum.case | ScenePresentation.window(_:id:) | ScenePresentation.window(_:id:) | case window(R, id: UUID = UUID()) | []
 symbol | swift.func.op | NavigationCommand.==(_:_:) | ==(_:_:) | static func == (lhs: NavigationCommand<R>, rhs: NavigationCommand<R>) -> Bool | []
 symbol | swift.init | AnyBatchNavigator.init(_:) | init(_:) | @MainActor init<N>(_ navigator: N) where R == N.RouteType, N : NavigationBatchExecutor, N : NavigationCommandExecutor, N : NavigationStateReader, N : NavigationTransactionExecutor | []
 symbol | swift.init | AnyModalMiddleware.init(_:) | init(_:) | @MainActor init<Wrapped>(_ middleware: Wrapped) where M == Wrapped.RouteType, Wrapped : ModalMiddleware | []
@@ -335,12 +276,10 @@ symbol | swift.init | ModalPresentation.init(id:route:style:) | init(id:route:st
 symbol | swift.init | NavigationBatchResult.init(requestedCommands:executedCommands:results:stateBefore:stateAfter:hasStoppedOnFailure:) | init(requestedCommands:executedCommands:results:stateBefore:stateAfter:hasStoppedOnFailure:) | init(requestedCommands: [NavigationCommand<R>], executedCommands: [NavigationCommand<R>], results: [NavigationResult<R>], stateBefore: RouteStack<R>, stateAfter: RouteStack<R>, hasStoppedOnFailure: Bool) | []
 symbol | swift.init | NavigationEngine.init() | init() | init() | []
 symbol | swift.init | NavigationTransactionResult.init(requestedCommands:executedCommands:results:stateBefore:stateAfter:failureIndex:isCommitted:) | init(requestedCommands:executedCommands:results:stateBefore:stateAfter:failureIndex:isCommitted:) | init(requestedCommands: [NavigationCommand<R>], executedCommands: [NavigationCommand<R>], results: [NavigationResult<R>], stateBefore: RouteStack<R>, stateAfter: RouteStack<R>, failureIndex: Int?, isCommitted: Bool) | []
-symbol | swift.init | OrnamentAnchor.init(anchor:alignment:) | init(anchor:alignment:) | init(anchor: OrnamentAnchor.Anchor, alignment: OrnamentAnchor.Alignment = .center) | []
 symbol | swift.init | RouteStack.init() | init() | init() | []
 symbol | swift.init | RouteStack.init(validating:using:) | init(validating:using:) | init(validating path: [R], using validator: RouteStackValidator<R> = .permissive) throws | []
 symbol | swift.init | RouteStackValidator.init(_:) | init(_:) | init(_ validate: @escaping ([R]) throws -> Void) | []
 symbol | swift.init | StatePersistence.init(encoder:decoder:) | init(encoder:decoder:) | init(encoder: JSONEncoder = JSONEncoder(), decoder: JSONDecoder = JSONDecoder()) | []
-symbol | swift.init | VolumetricSize.init(x:y:z:) | init(x:y:z:) | init(x: Double, y: Double, z: Double) | []
 symbol | swift.method | AnyBatchNavigator.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> | []
 symbol | swift.method | AnyBatchNavigator.executeBatch(_:stopOnFailure:) | executeBatch(_:stopOnFailure:) | @discardableResult @MainActor func executeBatch(_ commands: [NavigationCommand<R>], stopOnFailure: Bool) -> NavigationBatchResult<R> | []
 symbol | swift.method | AnyBatchNavigator.executeTransaction(_:) | executeTransaction(_:) | @discardableResult @MainActor func executeTransaction(_ commands: [NavigationCommand<R>]) -> NavigationTransactionResult<R> | []
@@ -415,15 +354,10 @@ symbol | swift.property | NavigationTransactionResult.requestedCommands | reques
 symbol | swift.property | NavigationTransactionResult.results | results | let results: [NavigationResult<R>] | []
 symbol | swift.property | NavigationTransactionResult.stateAfter | stateAfter | let stateAfter: RouteStack<R> | []
 symbol | swift.property | NavigationTransactionResult.stateBefore | stateBefore | let stateBefore: RouteStack<R> | []
-symbol | swift.property | OrnamentAnchor.alignment | alignment | let alignment: OrnamentAnchor.Alignment | []
-symbol | swift.property | OrnamentAnchor.anchor | anchor | let anchor: OrnamentAnchor.Anchor | []
 symbol | swift.property | RouteStack.path | path | var path: [R] { get set } | []
 symbol | swift.property | RouteStep.isModal | isModal | var isModal: Bool { get } | []
 symbol | swift.property | RouteStep.modalStyle | modalStyle | var modalStyle: ModalPresentationStyle? { get } | []
 symbol | swift.property | RouteStep.route | route | var route: R { get } | []
-symbol | swift.property | VolumetricSize.x | x | let x: Double | []
-symbol | swift.property | VolumetricSize.y | y | let y: Double | []
-symbol | swift.property | VolumetricSize.z | z | let z: Double | []
 symbol | swift.protocol | AsyncNavigationMiddleware | AsyncNavigationMiddleware | @MainActor protocol AsyncNavigationMiddleware<RouteType> : Sendable | []
 symbol | swift.protocol | FlowPlanApplier | FlowPlanApplier | @MainActor protocol FlowPlanApplier<RouteType> : AnyObject, Sendable | []
 symbol | swift.protocol | ModalMiddleware | ModalMiddleware | @MainActor protocol ModalMiddleware | []
@@ -442,11 +376,9 @@ symbol | swift.struct | ModalPresentation | ModalPresentation | struct ModalPres
 symbol | swift.struct | NavigationBatchResult | NavigationBatchResult | struct NavigationBatchResult<R> where R : Route | []
 symbol | swift.struct | NavigationEngine | NavigationEngine | struct NavigationEngine<R> where R : Route | []
 symbol | swift.struct | NavigationTransactionResult | NavigationTransactionResult | struct NavigationTransactionResult<R> where R : Route | []
-symbol | swift.struct | OrnamentAnchor | OrnamentAnchor | struct OrnamentAnchor | []
 symbol | swift.struct | RouteStack | RouteStack | struct RouteStack<R> where R : Route | []
 symbol | swift.struct | RouteStackValidator | RouteStackValidator | struct RouteStackValidator<R> where R : Route | []
 symbol | swift.struct | StatePersistence | StatePersistence | struct StatePersistence<R> where R : Route, R : Decodable, R : Encodable | []
-symbol | swift.struct | VolumetricSize | VolumetricSize | struct VolumetricSize | []
 symbol | swift.type.method | FlowPlan.validate(_:) | validate(_:) | static func validate(_ steps: [RouteStep<R>]) throws | []
 symbol | swift.type.method | RouteStackValidator.rooted(at:) | rooted(at:) | static func rooted(at route: R) -> RouteStackValidator<R> | []
 symbol | swift.type.property | EventBufferingPolicy.default | default | static let `default`: EventBufferingPolicy | []

@@ -1,7 +1,6 @@
 // MARK: - SceneStoreState.swift
-// InnoRouterSwiftUI — internal state machine backing the spatial
-// scene surface. See SceneStore.swift for the public type's
-// experimental-stability marker.
+// InnoRouterSpatial — internal state machine backing the spatial
+// scene surface.
 
 import Foundation
 

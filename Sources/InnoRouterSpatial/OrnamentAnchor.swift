@@ -2,11 +2,10 @@
 ///
 /// SwiftUI's `ornament(attachmentAnchor:contentAlignment:ornament:)`
 /// modifier accepts a `SceneAttachmentAnchor.Scene` value plus an
-/// `Alignment`. Both live in SwiftUI, so ``InnoRouterCore`` models them
-/// with its own plain value types and lets the SwiftUI-side modifier
-/// translate. The result: ornament placement can be stored, serialised,
-/// and reasoned about on any platform InnoRouter compiles for, without
-/// pulling SwiftUI into ``InnoRouterCore``.
+/// `Alignment`. Both live in SwiftUI, so ``InnoRouterSpatial`` models them
+/// with its own plain value types and lets the view modifier translate.
+/// The result: ornament placement can be stored, serialised, and reasoned
+/// about on any platform InnoRouter compiles for.
 public struct OrnamentAnchor: Sendable, Hashable, Codable {
     /// Named attachment points that correspond to
     /// `SceneAttachmentAnchor.Scene`'s pre-defined cases.

@@ -1,12 +1,10 @@
 // MARK: - OrnamentModifier.swift
-// InnoRouterSwiftUI — cross-platform ornament view modifier that bridges
-// InnoRouterCore's OrnamentAnchor to SwiftUI's ornament(...) modifier on
+// InnoRouterSpatial — cross-platform ornament view modifier that bridges
+// OrnamentAnchor to SwiftUI's ornament(...) modifier on
 // visionOS, and degrades to a no-op elsewhere.
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import SwiftUI
-
-import InnoRouterCore
 
 public extension View {
     /// Attaches an ornament to this view on visionOS, using the
@@ -42,7 +40,7 @@ public extension View {
 
 #if os(visionOS)
 extension OrnamentAnchor {
-    /// Translates the Core-level anchor into SwiftUI's
+    /// Translates the spatial value anchor into SwiftUI's
     /// `OrnamentAttachmentAnchor` positional cases.
     var swiftUIAttachmentAnchor: OrnamentAttachmentAnchor {
         switch anchor {

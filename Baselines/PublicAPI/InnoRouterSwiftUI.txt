@@ -278,37 +278,6 @@ relationship | memberOf | QueueCoalescePolicy.Action.preserve | QueueCoalescePol
 relationship | memberOf | QueueCoalescePolicy.custom(_:) | QueueCoalescePolicy |  |
 relationship | memberOf | QueueCoalescePolicy.dropQueued | QueueCoalescePolicy |  |
 relationship | memberOf | QueueCoalescePolicy.preserve | QueueCoalescePolicy |  |
-relationship | memberOf | SceneDeclaration.immersive(_:id:style:) | SceneDeclaration |  |
-relationship | memberOf | SceneDeclaration.volumetric(_:id:size:) | SceneDeclaration |  |
-relationship | memberOf | SceneDeclaration.window(_:id:) | SceneDeclaration |  |
-relationship | memberOf | SceneEvent.dismissed(_:) | SceneEvent |  |
-relationship | memberOf | SceneEvent.hostRegistrationRejected(reason:) | SceneEvent |  |
-relationship | memberOf | SceneEvent.presented(_:) | SceneEvent |  |
-relationship | memberOf | SceneEvent.rejected(_:reason:) | SceneEvent |  |
-relationship | memberOf | SceneIntent.dismissImmersive | SceneIntent |  |
-relationship | memberOf | SceneIntent.dismissWindow(_:) | SceneIntent |  |
-relationship | memberOf | SceneIntent.open(_:) | SceneIntent |  |
-relationship | memberOf | SceneRegistry.init(_:) | SceneRegistry |  |
-relationship | memberOf | SceneRejectionReason.activeSceneMismatch | SceneRejectionReason |  |
-relationship | memberOf | SceneRejectionReason.duplicateHostRegistration | SceneRejectionReason |  |
-relationship | memberOf | SceneRejectionReason.environmentReturnedFailure | SceneRejectionReason |  |
-relationship | memberOf | SceneRejectionReason.fallbackCannotDispatch | SceneRejectionReason |  |
-relationship | memberOf | SceneRejectionReason.hostTornDownDuringDispatch | SceneRejectionReason |  |
-relationship | memberOf | SceneRejectionReason.localizedDescription | SceneRejectionReason |  |
-relationship | memberOf | SceneRejectionReason.nothingActive | SceneRejectionReason |  |
-relationship | memberOf | SceneRejectionReason.sceneDeclarationMismatch | SceneRejectionReason |  |
-relationship | memberOf | SceneRejectionReason.sceneInstanceNotActive | SceneRejectionReason |  |
-relationship | memberOf | SceneRejectionReason.sceneNotDeclared | SceneRejectionReason |  |
-relationship | memberOf | SceneRejectionReason.supersededByNewerIntent | SceneRejectionReason |  |
-relationship | memberOf | SceneStore.activeScenes | SceneStore |  |
-relationship | memberOf | SceneStore.currentScene | SceneStore |  |
-relationship | memberOf | SceneStore.dismissImmersive() | SceneStore |  |
-relationship | memberOf | SceneStore.dismissWindow(_:) | SceneStore |  |
-relationship | memberOf | SceneStore.events | SceneStore |  |
-relationship | memberOf | SceneStore.init() | SceneStore |  |
-relationship | memberOf | SceneStore.openImmersive(_:style:) | SceneStore |  |
-relationship | memberOf | SceneStore.openVolumetric(_:size:) | SceneStore |  |
-relationship | memberOf | SceneStore.openWindow(_:) | SceneStore |  |
 relationship | memberOf | StateRestorationAdapter.init(persistence:onRestorationFailure:) | StateRestorationAdapter |  |
 relationship | memberOf | StateRestorationAdapter.restoreFlowPlan(from:into:) | StateRestorationAdapter |  |
 relationship | memberOf | StateRestorationAdapter.restoreNavigationStack(from:into:) | StateRestorationAdapter |  |
@@ -404,7 +373,6 @@ symbol | swift.class | DebouncingNavigator | DebouncingNavigator | @MainActor fi
 symbol | swift.class | FlowStore | FlowStore | @MainActor final class FlowStore<R> where R : Route | []
 symbol | swift.class | ModalStore | ModalStore | @MainActor final class ModalStore<M> where M : Route | []
 symbol | swift.class | NavigationStore | NavigationStore | @MainActor final class NavigationStore<R> where R : Route | []
-symbol | swift.class | SceneStore | SceneStore | @MainActor final class SceneStore<R> where R : Route | []
 symbol | swift.class | StateRestorationAdapter | StateRestorationAdapter | @MainActor final class StateRestorationAdapter<R> where R : Route, R : Decodable, R : Encodable | []
 symbol | swift.class | StoreObserverSubscription | StoreObserverSubscription | @MainActor final class StoreObserverSubscription | []
 symbol | swift.class | ThrottleNavigationMiddleware | ThrottleNavigationMiddleware | @MainActor final class ThrottleNavigationMiddleware<R, C> where R : Route, C : Clock, C.Duration == Duration | []
@@ -427,9 +395,6 @@ symbol | swift.enum | NavigationPathMismatchPolicy | NavigationPathMismatchPolic
 symbol | swift.enum | NavigationPathMismatchResolution | NavigationPathMismatchResolution | enum NavigationPathMismatchResolution<R> where R : Route | []
 symbol | swift.enum | QueueCoalescePolicy | QueueCoalescePolicy | @MainActor enum QueueCoalescePolicy<R> where R : Route | []
 symbol | swift.enum | QueueCoalescePolicy.Action | QueueCoalescePolicy.Action | enum Action | []
-symbol | swift.enum | SceneEvent | SceneEvent | enum SceneEvent<R> where R : Route | []
-symbol | swift.enum | SceneIntent | SceneIntent | enum SceneIntent<R> where R : Route | []
-symbol | swift.enum | SceneRejectionReason | SceneRejectionReason | enum SceneRejectionReason | []
 symbol | swift.enum | StateRestorationTarget | StateRestorationTarget | enum StateRestorationTarget | []
 symbol | swift.enum.case | EnvironmentMissingPolicy.assertAndLog | EnvironmentMissingPolicy.assertAndLog | case assertAndLog | []
 symbol | swift.enum.case | EnvironmentMissingPolicy.crash | EnvironmentMissingPolicy.crash | case crash | []
@@ -515,23 +480,6 @@ symbol | swift.enum.case | QueueCoalescePolicy.Action.preserve | QueueCoalescePo
 symbol | swift.enum.case | QueueCoalescePolicy.custom(_:) | QueueCoalescePolicy.custom(_:) | case custom(@MainActor (FlowIntent<R>, FlowRejectionReason) -> QueueCoalescePolicy<R>.Action) | []
 symbol | swift.enum.case | QueueCoalescePolicy.dropQueued | QueueCoalescePolicy.dropQueued | case dropQueued | []
 symbol | swift.enum.case | QueueCoalescePolicy.preserve | QueueCoalescePolicy.preserve | case preserve | []
-symbol | swift.enum.case | SceneEvent.dismissed(_:) | SceneEvent.dismissed(_:) | case dismissed(ScenePresentation<R>) | []
-symbol | swift.enum.case | SceneEvent.hostRegistrationRejected(reason:) | SceneEvent.hostRegistrationRejected(reason:) | case hostRegistrationRejected(reason: SceneRejectionReason) | []
-symbol | swift.enum.case | SceneEvent.presented(_:) | SceneEvent.presented(_:) | case presented(ScenePresentation<R>) | []
-symbol | swift.enum.case | SceneEvent.rejected(_:reason:) | SceneEvent.rejected(_:reason:) | case rejected(SceneIntent<R>, reason: SceneRejectionReason) | []
-symbol | swift.enum.case | SceneIntent.dismissImmersive | SceneIntent.dismissImmersive | case dismissImmersive | []
-symbol | swift.enum.case | SceneIntent.dismissWindow(_:) | SceneIntent.dismissWindow(_:) | case dismissWindow(ScenePresentation<R>) | []
-symbol | swift.enum.case | SceneIntent.open(_:) | SceneIntent.open(_:) | case open(ScenePresentation<R>) | []
-symbol | swift.enum.case | SceneRejectionReason.activeSceneMismatch | SceneRejectionReason.activeSceneMismatch | case activeSceneMismatch | []
-symbol | swift.enum.case | SceneRejectionReason.duplicateHostRegistration | SceneRejectionReason.duplicateHostRegistration | case duplicateHostRegistration | []
-symbol | swift.enum.case | SceneRejectionReason.environmentReturnedFailure | SceneRejectionReason.environmentReturnedFailure | case environmentReturnedFailure | []
-symbol | swift.enum.case | SceneRejectionReason.fallbackCannotDispatch | SceneRejectionReason.fallbackCannotDispatch | case fallbackCannotDispatch | []
-symbol | swift.enum.case | SceneRejectionReason.hostTornDownDuringDispatch | SceneRejectionReason.hostTornDownDuringDispatch | case hostTornDownDuringDispatch | []
-symbol | swift.enum.case | SceneRejectionReason.nothingActive | SceneRejectionReason.nothingActive | case nothingActive | []
-symbol | swift.enum.case | SceneRejectionReason.sceneDeclarationMismatch | SceneRejectionReason.sceneDeclarationMismatch | case sceneDeclarationMismatch | []
-symbol | swift.enum.case | SceneRejectionReason.sceneInstanceNotActive | SceneRejectionReason.sceneInstanceNotActive | case sceneInstanceNotActive | []
-symbol | swift.enum.case | SceneRejectionReason.sceneNotDeclared | SceneRejectionReason.sceneNotDeclared | case sceneNotDeclared | []
-symbol | swift.enum.case | SceneRejectionReason.supersededByNewerIntent | SceneRejectionReason.supersededByNewerIntent | case supersededByNewerIntent | []
 symbol | swift.enum.case | StateRestorationTarget.flowPlan | StateRestorationTarget.flowPlan | case flowPlan | []
 symbol | swift.enum.case | StateRestorationTarget.navigationStack | StateRestorationTarget.navigationStack | case navigationStack | []
 symbol | swift.init | AnyFlowTelemetrySink.init(_:) | init(_:) | @MainActor init<S>(_ sink: S) where R == S.RouteType, S : FlowTelemetrySink | []
@@ -575,9 +523,6 @@ symbol | swift.init | NavigationStoreConfiguration.init(engine:middlewares:route
 symbol | swift.init | OSLogFlowTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogModalTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogNavigationTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
-symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: SceneDeclaration<R>...) | []
-symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: [SceneDeclaration<R>]) | []
-symbol | swift.init | SceneStore.init() | init() | @MainActor init() | []
 symbol | swift.init | StateRestorationAdapter.init(persistence:onRestorationFailure:) | init(persistence:onRestorationFailure:) | @MainActor init(persistence: StatePersistence<R> = StatePersistence<R>(), onRestorationFailure: @escaping @MainActor (StateRestorationFailure) -> Void = { _ in }) | []
 symbol | swift.init | StateRestorationFailure.init(target:message:) | init(target:message:) | init(target: StateRestorationTarget, message: String) | []
 symbol | swift.init | StepCoordinatorView.init(coordinator:showProgress:content:) | init(coordinator:showProgress:content:) | @MainActor init(coordinator: C, showProgress: Bool = true, @ViewBuilder content: @escaping (C.Step) -> Content) | []
@@ -639,11 +584,6 @@ symbol | swift.method | NavigationTelemetrySink.record(_:) | record(_:) | @MainA
 symbol | swift.method | OSLogFlowTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: FlowTelemetryEvent<R>) | []
 symbol | swift.method | OSLogModalTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: ModalTelemetryEvent<M>) | []
 symbol | swift.method | OSLogNavigationTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: NavigationTelemetryEvent<R>) | []
-symbol | swift.method | SceneStore.dismissImmersive() | dismissImmersive() | @MainActor func dismissImmersive() | []
-symbol | swift.method | SceneStore.dismissWindow(_:) | dismissWindow(_:) | @MainActor func dismissWindow(_ presentation: ScenePresentation<R>) | []
-symbol | swift.method | SceneStore.openImmersive(_:style:) | openImmersive(_:style:) | @MainActor func openImmersive(_ route: R, style: ImmersiveStyle) | []
-symbol | swift.method | SceneStore.openVolumetric(_:size:) | openVolumetric(_:size:) | @discardableResult @MainActor func openVolumetric(_ route: R, size: VolumetricSize? = nil) -> ScenePresentation<R> | []
-symbol | swift.method | SceneStore.openWindow(_:) | openWindow(_:) | @discardableResult @MainActor func openWindow(_ route: R) -> ScenePresentation<R> | []
 symbol | swift.method | StateRestorationAdapter.restoreFlowPlan(from:into:) | restoreFlowPlan(from:into:) | @discardableResult @MainActor func restoreFlowPlan(from data: Data, into store: FlowStore<R>) -> Bool | []
 symbol | swift.method | StateRestorationAdapter.restoreNavigationStack(from:into:) | restoreNavigationStack(from:into:) | @discardableResult @MainActor func restoreNavigationStack(from data: Data, into store: NavigationStore<R>) -> Bool | []
 symbol | swift.method | StateRestorationAdapter.snapshotFlowPlan(from:) | snapshotFlowPlan(from:) | @MainActor func snapshotFlowPlan(from store: FlowStore<R>) throws -> Data | []
@@ -665,12 +605,6 @@ symbol | swift.method | TabCoordinator.switchTab(to:) | switchTab(to:) | @MainAc
 symbol | swift.method | ThrottleNavigationMiddleware.didExecute(_:result:state:) | didExecute(_:result:state:) | @MainActor func didExecute(_ command: NavigationCommand<R>, result: NavigationResult<R>, state: RouteStack<R>) -> NavigationResult<R> | []
 symbol | swift.method | ThrottleNavigationMiddleware.willExecute(_:state:) | willExecute(_:state:) | @MainActor func willExecute(_ command: NavigationCommand<R>, state: RouteStack<R>) -> NavigationInterception<R> | []
 symbol | swift.method | View.innoRouterEnvironmentMissingPolicy(_:) | innoRouterEnvironmentMissingPolicy(_:) | @MainActor func innoRouterEnvironmentMissingPolicy(_ policy: EnvironmentMissingPolicy) -> some View | []
-symbol | swift.method | View.innoRouterOrnament(_:content:) | innoRouterOrnament(_:content:) | @ViewBuilder @MainActor func innoRouterOrnament<OrnamentContent>(_ anchor: OrnamentAnchor, @ViewBuilder content: () -> OrnamentContent) -> some View where OrnamentContent : View | []
-symbol | swift.method | View.innoRouterSceneAnchor(_:scenes:attachedTo:) | innoRouterSceneAnchor(_:scenes:attachedTo:) | @MainActor func innoRouterSceneAnchor<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R) -> some View where R : Route | []
-symbol | swift.method | View.innoRouterSceneAnchor(_:scenes:attachedTo:instanceID:) | innoRouterSceneAnchor(_:scenes:attachedTo:instanceID:) | @MainActor func innoRouterSceneAnchor<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R, instanceID: UUID) -> some View where R : Route | []
-symbol | swift.method | View.innoRouterSceneHost(_:scenes:) | innoRouterSceneHost(_:scenes:) | @MainActor func innoRouterSceneHost<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>) -> some View where R : Route | []
-symbol | swift.method | View.innoRouterSceneHost(_:scenes:attachedTo:) | innoRouterSceneHost(_:scenes:attachedTo:) | @MainActor func innoRouterSceneHost<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R) -> some View where R : Route | []
-symbol | swift.method | View.innoRouterSceneHost(_:scenes:attachedTo:instanceID:) | innoRouterSceneHost(_:scenes:attachedTo:instanceID:) | @MainActor func innoRouterSceneHost<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R, instanceID: UUID) -> some View where R : Route | []
 symbol | swift.property | ChildCoordinator.onCancel | onCancel | @MainActor var onCancel: (@MainActor () -> Void)? { get set } | []
 symbol | swift.property | ChildCoordinator.onFinish | onFinish | @MainActor var onFinish: (@MainActor (Self.Result) -> Void)? { get set } | []
 symbol | swift.property | ChildCoordinatorTaskTracker.activeCount | activeCount | @MainActor var activeCount: Int { get } | []
@@ -762,10 +696,6 @@ symbol | swift.property | NavigationStoreConfiguration.telemetrySink | telemetry
 symbol | swift.property | OSLogFlowTelemetrySink.logger | logger | @MainActor let logger: Logger | []
 symbol | swift.property | OSLogModalTelemetrySink.logger | logger | @MainActor let logger: Logger | []
 symbol | swift.property | OSLogNavigationTelemetrySink.logger | logger | @MainActor let logger: Logger | []
-symbol | swift.property | SceneRejectionReason.localizedDescription | localizedDescription | var localizedDescription: String { get } | []
-symbol | swift.property | SceneStore.activeScenes | activeScenes | @MainActor var activeScenes: [ScenePresentation<R>] { get set } | []
-symbol | swift.property | SceneStore.currentScene | currentScene | @MainActor var currentScene: ScenePresentation<R>? { get set } | []
-symbol | swift.property | SceneStore.events | events | @MainActor var events: AsyncStream<SceneEvent<R>> { get } | []
 symbol | swift.property | StateRestorationFailure.message | message | let message: String | []
 symbol | swift.property | StateRestorationFailure.target | target | let target: StateRestorationTarget | []
 symbol | swift.property | StepCoordinator.completedSteps | completedSteps | @MainActor var completedSteps: Set<Self.Step> { get set } | []
@@ -823,14 +753,9 @@ symbol | swift.struct | NavigationStoreConfiguration | NavigationStoreConfigurat
 symbol | swift.struct | OSLogFlowTelemetrySink | OSLogFlowTelemetrySink | @MainActor struct OSLogFlowTelemetrySink<R> where R : Route | []
 symbol | swift.struct | OSLogModalTelemetrySink | OSLogModalTelemetrySink | @MainActor struct OSLogModalTelemetrySink<M> where M : Route | []
 symbol | swift.struct | OSLogNavigationTelemetrySink | OSLogNavigationTelemetrySink | @MainActor struct OSLogNavigationTelemetrySink<R> where R : Route | []
-symbol | swift.struct | SceneDeclaration | SceneDeclaration | struct SceneDeclaration<R> where R : Route | []
-symbol | swift.struct | SceneRegistry | SceneRegistry | struct SceneRegistry<R> where R : Route | []
 symbol | swift.struct | StateRestorationFailure | StateRestorationFailure | struct StateRestorationFailure | []
 symbol | swift.struct | StepCoordinatorView | StepCoordinatorView | @MainActor struct StepCoordinatorView<C, Content> where C : StepCoordinator, Content : View | []
 symbol | swift.struct | TabCoordinatorView | TabCoordinatorView | @MainActor struct TabCoordinatorView<C> where C : TabCoordinator | []
-symbol | swift.type.method | SceneDeclaration.immersive(_:id:style:) | immersive(_:id:style:) | static func immersive(_ route: R, id: String, style: ImmersiveStyle) -> SceneDeclaration<R> | []
-symbol | swift.type.method | SceneDeclaration.volumetric(_:id:size:) | volumetric(_:id:size:) | static func volumetric(_ route: R, id: String, size: VolumetricSize? = nil) -> SceneDeclaration<R> | []
-symbol | swift.type.method | SceneDeclaration.window(_:id:) | window(_:id:) | static func window(_ route: R, id: String) -> SceneDeclaration<R> | []
 symbol | swift.type.property | ThrottleNavigationMiddleware.globalKey | globalKey | @MainActor static var globalKey: ThrottleNavigationMiddleware<R, C>.Key { get } | []
 symbol | swift.typealias | AnyFlowTelemetrySink.RouteType | AnyFlowTelemetrySink.RouteType | typealias RouteType = R | []
 symbol | swift.typealias | AnyModalTelemetrySink.RouteType | AnyModalTelemetrySink.RouteType | typealias RouteType = M | []

@@ -1,5 +1,5 @@
 // MARK: - SceneDispatchDriver.swift
-// InnoRouterSwiftUI — shared visionOS-only dispatch loop for SceneHost
+// InnoRouterSpatial — shared visionOS-only dispatch loop for SceneHost
 // and SceneAnchor.
 // Copyright © 2026 Inno Squad. All rights reserved.
 

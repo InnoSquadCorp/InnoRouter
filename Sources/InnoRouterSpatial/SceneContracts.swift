@@ -1,18 +1,12 @@
 // MARK: - SceneContracts.swift
-// InnoRouterSwiftUI — public contract types for the spatial scene
-// surface (events, intents, declarations, registry). The whole
-// surface is experimental — see SceneStore.swift's main doc comment
-// for the stability statement.
+// InnoRouterSpatial — public contract types for the spatial scene
+// surface (events, intents, declarations, registry).
 
 import Foundation
 
 import InnoRouterCore
 
 /// Lifecycle event emitted by ``SceneStore``.
-///
-/// > Experimental: Part of the spatial scene surface that is currently
-/// > outside the 4.x SemVer additive guarantee. See ``SceneStore`` for
-/// > the full statement.
 ///
 /// Subscribers reach these through ``SceneStore/events``. The event
 /// taxonomy is intentionally minimal — InnoRouter only observes outcomes

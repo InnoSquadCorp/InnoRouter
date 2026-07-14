@@ -2,7 +2,7 @@ import Foundation
 import Testing
 
 import InnoRouterCore
-@testable import InnoRouterSwiftUI
+@testable import InnoRouterSpatial
 
 private enum SceneTestRoute: String, Route {
     case main

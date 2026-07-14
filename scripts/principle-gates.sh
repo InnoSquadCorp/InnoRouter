@@ -70,7 +70,7 @@ echo "[principle-gates] Building DocC preview site"
 
 # Gate 3 — public API baseline diffs. Surfaces accidental public
 # symbol additions/removals/signature changes against the recorded
-# baseline; SemVer 4.x is additive only.
+# baseline so deliberate release-line changes remain reviewable.
 # Failure signal: removed/renamed symbol or non-additive signature change.
 # Local repro: ./scripts/check-public-api.sh
 echo "[principle-gates] Checking public API baselines"
@@ -234,6 +234,13 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
     echo "[principle-gates] xcodebuild build -scheme InnoRouterSwiftUI ($name)"
     xcodebuild build \
       -scheme InnoRouterSwiftUI \
+      -destination "$dest" \
+      -jobs "$XCODEBUILD_JOBS" \
+      -quiet
+
+    echo "[principle-gates] xcodebuild build -scheme InnoRouterSpatial ($name)"
+    xcodebuild build \
+      -scheme InnoRouterSpatial \
       -destination "$dest" \
       -jobs "$XCODEBUILD_JOBS" \
       -quiet

@@ -1,5 +1,5 @@
 // MARK: - SceneAnchor.swift
-// InnoRouterSwiftUI — visionOS-only scene lifecycle reconciliation
+// InnoRouterSpatial — visionOS-only scene lifecycle reconciliation
 // modifier for SceneStore inventory tracking.
 // Copyright © 2026 Inno Squad. All rights reserved.
 

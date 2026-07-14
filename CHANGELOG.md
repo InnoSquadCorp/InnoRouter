@@ -8,6 +8,13 @@ are bare semver (no leading `v`).
 
 ### Breaking
 
+- visionOS scene routing and ornaments now ship in the opt-in
+  `InnoRouterSpatial` product. Add that product dependency and
+  `import InnoRouterSpatial` at spatial call sites. `ScenePresentation`,
+  `ImmersiveStyle`, `VolumetricSize`, and `OrnamentAnchor` moved out of
+  `InnoRouterCore`; `SceneStore`, its contracts, and the scene/ornament view
+  modifiers moved out of `InnoRouterSwiftUI`. The `InnoRouter` umbrella does
+  not re-export Spatial, keeping non-spatial apps free of that surface.
 - `SceneDeclaration` is now factory-only and `SceneRegistry` is opaque after
   construction. Build declarations with `.window`, `.volumetric`, or
   `.immersive`, then pass the registry to `innoRouterSceneHost` and

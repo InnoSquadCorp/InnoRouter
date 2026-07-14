@@ -1,14 +1,8 @@
 // MARK: - SceneHost.swift
-// InnoRouterSwiftUI — visionOS-only host that bridges SceneStore to
+// InnoRouterSpatial — visionOS-only host that bridges SceneStore to
 // SwiftUI's spatial scene actions (openWindow / openImmersiveSpace /
 // dismissImmersiveSpace / dismissWindow).
 // Copyright © 2026 Inno Squad. All rights reserved.
-//
-// MARK: - Stability: Experimental. The spatial scene surface
-// (`SceneStore`, `SceneHost`, `SceneAnchor`, `ScenePresentation`,
-// `SceneIntent`, `SceneEvent`) is currently outside the 4.x SemVer
-// additive guarantee. Shape and behavior may change between minor
-// releases until the surface graduates.
 
 // MARK: - Platform: This host reads visionOS-specific EnvironmentValues
 // (`openImmersiveSpace`, `dismissImmersiveSpace`). It therefore exists

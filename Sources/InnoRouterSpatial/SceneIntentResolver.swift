@@ -1,3 +1,6 @@
+// MARK: - SceneIntentResolver.swift
+// InnoRouterSpatial — spatial intent validation and dispatch planning.
+
 import Foundation
 
 import InnoRouterCore

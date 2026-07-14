@@ -9,7 +9,7 @@ import SwiftUI
 import Testing
 
 import InnoRouterCore
-import InnoRouterSwiftUI
+import InnoRouterSpatial
 
 private enum SpatialPublicRoute: Route {
     case main
