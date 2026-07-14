@@ -52,6 +52,23 @@ jobs:
           BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: ./scripts/check-changelog-sync.sh
 
+  release-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Test release metadata contract
+        run: bash ./scripts/test-resolve-release-metadata.sh
+
+      - name: Test exact release ref contract
+        run: bash ./scripts/test-verify-release-ref.sh
+
+      - name: Test release changelog contract
+        run: bash ./scripts/test-check-release-changelog.sh
+
   gates:
     runs-on: macos-15
     timeout-minutes: 30

@@ -79,6 +79,28 @@ jobs:
             "$RELEASE_REF" \
             refs/remotes/origin/main >> "$GITHUB_OUTPUT"
 
+      - name: Validate release changelog
+        if: steps.metadata.outputs.publish == 'true'
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.metadata.outputs.version }}
+          RELEASE_PRERELEASE: ${{ steps.metadata.outputs.prerelease }}
+          RELEASE_COMMIT_SHA: ${{ steps.tag.outputs.commit_sha }}
+        run: |
+          set -euo pipefail
+
+          channel=ga
+          if [[ "$RELEASE_PRERELEASE" == "true" ]]; then
+            channel=prerelease
+          fi
+
+          tagged_changelog="$RUNNER_TEMP/release-CHANGELOG.md"
+          git show "${RELEASE_COMMIT_SHA}:CHANGELOG.md" > "$tagged_changelog"
+          ./scripts/check-release-changelog.sh \
+            "$RELEASE_VERSION" \
+            "$channel" \
+            "$tagged_changelog"
+
       - name: Explain prerelease tag no-op
         if: steps.metadata.outputs.publish != 'true'
         run: |

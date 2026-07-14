@@ -224,6 +224,12 @@ check_present "$ROOT_DIR/.github/workflows/principle-gates.yml" \
 check_present "$ROOT_DIR/.github/workflows/principle-gates.yml" \
   'Test CHANGELOG sync gate' \
   "changelog workflow does not run its regression scenarios"
+check_present "$ROOT_DIR/.github/workflows/principle-gates.yml" \
+  'Test release changelog contract' \
+  "principle-gates workflow does not test release changelog scenarios"
+check_present "$ROOT_DIR/.github/workflows/release.yml" \
+  'check-release-changelog.sh' \
+  "release workflow does not validate the changelog stored in the tag commit"
 check_absent "$ROOT_DIR/.github/workflows/principle-gates.yml" \
   'Swift 6.2 is the floor' \
   "principle-gates workflow still documents the old Swift floor"

@@ -13,7 +13,10 @@ Disallowed tag format:
 - any tag with a leading `v`
 - `release-5.0.0`
 
-The release workflow validates `GITHUB_REF_NAME` with `^[0-9]+\.[0-9]+\.[0-9]+$` and fails on anything else.
+The release preflight accepts only numeric identifiers without leading zeroes,
+resolves `refs/tags/<version>` exactly, and requires the tagged commit to be
+reachable from `origin/main`. All build jobs then checkout that immutable
+commit SHA rather than a caller-provided ref name.
 
 ### Pre-release tags
 
@@ -33,8 +36,9 @@ git tag 5.0.0-rc.1
 git push origin 5.0.0-rc.1
 ```
 
-A pre-release tag push may start the workflow because the tag glob is
-broad, but validation rejects it before publishing. The manual
+A pre-release tag push starts the lightweight preflight because the tag glob is
+broad, but completes as a successful publication no-op after the exact tag and
+event SHA are verified. The manual
 pre-release path publishes a GitHub Release marked as pre-release and
 a DocC subtree under `/InnoRouter/<tag>/`, but does **not** update
 `/latest/`. Only a bare-semver GA tag advances `/latest/`.
@@ -124,6 +128,12 @@ Every user-visible change lands directly in `CHANGELOG.md` under
    tagging. Historical release sections are immutable after publication except
    for factual corrections.
 
+The release preflight reads `CHANGELOG.md` from the tag commit itself. A GA tag
+is accepted only when `Unreleased` contains no remaining release entries and
+the version being published is the first release section below it. A
+pre-release keeps its non-empty notes under `Unreleased`; its final GA section
+must not already exist.
+
 ## What a release publishes
 
 A release tag triggers:
@@ -195,8 +205,10 @@ that same reusable gate again before it publishes anything.
 - runs on bare-semver tag pushes for GA releases
 - supports manual `workflow_dispatch` with `tag` and `prerelease=true`
   for `rc` / `beta` pre-releases
-- serializes all release runs in one FIFO publishing queue so two tags cannot
-  deploy from the same stale `gh-pages` snapshot
+- verifies the exact tag, triggering event SHA, `main` ancestry, and tagged
+  changelog before starting the macOS build jobs
+- serializes all release runs in one publishing queue so two tags cannot deploy
+  from the same stale `gh-pages` snapshot
 - rebuilds and revalidates the package
 - invokes the reusable Apple platform gate and blocks publishing until it passes
 - builds versioned DocC output
