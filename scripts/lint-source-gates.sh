@@ -118,9 +118,16 @@ if rg -n -F 'metadata=\(metadataSummary, privacy: .public)' Sources/InnoRouterSw
   exit 1
 fi
 
-echo "[lint-source-gates] Checking modal cancellation privacy"
-if rg -n -F 'cancellation=\(cancellationReason.map { String(describing: $0) } ?? "nil", privacy: .public)' Sources/InnoRouterSwiftUI/ModalStoreTelemetrySink.swift; then
-  echo "[lint-source-gates] Failed: modal command cancellation payload must stay private"
+echo "[lint-source-gates] Checking route and command telemetry privacy"
+if rg -ni '(summary|route|command|intent|path|reason|debugname|cancellation|payload|metadata)=.*privacy: \.public' \
+  Sources/InnoRouterSwiftUI --glob '*.swift'; then
+  echo "[lint-source-gates] Failed: route, command, reason, and event summary payloads must stay private"
+  exit 1
+fi
+
+echo "[lint-source-gates] Checking arbitrary runtime error privacy"
+if rg -n -F '\(description, privacy: .public)' Sources/InnoRouterSwiftUI/DebouncingNavigator.swift; then
+  echo "[lint-source-gates] Failed: arbitrary runtime error descriptions must stay private"
   exit 1
 fi
 

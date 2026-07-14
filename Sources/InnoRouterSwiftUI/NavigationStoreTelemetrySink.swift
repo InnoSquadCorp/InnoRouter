@@ -62,9 +62,9 @@ final class NavigationStoreTelemetrySink<R: Route> {
             policy=\(policy.rawValue, privacy: .public) \
             resolution=\(eventResolution.kind, privacy: .public) \
             oldPathCount=\(oldPath.count, privacy: .public) \
-            oldPathSummary=\(Self.pathSummary(for: oldPath), privacy: .public) \
+            oldPathSummary=\(Self.pathSummary(for: oldPath), privacy: .private(mask: .hash)) \
             newPathCount=\(newPath.count, privacy: .public) \
-            newPathSummary=\(Self.pathSummary(for: newPath), privacy: .public)
+            newPathSummary=\(Self.pathSummary(for: newPath), privacy: .private(mask: .hash))
             """
         )
     }
@@ -84,7 +84,7 @@ final class NavigationStoreTelemetrySink<R: Route> {
             middleware mutation \
             action=\(action.rawValue, privacy: .public) \
             handle=\(metadata.handle.logValue, privacy: .public) \
-            debugName=\(metadata.debugName ?? "nil", privacy: .public) \
+            debugName=\(metadata.debugName ?? "nil", privacy: .private(mask: .hash)) \
             index=\(String(index ?? -1), privacy: .public)
             """
         )

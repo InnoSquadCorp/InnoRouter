@@ -100,7 +100,7 @@ public final class DebouncingNavigator<
             } catch {
                 let description = String(describing: error)
                 debouncingNavigatorLogger.error(
-                    "DebouncingNavigator sleep failed with non-cancellation error: \(description, privacy: .public)"
+                    "DebouncingNavigator sleep failed with non-cancellation error: \(description, privacy: .private(mask: .hash))"
                 )
                 assertionFailure("DebouncingNavigator sleep failed with non-cancellation error: \(error)")
                 return nil

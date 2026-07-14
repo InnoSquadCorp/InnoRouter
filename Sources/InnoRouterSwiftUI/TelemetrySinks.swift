@@ -123,7 +123,7 @@ public struct OSLogNavigationTelemetrySink<R: Route>: NavigationTelemetrySink {
             """
             navigation telemetry \
             event=\(Self.kind(for: event), privacy: .public) \
-            summary=\(String(describing: event), privacy: .public)
+            summary=\(String(describing: event), privacy: .private(mask: .hash))
             """
         )
     }
@@ -160,7 +160,7 @@ public struct OSLogModalTelemetrySink<M: Route>: ModalTelemetrySink {
             """
             modal telemetry \
             event=\(Self.kind(for: event), privacy: .public) \
-            summary=\(String(describing: event), privacy: .public)
+            summary=\(String(describing: event), privacy: .private(mask: .hash))
             """
         )
     }
@@ -199,7 +199,7 @@ public struct OSLogFlowTelemetrySink<R: Route>: FlowTelemetrySink {
             """
             flow telemetry \
             event=\(Self.kind(for: event), privacy: .public) \
-            summary=\(String(describing: event), privacy: .public)
+            summary=\(String(describing: event), privacy: .private(mask: .hash))
             """
         )
     }

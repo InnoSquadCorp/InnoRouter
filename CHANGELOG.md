@@ -36,6 +36,11 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- OSLog telemetry now treats route, command, middleware debug-name,
+  dismissal-reason, full event-summary, and arbitrary runtime error
+  payloads as private hash-masked values. Event kinds, counts, policies,
+  and outcomes remain public so logs stay useful without exposing
+  route-associated values.
 - `StepCoordinator.jump(to:)` now applies the same `canProceed(from:)`
   gate as `next()` when jumping forward, and only permits forward
   jumps to the immediate next step in progression order. Backward

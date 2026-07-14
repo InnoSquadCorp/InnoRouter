@@ -33,7 +33,7 @@ final class ModalStoreTelemetrySink<M: Route> {
             """
             modal presented \
             id=\(presentation.id.uuidString, privacy: .private) \
-            route=\(Self.routeSummary(for: presentation.route), privacy: .public) \
+            route=\(Self.routeSummary(for: presentation.route), privacy: .private(mask: .hash)) \
             style=\(String(describing: presentation.style), privacy: .public)
             """
         )
@@ -50,9 +50,9 @@ final class ModalStoreTelemetrySink<M: Route> {
             """
             modal dismissed \
             id=\(presentation.id.uuidString, privacy: .private) \
-            route=\(Self.routeSummary(for: presentation.route), privacy: .public) \
+            route=\(Self.routeSummary(for: presentation.route), privacy: .private(mask: .hash)) \
             style=\(String(describing: presentation.style), privacy: .public) \
-            reason=\(String(describing: reason), privacy: .public)
+            reason=\(String(describing: reason), privacy: .private(mask: .hash))
             """
         )
     }
@@ -69,8 +69,8 @@ final class ModalStoreTelemetrySink<M: Route> {
             modal replaced \
             oldID=\(oldPresentation.id.uuidString, privacy: .private) \
             newID=\(newPresentation.id.uuidString, privacy: .private) \
-            oldRoute=\(Self.routeSummary(for: oldPresentation.route), privacy: .public) \
-            newRoute=\(Self.routeSummary(for: newPresentation.route), privacy: .public) \
+            oldRoute=\(Self.routeSummary(for: oldPresentation.route), privacy: .private(mask: .hash)) \
+            newRoute=\(Self.routeSummary(for: newPresentation.route), privacy: .private(mask: .hash)) \
             style=\(String(describing: newPresentation.style), privacy: .public)
             """
         )
@@ -84,7 +84,7 @@ final class ModalStoreTelemetrySink<M: Route> {
             """
             modal queued \
             id=\(presentation.id.uuidString, privacy: .private) \
-            route=\(Self.routeSummary(for: presentation.route), privacy: .public) \
+            route=\(Self.routeSummary(for: presentation.route), privacy: .private(mask: .hash)) \
             style=\(String(describing: presentation.style), privacy: .public)
             """
         )
@@ -121,7 +121,7 @@ final class ModalStoreTelemetrySink<M: Route> {
             modal middleware mutation \
             action=\(action.rawValue, privacy: .public) \
             handle=\(metadata.handle.logValue, privacy: .public) \
-            debugName=\(metadata.debugName ?? "nil", privacy: .public) \
+            debugName=\(metadata.debugName ?? "nil", privacy: .private(mask: .hash)) \
             index=\(String(index ?? -1), privacy: .public)
             """
         )
@@ -144,7 +144,7 @@ final class ModalStoreTelemetrySink<M: Route> {
         logger.notice(
             """
             modal command intercepted \
-            command=\(Self.commandSummary(for: command), privacy: .public) \
+            command=\(Self.commandSummary(for: command), privacy: .private(mask: .hash)) \
             outcome=\(outcome.rawValue, privacy: .public) \
             cancellation=\(cancellationReason.map { String(describing: $0) } ?? "nil", privacy: .private)
             """
