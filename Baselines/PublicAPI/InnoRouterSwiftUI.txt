@@ -42,7 +42,6 @@ relationship | memberOf | DebouncingNavigator.cancelPending() | DebouncingNaviga
 relationship | memberOf | DebouncingNavigator.debouncedExecute(_:) | DebouncingNavigator |  |
 relationship | memberOf | DebouncingNavigator.init(wrapping:interval:) | DebouncingNavigator |  |
 relationship | memberOf | DebouncingNavigator.init(wrapping:interval:clock:) | DebouncingNavigator |  |
-relationship | memberOf | DebouncingNavigator.inner | DebouncingNavigator |  |
 relationship | memberOf | EnvironmentFlowIntent.init(_:) | EnvironmentFlowIntent |  |
 relationship | memberOf | EnvironmentFlowIntent.wrappedValue | EnvironmentFlowIntent |  |
 relationship | memberOf | EnvironmentMissingPolicy.assertAndLog | EnvironmentMissingPolicy |  |
@@ -601,7 +600,6 @@ symbol | swift.property | ChildCoordinatorTaskTracker.activeCount | activeCount 
 symbol | swift.property | Coordinator.store | store | @MainActor var store: NavigationStore<Self.RouteType> { get } | []
 symbol | swift.property | CoordinatorHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | CoordinatorSplitHost.body | body | @MainActor var body: some View { get } | []
-symbol | swift.property | DebouncingNavigator.inner | inner | @MainActor let inner: N | []
 symbol | swift.property | EnvironmentFlowIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: @MainActor (FlowIntent<R>) -> Void { get } | []
 symbol | swift.property | EnvironmentModalIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: @MainActor (ModalIntent<M>) -> Void { get } | []
 symbol | swift.property | EnvironmentNavigationIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: @MainActor (NavigationIntent<R>) -> Void { get } | []

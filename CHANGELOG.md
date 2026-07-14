@@ -44,6 +44,9 @@ are bare semver (no leading `v`).
 - The `logger` stored by each `OSLog*TelemetrySink` is now private. Configure
   these adapters through `init(logger:)`; retain the original `Logger`
   separately if the app also needs to use it directly.
+- `DebouncingNavigator.inner` is now private. Keep the wrapped navigator at
+  the composition site when immediate execution or state inspection is also
+  required, instead of reaching through the debounce wrapper.
 - `.whenCancelled(primary, fallback:)` now evaluates each attempted leg behind
   a separate savepoint. If the fallback also fails or is cancelled, its partial
   state is discarded, the original snapshot remains authoritative, and no

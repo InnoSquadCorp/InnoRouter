@@ -45,9 +45,7 @@ public final class DebouncingNavigator<
     C: Clock
 > where C.Duration == Duration {
 
-    /// Inner navigator the deferred command ultimately executes
-    /// against once the quiet window elapses.
-    public let inner: N
+    private let inner: N
 
     private let interval: Duration
     private let clock: C
