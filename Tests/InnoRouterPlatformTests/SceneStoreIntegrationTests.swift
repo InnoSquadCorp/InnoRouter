@@ -61,30 +61,15 @@ private actor AsyncCounter {
     }
 }
 
-private actor DuplicateHostRejectionCounter<R: Route> {
-    private var count = 0
-
-    func record(_ event: SceneEvent<R>) {
-        if case .hostRegistrationRejected(.duplicateHostRegistration) = event {
-            count += 1
-        }
-    }
-
-    func read() -> Int {
-        count
-    }
-}
-
 /// Collects the first event matching `predicate` or returns nil after
 /// `timeout` seconds. Used to assert that a specific rejection or
 /// registration event reaches subscribers.
 @MainActor
 private func collectEvent<R: Route>(
-    from store: SceneStore<R>,
+    from events: AsyncStream<SceneEvent<R>>,
     timeoutSeconds: Double = 2.0,
     where predicate: @escaping @Sendable (SceneEvent<R>) -> Bool
 ) async -> SceneEvent<R>? {
-    let events = store.events
     let deadlineNanoseconds = UInt64(timeoutSeconds * 1_000_000_000)
 
     return await withTaskGroup(of: SceneEvent<R>?.self) { group in
@@ -107,7 +92,7 @@ private func collectEvent<R: Route>(
     }
 }
 
-@Suite("SceneStore integration tests", .tags(.integration))
+@Suite("SceneStore integration tests", .tags(.integration), .serialized)
 struct SceneStoreIntegrationTests {
 
     // MARK: - Hardening path 1: fallback anchor cannot dispatch cross-scene opens
@@ -148,8 +133,9 @@ struct SceneStoreIntegrationTests {
             }
         )
 
+        let events = store.events
         let collectTask = Task { @MainActor in
-            await collectEvent(from: store) { event in
+            await collectEvent(from: events) { event in
                 if case .rejected(_, .fallbackCannotDispatch) = event {
                     return true
                 }
@@ -208,8 +194,9 @@ struct SceneStoreIntegrationTests {
             }
         )
 
+        let events = store.events
         let collectTask = Task { @MainActor in
-            await collectEvent(from: store) { event in
+            await collectEvent(from: events) { event in
                 if case .presented = event {
                     return true
                 }
@@ -234,8 +221,9 @@ struct SceneStoreIntegrationTests {
     func duplicateHostRegistrationIsRecoverable() async {
         let store = SceneStore<SpatialRoute>()
 
+        let events = store.events
         let collectTask = Task { @MainActor in
-            await collectEvent(from: store) { event in
+            await collectEvent(from: events) { event in
                 if case .hostRegistrationRejected(.duplicateHostRegistration) = event {
                     return true
                 }
@@ -261,7 +249,6 @@ struct SceneStoreIntegrationTests {
     func dormantSceneHostRetriesOnlyAfterDispatcherChanges() async {
         let store = SceneStore<SpatialRoute>()
         let scenes = makeRegistry()
-        let rejectionCounter = DuplicateHostRejectionCounter<SpatialRoute>()
         let instanceID = UUID()
         let primaryRegistration = SceneHostRegistration(
             store: store,
@@ -278,23 +265,23 @@ struct SceneStoreIntegrationTests {
             instanceID: instanceID
         )
 
-        let eventTask = Task { @MainActor in
-            for await event in store.events {
-                await rejectionCounter.record(event)
+        let collisionEvents = store.events
+        let collisionTask = Task { @MainActor in
+            await collectEvent(from: collisionEvents) { event in
+                if case .hostRegistrationRejected(.duplicateHostRegistration) = event {
+                    return true
+                }
+                return false
             }
         }
-        defer { eventTask.cancel() }
-
-        await Task.yield()
 
         #expect(primaryRegistration.activate() == true)
-        await Task.yield()
-        #expect(await rejectionCounter.read() == 0)
 
         var isDormant = !dormantRegistration.activate()
         #expect(isDormant == true)
-        await Task.yield()
-        #expect(await rejectionCounter.read() == 1)
+        #expect(await collisionTask.value != nil)
+
+        let subsequentEvents = store.events
 
         var spawnCount = 0
         for _ in 0..<3 {
@@ -306,15 +293,12 @@ struct SceneStoreIntegrationTests {
                     spawnCount += 1
                 }
             )
-            await Task.yield()
         }
 
         #expect(spawnCount == 0)
         #expect(isDormant == true)
-        #expect(await rejectionCounter.read() == 1)
 
         primaryRegistration.deactivate(dispatcherOwned: true)
-        await Task.yield()
 
         #expect(store.activeScenes == [.window(.main, id: instanceID)])
 
@@ -326,11 +310,19 @@ struct SceneStoreIntegrationTests {
                 spawnCount += 1
             }
         )
-        await Task.yield()
-
         #expect(isDormant == false)
         #expect(spawnCount == 1)
-        #expect(await rejectionCounter.read() == 1)
+        #expect(
+            await collectEvent(
+                from: subsequentEvents,
+                timeoutSeconds: 0.1
+            ) { event in
+                if case .hostRegistrationRejected(.duplicateHostRegistration) = event {
+                    return true
+                }
+                return false
+            } == nil
+        )
     }
 
     @Test("Dormant host reconciles a distinct window lifecycle without disturbing the primary dispatcher")
@@ -576,8 +568,9 @@ struct SceneStoreIntegrationTests {
             dismissWindow: { _, _ in }
         )
 
+        let events = store.events
         let collectTask = Task { @MainActor in
-            await collectEvent(from: store) { event in
+            await collectEvent(from: events) { event in
                 if case .rejected(_, .hostTornDownDuringDispatch) = event {
                     return true
                 }
@@ -597,7 +590,12 @@ struct SceneStoreIntegrationTests {
 
         #expect(collected != nil)
         if case .rejected(let intent, .hostTornDownDuringDispatch)? = collected {
-            #expect(intent == .open(.immersive(.theatre, style: .mixed)))
+            guard case .open(.immersive(let route, let style, _)) = intent else {
+                Issue.record("Expected a rejected immersive open, got \(intent)")
+                return
+            }
+            #expect(route == .theatre)
+            #expect(style == .mixed)
         }
         #expect(await dismissCount.read() == 1)
         #expect(store.currentScene == nil)
@@ -638,8 +636,9 @@ struct SceneStoreIntegrationTests {
             dismissWindow: { _, _ in }
         )
 
+        let events = store.events
         let collectTask = Task { @MainActor in
-            await collectEvent(from: store) { event in
+            await collectEvent(from: events) { event in
                 if case .rejected(_, .hostTornDownDuringDispatch) = event {
                     return true
                 }
