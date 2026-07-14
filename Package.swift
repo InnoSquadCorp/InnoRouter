@@ -297,7 +297,7 @@ let package = Package(
         // MARK: - Macro Declarations (Public API)
         .target(
             name: "InnoRouterMacros",
-            dependencies: ["InnoRouterCore", "InnoRouterMacrosPlugin"],
+            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterMacrosPlugin"],
             resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

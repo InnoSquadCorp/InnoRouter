@@ -8,6 +8,7 @@ import SwiftSyntaxMacros
 @main
 struct InnoRouterMacrosPlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
+        RouterMacro.self,
         RoutableMacro.self,
         CasePathableMacro.self,
     ]

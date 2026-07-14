@@ -18,6 +18,7 @@ import Testing
 
 func makeTestMacros() -> [String: Macro.Type] {
     [
+        "Router": RouterMacro.self,
         "Routable": RoutableMacro.self,
         "CasePathable": CasePathableMacro.self,
     ]

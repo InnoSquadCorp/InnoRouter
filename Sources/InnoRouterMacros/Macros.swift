@@ -3,6 +3,42 @@
 // Copyright © 2025 Inno Squad. All rights reserved.
 
 @_exported import InnoRouterCore
+@_exported import InnoRouterSwiftUI
+
+// MARK: - @Router
+
+/// Turns an enum with a `destination` view into a locally hostable router.
+///
+/// Declare route cases and an instance destination property. `@Router` adds
+/// the result-builder and actor annotations, then synthesises the
+/// ``DestinationRoute`` conformance used by `RouterHost`.
+///
+/// ```swift
+/// @Router
+/// enum AppRoute {
+///     case settings
+///     case detail(id: String)
+///
+///     var destination: some View {
+///         switch self {
+///         case .settings:
+///             SettingsView()
+///         case .detail(let id):
+///             DetailView(id: id)
+///         }
+///     }
+/// }
+/// ```
+@attached(memberAttribute)
+@attached(
+    extension,
+    conformances: DestinationRoute,
+    names: named(destination)
+)
+public macro Router() = #externalMacro(
+    module: "InnoRouterMacrosPlugin",
+    type: "RouterMacro"
+)
 
 // MARK: - @Routable
 
