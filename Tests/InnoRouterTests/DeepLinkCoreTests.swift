@@ -406,7 +406,7 @@ struct DeepLinkTests {
     func testPipelineRejectsSchemeWithReason() {
         let pipeline = DeepLinkPipeline<TestRoute>(
             allowedSchemes: ["myapp"],
-            resolve: { _ in .home }
+            customResolver: { _ in .home }
         )
         let url = URL(string: "https://myapp.com/home")!
 
@@ -422,7 +422,7 @@ struct DeepLinkTests {
     func testPipelineRejectsHostWithReason() {
         let pipeline = DeepLinkPipeline<TestRoute>(
             allowedHosts: ["myapp.com"],
-            resolve: { _ in .home }
+            customResolver: { _ in .home }
         )
         let url = URL(string: "myapp://other.com/home")!
 
@@ -437,7 +437,7 @@ struct DeepLinkTests {
     @Test("DeepLinkPipeline rejected reason is inputLimitExceeded")
     func testPipelineRejectsInputLimitWithReason() {
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { _ in .home },
+            customResolver: { _ in .home },
             inputLimits: DeepLinkInputLimits(maxPathSegments: 1)
         )
         let url = URL(string: "myapp://myapp.com/home/settings")!
@@ -450,9 +450,137 @@ struct DeepLinkTests {
         #expect(reason == .inputLimitExceeded(.pathSegmentCountExceeded(actual: 2, max: 1)))
     }
 
+    @Test("DeepLinkPipeline preserves matcher input-limit rejection")
+    func testPipelineRejectsMatcherInputLimitWithReason() {
+        let handlerCallCount = Mutex(0)
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(
+                diagnosticsMode: .disabled,
+                inputLimits: DeepLinkInputLimits(maxQueryItems: 1)
+            )
+        ) {
+            DeepLinkMapping("/home") { _ in
+                handlerCallCount.withLock { $0 += 1 }
+                return .home
+            }
+        }
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            matcher: matcher,
+            inputLimits: .unlimited
+        )
+        let url = URL(string: "myapp://myapp.com/home?a=1&b=2")!
+
+        let decision = pipeline.decide(for: url)
+
+        #expect(
+            decision == .rejected(
+                reason: .inputLimitExceeded(
+                    .queryItemCountExceeded(actual: 2, max: 1)
+                )
+            )
+        )
+        #expect(handlerCallCount.withLock { $0 } == 0)
+    }
+
+    @Test("Strict DeepLinkMatcher preserves input-limit rejection in pipeline")
+    func testPipelineRejectsStrictMatcherInputLimitWithReason() throws {
+        let matcher = try DeepLinkMatcher<TestRoute>(
+            strict: (),
+            inputLimits: DeepLinkInputLimits(maxQueryItems: 1)
+        ) {
+            DeepLinkMapping("/home") { _ in .home }
+        }
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            matcher: matcher,
+            inputLimits: .unlimited
+        )
+
+        let decision = pipeline.decide(
+            for: URL(string: "myapp://myapp.com/home?a=1&b=2")!
+        )
+
+        #expect(
+            decision == .rejected(
+                reason: .inputLimitExceeded(
+                    .queryItemCountExceeded(actual: 2, max: 1)
+                )
+            )
+        )
+    }
+
+    @Test("DeepLinkPipeline checks scheme before matcher input limits")
+    func testPipelineRejectsSchemeBeforeMatcherInputLimit() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(
+                diagnosticsMode: .disabled,
+                inputLimits: DeepLinkInputLimits(maxQueryItems: 1)
+            )
+        ) {
+            DeepLinkMapping("/home") { _ in .home }
+        }
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            allowedSchemes: ["myapp"],
+            matcher: matcher,
+            inputLimits: .unlimited
+        )
+
+        let decision = pipeline.decide(
+            for: URL(string: "https://myapp.com/home?a=1&b=2")!
+        )
+
+        #expect(decision == .rejected(reason: .schemeNotAllowed(actualScheme: "https")))
+    }
+
+    @Test("DeepLinkPipeline checks its input limits before scheme")
+    func testPipelineRejectsOwnInputLimitBeforeScheme() {
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/home") { _ in .home }
+        }
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            allowedSchemes: ["myapp"],
+            matcher: matcher,
+            inputLimits: DeepLinkInputLimits(maxQueryItems: 1)
+        )
+
+        let decision = pipeline.decide(
+            for: URL(string: "https://myapp.com/home?a=1&b=2")!
+        )
+
+        #expect(
+            decision == .rejected(
+                reason: .inputLimitExceeded(
+                    .queryItemCountExceeded(actual: 2, max: 1)
+                )
+            )
+        )
+    }
+
+    @Test("DeepLinkPipeline does not resolve or plan rejected URLs")
+    func testPipelineRejectsBeforeCustomResolutionAndPlanning() {
+        let resolverCallCount = Mutex(0)
+        let plannerCallCount = Mutex(0)
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            allowedSchemes: ["myapp"],
+            customResolver: { _ in
+                resolverCallCount.withLock { $0 += 1 }
+                return .home
+            },
+            plan: { route in
+                plannerCallCount.withLock { $0 += 1 }
+                return NavigationPlan(commands: [.push(route)])
+            }
+        )
+
+        let decision = pipeline.decide(for: URL(string: "https://myapp.com/home")!)
+
+        #expect(decision == .rejected(reason: .schemeNotAllowed(actualScheme: "https")))
+        #expect(resolverCallCount.withLock { $0 } == 0)
+        #expect(plannerCallCount.withLock { $0 } == 0)
+    }
+
     @Test("DeepLinkPipeline keeps URL in unhandled decision")
     func testPipelineUnhandledKeepsURL() {
-        let pipeline = DeepLinkPipeline<TestRoute>(resolve: { _ in nil })
+        let pipeline = DeepLinkPipeline<TestRoute>(customResolver: { _ in nil })
         let url = URL(string: "myapp://myapp.com/missing")!
 
         let decision = pipeline.decide(for: url)
@@ -463,10 +591,25 @@ struct DeepLinkTests {
         #expect(unhandledURL == url)
     }
 
+    @Test("DeepLinkPipeline matcher continues after a handler returns nil")
+    func testPipelineMatcherFallsThroughNilHandler() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/home") { _ in nil as TestRoute? }
+            DeepLinkMapping("/home") { _ in .home }
+        }
+        let pipeline = DeepLinkPipeline<TestRoute>(matcher: matcher)
+
+        let decision = pipeline.decide(for: URL(string: "myapp://myapp.com/home")!)
+
+        #expect(decision == .plan(NavigationPlan(commands: [.push(.home)])))
+    }
+
     @Test("DeepLinkPipeline notRequired policy returns plan")
     func testPipelineNotRequiredPolicyReturnsPlan() {
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { _ in .settings },
+            customResolver: { _ in .settings },
             authenticationPolicy: .notRequired
         )
         let url = URL(string: "myapp://myapp.com/settings")!
@@ -485,7 +628,7 @@ struct DeepLinkTests {
             .replace([.home, .settings])
         ]
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { _ in .home },
+            customResolver: { _ in .home },
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { $0 == .settings },
                 isAuthenticated: { false }
@@ -508,7 +651,7 @@ struct DeepLinkTests {
             .pushAll([.home, .settings])
         ]
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { _ in .home },
+            customResolver: { _ in .home },
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { $0 == .settings },
                 isAuthenticated: { false }
@@ -537,7 +680,7 @@ struct DeepLinkTests {
             ])
         ]
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { _ in .home },
+            customResolver: { _ in .home },
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { $0 == .settings },
                 isAuthenticated: { false }
@@ -557,7 +700,7 @@ struct DeepLinkTests {
     @Test("DeepLinkPipeline auth falls back to resolved route when plan has no routes")
     func testPipelineAuthenticationFallbackScansResolvedRoute() {
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { _ in .settings },
+            customResolver: { _ in .settings },
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { $0 == .settings },
                 isAuthenticated: { false }
@@ -580,7 +723,7 @@ struct DeepLinkTests {
             .replace([.home, .settings])
         ]
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { _ in .home },
+            customResolver: { _ in .home },
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { $0 == .settings },
                 isAuthenticated: { true }

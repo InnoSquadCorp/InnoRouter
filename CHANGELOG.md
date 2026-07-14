@@ -61,6 +61,12 @@ are bare semver (no leading `v`).
   `hasPendingDeepLink` in favor of `pendingDeepLink != nil`. The unused
   `RouterEffect` marker is removed; effects that support both operations can
   conform directly to `NavigationEffect` and `DeepLinkEffect`.
+- `DeepLinkPipeline` now accepts a `DeepLinkMatcher` through its canonical
+  `matcher:` initializer. The old `resolve:` initializer and nested `Resolver`
+  type alias are removed. Migrate `resolve: { matcher.match($0) }` to
+  `matcher: matcher`; use the explicitly named `customResolver:` initializer
+  only for arbitrary URL-to-route closures. No compatibility overload is
+  provided.
 - `InnoRouterTesting` replaces the terminal-sounding
   `expectNoMoreEvents()` checkpoint with `assertNoPendingEvents()`.
   The renamed method reports and consumes only the current queue
@@ -73,9 +79,10 @@ are bare semver (no leading `v`).
 ### Changed
 
 - Deep-link matching now parses accepted-size URLs at most once per
-  matcher or flow-pipeline decision, while preserving the raw URL
-  length rejection before parsing.
-  `DeepLinkMatcher.match` and `FlowDeepLinkPipeline.decide` previously
+  matcher, push-pipeline, or flow-pipeline decision, while preserving the raw
+  URL length rejection at each entry point before that entry point parses.
+  `DeepLinkMatcher.match`, `DeepLinkPipeline.decide`, and
+  `FlowDeepLinkPipeline.decide` previously
   re-parsed the same URL up
   to four times (input-limit checks and pattern walks each parsed
   independently); they now thread a single parsed value through
@@ -86,6 +93,13 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Push deep-link pipelines and `DeepLinkEffectHandler` now preserve a
+  matcher's input-limit violation as
+  `.rejected(.inputLimitExceeded(...))`. Wrapping `matcher.match` in the old
+  optional resolver erased the distinction between a rejected input and an
+  unmatched URL, causing the former to surface incorrectly as `.unhandled`.
+  Push and flow pipelines now share the same atomic admission path and
+  rejection precedence.
 - Deep-link paths now split on their percent-encoded separators before each
   segment is decoded exactly once. An encoded slash (`%2F`) remains data
   inside one segment instead of matching a two-segment pattern, `%252F`

@@ -69,4 +69,7 @@ and query item count. Direct matcher calls still return `nil` because
 their public contract is optional. Pipeline and effect-handler paths
 surface limit violations as typed
 `DeepLinkRejectionReason.inputLimitExceeded` rejections instead of
-"no match" outcomes.
+"no match" outcomes when the pipeline receives the matcher through its
+`matcher:` initializer. The `customResolver:` escape hatch can surface only
+the pipeline's own limits because an optional resolver result does not carry
+matcher-specific rejection information.

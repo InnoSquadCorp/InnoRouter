@@ -43,7 +43,7 @@ public final class DeepLinkEffectHandler<R: Route> {
         self.pipeline = DeepLinkPipeline(
             allowedSchemes: allowedSchemes,
             allowedHosts: allowedHosts,
-            resolve: { url in matcher.match(url) },
+            matcher: matcher,
             authenticationPolicy: authenticationPolicy,
             inputLimits: inputLimits,
             plan: plan

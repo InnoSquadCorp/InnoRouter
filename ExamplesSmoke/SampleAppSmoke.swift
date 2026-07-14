@@ -35,7 +35,7 @@ private final class SampleSmokeAuthority {
         DeepLinkPipeline(
             allowedSchemes: ["app"],
             allowedHosts: ["sample"],
-            resolve: { url in
+            customResolver: { url in
                 switch url.path {
                 case "/profile": .profile
                 default:         nil

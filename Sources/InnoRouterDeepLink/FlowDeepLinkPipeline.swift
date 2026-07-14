@@ -54,10 +54,11 @@ public enum FlowDeepLinkDecision<R: Route>: Sendable, Equatable {
 ///
 /// Composition mirrors ``DeepLinkPipeline``:
 ///
-/// 1. Validate the URL's scheme / host.
-/// 2. Walk the matcher for a `FlowPlan`.
-/// 3. Run the authentication policy against every route in the plan.
-/// 4. Return `.flowPlan(plan)` or `.pending(...)` as appropriate.
+/// 1. Enforce pipeline input limits.
+/// 2. Validate the URL's scheme / host.
+/// 3. Enforce matcher input limits and walk it for a `FlowPlan`.
+/// 4. Run the authentication policy against every route in the plan.
+/// 5. Return `.flowPlan(plan)` or `.pending(...)` as appropriate.
 ///
 /// ## Multi-step authentication semantics
 ///
@@ -86,11 +87,8 @@ public enum FlowDeepLinkDecision<R: Route>: Sendable, Equatable {
 /// often depend on the plan's atomicity (analytics, telemetry, screen
 /// transitions).
 public struct FlowDeepLinkPipeline<R: Route>: Sendable {
-    private let allowedSchemes: Set<String>?
-    private let allowedHosts: Set<String>?
-    private let matcher: DeepLinkMatcher<FlowPlan<R>>
+    private let admission: DeepLinkAdmission<FlowPlan<R>>
     private let authenticationPolicy: DeepLinkAuthenticationPolicy<R>
-    private let inputLimits: DeepLinkInputLimits
 
     public init(
         allowedSchemes: Set<String>? = nil,
@@ -99,51 +97,24 @@ public struct FlowDeepLinkPipeline<R: Route>: Sendable {
         authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired,
         inputLimits: DeepLinkInputLimits = .default
     ) {
-        self.allowedSchemes = allowedSchemes?.flowLowercasedSet
-        self.allowedHosts = allowedHosts?.flowLowercasedSet
-        self.matcher = matcher
+        self.admission = DeepLinkAdmission(
+            allowedSchemes: allowedSchemes,
+            allowedHosts: allowedHosts,
+            matcher: matcher,
+            inputLimits: inputLimits
+        )
         self.authenticationPolicy = authenticationPolicy
-        self.inputLimits = inputLimits
     }
 
     public func decide(for url: URL) -> FlowDeepLinkDecision<R> {
-        // Preserve the raw-length resource guard before doing any URL
-        // parsing. Every later limit check and pattern walk reuses the
-        // same parsed value.
-        if let violation = inputLimits.urlLengthViolation(for: url) {
-            return .rejected(reason: .inputLimitExceeded(violation))
-        }
-
-        let parsed = DeepLinkParser.parse(url)
-
-        if let violation = inputLimits.parsedContentViolation(for: parsed) {
-            return .rejected(reason: .inputLimitExceeded(violation))
-        }
-
-        if let allowedSchemes {
-            guard let scheme = url.scheme?.lowercased() else {
-                return .rejected(reason: .schemeNotAllowed(actualScheme: url.scheme))
-            }
-            guard allowedSchemes.contains(scheme) else {
-                return .rejected(reason: .schemeNotAllowed(actualScheme: url.scheme))
-            }
-        }
-
-        if let allowedHosts {
-            guard let host = url.host?.lowercased() else {
-                return .rejected(reason: .hostNotAllowed(actualHost: url.host))
-            }
-            guard allowedHosts.contains(host) else {
-                return .rejected(reason: .hostNotAllowed(actualHost: url.host))
-            }
-        }
-
-        if let violation = matcher.inputLimitViolation(for: url, parsed: parsed) {
-            return .rejected(reason: .inputLimitExceeded(violation))
-        }
-
-        guard let plan = matcher.match(parsed: parsed) else {
+        let plan: FlowPlan<R>
+        switch admission.evaluate(url) {
+        case .rejected(let reason):
+            return .rejected(reason: reason)
+        case .unhandled:
             return .unhandled(url: url)
+        case .matched(let matchedPlan):
+            plan = matchedPlan
         }
 
         switch authenticationPolicy {
@@ -169,11 +140,5 @@ public struct FlowDeepLinkPipeline<R: Route>: Sendable {
         case .required(let shouldRequireAuthentication, let isAuthenticated):
             return !shouldRequireAuthentication(route) || isAuthenticated()
         }
-    }
-}
-
-private extension Set where Element == String {
-    var flowLowercasedSet: Set<String> {
-        Set(map { $0.lowercased() })
     }
 }

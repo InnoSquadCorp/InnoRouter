@@ -6,6 +6,38 @@
 
 `DeepLinkPipeline` is where URL acceptance and app policy meet.
 
+## Construction
+
+Pass a matcher directly so matcher-specific input limits remain typed
+rejections and the pipeline can reuse its parsed URL:
+
+```swift skip doc-fragment
+let matcher = DeepLinkMatcher<AppRoute> {
+    DeepLinkMapping("/products/:id") { parameters in
+        parameters.firstValue(forName: "id").map { .product(id: $0) }
+    }
+}
+
+let pipeline = DeepLinkPipeline(
+    allowedSchemes: ["myapp"],
+    allowedHosts: ["app.example.com"],
+    matcher: matcher
+)
+```
+
+For routing rules that need the complete raw URL rather than pattern
+matching, use the explicit escape hatch:
+
+```swift skip doc-fragment
+let pipeline = DeepLinkPipeline<AppRoute>(
+    customResolver: { url in legacyRouter.route(for: url) }
+)
+```
+
+A custom resolver's `nil` result is `.unhandled`. Pipeline-level input limits
+still apply, but only the `matcher:` path can preserve matcher-specific limit
+violations.
+
 ## Pipeline stages
 
 A pipeline can:

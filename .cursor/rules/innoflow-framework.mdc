@@ -211,7 +211,7 @@ let matcher = DeepLinkMatcher<AppRoute> {
 let pipeline = DeepLinkPipeline(
     allowedSchemes: ["myapp"],
     allowedHosts: ["app.example.com"],
-    resolve: { matcher.match($0) }
+    matcher: matcher
 )
 
 switch pipeline.decide(for: url) {

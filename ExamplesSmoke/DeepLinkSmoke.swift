@@ -23,7 +23,7 @@ struct DeepLinkExampleView: View {
         return DeepLinkPipeline(
             allowedSchemes: ["myapp", "https"],
             allowedHosts: ["myapp.com"],
-            resolve: { matcher.match($0) },
+            matcher: matcher,
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { route in
                     if case .detail = route { return true }

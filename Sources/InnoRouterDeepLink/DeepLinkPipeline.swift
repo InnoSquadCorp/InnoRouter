@@ -86,57 +86,64 @@ public enum DeepLinkDecision<R: Route>: Sendable, Equatable {
 }
 
 public struct DeepLinkPipeline<R: Route>: Sendable {
-    public typealias Resolver = @Sendable (URL) -> R?
     public typealias Planner = @Sendable (R) -> NavigationPlan<R>
 
-    private let allowedSchemes: Set<String>?
-    private let allowedHosts: Set<String>?
-    private let resolve: Resolver
+    private let admission: DeepLinkAdmission<R>
     private let authenticationPolicy: DeepLinkAuthenticationPolicy<R>
     private let plan: Planner
-    private let inputLimits: DeepLinkInputLimits
 
+    /// Creates a matcher-backed pipeline that preserves matcher-specific input
+    /// limit violations as typed rejections.
     public init(
         allowedSchemes: Set<String>? = nil,
         allowedHosts: Set<String>? = nil,
-        resolve: @escaping Resolver,
+        matcher: DeepLinkMatcher<R>,
         authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired,
         inputLimits: DeepLinkInputLimits = .default,
         plan: @escaping Planner = { route in NavigationPlan(commands: [.push(route)]) }
     ) {
-        self.allowedSchemes = allowedSchemes?.lowercasedSet
-        self.allowedHosts = allowedHosts?.lowercasedSet
-        self.resolve = resolve
+        self.admission = DeepLinkAdmission(
+            allowedSchemes: allowedSchemes,
+            allowedHosts: allowedHosts,
+            matcher: matcher,
+            inputLimits: inputLimits
+        )
         self.authenticationPolicy = authenticationPolicy
         self.plan = plan
-        self.inputLimits = inputLimits
+    }
+
+    /// Creates a pipeline backed by an arbitrary URL resolver.
+    ///
+    /// A `nil` result is treated as `.unhandled`. Prefer the `matcher:`
+    /// initializer when using `DeepLinkMatcher` so matcher-specific input-limit
+    /// violations remain distinguishable from an unmatched URL.
+    public init(
+        allowedSchemes: Set<String>? = nil,
+        allowedHosts: Set<String>? = nil,
+        customResolver: @escaping @Sendable (URL) -> R?,
+        authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired,
+        inputLimits: DeepLinkInputLimits = .default,
+        plan: @escaping Planner = { route in NavigationPlan(commands: [.push(route)]) }
+    ) {
+        self.admission = DeepLinkAdmission(
+            allowedSchemes: allowedSchemes,
+            allowedHosts: allowedHosts,
+            customResolver: customResolver,
+            inputLimits: inputLimits
+        )
+        self.authenticationPolicy = authenticationPolicy
+        self.plan = plan
     }
 
     public func decide(for url: URL) -> DeepLinkDecision<R> {
-        if let violation = inputLimits.violation(for: url) {
-            return .rejected(reason: .inputLimitExceeded(violation))
-        }
-
-        if let allowedSchemes {
-            guard let scheme = url.scheme?.lowercased() else {
-                return .rejected(reason: .schemeNotAllowed(actualScheme: url.scheme))
-            }
-            guard allowedSchemes.contains(scheme) else {
-                return .rejected(reason: .schemeNotAllowed(actualScheme: url.scheme))
-            }
-        }
-
-        if let allowedHosts {
-            guard let host = url.host?.lowercased() else {
-                return .rejected(reason: .hostNotAllowed(actualHost: url.host))
-            }
-            guard allowedHosts.contains(host) else {
-                return .rejected(reason: .hostNotAllowed(actualHost: url.host))
-            }
-        }
-
-        guard let route = resolve(url) else {
+        let route: R
+        switch admission.evaluate(url) {
+        case .rejected(let reason):
+            return .rejected(reason: reason)
+        case .unhandled:
             return .unhandled(url: url)
+        case .matched(let matchedRoute):
+            route = matchedRoute
         }
 
         let navigationPlan = plan(route)
@@ -190,11 +197,5 @@ private extension NavigationCommand {
         case .pop, .popCount, .popToRoot:
             return []
         }
-    }
-}
-
-private extension Set where Element == String {
-    var lowercasedSet: Set<String> {
-        Set(map { $0.lowercased() })
     }
 }

@@ -714,17 +714,13 @@ public struct DeepLinkMatcher<Output: Sendable>: Sendable {
         engine.match(urlString)
     }
 
-    /// Pattern walk for module-internal callers that already parsed and validated the
-    /// same URL instance.
-    func match(parsed: DeepLinkParser.ParsedURL) -> Output? {
-        engine.match(parsed: parsed)
-    }
-
-    func inputLimitViolation(
-        for url: URL,
+    /// Atomic matcher evaluation for module-internal callers that already parsed
+    /// the same URL instance.
+    func evaluate(
+        _ url: URL,
         parsed: DeepLinkParser.ParsedURL
-    ) -> DeepLinkInputLimitViolation? {
-        engine.inputLimitViolation(for: url, parsed: parsed)
+    ) -> DeepLinkMatchEvaluation<Output> {
+        engine.evaluate(url, parsed: parsed)
     }
 }
 

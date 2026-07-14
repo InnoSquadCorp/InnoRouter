@@ -141,7 +141,7 @@ checks = [
         [
             "shouldRequireAuthentication: @Sendable (R) -> Bool",
             "isAuthenticated: @Sendable () -> Bool",
-            "public typealias Resolver = @Sendable (URL) -> R?",
+            "customResolver: @escaping @Sendable (URL) -> R?",
             "public typealias Planner = @Sendable (R) -> NavigationPlan<R>",
         ],
     ),

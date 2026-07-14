@@ -19,6 +19,12 @@ struct DeepLinkMatchMapping<Output: Sendable>: Sendable {
     }
 }
 
+enum DeepLinkMatchEvaluation<Output: Sendable>: Sendable {
+    case matched(Output)
+    case unmatched
+    case inputLimitExceeded(DeepLinkInputLimitViolation)
+}
+
 struct DeepLinkMatchEngine<Output: Sendable>: Sendable {
     private let mappings: [DeepLinkMatchMapping<Output>]
     private let inputLimits: DeepLinkInputLimits
@@ -61,10 +67,8 @@ struct DeepLinkMatchEngine<Output: Sendable>: Sendable {
     }
 
     func match(_ url: URL) -> Output? {
-        guard inputLimits.urlLengthViolation(for: url) == nil else { return nil }
-        let parsed = DeepLinkParser.parse(url)
-        guard inputLimits.parsedContentViolation(for: parsed) == nil else { return nil }
-        return match(parsed: parsed)
+        guard case .matched(let output) = evaluate(url) else { return nil }
+        return output
     }
 
     func match(_ urlString: String) -> Output? {
@@ -72,20 +76,35 @@ struct DeepLinkMatchEngine<Output: Sendable>: Sendable {
         return match(url)
     }
 
-    func match(parsed: DeepLinkParser.ParsedURL) -> Output? {
-        for mapping in mappings {
-            if let output = mapping.match(parsed) {
-                return output
-            }
+    func evaluate(
+        _ url: URL,
+        parsed: DeepLinkParser.ParsedURL
+    ) -> DeepLinkMatchEvaluation<Output> {
+        if let violation = inputLimits.urlLengthViolation(for: url) {
+            return .inputLimitExceeded(violation)
         }
-        return nil
+        return evaluate(parsed: parsed)
     }
 
-    func inputLimitViolation(
-        for url: URL,
+    private func evaluate(_ url: URL) -> DeepLinkMatchEvaluation<Output> {
+        if let violation = inputLimits.urlLengthViolation(for: url) {
+            return .inputLimitExceeded(violation)
+        }
+        return evaluate(parsed: DeepLinkParser.parse(url))
+    }
+
+    private func evaluate(
         parsed: DeepLinkParser.ParsedURL
-    ) -> DeepLinkInputLimitViolation? {
-        inputLimits.urlLengthViolation(for: url)
-            ?? inputLimits.parsedContentViolation(for: parsed)
+    ) -> DeepLinkMatchEvaluation<Output> {
+        if let violation = inputLimits.parsedContentViolation(for: parsed) {
+            return .inputLimitExceeded(violation)
+        }
+
+        for mapping in mappings {
+            if let output = mapping.match(parsed) {
+                return .matched(output)
+            }
+        }
+        return .unmatched
     }
 }

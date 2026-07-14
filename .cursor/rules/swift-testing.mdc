@@ -272,7 +272,7 @@ final class TestDeepLinkCoordinator: DeepLinkCoordinating {
 @MainActor
 func deepLinkPlanExecutes() {
     let coordinator = TestDeepLinkCoordinator(
-        deepLinkPipeline: DeepLinkPipeline(resolve: { _ in .settings })
+        deepLinkPipeline: DeepLinkPipeline(customResolver: { _ in .settings })
     )
     let url = URL(string: "myapp://app/settings")!
 

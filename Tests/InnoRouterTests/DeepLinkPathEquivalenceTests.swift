@@ -104,7 +104,7 @@ struct DeepLinkPathEquivalenceTests {
         authenticationPolicy: DeepLinkAuthenticationPolicy<TestRoute> = .notRequired
     ) -> DeepLinkPipeline<TestRoute> {
         DeepLinkPipeline<TestRoute>(
-            resolve: { _ in .settings },
+            matcher: matcher(),
             authenticationPolicy: authenticationPolicy,
             plan: { _ in NavigationPlan(commands: planCommands) }
         )

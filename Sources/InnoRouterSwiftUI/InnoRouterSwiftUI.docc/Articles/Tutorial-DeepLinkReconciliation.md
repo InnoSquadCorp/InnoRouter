@@ -8,7 +8,7 @@ typed outcomes.
 
 ## Scenario
 
-`myapp://order/42` should land the user on the order detail for
+`myapp://app/order/42` should land the user on the order detail for
 order 42, but only when they're signed in. If the link arrives
 while signed out, the app must remember it, route through the
 sign-in flow, and then replay it — without dropping the original
@@ -26,30 +26,36 @@ enum AppRoute: Route {
 
 ## Wiring the pipeline
 
-`DeepLinkPipeline` owns the match-then-validate-then-authorize flow:
+`DeepLinkPipeline` owns the validate-then-match-then-authorize flow. Pass the
+matcher directly so matcher input-limit failures remain typed rejections:
 
 ```swift skip doc-fragment
-let matcher = DeepLinkMatcher<AppRoute>(patterns: [
-    .init(pattern: "myapp://home")                   { _ in .home },
-    .init(pattern: "myapp://signin")                 { _ in .signIn },
-    .init(pattern: "myapp://order/:id")              { params in
-        guard let id = params["id"] else { return nil }
-        return .order(id: id)
-    },
-])
+import Synchronization
 
-let policy: DeepLinkAuthenticationPolicy<AppRoute> = { route, isAuthenticated in
-    switch route {
-    case .home, .signIn:
-        return .proceed
-    case .order where !isAuthenticated:
-        return .defer // the pipeline will queue a PendingDeepLink
-    case .order:
-        return .proceed
+let authentication = Mutex(false)
+let matcher = DeepLinkMatcher<AppRoute> {
+    DeepLinkMapping("/home") { _ in .home }
+    DeepLinkMapping("/signin") { _ in .signIn }
+    DeepLinkMapping("/order/:id") { parameters in
+        guard let id = parameters.firstValue(forName: "id") else { return nil }
+        return .order(id: id)
     }
 }
 
-let pipeline = DeepLinkPipeline(matcher: matcher, policy: policy)
+let policy = DeepLinkAuthenticationPolicy<AppRoute>.required(
+    shouldRequireAuthentication: { route in
+        if case .order = route { return true }
+        return false
+    },
+    isAuthenticated: { authentication.withLock { $0 } }
+)
+
+let pipeline = DeepLinkPipeline(
+    allowedSchemes: ["myapp"],
+    allowedHosts: ["app"],
+    matcher: matcher,
+    authenticationPolicy: policy
+)
 ```
 
 ## Handling a URL
@@ -58,26 +64,29 @@ The `DeepLinkEffectHandler` bridges the pipeline output into
 `NavigationStore`:
 
 ```swift skip doc-fragment
-@MainActor
-final class AppCoordinator {
-    let store: NavigationStore<AppRoute>
-    let pipeline: DeepLinkPipeline<AppRoute>
-    let effectHandler: DeepLinkEffectHandler<AppRoute>
+let store = NavigationStore<AppRoute>()
+let effectHandler = DeepLinkEffectHandler(
+    navigator: AnyBatchNavigator(store),
+    matcher: matcher,
+    allowedSchemes: ["myapp"],
+    allowedHosts: ["app"],
+    authenticationPolicy: policy
+)
 
-    func handle(_ url: URL, isAuthenticated: Bool) {
-        let outcome = pipeline.process(url: url, isAuthenticated: isAuthenticated)
-
-        switch outcome {
-        case .plan(let plan):
-            _ = store.executeBatch(plan.commands)
-        case .pending(let pending):
-            effectHandler.retain(pending)
-            store.send(.go(.signIn))
-        case .rejected(let reason):
-            Log.warning("deep link rejected: \(reason)")
-        case .unhandled(let url):
-            Log.warning("deep link unhandled: \(url)")
-        }
+func handle(_ url: URL) {
+    switch effectHandler.handle(url) {
+    case .executed:
+        break // The validated NavigationPlan has already been applied.
+    case .pending:
+        _ = store.execute(.push(.signIn))
+    case .applicationRejected(_, let failure):
+        Log.warning("deep-link plan rejected: \(failure)")
+    case .rejected(let reason):
+        Log.warning("deep link rejected: \(reason)")
+    case .unhandled(let url):
+        Log.warning("deep link unhandled: \(url)")
+    case .invalidURL, .missingDeepLinkURL, .noPendingDeepLink:
+        break
     }
 }
 ```
@@ -88,12 +97,8 @@ Once the user signs in, the handler resumes any queued deep link:
 
 ```swift skip doc-fragment
 func userDidSignIn() {
-    effectHandler.resumePendingDeepLinkIfAllowed(
-        isAuthenticated: true,
-        executor: { plan in
-            _ = store.executeBatch(plan.commands)
-        }
-    )
+    authentication.withLock { $0 = true }
+    _ = effectHandler.resumePendingDeepLink()
 }
 ```
 
@@ -139,11 +144,17 @@ side effects for each branch:
 @MainActor
 func signedOutDeepLinkDefersUntilSignIn() {
     let store = NavigationTestStore<AppRoute>()
-    // ...pipeline + handler wired to `store.store`
-    pipeline.handle(URL(string: "myapp://order/42")!, isAuthenticated: false)
+    let handler = DeepLinkEffectHandler(
+        navigator: AnyBatchNavigator(store.store),
+        matcher: matcher,
+        authenticationPolicy: policy
+    )
 
-    store.receiveChange { _, new in new.path == [.signIn] }
-    // Pending deep link remains queued; no .batchExecuted yet.
+    let result = handler.handle(URL(string: "myapp://app/order/42")!)
+
+    #expect(result == .pending(handler.pendingDeepLink!))
+    #expect(store.state.path.isEmpty)
+    store.finish()
 }
 ```
 

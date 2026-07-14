@@ -251,6 +251,38 @@ struct DeepLinkEffectHandlerTests {
         #expect(reason == .schemeNotAllowed(actualScheme: "https"))
     }
 
+    @Test("Matcher input-limit rejection prevents navigation execution")
+    @MainActor
+    func testMatcherInputLimitRejectionPreventsExecution() {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(
+                diagnosticsMode: .disabled,
+                inputLimits: DeepLinkInputLimits(maxQueryItems: 1)
+            )
+        ) {
+            DeepLinkMapping("/settings") { _ in .settings }
+        }
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyBatchNavigator(store),
+            matcher: matcher,
+            inputLimits: .unlimited
+        )
+
+        let result = handler.handle(
+            URL(string: "myapp://myapp.com/settings?a=1&b=2")!
+        )
+
+        #expect(
+            result == .rejected(
+                reason: .inputLimitExceeded(
+                    .queryItemCountExceeded(actual: 2, max: 1)
+                )
+            )
+        )
+        #expect(store.state.path.isEmpty)
+    }
+
     @Test("Plan validation rejection prevents execution")
     @MainActor
     func testPlanValidationRejectionPreventsExecution() {

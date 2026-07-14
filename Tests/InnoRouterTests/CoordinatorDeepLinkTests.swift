@@ -41,7 +41,7 @@ struct CoordinatorDeepLinkTests {
     @MainActor
     func testDeepLinkPlanExecutes() {
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { _ in .settings }
+            customResolver: { _ in .settings }
         )
         let coordinator = DeepLinkCoordinator(deepLinkPipeline: pipeline)
 
@@ -61,7 +61,7 @@ struct CoordinatorDeepLinkTests {
     func testHandleDeepLinkReturnsRejectedForDisallowedScheme() {
         let pipeline = DeepLinkPipeline<TestRoute>(
             allowedSchemes: ["myapp"],
-            resolve: { _ in .settings }
+            customResolver: { _ in .settings }
         )
         let coordinator = DeepLinkCoordinator(deepLinkPipeline: pipeline)
 
@@ -80,7 +80,7 @@ struct CoordinatorDeepLinkTests {
     @MainActor
     func testHandleDeepLinkReturnsUnhandledForUnresolvedURL() {
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { _ in nil }
+            customResolver: { _ in nil }
         )
         let coordinator = DeepLinkCoordinator(deepLinkPipeline: pipeline)
         let url = URL(string: "myapp://myapp.com/nowhere")!
@@ -102,7 +102,7 @@ struct CoordinatorDeepLinkTests {
         let pipeline = DeepLinkPipeline<TestRoute>(
             allowedSchemes: ["myapp"],
             allowedHosts: ["myapp.com"],
-            resolve: { _ in .settings },
+            customResolver: { _ in .settings },
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },
                 isAuthenticated: { false }
@@ -125,7 +125,7 @@ struct CoordinatorDeepLinkTests {
             .push(.detail(id: "123"))
         ]
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { _ in .settings },
+            customResolver: { _ in .settings },
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },
                 isAuthenticated: { false }
@@ -143,7 +143,7 @@ struct CoordinatorDeepLinkTests {
     @MainActor
     func testDeepLinkPlanValidationRejectionPreventsExecution() {
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { _ in .settings },
+            customResolver: { _ in .settings },
             plan: { _ in NavigationPlan(commands: [.pop]) }
         )
         let coordinator = DeepLinkCoordinator(deepLinkPipeline: pipeline)
@@ -165,7 +165,7 @@ struct CoordinatorDeepLinkTests {
     func testResumePendingDeepLinkIfAllowed() async {
         let authState = Mutex(false)
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { _ in .settings },
+            customResolver: { _ in .settings },
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },
                 isAuthenticated: { authState.withLock { $0 } }
@@ -199,7 +199,7 @@ struct CoordinatorDeepLinkTests {
     @MainActor
     func testResumePendingDeepLinkIfAllowedUsesCurrentPendingIdentity() async {
         let pipeline = DeepLinkPipeline<TestRoute>(
-            resolve: { url in
+            customResolver: { url in
                 url.path.contains("home") ? .home : .settings
             },
             authenticationPolicy: .required(
