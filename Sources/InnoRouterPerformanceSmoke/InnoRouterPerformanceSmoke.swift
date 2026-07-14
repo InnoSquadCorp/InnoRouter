@@ -28,6 +28,8 @@ private struct SmokeSample: Codable {
 
 private struct SmokeReport: Codable {
     let generatedAt: String
+    let aggregation: String
+    let measurementPairs: Int
     let passed: Bool
     let memoryFootprint: SmokeMemoryFootprint
     let samples: [SmokeSample]
@@ -38,7 +40,22 @@ private struct SmokeMemoryFootprint: Codable {
 }
 
 private let clock = ContinuousClock()
-private let measurementRetryLimit = 5
+private let measurementPairCount = 5
+
+private func median(_ values: [Double]) -> Double? {
+    guard !values.isEmpty,
+          values.allSatisfy({ $0.isFinite && $0 > 0 })
+    else {
+        return nil
+    }
+
+    let sortedValues = values.sorted()
+    let middle = sortedValues.count / 2
+    if sortedValues.count.isMultiple(of: 2) {
+        return (sortedValues[middle - 1] + sortedValues[middle]) / 2
+    }
+    return sortedValues[middle]
+}
 
 @MainActor
 private func measureMilliseconds(
@@ -50,16 +67,18 @@ private func measureMilliseconds(
         body()
     }
 
-    var total: Double = 0
+    var durations: [Double] = []
+    durations.reserveCapacity(samples)
     for _ in 0..<samples {
         let duration = clock.measure {
             body()
         }
-        total += Double(duration.components.seconds) * 1_000
-        total += Double(duration.components.attoseconds) / 1_000_000_000_000_000
+        var milliseconds = Double(duration.components.seconds) * 1_000
+        milliseconds += Double(duration.components.attoseconds) / 1_000_000_000_000_000
+        durations.append(milliseconds)
     }
 
-    return total / Double(samples)
+    return median(durations) ?? 0
 }
 
 private func makeRoutes(_ count: Int) -> [SmokeRoute] {
@@ -159,26 +178,91 @@ private func measureDeepLinkPipeline(mappingCount: Int) -> Double {
     }
 }
 
-private func averagedMeasurement(
-    input: Int,
-    requireNonZero: Bool = false,
-    retryLimit: Int = measurementRetryLimit,
-    measure: (Int) -> Double
-) -> Double? {
-    var samples: [Double] = []
+private struct PairedMeasurementSummary {
+    let smallMilliseconds: Double
+    let largeMilliseconds: Double
+}
 
-    for _ in 0..<retryLimit {
-        let value = measure(input)
-        if !requireNonZero || value > 0 {
-            samples.append(value)
+private func pairedMedianMeasurement(
+    smallInput: Int,
+    largeInput: Int,
+    pairCount: Int = measurementPairCount,
+    measure: (Int) -> Double
+) -> PairedMeasurementSummary? {
+    guard pairCount > 0 else { return nil }
+
+    var smallMeasurements: [Double] = []
+    var largeMeasurements: [Double] = []
+    smallMeasurements.reserveCapacity(pairCount)
+    largeMeasurements.reserveCapacity(pairCount)
+
+    for pairIndex in 0..<pairCount {
+        let small: Double
+        let large: Double
+        if pairIndex.isMultiple(of: 2) {
+            small = measure(smallInput)
+            large = measure(largeInput)
+        } else {
+            large = measure(largeInput)
+            small = measure(smallInput)
         }
+
+        guard small.isFinite, small > 0, large.isFinite, large > 0 else {
+            return nil
+        }
+        smallMeasurements.append(small)
+        largeMeasurements.append(large)
     }
 
-    guard !samples.isEmpty else {
+    guard smallMeasurements.count == pairCount,
+          largeMeasurements.count == pairCount,
+          let smallMedian = median(smallMeasurements),
+          let largeMedian = median(largeMeasurements)
+    else {
         return nil
     }
 
-    return samples.reduce(0, +) / Double(samples.count)
+    return PairedMeasurementSummary(
+        smallMilliseconds: smallMedian,
+        largeMilliseconds: largeMedian
+    )
+}
+
+private func runAggregationSelfTest() -> Bool {
+    let smallValues = [1.0, 100.0, 1.0, 100.0, 1.0]
+    let largeValues = [2.0, 200.0, 2.0, 200.0, 2.0]
+    var smallIndex = 0
+    var largeIndex = 0
+    var callOrder: [Int] = []
+
+    let summary = pairedMedianMeasurement(smallInput: 1, largeInput: 2) { input in
+        callOrder.append(input)
+        if input == 1 {
+            defer { smallIndex += 1 }
+            return smallValues[smallIndex]
+        }
+        defer { largeIndex += 1 }
+        return largeValues[largeIndex]
+    }
+
+    let expectedOrder = [1, 2, 2, 1, 1, 2, 2, 1, 1, 2]
+    guard summary?.smallMilliseconds == 1,
+          summary?.largeMilliseconds == 2,
+          callOrder == expectedOrder,
+          median([2, 2, 100, 100, 100]) == 100,
+          median([1, 0, 1]) == nil,
+          median([1, .nan, 1]) == nil,
+          median([1, .infinity, 1]) == nil
+    else {
+        return false
+    }
+
+    var invalidCallCount = 0
+    let invalidSummary = pairedMedianMeasurement(smallInput: 1, largeInput: 2) { input in
+        defer { invalidCallCount += 1 }
+        return invalidCallCount == 4 ? .nan : Double(input)
+    }
+    return invalidSummary == nil
 }
 
 private func makeSample(
@@ -189,15 +273,13 @@ private func makeSample(
     largeMaxMilliseconds: Double? = nil,
     measure: (Int) -> Double
 ) -> SmokeSample {
-    let small = averagedMeasurement(
-        input: smallInput,
-        requireNonZero: true,
+    let measurement = pairedMedianMeasurement(
+        smallInput: smallInput,
+        largeInput: largeInput,
         measure: measure
-    ) ?? 0
-    let large = averagedMeasurement(
-        input: largeInput,
-        measure: measure
-    ) ?? 0
+    )
+    let small = measurement?.smallMilliseconds ?? 0
+    let large = measurement?.largeMilliseconds ?? 0
     let ratio = small > 0 ? large / small : .infinity
     let absolutePassed: Bool
     if let cap = largeMaxMilliseconds {
@@ -214,7 +296,7 @@ private func makeSample(
         ratio: ratio,
         threshold: threshold,
         largeMaxMilliseconds: largeMaxMilliseconds,
-        passed: small > 0 && ratio <= threshold && absolutePassed
+        passed: measurement != nil && ratio <= threshold && absolutePassed
     )
 }
 
@@ -285,6 +367,14 @@ private extension JSONEncoder {
 @MainActor
 enum InnoRouterPerformanceSmokeMain {
     static func main() {
+        if CommandLine.arguments.contains("--self-test") {
+            guard runAggregationSelfTest() else {
+                fail("Performance aggregation self-test failed.")
+            }
+            print("Performance aggregation self-test passed.")
+            return
+        }
+
         let samples = [
             makeSample(
                 name: "navigation_replace_reset_scaling",
@@ -322,6 +412,8 @@ enum InnoRouterPerformanceSmokeMain {
 
         let report = SmokeReport(
             generatedAt: ISO8601DateFormatter().string(from: Date()),
+            aggregation: "median",
+            measurementPairs: measurementPairCount,
             passed: samples.allSatisfy(\.passed),
             memoryFootprint: SmokeMemoryFootprint(
                 residentBytes: currentResidentMemoryBytes()

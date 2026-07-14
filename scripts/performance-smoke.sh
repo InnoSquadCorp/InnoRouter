@@ -7,6 +7,9 @@ SWIFTPM_JOBS="${SWIFTPM_JOBS:-2}"
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
+swift run --jobs "$SWIFTPM_JOBS" --package-path "$ROOT_DIR" \
+  InnoRouterPerformanceSmoke --self-test
+
 TEMP_OUTPUT="$(mktemp "$(dirname "$OUTPUT_PATH")/.performance-smoke.XXXXXX")"
 cleanup() {
   rm -f "$TEMP_OUTPUT"
@@ -31,9 +34,10 @@ echo "Performance smoke report written to $OUTPUT_PATH"
 cat "$OUTPUT_PATH"
 
 # Enforce the per-sample regression thresholds that
-# InnoRouterPerformanceSmoke embeds directly in the report. Each
-# sample carries a `threshold` and a computed `ratio` (largeMs /
-# smallMs); if any sample's ratio exceeds the threshold the smoke
+# InnoRouterPerformanceSmoke embeds directly in the report. Small and large
+# inputs are measured in alternating pairs and aggregated by median. Each
+# sample carries a `threshold` and a computed `ratio` (large median /
+# small median); if any sample's ratio exceeds the threshold the smoke
 # tool flips `passed` to false. Before this check was wired in, the
 # CI job uploaded the JSON but never failed on a regression — so a
 # perf blow-up only surfaced by manual artefact inspection.
@@ -48,6 +52,10 @@ with open(report_path, "r", encoding="utf-8") as handle:
 samples = report.get("samples", [])
 failed = [sample for sample in samples if not sample.get("passed", True)]
 overall_passed = report.get("passed", True)
+
+if report.get("aggregation") != "median" or report.get("measurementPairs") != 5:
+    print("[performance-smoke] Failed: report does not use the required five-pair median aggregation")
+    sys.exit(1)
 
 if overall_passed and not failed:
     sys.exit(0)
