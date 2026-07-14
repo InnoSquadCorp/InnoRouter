@@ -61,10 +61,6 @@ final class NavigationMiddlewareRegistry<R: Route> {
         self.telemetrySink = telemetrySink
     }
 
-    var handles: [NavigationMiddlewareHandle] {
-        entries.map(\.handle)
-    }
-
     var metadata: [NavigationMiddlewareMetadata] {
         entries.map(\.metadata)
     }

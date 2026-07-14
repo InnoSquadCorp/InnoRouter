@@ -57,10 +57,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         return dispatcher
     }
 
-    public var middlewareHandles: [NavigationMiddlewareHandle] {
-        middlewareRegistry.handles
-    }
-
+    /// Ordered snapshot of the registered middleware identities and debug labels.
     public var middlewareMetadata: [NavigationMiddlewareMetadata] {
         middlewareRegistry.metadata
     }

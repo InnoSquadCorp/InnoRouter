@@ -80,7 +80,7 @@ struct NavigationMiddlewareRegistryTests {
 
         let handle = registry.add(noopMiddleware(), debugName: "first")
 
-        #expect(registry.handles == [handle])
+        #expect(registry.metadata.map(\.handle) == [handle])
         #expect(mutationActions(collector.events) == [.added])
         #expect(mutationIndexes(collector.events) == [0])
         #expect(registry.metadata.first?.debugName == "first")
@@ -96,7 +96,7 @@ struct NavigationMiddlewareRegistryTests {
 
         let inserted = registry.insert(noopMiddleware(), at: -5, debugName: "head")
 
-        #expect(registry.handles.first == inserted)
+        #expect(registry.metadata.first?.handle == inserted)
         #expect(mutationActions(collector.events) == [.added, .inserted])
         #expect(mutationIndexes(collector.events) == [0, 0])
     }
@@ -110,7 +110,7 @@ struct NavigationMiddlewareRegistryTests {
 
         let inserted = registry.insert(noopMiddleware(), at: 99, debugName: "tail")
 
-        #expect(registry.handles.last == inserted)
+        #expect(registry.metadata.last?.handle == inserted)
         #expect(mutationIndexes(collector.events).last == 2)
     }
 
@@ -126,7 +126,7 @@ struct NavigationMiddlewareRegistryTests {
         let removed = registry.remove(stranger)
 
         #expect(removed == nil)
-        #expect(registry.handles.count == 1)
+        #expect(registry.metadata.count == 1)
         #expect(mutationActions(collector.events) == [.added])
     }
 
@@ -167,7 +167,7 @@ struct NavigationMiddlewareRegistryTests {
         let third = registry.add(noopMiddleware(), debugName: "third")
 
         #expect(registry.move(third, to: -42))
-        #expect(registry.handles == [third, first, second])
+        #expect(registry.metadata.map(\.handle) == [third, first, second])
     }
 
     @Test("move to large index clamps to count minus one")
@@ -179,7 +179,7 @@ struct NavigationMiddlewareRegistryTests {
         _ = registry.add(noopMiddleware())
 
         #expect(registry.move(first, to: 99))
-        #expect(registry.handles.last == first)
+        #expect(registry.metadata.last?.handle == first)
         #expect(mutationIndexes(collector.events).last == 2)
     }
 
@@ -209,7 +209,7 @@ struct NavigationMiddlewareRegistryTests {
         let c = registry.add(noopMiddleware())
 
         #expect(registry.move(a, to: 2))
-        #expect(registry.handles == [b, c, a])
+        #expect(registry.metadata.map(\.handle) == [b, c, a])
     }
 
     // MARK: - handle uniqueness
@@ -228,7 +228,8 @@ struct NavigationMiddlewareRegistryTests {
         }
         _ = registry.insert(noopMiddleware(), at: 0)
         _ = registry.remove(handles[3])
-        #expect(Set(registry.handles).count == registry.handles.count)
+        let registeredHandles = registry.metadata.map(\.handle)
+        #expect(Set(registeredHandles).count == registeredHandles.count)
     }
 
     // MARK: - replace preserves handle
@@ -241,7 +242,7 @@ struct NavigationMiddlewareRegistryTests {
 
         #expect(registry.replace(handle, with: noopMiddleware(), debugName: "after"))
 
-        #expect(registry.handles == [handle])
+        #expect(registry.metadata.map(\.handle) == [handle])
         #expect(registry.metadata.first?.debugName == "after")
     }
 }

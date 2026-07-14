@@ -67,10 +67,7 @@ public final class ModalStore<M: Route> {
         return dispatcher
     }
 
-    public var middlewareHandles: [ModalMiddlewareHandle] {
-        middlewareRegistry.handles
-    }
-
+    /// Ordered snapshot of the registered middleware identities and debug labels.
     public var middlewareMetadata: [ModalMiddlewareMetadata] {
         middlewareRegistry.metadata
     }

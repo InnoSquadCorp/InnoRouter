@@ -4,8 +4,8 @@ import Foundation
 public struct NavigationMiddlewareHandle: Hashable, Sendable {
     private let rawValue: UUID
 
-    /// Creates a new middleware handle.
-    public init() {
+    /// Creates a framework-owned middleware handle.
+    internal init() {
         self.rawValue = UUID()
     }
 

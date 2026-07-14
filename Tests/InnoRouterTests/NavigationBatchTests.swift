@@ -245,12 +245,12 @@ struct NavigationBatchTests {
             at: 0,
             debugName: "second"
         )
-        #expect(store.middlewareHandles == [second, first])
+        #expect(store.middlewareMetadata.map(\.handle) == [second, first])
         #expect(store.middlewareMetadata.map(\.debugName) == ["second", "first"])
 
         let moved = store.moveMiddleware(first, to: 0)
         #expect(moved == true)
-        #expect(store.middlewareHandles == [first, second])
+        #expect(store.middlewareMetadata.map(\.handle) == [first, second])
         #expect(store.middlewareMetadata.map(\.debugName) == ["first", "second"])
 
         let replaced = store.replaceMiddleware(
@@ -271,7 +271,7 @@ struct NavigationBatchTests {
 
         let removed = store.removeMiddleware(first)
         #expect(removed != nil)
-        #expect(store.middlewareHandles == [second])
+        #expect(store.middlewareMetadata.map(\.handle) == [second])
         #expect(store.middlewareMetadata.map(\.debugName) == ["second-replaced"])
 
         invocationOrder.removeAll()
@@ -297,8 +297,9 @@ struct NavigationBatchTests {
             )
         )
 
-        #expect(store.middlewareHandles.count == 2)
-        #expect(Set(store.middlewareHandles).count == 2)
+        let handles = store.middlewareMetadata.map(\.handle)
+        #expect(handles.count == 2)
+        #expect(Set(handles).count == 2)
         #expect(store.middlewareMetadata.map(\.debugName) == ["first", "second"])
     }
 }

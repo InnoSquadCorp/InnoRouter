@@ -61,10 +61,6 @@ final class ModalMiddlewareRegistry<M: Route> {
         self.telemetrySink = telemetrySink
     }
 
-    var handles: [ModalMiddlewareHandle] {
-        entries.map(\.handle)
-    }
-
     var metadata: [ModalMiddlewareMetadata] {
         entries.map(\.metadata)
     }

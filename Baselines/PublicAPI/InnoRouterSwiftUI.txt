@@ -121,7 +121,6 @@ relationship | memberOf | ModalHost.init(store:destination:content:) | ModalHost
 relationship | memberOf | ModalIntent.dismiss | ModalIntent |  |
 relationship | memberOf | ModalIntent.dismissAll | ModalIntent |  |
 relationship | memberOf | ModalIntent.present(_:style:) | ModalIntent |  |
-relationship | memberOf | ModalMiddlewareHandle.init() | ModalMiddlewareHandle |  |
 relationship | memberOf | ModalMiddlewareMetadata.debugName | ModalMiddlewareMetadata |  |
 relationship | memberOf | ModalMiddlewareMetadata.handle | ModalMiddlewareMetadata |  |
 relationship | memberOf | ModalMiddlewareMetadata.init(handle:debugName:) | ModalMiddlewareMetadata |  |
@@ -162,7 +161,6 @@ relationship | memberOf | ModalStore.execute(_:) | ModalStore |  |
 relationship | memberOf | ModalStore.init(currentPresentation:queuedPresentations:configuration:) | ModalStore |  |
 relationship | memberOf | ModalStore.insertMiddleware(_:at:debugName:) | ModalStore |  |
 relationship | memberOf | ModalStore.intentDispatcher | ModalStore |  |
-relationship | memberOf | ModalStore.middlewareHandles | ModalStore |  |
 relationship | memberOf | ModalStore.middlewareMetadata | ModalStore |  |
 relationship | memberOf | ModalStore.moveMiddleware(_:to:) | ModalStore |  |
 relationship | memberOf | ModalStore.observe(_:) | ModalStore |  |
@@ -196,7 +194,6 @@ relationship | memberOf | NavigationIntent.go(_:) | NavigationIntent |  |
 relationship | memberOf | NavigationIntent.goMany(_:) | NavigationIntent |  |
 relationship | memberOf | NavigationIntent.pushUniqueRoot(_:) | NavigationIntent |  |
 relationship | memberOf | NavigationIntent.replaceStack(_:) | NavigationIntent |  |
-relationship | memberOf | NavigationMiddlewareHandle.init() | NavigationMiddlewareHandle |  |
 relationship | memberOf | NavigationMiddlewareMetadata.debugName | NavigationMiddlewareMetadata |  |
 relationship | memberOf | NavigationMiddlewareMetadata.handle | NavigationMiddlewareMetadata |  |
 relationship | memberOf | NavigationMiddlewareMetadata.init(handle:debugName:) | NavigationMiddlewareMetadata |  |
@@ -240,7 +237,6 @@ relationship | memberOf | NavigationStore.init(initial:configuration:) | Navigat
 relationship | memberOf | NavigationStore.init(initialPath:configuration:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.insertMiddleware(_:at:debugName:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.intentDispatcher | NavigationStore |  |
-relationship | memberOf | NavigationStore.middlewareHandles | NavigationStore |  |
 relationship | memberOf | NavigationStore.middlewareMetadata | NavigationStore |  |
 relationship | memberOf | NavigationStore.moveMiddleware(_:to:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.observe(_:) | NavigationStore |  |
@@ -504,14 +500,12 @@ symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:telemetrySink
 symbol | swift.init | LifecycleSignals.init(onParentCancel:onTeardown:) | init(onParentCancel:onTeardown:) | @MainActor init(onParentCancel: (@MainActor () -> Void)? = nil, onTeardown: (@MainActor () -> Void)? = nil) | []
 symbol | swift.init | MiddlewareMutationEvent.init(action:metadata:index:) | init(action:metadata:index:) | init(action: MiddlewareMutationEvent<R>.Action, metadata: NavigationMiddlewareMetadata, index: Int?) | []
 symbol | swift.init | ModalHost.init(store:destination:content:) | init(store:destination:content:) | @MainActor init(store: ModalStore<M>, @ViewBuilder destination: @escaping (M) -> Destination, @ViewBuilder content: @escaping () -> Content) | []
-symbol | swift.init | ModalMiddlewareHandle.init() | init() | init() | []
 symbol | swift.init | ModalMiddlewareMetadata.init(handle:debugName:) | init(handle:debugName:) | init(handle: ModalMiddlewareHandle, debugName: String? = nil) | []
 symbol | swift.init | ModalMiddlewareMutationEvent.init(action:metadata:index:) | init(action:metadata:index:) | init(action: ModalMiddlewareMutationEvent<M>.Action, metadata: ModalMiddlewareMetadata, index: Int?) | []
 symbol | swift.init | ModalMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyModalMiddleware<M>, debugName: String? = nil) | []
 symbol | swift.init | ModalStore.init(currentPresentation:queuedPresentations:configuration:) | init(currentPresentation:queuedPresentations:configuration:) | @MainActor init(currentPresentation: ModalPresentation<M>? = nil, queuedPresentations: [ModalPresentation<M>] = [], configuration: ModalStoreConfiguration<M> = .init()) | []
 symbol | swift.init | ModalStoreConfiguration.init(logger:telemetrySink:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | init(logger:telemetrySink:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | init(logger: Logger? = nil, telemetrySink: AnyModalTelemetrySink<M>? = nil, middlewares: [ModalMiddlewareRegistration<M>] = [], onEvent: (@MainActor (ModalEvent<M>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCancellationPolicy: ModalQueueCancellationPolicy<M> = .preserve) | []
 symbol | swift.init | NavigationHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
-symbol | swift.init | NavigationMiddlewareHandle.init() | init() | init() | []
 symbol | swift.init | NavigationMiddlewareMetadata.init(handle:debugName:) | init(handle:debugName:) | init(handle: NavigationMiddlewareHandle, debugName: String? = nil) | []
 symbol | swift.init | NavigationMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) | []
 symbol | swift.init | NavigationPathMismatchEvent.init(policy:resolution:oldPath:newPath:) | init(policy:resolution:oldPath:newPath:) | init(policy: NavigationPathMismatchEvent<R>.Policy, resolution: NavigationPathMismatchEvent<R>.Resolution, oldPath: [R], newPath: [R]) | []
@@ -658,7 +652,6 @@ symbol | swift.property | ModalPresentResult.presentationID | presentationID | v
 symbol | swift.property | ModalStore.currentPresentation | currentPresentation | @MainActor var currentPresentation: ModalPresentation<M>? { get set } | []
 symbol | swift.property | ModalStore.events | events | @MainActor var events: AsyncStream<ModalEvent<M>> { get } | []
 symbol | swift.property | ModalStore.intentDispatcher | intentDispatcher | @MainActor var intentDispatcher: @MainActor (ModalIntent<M>) -> Void { get } | []
-symbol | swift.property | ModalStore.middlewareHandles | middlewareHandles | @MainActor var middlewareHandles: [ModalMiddlewareHandle] { get } | []
 symbol | swift.property | ModalStore.middlewareMetadata | middlewareMetadata | @MainActor var middlewareMetadata: [ModalMiddlewareMetadata] { get } | []
 symbol | swift.property | ModalStore.queuedPresentations | queuedPresentations | @MainActor var queuedPresentations: [ModalPresentation<M>] { get set } | []
 symbol | swift.property | ModalStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | var eventBufferingPolicy: EventBufferingPolicy | []
@@ -680,7 +673,6 @@ symbol | swift.property | NavigationPathMismatchEvent.resolution | resolution | 
 symbol | swift.property | NavigationSplitHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | NavigationStore.events | events | @MainActor var events: AsyncStream<NavigationEvent<R>> { get } | []
 symbol | swift.property | NavigationStore.intentDispatcher | intentDispatcher | @MainActor var intentDispatcher: @MainActor (NavigationIntent<R>) -> Void { get } | []
-symbol | swift.property | NavigationStore.middlewareHandles | middlewareHandles | @MainActor var middlewareHandles: [NavigationMiddlewareHandle] { get } | []
 symbol | swift.property | NavigationStore.middlewareMetadata | middlewareMetadata | @MainActor var middlewareMetadata: [NavigationMiddlewareMetadata] { get } | []
 symbol | swift.property | NavigationStore.pathBinding | pathBinding | @MainActor var pathBinding: Binding<[R]> { get } | []
 symbol | swift.property | NavigationStore.state | state | @MainActor var state: RouteStack<R> { get set } | []

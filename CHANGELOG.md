@@ -31,6 +31,11 @@ are bare semver (no leading `v`).
   the value-based `WindowGroup` instance ID so lifecycle inventory stays exact.
   Apps should issue requests through `SceneStore`, observe `events`, and attach
   the public view modifiers instead of driving dispatch completion directly.
+- Middleware handles are now issued only by store registration operations.
+  `NavigationMiddlewareHandle()` and `ModalMiddlewareHandle()` are no longer
+  public, and the redundant `middlewareHandles` snapshots are removed from
+  both stores. Keep the handle returned by `addMiddleware` / `insertMiddleware`,
+  or read handles and debug labels together through `middlewareMetadata`.
 - `.whenCancelled(primary, fallback:)` now evaluates each attempted leg behind
   a separate savepoint. If the fallback also fails or is cancelled, its partial
   state is discarded, the original snapshot remains authoritative, and no
