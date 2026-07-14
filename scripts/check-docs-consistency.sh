@@ -188,7 +188,17 @@ check_absent "$ROOT_DIR/RELEASING.md" \
   'Linux CI may import' \
   "RELEASING.md claims a Linux CI job that does not exist"
 
-for product in InnoRouterEffects InnoRouterTesting; do
+public_products=(
+  InnoRouter
+  InnoRouterCore
+  InnoRouterSwiftUI
+  InnoRouterSpatial
+  InnoRouterDeepLink
+  InnoRouterEffects
+  InnoRouterMacros
+  InnoRouterTesting
+)
+for product in "${public_products[@]}"; do
   check_present "$ROOT_DIR/.github/workflows/platforms.yml" \
     "-scheme $product" \
     "platform workflow does not compile $product explicitly"

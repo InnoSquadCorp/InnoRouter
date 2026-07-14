@@ -74,6 +74,13 @@ jobs:
       # gate does not depend on runner-specific device names or installed
       # runtime image names. The scheme names match `xcodebuild -list`
       # output from the Swift package.
+      - name: Build InnoRouter for ${{ matrix.platform.name }}
+        run: |
+          xcodebuild build \
+            -scheme InnoRouter \
+            -destination '${{ matrix.platform.destination }}' \
+            -quiet
+
       - name: Build InnoRouterSwiftUI for ${{ matrix.platform.name }}
         run: |
           xcodebuild build \
@@ -106,6 +113,13 @@ jobs:
         run: |
           xcodebuild build \
             -scheme InnoRouterEffects \
+            -destination '${{ matrix.platform.destination }}' \
+            -quiet
+
+      - name: Build InnoRouterMacros for ${{ matrix.platform.name }}
+        run: |
+          xcodebuild build \
+            -scheme InnoRouterMacros \
             -destination '${{ matrix.platform.destination }}' \
             -quiet
 

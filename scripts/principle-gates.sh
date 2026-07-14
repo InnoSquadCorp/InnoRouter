@@ -232,6 +232,20 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
     BUILT_DESTINATIONS+="$dest|"
 
     MATCHED_PLATFORM_COUNT=$((MATCHED_PLATFORM_COUNT + 1))
+    echo "[principle-gates] xcodebuild build -scheme InnoRouter ($name)"
+    xcodebuild build \
+      -scheme InnoRouter \
+      -destination "$dest" \
+      -jobs "$XCODEBUILD_JOBS" \
+      -quiet
+
+    echo "[principle-gates] xcodebuild build -scheme InnoRouterCore ($name)"
+    xcodebuild build \
+      -scheme InnoRouterCore \
+      -destination "$dest" \
+      -jobs "$XCODEBUILD_JOBS" \
+      -quiet
+
     echo "[principle-gates] xcodebuild build -scheme InnoRouterSwiftUI ($name)"
     xcodebuild build \
       -scheme InnoRouterSwiftUI \
@@ -246,9 +260,23 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
       -jobs "$XCODEBUILD_JOBS" \
       -quiet
 
+    echo "[principle-gates] xcodebuild build -scheme InnoRouterDeepLink ($name)"
+    xcodebuild build \
+      -scheme InnoRouterDeepLink \
+      -destination "$dest" \
+      -jobs "$XCODEBUILD_JOBS" \
+      -quiet
+
     echo "[principle-gates] xcodebuild build -scheme InnoRouterEffects ($name)"
     xcodebuild build \
       -scheme InnoRouterEffects \
+      -destination "$dest" \
+      -jobs "$XCODEBUILD_JOBS" \
+      -quiet
+
+    echo "[principle-gates] xcodebuild build -scheme InnoRouterMacros ($name)"
+    xcodebuild build \
+      -scheme InnoRouterMacros \
       -destination "$dest" \
       -jobs "$XCODEBUILD_JOBS" \
       -quiet
