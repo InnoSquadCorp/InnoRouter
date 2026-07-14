@@ -51,6 +51,19 @@ private enum CasePathBehaviorRouterRoute {
     }
 }
 
+@Router
+private enum OverloadedBehaviorRouterRoute {
+    case settings
+
+    var destination: some View {
+        Text("Settings")
+    }
+
+    static func destination(for style: Int) -> String {
+        "Style \(style)"
+    }
+}
+
 @Suite("@Router behavior")
 struct RouterBehaviorTests {
     @Test("Generated destination witness composes with RouterHost")
@@ -95,6 +108,13 @@ struct RouterBehaviorTests {
         let route = CasePathBehaviorRouterRoute.detail(id: "42")
 
         #expect(route[case: CasePathBehaviorRouterRoute.Cases.detail] == "42")
+    }
+
+    @Test("Non-conflicting destination overload remains callable")
+    @MainActor
+    func destinationOverload() {
+        #expect(OverloadedBehaviorRouterRoute.destination(for: 7) == "Style 7")
+        _ = OverloadedBehaviorRouterRoute.destination(for: .settings)
     }
 }
 

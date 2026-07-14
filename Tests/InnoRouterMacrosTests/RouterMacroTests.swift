@@ -32,7 +32,7 @@ struct RouterMacroTests {
                 case settings
 
                 @MainActor
-                @ViewBuilder
+                @SwiftUI.ViewBuilder
                 var destination: some View {
                     switch self {
                     case .settings:
@@ -41,10 +41,10 @@ struct RouterMacroTests {
                 }
             }
 
-            extension AppRoute: DestinationRoute {
+            extension AppRoute: InnoRouterSwiftUI.DestinationRoute {
                 @MainActor
-                @ViewBuilder
-                internal static func destination(for route: Self) -> some View {
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
                 }
             }
@@ -61,7 +61,7 @@ struct RouterMacroTests {
             enum AppRoute {
                 case settings
 
-                @MainActor
+                @Swift.MainActor
                 @SwiftUI.ViewBuilder
                 var destination: some SwiftUI.View {
                     SettingsView()
@@ -72,17 +72,17 @@ struct RouterMacroTests {
             enum AppRoute {
                 case settings
 
-                @MainActor
+                @Swift.MainActor
                 @SwiftUI.ViewBuilder
                 var destination: some SwiftUI.View {
                     SettingsView()
                 }
             }
 
-            extension AppRoute: DestinationRoute {
-                @MainActor
-                @ViewBuilder
-                internal static func destination(for route: Self) -> some View {
+            extension AppRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
                 }
             }
@@ -104,15 +104,15 @@ struct RouterMacroTests {
             expandedSource: """
             public enum PublicRoute {
                 case settings
-                @MainActor
-                @ViewBuilder
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
                 private var destination: some View { SettingsView() }
             }
 
-            extension PublicRoute: DestinationRoute {
-                @MainActor
-                @ViewBuilder
-                public static func destination(for route: Self) -> some View {
+            extension PublicRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                public static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
                 }
             }
@@ -238,8 +238,8 @@ struct RouterMacroTests {
             expandedSource: """
             enum ManualDestination {
                 case settings
-                @MainActor
-                @ViewBuilder
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
                 var destination: some View { SettingsView() }
                 static func destination(for route: Self) -> some View { route.destination }
             }
@@ -255,6 +255,38 @@ struct RouterMacroTests {
         )
     }
 
+    @Test("Non-conflicting destination overloads remain available")
+    func destinationFunctionOverload() throws {
+        assertMacroExpansion(
+            """
+            @Router
+            enum StyledDestination {
+                case settings
+                var destination: some View { SettingsView() }
+                static func destination(for style: Int) -> String { "Style \\(style)" }
+            }
+            """,
+            expandedSource: """
+            enum StyledDestination {
+                case settings
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                var destination: some View { SettingsView() }
+                static func destination(for style: Int) -> String { "Style \\(style)" }
+            }
+
+            extension StyledDestination: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Empty route enum remains valid but warns")
     func emptyRouterWarning() throws {
         assertMacroExpansion(
@@ -266,15 +298,15 @@ struct RouterMacroTests {
             """,
             expandedSource: """
             enum RootOnlyRoute {
-                @MainActor
-                @ViewBuilder
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
                 var destination: some View { EmptyView() }
             }
 
-            extension RootOnlyRoute: DestinationRoute {
-                @MainActor
-                @ViewBuilder
-                internal static func destination(for route: Self) -> some View {
+            extension RootOnlyRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
                 }
             }
@@ -304,15 +336,15 @@ struct RouterMacroTests {
             expandedSource: """
             enum RedundantRoute: DestinationRoute {
                 case settings
-                @MainActor
-                @ViewBuilder
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
                 var destination: some View { SettingsView() }
             }
 
             extension RedundantRoute {
-                @MainActor
-                @ViewBuilder
-                internal static func destination(for route: Self) -> some View {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
                 }
             }
@@ -320,6 +352,44 @@ struct RouterMacroTests {
             diagnostics: [
                 DiagnosticSpec(
                     message: "[InnoRouterMacro.W002] DestinationRoute conformance is supplied by @Router; remove the explicit conformance",
+                    line: 2,
+                    column: 20,
+                    severity: .warning
+                )
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Direct Route conformance remains buildable but warns")
+    func redundantRouteConformanceWarning() throws {
+        assertMacroExpansion(
+            """
+            @Router
+            enum RedundantRoute: Route {
+                case settings
+                var destination: some View { SettingsView() }
+            }
+            """,
+            expandedSource: """
+            enum RedundantRoute: Route {
+                case settings
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                var destination: some View { SettingsView() }
+            }
+
+            extension RedundantRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.W003] Route conformance is inherited from the DestinationRoute supplied by @Router; remove the explicit conformance",
                     line: 2,
                     column: 20,
                     severity: .warning
@@ -342,15 +412,15 @@ struct RouterMacroTests {
             expandedSource: """
             enum GenericRoute<Value: Hashable & Sendable> {
                 case detail(Value)
-                @MainActor
-                @ViewBuilder
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
                 var destination: some View { DetailView(value: self) }
             }
 
-            extension GenericRoute: DestinationRoute {
-                @MainActor
-                @ViewBuilder
-                internal static func destination(for route: Self) -> some View {
+            extension GenericRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
                 }
             }

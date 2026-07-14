@@ -10,12 +10,13 @@ enum RouterMacroDiagnostic: DiagnosticMessage {
     case conflictingDestination
     case emptyRouter
     case redundantDestinationRouteConformance
+    case redundantRouteConformance
 
     var severity: DiagnosticSeverity {
         switch self {
         case .missingDestination, .invalidDestination, .conflictingDestination:
             return .error
-        case .emptyRouter, .redundantDestinationRouteConformance:
+        case .emptyRouter, .redundantDestinationRouteConformance, .redundantRouteConformance:
             return .warning
         }
     }
@@ -27,6 +28,7 @@ enum RouterMacroDiagnostic: DiagnosticMessage {
         case .conflictingDestination: return "InnoRouterMacro.E006"
         case .emptyRouter: return "InnoRouterMacro.W001"
         case .redundantDestinationRouteConformance: return "InnoRouterMacro.W002"
+        case .redundantRouteConformance: return "InnoRouterMacro.W003"
         }
     }
 
@@ -44,6 +46,8 @@ enum RouterMacroDiagnostic: DiagnosticMessage {
             return prefix + "@Router is attached to an enum with no route cases; RouterHost can only render its root view"
         case .redundantDestinationRouteConformance:
             return prefix + "DestinationRoute conformance is supplied by @Router; remove the explicit conformance"
+        case .redundantRouteConformance:
+            return prefix + "Route conformance is inherited from the DestinationRoute supplied by @Router; remove the explicit conformance"
         }
     }
 
@@ -59,6 +63,8 @@ enum RouterMacroDiagnostic: DiagnosticMessage {
             return MessageID(domain: "InnoRouterMacros", id: "routerEmptyEnum")
         case .redundantDestinationRouteConformance:
             return MessageID(domain: "InnoRouterMacros", id: "routerRedundantConformance")
+        case .redundantRouteConformance:
+            return MessageID(domain: "InnoRouterMacros", id: "routerRedundantRouteConformance")
         }
     }
 }

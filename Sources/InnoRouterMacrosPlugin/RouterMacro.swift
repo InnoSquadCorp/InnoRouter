@@ -7,6 +7,17 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
+/// Implements the macro-first `@Router` expansion.
+///
+/// The member-attribute role adds `@MainActor` and `@ViewBuilder` to a valid
+/// get-only instance `var destination: some View`. The extension role validates
+/// the declaration, supplies `DestinationRoute` conformance, and forwards the
+/// generated `static destination(for:)` witness to that instance property.
+///
+/// Diagnostics are emitted only from the extension role so a malformed
+/// declaration produces one actionable error instead of one error per member.
+/// Constrained generic enums are supported; `Route` conformance lets the Swift
+/// type checker diagnose payloads that are not `Hashable` or `Sendable`.
 public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
     public static func expansion(
         of node: AttributeSyntax,
@@ -22,10 +33,10 @@ public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
 
         var attributes: [AttributeSyntax] = []
         if !hasAttribute(named: "MainActor", on: variable) {
-            attributes.append(AttributeSyntax(attributeName: IdentifierTypeSyntax(name: .identifier("MainActor"))))
+            attributes.append(AttributeSyntax(attributeName: qualifiedType(module: "Swift", name: "MainActor")))
         }
         if !hasAttribute(named: "ViewBuilder", on: variable) {
-            attributes.append(AttributeSyntax(attributeName: IdentifierTypeSyntax(name: .identifier("ViewBuilder"))))
+            attributes.append(AttributeSyntax(attributeName: qualifiedType(module: "SwiftUI", name: "ViewBuilder")))
         }
         return attributes
     }
@@ -49,7 +60,7 @@ public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
 
         let destinationFunctions = enumDecl.memberBlock.members.compactMap {
             $0.decl.as(FunctionDeclSyntax.self)
-        }.filter { $0.name.text == "destination" }
+        }.filter { conflictsWithGeneratedDestination($0, in: enumDecl) }
         guard destinationFunctions.isEmpty else {
             diagnose(
                 .conflictingDestination,
@@ -92,15 +103,22 @@ public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
                 context: context
             )
         }
+        if directlyConformsToRoute(enumDecl), let inheritanceClause = enumDecl.inheritanceClause {
+            diagnose(
+                .redundantRouteConformance,
+                at: inheritanceClause,
+                context: context
+            )
+        }
 
         let access = inferAccessLevel(from: enumDecl).keyword
-        let conformance = hasConformance ? "" : ": DestinationRoute"
+        let conformance = hasConformance ? "" : ": InnoRouterSwiftUI.DestinationRoute"
         let extensionDecl = try ExtensionDeclSyntax(
             """
             extension \(type)\(raw: conformance) {
-                @MainActor
-                @ViewBuilder
-                \(raw: access) static func destination(for route: Self) -> some View {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                \(raw: access) static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
                 }
             }
@@ -114,6 +132,37 @@ private func containsDestinationBinding(_ variable: VariableDeclSyntax) -> Bool 
     variable.bindings.contains { binding in
         binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text == "destination"
     }
+}
+
+private func qualifiedType(module: String, name: String) -> TypeSyntax {
+    TypeSyntax(
+        MemberTypeSyntax(
+            baseType: IdentifierTypeSyntax(name: .identifier(module)),
+            period: .periodToken(),
+            name: .identifier(name)
+        )
+    )
+}
+
+private func conflictsWithGeneratedDestination(
+    _ function: FunctionDeclSyntax,
+    in enumDecl: EnumDeclSyntax
+) -> Bool {
+    guard function.name.text == "destination",
+          function.modifiers.contains(where: { $0.name.tokenKind == .keyword(.static) }),
+          function.genericParameterClause == nil else {
+        return false
+    }
+
+    let parameters = function.signature.parameterClause.parameters
+    guard parameters.count == 1,
+          let parameter = parameters.first,
+          parameter.firstName.text == "for" else {
+        return false
+    }
+
+    let parameterType = parameter.type.trimmedDescription.filter { !$0.isWhitespace }
+    return parameterType == "Self" || parameterType == enumDecl.name.text
 }
 
 private func validateDestination(_ variable: VariableDeclSyntax) -> String? {
@@ -166,6 +215,12 @@ private func hasAttribute(named expectedName: String, on variable: VariableDeclS
 private func directlyConformsToDestinationRoute(_ enumDecl: EnumDeclSyntax) -> Bool {
     enumDecl.inheritanceClause?.inheritedTypes.contains { inherited in
         inherited.type.trimmedDescription.split(separator: ".").last.map(String.init) == "DestinationRoute"
+    } ?? false
+}
+
+private func directlyConformsToRoute(_ enumDecl: EnumDeclSyntax) -> Bool {
+    enumDecl.inheritanceClause?.inheritedTypes.contains { inherited in
+        inherited.type.trimmedDescription.split(separator: ".").last.map(String.init) == "Route"
     } ?? false
 }
 
