@@ -25,15 +25,6 @@ public struct NavigationMiddlewareMetadata: Equatable, Sendable {
     public let handle: NavigationMiddlewareHandle
     /// Optional debug label associated with the middleware.
     public let debugName: String?
-
-    /// Creates middleware metadata.
-    public init(
-        handle: NavigationMiddlewareHandle,
-        debugName: String? = nil
-    ) {
-        self.handle = handle
-        self.debugName = debugName
-    }
 }
 
 /// Configuration for constructing a `NavigationStore`.

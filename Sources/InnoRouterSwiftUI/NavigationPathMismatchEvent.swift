@@ -46,21 +46,4 @@ public struct NavigationPathMismatchEvent<R: Route>: Equatable, Sendable {
 
     /// The SwiftUI-supplied path that triggered the mismatch.
     public let newPath: [R]
-
-    /// Creates a public path mismatch observation payload.
-    /// - Parameter policy: Categorises which policy resolved the mismatch.
-    /// - Parameter resolution: How the policy reconciled the mismatch.
-    /// - Parameter oldPath: The stack path before the SwiftUI binding update.
-    /// - Parameter newPath: The SwiftUI-supplied path that triggered the mismatch.
-    public init(
-        policy: Policy,
-        resolution: Resolution,
-        oldPath: [R],
-        newPath: [R]
-    ) {
-        self.policy = policy
-        self.resolution = resolution
-        self.oldPath = oldPath
-        self.newPath = newPath
-    }
 }

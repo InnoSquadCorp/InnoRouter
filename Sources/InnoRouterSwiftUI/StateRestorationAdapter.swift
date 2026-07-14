@@ -16,11 +16,6 @@ public enum StateRestorationTarget: String, Sendable, Equatable {
 public struct StateRestorationFailure: Sendable, Equatable {
     public let target: StateRestorationTarget
     public let message: String
-
-    public init(target: StateRestorationTarget, message: String) {
-        self.target = target
-        self.message = message
-    }
 }
 
 /// Adapts ``StatePersistence`` to SwiftUI-layer store lifecycles.

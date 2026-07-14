@@ -35,20 +35,6 @@ public struct MiddlewareMutationEvent<R: Route>: Equatable, Sendable {
     /// - `replaced`: the in-place index of the replaced entry.
     /// - `moved`: the clamped target index.
     public let index: Int?
-
-    /// Creates a public middleware mutation observation payload.
-    /// - Parameter action: The mutation category that produced this event.
-    /// - Parameter metadata: Stable handle and debug metadata for the mutated middleware registration.
-    /// - Parameter index: The optional registry index associated with the mutation, when known.
-    public init(
-        action: Action,
-        metadata: NavigationMiddlewareMetadata,
-        index: Int?
-    ) {
-        self.action = action
-        self.metadata = metadata
-        self.index = index
-    }
 }
 
 /// Public observation payload delivered whenever the modal middleware registry
@@ -87,18 +73,4 @@ public struct ModalMiddlewareMutationEvent<M: Route>: Equatable, Sendable {
     /// - `replaced`: the in-place index of the replaced entry.
     /// - `moved`: the clamped target index.
     public let index: Int?
-
-    /// Creates a public modal middleware mutation observation payload.
-    /// - Parameter action: The mutation category that produced this event.
-    /// - Parameter metadata: Stable handle and debug metadata for the mutated middleware registration.
-    /// - Parameter index: The optional registry index associated with the mutation, when known.
-    public init(
-        action: Action,
-        metadata: ModalMiddlewareMetadata,
-        index: Int?
-    ) {
-        self.action = action
-        self.metadata = metadata
-        self.index = index
-    }
 }

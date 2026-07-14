@@ -26,15 +26,6 @@ public struct ModalMiddlewareMetadata: Equatable, Sendable {
     public let handle: ModalMiddlewareHandle
     /// Optional debug label associated with the middleware.
     public let debugName: String?
-
-    /// Creates middleware metadata.
-    public init(
-        handle: ModalMiddlewareHandle,
-        debugName: String? = nil
-    ) {
-        self.handle = handle
-        self.debugName = debugName
-    }
 }
 
 /// Outcome of a `ModalStore.execute(_:)` call surfaced through

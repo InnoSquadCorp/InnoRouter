@@ -166,6 +166,10 @@ are bare semver (no leading `v`).
   `hasPendingDeepLink` in favor of `pendingDeepLink != nil`. The unused
   `RouterEffect` marker is removed; effects that support both operations can
   conform directly to `NavigationEffect` and `DeepLinkEffect`.
+- Output-only SwiftUI diagnostics no longer expose public memberwise
+  construction. Middleware metadata and mutation events, path-mismatch events,
+  and state-restoration failures remain public readable values emitted by their
+  owning stores and adapters, but their initializers are now framework-only.
 - `DeepLinkPipeline` now accepts a `DeepLinkMatcher` through its canonical
   `matcher:` initializer. The old `resolve:` initializer and nested `Resolver`
   type alias are removed. Migrate `resolve: { matcher.match($0) }` to

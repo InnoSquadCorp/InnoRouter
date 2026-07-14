@@ -102,7 +102,6 @@ relationship | memberOf | MiddlewareMutationEvent.Action.removed | MiddlewareMut
 relationship | memberOf | MiddlewareMutationEvent.Action.replaced | MiddlewareMutationEvent.Action |  |
 relationship | memberOf | MiddlewareMutationEvent.action | MiddlewareMutationEvent |  |
 relationship | memberOf | MiddlewareMutationEvent.index | MiddlewareMutationEvent |  |
-relationship | memberOf | MiddlewareMutationEvent.init(action:metadata:index:) | MiddlewareMutationEvent |  |
 relationship | memberOf | MiddlewareMutationEvent.metadata | MiddlewareMutationEvent |  |
 relationship | memberOf | ModalEvent.commandIntercepted(command:result:) | ModalEvent |  |
 relationship | memberOf | ModalEvent.description | ModalEvent |  |
@@ -122,7 +121,6 @@ relationship | memberOf | ModalIntent.dismissAll | ModalIntent |  |
 relationship | memberOf | ModalIntent.present(_:style:) | ModalIntent |  |
 relationship | memberOf | ModalMiddlewareMetadata.debugName | ModalMiddlewareMetadata |  |
 relationship | memberOf | ModalMiddlewareMetadata.handle | ModalMiddlewareMetadata |  |
-relationship | memberOf | ModalMiddlewareMetadata.init(handle:debugName:) | ModalMiddlewareMetadata |  |
 relationship | memberOf | ModalMiddlewareMutationEvent.Action | ModalMiddlewareMutationEvent |  |
 relationship | memberOf | ModalMiddlewareMutationEvent.Action.added | ModalMiddlewareMutationEvent.Action |  |
 relationship | memberOf | ModalMiddlewareMutationEvent.Action.inserted | ModalMiddlewareMutationEvent.Action |  |
@@ -131,7 +129,6 @@ relationship | memberOf | ModalMiddlewareMutationEvent.Action.removed | ModalMid
 relationship | memberOf | ModalMiddlewareMutationEvent.Action.replaced | ModalMiddlewareMutationEvent.Action |  |
 relationship | memberOf | ModalMiddlewareMutationEvent.action | ModalMiddlewareMutationEvent |  |
 relationship | memberOf | ModalMiddlewareMutationEvent.index | ModalMiddlewareMutationEvent |  |
-relationship | memberOf | ModalMiddlewareMutationEvent.init(action:metadata:index:) | ModalMiddlewareMutationEvent |  |
 relationship | memberOf | ModalMiddlewareMutationEvent.metadata | ModalMiddlewareMutationEvent |  |
 relationship | memberOf | ModalMiddlewareRegistration.debugName | ModalMiddlewareRegistration |  |
 relationship | memberOf | ModalMiddlewareRegistration.init(middleware:debugName:) | ModalMiddlewareRegistration |  |
@@ -195,7 +192,6 @@ relationship | memberOf | NavigationIntent.pushUniqueRoot(_:) | NavigationIntent
 relationship | memberOf | NavigationIntent.replaceStack(_:) | NavigationIntent |  |
 relationship | memberOf | NavigationMiddlewareMetadata.debugName | NavigationMiddlewareMetadata |  |
 relationship | memberOf | NavigationMiddlewareMetadata.handle | NavigationMiddlewareMetadata |  |
-relationship | memberOf | NavigationMiddlewareMetadata.init(handle:debugName:) | NavigationMiddlewareMetadata |  |
 relationship | memberOf | NavigationMiddlewareRegistration.debugName | NavigationMiddlewareRegistration |  |
 relationship | memberOf | NavigationMiddlewareRegistration.init(middleware:debugName:) | NavigationMiddlewareRegistration |  |
 relationship | memberOf | NavigationMiddlewareRegistration.middleware | NavigationMiddlewareRegistration |  |
@@ -208,7 +204,6 @@ relationship | memberOf | NavigationPathMismatchEvent.Resolution | NavigationPat
 relationship | memberOf | NavigationPathMismatchEvent.Resolution.batch(_:) | NavigationPathMismatchEvent.Resolution |  |
 relationship | memberOf | NavigationPathMismatchEvent.Resolution.ignore | NavigationPathMismatchEvent.Resolution |  |
 relationship | memberOf | NavigationPathMismatchEvent.Resolution.single(_:) | NavigationPathMismatchEvent.Resolution |  |
-relationship | memberOf | NavigationPathMismatchEvent.init(policy:resolution:oldPath:newPath:) | NavigationPathMismatchEvent |  |
 relationship | memberOf | NavigationPathMismatchEvent.newPath | NavigationPathMismatchEvent |  |
 relationship | memberOf | NavigationPathMismatchEvent.oldPath | NavigationPathMismatchEvent |  |
 relationship | memberOf | NavigationPathMismatchEvent.policy | NavigationPathMismatchEvent |  |
@@ -274,7 +269,6 @@ relationship | memberOf | StateRestorationAdapter.restoreFlowPlan(from:into:) | 
 relationship | memberOf | StateRestorationAdapter.restoreNavigationStack(from:into:) | StateRestorationAdapter |  |
 relationship | memberOf | StateRestorationAdapter.snapshotFlowPlan(from:) | StateRestorationAdapter |  |
 relationship | memberOf | StateRestorationAdapter.snapshotNavigationStack(from:) | StateRestorationAdapter |  |
-relationship | memberOf | StateRestorationFailure.init(target:message:) | StateRestorationFailure |  |
 relationship | memberOf | StateRestorationFailure.message | StateRestorationFailure |  |
 relationship | memberOf | StateRestorationFailure.target | StateRestorationFailure |  |
 relationship | memberOf | StateRestorationTarget.flowPlan | StateRestorationTarget |  |
@@ -493,17 +487,12 @@ symbol | swift.init | FlowStore.init(initial:configuration:) | init(initial:conf
 symbol | swift.init | FlowStore.init(validating:configuration:) | init(validating:configuration:) | @MainActor convenience init(validating initial: [RouteStep<R>], configuration: FlowStoreConfiguration<R> = .init()) throws | []
 symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:telemetrySink:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation:modal:telemetrySink:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), telemetrySink: AnyFlowTelemetrySink<R>? = nil, onEvent: (@MainActor (FlowEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve) | []
 symbol | swift.init | LifecycleSignals.init(onParentCancel:onTeardown:) | init(onParentCancel:onTeardown:) | @MainActor init(onParentCancel: (@MainActor () -> Void)? = nil, onTeardown: (@MainActor () -> Void)? = nil) | []
-symbol | swift.init | MiddlewareMutationEvent.init(action:metadata:index:) | init(action:metadata:index:) | init(action: MiddlewareMutationEvent<R>.Action, metadata: NavigationMiddlewareMetadata, index: Int?) | []
 symbol | swift.init | ModalHost.init(store:destination:content:) | init(store:destination:content:) | @MainActor init(store: ModalStore<M>, @ViewBuilder destination: @escaping (M) -> Destination, @ViewBuilder content: @escaping () -> Content) | []
-symbol | swift.init | ModalMiddlewareMetadata.init(handle:debugName:) | init(handle:debugName:) | init(handle: ModalMiddlewareHandle, debugName: String? = nil) | []
-symbol | swift.init | ModalMiddlewareMutationEvent.init(action:metadata:index:) | init(action:metadata:index:) | init(action: ModalMiddlewareMutationEvent<M>.Action, metadata: ModalMiddlewareMetadata, index: Int?) | []
 symbol | swift.init | ModalMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyModalMiddleware<M>, debugName: String? = nil) | []
 symbol | swift.init | ModalStore.init(currentPresentation:queuedPresentations:configuration:) | init(currentPresentation:queuedPresentations:configuration:) | @MainActor init(currentPresentation: ModalPresentation<M>? = nil, queuedPresentations: [ModalPresentation<M>] = [], configuration: ModalStoreConfiguration<M> = .init()) | []
 symbol | swift.init | ModalStoreConfiguration.init(logger:telemetrySink:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | init(logger:telemetrySink:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | init(logger: Logger? = nil, telemetrySink: AnyModalTelemetrySink<M>? = nil, middlewares: [ModalMiddlewareRegistration<M>] = [], onEvent: (@MainActor (ModalEvent<M>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCancellationPolicy: ModalQueueCancellationPolicy<M> = .preserve) | []
 symbol | swift.init | NavigationHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
-symbol | swift.init | NavigationMiddlewareMetadata.init(handle:debugName:) | init(handle:debugName:) | init(handle: NavigationMiddlewareHandle, debugName: String? = nil) | []
 symbol | swift.init | NavigationMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) | []
-symbol | swift.init | NavigationPathMismatchEvent.init(policy:resolution:oldPath:newPath:) | init(policy:resolution:oldPath:newPath:) | init(policy: NavigationPathMismatchEvent<R>.Policy, resolution: NavigationPathMismatchEvent<R>.Resolution, oldPath: [R], newPath: [R]) | []
 symbol | swift.init | NavigationPathReconciler.init() | init() | nonisolated init() | []
 symbol | swift.init | NavigationSplitHost.init(store:sidebar:destination:root:) | init(store:sidebar:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: RouteStack<R> = .init(), configuration: NavigationStoreConfiguration<R> = .init()) | []
@@ -513,7 +502,6 @@ symbol | swift.init | OSLogFlowTelemetrySink.init(logger:) | init(logger:) | @Ma
 symbol | swift.init | OSLogModalTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogNavigationTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | StateRestorationAdapter.init(persistence:onRestorationFailure:) | init(persistence:onRestorationFailure:) | @MainActor init(persistence: StatePersistence<R> = StatePersistence<R>(), onRestorationFailure: @escaping @MainActor (StateRestorationFailure) -> Void = { _ in }) | []
-symbol | swift.init | StateRestorationFailure.init(target:message:) | init(target:message:) | init(target: StateRestorationTarget, message: String) | []
 symbol | swift.init | StepCoordinatorView.init(coordinator:showProgress:content:) | init(coordinator:showProgress:content:) | @MainActor init(coordinator: C, showProgress: Bool = true, @ViewBuilder content: @escaping (C.Step) -> Content) | []
 symbol | swift.init | TabCoordinatorView.init(coordinator:) | init(coordinator:) | @MainActor init(coordinator: C) | []
 symbol | swift.init | ThrottleNavigationMiddleware.init(interval:) | init(interval:) | @MainActor convenience init(interval: Duration) | []
