@@ -240,6 +240,31 @@ private func pairedMedianMeasurement(
 }
 
 private func runAggregationSelfTest() -> Bool {
+    func deterministicSample(
+        name: String,
+        smallValues: [Double],
+        largeValues: [Double],
+        threshold: Double,
+        largeMaxMilliseconds: Double? = nil
+    ) -> SmokeSample {
+        var smallIndex = 0
+        var largeIndex = 0
+        return makeSample(
+            name: name,
+            smallInput: 1,
+            largeInput: 2,
+            threshold: threshold,
+            largeMaxMilliseconds: largeMaxMilliseconds
+        ) { input in
+            if input == 1 {
+                defer { smallIndex += 1 }
+                return smallValues[smallIndex]
+            }
+            defer { largeIndex += 1 }
+            return largeValues[largeIndex]
+        }
+    }
+
     let smallValues = [1.0, 100.0, 1.0, 100.0, 1.0]
     let largeValues = [2.0, 200.0, 2.0, 200.0, 2.0]
     var smallIndex = 0
@@ -269,28 +294,48 @@ private func runAggregationSelfTest() -> Bool {
         return false
     }
 
-    let asymmetricSmallValues = [1_000.0, 1_000.0, 1.0, 1_000.0, 1_000.0]
-    let asymmetricLargeValues = [4_000.0, 4_000.0, 4.0, 1.0, 1.0]
-    var asymmetricSmallIndex = 0
-    var asymmetricLargeIndex = 0
-    let asymmetricSample = makeSample(
+    let asymmetricSample = deterministicSample(
         name: "asymmetric_pair_regression_self_test",
-        smallInput: 1,
-        largeInput: 2,
+        smallValues: [1_000, 1_000, 1, 1_000, 1_000],
+        largeValues: [4_000, 4_000, 4, 1, 1],
         threshold: 3.8
-    ) { input in
-        if input == 1 {
-            defer { asymmetricSmallIndex += 1 }
-            return asymmetricSmallValues[asymmetricSmallIndex]
-        }
-        defer { asymmetricLargeIndex += 1 }
-        return asymmetricLargeValues[asymmetricLargeIndex]
-    }
+    )
 
     guard asymmetricSample.smallMilliseconds == 1_000,
           asymmetricSample.largeMilliseconds == 4,
           asymmetricSample.ratio == 4,
           asymmetricSample.passed == false
+    else {
+        return false
+    }
+
+    let toleratedOutliers = deterministicSample(
+        name: "two_pair_outlier_self_test",
+        smallValues: [1, 1, 1, 1, 1],
+        largeValues: [4, 4, 1, 1, 1],
+        threshold: 3.8
+    )
+    let boundarySample = deterministicSample(
+        name: "threshold_and_cap_boundary_self_test",
+        smallValues: [1, 1, 1, 1, 1],
+        largeValues: [3.8, 3.8, 3.8, 3.8, 3.8],
+        threshold: 3.8,
+        largeMaxMilliseconds: 3.8
+    )
+    let capExceeded = deterministicSample(
+        name: "absolute_cap_self_test",
+        smallValues: [1, 1, 1, 1, 1],
+        largeValues: [2, 2, 2, 2, 2],
+        threshold: 3,
+        largeMaxMilliseconds: 1.99
+    )
+    guard toleratedOutliers.ratio == 1,
+          toleratedOutliers.passed,
+          boundarySample.ratio == 3.8,
+          boundarySample.largeMilliseconds == 3.8,
+          boundarySample.passed,
+          capExceeded.ratio == 2,
+          capExceeded.passed == false
     else {
         return false
     }

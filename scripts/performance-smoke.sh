@@ -35,9 +35,9 @@ cat "$OUTPUT_PATH"
 
 # Enforce the per-sample regression thresholds that
 # InnoRouterPerformanceSmoke embeds directly in the report. Small and large
-# inputs are measured in alternating pairs and aggregated by median. Each
-# sample carries a `threshold` and a computed `ratio` (large median /
-# small median); if any sample's ratio exceeds the threshold the smoke
+# inputs are measured in alternating pairs. Each sample carries a `threshold`
+# and a computed `ratio` (the median of the five per-pair large/small ratios);
+# if any sample's ratio exceeds the threshold the smoke
 # tool flips `passed` to false. Before this check was wired in, the
 # CI job uploaded the JSON but never failed on a regression — so a
 # perf blow-up only surfaced by manual artefact inspection.
