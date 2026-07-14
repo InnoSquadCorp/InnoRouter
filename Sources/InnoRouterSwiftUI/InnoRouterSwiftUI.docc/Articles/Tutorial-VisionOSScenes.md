@@ -84,7 +84,9 @@ struct MyApp: App {
 ```
 
 The shared `SceneRegistry` keeps route-to-id mapping and declaration
-metadata in one place.
+metadata in one place. It is opaque after construction: define stable scene
+identifier constants and reuse them in both the registry factories and the
+matching `WindowGroup` / `ImmersiveSpace` declarations.
 
 ### Which modifier goes where?
 

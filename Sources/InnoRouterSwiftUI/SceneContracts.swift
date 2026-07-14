@@ -153,7 +153,7 @@ public enum SceneIntent<R: Route>: Sendable, Equatable {
 /// ``SceneHost``, and ``SceneAnchor``.
 public struct SceneDeclaration<R: Route>: Sendable, Hashable {
     /// The kind of scene declared for a route.
-    public enum Kind: Sendable, Hashable {
+    internal enum Kind: Sendable, Hashable {
         /// A regular window.
         case window
 
@@ -165,17 +165,17 @@ public struct SceneDeclaration<R: Route>: Sendable, Hashable {
     }
 
     /// Route represented by this declaration.
-    public let route: R
+    internal let route: R
 
     /// SwiftUI scene identifier used by `WindowGroup(id:for:)` or
     /// `ImmersiveSpace(id:)`.
-    public let id: String
+    internal let id: String
 
     /// Declared kind and metadata contract for the route.
-    public let kind: Kind
+    internal let kind: Kind
 
     /// Creates a scene declaration.
-    public init(route: R, id: String, kind: Kind) {
+    private init(route: R, id: String, kind: Kind) {
         self.route = route
         self.id = id
         self.kind = kind
@@ -199,20 +199,16 @@ public struct SceneDeclaration<R: Route>: Sendable, Hashable {
 
 /// Registry of scenes that a ``SceneHost`` is allowed to open or dismiss.
 ///
-/// Declare each scene once and share the registry between your `App`
-/// scene declarations and the host modifier so route-to-id mapping and
-/// kind metadata stay in sync.
+/// Build the registry from stable scene identifier constants, use those same
+/// constants in your `App`'s `WindowGroup` / `ImmersiveSpace` declarations,
+/// and pass the opaque registry to the host and anchor modifiers.
 public struct SceneRegistry<R: Route>: Sendable {
-    /// All declared scenes in insertion order.
-    public let declarations: [SceneDeclaration<R>]
-
     private let declarationsByRoute: [R: SceneDeclaration<R>]
-    private let declarationsByID: [String: SceneDeclaration<R>]
 
     /// Creates a registry from an array of scene declarations.
     public init(_ declarations: [SceneDeclaration<R>]) {
         var declarationsByRoute: [R: SceneDeclaration<R>] = [:]
-        var declarationsByID: [String: SceneDeclaration<R>] = [:]
+        var declarationIDs: Set<String> = []
 
         for declaration in declarations {
             let duplicateRoute = declarationsByRoute.updateValue(declaration, forKey: declaration.route)
@@ -221,16 +217,14 @@ public struct SceneRegistry<R: Route>: Sendable {
                 "SceneRegistry requires unique routes. Duplicate route: \(String(describing: declaration.route))"
             )
 
-            let duplicateID = declarationsByID.updateValue(declaration, forKey: declaration.id)
+            let insertedID = declarationIDs.insert(declaration.id).inserted
             precondition(
-                duplicateID == nil,
+                insertedID,
                 "SceneRegistry requires unique ids. Duplicate id: \(declaration.id)"
             )
         }
 
-        self.declarations = declarations
         self.declarationsByRoute = declarationsByRoute
-        self.declarationsByID = declarationsByID
     }
 
     /// Creates a registry from a variadic list of scene declarations.
@@ -239,13 +233,8 @@ public struct SceneRegistry<R: Route>: Sendable {
     }
 
     /// Returns the declaration registered for `route`, if any.
-    public func declaration(for route: R) -> SceneDeclaration<R>? {
+    internal func declaration(for route: R) -> SceneDeclaration<R>? {
         declarationsByRoute[route]
-    }
-
-    /// Returns the declaration registered for `id`, if any.
-    public func declaration(id: String) -> SceneDeclaration<R>? {
-        declarationsByID[id]
     }
 }
 

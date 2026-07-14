@@ -278,15 +278,7 @@ relationship | memberOf | QueueCoalescePolicy.Action.preserve | QueueCoalescePol
 relationship | memberOf | QueueCoalescePolicy.custom(_:) | QueueCoalescePolicy |  |
 relationship | memberOf | QueueCoalescePolicy.dropQueued | QueueCoalescePolicy |  |
 relationship | memberOf | QueueCoalescePolicy.preserve | QueueCoalescePolicy |  |
-relationship | memberOf | SceneDeclaration.Kind | SceneDeclaration |  |
-relationship | memberOf | SceneDeclaration.Kind.immersive(style:) | SceneDeclaration.Kind |  |
-relationship | memberOf | SceneDeclaration.Kind.volumetric(size:) | SceneDeclaration.Kind |  |
-relationship | memberOf | SceneDeclaration.Kind.window | SceneDeclaration.Kind |  |
-relationship | memberOf | SceneDeclaration.id | SceneDeclaration |  |
 relationship | memberOf | SceneDeclaration.immersive(_:id:style:) | SceneDeclaration |  |
-relationship | memberOf | SceneDeclaration.init(route:id:kind:) | SceneDeclaration |  |
-relationship | memberOf | SceneDeclaration.kind | SceneDeclaration |  |
-relationship | memberOf | SceneDeclaration.route | SceneDeclaration |  |
 relationship | memberOf | SceneDeclaration.volumetric(_:id:size:) | SceneDeclaration |  |
 relationship | memberOf | SceneDeclaration.window(_:id:) | SceneDeclaration |  |
 relationship | memberOf | SceneEvent.dismissed(_:) | SceneEvent |  |
@@ -296,9 +288,6 @@ relationship | memberOf | SceneEvent.rejected(_:reason:) | SceneEvent |  |
 relationship | memberOf | SceneIntent.dismissImmersive | SceneIntent |  |
 relationship | memberOf | SceneIntent.dismissWindow(_:) | SceneIntent |  |
 relationship | memberOf | SceneIntent.open(_:) | SceneIntent |  |
-relationship | memberOf | SceneRegistry.declaration(for:) | SceneRegistry |  |
-relationship | memberOf | SceneRegistry.declaration(id:) | SceneRegistry |  |
-relationship | memberOf | SceneRegistry.declarations | SceneRegistry |  |
 relationship | memberOf | SceneRegistry.init(_:) | SceneRegistry |  |
 relationship | memberOf | SceneRejectionReason.activeSceneMismatch | SceneRejectionReason |  |
 relationship | memberOf | SceneRejectionReason.duplicateHostRegistration | SceneRejectionReason |  |
@@ -438,7 +427,6 @@ symbol | swift.enum | NavigationPathMismatchPolicy | NavigationPathMismatchPolic
 symbol | swift.enum | NavigationPathMismatchResolution | NavigationPathMismatchResolution | enum NavigationPathMismatchResolution<R> where R : Route | []
 symbol | swift.enum | QueueCoalescePolicy | QueueCoalescePolicy | @MainActor enum QueueCoalescePolicy<R> where R : Route | []
 symbol | swift.enum | QueueCoalescePolicy.Action | QueueCoalescePolicy.Action | enum Action | []
-symbol | swift.enum | SceneDeclaration.Kind | SceneDeclaration.Kind | enum Kind | []
 symbol | swift.enum | SceneEvent | SceneEvent | enum SceneEvent<R> where R : Route | []
 symbol | swift.enum | SceneIntent | SceneIntent | enum SceneIntent<R> where R : Route | []
 symbol | swift.enum | SceneRejectionReason | SceneRejectionReason | enum SceneRejectionReason | []
@@ -527,9 +515,6 @@ symbol | swift.enum.case | QueueCoalescePolicy.Action.preserve | QueueCoalescePo
 symbol | swift.enum.case | QueueCoalescePolicy.custom(_:) | QueueCoalescePolicy.custom(_:) | case custom(@MainActor (FlowIntent<R>, FlowRejectionReason) -> QueueCoalescePolicy<R>.Action) | []
 symbol | swift.enum.case | QueueCoalescePolicy.dropQueued | QueueCoalescePolicy.dropQueued | case dropQueued | []
 symbol | swift.enum.case | QueueCoalescePolicy.preserve | QueueCoalescePolicy.preserve | case preserve | []
-symbol | swift.enum.case | SceneDeclaration.Kind.immersive(style:) | SceneDeclaration.Kind.immersive(style:) | case immersive(style: ImmersiveStyle) | []
-symbol | swift.enum.case | SceneDeclaration.Kind.volumetric(size:) | SceneDeclaration.Kind.volumetric(size:) | case volumetric(size: VolumetricSize? = nil) | []
-symbol | swift.enum.case | SceneDeclaration.Kind.window | SceneDeclaration.Kind.window | case window | []
 symbol | swift.enum.case | SceneEvent.dismissed(_:) | SceneEvent.dismissed(_:) | case dismissed(ScenePresentation<R>) | []
 symbol | swift.enum.case | SceneEvent.hostRegistrationRejected(reason:) | SceneEvent.hostRegistrationRejected(reason:) | case hostRegistrationRejected(reason: SceneRejectionReason) | []
 symbol | swift.enum.case | SceneEvent.presented(_:) | SceneEvent.presented(_:) | case presented(ScenePresentation<R>) | []
@@ -590,7 +575,6 @@ symbol | swift.init | NavigationStoreConfiguration.init(engine:middlewares:route
 symbol | swift.init | OSLogFlowTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogModalTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogNavigationTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
-symbol | swift.init | SceneDeclaration.init(route:id:kind:) | init(route:id:kind:) | init(route: R, id: String, kind: SceneDeclaration<R>.Kind) | []
 symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: SceneDeclaration<R>...) | []
 symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: [SceneDeclaration<R>]) | []
 symbol | swift.init | SceneStore.init() | init() | @MainActor init() | []
@@ -655,8 +639,6 @@ symbol | swift.method | NavigationTelemetrySink.record(_:) | record(_:) | @MainA
 symbol | swift.method | OSLogFlowTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: FlowTelemetryEvent<R>) | []
 symbol | swift.method | OSLogModalTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: ModalTelemetryEvent<M>) | []
 symbol | swift.method | OSLogNavigationTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: NavigationTelemetryEvent<R>) | []
-symbol | swift.method | SceneRegistry.declaration(for:) | declaration(for:) | func declaration(for route: R) -> SceneDeclaration<R>? | []
-symbol | swift.method | SceneRegistry.declaration(id:) | declaration(id:) | func declaration(id: String) -> SceneDeclaration<R>? | []
 symbol | swift.method | SceneStore.dismissImmersive() | dismissImmersive() | @MainActor func dismissImmersive() | []
 symbol | swift.method | SceneStore.dismissWindow(_:) | dismissWindow(_:) | @MainActor func dismissWindow(_ presentation: ScenePresentation<R>) | []
 symbol | swift.method | SceneStore.openImmersive(_:style:) | openImmersive(_:style:) | @MainActor func openImmersive(_ route: R, style: ImmersiveStyle) | []
@@ -780,10 +762,6 @@ symbol | swift.property | NavigationStoreConfiguration.telemetrySink | telemetry
 symbol | swift.property | OSLogFlowTelemetrySink.logger | logger | @MainActor let logger: Logger | []
 symbol | swift.property | OSLogModalTelemetrySink.logger | logger | @MainActor let logger: Logger | []
 symbol | swift.property | OSLogNavigationTelemetrySink.logger | logger | @MainActor let logger: Logger | []
-symbol | swift.property | SceneDeclaration.id | id | let id: String | []
-symbol | swift.property | SceneDeclaration.kind | kind | let kind: SceneDeclaration<R>.Kind | []
-symbol | swift.property | SceneDeclaration.route | route | let route: R | []
-symbol | swift.property | SceneRegistry.declarations | declarations | let declarations: [SceneDeclaration<R>] | []
 symbol | swift.property | SceneRejectionReason.localizedDescription | localizedDescription | var localizedDescription: String { get } | []
 symbol | swift.property | SceneStore.activeScenes | activeScenes | @MainActor var activeScenes: [ScenePresentation<R>] { get set } | []
 symbol | swift.property | SceneStore.currentScene | currentScene | @MainActor var currentScene: ScenePresentation<R>? { get set } | []

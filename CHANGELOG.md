@@ -8,6 +8,12 @@ are bare semver (no leading `v`).
 
 ### Breaking
 
+- `SceneDeclaration` is now factory-only and `SceneRegistry` is opaque after
+  construction. Build declarations with `.window`, `.volumetric`, or
+  `.immersive`, then pass the registry to `innoRouterSceneHost` and
+  `innoRouterSceneAnchor`. Raw declaration fields, `Kind`, the raw initializer,
+  registry storage, and lookup methods are no longer public. Reuse stable scene
+  identifier constants in the registry and matching SwiftUI scene declarations.
 - The visionOS spatial surface now exposes only app-facing authority.
   `SceneHost` and `SceneAnchor` are implementation details behind
   `View.innoRouterSceneHost` and `View.innoRouterSceneAnchor`;
