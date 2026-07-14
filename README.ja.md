@@ -184,14 +184,14 @@ OSS 互換性ラインの一部ではありません。それらをテストし�
 
 ### Imports
 
-アンブレラターゲット `InnoRouter` は macros プロダクト以外のすべてを
-re-export します。`@Routable` / `@CasePathable` には明示的な
-`import InnoRouterMacros` が必要です — アンブレラはマクロを使用しない
-ファイルがマクロプラグイン解決コストを支払わないように、その re-export を
-意図的にスキップします:
+アンブレラターゲット `InnoRouter` は `InnoRouterCore`、
+`InnoRouterSwiftUI`、`InnoRouterDeepLink` を re-export します。
+App-boundary effects と macros は opt-in のままにし、使用しないファイルが
+追加 API やマクロプラグイン解決コストを負担しないようにします:
 
 ```swift skip doc-fragment
 import InnoRouter            // stores、hosts、intents、deep links、scenes
+import InnoRouterEffects     // app-boundary 実行と pending replay
 import InnoRouterMacros      // @Routable / @CasePathable を使用するファイルのみ
 ```
 
@@ -882,18 +882,18 @@ SwiftUI の `NavigationStack(path:)` 更新は意味的なコマンドにマッ�
 - `handle(_ url:)`
 - `resumePendingDeepLink()`
 - `resumePendingDeepLinkIfAllowed(_:)`
+- `restore(pending:)`
 
-### アンブレラ `DeepLinkCoordinating`
+### Coordinator 統合
 
-`DeepLinkCoordinating` を採用したコーディネーターは
-`DeepLinkCoordinationOutcome<Route>` を介して同じ型付き結果 surface を取得
-します。パイプラインの拒否(`rejected`、`unhandled`)、実行結果(`executed`、
-`executionFailed`)、再開状態(`pending`、`noPendingDeepLink`)はすべて、スタック状態を覗き込むことなく
-観察可能です。
-
-- `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfAllowed(_:) async -> DeepLinkCoordinationOutcome<Route>`
+Coordinator ベースのアプリは store と並べて `DeepLinkEffectHandler` を 1 つ
+所有し、`init(pipeline:navigator:)` で構成済み pipeline を注入します。URL は
+`handle(_:)`、replay は `resumePendingDeepLink()` または
+`resumePendingDeepLinkIfAllowed(_:)` に委譲し、
+`DeepLinkEffectHandler.Result` を処理します。Pending request の identity は
+handler が所有し、アプリがメモリ上で引き継いだ値は `restore(pending:)` で戻します。
+UI 観察が必要なら返された結果を coordinator state に反映します。起動をまたぐ
+永続化には `FlowPendingDeepLinkPersistence` を使用します。
 
 ## `Examples` vs `ExamplesSmoke`
 

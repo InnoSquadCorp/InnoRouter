@@ -189,14 +189,14 @@ exception in the 4.x line; new apps should start from `4.3.0`, and the
 
 ### Imports
 
-The umbrella target `InnoRouter` re-exports everything except the
-macros product. `@Routable` / `@CasePathable` require an explicit
-`import InnoRouterMacros` — the umbrella deliberately skips that
-re-export so non-macro files don't pay the macro-plugin resolution
-cost:
+The umbrella target `InnoRouter` re-exports `InnoRouterCore`,
+`InnoRouterSwiftUI`, and `InnoRouterDeepLink`. App-boundary effects and macros
+stay opt-in so files that do not use them avoid the extra API and macro-plugin
+resolution cost:
 
 ```swift skip doc-fragment
 import InnoRouter            // stores, hosts, intents, deep links, scenes
+import InnoRouterEffects     // app-boundary execution and pending replay
 import InnoRouterMacros      // only in files that use @Routable / @CasePathable
 ```
 
@@ -885,18 +885,18 @@ Key API:
 - `handle(_ url:)`
 - `resumePendingDeepLink()`
 - `resumePendingDeepLinkIfAllowed(_:)`
+- `restore(pending:)`
 
-### Umbrella `DeepLinkCoordinating`
+### Coordinator integration
 
-Coordinators that adopt `DeepLinkCoordinating` get the same typed-outcome
-surface through `DeepLinkCoordinationOutcome<Route>`. Pipeline refusals
-(`rejected`, `unhandled`), execution outcomes (`executed`, `executionFailed`),
-and resume states (`pending`, `noPendingDeepLink`) are all observable without
-peeking at stack state.
-
-- `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfAllowed(_:) async -> DeepLinkCoordinationOutcome<Route>`
+Coordinator-based apps own one `DeepLinkEffectHandler` beside their store and
+inject a preconfigured pipeline with `init(pipeline:navigator:)`. Delegate URLs
+to `handle(_:)`, replay with `resumePendingDeepLink()` or
+`resumePendingDeepLinkIfAllowed(_:)`, and switch over
+`DeepLinkEffectHandler.Result`. The handler owns pending-request identity;
+app-owned in-memory handoffs return through `restore(pending:)`, while UI-facing
+coordinator state can mirror the returned result when observation is needed.
+Use `FlowPendingDeepLinkPersistence` for cross-launch pending links.
 
 ## `Examples` vs `ExamplesSmoke`
 

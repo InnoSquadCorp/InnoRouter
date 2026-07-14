@@ -185,13 +185,14 @@ la etiqueta `4.0.0` permanece disponible como la primera instantánea OSS.
 
 ### Imports
 
-El target paraguas `InnoRouter` re-exporta todo excepto el producto de macros.
-`@Routable` / `@CasePathable` requieren un `import InnoRouterMacros` explícito
-— el paraguas omite deliberadamente esa re-exportación para que los archivos
-sin macros no paguen el costo de resolución del plugin de macros:
+El target paraguas `InnoRouter` re-exporta `InnoRouterCore`,
+`InnoRouterSwiftUI` e `InnoRouterDeepLink`. Los effects de límite de app y las
+macros siguen siendo opt-in para evitar API adicional y el costo de resolución
+del plugin cuando no se usan:
 
 ```swift skip doc-fragment
 import InnoRouter            // stores, hosts, intents, deep links, scenes
+import InnoRouterEffects     // ejecución de límite de app y pending replay
 import InnoRouterMacros      // solo en archivos que usan @Routable / @CasePathable
 ```
 
@@ -876,18 +877,18 @@ API clave:
 - `handle(_ url:)`
 - `resumePendingDeepLink()`
 - `resumePendingDeepLinkIfAllowed(_:)`
+- `restore(pending:)`
 
-### Paraguas `DeepLinkCoordinating`
+### Integración con coordinators
 
-Los coordinators que adoptan `DeepLinkCoordinating` obtienen la misma superficie
-de resultados tipados a través de `DeepLinkCoordinationOutcome<Route>`. Las
-negativas del pipeline (`rejected`, `unhandled`), los resultados de ejecución
-(`executed`, `executionFailed`) y los estados de reanudación (`pending`, `noPendingDeepLink`) son observables sin
-inspeccionar el estado del stack.
-
-- `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfAllowed(_:) async -> DeepLinkCoordinationOutcome<Route>`
+Las apps basadas en coordinators poseen un `DeepLinkEffectHandler` junto al
+store e inyectan un pipeline configurado con `init(pipeline:navigator:)`. Las
+URLs van a `handle(_:)`; los replays, a `resumePendingDeepLink()` o
+`resumePendingDeepLinkIfAllowed(_:)`; y el resultado se procesa como
+`DeepLinkEffectHandler.Result`. El handler posee la identidad pending; los
+handoffs en memoria de la app vuelven mediante `restore(pending:)`. Para
+observación UI, el coordinator puede reflejar el resultado devuelto. Para
+persistencia entre lanzamientos, use `FlowPendingDeepLinkPersistence`.
 
 ## `Examples` vs `ExamplesSmoke`
 

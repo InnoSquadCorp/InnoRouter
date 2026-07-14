@@ -77,7 +77,8 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 
 ### vs TCACoordinators — 498★
 - **Lead**: no TCA dependency, lower learning curve,
-  `DeepLinkCoordinationOutcome` surfaces coordinator-level observability.
+  `DeepLinkEffectHandler.Result` surfaces typed app-boundary outcomes without
+  coupling deep-link execution to the coordinator protocol.
   `ChildCoordinator` + `parent.push(child:) -> Task<Result?, Never>`
   (#14) now provides child → parent finish chaining with inline
   `await` on the child result.

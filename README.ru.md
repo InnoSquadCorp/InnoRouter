@@ -186,13 +186,14 @@ minor релиз:
 
 ### Imports
 
-Зонтичный target `InnoRouter` re-export всё, кроме macros продукта.
-`@Routable` / `@CasePathable` требуют явного `import InnoRouterMacros` —
-зонт намеренно пропускает этот re-export, чтобы файлы без macros не
+Зонтичный target `InnoRouter` re-export `InnoRouterCore`,
+`InnoRouterSwiftUI` и `InnoRouterDeepLink`. App-boundary effects и macros
+остаются opt-in, чтобы неиспользующие их файлы не получали лишний API и не
 платили цену разрешения macro plugin:
 
 ```swift skip doc-fragment
 import InnoRouter            // stores, hosts, intents, deep links, scenes
+import InnoRouterEffects     // app-boundary выполнение и pending replay
 import InnoRouterMacros      // только в файлах, которые используют @Routable / @CasePathable
 ```
 
@@ -893,18 +894,18 @@ Middleware не может напрямую мутировать состоян�
 - `handle(_ url:)`
 - `resumePendingDeepLink()`
 - `resumePendingDeepLinkIfAllowed(_:)`
+- `restore(pending:)`
 
-### Зонт `DeepLinkCoordinating`
+### Интеграция с coordinator
 
-Coordinators, которые принимают `DeepLinkCoordinating`, получают ту же
-поверхность типизированных результатов через
-`DeepLinkCoordinationOutcome<Route>`. Отказы pipeline (`rejected`,
-`unhandled`), результаты выполнения (`executed`, `executionFailed`) и состояния
-возобновления (`pending`, `noPendingDeepLink`) наблюдаемы без подсматривания состояния стека.
-
-- `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfAllowed(_:) async -> DeepLinkCoordinationOutcome<Route>`
+Приложения на coordinators владеют одним `DeepLinkEffectHandler` рядом со
+store и передают настроенный pipeline через `init(pipeline:navigator:)`. URL
+идут в `handle(_:)`, replay — в `resumePendingDeepLink()` или
+`resumePendingDeepLinkIfAllowed(_:)`, а результат обрабатывается как
+`DeepLinkEffectHandler.Result`. Handler владеет identity pending-запроса;
+app-owned handoff в памяти возвращается через `restore(pending:)`. Для
+наблюдения UI coordinator может зеркалировать возвращённый результат. Для
+персистентности между запусками используйте `FlowPendingDeepLinkPersistence`.
 
 ## `Examples` vs `ExamplesSmoke`
 

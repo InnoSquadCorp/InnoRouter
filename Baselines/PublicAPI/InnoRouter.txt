@@ -1,13 +1,1 @@
 # Public API baseline for InnoRouter
-relationship | memberOf | DeepLinkCoordinating.handleDeepLink(_:) | DeepLinkCoordinating |  |
-relationship | memberOf | DeepLinkCoordinating.resumePendingDeepLinkIfAllowed(_:) | DeepLinkCoordinating |  |
-relationship | memberOf | DeepLinkCoordinating.resumePendingDeepLinkIfPossible() | DeepLinkCoordinating |  |
-relationship | requirementOf | DeepLinkCoordinating.deepLinkPipeline | DeepLinkCoordinating |  |
-relationship | requirementOf | DeepLinkCoordinating.pendingDeepLink | DeepLinkCoordinating |  |
-symbol | swift.method | DeepLinkCoordinating.handleDeepLink(_:) | handleDeepLink(_:) | @discardableResult @MainActor func handleDeepLink(_ url: URL) -> DeepLinkCoordinationOutcome<Self.RouteType> | []
-symbol | swift.method | DeepLinkCoordinating.resumePendingDeepLinkIfAllowed(_:) | resumePendingDeepLinkIfAllowed(_:) | @discardableResult @MainActor func resumePendingDeepLinkIfAllowed(_ authorize: @escaping @MainActor (PendingDeepLink<Self.RouteType>) async -> Bool) async -> DeepLinkCoordinationOutcome<Self.RouteType> | []
-symbol | swift.method | DeepLinkCoordinating.resumePendingDeepLinkIfAllowed(_:) | resumePendingDeepLinkIfAllowed(_:) | @discardableResult @MainActor func resumePendingDeepLinkIfAllowed(_ authorize: @escaping @MainActor (PendingDeepLink<Self.RouteType>) async throws -> Bool) async rethrows -> DeepLinkCoordinationOutcome<Self.RouteType> | []
-symbol | swift.method | DeepLinkCoordinating.resumePendingDeepLinkIfPossible() | resumePendingDeepLinkIfPossible() | @discardableResult @MainActor func resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Self.RouteType> | []
-symbol | swift.property | DeepLinkCoordinating.deepLinkPipeline | deepLinkPipeline | @MainActor var deepLinkPipeline: DeepLinkPipeline<Self.RouteType> { get } | []
-symbol | swift.property | DeepLinkCoordinating.pendingDeepLink | pendingDeepLink | @MainActor var pendingDeepLink: PendingDeepLink<Self.RouteType>? { get set } | []
-symbol | swift.protocol | DeepLinkCoordinating | DeepLinkCoordinating | @MainActor protocol DeepLinkCoordinating : Coordinator | []

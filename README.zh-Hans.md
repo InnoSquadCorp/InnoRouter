@@ -156,12 +156,13 @@ _ = compileCheckedStack.path
 
 ### Imports
 
-伞形目标 `InnoRouter` 重新导出除 macros 产品外的所有内容。`@Routable` /
-`@CasePathable` 需要显式 `import InnoRouterMacros` — 伞形有意跳过该重新导出,
-以便非 macro 文件不必支付 macro 插件解析成本:
+伞形目标 `InnoRouter` 重新导出 `InnoRouterCore`、`InnoRouterSwiftUI` 和
+`InnoRouterDeepLink`。App-boundary effects 与 macros 保持 opt-in，使未使用它们的
+文件无需承担额外 API 和 macro 插件解析成本:
 
 ```swift skip doc-fragment
 import InnoRouter            // stores、hosts、intents、deep links、scenes
+import InnoRouterEffects     // app-boundary 执行与 pending replay
 import InnoRouterMacros      // 仅在使用 @Routable / @CasePathable 的文件中
 ```
 
@@ -811,17 +812,17 @@ SwiftUI `NavigationStack(path:)` 更新被映射回语义命令。
 - `handle(_ url:)`
 - `resumePendingDeepLink()`
 - `resumePendingDeepLinkIfAllowed(_:)`
+- `restore(pending:)`
 
-### 伞形 `DeepLinkCoordinating`
+### Coordinator 集成
 
-采用 `DeepLinkCoordinating` 的 coordinator 通过
-`DeepLinkCoordinationOutcome<Route>` 获得相同的类型化结果表面。Pipeline
-拒绝(`rejected`、`unhandled`)、执行结果(`executed`、`executionFailed`)和恢复状态
-(`pending`、`noPendingDeepLink`)都可观察,无需窥视栈状态。
-
-- `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfAllowed(_:) async -> DeepLinkCoordinationOutcome<Route>`
+基于 coordinator 的 app 在 store 旁持有一个 `DeepLinkEffectHandler`,并通过
+`init(pipeline:navigator:)` 注入已配置的 pipeline。URL 委托给 `handle(_:)`,
+replay 使用 `resumePendingDeepLink()` 或 `resumePendingDeepLinkIfAllowed(_:)`,
+结果按 `DeepLinkEffectHandler.Result` 处理。Pending request identity 由 handler
+持有;应用在内存中交接的值通过 `restore(pending:)` 重新安装。若 UI 需要观察,
+coordinator 可将返回结果同步到自身状态。跨启动持久化请使用
+`FlowPendingDeepLinkPersistence`。
 
 ## `Examples` vs `ExamplesSmoke`
 

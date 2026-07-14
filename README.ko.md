@@ -169,13 +169,13 @@ dispatcher-object API들을 제거하고, `replaceStack`을 단일 풀-스택 �
 
 ### Imports
 
-umbrella 타깃 `InnoRouter`는 macros 제품을 제외한 모든 것을 re-export합니다.
-`@Routable` / `@CasePathable`은 명시적 `import InnoRouterMacros`가 필요합니다.
-umbrella는 의도적으로 그 re-export를 건너뛰어, 매크로를 사용하지 않는 파일들이
-매크로 plugin 해결 비용을 지불하지 않게 합니다:
+umbrella 타깃 `InnoRouter`는 `InnoRouterCore`, `InnoRouterSwiftUI`,
+`InnoRouterDeepLink`를 re-export합니다. App-boundary effects와 macros는 opt-in으로
+남겨, 사용하지 않는 파일이 추가 API와 macro plugin 해결 비용을 부담하지 않게 합니다:
 
 ```swift skip doc-fragment
 import InnoRouter            // stores, hosts, intents, deep links, scenes
+import InnoRouterEffects     // app-boundary 실행과 pending replay
 import InnoRouterMacros      // @Routable / @CasePathable 사용 파일에서만
 ```
 
@@ -831,17 +831,17 @@ SwiftUI `NavigationStack(path:)` 업데이트는 시맨틱 command로 다시 매
 - `handle(_ url:)`
 - `resumePendingDeepLink()`
 - `resumePendingDeepLinkIfAllowed(_:)`
+- `restore(pending:)`
 
-### Umbrella `DeepLinkCoordinating`
+### Coordinator 통합
 
-`DeepLinkCoordinating`을 채택한 coordinator는 `DeepLinkCoordinationOutcome<Route>`를 통해
-동일한 typed-결과 surface를 얻습니다. Pipeline 거부(`rejected`, `unhandled`), 실행 결과
-(`executed`, `executionFailed`), resume 상태(`pending`, `noPendingDeepLink`)는 stack 상태를
-들여다보지 않고 모두 관찰 가능합니다.
-
-- `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfAllowed(_:) async -> DeepLinkCoordinationOutcome<Route>`
+Coordinator 기반 앱은 store 옆에 `DeepLinkEffectHandler` 하나를 소유하고
+`init(pipeline:navigator:)`로 구성된 pipeline을 주입합니다. URL은 `handle(_:)`로,
+replay는 `resumePendingDeepLink()` 또는 `resumePendingDeepLinkIfAllowed(_:)`로 위임하고
+`DeepLinkEffectHandler.Result`를 처리합니다. Pending 요청 identity는 handler가 소유하며,
+앱이 메모리에서 넘겨받은 값은 `restore(pending:)`로 다시 설치합니다. UI 관찰이 필요하면
+반환 결과를 coordinator 상태에 mirror합니다. launch 간 영속화에는
+`FlowPendingDeepLinkPersistence`를 사용합니다.
 
 ## `Examples` vs `ExamplesSmoke`
 

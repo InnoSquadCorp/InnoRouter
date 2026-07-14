@@ -46,8 +46,8 @@ InnoRouter는 Swift tools 6.2, Swift 6 언어 모드를 사용하는 멀티 타�
 
 - 경로: `Sources/InnoRouterUmbrella/`
 - 의존성: `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`
-- 세 런타임 모듈을 재노출하는 권장 umbrella product
-- `DeepLinkCoordinating`처럼 모듈 경계를 조합하는 API를 둡니다.
+- 세 런타임 모듈만 재노출하는 권장 umbrella product
+- App-boundary 조합과 실행 상태는 opt-in `InnoRouterEffects`가 소유합니다.
 
 ## 선택 모듈
 

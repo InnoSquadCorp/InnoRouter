@@ -53,6 +53,59 @@ struct DeepLinkEffectHandlerTests {
         #expect(store.state.path == [.home, .settings])
     }
 
+    @Test("Preconfigured custom-resolver pipeline executes through the handler")
+    @MainActor
+    func testPreconfiguredPipelineInitializer() {
+        let store = NavigationStore<TestRoute>()
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            allowedSchemes: ["myapp"],
+            customResolver: { _ in .settings },
+            plan: { _ in NavigationPlan(commands: [.replace([.home, .settings])]) }
+        )
+        let handler = DeepLinkEffectHandler(
+            pipeline: pipeline,
+            navigator: AnyBatchNavigator(store)
+        )
+
+        let result = handler.handle(URL(string: "myapp://myapp.com/custom")!)
+
+        guard case .executed(let plan, let batch) = result else {
+            Issue.record("Expected executed result")
+            return
+        }
+        #expect(plan.commands == [.replace([.home, .settings])])
+        #expect(batch.results == [.success])
+        #expect(store.state.path == [.home, .settings])
+    }
+
+    @Test("Restored pending deep link remains replayable")
+    @MainActor
+    func testRestorePendingDeepLink() {
+        let store = NavigationStore<TestRoute>()
+        let pipeline = DeepLinkPipeline<TestRoute>(customResolver: { _ in .settings })
+        let handler = DeepLinkEffectHandler(
+            pipeline: pipeline,
+            navigator: AnyBatchNavigator(store)
+        )
+        let pending = PendingDeepLink(
+            url: URL(string: "myapp://myapp.com/settings")!,
+            route: TestRoute.settings,
+            plan: NavigationPlan(commands: [.replace([.home, .settings])])
+        )
+
+        handler.restore(pending: pending)
+
+        #expect(handler.pendingDeepLink == pending)
+        guard case .executed(let plan, let batch) = handler.resumePendingDeepLink() else {
+            Issue.record("Expected restored pending deep link to execute")
+            return
+        }
+        #expect(plan == pending.plan)
+        #expect(batch.results == [.success])
+        #expect(handler.pendingDeepLink == nil)
+        #expect(store.state.path == [.home, .settings])
+    }
+
     @Test("Resume pending deep link replays preserved plan")
     @MainActor
     func testResumePendingDeepLink() {

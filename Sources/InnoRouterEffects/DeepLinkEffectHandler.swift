@@ -13,14 +13,26 @@ import InnoRouterDeepLink
 @MainActor
 public final class DeepLinkEffectHandler<R: Route> {
     public enum Result: Sendable, Equatable {
+        /// Every command in the matched plan completed successfully.
         case executed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>)
+        /// Execution was attempted, but at least one command failed or was
+        /// cancelled. The batch may contain partial state changes.
         case executionFailed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>)
+        /// Preflight rejected the plan before execution, so navigation state
+        /// was not changed by this handler call.
         case applicationRejected(plan: NavigationPlan<R>, failure: NavigationPlanValidationFailure<R>)
+        /// Authentication deferred the URL and the handler retained its plan
+        /// for a later replay.
         case pending(PendingDeepLink<R>)
+        /// The pipeline rejected the URL through its admission policy.
         case rejected(reason: DeepLinkRejectionReason)
+        /// The pipeline admitted the URL but no mapping resolved it.
         case unhandled(url: URL)
+        /// String input could not be parsed as a URL.
         case invalidURL(input: String)
+        /// The supplied effect carried no URL.
         case missingDeepLinkURL
+        /// Replay was requested while the pending slot was empty.
         case noPendingDeepLink
     }
 
@@ -28,8 +40,20 @@ public final class DeepLinkEffectHandler<R: Route> {
     private let navigationHandler: NavigationEffectHandler<R>
     private var pendingReplaySlot = PendingReplaySlot<PendingDeepLink<R>>()
 
+    /// The request currently retained for authentication-gated replay.
     public var pendingDeepLink: PendingDeepLink<R>? {
         pendingReplaySlot.current
+    }
+
+    /// Creates a handler around an already configured pipeline. Coordinator
+    /// and app-shell owners can keep planning configuration in one pipeline
+    /// and delegate execution and pending replay to this handler.
+    public init<N: Navigator & NavigationBatchExecutor & NavigationTransactionExecutor>(
+        pipeline: DeepLinkPipeline<R>,
+        navigator: N
+    ) where N.RouteType == R {
+        self.pipeline = pipeline
+        self.navigationHandler = NavigationEffectHandler(navigator: navigator)
     }
 
     public init<N: Navigator & NavigationBatchExecutor & NavigationTransactionExecutor>(
@@ -96,8 +120,16 @@ public final class DeepLinkEffectHandler<R: Route> {
         return result(for: ticket, externallyAuthorized: isAuthorized)
     }
 
+    /// Drops the retained request without executing its plan.
     public func clearPendingDeepLink() {
         pendingReplaySlot.replace(with: nil)
+    }
+
+    /// Reinstalls a pending request handed off by application-owned state. The
+    /// restored request supersedes any in-flight authorization for the
+    /// previous slot, even when both values compare equal.
+    public func restore(pending: PendingDeepLink<R>) {
+        pendingReplaySlot.replace(with: pending)
     }
 
     private func result(

@@ -104,7 +104,7 @@ Identical shape to `NavigationCancellationReason` but parameterised on
 
 | Source | Symbol | Emits through |
 |---|---|---|
-| `DeepLinkPipeline.handle(_:)` URL policy | `DeepLinkRejectionReason` (wrapped in `DeepLinkDecision.rejected`) | `DeepLinkCoordinationOutcome.rejected` via `DeepLinkEffectHandler` |
+| `DeepLinkPipeline.decide(for:)` URL policy | `DeepLinkRejectionReason` (wrapped in `DeepLinkDecision.rejected`) | `DeepLinkEffectHandler.Result.rejected` |
 
 ### `DeepLinkRejectionReason`
 
@@ -113,7 +113,7 @@ Identical shape to `NavigationCancellationReason` but parameterised on
 | `.schemeNotAllowed(actualScheme:)` | URL scheme not in `allowedSchemes` | Log, drop the URL silently, or surface a diagnostic |
 | `.hostNotAllowed(actualHost:)` | URL host not in `allowedHosts` | Same |
 
-### `DeepLinkCoordinationOutcome`
+### Deep-link effect results
 
 The typed outcome from `DeepLinkEffectHandler` / `FlowDeepLinkEffectHandler`:
 
@@ -126,6 +126,8 @@ The typed outcome from `DeepLinkEffectHandler` / `FlowDeepLinkEffectHandler`:
 | `.pending(_)` | Authorisation deferred; plan stored as `pendingDeepLink` for later replay |
 | `.rejected(reason:)` | URL rejected by scheme/host policy — see `DeepLinkRejectionReason` above |
 | `.unhandled(url:)` | URL did not resolve to any route |
+| `.invalidURL(input:)` | A string input could not be parsed as a URL |
+| `.missingDeepLinkURL` | A `DeepLinkEffect` carried no URL |
 | `.noPendingDeepLink` | `resumePendingDeepLink()` called with nothing stored |
 
 ## How to observe every rejection in one place
@@ -171,7 +173,7 @@ return value rather than a stream, so wrap the call at the
 scene-phase boundary:
 
 ```swift skip doc-fragment
-let outcome = await deepLinkHandler.handle(url)
+let outcome = deepLinkHandler.handle(url)
 switch outcome {
 case .executed, .pending, .noPendingDeepLink:
     break

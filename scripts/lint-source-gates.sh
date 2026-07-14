@@ -115,6 +115,14 @@ if rg -n "about:blank|schemeNotAllowed\\(actualScheme: nil\\)" Sources/InnoRoute
   exit 1
 fi
 
+echo "[lint-source-gates] Checking duplicate coordinator deep-link removal"
+if rg -n "DeepLinkCoordinating|DeepLinkCoordinationOutcome|resumePendingDeepLinkIfPossible" \
+  Sources Tests Examples ExamplesSmoke README*.md Docs .cursor \
+  --glob '*.swift' --glob '*.md' --glob '*.mdc'; then
+  echo "[lint-source-gates] Failed: removed coordinator deep-link surface found"
+  exit 1
+fi
+
 echo "[lint-source-gates] Checking @unchecked Sendable removal"
 if rg -n "@unchecked Sendable" Sources Tests; then
   echo "[lint-source-gates] Failed: @unchecked Sendable usage found"

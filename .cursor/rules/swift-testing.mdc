@@ -243,48 +243,31 @@ func coordinatorSendsIntents() {
 }
 ```
 
-## DeepLinkCoordinating
+## DeepLinkEffectHandler
 
-보류 상태는 `PendingDeepLink`, 실행 결과는 `DeepLinkCoordinationOutcome`으로 검증합니다.
+Coordinator 또는 app shell은 handler를 소유하고, 보류 상태는 `PendingDeepLink`,
+실행 결과는 `DeepLinkEffectHandler.Result`로 검증합니다.
 
 ```swift
-@Observable
-@MainActor
-final class TestDeepLinkCoordinator: DeepLinkCoordinating {
-    typealias RouteType = TestRoute
-    typealias Destination = EmptyView
-
-    let store = NavigationStore<TestRoute>()
-    var pendingDeepLink: PendingDeepLink<TestRoute>?
-    let deepLinkPipeline: DeepLinkPipeline<TestRoute>
-
-    init(deepLinkPipeline: DeepLinkPipeline<TestRoute>) {
-        self.deepLinkPipeline = deepLinkPipeline
-    }
-
-    @ViewBuilder
-    func destination(for route: TestRoute) -> EmptyView {
-        EmptyView()
-    }
-}
-
 @Test("Deep-link plan executes into the store")
 @MainActor
 func deepLinkPlanExecutes() {
-    let coordinator = TestDeepLinkCoordinator(
-        deepLinkPipeline: DeepLinkPipeline(customResolver: { _ in .settings })
+    let store = NavigationStore<TestRoute>()
+    let handler = DeepLinkEffectHandler(
+        pipeline: DeepLinkPipeline(customResolver: { _ in .settings }),
+        navigator: AnyBatchNavigator(store)
     )
     let url = URL(string: "myapp://app/settings")!
 
-    let outcome = coordinator.handleDeepLink(url)
+    let outcome = handler.handle(url)
 
     guard case .executed(let plan, _) = outcome else {
         Issue.record("Expected an executed outcome")
         return
     }
     #expect(plan.commands == [.push(.settings)])
-    #expect(coordinator.store.state.path == [.settings])
-    #expect(coordinator.pendingDeepLink == nil)
+    #expect(store.state.path == [.settings])
+    #expect(handler.pendingDeepLink == nil)
 }
 ```
 

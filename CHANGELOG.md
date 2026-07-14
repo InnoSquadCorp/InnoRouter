@@ -8,6 +8,18 @@ are bare semver (no leading `v`).
 
 ### Breaking
 
+- The duplicate Umbrella `DeepLinkCoordinating` protocol and
+  `DeepLinkCoordinationOutcome` enum are removed. Coordinator-based apps now
+  add the opt-in `InnoRouterEffects` product and own one
+  `DeepLinkEffectHandler`, created with `init(pipeline:navigator:)`.
+  Migrate `handleDeepLink(_:)` to `handle(_:)`,
+  `resumePendingDeepLinkIfPossible()` to `resumePendingDeepLink()`, and the
+  old outcome type to `DeepLinkEffectHandler.Result`. Pending state is
+  read-only through the handler; use `restore(pending:)` or
+  `clearPendingDeepLink()` for explicit writes. The handler snapshots its
+  pipeline at initialization, so keep live authentication or policy state in
+  the pipeline's closures and mirror returned results into coordinator state
+  when Observation integration is required.
 - `FlowPlanApplyResult.rejected` and
   `FlowDeepLinkEffectHandler.Result.applicationRejected` now carry the exact
   `FlowRejectionReason`. Custom `FlowPlanApplier` conformers must return a
@@ -15,12 +27,12 @@ are bare semver (no leading `v`).
   new payload. Reentrant `FlowStore.apply(_:)` calls now report the new
   `.reentrantApply` reason instead of an unclassified rejection.
 - Push-only deep-link outcomes add
-  `.executionFailed(plan:batch:)`. `DeepLinkEffectHandler` and
-  `DeepLinkCoordinating` now reserve `.executed` for batches whose commands all
-  succeed; middleware cancellation or a runtime command failure returns the
-  new case with any partial state and per-command results. Update exhaustive
-  switches to handle `.executionFailed`. Preflight failures remain
-  `.applicationRejected` and do not execute the batch.
+  `.executionFailed(plan:batch:)`. `DeepLinkEffectHandler` now reserves
+  `.executed` for batches whose commands all succeed; middleware cancellation
+  or a runtime command failure returns the new case with any partial state and
+  per-command results. Update exhaustive switches to handle
+  `.executionFailed`. Preflight failures remain `.applicationRejected` and do
+  not execute the batch.
 - `NavigationEffectHandler` now exposes only result-bearing command, batch,
   transaction, and guarded execution methods. The result-discarding `push`,
   `pop`, `popToRoot`, and `replace(with:)` wrappers are removed; call

@@ -40,17 +40,18 @@ enum SampleRoute {
 @Observable
 @MainActor
 final class SampleAppAuthority {
-    let store = NavigationStore<SampleRoute>()
+    let store: NavigationStore<SampleRoute>
     let modal = ModalStore<SampleRoute>()
     let flow = FlowStore<SampleRoute>()
     let debouncedSearch: DebouncingNavigator<NavigationStore<SampleRoute>, ContinuousClock>
+    let deepLinkHandler: DeepLinkEffectHandler<SampleRoute>
 
     /// In a real app this would be backed by Keychain or a session
     /// service. The sample uses a small Sendable wrapper around a
     /// `Mutex<Bool>` so the @Sendable `isAuthenticated` closure
     /// inside the pipeline can read it from any executor while the
     /// UI flips it on @MainActor.
-    private let session = AuthSession()
+    private let session: AuthSession
 
     var isAuthenticated: Bool {
         get { session.isAuthenticated }
@@ -58,48 +59,30 @@ final class SampleAppAuthority {
     }
 
     init() {
+        let store = NavigationStore<SampleRoute>()
+        let session = AuthSession()
+        self.store = store
+        self.session = session
         self.debouncedSearch = DebouncingNavigator(
             wrapping: store,
             interval: .milliseconds(250)
         )
-    }
-
-    var deepLinkPipeline: DeepLinkPipeline<SampleRoute> {
-        DeepLinkPipeline(
-            allowedSchemes: ["app"],
-            allowedHosts: ["sample"],
-            customResolver: { url in
-                switch url.path {
-                case "/profile": .profile
-                case "/kyc":     .kycReview
-                case "/search":  .search(query: Self.searchQuery(from: url))
-                default:         nil
-                }
-            },
-            authenticationPolicy: .required(
-                shouldRequireAuthentication: { route in
-                    route == .profile || route == .kycReview
-                },
-                isAuthenticated: { [session] in
-                    session.isAuthenticated
-                }
-            )
+        self.deepLinkHandler = DeepLinkEffectHandler(
+            pipeline: Self.makeDeepLinkPipeline(session: session),
+            navigator: AnyBatchNavigator(store)
         )
     }
 
     func handleDeepLink(_ url: URL) {
-        let decision = deepLinkPipeline.decide(for: url)
-        switch decision {
-        case .plan(let plan):
-            for command in plan.commands {
-                _ = store.execute(command)
-            }
+        switch deepLinkHandler.handle(url) {
         case .pending(let pending):
-            // Real apps would persist `pending` so it survives a
-            // sign-in round trip. The sample logs and drops.
+            // The handler retains `pending` in memory until sign-in completes
+            // and the app asks it to resume.
             Logger(subsystem: "io.innosquad.innorouter.sample", category: "deeplink")
                 .info("deferred deep link until auth: \(pending.url.absoluteString, privacy: .private)")
-        case .rejected, .unhandled:
+        case .executed, .executionFailed, .applicationRejected,
+             .rejected, .unhandled, .invalidURL, .missingDeepLinkURL,
+             .noPendingDeepLink:
             break
         }
     }
@@ -115,6 +98,31 @@ final class SampleAppAuthority {
             .queryItems?
             .first { $0.name == "q" || $0.name == "query" }?
             .value ?? ""
+    }
+
+    nonisolated private static func makeDeepLinkPipeline(
+        session: AuthSession
+    ) -> DeepLinkPipeline<SampleRoute> {
+        DeepLinkPipeline(
+            allowedSchemes: ["app"],
+            allowedHosts: ["sample"],
+            customResolver: { url in
+                switch url.path {
+                case "/profile": .profile
+                case "/kyc":     .kycReview
+                case "/search":  .search(query: searchQuery(from: url))
+                default:         nil
+                }
+            },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { route in
+                    route == .profile || route == .kycReview
+                },
+                isAuthenticated: { [session] in
+                    session.isAuthenticated
+                }
+            )
+        )
     }
 }
 

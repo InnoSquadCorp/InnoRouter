@@ -185,13 +185,14 @@ Ausnahme in der 4.x-Linie. Neue Apps sollten von `4.1.0` ausgehen; das
 
 ### Imports
 
-Das Umbrella-Target `InnoRouter` re-exportiert alles außer dem Macros-Produkt.
-`@Routable` / `@CasePathable` erfordern einen expliziten `import InnoRouterMacros`
-— das Umbrella überspringt diesen Re-Export absichtlich, damit Nicht-Macro-Dateien
-nicht die Kosten der Macro-Plugin-Auflösung tragen:
+Das Umbrella-Target `InnoRouter` re-exportiert `InnoRouterCore`,
+`InnoRouterSwiftUI` und `InnoRouterDeepLink`. App-Boundary-Effects und Macros
+bleiben opt-in, damit unbeteiligte Dateien weder die zusätzliche API noch die
+Kosten der Macro-Plugin-Auflösung tragen:
 
 ```swift skip doc-fragment
 import InnoRouter            // Stores, Hosts, Intents, Deep Links, Scenes
+import InnoRouterEffects     // App-Boundary-Ausführung und Pending Replay
 import InnoRouterMacros      // nur in Dateien, die @Routable / @CasePathable verwenden
 ```
 
@@ -866,18 +867,18 @@ Schlüssel-API:
 - `handle(_ url:)`
 - `resumePendingDeepLink()`
 - `resumePendingDeepLinkIfAllowed(_:)`
+- `restore(pending:)`
 
-### Umbrella `DeepLinkCoordinating`
+### Coordinator-Integration
 
-Coordinators, die `DeepLinkCoordinating` adoptieren, erhalten dieselbe
-typisierte Ergebnis-Oberfläche durch `DeepLinkCoordinationOutcome<Route>`.
-Pipeline-Ablehnungen (`rejected`, `unhandled`), Ausführungsergebnisse
-(`executed`, `executionFailed`) und Resume-Zustände (`pending`, `noPendingDeepLink`) sind alle beobachtbar, ohne
-in den Stack-Zustand hineinzuschauen.
-
-- `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Route>`
-- `resumePendingDeepLinkIfAllowed(_:) async -> DeepLinkCoordinationOutcome<Route>`
+Coordinator-basierte Apps besitzen einen `DeepLinkEffectHandler` neben ihrem
+Store und injizieren mit `init(pipeline:navigator:)` eine konfigurierte
+Pipeline. URLs gehen an `handle(_:)`, Replays an `resumePendingDeepLink()` oder
+`resumePendingDeepLinkIfAllowed(_:)`; ausgewertet wird
+`DeepLinkEffectHandler.Result`. Der Handler besitzt die Pending-Identität;
+app-eigene In-Memory-Übergaben kommen über `restore(pending:)` zurück. Für
+UI-Beobachtung kann der Coordinator das zurückgegebene Ergebnis spiegeln. Für
+launch-übergreifende Persistenz dient `FlowPendingDeepLinkPersistence`.
 
 ## `Examples` vs `ExamplesSmoke`
 
