@@ -193,8 +193,9 @@ that same reusable gate again before it publishes anything.
 
 `platforms.yml`
 
-- compiles both `InnoRouterSwiftUI` and the opt-in `InnoRouterSpatial`
-  product across all supported Apple platforms
+- compiles `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterSpatial`,
+  `InnoRouterDeepLink`, `InnoRouterEffects`, and `InnoRouterTesting` explicitly
+  across all supported Apple platforms
 - compiles the visionOS example and smoke consumers that import
   `InnoRouterSpatial` explicitly
 - executes tvOS, watchOS, and visionOS Simulator tests

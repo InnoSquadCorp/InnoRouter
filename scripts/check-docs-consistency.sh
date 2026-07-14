@@ -188,6 +188,15 @@ check_absent "$ROOT_DIR/RELEASING.md" \
   'Linux CI may import' \
   "RELEASING.md claims a Linux CI job that does not exist"
 
+for product in InnoRouterEffects InnoRouterTesting; do
+  check_present "$ROOT_DIR/.github/workflows/platforms.yml" \
+    "-scheme $product" \
+    "platform workflow does not compile $product explicitly"
+  check_present "$ROOT_DIR/scripts/principle-gates.sh" \
+    "-scheme $product" \
+    "local platform probe does not compile $product"
+done
+
 echo "[check-docs-consistency] Checking current major-version contract"
 for readme_path in "$ROOT_DIR"/README*.md; do
   check_present "$readme_path" '5.x' \

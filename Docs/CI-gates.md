@@ -62,10 +62,11 @@ Rules:
 - Empty value (`--platforms=`) is rejected.
 - `all` cannot be combined with explicit names — `--platforms=all,ios`
   is rejected to keep the flag unambiguous.
-- Each requested platform invokes `xcodebuild build` for both the
-  `InnoRouterSwiftUI` and `InnoRouterSpatial` schemes against the selected
-  generic destination. Generic destinations avoid drift between local
-  toolchains and CI runners.
+- Each requested platform invokes `xcodebuild build` for the root
+  `InnoRouterSwiftUI`, `InnoRouterSpatial`, `InnoRouterEffects`, and
+  `InnoRouterTesting` schemes against the selected generic destination. Their
+  dependency graph also compiles Core and DeepLink. Generic destinations avoid
+  drift between local toolchains and CI runners.
 - `xcodebuild` must be available; the gate aborts otherwise.
 - This flag is compile-only. It does not replace the runtime tests in
   the GitHub `platforms` workflow.
@@ -77,7 +78,7 @@ Every gate above runs under one of the workflows in `.github/workflows/`:
 | Workflow | Gates |
 | --- | --- |
 | `principle-gates.yml` | 1–12 plus public-API / `Unreleased` changelog sync (every PR / push to `main` and `develop`) |
-| `platforms.yml` | 13 (full Apple compile matrix for SwiftUI and Spatial), a visionOS Spatial consumer build, plus tvOS, watchOS, and visionOS runtime tests with minimum executed-test counts |
+| `platforms.yml` | 13 (explicit Apple compile matrix for Core, SwiftUI, Spatial, DeepLink, Effects, and Testing), a visionOS Spatial consumer build, plus tvOS, watchOS, and visionOS runtime tests with minimum executed-test counts |
 | `docs-ci.yml` | 2 (DocC build validation) |
 | `coverage.yml` | 1 (with coverage instrumentation) |
 | `performance-smoke.yml` | 9 (perf regression detection) |

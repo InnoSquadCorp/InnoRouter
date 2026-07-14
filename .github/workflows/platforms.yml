@@ -67,9 +67,9 @@ jobs:
           xcodebuild -version
           swift --version
 
-      # InnoRouterSwiftUI owns stack/modal hosts and InnoRouterSpatial owns
-      # the opt-in scene/ornament surface. Build both per platform so moving
-      # Spatial out of SwiftUI cannot silently remove #if os(...) coverage.
+      # Build every shipped implementation surface explicitly. This keeps an
+      # Effects- or Testing-only availability/import regression from hiding
+      # behind the dependency graph of SwiftUI and Spatial consumers.
       # Generic simulator destinations are intentional so the compile-only
       # gate does not depend on runner-specific device names or installed
       # runtime image names. The scheme names match `xcodebuild -list`
@@ -99,6 +99,20 @@ jobs:
         run: |
           xcodebuild build \
             -scheme InnoRouterDeepLink \
+            -destination '${{ matrix.platform.destination }}' \
+            -quiet
+
+      - name: Build InnoRouterEffects for ${{ matrix.platform.name }}
+        run: |
+          xcodebuild build \
+            -scheme InnoRouterEffects \
+            -destination '${{ matrix.platform.destination }}' \
+            -quiet
+
+      - name: Build InnoRouterTesting for ${{ matrix.platform.name }}
+        run: |
+          xcodebuild build \
+            -scheme InnoRouterTesting \
             -destination '${{ matrix.platform.destination }}' \
             -quiet
 

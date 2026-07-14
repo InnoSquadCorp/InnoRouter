@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2076 # Quoted =~ operands intentionally perform literal membership checks.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -241,6 +242,20 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
     echo "[principle-gates] xcodebuild build -scheme InnoRouterSpatial ($name)"
     xcodebuild build \
       -scheme InnoRouterSpatial \
+      -destination "$dest" \
+      -jobs "$XCODEBUILD_JOBS" \
+      -quiet
+
+    echo "[principle-gates] xcodebuild build -scheme InnoRouterEffects ($name)"
+    xcodebuild build \
+      -scheme InnoRouterEffects \
+      -destination "$dest" \
+      -jobs "$XCODEBUILD_JOBS" \
+      -quiet
+
+    echo "[principle-gates] xcodebuild build -scheme InnoRouterTesting ($name)"
+    xcodebuild build \
+      -scheme InnoRouterTesting \
       -destination "$dest" \
       -jobs "$XCODEBUILD_JOBS" \
       -quiet
