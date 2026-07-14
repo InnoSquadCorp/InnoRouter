@@ -100,10 +100,20 @@ public struct DeepLinkInputLimits: Sendable, Equatable {
     )
 
     public func violation(for url: URL) -> DeepLinkInputLimitViolation? {
+        violation(for: url, parsed: DeepLinkParser.parse(url))
+    }
+
+    /// Parse-free variant for callers that already hold the URL's
+    /// ``DeepLinkParser/ParsedURL``. Matchers and pipelines thread one
+    /// parsed value through limit checks and pattern matching so a
+    /// single deep-link decision parses its URL exactly once.
+    func violation(
+        for url: URL,
+        parsed: DeepLinkParser.ParsedURL
+    ) -> DeepLinkInputLimitViolation? {
         if let maxURLLength, url.absoluteString.count > maxURLLength {
             return .urlLengthExceeded(actual: url.absoluteString.count, max: maxURLLength)
         }
-        let parsed = DeepLinkParser.parse(url)
         if let maxPathSegments, parsed.path.count > maxPathSegments {
             return .pathSegmentCountExceeded(actual: parsed.path.count, max: maxPathSegments)
         }
@@ -696,8 +706,8 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
     }
 
     public func match(_ url: URL) -> R? {
-        guard inputLimits.violation(for: url) == nil else { return nil }
         let parsed = DeepLinkParser.parse(url)
+        guard inputLimits.violation(for: url, parsed: parsed) == nil else { return nil }
         for mapping in mappings {
             if let route = mapping.match(parsed) {
                 return route

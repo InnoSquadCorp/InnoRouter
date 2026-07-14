@@ -107,7 +107,11 @@ public struct FlowDeepLinkPipeline<R: Route>: Sendable {
     }
 
     public func decide(for url: URL) -> FlowDeepLinkDecision<R> {
-        if let violation = inputLimits.violation(for: url) {
+        // Parse once; every downstream limit check and pattern walk
+        // reuses this value instead of re-parsing the URL.
+        let parsed = DeepLinkParser.parse(url)
+
+        if let violation = inputLimits.violation(for: url, parsed: parsed) {
             return .rejected(reason: .inputLimitExceeded(violation))
         }
 
@@ -129,11 +133,11 @@ public struct FlowDeepLinkPipeline<R: Route>: Sendable {
             }
         }
 
-        if let violation = matcher.inputLimitViolation(for: url) {
+        if let violation = matcher.inputLimitViolation(for: url, parsed: parsed) {
             return .rejected(reason: .inputLimitExceeded(violation))
         }
 
-        guard let plan = matcher.match(url) else {
+        guard let plan = matcher.match(parsed: parsed) else {
             return .unhandled(url: url)
         }
 

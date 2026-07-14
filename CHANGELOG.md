@@ -6,6 +6,15 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+### Changed
+
+- Deep-link matching now parses each URL exactly once per decision.
+  `DeepLinkMatcher.match`, `FlowDeepLinkMatcher.match`, and
+  `FlowDeepLinkPipeline.decide` previously re-parsed the same URL up
+  to four times (input-limit checks and pattern walks each parsed
+  independently); they now thread a single `ParsedURL` through limit
+  validation and pattern matching. No behavior change.
+
 ### Fixed
 
 - `FlowCoordinator` default implementations now honor the documented
