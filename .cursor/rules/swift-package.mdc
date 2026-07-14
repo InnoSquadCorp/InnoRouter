@@ -6,152 +6,170 @@ alwaysApply: false
 
 # Swift Package Development Guidelines
 
-## 패키지 구조
+## 패키지 기준
 
-InnoRouter는 Swift Package Manager를 사용하는 멀티 타겟 패키지입니다:
+InnoRouter는 Swift tools 6.2, Swift 6 언어 모드를 사용하는 멀티 타겟 패키지입니다.
+앱에서는 `InnoRouter` umbrella product를 우선 사용하고, 라이브러리·도구는 필요한
+세부 product만 선택합니다.
 
-- **InnoRouter** (umbrella): `InnoRouterCore` + `InnoRouterSwiftUI` + `InnoRouterDeepLink` 재내보내기
-- **InnoRouterCore**: 핵심 런타임 (`NavStack`, `NavCommand`, `NavEngine`, `Navigator`, `NavMiddleware`)
-- **InnoRouterSwiftUI**: SwiftUI 통합 (`NavStore`, `NavigationHost`, `Coordinator`, `@UseNavigator`)
-- **InnoRouterDeepLink**: 딥링크 처리 (`DeepLinkMatcher`, `DeepLinkPipeline`)
-- **InnoRouterMacros** (optional): 매크로 선언 (`@Routable`, `@CasePathable`)
-- **InnoRouterMacrosPlugin**: 매크로 구현 (swift-syntax 사용)
-- **InnoRouterEffects** (optional): Effect 스타일 헬퍼 (어떤 아키텍처와도 작동)
+## 런타임 모듈
 
-## 타겟 구조
+### InnoRouterCore
 
-### Core Runtime (InnoRouterCore)
-- `Sources/InnoRouterCore/`에 위치
-- 의존성 없음 (순수 Swift)
-- 공개 API: `Route`, `NavStack`, `NavCommand`, `NavEngine`, `NavResult`, `Navigator`, `AnyNavigator`, `NavMiddleware`
+- 경로: `Sources/InnoRouterCore/`
+- 다른 InnoRouter 타겟에 의존하지 않는 핵심 런타임
+- 주요 API: `Route`, `RouteStack`, `NavigationCommand`, `NavigationEngine`,
+  `NavigationResult`, `NavigationStateReader`, `NavigationCommandExecutor`,
+  `Navigator`, `AnyNavigator`, `NavigationMiddleware`, `AnyNavigationMiddleware`
+- SwiftUI 타입을 추가하지 않습니다.
 
-### SwiftUI Integration (InnoRouterSwiftUI)
-- `Sources/InnoRouterSwiftUI/`에 위치
-- `InnoRouterCore`에 의존
-- 공개 API: `NavStore`, `NavigationHost`, `Coordinator`, `StepCoordinator`, `TabCoordinator`, `@UseNavigator`
+### InnoRouterSwiftUI
 
-### DeepLink (InnoRouterDeepLink)
-- `Sources/InnoRouterDeepLink/`에 위치
-- `InnoRouterCore`에 의존
-- 공개 API: `DeepLinkMatcher`, `DeepLinkMapping`, `DeepLinkParameters`, `DeepLinkPipeline`, `DeepLinkDecision`
+- 경로: `Sources/InnoRouterSwiftUI/`
+- 의존성: `InnoRouterCore`
+- 주요 API: `NavigationStore`, `NavigationStoreConfiguration`, `NavigationEvent`,
+  `NavigationHost`, `NavigationSplitHost`, `Coordinator`, `StepCoordinator`,
+  `TabCoordinator`, `ModalStore`, `FlowStore`
+- View 계층의 navigation dispatch는 `@EnvironmentNavigationIntent(AppRoute.self)`를
+  사용하며 `NavigationHost` 또는 `CoordinatorHost`가 dispatcher를 제공합니다.
+- Store 관찰은 구성의 단일 `onEvent`와 동일한 순서의 `events` 스트림을 사용합니다.
 
-### Macro Declarations (InnoRouterMacros)
-- `Sources/InnoRouterMacros/`에 위치
-- `InnoRouterCore`, `InnoRouterMacrosPlugin`에 의존
-- 공개 API: `@Routable`, `@CasePathable` 매크로, `CasePath` 타입
+### InnoRouterDeepLink
 
-### Macro Implementation (InnoRouterMacrosPlugin)
-- `Sources/InnoRouterMacrosPlugin/`에 위치
-- `swift-syntax` 패키지에 의존
-- `.macro` 타겟으로 컴파일러 플러그인
-- `RoutableMacro`, `CasePathableMacro` 구현
+- 경로: `Sources/InnoRouterDeepLink/`
+- 의존성: `InnoRouterCore`
+- 주요 API: `DeepLinkMatcher`, `DeepLinkMapping`, `DeepLinkParameters`,
+  `DeepLinkPipeline`, `DeepLinkDecision`, `NavigationPlan`, `PendingDeepLink`
+- URL 해석과 plan 생성만 담당하며 SwiftUI store를 직접 소유하지 않습니다.
 
-### Effects (InnoRouterEffects)
-- `Sources/InnoRouterEffects/`에 위치
-- `InnoRouterCore`, `InnoRouterDeepLink`에 의존
-- Effect 스타일 헬퍼 (선택적 모듈)
+### InnoRouter
 
-### Umbrella (InnoRouter)
-- `Sources/InnoRouterUmbrella/`에 위치
-- `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`에 의존
-- 모든 모듈을 재내보내는 통합 모듈
+- 경로: `Sources/InnoRouterUmbrella/`
+- 의존성: `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`
+- 세 런타임 모듈을 재노출하는 권장 umbrella product
+- `DeepLinkCoordinating`처럼 모듈 경계를 조합하는 API를 둡니다.
 
-## 빌드 및 테스트
+## 선택 모듈
 
-### 빌드
+### Effects
+
+- `InnoRouterNavigationEffects`: Core 기반 `NavigationEffectHandler`
+- `InnoRouterDeepLinkEffects`: Core + DeepLink + NavigationEffects 기반 deep-link effect handler
+- `InnoRouterEffects`: 위 두 effect 모듈을 재노출하는 umbrella
+- 특정 상태관리 프레임워크에 결합하지 않습니다.
+
+### Macros
+
+- `InnoRouterMacros`: `@Routable`, `@CasePathable` 공개 선언
+- `InnoRouterMacrosPlugin`: swift-syntax 기반 compiler plugin 구현
+- 공개 매크로 선언과 plugin 구현을 같은 타겟에 섞지 않습니다.
+
+### Testing
+
+- `InnoRouterTesting`: `NavigationTestStore`, `ModalTestStore`, `FlowTestStore`
+- 의존성: `InnoRouterCore`, `InnoRouterSwiftUI`
+- 소비자가 `@testable import` 없이 공개 이벤트를 검증할 수 있는 Swift Testing harness
+
+## 의존성 방향
+
+```text
+InnoRouterCore
+├── InnoRouterSwiftUI
+├── InnoRouterDeepLink
+├── InnoRouterNavigationEffects
+├── InnoRouterMacros
+└── InnoRouterTesting
+
+InnoRouter = Core + SwiftUI + DeepLink
+InnoRouterDeepLinkEffects = Core + DeepLink + NavigationEffects
+InnoRouterEffects = NavigationEffects + DeepLinkEffects
+InnoRouterMacros = Core + MacrosPlugin
+```
+
+- 순환 의존성을 만들지 않습니다.
+- Core에 SwiftUI, deep-link, effect, macro plugin 구현을 역으로 의존시키지 않습니다.
+- 새 API는 가장 낮은 적절한 계층에 둡니다.
+- 테스트 타겟은 검증 대상 product에만 의존합니다.
+
+## Products
+
+- `InnoRouter` — 앱 소비자에게 권장하는 runtime umbrella
+- `InnoRouterCore`
+- `InnoRouterSwiftUI`
+- `InnoRouterDeepLink`
+- `InnoRouterNavigationEffects`
+- `InnoRouterDeepLinkEffects`
+- `InnoRouterEffects`
+- `InnoRouterMacros`
+- `InnoRouterTesting`
+
+product를 추가하거나 제거하면 README, ExamplesSmoke, public API baseline, CHANGELOG의
+동기화 여부를 함께 확인합니다.
+
+## 빌드와 검증
+
 ```bash
 swift build
-```
-
-### 테스트
-```bash
-# 모든 테스트 실행
 swift test
-
-# 코드 커버리지와 함께 테스트 실행
 swift test --enable-code-coverage --parallel
-
-# 특정 테스트 실행
-swift test --filter InnoRouterTests.NavStoreTests.testPush
+swift test --filter FlowStoreDelegationTests
 ```
 
-### 문서 생성
+Package 또는 모듈 경계를 바꾼 뒤에는 저장소 gate도 실행합니다.
+
 ```bash
-swift package generate-documentation --target InnoRouter
+bash scripts/lint-source-gates.sh
+bash scripts/check-public-api.sh
+bash scripts/check-examples-parity.sh
+bash scripts/check-docs-consistency.sh
 ```
 
-## 코딩 스타일
+문서는 지원되는 DocC command 또는 저장소의 문서 빌드 스크립트를 사용합니다.
 
-- Swift API Design Guidelines 준수
-- 4칸 들여쓰기 사용
-- 공개 API는 `///`로 문서화
-- 값 타입 선호, 명시적 타입 사용
-- Coordinator와 Route는 작고 집중적으로 유지
-
-## 모듈 간 의존성
-
-```
-InnoRouterCore (의존성 없음)
-    ↑
-    ├── InnoRouterSwiftUI
-    ├── InnoRouterDeepLink
-    └── InnoRouterMacrosPlugin
-         ↑
-         └── InnoRouterMacros
-              ↑
-              └── InnoRouter (umbrella)
+```bash
+bash scripts/build-docc-site.sh --version 5.0.0
 ```
 
-- `InnoRouterSwiftUI` → `InnoRouterCore`
-- `InnoRouterDeepLink` → `InnoRouterCore`
-- `InnoRouterMacros` → `InnoRouterCore`, `InnoRouterMacrosPlugin`
-- `InnoRouterEffects` → `InnoRouterCore`, `InnoRouterDeepLink`
-- `InnoRouter` (umbrella) → `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`
-- 테스트 타겟은 해당 타겟에 의존
+## 코딩과 공개 API
 
-## 공개 API 설계
+- Swift API Design Guidelines와 4칸 들여쓰기를 따릅니다.
+- 공개 선언에는 `///` 문서를 추가하고 최소 공개 범위를 유지합니다.
+- 구현 상세는 `package`, `internal`, `private` 중 가장 좁은 범위를 선택합니다.
+- 값 타입을 우선하되 identity와 관찰이 필요한 store는 reference type을 사용합니다.
+- 공개 API 변경은 baseline과 CHANGELOG를 함께 갱신합니다.
+- 5.0 breaking change에서는 제거된 호환 alias를 새 API에 다시 추가하지 않습니다.
 
-- 최소한의 공개 API 노출
-- 내부 구현 세부사항은 `internal` 또는 `private` 유지
-- 매크로는 공개 API의 일부이지만 구현은 내부에 유지
-- `Navigator` 프로토콜을 통한 의존성 역전
+## Swift 6 동시성
 
-## Swift 6 설정
-
-모든 타겟은 Swift 6.2 엄격한 동시성 모드를 사용합니다:
+모든 타겟은 다음 설정을 유지합니다.
 
 ```swift
 swiftSettings: [.swiftLanguageMode(.v6)]
 ```
 
+- `Route`와 공개 이벤트 payload는 `Sendable` 계약을 유지합니다.
+- Store와 middleware 실행은 `@MainActor` 경계를 존중합니다.
+- `@Sendable` 콜백에서 가변 지역 상태를 직접 캡처하지 않습니다.
+
+## 플랫폼
+
+- iOS 18+
+- macOS 15+
+- tvOS 18+
+- watchOS 11+
+- visionOS 2+
+
+플랫폼 전용 API는 `#if os(...)` / `#if canImport(...)`로 격리하고 가능한 플랫폼의
+테스트 타겟에서 컴파일되도록 유지합니다.
+
+## 외부 의존성
+
+- 유일한 패키지 의존성은 macro 구현용 `swift-syntax`입니다.
+- 현재 제약은 `603.0.1`에서 시작하는 `upToNextMinor` 범위입니다.
+- 버전을 올릴 때 macro fixture, compiler plugin 테스트, public API baseline을 함께 검증합니다.
+
 ## 버전 관리
 
-- Semantic Versioning 준수
-- Breaking changes는 Major 버전 증가
-- 새로운 기능은 Minor 버전 증가
-- 버그 수정은 Patch 버전 증가
-
-## 플랫폼 지원
-
-패키지는 다음 플랫폼을 지원합니다:
-- iOS 18.0+
-- macOS 15.0+
-- tvOS 18.0+
-- watchOS 11.0+
-
-## 의존성 관리
-
-- `swift-syntax` 602.0.0+ (매크로 구현용)
-- 최소 버전 요구사항 명시
-- 가능한 한 최신 버전 사용
-- 보안 업데이트 정기적으로 확인
-
-## Products
-
-패키지는 다음 products를 제공합니다:
-- `InnoRouter` (권장): 모든 모듈 통합
-- `InnoRouterCore`: 핵심 런타임만
-- `InnoRouterSwiftUI`: SwiftUI 통합
-- `InnoRouterDeepLink`: 딥링크 처리
-- `InnoRouterMacros`: 매크로 (선택)
-- `InnoRouterEffects`: Effect 헬퍼 (선택)
+- Semantic Versioning을 따릅니다.
+- breaking API 변경은 major, 기능 추가는 minor, 호환 버그 수정은 patch로 릴리스합니다.
+- 한 커밋에는 한 가지 목적을 유지하고, 각 단계에서 관련 테스트와 gate를 통과시킵니다.

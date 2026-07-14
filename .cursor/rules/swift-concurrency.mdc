@@ -1,221 +1,179 @@
 ---
-description: "Swift 6 엄격한 동시성 패턴, actor isolation, @MainActor 사용, async/await 모범 사례, structured concurrency, Sendable 준수. 비동기 코드, actor, 동시 작업 작업 시 적용."
+description: "Swift 6 actor isolation, Sendable, async/await, structured concurrency 규칙. 비동기 코드나 actor 경계를 수정할 때 적용."
 globs: ["Sources/**/*.swift"]
 alwaysApply: false
 ---
 
-# Swift Concurrency Guidelines for InnoRouter
+# Swift Concurrency Guidelines for InnoRouter 5.0
 
-## Actor Isolation (Swift 6 Strict Mode)
+## Baseline
 
-모든 코드는 Swift 6 엄격한 동시성 규칙을 따라야 합니다. 프로젝트는 `Package.swift`에 구성된 Swift 6.2 엄격한 동시성 모드를 사용합니다.
+- 패키지는 Swift tools 6.2와 `.swiftLanguageMode(.v6)`를 사용합니다.
+- 동시성 경고를 억누르지 말고, 값은 `Sendable`, UI 상태 권한은 `@MainActor`로 모델링합니다.
+- actor 경계를 넘는 클로저에는 `@Sendable`을 명시하고 캡처도 전송 가능한 값으로 제한합니다.
 
-### @MainActor for NavStore and Coordinator
+## Main-actor authority
 
-`NavStore`와 `Coordinator`는 UI 업데이트를 관리하므로 `@MainActor`로 격리되어 있습니다:
+`NavigationStore`, `ModalStore`, `FlowStore`, `Coordinator`와 실행 프로토콜은
+동기 `@MainActor` API입니다. 상태 읽기와 변경은 이 actor 안에서 수행합니다.
 
 ```swift
 @Observable
 @MainActor
-public final class NavStore<R: Route>: Navigator {
-    public var state: NavStack<R>
-    public func execute(_ command: NavCommand<R>) -> NavResult<R>
+public final class NavigationStore<R: Route>:
+    Navigator,
+    NavigationBatchExecutor,
+    NavigationTransactionExecutor
+{
+    public private(set) var state: RouteStack<R>
+
+    public func execute(
+        _ command: NavigationCommand<R>
+    ) -> NavigationResult<R>
 }
 
 @MainActor
 public protocol Coordinator: AnyObject, Observable {
-    var store: NavStore<RouteType> { get }
-    func handle(_ intent: NavIntent<RouteType>)
+    associatedtype RouteType: Route
+    associatedtype Destination: View
+
+    var store: NavigationStore<RouteType> { get }
+    func handle(_ intent: NavigationIntent<RouteType>)
+    @ViewBuilder func destination(for route: RouteType) -> Destination
 }
 ```
 
-### Navigator Protocol
-
-`Navigator` 프로토콜도 `@MainActor`로 격리됩니다:
+`Navigator`는 현재 두 actor-isolated capability의 합성 별칭입니다. 이 두
+프로토콜이나 스토어에 별도의 `Sendable` 적합성을 덧붙여 격리를 우회하지 않습니다.
 
 ```swift
 @MainActor
-public protocol NavStateReadable: AnyObject, Sendable {
+public protocol NavigationStateReader: AnyObject {
     associatedtype RouteType: Route
-    var state: NavStack<RouteType> { get }
+    var state: RouteStack<RouteType> { get }
 }
 
 @MainActor
-public protocol NavCommandExecuting: AnyObject, Sendable {
+public protocol NavigationCommandExecutor: AnyObject {
     associatedtype RouteType: Route
-    func execute(_ command: NavCommand<RouteType>) -> NavResult<RouteType>
+    func execute(
+        _ command: NavigationCommand<RouteType>
+    ) -> NavigationResult<RouteType>
 }
 
-public typealias Navigator = NavStateReadable & NavCommandExecuting
+public typealias Navigator = NavigationStateReader & NavigationCommandExecutor
 ```
 
-## Sendable Conformance
+SwiftUI 자식 뷰에는 스토어 자체 대신 main-actor dispatcher를 주입합니다.
 
-### Route Types
+```swift
+struct DetailButton: View {
+    @EnvironmentNavigationIntent(AppRoute.self) private var navigationIntent
 
-모든 `Route` 타입은 `Sendable`을 준수해야 합니다:
+    var body: some View {
+        Button("Detail") {
+            navigationIntent(.go(.detail(id: "123")))
+        }
+    }
+}
+```
+
+같은 방식으로 `@EnvironmentModalIntent`와 `@EnvironmentFlowIntent`를 사용합니다.
+
+## Sendable values and closures
+
+`Route`가 `Hashable & Sendable`을 요구하므로 라우팅 값 타입의 `Sendable`
+적합성은 조건 없이 성립합니다.
 
 ```swift
 public protocol Route: Hashable, Sendable {}
 
-enum HomeRoute: Route {
-    case list
-    case detail(id: String)  // String은 Sendable
-    case settings
+enum AppRoute: Route {
+    case home
+    case detail(id: String)
 }
+
+let command: NavigationCommand<AppRoute> = .push(.home)
+let intent: NavigationIntent<AppRoute> = .go(.home)
+let plan = NavigationPlan(commands: [command])
 ```
 
-### NavCommand and NavStack
+`RouteStack`, `NavigationCommand`, `NavigationResult`, `NavigationIntent`,
+`ModalIntent`, `FlowIntent`, `RouteStep`, `NavigationPlan`도 모두 `Sendable`
+값입니다. associated value를 추가할 때도 `Hashable & Sendable`을 유지합니다.
 
-네비게이션 관련 타입들은 모두 `Sendable`을 준수합니다:
+이벤트, telemetry, middleware처럼 저장되는 콜백은 선언된 격리를 그대로
+보존합니다.
 
 ```swift
-public struct NavStack<R: Route>: Sendable, Equatable {
-    public var path: [R]  // R은 Route이므로 Sendable
+let onEvent: @MainActor @Sendable (NavigationEvent<AppRoute>) -> Void = {
+    event in
+    analytics.record(event)
 }
 
-public indirect enum NavCommand<R: Route>: Sendable, Equatable {
-    case push(R)
-    case conditional(@Sendable () -> Bool, NavCommand<R>)
-    // ...
-}
+let middleware = AnyNavigationMiddleware<AppRoute>(
+    willExecute: { command, state in
+        if case .pop = command, state.path.isEmpty {
+            return .cancel(.custom("Cannot pop an empty stack"))
+        }
+        return .proceed(command)
+    }
+)
 ```
 
-### Middleware
+`@Sendable` 클로저에서 보호되지 않은 지역 `var`를 캡처해 변경하지 않습니다.
+UI 상태는 main-actor 소유 타입에 두고, actor 밖 공유 상태는 별도 actor 같은
+검사 가능한 동기화 경계에 둡니다.
 
-`NavMiddleware`는 `@MainActor`에서 실행되지만 타입 자체는 `Sendable`입니다:
+## Deep links
 
-```swift
-@MainActor
-public protocol NavMiddleware: Sendable {
-    associatedtype RouteType: Route
-    func willExecute(_ command: NavCommand<RouteType>, state: NavStack<RouteType>) -> NavCommand<RouteType>?
-    func didExecute(_ command: NavCommand<RouteType>, result: NavResult<RouteType>, state: NavStack<RouteType>)
-}
-```
-
-## Deep Link Concurrency
-
-### DeepLinkPipeline
-
-`DeepLinkPipeline`은 `Sendable`을 준수하며 모든 클로저도 `@Sendable`입니다:
-
-```swift
-public struct DeepLinkPipeline<R: Route>: Sendable {
-    public typealias Resolver = @Sendable (URL) -> R?
-    public typealias Planner = @Sendable (R) -> NavPlan<R>
-    
-    public var resolve: Resolver
-    public var requiresAuthentication: (@Sendable (R) -> Bool)?
-    public var isAuthenticated: (@Sendable () -> Bool)?
-    public var plan: Planner
-}
-```
-
-### Deep Link Handling
-
-딥링크 처리는 메인 스레드에서 실행되어야 합니다:
+`DeepLinkPipeline`과 `NavigationPlan`은 전송 가능한 값이며 URL 판단은 동기식
+순수 단계입니다. 실제 스토어 실행만 main actor 권한 안에서 수행합니다.
 
 ```swift
 .onOpenURL { url in
     switch pipeline.decide(for: url) {
     case .plan(let plan):
-        Task { @MainActor in
-            for command in plan.commands {
-                _ = store.execute(command)
-            }
-        }
-    case .pending:
-        // 인증 후 처리
-        break
-    case .rejected, .unhandled:
+        _ = store.executeBatch(plan.commands, stopOnFailure: true)
+    case .pending(let pending):
+        pendingDeepLink = pending
+    case .rejected(let reason):
+        report(reason)
+    case .unhandled:
         break
     }
 }
 ```
 
-## Thread Safety
+resolver, planner, authentication policy에 저장되는 클로저는 `@Sendable`입니다.
+변경 가능한 UI 객체를 직접 캡처하지 말고 필요한 전송 가능 스냅샷이나 actor
+경계를 사용합니다.
 
-### NavigatorStorage
+## Async work
 
-Environment에 저장되는 `NavigatorStorage`는 `NSLock`을 사용하여 스레드 안전하게 관리됩니다:
-
-```swift
-final class NavigatorStorage: @unchecked Sendable {
-    private var navigators: [ObjectIdentifier: Any] = [:]
-    private let lock = NSLock()
-    
-    subscript<R: Route>(routeType: R.Type) -> AnyNavigator<R>? {
-        get {
-            lock.lock()
-            defer { lock.unlock() }
-            return navigators[ObjectIdentifier(routeType)] as? AnyNavigator<R>
-        }
-        set {
-            lock.lock()
-            defer { lock.unlock() }
-            navigators[ObjectIdentifier(routeType)] = newValue
-        }
-    }
-}
-```
-
-**참고**: `@unchecked Sendable`을 사용하는 이유는 `NSLock`으로 보호되지만 컴파일러가 이를 자동으로 인식하지 못하기 때문입니다.
-
-## Required Patterns
-
-1. **NavStore는 @MainActor** - 모든 네비게이션 상태 업데이트는 main actor에서
-2. **Coordinator는 @MainActor** - 모든 coordinator 작업은 main actor에서
-3. **Sendable 준수** - Route, NavCommand, NavStack 등은 모두 Sendable
-4. **@Sendable 클로저** - Middleware, DeepLinkPipeline의 클로저는 @Sendable
-5. **Thread-safe storage** - NSLock을 사용한 스레드 안전 저장소
-6. **Structured concurrency** - Task를 사용한 비동기 작업
-
-## Error Handling with Concurrency
-
-딥링크 처리나 비동기 작업에서 에러가 발생할 수 있는 경우:
+- `async let`과 task group 등 structured concurrency를 우선합니다.
+- `Task`는 SwiftUI action이나 lifecycle 같은 명확한 경계에서만 만들고,
+  장기 작업은 handle을 보관해 취소합니다.
+- 비동기 작업에서 스토어로 돌아올 때는 actor hop을 명시합니다.
+- `await` 뒤에는 navigation state가 바뀌었을 수 있으므로 실행 직전에 다시
+  검증합니다. async guard에는 `NavigationEffectHandler.executeGuarded`를
+  우선합니다.
 
 ```swift
-Task { @MainActor in
-    do {
-        let route = try await resolveDeepLink(url)
+func resolveAndNavigate(
+    url: URL,
+    resolve: @Sendable (URL) async throws -> AppRoute?,
+    store: NavigationStore<AppRoute>
+) async throws {
+    guard let route = try await resolve(url) else { return }
+    try Task.checkCancellation()
+
+    await MainActor.run {
         _ = store.execute(.push(route))
-    } catch {
-        // 에러 처리
-        handleError(error)
     }
 }
 ```
 
-## Migration from GCD
-
-프레임워크 내부에서는 GCD를 사용하지 않고 Swift Concurrency만 사용합니다:
-
-```swift
-// ❌ 사용하지 않음: GCD
-DispatchQueue.main.async { ... }
-
-// ✅ 사용: Swift Concurrency
-Task { @MainActor in
-    // ...
-}
-```
-
-## @unchecked Sendable
-
-`NavStore`는 `@unchecked Sendable`을 사용합니다:
-
-```swift
-@Observable
-@MainActor
-public final class NavStore<R: Route>: Navigator, @unchecked Sendable {
-    // ...
-}
-```
-
-이유:
-- `@Observable` 매크로가 생성하는 코드가 `Sendable`을 자동으로 준수하지 않음
-- 실제로는 `@MainActor`로 격리되어 있어 안전함
-- `@unchecked Sendable`로 명시적으로 표시
-
-모든 동시성 코드는 이러한 엄격한 동시성 가이드라인을 따라야 합니다.
+이미 `@MainActor` 문맥이면 불필요한 `Task { @MainActor in ... }`로 실행 순서를
+미루지 말고 동기 API를 직접 호출합니다. `Task.detached`는 actor 상속이 정말
+불필요하고 모든 입력과 결과가 `Sendable`인 독립 작업에만 제한합니다.

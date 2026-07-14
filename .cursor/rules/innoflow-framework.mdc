@@ -1,281 +1,245 @@
 ---
-description: "InnoRouter 프레임워크의 아키텍처, 네비게이션 흐름, 매크로 확장, Coordinator 패턴, DeepLink 처리에 대한 종합 가이드. 프레임워크 코드 작업, 새로운 기능 추가, 또는 아키텍처 이해가 필요할 때 적용."
+description: "InnoRouter 5.0의 모듈 경계, typed navigation authority, intent/command 실행, Flow·Modal, middleware, observation, deep-link, macro와 effect 사용 원칙."
 globs: ["Sources/**/*.swift"]
 alwaysApply: false
 ---
 
-# InnoRouter Framework Architecture
+# InnoRouter 5.0 Framework Guide
 
-## 프로젝트 개요
+## 핵심 모델
 
-InnoRouter는 SwiftUI 네이티브 네비게이션 프레임워크로, **상태 기반**, **단방향 실행**, **의존성 역전** 원칙을 중심으로 설계되었습니다. 네비게이션은 데이터(`NavStack`, `NavCommand`)로 표현되고 SwiftUI에 의해 렌더링됩니다. Feature/Coordinator는 구체적인 router/store가 아닌 `Navigator` (인터페이스)에 의존합니다.
+InnoRouter는 네비게이션을 typed state와 명시적인 실행 결과로 다루는 SwiftUI 프레임워크다.
 
-## 모듈 구조
+- `RouteStack`, `NavigationCommand`, `NavigationResult`는 UI와 독립적인 Core 값이다.
+- `NavigationStore`, `ModalStore`, `FlowStore`는 `@MainActor`에 격리된 전이 권한(authority)이다.
+- View는 store state를 직접 고치지 않고 environment intent를 보낸다.
+- Coordinator는 정책이 필요할 때 선택하는 계층이다. 모든 Feature가 Coordinator나 하나의 공통 router protocol에 의존해야 하는 것은 아니다.
+- 딥링크 matcher와 pipeline은 결정을 만들고, 실제 실행은 store 또는 effect handler가 명시적으로 수행한다.
+- InnoRouter는 비즈니스 상태, 인증 세션, 네트워크 재시도, alert/confirmation 상태를 소유하지 않는다.
 
-```
-InnoRouter/
-├── Sources/
-│   ├── InnoRouterCore/        # 핵심 런타임
-│   │   ├── Route.swift        # Route 프로토콜
-│   │   ├── NavStack.swift     # 네비게이션 상태
-│   │   ├── NavCommand.swift   # 네비게이션 명령
-│   │   ├── NavEngine.swift    # 명령 실행 엔진
-│   │   ├── NavResult.swift    # 실행 결과
-│   │   ├── Navigator.swift    # Navigator 프로토콜
-│   │   ├── AnyNavigator.swift # 타입 지우기 래퍼
-│   │   └── NavMiddleware.swift # 미들웨어
-│   ├── InnoRouterSwiftUI/     # SwiftUI 통합
-│   │   ├── NavStore.swift     # @Observable 네비게이션 스토어
-│   │   ├── NavigationHost.swift # NavigationStack 통합
-│   │   ├── Coordinator.swift  # Coordinator 프로토콜
-│   │   ├── StepCoordinator.swift # 다단계 진행 상태
-│   │   ├── TabCoordinator.swift # 탭 네비게이션
-│   │   └── NavigatorEnvironment.swift # Environment 통합
-│   ├── InnoRouterDeepLink/    # 딥링크 처리
-│   │   ├── DeepLink.swift     # URL 파싱 및 매칭
-│   │   └── DeepLinkPipeline.swift # 딥링크 파이프라인
-│   ├── InnoRouterMacros/      # 매크로 선언
-│   │   ├── Macros.swift       # @Routable, @CasePathable
-│   │   └── CasePath.swift     # CasePath 타입
-│   ├── InnoRouterMacrosPlugin/ # 매크로 구현
-│   │   ├── RoutableMacro.swift
-│   │   └── CasePathableMacro.swift
-│   ├── InnoRouterEffects/     # Effect 스타일 헬퍼 (선택)
-│   └── InnoRouterUmbrella/    # 통합 모듈
-└── Tests/
-    ├── InnoRouterTests/       # 핵심 프레임워크 테스트
-    └── InnoRouterMacrosTests/ # 매크로 테스트
-```
+`Navigator`는 `NavigationStateReader & NavigationCommandExecutor`의 typealias다. Batch와 transaction이 필요한 generic 경계는 `NavigationBatchExecutor`, `NavigationTransactionExecutor`를 별도로 요구한다.
 
-## 네비게이션 흐름
+## 모듈 경계
 
-1. **Route 정의**: `Route` 프로토콜을 준수하는 enum 정의
-2. **NavStore 생성**: `NavStore<Route>`로 네비게이션 상태 관리
-3. **Command 실행**: `store.execute(.push(route))` 등으로 네비게이션 명령 실행
-4. **Middleware 처리**: 각 명령은 등록된 middleware를 거쳐 실행
-5. **State 업데이트**: `NavEngine`이 명령을 상태에 적용
-6. **View 갱신**: `@Observable`을 통해 SwiftUI 뷰 자동 갱신
+| 모듈 | 책임 |
+|---|---|
+| `InnoRouterCore` | `Route`, `RouteStack`, command/result/engine, middleware 계약, `FlowPlan` |
+| `InnoRouterSwiftUI` | stores, hosts, coordinator, environment intents, observation, platform scene 통합 |
+| `InnoRouterDeepLink` | matcher, 진단, push-only/flow pipeline과 pending plan |
+| `InnoRouter` | Core + SwiftUI + DeepLink를 재수출하는 앱 코드용 umbrella |
+| `InnoRouterNavigationEffects` | View 밖의 app boundary에서 command/batch/transaction 실행 |
+| `InnoRouterDeepLinkEffects` | 딥링크 결정 실행과 pending replay |
+| `InnoRouterEffects` | 두 effect 모듈의 호환 umbrella |
+| `InnoRouterMacros` | `@Routable`, `@CasePathable` 선언 |
+| `InnoRouterTesting` | host-less `NavigationTestStore`, `ModalTestStore`, `FlowTestStore` |
 
-## 핵심 타입
+`InnoRouter`는 macros와 effects를 재수출하지 않는다. `@Routable` 사용 파일은 `InnoRouterMacros`, app-boundary 실행 코드는 필요한 effect 모듈을 명시적으로 import한다.
 
-### Route
+Core에 SwiftUI 의존성을 추가하지 않는다. 한 target 안의 구현 세부사항은 기본적으로 `internal`, package target 사이에서만 공유해야 할 때는 `package`를 사용한다. 실제 소비자 계약만 `public`으로 선언하고 public API baseline을 함께 갱신한다.
+
+## Authority 선택
+
+| 요구사항 | 권장 surface |
+|---|---|
+| 하나의 typed push stack | `NavigationStore` + `NavigationHost` |
+| sheet/full-screen cover만 관리 | `ModalStore` + `ModalHost` |
+| push prefix와 modal tail을 하나의 경로로 관리 | `FlowStore` + `FlowHost` |
+| push-only URL planning | `DeepLinkMatcher` + `DeepLinkPipeline` |
+| push + modal URL planning | `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` |
+| View 밖에서 plan 실행 | navigation/deep-link effect handler |
+| host 없는 assertion | `InnoRouterTesting` |
+
+같은 사용자 흐름의 push와 modal을 독립 store 두 개로 수동 동기화하지 않는다. 단일 복원 경로와 관찰 순서가 필요하면 `FlowStore`를 authority로 둔다.
+
+## Route, Host, View Intent
+
 ```swift
-public protocol Route: Hashable, Sendable {}
-```
-- 네비게이션 대상을 나타내는 타입
-- `Hashable`과 `Sendable` 준수 필수
-- 일반적으로 enum으로 구현
+import SwiftUI
+import InnoRouter
+import InnoRouterMacros
 
-### NavStack
-```swift
-public struct NavStack<R: Route>: Sendable, Equatable {
-    public var path: [R]
+@Routable
+enum AppRoute {
+    case home
+    case detail(id: String)
+    case login
 }
-```
-- 현재 네비게이션 경로를 나타내는 상태
-- `path`는 스택 형태의 route 배열
 
-### NavCommand
-```swift
-public indirect enum NavCommand<R: Route>: Sendable, Equatable {
-    case push(R)
-    case pushAll([R])
-    case pop
-    case popCount(Int)
-    case popToRoot
-    case popTo(R)
-    case replace([R])
-    case conditional(@Sendable () -> Bool, NavCommand<R>)
-    case sequence([NavCommand<R>])
-}
-```
-- 네비게이션 액션을 표현하는 명령 타입
-- `conditional`과 `sequence`로 복잡한 흐름 구성 가능
+struct AppRoot: View {
+    @State private var store = NavigationStore<AppRoute>()
 
-### NavStore
-```swift
-@Observable
-@MainActor
-public final class NavStore<R: Route>: Navigator {
-    public var state: NavStack<R>
-    public func execute(_ command: NavCommand<R>) -> NavResult<R>
-}
-```
-- 네비게이션 상태를 관리하는 `@Observable` 클래스
-- `@MainActor`로 격리되어 UI 업데이트 보장
-- Middleware 지원
-
-## Coordinator 패턴
-
-### 기본 Coordinator
-```swift
-@MainActor
-public protocol Coordinator: AnyObject, Observable {
-    associatedtype RouteType: Route
-    associatedtype Destination: View
-    
-    var store: NavStore<RouteType> { get }
-    func handle(_ intent: NavIntent<RouteType>)
-    @ViewBuilder
-    func destination(for route: RouteType) -> Destination
-}
-```
-
-### Coordinator 사용 예시
-```swift
-@Observable
-@MainActor
-final class HomeCoordinator: Coordinator {
-    typealias RouteType = HomeRoute
-    typealias Destination = AnyView
-    
-    let store = NavStore<HomeRoute>()
-    
-    func handle(_ intent: NavIntent<HomeRoute>) {
-        switch intent {
-        case .go(let route):
-            _ = store.execute(.push(route))
-        case .back:
-            _ = store.execute(.pop)
-        case .resetTo(let routes):
-            _ = store.execute(.replace(routes))
-        case .deepLink(let url):
-            // Deep link 처리
-            break
-        }
+    var body: some View {
+        NavigationHost(store: store) { route in
+            switch route {
+            case .home: Text("Home")
+            case .detail(let id): Text("Detail \(id)")
+            case .login: Text("Login")
+            }
+        } root: { HomeView() }
     }
-    
-    @ViewBuilder
-    func destination(for route: HomeRoute) -> AnyView {
-        switch route {
-        case .detail(let id):
-            AnyView(DetailView(id: id))
-        default:
-            AnyView(EmptyView())
+}
+
+struct HomeView: View {
+    @EnvironmentNavigationIntent(AppRoute.self) private var navigationIntent
+
+    var body: some View {
+        Button("Detail") {
+            navigationIntent(.go(.detail(id: "123")))
         }
     }
 }
 ```
 
-## Deep Link 처리
+- `Route`는 `Hashable & Sendable`이다.
+- `@Routable`은 `Route` conformance와 typed case paths를 생성한다.
+- `@CasePathable`은 case paths만 생성하며 `Route`를 추가하지 않는다.
+- `RouteStack.path`는 외부에서 읽기 전용이다. `send`, `execute`, binding reconciliation을 통해 변경한다.
+- `NavigationHost`와 `CoordinatorHost`가 matching intent dispatcher를 environment에 설치한다.
 
-### DeepLinkMatcher
+## Intent와 Command
+
+View와 Coordinator의 의미 기반 요청에는 `NavigationIntent`를 사용한다. 현재 case는 `.go`, `.goMany`, `.back`, `.backBy`, `.backTo`, `.backToRoot`, `.replaceStack`, `.backOrPush`, `.pushUniqueRoot`다.
+
 ```swift
-let matcher = DeepLinkMatcher<HomeRoute> {
-    DeepLinkMapping("/home") { _ in .list }
-    DeepLinkMapping("/product/:id") { params in
-        params["id"].map { .detail(id: $0) }
-    }
-}
+store.send(.go(.home))
+store.send(.back)
+store.send(.replaceStack([.home]))
+store.send(.backOrPush(.home))
 ```
 
-### DeepLinkPipeline
+실행 결과를 분기하거나 command algebra가 필요한 정책/effect 경계에서는 `execute`를 사용한다.
+
 ```swift
-let pipeline = DeepLinkPipeline<HomeRoute>(
-    allowedSchemes: ["myapp", "https"],
-    allowedHosts: ["myapp.com"],
-    resolve: { matcher.match($0) },
-    requiresAuthentication: { route in
-        if case .settings = route { return true }
-        return false
-    },
-    isAuthenticated: { authManager.isLoggedIn },
-    plan: { route in NavPlan(commands: [.push(route)]) }
+let result = store.execute(
+    .whenCancelled(.popTo(.home), fallback: .push(.home))
 )
-```
 
-### DeepLinkDecision
-```swift
-public enum DeepLinkDecision<R: Route>: Sendable, Equatable {
-    case rejected      // 스킴/호스트 불일치
-    case unhandled     // 매칭되는 route 없음
-    case pending(PendingNav<R>)  // 인증 필요
-    case plan(NavPlan<R>)        // 실행 가능한 계획
+if result.isSuccess {
+    // committed
+} else if result.isMiddlewareCancellation {
+    // registered middleware veto
+} else if result.isEngineFailure {
+    // empty stack, invalid count, insufficient depth, or missing route
 }
 ```
+
+현재 `NavigationResult` 의미:
+
+- `.success`: 단일 command 성공
+- `.cancelled(reason)`: middleware, 조건, custom reason, stale async guard 취소
+- `.emptyStack`, `.invalidPopCount`, `.insufficientStackDepth`, `.routeNotFound`: engine rejection
+- `.multiple(results)`: 합성 command 결과. 비어 있지 않고 모든 child가 성공해야 `isSuccess == true`
+
+여러 command의 실행 의미를 섞지 않는다.
+
+- `.sequence`: 좌→우 비원자적 command 값, 결과는 `.multiple`
+- `executeBatch(_:stopOnFailure:)`: step 결과를 보존하는 `NavigationBatchResult`
+- `executeTransaction(_:)`: shadow state에서 검증하고 전부 성공할 때만 commit하는 `NavigationTransactionResult`
+
+동기 조건은 command를 만들기 전에 판단하거나 middleware/`NavigationEffectHandler.executeIf`에서 처리한다. `await`가 필요한 정책은 `executeGuarded`에서 준비한 뒤 현재 state에 다시 검증한다.
 
 ## Middleware
 
-### Middleware 구현
+Middleware는 command를 통과·rewrite·cancel하고, 실행 후 typed result를 반환한다.
+
 ```swift
-store.addMiddleware(
-    AnyNavMiddleware(
-        willExecute: { command, state in
-            // 예: 중복 연속 push 방지
-            if case .push(let next) = command, state.path.last == next {
-                return nil  // 취소
-            }
-            return command
-        },
-        didExecute: { command, result, state in
-            // 실행 후 로깅, 분석 등
-            analytics.logNavigation(command, result: result)
+let preventDuplicate = AnyNavigationMiddleware<AppRoute>(
+    willExecute: { command, state in
+        guard case .push(let route) = command,
+              state.path.last == route
+        else {
+            return .proceed(command)
         }
-    )
+        return .cancel(.custom("duplicate route"))
+    }
+)
+
+let configuration = NavigationStoreConfiguration<AppRoute>(
+    middlewares: [
+        .init(middleware: preventDuplicate, debugName: "preventDuplicate")
+    ]
 )
 ```
 
-**중요**: Middleware는 `sequence`의 각 단계마다 실행됩니다.
+- `willExecute`는 `NavigationInterception.proceed(command)` 또는 `.cancel(reason)`을 반환한다.
+- `didExecute`는 받은 `NavigationResult`를 반환하며 telemetry/후처리에 쓸 수 있다.
+- `.sequence`의 각 child도 middleware를 통과한다.
+- runtime 등록 변경은 handle 기반 add/insert/remove/replace/move API를 사용한다.
+- 네트워크나 actor hop이 필요한 검사는 동기 middleware 안에서 수행하지 않는다.
 
-## 매크로 확장
+## 5.0 Observation
 
-### @Routable
+Store별 동기 관찰 진입점은 하나의 typed `onEvent`다.
+
 ```swift
-@Routable
-enum HomeRoute {
-    case list
-    case detail(id: String)
-    case settings
-}
-```
-
-생성되는 것:
-- `Cases` enum: 각 case에 대한 `CasePath`
-- `is(_:)` 메서드: case 체크
-- `subscript[case:]`: associated value 추출
-- `Route` conformance 자동 추가
-
-### @CasePathable
-```swift
-@CasePathable
-enum Destination {
-    case home
-    case profile(userId: String)
-}
-```
-
-`@Routable`의 경량 버전. Route 프로토콜 없이 일반 enum에도 사용 가능.
-
-## Navigator Environment
-
-### @UseNavigator
-```swift
-struct HomeView: View {
-    @UseNavigator(HomeRoute.self) private var navigator
-    
-    var body: some View {
-        Button("Detail") {
-            navigator?.push(.detail(id: "123"))
+let configuration = NavigationStoreConfiguration<AppRoute>(
+    onEvent: { event in
+        switch event {
+        case .changed(let old, let new):
+            analytics.record(old.path, new.path)
+        case .batchExecuted, .transactionExecuted,
+             .middlewareMutation, .pathMismatch:
+            break
         }
     }
+)
+```
+
+- `NavigationEvent`, `ModalEvent`, `FlowEvent`가 각 store의 완전한 public observation enum이다.
+- `telemetrySink`와 `events: AsyncStream`은 같은 event 값을 같은 순서로 받는다.
+- `FlowEvent`는 flow-level 변경과 inner navigation/modal event wrapper를 함께 제공한다.
+- Test store는 전달받은 configuration을 복사하고 사용자 `onEvent`를 호출한 뒤 같은 값을 assertion queue에 넣는다.
+- callback은 동기다. Flow callback에서 후속 reset이 필요하면 `send(.reset(...))`을 사용한다. 동기 결과를 반환해야 하는 `FlowStore.apply`의 reentrant 호출은 state 변경 없이 rejected 결과를 반환한다.
+
+## Modal과 Flow
+
+- `ModalStore`는 active presentation과 queue를 소유한다. View 요청은 `ModalIntent.present` / `dismiss` / `dismissAll`로 보낸다.
+- `FlowStore.path`는 push prefix 뒤에 최대 하나의 modal tail만 허용한다. `FlowIntent`가 push와 modal 전이를 한 authority에서 처리한다.
+- 완전한 경로 교체는 `FlowPlan`을 `FlowStore.apply`에 전달한다. 결과는 `.applied(path:)` 또는 `.rejected(currentPath:)`다.
+- alert와 confirmation dialog는 feature/coordinator local state로 둔다.
+
+## Deep Link
+
+```swift
+let matcher = DeepLinkMatcher<AppRoute> {
+    DeepLinkMapping("/home") { _ in .home }
+    DeepLinkMapping("/products/:id") { parameters in
+        parameters.firstValue(forName: "id").map { .detail(id: $0) }
+    }
+}
+
+let pipeline = DeepLinkPipeline(
+    allowedSchemes: ["myapp"],
+    allowedHosts: ["app.example.com"],
+    resolve: { matcher.match($0) }
+)
+
+switch pipeline.decide(for: url) {
+case .plan(let plan):
+    _ = store.executeBatch(plan.commands, stopOnFailure: true)
+case .pending(let pending):
+    retainForAuthentication(pending)
+case .rejected(let reason):
+    record(reason)
+case .unhandled(let url):
+    record(url)
 }
 ```
 
-`NavigationHost` 또는 `CoordinatorHost`가 자동으로 environment에 주입합니다.
+- matcher/pipeline은 URL을 실행하지 않고 typed decision을 만든다.
+- `.rejected(reason:)`와 `.unhandled(url:)` payload를 버리지 않는다.
+- release gate에서 중복·shadowing pattern을 실패로 처리하려면 throwing strict matcher initializer를 사용한다.
+- 인증 후 replay와 application validation이 필요하면 `DeepLinkEffectHandler`를 app boundary에 둔다.
+- push + modal을 함께 복원하는 URL은 `FlowPlan` 기반 flow deep-link surface를 사용한다.
 
-## 네이밍 규칙
+## Coordinator
 
-- **Route**: 명확한 목적지 이름 (예: `HomeRoute`, `ProductRoute`)
-- **Coordinator**: `*Coordinator` 접미사 (예: `HomeCoordinator`)
-- **NavStore**: Coordinator 내부에서 `store`로 명명
-- **DeepLink**: `DeepLinkMatcher`, `DeepLinkPipeline` 사용
+`Coordinator`는 필수가 아니라 intent를 앱 정책으로 변환해야 할 때 사용한다. `@MainActor @Observable` coordinator가 concrete `NavigationStore<RouteType>`을 소유하고 `handle(_:)`와 `destination(for:)`를 구현한다. 기본 `handle`은 `store.send(intent)`이므로 정책이 없다면 override하지 않는다. Store 직접 사용으로 충분하면 `NavigationHost`를, 정책 라우팅·child handoff·app-shell 조정이 필요할 때만 `CoordinatorHost`를 선택한다.
 
-## 플랫폼 요구사항
+## 검증과 유지보수
 
-- iOS 18.0+ / macOS 15.0+ / tvOS 18.0+ / watchOS 11.0+
-- Swift 6.2+
-- Xcode 16.0+
-
-## 의존성
-
-- `swift-syntax` 602.0.0+ (매크로 구현용)
+- 요구사항: iOS/iPadOS 18+, macOS 15+, tvOS 18+, watchOS 11+, visionOS 2+, Swift 6.2+.
+- public API를 바꾸면 `Baselines/PublicAPI`와 CHANGELOG를 함께 갱신하고 public API gate를 실행한다.
+- 사용자 예제는 `Examples/`와 `ExamplesSmoke/`의 build parity를 유지한다.
+- execution semantics 변경에는 단일 command, batch, transaction, middleware cancellation, observation ordering 회귀 테스트를 추가한다.
+- 문서의 API 이름과 switch case는 현재 source declaration을 기준으로 검증한다.

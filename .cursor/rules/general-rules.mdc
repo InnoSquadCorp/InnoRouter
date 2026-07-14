@@ -18,20 +18,21 @@ Use the relevant rule files based on the development task at hand to ensure cons
 
 ## Project Overview
 
-InnoRouter is a SwiftUI-native navigation framework built around **state**, **unidirectional execution**, and **dependency inversion**. Navigation is expressed as data (`NavStack`, `NavCommand`) and rendered by SwiftUI. Features/Coordinators depend on `Navigator` (interface), not a concrete router/store. Deep links are handled as **plans** (`DeepLinkPipeline → DeepLinkDecision → NavPlan`) instead of ad-hoc `if/switch` chains.
+InnoRouter is a SwiftUI-native navigation framework built around **state**, **unidirectional execution**, and **dependency inversion**. Navigation is expressed as data (`RouteStack`, `NavigationCommand`) and rendered by SwiftUI. Domain helpers depend on focused execution contracts such as `Navigator`; SwiftUI views dispatch `NavigationIntent` through `EnvironmentNavigationIntent`. Deep links are handled as plans (`DeepLinkPipeline → DeepLinkDecision → NavigationPlan`) instead of ad-hoc `if/switch` chains.
 
 ## Core Concepts
 
-- **State-driven navigation**: Navigation state is represented as `NavStack<Route>` containing a path of routes
-- **Command-based execution**: Navigation actions are expressed as `NavCommand` (push, pop, replace, etc.)
-- **Middleware support**: Cross-cutting concerns (auth guard, logging, analytics) via `NavMiddleware`
+- **State-driven navigation**: `RouteStack<Route>` is the canonical stack snapshot
+- **Command-based execution**: `NavigationCommand` expresses push, pop, replace, sequence, and `whenCancelled` fallback behavior
+- **Middleware support**: Cross-cutting concerns use `NavigationMiddleware` / `AnyNavigationMiddleware`
 - **Coordinator pattern**: Centralized navigation policy with `Coordinator` protocol
-- **Deep link pipeline**: Structured deep link handling with `DeepLinkPipeline` and `DeepLinkMatcher`
-- **Dependency inversion**: Features depend on `Navigator` protocol, not concrete implementations
+- **Deep link pipeline**: `DeepLinkMatcher` resolves URLs and `DeepLinkPipeline` produces `NavigationPlan` values or `PendingDeepLink`
+- **Observation**: Store configurations expose one typed `onEvent` callback and stores expose the matching `events` stream
+- **Dependency inversion**: Non-UI features depend on focused protocols or type-erased adapters rather than a concrete store
 
 ## Development Commands
 
 - `swift build` - Build the package
 - `swift test` - Run all tests
 - `swift test --enable-code-coverage --parallel` - Run tests with code coverage
-- `swift test --filter InnoRouterTests.NavStoreTests.testPush` - Run a single test
+- `swift test --filter FlowStoreDelegationTests` - Run one suite

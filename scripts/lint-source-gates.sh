@@ -63,6 +63,13 @@ if rg -n "public .*\\bNav[A-Z]" Sources; then
   exit 1
 fi
 
+echo "[lint-source-gates] Checking active repository guidance for legacy APIs"
+if rg -n '\bNav[A-Z][[:alnum:]_]*\b|@UseNavigator\b|@EnvironmentNavigator\b|\bPendingNav\b|\.conditional[[:space:]]*\(|@unchecked[[:space:]]+Sendable|\b(onChange|onBatchExecuted|onTransactionExecuted|onMiddlewareMutation|onPathMismatch|onPresented|onDismissed|onReplaced|onQueueChanged|onCommandIntercepted|onPathChanged|onIntentRejected)[[:space:]]*:' \
+  .cursor/rules --glob '*.mdc'; then
+  echo "[lint-source-gates] Failed: active .cursor guidance references removed or unsafe APIs"
+  exit 1
+fi
+
 echo "[lint-source-gates] Checking deprecated/availability shims"
 if rg -n "deprecated|@available\\(" Sources --glob '*.swift' --glob '!Sources/InnoRouterSwiftUI/NavigationStore.swift'; then
   echo "[lint-source-gates] Failed: deprecated or availability shim found"
