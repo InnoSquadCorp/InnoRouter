@@ -255,6 +255,37 @@ struct RouterMacroTests {
         )
     }
 
+    @Test("Generic route spelling of the generated witness is diagnosed")
+    func genericDestinationFunctionConflict() throws {
+        assertMacroExpansion(
+            """
+            @Router
+            enum GenericDestination<Value: Hashable & Sendable> {
+                case detail(Value)
+                var destination: some View { DetailView(value: self) }
+                static func destination(for route: GenericDestination<Value>) -> some View { route.destination }
+            }
+            """,
+            expandedSource: """
+            enum GenericDestination<Value: Hashable & Sendable> {
+                case detail(Value)
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                var destination: some View { DetailView(value: self) }
+                static func destination(for route: GenericDestination<Value>) -> some View { route.destination }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E006] @Router generates `static destination(for:)`; remove the manual function or remove @Router and conform to DestinationRoute manually",
+                    line: 5,
+                    column: 5
+                )
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Non-conflicting destination overloads remain available")
     func destinationFunctionOverload() throws {
         assertMacroExpansion(

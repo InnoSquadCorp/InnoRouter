@@ -64,6 +64,22 @@ private enum OverloadedBehaviorRouterRoute {
     }
 }
 
+@Router
+private enum GenericOverloadedBehaviorRouterRoute<Value: Hashable & Sendable> {
+    case detail(Value)
+
+    var destination: some View {
+        Text("Detail")
+    }
+
+    static func destination(for route: GenericOverloadedBehaviorRouterRoute<Int>) -> String {
+        switch route {
+        case .detail(let value):
+            "Specialized \(value)"
+        }
+    }
+}
+
 @Suite("@Router behavior")
 struct RouterBehaviorTests {
     @Test("Generated destination witness composes with RouterHost")
@@ -115,6 +131,16 @@ struct RouterBehaviorTests {
     func destinationOverload() {
         #expect(OverloadedBehaviorRouterRoute.destination(for: 7) == "Style 7")
         _ = OverloadedBehaviorRouterRoute.destination(for: .settings)
+    }
+
+    @Test("Generic specializations remain valid destination overloads")
+    @MainActor
+    func genericDestinationOverload() {
+        let route = GenericOverloadedBehaviorRouterRoute<Int>.detail(7)
+        let output = GenericOverloadedBehaviorRouterRoute<String>.destination(for: route)
+
+        #expect(output == "Specialized 7")
+        _ = GenericOverloadedBehaviorRouterRoute<String>.destination(for: .detail("42"))
     }
 }
 

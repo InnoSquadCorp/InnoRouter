@@ -161,8 +161,34 @@ private func conflictsWithGeneratedDestination(
         return false
     }
 
-    let parameterType = parameter.type.trimmedDescription.filter { !$0.isWhitespace }
-    return parameterType == "Self" || parameterType == enumDecl.name.text
+    return conflictsWithGeneratedDestinationParameter(parameter.type, in: enumDecl)
+}
+
+private func conflictsWithGeneratedDestinationParameter(
+    _ type: TypeSyntax,
+    in enumDecl: EnumDeclSyntax
+) -> Bool {
+    if type.trimmedDescription == "Self" {
+        return true
+    }
+
+    guard let identifier = type.as(IdentifierTypeSyntax.self),
+          identifier.name.text == enumDecl.name.text else {
+        return false
+    }
+
+    guard let arguments = identifier.genericArgumentClause?.arguments else {
+        return true
+    }
+
+    let parameters = enumDecl.genericParameterClause?.parameters.map(\.name.text) ?? []
+    guard arguments.count == parameters.count else {
+        return false
+    }
+
+    return zip(arguments, parameters).allSatisfy { argument, parameter in
+        argument.argument.trimmedDescription == parameter
+    }
 }
 
 private func validateDestination(_ variable: VariableDeclSyntax) -> String? {
