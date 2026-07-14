@@ -835,8 +835,9 @@ SwiftUI `NavigationStack(path:)` 업데이트는 시맨틱 command로 다시 매
 ### Umbrella `DeepLinkCoordinating`
 
 `DeepLinkCoordinating`을 채택한 coordinator는 `DeepLinkCoordinationOutcome<Route>`를 통해
-동일한 typed-결과 surface를 얻습니다. Pipeline 거부(`rejected`, `unhandled`)와 resume
-상태(`pending`, `executed`, `noPendingDeepLink`)는 stack 상태를 들여다보지 않고 모두 관찰 가능합니다.
+동일한 typed-결과 surface를 얻습니다. Pipeline 거부(`rejected`, `unhandled`), 실행 결과
+(`executed`, `executionFailed`), resume 상태(`pending`, `noPendingDeepLink`)는 stack 상태를
+들여다보지 않고 모두 관찰 가능합니다.
 
 - `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`
 - `resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Route>`

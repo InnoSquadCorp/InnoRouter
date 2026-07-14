@@ -14,6 +14,7 @@ import InnoRouterDeepLink
 public final class DeepLinkEffectHandler<R: Route> {
     public enum Result: Sendable, Equatable {
         case executed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>)
+        case executionFailed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>)
         case applicationRejected(plan: NavigationPlan<R>, failure: NavigationPlanValidationFailure<R>)
         case pending(PendingDeepLink<R>)
         case rejected(reason: DeepLinkRejectionReason)
@@ -117,7 +118,9 @@ public final class DeepLinkEffectHandler<R: Route> {
             return .applicationRejected(plan: plan, failure: failure)
         }
         let batch = navigationHandler.execute(plan.commands)
-        return .executed(plan: plan, batch: batch)
+        return batch.isSuccess
+            ? .executed(plan: plan, batch: batch)
+            : .executionFailed(plan: plan, batch: batch)
     }
 
     private func canResume(_ pendingDeepLink: PendingDeepLink<R>) -> Bool {

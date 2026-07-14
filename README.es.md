@@ -881,8 +881,8 @@ API clave:
 
 Los coordinators que adoptan `DeepLinkCoordinating` obtienen la misma superficie
 de resultados tipados a través de `DeepLinkCoordinationOutcome<Route>`. Las
-negativas del pipeline (`rejected`, `unhandled`) y los estados de reanudación
-(`pending`, `executed`, `noPendingDeepLink`) son todos observables sin
+negativas del pipeline (`rejected`, `unhandled`), los resultados de ejecución
+(`executed`, `executionFailed`) y los estados de reanudación (`pending`, `noPendingDeepLink`) son observables sin
 inspeccionar el estado del stack.
 
 - `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`

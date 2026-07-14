@@ -887,8 +887,8 @@ SwiftUI の `NavigationStack(path:)` 更新は意味的なコマンドにマッ�
 
 `DeepLinkCoordinating` を採用したコーディネーターは
 `DeepLinkCoordinationOutcome<Route>` を介して同じ型付き結果 surface を取得
-します。パイプラインの拒否(`rejected`、`unhandled`)と再開状態(`pending`、
-`executed`、`noPendingDeepLink`)はすべて、スタック状態を覗き込むことなく
+します。パイプラインの拒否(`rejected`、`unhandled`)、実行結果(`executed`、
+`executionFailed`)、再開状態(`pending`、`noPendingDeepLink`)はすべて、スタック状態を覗き込むことなく
 観察可能です。
 
 - `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`

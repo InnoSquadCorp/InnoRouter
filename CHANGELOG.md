@@ -8,6 +8,13 @@ are bare semver (no leading `v`).
 
 ### Breaking
 
+- Push-only deep-link outcomes add
+  `.executionFailed(plan:batch:)`. `DeepLinkEffectHandler` and
+  `DeepLinkCoordinating` now reserve `.executed` for batches whose commands all
+  succeed; middleware cancellation or a runtime command failure returns the
+  new case with any partial state and per-command results. Update exhaustive
+  switches to handle `.executionFailed`. Preflight failures remain
+  `.applicationRejected` and do not execute the batch.
 - `NavigationEffectHandler` now exposes only result-bearing command, batch,
   transaction, and guarded execution methods. The result-discarding `push`,
   `pop`, `popToRoot`, and `replace(with:)` wrappers are removed; call

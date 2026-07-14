@@ -3,6 +3,7 @@ relationship | memberOf | DeepLinkAuthenticationPolicy.notRequired | DeepLinkAut
 relationship | memberOf | DeepLinkAuthenticationPolicy.required(shouldRequireAuthentication:isAuthenticated:) | DeepLinkAuthenticationPolicy |  |
 relationship | memberOf | DeepLinkCoordinationOutcome.applicationRejected(plan:failure:) | DeepLinkCoordinationOutcome |  |
 relationship | memberOf | DeepLinkCoordinationOutcome.executed(plan:batch:) | DeepLinkCoordinationOutcome |  |
+relationship | memberOf | DeepLinkCoordinationOutcome.executionFailed(plan:batch:) | DeepLinkCoordinationOutcome |  |
 relationship | memberOf | DeepLinkCoordinationOutcome.noPendingDeepLink | DeepLinkCoordinationOutcome |  |
 relationship | memberOf | DeepLinkCoordinationOutcome.pending(_:) | DeepLinkCoordinationOutcome |  |
 relationship | memberOf | DeepLinkCoordinationOutcome.rejected(reason:) | DeepLinkCoordinationOutcome |  |
@@ -97,6 +98,7 @@ symbol | swift.enum.case | DeepLinkAuthenticationPolicy.notRequired | DeepLinkAu
 symbol | swift.enum.case | DeepLinkAuthenticationPolicy.required(shouldRequireAuthentication:isAuthenticated:) | DeepLinkAuthenticationPolicy.required(shouldRequireAuthentication:isAuthenticated:) | case required(shouldRequireAuthentication: (R) -> Bool, isAuthenticated: () -> Bool) | []
 symbol | swift.enum.case | DeepLinkCoordinationOutcome.applicationRejected(plan:failure:) | DeepLinkCoordinationOutcome.applicationRejected(plan:failure:) | case applicationRejected(plan: NavigationPlan<R>, failure: NavigationPlanValidationFailure<R>) | []
 symbol | swift.enum.case | DeepLinkCoordinationOutcome.executed(plan:batch:) | DeepLinkCoordinationOutcome.executed(plan:batch:) | case executed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>) | []
+symbol | swift.enum.case | DeepLinkCoordinationOutcome.executionFailed(plan:batch:) | DeepLinkCoordinationOutcome.executionFailed(plan:batch:) | case executionFailed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>) | []
 symbol | swift.enum.case | DeepLinkCoordinationOutcome.noPendingDeepLink | DeepLinkCoordinationOutcome.noPendingDeepLink | case noPendingDeepLink | []
 symbol | swift.enum.case | DeepLinkCoordinationOutcome.pending(_:) | DeepLinkCoordinationOutcome.pending(_:) | case pending(PendingDeepLink<R>) | []
 symbol | swift.enum.case | DeepLinkCoordinationOutcome.rejected(reason:) | DeepLinkCoordinationOutcome.rejected(reason:) | case rejected(reason: DeepLinkRejectionReason) | []

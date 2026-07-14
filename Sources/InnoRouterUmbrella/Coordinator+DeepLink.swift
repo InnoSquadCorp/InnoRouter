@@ -17,6 +17,9 @@ public extension DeepLinkCoordinating {
     ///   applied to `store` via `executeBatch`. The per-command batch result
     ///   is surfaced so callers can feed analytics/logging without peeking at
     ///   stack state.
+    /// - `executionFailed` is returned when batch execution was attempted but
+    ///   at least one command failed or was cancelled. Earlier commands may
+    ///   already have changed the stack.
     /// - `pending` is returned when the pipeline defers execution pending
     ///   authentication; the value is also stored on `pendingDeepLink`.
     /// - `rejected` / `unhandled` surface pipeline refusals that were
@@ -37,11 +40,7 @@ public extension DeepLinkCoordinating {
 
         case .plan(let plan):
             pendingDeepLink = nil
-            if let failure = plan.validationFailure(on: store.state) {
-                return .applicationRejected(plan: plan, failure: failure)
-            }
-            let batch = store.executeBatch(plan.commands)
-            return .executed(plan: plan, batch: batch)
+            return executeDeepLinkPlan(plan)
         }
     }
 
@@ -51,6 +50,9 @@ public extension DeepLinkCoordinating {
     /// - `pending`: authentication is still required; the pending deep link
     ///   remains stored.
     /// - `executed`: the stored plan was applied.
+    /// - `executionFailed`: batch execution was attempted but did not fully
+    ///   succeed; the pending slot remains consumed to avoid replaying any
+    ///   commands that already changed state.
     @discardableResult
     func resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<RouteType> {
         guard let pendingDeepLink else { return .noPendingDeepLink }
@@ -60,11 +62,7 @@ public extension DeepLinkCoordinating {
 
         // Safe to clear first: we iterate on the local `pendingDeepLink` constant, not the stored property.
         self.pendingDeepLink = nil
-        if let failure = pendingDeepLink.plan.validationFailure(on: store.state) {
-            return .applicationRejected(plan: pendingDeepLink.plan, failure: failure)
-        }
-        let batch = store.executeBatch(pendingDeepLink.plan.commands)
-        return .executed(plan: pendingDeepLink.plan, batch: batch)
+        return executeDeepLinkPlan(pendingDeepLink.plan)
     }
 
     /// Async guard that authorizes the captured pending deep link before
@@ -120,5 +118,17 @@ public extension DeepLinkCoordinating {
         }
 
         return resumePendingDeepLinkIfPossible()
+    }
+
+    private func executeDeepLinkPlan(
+        _ plan: NavigationPlan<RouteType>
+    ) -> DeepLinkCoordinationOutcome<RouteType> {
+        if let failure = plan.validationFailure(on: store.state) {
+            return .applicationRejected(plan: plan, failure: failure)
+        }
+        let batch = store.executeBatch(plan.commands)
+        return batch.isSuccess
+            ? .executed(plan: plan, batch: batch)
+            : .executionFailed(plan: plan, batch: batch)
     }
 }

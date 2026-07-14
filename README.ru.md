@@ -899,8 +899,8 @@ Middleware не может напрямую мутировать состоян�
 Coordinators, которые принимают `DeepLinkCoordinating`, получают ту же
 поверхность типизированных результатов через
 `DeepLinkCoordinationOutcome<Route>`. Отказы pipeline (`rejected`,
-`unhandled`) и состояния возобновления (`pending`, `executed`,
-`noPendingDeepLink`) все наблюдаемы без подсматривания состояния стека.
+`unhandled`), результаты выполнения (`executed`, `executionFailed`) и состояния
+возобновления (`pending`, `noPendingDeepLink`) наблюдаемы без подсматривания состояния стека.
 
 - `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`
 - `resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Route>`

@@ -2,6 +2,7 @@
 relationship | memberOf | DeepLinkEffectHandler.Result | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.Result.applicationRejected(plan:failure:) | DeepLinkEffectHandler.Result |  |
 relationship | memberOf | DeepLinkEffectHandler.Result.executed(plan:batch:) | DeepLinkEffectHandler.Result |  |
+relationship | memberOf | DeepLinkEffectHandler.Result.executionFailed(plan:batch:) | DeepLinkEffectHandler.Result |  |
 relationship | memberOf | DeepLinkEffectHandler.Result.invalidURL(input:) | DeepLinkEffectHandler.Result |  |
 relationship | memberOf | DeepLinkEffectHandler.Result.missingDeepLinkURL | DeepLinkEffectHandler.Result |  |
 relationship | memberOf | DeepLinkEffectHandler.Result.noPendingDeepLink | DeepLinkEffectHandler.Result |  |
@@ -55,6 +56,7 @@ symbol | swift.enum | FlowDeepLinkEffectHandler.Result | FlowDeepLinkEffectHandl
 symbol | swift.enum | NavigationEffectHandlerEvent | NavigationEffectHandlerEvent | enum NavigationEffectHandlerEvent<R> where R : Route | []
 symbol | swift.enum.case | DeepLinkEffectHandler.Result.applicationRejected(plan:failure:) | DeepLinkEffectHandler.Result.applicationRejected(plan:failure:) | case applicationRejected(plan: NavigationPlan<R>, failure: NavigationPlanValidationFailure<R>) | []
 symbol | swift.enum.case | DeepLinkEffectHandler.Result.executed(plan:batch:) | DeepLinkEffectHandler.Result.executed(plan:batch:) | case executed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>) | []
+symbol | swift.enum.case | DeepLinkEffectHandler.Result.executionFailed(plan:batch:) | DeepLinkEffectHandler.Result.executionFailed(plan:batch:) | case executionFailed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>) | []
 symbol | swift.enum.case | DeepLinkEffectHandler.Result.invalidURL(input:) | DeepLinkEffectHandler.Result.invalidURL(input:) | case invalidURL(input: String) | []
 symbol | swift.enum.case | DeepLinkEffectHandler.Result.missingDeepLinkURL | DeepLinkEffectHandler.Result.missingDeepLinkURL | case missingDeepLinkURL | []
 symbol | swift.enum.case | DeepLinkEffectHandler.Result.noPendingDeepLink | DeepLinkEffectHandler.Result.noPendingDeepLink | case noPendingDeepLink | []

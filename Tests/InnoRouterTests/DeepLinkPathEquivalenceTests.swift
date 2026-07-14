@@ -231,7 +231,7 @@ struct DeepLinkPathEquivalenceTests {
             configuration: umbrellaRecorder.configuration(cancelPredicate: cancelPredicate),
             deepLinkPipeline: Self.pipeline()
         )
-        umbrella.handleDeepLink(Self.url)
+        let umbrellaOutcome = umbrella.handleDeepLink(Self.url)
 
         let effectsRecorder = ExecutionRecorder()
         let effectsStore = NavigationStore<TestRoute>(
@@ -242,14 +242,29 @@ struct DeepLinkPathEquivalenceTests {
             matcher: Self.matcher(),
             plan: { _ in NavigationPlan(commands: Self.planCommands) }
         )
-        _ = handler.handle(Self.url)
+        let effectsOutcome = handler.handle(Self.url)
+
+        guard case .executionFailed(let umbrellaPlan, let umbrellaOutcomeBatch) = umbrellaOutcome else {
+            Issue.record("Expected Umbrella .executionFailed, got \(umbrellaOutcome)")
+            return
+        }
+        guard case .executionFailed(let effectsPlan, let effectsOutcomeBatch) = effectsOutcome else {
+            Issue.record("Expected Effects .executionFailed, got \(effectsOutcome)")
+            return
+        }
 
         #expect(umbrellaRecorder.batchResults.count == 1)
         #expect(effectsRecorder.batchResults.count == 1)
 
         let umbrellaBatch = umbrellaRecorder.batchResults[0]
         let effectsBatch = effectsRecorder.batchResults[0]
+        #expect(umbrellaPlan.commands == Self.planCommands)
+        #expect(effectsPlan.commands == Self.planCommands)
+        #expect(umbrellaOutcomeBatch == umbrellaBatch)
+        #expect(effectsOutcomeBatch == effectsBatch)
         #expect(umbrellaBatch.results == effectsBatch.results)
+        #expect(umbrellaBatch.results == [.success, .cancelled(.custom("test-cancel")), .success])
+        #expect(umbrellaBatch.isSuccess == false)
         #expect(umbrellaBatch.executedCommands == effectsBatch.executedCommands)
         #expect(umbrella.store.state.path == effectsStore.state.path)
         #expect(umbrella.store.state.path == [.home, .settings])

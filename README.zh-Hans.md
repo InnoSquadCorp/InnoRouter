@@ -816,8 +816,8 @@ SwiftUI `NavigationStack(path:)` 更新被映射回语义命令。
 
 采用 `DeepLinkCoordinating` 的 coordinator 通过
 `DeepLinkCoordinationOutcome<Route>` 获得相同的类型化结果表面。Pipeline
-拒绝(`rejected`、`unhandled`)和恢复状态(`pending`、`executed`、
-`noPendingDeepLink`)都可观察,无需窥视栈状态。
+拒绝(`rejected`、`unhandled`)、执行结果(`executed`、`executionFailed`)和恢复状态
+(`pending`、`noPendingDeepLink`)都可观察,无需窥视栈状态。
 
 - `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`
 - `resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Route>`

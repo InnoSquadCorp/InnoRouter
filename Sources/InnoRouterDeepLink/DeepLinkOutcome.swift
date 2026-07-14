@@ -11,13 +11,16 @@ import InnoRouterCore
 /// fine-grained `DeepLinkDecision`, so the Umbrella surface now mirrors those
 /// possibilities plus the resume-specific case (`noPendingDeepLink`).
 ///
-/// The five common cases share payload types with
+/// The six common cases share payload types with
 /// `DeepLinkEffectHandler.Result`, so callers that migrate between Effects and
 /// Umbrella deal with the same `PendingDeepLink`, `NavigationPlan`,
 /// `NavigationBatchResult`, and `DeepLinkRejectionReason` values.
 public enum DeepLinkCoordinationOutcome<R: Route>: Sendable, Equatable {
-    /// The plan ran. `batch` carries per-command results for observability.
+    /// Every command in the plan completed successfully.
     case executed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>)
+    /// The plan reached batch execution, but at least one command failed or
+    /// was cancelled. The batch may contain partial state changes.
+    case executionFailed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>)
     /// The URL produced a plan, but the current navigation state cannot
     /// execute it without failing.
     case applicationRejected(plan: NavigationPlan<R>, failure: NavigationPlanValidationFailure<R>)

@@ -117,7 +117,9 @@ The typed outcome from `DeepLinkEffectHandler` / `FlowDeepLinkEffectHandler`:
 
 | Case | Meaning |
 |---|---|
-| `.executed(plan:batch:)` | Plan ran to completion; per-command results in `batch` |
+| `.executed(plan:batch:)` | Every command in the plan succeeded; per-command results remain available in `batch` |
+| `.executionFailed(plan:batch:)` | Batch execution was attempted, but at least one command failed or was cancelled; inspect `batch.stateAfter` for partial changes |
+| `.applicationRejected(plan:failure:)` | Preflight rejected the plan before batch execution, so navigation state is unchanged |
 | `.pending(_)` | Authorisation deferred; plan stored as `pendingDeepLink` for later replay |
 | `.rejected(reason:)` | URL rejected by scheme/host policy — see `DeepLinkRejectionReason` above |
 | `.unhandled(url:)` | URL did not resolve to any route |
@@ -170,10 +172,18 @@ let outcome = await deepLinkHandler.handle(url)
 switch outcome {
 case .executed, .pending, .noPendingDeepLink:
     break
+case .executionFailed(_, let batch):
+    analytics.record("deeplink-execution-failed", results: batch.results)
+case .applicationRejected(_, let failure):
+    analytics.record("deeplink-application-rejected", result: failure.result)
 case .rejected(let reason):
     analytics.record("deeplink-reject", reason: reason)
 case .unhandled(let url):
     analytics.record("deeplink-unhandled", url: url)
+case .invalidURL(let input):
+    analytics.record("deeplink-invalid-url", input: input)
+case .missingDeepLinkURL:
+    analytics.record("deeplink-missing-url")
 }
 ```
 

@@ -890,8 +890,9 @@ Key API:
 
 Coordinators that adopt `DeepLinkCoordinating` get the same typed-outcome
 surface through `DeepLinkCoordinationOutcome<Route>`. Pipeline refusals
-(`rejected`, `unhandled`) and resume states (`pending`, `executed`,
-`noPendingDeepLink`) are all observable without peeking at stack state.
+(`rejected`, `unhandled`), execution outcomes (`executed`, `executionFailed`),
+and resume states (`pending`, `noPendingDeepLink`) are all observable without
+peeking at stack state.
 
 - `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`
 - `resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Route>`

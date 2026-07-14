@@ -871,8 +871,8 @@ Schlüssel-API:
 
 Coordinators, die `DeepLinkCoordinating` adoptieren, erhalten dieselbe
 typisierte Ergebnis-Oberfläche durch `DeepLinkCoordinationOutcome<Route>`.
-Pipeline-Ablehnungen (`rejected`, `unhandled`) und Resume-Zustände
-(`pending`, `executed`, `noPendingDeepLink`) sind alle beobachtbar, ohne
+Pipeline-Ablehnungen (`rejected`, `unhandled`), Ausführungsergebnisse
+(`executed`, `executionFailed`) und Resume-Zustände (`pending`, `noPendingDeepLink`) sind alle beobachtbar, ohne
 in den Stack-Zustand hineinzuschauen.
 
 - `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`

@@ -77,6 +77,8 @@ func handle(_ url: URL) {
     switch effectHandler.handle(url) {
     case .executed:
         break // The validated NavigationPlan has already been applied.
+    case .executionFailed(_, let batch):
+        Log.warning("deep-link batch failed after \(batch.executedCommands.count) commands")
     case .pending:
         _ = store.execute(.push(.signIn))
     case .applicationRejected(_, let failure):
