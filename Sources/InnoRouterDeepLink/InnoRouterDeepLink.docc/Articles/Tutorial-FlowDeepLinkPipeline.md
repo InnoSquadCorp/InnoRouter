@@ -31,23 +31,23 @@ enum AppRoute: Route {
 
 ## Defining the matcher
 
-`FlowDeepLinkMapping` handlers return a **complete** `FlowPlan` so
-multi-segment URLs expand atomically. Pattern syntax matches
-`DeepLinkMapping`: `:parameter` for captures, terminal `*` wildcard,
+`DeepLinkMapping` handlers return a **complete** `FlowPlan` so
+multi-segment URLs expand atomically. The shared pattern syntax uses
+`:parameter` for captures, terminal `*` wildcard,
 path-only (host and scheme are filtered separately by the pipeline).
 Non-terminal wildcards such as `/store/*/receipt` are invalid and
 surface diagnostics instead of matching.
 
 ```swift skip doc-fragment
-let matcher = FlowDeepLinkMatcher<AppRoute> {
-    FlowDeepLinkMapping("/home") { _ in
+let matcher = DeepLinkMatcher<FlowPlan<AppRoute>> {
+    DeepLinkMapping("/home") { _ in
         FlowPlan(steps: [.push(.home)])
     }
-    FlowDeepLinkMapping("/home/detail/:id") { params in
+    DeepLinkMapping("/home/detail/:id") { params in
         guard let id = params.firstValue(forName: "id") else { return nil }
         return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
     }
-    FlowDeepLinkMapping("/home/detail/:id/comments/:cid") { params in
+    DeepLinkMapping("/home/detail/:id/comments/:cid") { params in
         guard let id = params.firstValue(forName: "id"),
               let cid = params.firstValue(forName: "cid") else { return nil }
         return FlowPlan(steps: [
@@ -56,10 +56,10 @@ let matcher = FlowDeepLinkMatcher<AppRoute> {
             .push(.comments(id: cid))
         ])
     }
-    FlowDeepLinkMapping("/onboarding/privacy") { _ in
+    DeepLinkMapping("/onboarding/privacy") { _ in
         FlowPlan(steps: [.sheet(.privacyPolicy)])
     }
-    FlowDeepLinkMapping("/secure") { _ in
+    DeepLinkMapping("/secure") { _ in
         FlowPlan(steps: [.push(.secure)])
     }
 }
@@ -128,14 +128,14 @@ private final class DeepLinkCoordinator {
         let flow = FlowStore<AppRoute>()
         self.flow = flow
 
-        let matcher = FlowDeepLinkMatcher<AppRoute> {
-            FlowDeepLinkMapping("/home") { _ in
+        let matcher = DeepLinkMatcher<FlowPlan<AppRoute>> {
+            DeepLinkMapping("/home") { _ in
                 FlowPlan(steps: [.push(.home)])
             }
-            FlowDeepLinkMapping("/onboarding/privacy") { _ in
+            DeepLinkMapping("/onboarding/privacy") { _ in
                 FlowPlan(steps: [.sheet(.privacyPolicy)])
             }
-            FlowDeepLinkMapping("/secure") { _ in
+            DeepLinkMapping("/secure") { _ in
                 FlowPlan(steps: [.push(.secure)])
             }
         }

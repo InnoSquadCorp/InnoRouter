@@ -45,7 +45,7 @@ Core에 SwiftUI 의존성을 추가하지 않는다. 한 target 안의 구현 �
 | sheet/full-screen cover만 관리 | `ModalStore` + `ModalHost` |
 | push prefix와 modal tail을 하나의 경로로 관리 | `FlowStore` + `FlowHost` |
 | push-only URL planning | `DeepLinkMatcher` + `DeepLinkPipeline` |
-| push + modal URL planning | `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` |
+| push + modal URL planning | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
 | View 밖에서 plan 실행 | navigation/deep-link effect handler |
 | host 없는 assertion | `InnoRouterTesting` |
 

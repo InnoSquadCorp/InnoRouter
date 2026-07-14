@@ -31,7 +31,6 @@ relationship | memberOf | DeepLinkMappingBuilder.buildExpression(_:) | DeepLinkM
 relationship | memberOf | DeepLinkMappingBuilder.buildOptional(_:) | DeepLinkMappingBuilder |  |
 relationship | memberOf | DeepLinkMatcher.diagnostics | DeepLinkMatcher |  |
 relationship | memberOf | DeepLinkMatcher.init(configuration:mappings:) | DeepLinkMatcher |  |
-relationship | memberOf | DeepLinkMatcher.init(mappings:) | DeepLinkMatcher |  |
 relationship | memberOf | DeepLinkMatcher.init(strict:logger:inputLimits:mappings:) | DeepLinkMatcher |  |
 relationship | memberOf | DeepLinkMatcher.match(_:) | DeepLinkMatcher |  |
 relationship | memberOf | DeepLinkMatcherConfiguration.default | DeepLinkMatcherConfiguration |  |
@@ -73,18 +72,6 @@ relationship | memberOf | FlowDeepLinkDecision.flowPlan(_:) | FlowDeepLinkDecisi
 relationship | memberOf | FlowDeepLinkDecision.pending(_:) | FlowDeepLinkDecision |  |
 relationship | memberOf | FlowDeepLinkDecision.rejected(reason:) | FlowDeepLinkDecision |  |
 relationship | memberOf | FlowDeepLinkDecision.unhandled(url:) | FlowDeepLinkDecision |  |
-relationship | memberOf | FlowDeepLinkMapping.init(_:handler:) | FlowDeepLinkMapping |  |
-relationship | memberOf | FlowDeepLinkMappingBuilder.buildArray(_:) | FlowDeepLinkMappingBuilder |  |
-relationship | memberOf | FlowDeepLinkMappingBuilder.buildBlock(_:) | FlowDeepLinkMappingBuilder |  |
-relationship | memberOf | FlowDeepLinkMappingBuilder.buildEither(first:) | FlowDeepLinkMappingBuilder |  |
-relationship | memberOf | FlowDeepLinkMappingBuilder.buildEither(second:) | FlowDeepLinkMappingBuilder |  |
-relationship | memberOf | FlowDeepLinkMappingBuilder.buildExpression(_:) | FlowDeepLinkMappingBuilder |  |
-relationship | memberOf | FlowDeepLinkMappingBuilder.buildOptional(_:) | FlowDeepLinkMappingBuilder |  |
-relationship | memberOf | FlowDeepLinkMatcher.diagnostics | FlowDeepLinkMatcher |  |
-relationship | memberOf | FlowDeepLinkMatcher.init(configuration:mappings:) | FlowDeepLinkMatcher |  |
-relationship | memberOf | FlowDeepLinkMatcher.init(mappings:) | FlowDeepLinkMatcher |  |
-relationship | memberOf | FlowDeepLinkMatcher.init(strict:logger:inputLimits:mappings:) | FlowDeepLinkMatcher |  |
-relationship | memberOf | FlowDeepLinkMatcher.match(_:) | FlowDeepLinkMatcher |  |
 relationship | memberOf | FlowDeepLinkPipeline.allowedHosts | FlowDeepLinkPipeline |  |
 relationship | memberOf | FlowDeepLinkPipeline.allowedSchemes | FlowDeepLinkPipeline |  |
 relationship | memberOf | FlowDeepLinkPipeline.authenticationPolicy | FlowDeepLinkPipeline |  |
@@ -150,36 +137,26 @@ symbol | swift.enum.case | FlowDeepLinkDecision.pending(_:) | FlowDeepLinkDecisi
 symbol | swift.enum.case | FlowDeepLinkDecision.rejected(reason:) | FlowDeepLinkDecision.rejected(reason:) | case rejected(reason: DeepLinkRejectionReason) | []
 symbol | swift.enum.case | FlowDeepLinkDecision.unhandled(url:) | FlowDeepLinkDecision.unhandled(url:) | case unhandled(url: URL) | []
 symbol | swift.init | DeepLinkInputLimits.init(maxURLLength:maxPathSegments:maxQueryItems:) | init(maxURLLength:maxPathSegments:maxQueryItems:) | init(maxURLLength: Int? = 8_192, maxPathSegments: Int? = 128, maxQueryItems: Int? = 256) | []
-symbol | swift.init | DeepLinkMapping.init(_:handler:) | init(_:handler:) | init(_ pattern: String, handler: @escaping (DeepLinkParameters) -> R?) | []
-symbol | swift.init | DeepLinkMatcher.init(configuration:mappings:) | init(configuration:mappings:) | init(configuration: DeepLinkMatcherConfiguration = .default, @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]) | []
-symbol | swift.init | DeepLinkMatcher.init(mappings:) | init(mappings:) | init(@DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]) | []
-symbol | swift.init | DeepLinkMatcher.init(strict:logger:inputLimits:mappings:) | init(strict:logger:inputLimits:mappings:) | init(strict: Void = (), logger: Logger? = nil, inputLimits: DeepLinkInputLimits = .default, @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]) throws | []
+symbol | swift.init | DeepLinkMapping.init(_:handler:) | init(_:handler:) | init(_ pattern: String, handler: @escaping (DeepLinkParameters) -> Output?) | []
+symbol | swift.init | DeepLinkMatcher.init(configuration:mappings:) | init(configuration:mappings:) | init(configuration: DeepLinkMatcherConfiguration = .default, @DeepLinkMappingBuilder<Output> mappings: () -> [DeepLinkMapping<Output>]) | []
+symbol | swift.init | DeepLinkMatcher.init(strict:logger:inputLimits:mappings:) | init(strict:logger:inputLimits:mappings:) | init(strict: Void = (), logger: Logger? = nil, inputLimits: DeepLinkInputLimits = .default, @DeepLinkMappingBuilder<Output> mappings: () -> [DeepLinkMapping<Output>]) throws | []
 symbol | swift.init | DeepLinkMatcherConfiguration.init(diagnosticsMode:logger:inputLimits:) | init(diagnosticsMode:logger:inputLimits:) | init(diagnosticsMode: DeepLinkMatcherDiagnosticsMode, logger: Logger? = nil, inputLimits: DeepLinkInputLimits = .default) | []
 symbol | swift.init | DeepLinkParameters.init(valuesByName:) | init(valuesByName:) | init(valuesByName: [String : [String]] = [:]) | []
 symbol | swift.init | DeepLinkPipeline.init(allowedSchemes:allowedHosts:resolve:authenticationPolicy:inputLimits:plan:) | init(allowedSchemes:allowedHosts:resolve:authenticationPolicy:inputLimits:plan:) | init(allowedSchemes: Set<String>? = nil, allowedHosts: Set<String>? = nil, resolve: @escaping DeepLinkPipeline<R>.Resolver, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, inputLimits: DeepLinkInputLimits = .default, plan: @escaping DeepLinkPipeline<R>.Planner = { route in NavigationPlan(commands: [.push(route)]) }) | []
-symbol | swift.init | FlowDeepLinkMapping.init(_:handler:) | init(_:handler:) | init(_ pattern: String, handler: @escaping (DeepLinkParameters) -> FlowPlan<R>?) | []
-symbol | swift.init | FlowDeepLinkMatcher.init(configuration:mappings:) | init(configuration:mappings:) | init(configuration: DeepLinkMatcherConfiguration = .default, @FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]) | []
-symbol | swift.init | FlowDeepLinkMatcher.init(configuration:mappings:) | init(configuration:mappings:) | init(configuration: DeepLinkMatcherConfiguration = .default, mappings: [FlowDeepLinkMapping<R>]) | []
-symbol | swift.init | FlowDeepLinkMatcher.init(mappings:) | init(mappings:) | init(@FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]) | []
-symbol | swift.init | FlowDeepLinkMatcher.init(mappings:) | init(mappings:) | init(mappings: [FlowDeepLinkMapping<R>]) | []
-symbol | swift.init | FlowDeepLinkMatcher.init(strict:logger:inputLimits:mappings:) | init(strict:logger:inputLimits:mappings:) | init(strict: Void = (), logger: Logger? = nil, inputLimits: DeepLinkInputLimits = .default, @FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]) throws | []
-symbol | swift.init | FlowDeepLinkMatcher.init(strict:logger:inputLimits:mappings:) | init(strict:logger:inputLimits:mappings:) | init(strict: Void = (), logger: Logger? = nil, inputLimits: DeepLinkInputLimits = .default, mappings: [FlowDeepLinkMapping<R>]) throws | []
-symbol | swift.init | FlowDeepLinkPipeline.init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:inputLimits:) | init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:inputLimits:) | init(allowedSchemes: Set<String>? = nil, allowedHosts: Set<String>? = nil, matcher: FlowDeepLinkMatcher<R>, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, inputLimits: DeepLinkInputLimits = .default) | []
+symbol | swift.init | FlowDeepLinkPipeline.init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:inputLimits:) | init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:inputLimits:) | init(allowedSchemes: Set<String>? = nil, allowedHosts: Set<String>? = nil, matcher: DeepLinkMatcher<FlowPlan<R>>, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, inputLimits: DeepLinkInputLimits = .default) | []
 symbol | swift.init | FlowPendingDeepLink.init(url:gatedRoute:plan:) | init(url:gatedRoute:plan:) | init(url: URL, gatedRoute: R, plan: FlowPlan<R>) | []
 symbol | swift.init | FlowPendingDeepLinkPersistence.init(encoder:decoder:) | init(encoder:decoder:) | init(encoder: JSONEncoder = JSONEncoder(), decoder: JSONDecoder = JSONDecoder()) | []
 symbol | swift.init | NavigationPlan.init(commands:) | init(commands:) | init(commands: [NavigationCommand<R>]) | []
 symbol | swift.init | NavigationPlanValidationFailure.init(index:command:result:) | init(index:command:result:) | init(index: Int, command: NavigationCommand<R>, result: NavigationResult<R>) | []
 symbol | swift.init | PendingDeepLink.init(url:route:plan:) | init(url:route:plan:) | init(url: URL, route: R, plan: NavigationPlan<R>) | []
 symbol | swift.method | DeepLinkInputLimits.violation(for:) | violation(for:) | func violation(for url: URL) -> DeepLinkInputLimitViolation? | []
-symbol | swift.method | DeepLinkMatcher.match(_:) | match(_:) | func match(_ url: URL) -> R? | []
-symbol | swift.method | DeepLinkMatcher.match(_:) | match(_:) | func match(_ urlString: String) -> R? | []
+symbol | swift.method | DeepLinkMatcher.match(_:) | match(_:) | func match(_ url: URL) -> Output? | []
+symbol | swift.method | DeepLinkMatcher.match(_:) | match(_:) | func match(_ urlString: String) -> Output? | []
 symbol | swift.method | DeepLinkParameters.firstValue(forName:) | firstValue(forName:) | func firstValue(forName name: String) -> String? | []
 symbol | swift.method | DeepLinkParameters.firstValue(forName:as:) | firstValue(forName:as:) | func firstValue<Value>(forName name: String, as type: Value.Type = Value.self) -> Value? where Value : DeepLinkParameterValue | []
 symbol | swift.method | DeepLinkParameters.values(forName:) | values(forName:) | func values(forName name: String) -> [String] | []
 symbol | swift.method | DeepLinkParameters.values(forName:as:) | values(forName:as:) | func values<Value>(forName name: String, as type: Value.Type = Value.self) -> [Value] where Value : DeepLinkParameterValue | []
 symbol | swift.method | DeepLinkPipeline.decide(for:) | decide(for:) | func decide(for url: URL) -> DeepLinkDecision<R> | []
-symbol | swift.method | FlowDeepLinkMatcher.match(_:) | match(_:) | func match(_ url: URL) -> FlowPlan<R>? | []
-symbol | swift.method | FlowDeepLinkMatcher.match(_:) | match(_:) | func match(_ urlString: String) -> FlowPlan<R>? | []
 symbol | swift.method | FlowDeepLinkPipeline.decide(for:) | decide(for:) | func decide(for url: URL) -> FlowDeepLinkDecision<R> | []
 symbol | swift.method | FlowPendingDeepLinkPersistence.decode(_:) | decode(_:) | func decode(_ data: Data) throws -> FlowPendingDeepLink<R> | []
 symbol | swift.method | FlowPendingDeepLinkPersistence.encode(_:) | encode(_:) | func encode(_ pending: FlowPendingDeepLink<R>) throws -> Data | []
@@ -204,12 +181,11 @@ symbol | swift.property | DeepLinkPipeline.inputLimits | inputLimits | var input
 symbol | swift.property | DeepLinkPipeline.plan | plan | var plan: DeepLinkPipeline<R>.Planner | []
 symbol | swift.property | DeepLinkPipeline.resolve | resolve | var resolve: DeepLinkPipeline<R>.Resolver | []
 symbol | swift.property | DeepLinkRejectionReason.localizedDescription | localizedDescription | var localizedDescription: String { get } | []
-symbol | swift.property | FlowDeepLinkMatcher.diagnostics | diagnostics | let diagnostics: [DeepLinkMatcherDiagnostic] | []
 symbol | swift.property | FlowDeepLinkPipeline.allowedHosts | allowedHosts | let allowedHosts: Set<String>? | []
 symbol | swift.property | FlowDeepLinkPipeline.allowedSchemes | allowedSchemes | let allowedSchemes: Set<String>? | []
 symbol | swift.property | FlowDeepLinkPipeline.authenticationPolicy | authenticationPolicy | let authenticationPolicy: DeepLinkAuthenticationPolicy<R> | []
 symbol | swift.property | FlowDeepLinkPipeline.inputLimits | inputLimits | let inputLimits: DeepLinkInputLimits | []
-symbol | swift.property | FlowDeepLinkPipeline.matcher | matcher | let matcher: FlowDeepLinkMatcher<R> | []
+symbol | swift.property | FlowDeepLinkPipeline.matcher | matcher | let matcher: DeepLinkMatcher<FlowPlan<R>> | []
 symbol | swift.property | FlowPendingDeepLink.gatedRoute | gatedRoute | let gatedRoute: R | []
 symbol | swift.property | FlowPendingDeepLink.plan | plan | let plan: FlowPlan<R> | []
 symbol | swift.property | FlowPendingDeepLink.url | url | let url: URL | []
@@ -222,16 +198,13 @@ symbol | swift.property | PendingDeepLink.route | route | let route: R | []
 symbol | swift.property | PendingDeepLink.url | url | let url: URL | []
 symbol | swift.protocol | DeepLinkParameterValue | DeepLinkParameterValue | protocol DeepLinkParameterValue : Sendable | []
 symbol | swift.struct | DeepLinkInputLimits | DeepLinkInputLimits | struct DeepLinkInputLimits | []
-symbol | swift.struct | DeepLinkMapping | DeepLinkMapping | struct DeepLinkMapping<R> where R : Route | []
-symbol | swift.struct | DeepLinkMappingBuilder | DeepLinkMappingBuilder | @resultBuilder struct DeepLinkMappingBuilder<R> where R : Route | []
-symbol | swift.struct | DeepLinkMatcher | DeepLinkMatcher | struct DeepLinkMatcher<R> where R : Route | []
+symbol | swift.struct | DeepLinkMapping | DeepLinkMapping | struct DeepLinkMapping<Output> where Output : Sendable | []
+symbol | swift.struct | DeepLinkMappingBuilder | DeepLinkMappingBuilder | @resultBuilder struct DeepLinkMappingBuilder<Output> where Output : Sendable | []
+symbol | swift.struct | DeepLinkMatcher | DeepLinkMatcher | struct DeepLinkMatcher<Output> where Output : Sendable | []
 symbol | swift.struct | DeepLinkMatcherConfiguration | DeepLinkMatcherConfiguration | struct DeepLinkMatcherConfiguration | []
 symbol | swift.struct | DeepLinkMatcherStrictError | DeepLinkMatcherStrictError | struct DeepLinkMatcherStrictError | []
 symbol | swift.struct | DeepLinkParameters | DeepLinkParameters | struct DeepLinkParameters | []
 symbol | swift.struct | DeepLinkPipeline | DeepLinkPipeline | struct DeepLinkPipeline<R> where R : Route | []
-symbol | swift.struct | FlowDeepLinkMapping | FlowDeepLinkMapping | struct FlowDeepLinkMapping<R> where R : Route | []
-symbol | swift.struct | FlowDeepLinkMappingBuilder | FlowDeepLinkMappingBuilder | @resultBuilder struct FlowDeepLinkMappingBuilder<R> where R : Route | []
-symbol | swift.struct | FlowDeepLinkMatcher | FlowDeepLinkMatcher | struct FlowDeepLinkMatcher<R> where R : Route | []
 symbol | swift.struct | FlowDeepLinkPipeline | FlowDeepLinkPipeline | struct FlowDeepLinkPipeline<R> where R : Route | []
 symbol | swift.struct | FlowPendingDeepLink | FlowPendingDeepLink | struct FlowPendingDeepLink<R> where R : Route | []
 symbol | swift.struct | FlowPendingDeepLinkPersistence | FlowPendingDeepLinkPersistence | struct FlowPendingDeepLinkPersistence<R> where R : Route, R : Decodable, R : Encodable | []
@@ -239,21 +212,16 @@ symbol | swift.struct | NavigationPlan | NavigationPlan | struct NavigationPlan<
 symbol | swift.struct | NavigationPlanValidationFailure | NavigationPlanValidationFailure | struct NavigationPlanValidationFailure<R> where R : Route | []
 symbol | swift.struct | PendingDeepLink | PendingDeepLink | struct PendingDeepLink<R> where R : Route | []
 symbol | swift.type.method | Bool.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Bool? | []
-symbol | swift.type.method | DeepLinkMappingBuilder.buildArray(_:) | buildArray(_:) | static func buildArray(_ components: [[DeepLinkMapping<R>]]) -> [DeepLinkMapping<R>] | []
-symbol | swift.type.method | DeepLinkMappingBuilder.buildBlock(_:) | buildBlock(_:) | static func buildBlock(_ components: DeepLinkMapping<R>...) -> [DeepLinkMapping<R>] | []
-symbol | swift.type.method | DeepLinkMappingBuilder.buildEither(first:) | buildEither(first:) | static func buildEither(first component: [DeepLinkMapping<R>]) -> [DeepLinkMapping<R>] | []
-symbol | swift.type.method | DeepLinkMappingBuilder.buildEither(second:) | buildEither(second:) | static func buildEither(second component: [DeepLinkMapping<R>]) -> [DeepLinkMapping<R>] | []
-symbol | swift.type.method | DeepLinkMappingBuilder.buildExpression(_:) | buildExpression(_:) | static func buildExpression(_ expression: DeepLinkMapping<R>) -> DeepLinkMapping<R> | []
-symbol | swift.type.method | DeepLinkMappingBuilder.buildOptional(_:) | buildOptional(_:) | static func buildOptional(_ component: [DeepLinkMapping<R>]?) -> [DeepLinkMapping<R>] | []
+symbol | swift.type.method | DeepLinkMappingBuilder.buildArray(_:) | buildArray(_:) | static func buildArray(_ components: [[DeepLinkMapping<Output>]]) -> [DeepLinkMapping<Output>] | []
+symbol | swift.type.method | DeepLinkMappingBuilder.buildBlock(_:) | buildBlock(_:) | static func buildBlock(_ components: [DeepLinkMapping<Output>]...) -> [DeepLinkMapping<Output>] | []
+symbol | swift.type.method | DeepLinkMappingBuilder.buildEither(first:) | buildEither(first:) | static func buildEither(first component: [DeepLinkMapping<Output>]) -> [DeepLinkMapping<Output>] | []
+symbol | swift.type.method | DeepLinkMappingBuilder.buildEither(second:) | buildEither(second:) | static func buildEither(second component: [DeepLinkMapping<Output>]) -> [DeepLinkMapping<Output>] | []
+symbol | swift.type.method | DeepLinkMappingBuilder.buildExpression(_:) | buildExpression(_:) | static func buildExpression(_ expression: DeepLinkMapping<Output>) -> [DeepLinkMapping<Output>] | []
+symbol | swift.type.method | DeepLinkMappingBuilder.buildExpression(_:) | buildExpression(_:) | static func buildExpression(_ expression: [DeepLinkMapping<Output>]) -> [DeepLinkMapping<Output>] | []
+symbol | swift.type.method | DeepLinkMappingBuilder.buildOptional(_:) | buildOptional(_:) | static func buildOptional(_ component: [DeepLinkMapping<Output>]?) -> [DeepLinkMapping<Output>] | []
 symbol | swift.type.method | DeepLinkParameterValue.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Self? | []
 symbol | swift.type.method | Double.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Double? | []
 symbol | swift.type.method | Float.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Float? | []
-symbol | swift.type.method | FlowDeepLinkMappingBuilder.buildArray(_:) | buildArray(_:) | static func buildArray(_ components: [[FlowDeepLinkMapping<R>]]) -> [FlowDeepLinkMapping<R>] | []
-symbol | swift.type.method | FlowDeepLinkMappingBuilder.buildBlock(_:) | buildBlock(_:) | static func buildBlock(_ components: FlowDeepLinkMapping<R>...) -> [FlowDeepLinkMapping<R>] | []
-symbol | swift.type.method | FlowDeepLinkMappingBuilder.buildEither(first:) | buildEither(first:) | static func buildEither(first component: [FlowDeepLinkMapping<R>]) -> [FlowDeepLinkMapping<R>] | []
-symbol | swift.type.method | FlowDeepLinkMappingBuilder.buildEither(second:) | buildEither(second:) | static func buildEither(second component: [FlowDeepLinkMapping<R>]) -> [FlowDeepLinkMapping<R>] | []
-symbol | swift.type.method | FlowDeepLinkMappingBuilder.buildExpression(_:) | buildExpression(_:) | static func buildExpression(_ expression: FlowDeepLinkMapping<R>) -> FlowDeepLinkMapping<R> | []
-symbol | swift.type.method | FlowDeepLinkMappingBuilder.buildOptional(_:) | buildOptional(_:) | static func buildOptional(_ component: [FlowDeepLinkMapping<R>]?) -> [FlowDeepLinkMapping<R>] | []
 symbol | swift.type.method | Int.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Int? | []
 symbol | swift.type.method | Int16.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Int16? | []
 symbol | swift.type.method | Int32.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Int32? | []

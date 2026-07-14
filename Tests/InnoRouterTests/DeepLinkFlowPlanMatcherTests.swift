@@ -1,4 +1,4 @@
-// MARK: - FlowDeepLinkMatcherTests.swift
+// MARK: - DeepLinkFlowPlanMatcherTests.swift
 // InnoRouterTests - URL → FlowPlan<R>? composite matching
 // Copyright © 2026 Inno Squad. All rights reserved.
 
@@ -17,19 +17,19 @@ private enum MatcherRoute: Route {
 
 /// Pattern matching keys off the URL's **path** (not the
 /// scheme/host). Use hosts like `app` and paths like `/home/detail/42`.
-@Suite("FlowDeepLinkMatcher Tests")
-struct FlowDeepLinkMatcherTests {
+@Suite("DeepLinkMatcher FlowPlan Tests")
+struct DeepLinkFlowPlanMatcherTests {
 
-    private func makeMatcher() -> FlowDeepLinkMatcher<MatcherRoute> {
-        FlowDeepLinkMatcher<MatcherRoute> {
-            FlowDeepLinkMapping("/home") { _ in
+    private func makeMatcher() -> DeepLinkMatcher<FlowPlan<MatcherRoute>> {
+        DeepLinkMatcher<FlowPlan<MatcherRoute>> {
+            DeepLinkMapping("/home") { _ in
                 FlowPlan(steps: [.push(.home)])
             }
-            FlowDeepLinkMapping("/home/detail/:id") { params in
+            DeepLinkMapping("/home/detail/:id") { params in
                 guard let id = params.firstValue(forName: "id") else { return nil }
                 return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
             }
-            FlowDeepLinkMapping("/home/detail/:id/comments/:cid") { params in
+            DeepLinkMapping("/home/detail/:id/comments/:cid") { params in
                 guard let id = params.firstValue(forName: "id"),
                       let cid = params.firstValue(forName: "cid") else { return nil }
                 return FlowPlan(steps: [
@@ -38,7 +38,7 @@ struct FlowDeepLinkMatcherTests {
                     .push(.comments(id: cid))
                 ])
             }
-            FlowDeepLinkMapping("/onboarding/privacy") { _ in
+            DeepLinkMapping("/onboarding/privacy") { _ in
                 FlowPlan(steps: [.sheet(.privacyPolicy)])
             }
         }
@@ -90,12 +90,12 @@ struct FlowDeepLinkMatcherTests {
 
     @Test("Handler returning nil allows fallthrough to the next mapping")
     func handlerFallthrough() {
-        let matcher = FlowDeepLinkMatcher<MatcherRoute> {
+        let matcher = DeepLinkMatcher<FlowPlan<MatcherRoute>> {
             // This mapping declines to build a plan.
-            FlowDeepLinkMapping("/detail/:id") { _ in nil }
+            DeepLinkMapping("/detail/:id") { _ in nil }
             // Later mapping with same pattern still matches because
             // the first one fell through.
-            FlowDeepLinkMapping("/detail/:id") { params in
+            DeepLinkMapping("/detail/:id") { params in
                 guard let id = params.firstValue(forName: "id") else { return nil }
                 return FlowPlan(steps: [.push(.detail(id: id))])
             }
@@ -103,18 +103,46 @@ struct FlowDeepLinkMatcherTests {
         #expect(matcher.match("myapp://app/detail/99") == FlowPlan(steps: [.push(.detail(id: "99"))]))
     }
 
-    @Test("Init(mappings:) non-builder accepts a direct array")
-    func arrayInit() {
-        let matcher = FlowDeepLinkMatcher<MatcherRoute>(mappings: [
-            FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
-        ])
+    @Test("Result builder accepts dynamically assembled mappings")
+    func dynamicMappings() {
+        let mappings: [DeepLinkMapping<FlowPlan<MatcherRoute>>] = [
+            DeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
+        ]
+        let matcher = DeepLinkMatcher<FlowPlan<MatcherRoute>> {
+            mappings
+        }
         #expect(matcher.match("myapp://app/home") == FlowPlan(steps: [.push(.home)]))
+    }
+
+    @Test("Result builder accepts optional and either mappings")
+    func conditionalMappings() {
+        let includePrivacy = true
+        let preferHome = false
+        let matcher = DeepLinkMatcher<FlowPlan<MatcherRoute>> {
+            if includePrivacy {
+                DeepLinkMapping("/privacy") { _ in
+                    FlowPlan(steps: [.sheet(.privacyPolicy)])
+                }
+            }
+            if preferHome {
+                DeepLinkMapping("/choice") { _ in
+                    FlowPlan(steps: [.push(.home)])
+                }
+            } else {
+                DeepLinkMapping("/choice") { _ in
+                    FlowPlan(steps: [.push(.privacyPolicy)])
+                }
+            }
+        }
+
+        #expect(matcher.match("myapp://app/privacy") == FlowPlan(steps: [.sheet(.privacyPolicy)]))
+        #expect(matcher.match("myapp://app/choice") == FlowPlan(steps: [.push(.privacyPolicy)]))
     }
 
     @Test("Repeated path parameters use DeepLinkPattern append semantics")
     func repeatedPathParametersAppend() {
-        let matcher = FlowDeepLinkMatcher<MatcherRoute> {
-            FlowDeepLinkMapping("/compare/:id/:id") { params in
+        let matcher = DeepLinkMatcher<FlowPlan<MatcherRoute>> {
+            DeepLinkMapping("/compare/:id/:id") { params in
                 FlowPlan(steps: [.push(.compare(ids: params.values(forName: "id")))])
             }
         }
@@ -125,7 +153,7 @@ struct FlowDeepLinkMatcherTests {
         )
     }
 
-    @Test("Route and flow matchers keep encoded-path and diagnostic parity")
+    @Test("Route and FlowPlan output specializations keep encoded-path and diagnostic parity")
     func routeAndFlowMatcherParity() {
         let configuration = DeepLinkMatcherConfiguration(diagnosticsMode: .disabled)
         let routeMatcher = DeepLinkMatcher<MatcherRoute>(configuration: configuration) {
@@ -134,12 +162,12 @@ struct FlowDeepLinkMatcherTests {
             }
             DeepLinkMapping("/hello world/:slug") { _ in .privacyPolicy }
         }
-        let flowMatcher = FlowDeepLinkMatcher<MatcherRoute>(configuration: configuration) {
-            FlowDeepLinkMapping("/hello world/:id") { params in
+        let flowMatcher = DeepLinkMatcher<FlowPlan<MatcherRoute>>(configuration: configuration) {
+            DeepLinkMapping("/hello world/:id") { params in
                 guard let id = params.firstValue(forName: "id") else { return nil }
                 return FlowPlan(steps: [.push(.detail(id: id))])
             }
-            FlowDeepLinkMapping("/hello world/:slug") { _ in
+            DeepLinkMapping("/hello world/:slug") { _ in
                 FlowPlan(steps: [.push(.privacyPolicy)])
             }
         }
@@ -150,13 +178,13 @@ struct FlowDeepLinkMatcherTests {
         #expect(routeMatcher.diagnostics == flowMatcher.diagnostics)
     }
 
-    @Test("FlowDeepLinkMatcher surfaces duplicate pattern diagnostics")
+    @Test("DeepLinkMatcher surfaces duplicate pattern diagnostics")
     func duplicatePatternDiagnostics() {
-        let matcher = FlowDeepLinkMatcher<MatcherRoute>(
+        let matcher = DeepLinkMatcher<FlowPlan<MatcherRoute>>(
             configuration: .init(diagnosticsMode: .disabled)
         ) {
-            FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
-            FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
+            DeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
+            DeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
         }
 
         #expect(
@@ -166,13 +194,13 @@ struct FlowDeepLinkMatcherTests {
         )
     }
 
-    @Test("FlowDeepLinkMatcher surfaces wildcard shadowing diagnostics")
+    @Test("DeepLinkMatcher surfaces wildcard shadowing diagnostics")
     func wildcardShadowingDiagnostics() {
-        let matcher = FlowDeepLinkMatcher<MatcherRoute>(
+        let matcher = DeepLinkMatcher<FlowPlan<MatcherRoute>>(
             configuration: .init(diagnosticsMode: .disabled)
         ) {
-            FlowDeepLinkMapping("/api/*") { _ in FlowPlan(steps: [.push(.home)]) }
-            FlowDeepLinkMapping("/api/users") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
+            DeepLinkMapping("/api/*") { _ in FlowPlan(steps: [.push(.home)]) }
+            DeepLinkMapping("/api/users") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
         }
 
         #expect(
@@ -187,13 +215,13 @@ struct FlowDeepLinkMatcherTests {
         )
     }
 
-    @Test("FlowDeepLinkMatcher surfaces non-terminal wildcard diagnostics")
+    @Test("DeepLinkMatcher surfaces non-terminal wildcard diagnostics")
     func nonTerminalWildcardDiagnostics() {
-        let matcher = FlowDeepLinkMatcher<MatcherRoute>(
+        let matcher = DeepLinkMatcher<FlowPlan<MatcherRoute>>(
             configuration: .init(diagnosticsMode: .disabled)
         ) {
-            FlowDeepLinkMapping("/api/*/users") { _ in FlowPlan(steps: [.push(.home)]) }
-            FlowDeepLinkMapping("/api/users") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
+            DeepLinkMapping("/api/*/users") { _ in FlowPlan(steps: [.push(.home)]) }
+            DeepLinkMapping("/api/users") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
         }
 
         #expect(
@@ -204,13 +232,13 @@ struct FlowDeepLinkMatcherTests {
         #expect(matcher.match("myapp://app/api/v1/users") == nil)
     }
 
-    @Test("FlowDeepLinkMatcher surfaces parameter shadowing diagnostics")
+    @Test("DeepLinkMatcher surfaces parameter shadowing diagnostics")
     func parameterShadowingDiagnostics() {
-        let matcher = FlowDeepLinkMatcher<MatcherRoute>(
+        let matcher = DeepLinkMatcher<FlowPlan<MatcherRoute>>(
             configuration: .init(diagnosticsMode: .disabled)
         ) {
-            FlowDeepLinkMapping("/products/:id") { _ in FlowPlan(steps: [.push(.detail(id: "generic"))]) }
-            FlowDeepLinkMapping("/products/featured") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
+            DeepLinkMapping("/products/:id") { _ in FlowPlan(steps: [.push(.detail(id: "generic"))]) }
+            DeepLinkMapping("/products/featured") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
         }
 
         #expect(
@@ -225,12 +253,12 @@ struct FlowDeepLinkMatcherTests {
         )
     }
 
-    @Test("FlowDeepLinkMatcher surfaces invalid parameter name diagnostics")
+    @Test("DeepLinkMatcher surfaces invalid parameter name diagnostics")
     func invalidParameterNameDiagnostics() {
-        let matcher = FlowDeepLinkMatcher<MatcherRoute>(
+        let matcher = DeepLinkMatcher<FlowPlan<MatcherRoute>>(
             configuration: .init(diagnosticsMode: .disabled)
         ) {
-            FlowDeepLinkMapping("/detail/:1id") { _ in FlowPlan(steps: [.push(.detail(id: "invalid"))]) }
+            DeepLinkMapping("/detail/:1id") { _ in FlowPlan(steps: [.push(.detail(id: "invalid"))]) }
         }
 
         #expect(
@@ -241,15 +269,15 @@ struct FlowDeepLinkMatcherTests {
         #expect(matcher.match("myapp://app/detail/99") == nil)
     }
 
-    @Test("FlowDeepLinkMatcher input limits reject before matching")
+    @Test("DeepLinkMatcher input limits reject before matching")
     func inputLimitsRejectBeforeMatching() {
-        let matcher = FlowDeepLinkMatcher<MatcherRoute>(
+        let matcher = DeepLinkMatcher<FlowPlan<MatcherRoute>>(
             configuration: .init(
                 diagnosticsMode: .disabled,
                 inputLimits: DeepLinkInputLimits(maxQueryItems: 1)
             )
         ) {
-            FlowDeepLinkMapping("/compare/:id") { params in
+            DeepLinkMapping("/compare/:id") { params in
                 FlowPlan(steps: [.push(.compare(ids: params.values(forName: "id")))])
             }
         }
@@ -257,12 +285,12 @@ struct FlowDeepLinkMatcherTests {
         #expect(matcher.match("myapp://app/compare/a?id=b&id=c") == nil)
     }
 
-    @Test("FlowDeepLinkMatcher strict init throws on duplicate patterns")
+    @Test("DeepLinkMatcher strict init throws on duplicate patterns")
     func strictInitThrowsOnDuplicatePattern() {
         do {
-            _ = try FlowDeepLinkMatcher<MatcherRoute>(strict: ()) {
-                FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
-                FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
+            _ = try DeepLinkMatcher<FlowPlan<MatcherRoute>>(strict: ()) {
+                DeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
+                DeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
             }
             Issue.record("Expected DeepLinkMatcherStrictError")
         } catch let error as DeepLinkMatcherStrictError {
@@ -276,11 +304,11 @@ struct FlowDeepLinkMatcherTests {
         }
     }
 
-    @Test("FlowDeepLinkMatcher strict init throws on invalid parameter name")
+    @Test("DeepLinkMatcher strict init throws on invalid parameter name")
     func strictInitThrowsOnInvalidParameterName() {
         do {
-            _ = try FlowDeepLinkMatcher<MatcherRoute>(strict: ()) {
-                FlowDeepLinkMapping("/detail/:1id") { _ in FlowPlan(steps: [.push(.detail(id: "invalid"))]) }
+            _ = try DeepLinkMatcher<FlowPlan<MatcherRoute>>(strict: ()) {
+                DeepLinkMapping("/detail/:1id") { _ in FlowPlan(steps: [.push(.detail(id: "invalid"))]) }
             }
             Issue.record("Expected DeepLinkMatcherStrictError")
         } catch let error as DeepLinkMatcherStrictError {
@@ -294,15 +322,17 @@ struct FlowDeepLinkMatcherTests {
         }
     }
 
-    @Test("FlowDeepLinkMatcher strict array init succeeds with clean mappings")
-    func strictArrayInitSucceedsWithCleanMappings() throws {
-        let matcher = try FlowDeepLinkMatcher<MatcherRoute>(
-            strict: (),
-            mappings: [
-                FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) },
-                FlowDeepLinkMapping("/privacy") { _ in FlowPlan(steps: [.sheet(.privacyPolicy)]) }
-            ]
-        )
+    @Test("DeepLinkMatcher strict builder accepts dynamic mappings")
+    func strictBuilderAcceptsDynamicMappings() throws {
+        let mappings: [DeepLinkMapping<FlowPlan<MatcherRoute>>] = [
+            DeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) },
+            DeepLinkMapping("/privacy") { _ in FlowPlan(steps: [.sheet(.privacyPolicy)]) }
+        ]
+        let matcher = try DeepLinkMatcher<FlowPlan<MatcherRoute>>(strict: ()) {
+            for mapping in mappings {
+                mapping
+            }
+        }
 
         #expect(matcher.diagnostics.isEmpty)
         #expect(matcher.match("myapp://app/home") == FlowPlan(steps: [.push(.home)]))

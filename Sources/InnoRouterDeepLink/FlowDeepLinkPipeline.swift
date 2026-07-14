@@ -39,7 +39,7 @@ extension FlowPendingDeepLink: Decodable where R: Decodable {}
 public enum FlowDeepLinkDecision<R: Route>: Sendable, Equatable {
     /// The URL was rejected by scheme or host validation.
     case rejected(reason: DeepLinkRejectionReason)
-    /// The URL did not match any ``FlowDeepLinkMapping``.
+    /// The URL did not match any `DeepLinkMapping<FlowPlan<R>>`.
     case unhandled(url: URL)
     /// Authentication gate deferred the URL; caller should queue it
     /// and replay once authenticated.
@@ -88,14 +88,14 @@ public enum FlowDeepLinkDecision<R: Route>: Sendable, Equatable {
 public struct FlowDeepLinkPipeline<R: Route>: Sendable {
     public let allowedSchemes: Set<String>?
     public let allowedHosts: Set<String>?
-    public let matcher: FlowDeepLinkMatcher<R>
+    public let matcher: DeepLinkMatcher<FlowPlan<R>>
     public let authenticationPolicy: DeepLinkAuthenticationPolicy<R>
     public let inputLimits: DeepLinkInputLimits
 
     public init(
         allowedSchemes: Set<String>? = nil,
         allowedHosts: Set<String>? = nil,
-        matcher: FlowDeepLinkMatcher<R>,
+        matcher: DeepLinkMatcher<FlowPlan<R>>,
         authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired,
         inputLimits: DeepLinkInputLimits = .default
     ) {

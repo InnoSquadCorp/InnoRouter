@@ -148,13 +148,7 @@ checks = [
     (
         "Sources/InnoRouterDeepLink/DeepLink.swift",
         [
-            "handler: @escaping @Sendable (DeepLinkParameters) -> R?",
-        ],
-    ),
-    (
-        "Sources/InnoRouterDeepLink/FlowDeepLinkMatcher.swift",
-        [
-            "handler: @escaping @Sendable (DeepLinkParameters) -> FlowPlan<R>?",
+            "handler: @escaping @Sendable (DeepLinkParameters) -> Output?",
         ],
     ),
     (

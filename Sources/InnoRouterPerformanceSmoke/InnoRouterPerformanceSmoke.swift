@@ -126,7 +126,7 @@ private func measureMiddlewareChain(chainCount: Int) -> Double {
 
 private func makePipeline(mappingCount: Int) -> FlowDeepLinkPipeline<SmokeRoute> {
     let mappings = (0..<mappingCount).map { index in
-        FlowDeepLinkMapping<SmokeRoute>("/perf/\(index)") { _ in
+        DeepLinkMapping<FlowPlan<SmokeRoute>>("/perf/\(index)") { _ in
             FlowPlan(steps: [.push(SmokeRoute(id: index))])
         }
     }
@@ -134,7 +134,9 @@ private func makePipeline(mappingCount: Int) -> FlowDeepLinkPipeline<SmokeRoute>
     return FlowDeepLinkPipeline(
         allowedSchemes: ["myapp"],
         allowedHosts: ["app"],
-        matcher: FlowDeepLinkMatcher(mappings: mappings)
+        matcher: DeepLinkMatcher {
+            mappings
+        }
     )
 }
 

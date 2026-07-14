@@ -238,7 +238,7 @@ property wrapper или view modifier приходят из `InnoRouter`, а н�
 | Авторитет sheet / cover без сброса стека | `ModalStore` + `ModalHost` |
 | Push + modal flows, восстановление или multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL в push-only план команд | `DeepLinkMatcher` + `DeepLinkPipeline` |
-| URL в push-prefix плюс modal-tail flow | `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` |
+| URL в push-prefix плюс modal-tail flow | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
 | visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
 | Reducer, effect или выполнение на границе приложения | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
 | Утверждения router без SwiftUI hosts | `InnoRouterTesting` |
@@ -754,7 +754,7 @@ Deep links обрабатываются как планы, а не скрыты�
 
 ### Диагностика matcher
 
-`DeepLinkMatcher` и `FlowDeepLinkMatcher` могут сообщать:
+`DeepLinkMatcher` сообщает одинаковую диагностику для route- и `FlowPlan`-результатов:
 
 - дублирующиеся шаблоны
 - shadowing wildcards
@@ -763,8 +763,8 @@ Deep links обрабатываются как планы, а не скрыты�
 
 Диагностика не меняет приоритет порядка объявления. Она помогает поймать
 ошибки авторства, не меняя тихо runtime-поведение. Используйте
-`try DeepLinkMatcher(strict:)` или `try FlowDeepLinkMatcher(strict:)` в
-шлюзах готовности к релизу, когда диагностика должна провалить сборку.
+`try DeepLinkMatcher(strict:)` в шлюзах готовности к релизу, когда
+диагностика должна провалить сборку.
 
 ### Композитные deep links (push + modal tail)
 
@@ -773,12 +773,12 @@ Deep links обрабатываются как планы, а не скрыты�
 одном атомарном `FlowStore.apply(_:)`:
 
 ```swift skip doc-fragment
-let matcher = FlowDeepLinkMatcher<AppRoute> {
-    FlowDeepLinkMapping("/home/detail/:id") { params in
+let matcher = DeepLinkMatcher<FlowPlan<AppRoute>> {
+    DeepLinkMapping("/home/detail/:id") { params in
         guard let id = params.firstValue(forName: "id") else { return nil }
         return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
     }
-    FlowDeepLinkMapping("/onboarding/privacy") { _ in
+    DeepLinkMapping("/onboarding/privacy") { _ in
         FlowPlan(steps: [.sheet(.privacyPolicy)])
     }
 }
@@ -799,7 +799,7 @@ FlowHost(store: flowStore, destination: destination) { RootView() }
     .onOpenURL { _ = handler.handle($0) }
 ```
 
-Каждый handler `FlowDeepLinkMapping` возвращает **полный** `FlowPlan`,
+Каждый handler `DeepLinkMapping<FlowPlan<R>>` возвращает **полный** `FlowPlan`,
 поэтому multi-segment URLs явные на сайте объявления. Pipeline дословно
 переиспользует семантику `DeepLinkAuthenticationPolicy` + `PendingDeepLink`
 из push-only pipeline для симметричной отсрочки и replay аутентификации.

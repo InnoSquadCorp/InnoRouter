@@ -17,19 +17,19 @@ private enum PipelineRoute: Route {
 @Suite("FlowDeepLinkPipeline Tests")
 struct FlowDeepLinkPipelineTests {
 
-    private func makeMatcher() -> FlowDeepLinkMatcher<PipelineRoute> {
-        FlowDeepLinkMatcher<PipelineRoute> {
-            FlowDeepLinkMapping("/home") { _ in
+    private func makeMatcher() -> DeepLinkMatcher<FlowPlan<PipelineRoute>> {
+        DeepLinkMatcher<FlowPlan<PipelineRoute>> {
+            DeepLinkMapping("/home") { _ in
                 FlowPlan(steps: [.push(.home)])
             }
-            FlowDeepLinkMapping("/home/detail/:id") { params in
+            DeepLinkMapping("/home/detail/:id") { params in
                 guard let id = params.firstValue(forName: "id") else { return nil }
                 return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
             }
-            FlowDeepLinkMapping("/onboarding/privacy") { _ in
+            DeepLinkMapping("/onboarding/privacy") { _ in
                 FlowPlan(steps: [.sheet(.privacyPolicy)])
             }
-            FlowDeepLinkMapping("/secure") { _ in
+            DeepLinkMapping("/secure") { _ in
                 FlowPlan(steps: [.push(.requiresAuth)])
             }
         }
@@ -82,13 +82,13 @@ struct FlowDeepLinkPipelineTests {
 
     @Test(".rejected when matcher input limits are exceeded")
     func matcherInputLimitRejection() {
-        let matcher = FlowDeepLinkMatcher<PipelineRoute>(
+        let matcher = DeepLinkMatcher<FlowPlan<PipelineRoute>>(
             configuration: .init(
                 diagnosticsMode: .disabled,
                 inputLimits: DeepLinkInputLimits(maxQueryItems: 1)
             )
         ) {
-            FlowDeepLinkMapping("/home/detail/:id") { params in
+            DeepLinkMapping("/home/detail/:id") { params in
                 guard let id = params.firstValue(forName: "id") else { return nil }
                 return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
             }

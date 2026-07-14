@@ -1375,27 +1375,27 @@ struct DeepLinkReplayModelState {
 }
 
 @MainActor
-func makePropertyFlowMatcher() -> FlowDeepLinkMatcher<PropertyRoute> {
-    FlowDeepLinkMatcher<PropertyRoute> {
-        FlowDeepLinkMapping("/home") { _ in
+func makePropertyFlowMatcher() -> DeepLinkMatcher<FlowPlan<PropertyRoute>> {
+    DeepLinkMatcher<FlowPlan<PropertyRoute>> {
+        DeepLinkMapping("/home") { _ in
             FlowPlan(steps: [.push(.home)])
         }
-        FlowDeepLinkMapping("/home/detail") { _ in
+        DeepLinkMapping("/home/detail") { _ in
             FlowPlan(steps: [.push(.home), .push(.detail)])
         }
-        FlowDeepLinkMapping("/settings/profile") { _ in
+        DeepLinkMapping("/settings/profile") { _ in
             FlowPlan(steps: [.push(.settings), .push(.profile)])
         }
-        FlowDeepLinkMapping("/modal/legal") { _ in
+        DeepLinkMapping("/modal/legal") { _ in
             FlowPlan(steps: [.sheet(.legal)])
         }
-        FlowDeepLinkMapping("/home/modal/legal") { _ in
+        DeepLinkMapping("/home/modal/legal") { _ in
             FlowPlan(steps: [.push(.home), .sheet(.legal)])
         }
-        FlowDeepLinkMapping("/secure") { _ in
+        DeepLinkMapping("/secure") { _ in
             FlowPlan(steps: [.push(.secure)])
         }
-        FlowDeepLinkMapping("/home/secure") { _ in
+        DeepLinkMapping("/home/secure") { _ in
             FlowPlan(steps: [.push(.home), .push(.secure)])
         }
     }

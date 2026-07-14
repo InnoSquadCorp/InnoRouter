@@ -27,18 +27,18 @@ private func blockEverythingNavigationMiddleware() -> AnyNavigationMiddleware<Ef
 
 @MainActor
 private func makePipeline() -> FlowDeepLinkPipeline<EffectRoute> {
-    let matcher = FlowDeepLinkMatcher<EffectRoute> {
-        FlowDeepLinkMapping("/home") { _ in
+    let matcher = DeepLinkMatcher<FlowPlan<EffectRoute>> {
+        DeepLinkMapping("/home") { _ in
             FlowPlan(steps: [.push(.home)])
         }
-        FlowDeepLinkMapping("/home/detail/:id") { params in
+        DeepLinkMapping("/home/detail/:id") { params in
             guard let id = params.firstValue(forName: "id") else { return nil }
             return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
         }
-        FlowDeepLinkMapping("/onboarding/privacy") { _ in
+        DeepLinkMapping("/onboarding/privacy") { _ in
             FlowPlan(steps: [.sheet(.privacyPolicy)])
         }
-        FlowDeepLinkMapping("/secure") { _ in
+        DeepLinkMapping("/secure") { _ in
             FlowPlan(steps: [.push(.secure)])
         }
     }
@@ -138,8 +138,8 @@ struct FlowDeepLinkEffectHandlerTests {
     @MainActor
     func authenticationDeferralAndReplay() {
         let isAuthed = Mutex<Bool>(false)
-        let matcher = FlowDeepLinkMatcher<EffectRoute> {
-            FlowDeepLinkMapping("/secure") { _ in
+        let matcher = DeepLinkMatcher<FlowPlan<EffectRoute>> {
+            DeepLinkMapping("/secure") { _ in
                 FlowPlan(steps: [.push(.secure)])
             }
         }
@@ -313,8 +313,8 @@ struct FlowDeepLinkEffectHandlerTests {
     @MainActor
     func resumeRejectedAfterAuthOpens() {
         let isAuthed = Mutex<Bool>(false)
-        let matcher = FlowDeepLinkMatcher<EffectRoute> {
-            FlowDeepLinkMapping("/secure") { _ in
+        let matcher = DeepLinkMatcher<FlowPlan<EffectRoute>> {
+            DeepLinkMapping("/secure") { _ in
                 FlowPlan(steps: [.push(.secure)])
             }
         }

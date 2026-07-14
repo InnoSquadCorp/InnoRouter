@@ -30,8 +30,8 @@ struct FlowDeepLinkAsyncAuthTests {
         let pipeline = FlowDeepLinkPipeline<AsyncAuthRoute>(
             allowedSchemes: ["app"],
             allowedHosts: ["onboarding"],
-            matcher: FlowDeepLinkMatcher {
-                FlowDeepLinkMapping("/profile") { _ in
+            matcher: DeepLinkMatcher {
+                DeepLinkMapping("/profile") { _ in
                     FlowPlan(steps: [.push(.home), .push(.profile)])
                 }
             },
@@ -73,8 +73,8 @@ struct FlowDeepLinkAsyncAuthTests {
         let pipeline = FlowDeepLinkPipeline<AsyncAuthRoute>(
             allowedSchemes: ["app"],
             allowedHosts: ["onboarding"],
-            matcher: FlowDeepLinkMatcher {
-                FlowDeepLinkMapping("/profile") { _ in
+            matcher: DeepLinkMatcher {
+                DeepLinkMapping("/profile") { _ in
                     FlowPlan(steps: [.push(.profile)])
                 }
             },

@@ -236,7 +236,7 @@ SwiftSyntax がバックエンドのマクロ実装は 4.x ラインの間この
 | スタックリセットなしの sheet / cover 権限 | `ModalStore` + `ModalHost` |
 | Push + modal フロー、復元、または複数ステップディープリンク | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL を push のみのコマンドプランへ | `DeepLinkMatcher` + `DeepLinkPipeline` |
-| URL を push 接頭辞 + modal 末尾フローへ | `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` |
+| URL を push 接頭辞 + modal 末尾フローへ | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
 | visionOS windows、volumes、immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
 | Reducer、effect、またはアプリ境界の実行 | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
 | SwiftUI ホストなしの router アサーション | `InnoRouterTesting` |
@@ -744,7 +744,7 @@ struct DetailSheet: View {
 
 ### Matcher 診断
 
-`DeepLinkMatcher` と `FlowDeepLinkMatcher` は以下を報告できます:
+`DeepLinkMatcher` は route と `FlowPlan` の出力に同じ診断を提供します:
 
 - 重複パターン
 - ワイルドカード shadowing
@@ -753,8 +753,7 @@ struct DetailSheet: View {
 
 診断は宣言順優先度を変更しません。ランタイム動作を静かに変更することなく
 オーサリングミスを捕捉するのに役立ちます。診断がビルドを失敗させるべき
-リリース準備ゲートでは、`try DeepLinkMatcher(strict:)` または
-`try FlowDeepLinkMatcher(strict:)` を使用します。
+release-readiness ゲートでは `try DeepLinkMatcher(strict:)` を使用します。
 
 ### 合成ディープリンク(push + modal 末尾)
 
@@ -763,12 +762,12 @@ push 接頭辞**プラス**モーダル終端ステップを 1 つのアトミ�
 `FlowStore.apply(_:)` で再水和できるようにします:
 
 ```swift skip doc-fragment
-let matcher = FlowDeepLinkMatcher<AppRoute> {
-    FlowDeepLinkMapping("/home/detail/:id") { params in
+let matcher = DeepLinkMatcher<FlowPlan<AppRoute>> {
+    DeepLinkMapping("/home/detail/:id") { params in
         guard let id = params.firstValue(forName: "id") else { return nil }
         return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
     }
-    FlowDeepLinkMapping("/onboarding/privacy") { _ in
+    DeepLinkMapping("/onboarding/privacy") { _ in
         FlowPlan(steps: [.sheet(.privacyPolicy)])
     }
 }
@@ -789,7 +788,7 @@ FlowHost(store: flowStore, destination: destination) { RootView() }
     .onOpenURL { _ = handler.handle($0) }
 ```
 
-各 `FlowDeepLinkMapping` ハンドラーは**完全な** `FlowPlan` を返すため、
+各 `DeepLinkMapping<FlowPlan<R>>` ハンドラーは**完全な** `FlowPlan` を返すため、
 複数セグメント URL は宣言サイトで明示的です。パイプラインは push のみの
 パイプラインの `DeepLinkAuthenticationPolicy` + `PendingDeepLink` セマン
 ティクスを文字通り再利用し、対称的な認証延期と replay を実現します。

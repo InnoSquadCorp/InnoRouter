@@ -4,7 +4,7 @@
   @PageKind(article)
 }
 
-`DeepLinkMatcher` and `FlowDeepLinkMatcher` are the URL-pattern front doors for deep-link routing.
+`DeepLinkMatcher` is the URL-pattern front door for route and `FlowPlan` deep-link outputs.
 
 ## Pattern model
 
@@ -50,14 +50,13 @@ That means:
   `^[A-Za-z_][A-Za-z0-9_]*$`
 - parameter-heavy patterns that subsume more specific later patterns
 
-Diagnostics are available on both push-only and flow matchers. They
-are intended to catch ambiguous authoring early without changing the
-matcher’s runtime semantics.
+Diagnostics are available for every matcher output. They are intended
+to catch ambiguous authoring early without changing the matcher’s
+runtime semantics.
 
-For release-readiness gates, use the throwing strict initializers:
-`DeepLinkMatcher(strict:)` for push-only mappings and
-`FlowDeepLinkMatcher(strict:)` for mappings that expand into a
-`FlowPlan`. Strict initializers throw `DeepLinkMatcherStrictError` with
+For release-readiness gates, use `DeepLinkMatcher(strict:)` with either
+a route or `FlowPlan<R>` output. Strict initializers throw
+`DeepLinkMatcherStrictError` with
 the full diagnostic list instead of only logging warnings, and accept
 the same `DeepLinkInputLimits` guardrails used by non-strict matchers.
 

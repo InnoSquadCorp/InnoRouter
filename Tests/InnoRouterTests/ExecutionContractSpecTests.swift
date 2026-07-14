@@ -192,11 +192,11 @@ struct ExecutionContractSpecTests {
     @MainActor
     func flowDeepLinkPendingSlotContract() async {
         let isAuthenticated = Mutex(false)
-        let matcher = FlowDeepLinkMatcher<ContractRoute> {
-            FlowDeepLinkMapping("/secure") { _ in
+        let matcher = DeepLinkMatcher<FlowPlan<ContractRoute>> {
+            DeepLinkMapping("/secure") { _ in
                 FlowPlan(steps: [.push(.secure)])
             }
-            FlowDeepLinkMapping("/home/secure") { _ in
+            DeepLinkMapping("/home/secure") { _ in
                 FlowPlan(steps: [.push(.home), .push(.secure)])
             }
         }

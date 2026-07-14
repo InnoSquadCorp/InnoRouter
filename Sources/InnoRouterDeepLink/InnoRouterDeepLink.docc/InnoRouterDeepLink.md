@@ -4,7 +4,8 @@ Pattern matching, pipeline planning, and pending deep-link handling for InnoRout
 
 ## Overview
 
-`InnoRouterDeepLink` turns URLs into typed routes and then into explicit navigation plans.
+`InnoRouterDeepLink` turns URLs into typed routes or complete flow plans,
+then validates and coordinates their execution.
 
 This module owns:
 
@@ -15,8 +16,8 @@ This module owns:
 - `DeepLinkDecision`
 - `PendingDeepLink`
 - `NavigationPlan`
-- `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` for composite
-  flows (push prefix + modal terminal step).
+- `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` for
+  composite flows (push prefix + modal terminal step).
 
 The key idea is that deep links are not executed ad hoc. They are matched, validated, authorized, and planned first.
 

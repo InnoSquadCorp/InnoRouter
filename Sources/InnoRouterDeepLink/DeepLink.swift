@@ -655,17 +655,34 @@ struct DeepLinkPattern: Sendable {
     }
 }
 
-public struct DeepLinkMatcher<R: Route>: Sendable {
-    private let engine: DeepLinkMatchEngine<R>
+/// Resolves URLs by walking ``DeepLinkMapping`` values in declaration order.
+///
+/// The output type describes what a matched URL produces. Use a route type
+/// for single-route resolution, or `FlowPlan<R>` when one URL must
+/// rehydrate a push prefix plus a modal tail:
+///
+/// ```swift
+/// let routeMatcher = DeepLinkMatcher<AppRoute> {
+///     DeepLinkMapping("/home") { _ in .home }
+/// }
+///
+/// let flowMatcher = DeepLinkMatcher<FlowPlan<AppRoute>> {
+///     DeepLinkMapping("/home/detail/:id") { parameters in
+///         guard let id = parameters.firstValue(forName: "id") else { return nil }
+///         return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
+///     }
+/// }
+/// ```
+///
+/// When a pattern matches but its handler returns `nil`, matching continues
+/// with the next declaration.
+public struct DeepLinkMatcher<Output: Sendable>: Sendable {
+    private let engine: DeepLinkMatchEngine<Output>
     public let diagnostics: [DeepLinkMatcherDiagnostic]
-
-    public init(@DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]) {
-        self.init(configuration: .default, mappings: mappings)
-    }
 
     public init(
         configuration: DeepLinkMatcherConfiguration = .default,
-        @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]
+        @DeepLinkMappingBuilder<Output> mappings: () -> [DeepLinkMapping<Output>]
     ) {
         let engine = DeepLinkMatchEngine(
             mappings: mappings().map(\.implementation),
@@ -686,7 +703,7 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
         strict: Void = (),
         logger: Logger? = nil,
         inputLimits: DeepLinkInputLimits = .default,
-        @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]
+        @DeepLinkMappingBuilder<Output> mappings: () -> [DeepLinkMapping<Output>]
     ) throws {
         _ = strict
         let engine = try DeepLinkMatchEngine(
@@ -698,21 +715,35 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
         self.diagnostics = engine.diagnostics
     }
 
-    public func match(_ url: URL) -> R? {
+    public func match(_ url: URL) -> Output? {
         engine.match(url)
     }
 
-    public func match(_ urlString: String) -> R? {
+    public func match(_ urlString: String) -> Output? {
         engine.match(urlString)
+    }
+
+    /// Pattern walk for module-internal callers that already parsed and validated the
+    /// same URL instance.
+    func match(parsed: DeepLinkParser.ParsedURL) -> Output? {
+        engine.match(parsed: parsed)
+    }
+
+    func inputLimitViolation(
+        for url: URL,
+        parsed: DeepLinkParser.ParsedURL
+    ) -> DeepLinkInputLimitViolation? {
+        engine.inputLimitViolation(for: url, parsed: parsed)
     }
 }
 
-public struct DeepLinkMapping<R: Route>: Sendable {
-    let implementation: DeepLinkMatchMapping<R>
+/// Associates one URL path pattern with a typed output builder.
+public struct DeepLinkMapping<Output: Sendable>: Sendable {
+    let implementation: DeepLinkMatchMapping<Output>
 
     public init(
         _ pattern: String,
-        handler: @escaping @Sendable (DeepLinkParameters) -> R?
+        handler: @escaping @Sendable (DeepLinkParameters) -> Output?
     ) {
         self.implementation = DeepLinkMatchMapping(pattern, handler: handler)
     }
@@ -742,28 +773,32 @@ extension DeepLinkMatcherDiagnostic {
 }
 
 @resultBuilder
-public struct DeepLinkMappingBuilder<R: Route> {
-    public static func buildExpression(_ expression: DeepLinkMapping<R>) -> DeepLinkMapping<R> {
+public struct DeepLinkMappingBuilder<Output: Sendable> {
+    public static func buildExpression(_ expression: DeepLinkMapping<Output>) -> [DeepLinkMapping<Output>] {
+        [expression]
+    }
+
+    public static func buildExpression(_ expression: [DeepLinkMapping<Output>]) -> [DeepLinkMapping<Output>] {
         expression
     }
 
-    public static func buildBlock(_ components: DeepLinkMapping<R>...) -> [DeepLinkMapping<R>] {
-        components
-    }
-
-    public static func buildArray(_ components: [[DeepLinkMapping<R>]]) -> [DeepLinkMapping<R>] {
+    public static func buildBlock(_ components: [DeepLinkMapping<Output>]...) -> [DeepLinkMapping<Output>] {
         components.flatMap { $0 }
     }
 
-    public static func buildOptional(_ component: [DeepLinkMapping<R>]?) -> [DeepLinkMapping<R>] {
+    public static func buildArray(_ components: [[DeepLinkMapping<Output>]]) -> [DeepLinkMapping<Output>] {
+        components.flatMap { $0 }
+    }
+
+    public static func buildOptional(_ component: [DeepLinkMapping<Output>]?) -> [DeepLinkMapping<Output>] {
         component ?? []
     }
 
-    public static func buildEither(first component: [DeepLinkMapping<R>]) -> [DeepLinkMapping<R>] {
+    public static func buildEither(first component: [DeepLinkMapping<Output>]) -> [DeepLinkMapping<Output>] {
         component
     }
 
-    public static func buildEither(second component: [DeepLinkMapping<R>]) -> [DeepLinkMapping<R>] {
+    public static func buildEither(second component: [DeepLinkMapping<Output>]) -> [DeepLinkMapping<Output>] {
         component
     }
 }

@@ -106,13 +106,13 @@ struct DeepLinkStrictDiagnosticsTests {
         #expect(matcher.match("myapp://app/home?token=too-long") == nil)
     }
 
-    @Test("Strict flow matcher keeps configured input limits")
+    @Test("Strict FlowPlan-output matcher keeps configured input limits")
     func testStrictFlowMatcherKeepsInputLimits() throws {
-        let matcher = try FlowDeepLinkMatcher<StrictRoute>(
+        let matcher = try DeepLinkMatcher<FlowPlan<StrictRoute>>(
             strict: (),
             inputLimits: .init(maxURLLength: 18, maxPathSegments: nil, maxQueryItems: nil)
         ) {
-            FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
+            DeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
         }
 
         #expect(matcher.match("myapp://app/home") == FlowPlan(steps: [.push(.home)]))

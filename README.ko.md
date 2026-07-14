@@ -218,7 +218,7 @@ package-traits 또는 매크로-패키지 분리는 `swift package show-traits`,
 | stack reset 없는 sheet / cover 권한 | `ModalStore` + `ModalHost` |
 | push + modal 흐름, 복원, 또는 multi-step 딥링크 | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL을 push-only command plan으로 변환 | `DeepLinkMatcher` + `DeepLinkPipeline` |
-| URL을 push-prefix + modal-tail 흐름으로 변환 | `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` |
+| URL을 push-prefix + modal-tail 흐름으로 변환 | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
 | visionOS window, volume, immersive space | `SceneStore` + `SceneHost` / `SceneAnchor` |
 | Reducer, effect, 또는 앱-경계 실행 | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
 | SwiftUI host 없는 router assertion | `InnoRouterTesting` |
@@ -704,7 +704,7 @@ binding은 모든 set을 기존 command pipeline을 통해 라우팅하므로 mi
 
 ### Matcher 진단
 
-`DeepLinkMatcher`와 `FlowDeepLinkMatcher`는 다음을 보고할 수 있습니다:
+`DeepLinkMatcher`는 route와 `FlowPlan` 출력에 동일한 진단을 제공합니다:
 
 - 중복 패턴
 - wildcard shadowing
@@ -713,8 +713,7 @@ binding은 모든 set을 기존 command pipeline을 통해 라우팅하므로 mi
 
 진단은 선언 순서 우선권을 변경하지 않습니다. 런타임 동작을 조용히 바꾸지 않으면서
 저작 실수를 잡는 데 도움이 됩니다. 진단이 빌드를 실패시켜야 하는 release-readiness
-게이트에서는 `try DeepLinkMatcher(strict:)` 또는 `try FlowDeepLinkMatcher(strict:)`를
-사용하세요.
+게이트에서는 `try DeepLinkMatcher(strict:)`를 사용하세요.
 
 ### 합성 딥링크 (push + modal tail)
 
@@ -722,12 +721,12 @@ binding은 모든 set을 기존 command pipeline을 통해 라우팅하므로 mi
 modal terminal step을 하나의 atomic `FlowStore.apply(_:)` 안에서 rehydrate할 수 있게 합니다:
 
 ```swift skip doc-fragment
-let matcher = FlowDeepLinkMatcher<AppRoute> {
-    FlowDeepLinkMapping("/home/detail/:id") { params in
+let matcher = DeepLinkMatcher<FlowPlan<AppRoute>> {
+    DeepLinkMapping("/home/detail/:id") { params in
         guard let id = params.firstValue(forName: "id") else { return nil }
         return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
     }
-    FlowDeepLinkMapping("/onboarding/privacy") { _ in
+    DeepLinkMapping("/onboarding/privacy") { _ in
         FlowPlan(steps: [.sheet(.privacyPolicy)])
     }
 }
@@ -748,7 +747,7 @@ FlowHost(store: flowStore, destination: destination) { RootView() }
     .onOpenURL { _ = handler.handle($0) }
 ```
 
-각 `FlowDeepLinkMapping` 핸들러는 **완전한** `FlowPlan`을 반환하므로 multi-segment URL이
+각 `DeepLinkMapping<FlowPlan<R>>` 핸들러는 **완전한** `FlowPlan`을 반환하므로 multi-segment URL이
 선언 사이트에서 명시적입니다. pipeline은 push-only pipeline의 `DeepLinkAuthenticationPolicy`
 + `PendingDeepLink` 시멘틱을 그대로 재사용해 인증 지연과 replay가 대칭이 됩니다.
 전체 walk-through는 [`Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md`](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md)

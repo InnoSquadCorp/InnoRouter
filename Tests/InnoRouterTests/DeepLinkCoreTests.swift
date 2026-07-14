@@ -180,6 +180,17 @@ struct DeepLinkTests {
         #expect(matcher.match("myapp://app/detail/99") == .detail(id: "99"))
     }
 
+    @Test("DeepLinkMatcher supports non-route Sendable outputs")
+    func testMatcherGenericOutput() {
+        let matcher = DeepLinkMatcher<String> {
+            DeepLinkMapping("/message/:value") { parameters in
+                parameters.firstValue(forName: "value")
+            }
+        }
+
+        #expect(matcher.match("myapp://app/message/hello") == "hello")
+    }
+
     @Test("DeepLinkMatcher surfaces duplicate pattern diagnostics")
     func testMatcherDuplicatePatternDiagnostics() {
         let matcher = DeepLinkMatcher<TestRoute>(

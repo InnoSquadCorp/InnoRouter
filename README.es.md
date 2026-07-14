@@ -236,7 +236,7 @@ Use la superficie más pequeña que posea la autoridad de transición que necesi
 | Autoridad de sheet / cover sin reset de stack | `ModalStore` + `ModalHost` |
 | Flujos push + modal, restauración o deep links multi-paso | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL a plan de comandos solo-push | `DeepLinkMatcher` + `DeepLinkPipeline` |
-| URL a flujo prefijo-push más cola-modal | `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` |
+| URL a flujo prefijo-push más cola-modal | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
 | Windows, volúmenes, immersive spaces de visionOS | `SceneStore` + `SceneHost` / `SceneAnchor` |
 | Reducer, efecto o ejecución en límite de app | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
 | Aserciones de router sin hosts SwiftUI | `InnoRouterTesting` |
@@ -737,7 +737,7 @@ Flujo típico:
 
 ### Diagnósticos del matcher
 
-`DeepLinkMatcher` y `FlowDeepLinkMatcher` pueden reportar:
+`DeepLinkMatcher` informa los mismos diagnósticos para salidas de route y `FlowPlan`:
 
 - patrones duplicados
 - shadowing de wildcard
@@ -746,8 +746,8 @@ Flujo típico:
 
 Los diagnósticos no cambian la precedencia de orden de declaración. Ayudan a
 detectar errores de autoría sin cambiar silenciosamente el comportamiento de
-runtime. Use `try DeepLinkMatcher(strict:)` o `try FlowDeepLinkMatcher(strict:)`
-en puertas de release-readiness cuando los diagnósticos deberían fallar la build.
+runtime. Use `try DeepLinkMatcher(strict:)` en puertas de release-readiness
+cuando los diagnósticos deberían fallar la build.
 
 ### Deep links compuestos (push + cola modal)
 
@@ -756,12 +756,12 @@ pueda rehidratar un prefijo push **más** un paso terminal modal en un solo
 `FlowStore.apply(_:)` atómico:
 
 ```swift skip doc-fragment
-let matcher = FlowDeepLinkMatcher<AppRoute> {
-    FlowDeepLinkMapping("/home/detail/:id") { params in
+let matcher = DeepLinkMatcher<FlowPlan<AppRoute>> {
+    DeepLinkMapping("/home/detail/:id") { params in
         guard let id = params.firstValue(forName: "id") else { return nil }
         return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
     }
-    FlowDeepLinkMapping("/onboarding/privacy") { _ in
+    DeepLinkMapping("/onboarding/privacy") { _ in
         FlowPlan(steps: [.sheet(.privacyPolicy)])
     }
 }
@@ -782,7 +782,7 @@ FlowHost(store: flowStore, destination: destination) { RootView() }
     .onOpenURL { _ = handler.handle($0) }
 ```
 
-Cada handler `FlowDeepLinkMapping` devuelve un `FlowPlan` **completo**, así que
+Cada handler `DeepLinkMapping<FlowPlan<R>>` devuelve un `FlowPlan` **completo**, así que
 las URLs multi-segmento son explícitas en el sitio de declaración. El pipeline
 reutiliza la semántica `DeepLinkAuthenticationPolicy` + `PendingDeepLink` del
 pipeline solo-push para diferimiento y replay simétrico de autenticación. Vea

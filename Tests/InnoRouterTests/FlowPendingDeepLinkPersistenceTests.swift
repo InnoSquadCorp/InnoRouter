@@ -47,8 +47,8 @@ struct FlowPendingDeepLinkPersistenceTests {
         let isAuthed = Mutex<Bool>(false)
 
         // Build a pipeline that gates .secure behind authentication.
-        let matcher = FlowDeepLinkMatcher<PendingRoute> {
-            FlowDeepLinkMapping("/secure") { _ in
+        let matcher = DeepLinkMatcher<FlowPlan<PendingRoute>> {
+            DeepLinkMapping("/secure") { _ in
                 FlowPlan(steps: [.push(.secure)])
             }
         }

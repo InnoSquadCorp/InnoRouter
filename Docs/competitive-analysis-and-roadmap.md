@@ -177,7 +177,7 @@ modal-terminal URLs in a typed pipeline.
 
 Shape (landed):
 
-- `FlowDeepLinkMapping<R>` / `FlowDeepLinkMatcher<R>` in
+- `DeepLinkMapping<FlowPlan<R>>` / `DeepLinkMatcher<FlowPlan<R>>` in
   `InnoRouterDeepLink` — each handler returns a full `FlowPlan<R>`,
   so multi-segment URLs are explicit at the mapping site (no trie,
   no per-segment chaining) and modal-terminal URLs fall out

@@ -204,7 +204,7 @@ macro 包拆分应在测量 `swift package show-traits`、
 | 不重置栈的 sheet / cover 权限 | `ModalStore` + `ModalHost` |
 | Push + modal 流程、恢复或多步深链接 | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL 转 push-only 命令计划 | `DeepLinkMatcher` + `DeepLinkPipeline` |
-| URL 转 push-prefix 加 modal-tail 流程 | `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` |
+| URL 转 push-prefix 加 modal-tail 流程 | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
 | visionOS windows、volumes、immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
 | Reducer、effect 或应用边界执行 | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
 | 无 SwiftUI hosts 的 router 断言 | `InnoRouterTesting` |
@@ -685,7 +685,7 @@ struct DetailSheet: View {
 
 ### Matcher 诊断
 
-`DeepLinkMatcher` 和 `FlowDeepLinkMatcher` 可以报告:
+`DeepLinkMatcher` 为 route 和 `FlowPlan` 输出提供相同的诊断:
 
 - 重复模式
 - 通配符 shadowing
@@ -693,8 +693,7 @@ struct DetailSheet: View {
 - 非终结通配符
 
 诊断不更改声明顺序优先级。它们帮助捕获创作错误,而不会悄悄地改变运行时行为。
-当诊断应使构建失败时,在发布就绪门中使用 `try DeepLinkMatcher(strict:)` 或
-`try FlowDeepLinkMatcher(strict:)`。
+当诊断应使构建失败时,请在发布就绪门中使用 `try DeepLinkMatcher(strict:)`。
 
 ### 组合深链接(push + modal tail)
 
@@ -702,12 +701,12 @@ struct DetailSheet: View {
 `FlowStore.apply(_:)` 中重新水合 push 前缀**加上**模态终端步骤:
 
 ```swift skip doc-fragment
-let matcher = FlowDeepLinkMatcher<AppRoute> {
-    FlowDeepLinkMapping("/home/detail/:id") { params in
+let matcher = DeepLinkMatcher<FlowPlan<AppRoute>> {
+    DeepLinkMapping("/home/detail/:id") { params in
         guard let id = params.firstValue(forName: "id") else { return nil }
         return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
     }
-    FlowDeepLinkMapping("/onboarding/privacy") { _ in
+    DeepLinkMapping("/onboarding/privacy") { _ in
         FlowPlan(steps: [.sheet(.privacyPolicy)])
     }
 }
@@ -728,7 +727,7 @@ FlowHost(store: flowStore, destination: destination) { RootView() }
     .onOpenURL { _ = handler.handle($0) }
 ```
 
-每个 `FlowDeepLinkMapping` 处理器返回**完整**的 `FlowPlan`,因此多段 URL 在
+每个 `DeepLinkMapping<FlowPlan<R>>` 处理器返回**完整**的 `FlowPlan`,因此多段 URL 在
 声明站点是显式的。pipeline 逐字重用仅 push pipeline 的
 `DeepLinkAuthenticationPolicy` + `PendingDeepLink` 语义,以实现对称的认证延迟
 和重放。完整演练参见

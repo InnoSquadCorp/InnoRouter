@@ -33,6 +33,15 @@ are bare semver (no leading `v`).
 - `DeepLinkParser`, `DeepLinkPattern`, and their nested result types
   are now implementation details behind `DeepLinkMatcher` and
   `DeepLinkMapping`. The unused `DeepLinkable` protocol is removed.
+- `DeepLinkMatcher`, `DeepLinkMapping`, and `DeepLinkMappingBuilder` now
+  describe their `Sendable` output directly. Single-route matchers continue
+  to use `DeepLinkMatcher<AppRoute>`; composite matchers now use
+  `DeepLinkMatcher<FlowPlan<AppRoute>>`. The duplicate
+  `FlowDeepLinkMatcher`, `FlowDeepLinkMapping`, and
+  `FlowDeepLinkMappingBuilder` types, including their array-only
+  initializers, are removed. Dynamic mappings remain supported through
+  array expressions or `for` statements in the shared result builder; no
+  compatibility aliases are provided.
 - `InnoRouterTesting` replaces the terminal-sounding
   `expectNoMoreEvents()` checkpoint with `assertNoPendingEvents()`.
   The renamed method reports and consumes only the current queue
@@ -47,8 +56,8 @@ are bare semver (no leading `v`).
 - Deep-link matching now parses accepted-size URLs at most once per
   matcher or flow-pipeline decision, while preserving the raw URL
   length rejection before parsing.
-  `DeepLinkMatcher.match`, `FlowDeepLinkMatcher.match`, and
-  `FlowDeepLinkPipeline.decide` previously re-parsed the same URL up
+  `DeepLinkMatcher.match` and `FlowDeepLinkPipeline.decide` previously
+  re-parsed the same URL up
   to four times (input-limit checks and pattern walks each parsed
   independently); they now thread a single parsed value through
   content-limit validation and pattern matching. URLs rejected by the

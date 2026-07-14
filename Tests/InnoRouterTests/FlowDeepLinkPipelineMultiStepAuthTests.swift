@@ -21,12 +21,12 @@ struct FlowDeepLinkPipelineMultiStepAuthTests {
     // independently be flagged protected. The pipeline is expected to
     // defer the entire plan when any step is protected — not just the
     // gated suffix.
-    private func makeMatcher() -> FlowDeepLinkMatcher<MultiAuthRoute> {
-        FlowDeepLinkMatcher<MultiAuthRoute> {
-            FlowDeepLinkMapping("/onboarding/profile") { _ in
+    private func makeMatcher() -> DeepLinkMatcher<FlowPlan<MultiAuthRoute>> {
+        DeepLinkMatcher<FlowPlan<MultiAuthRoute>> {
+            DeepLinkMapping("/onboarding/profile") { _ in
                 FlowPlan(steps: [.push(.home), .push(.profile)])
             }
-            FlowDeepLinkMapping("/admin/dangerous") { _ in
+            DeepLinkMapping("/admin/dangerous") { _ in
                 FlowPlan(steps: [
                     .push(.home),
                     .push(.settings),
