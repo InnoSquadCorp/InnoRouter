@@ -310,8 +310,14 @@ check_present "$ROOT_DIR/scripts/build-docc-site.sh" \
   'resolve-docc-source-ref.sh' \
   "DocC builder does not delegate source-ref selection to the tested resolver"
 check_present "$ROOT_DIR/scripts/build-docc-site.sh" \
-  'latest-action "$VERSION"' \
+  'resolve-latest-publication.sh' \
   "DocC builder does not prevent /latest/ from moving to an older GA"
+check_present "$ROOT_DIR/.github/workflows/release.yml" \
+  'resolve-latest-publication.sh' \
+  "release workflow does not share the tested latest-publication policy"
+check_present "$ROOT_DIR/.github/workflows/principle-gates.yml" \
+  'test-resolve-latest-publication.sh' \
+  "principle-gates workflow does not test latest-publication scenarios"
 check_present "$ROOT_DIR/scripts/build-docc-site.sh" \
   'sort-published' \
   "DocC portal does not sort releases with the shared SemVer policy"

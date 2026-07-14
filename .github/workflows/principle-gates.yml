@@ -69,6 +69,9 @@ jobs:
       - name: Test release version policy
         run: bash ./scripts/test-release-version-policy.sh
 
+      - name: Test latest publication policy
+        run: bash ./scripts/test-resolve-latest-publication.sh
+
       - name: Test exact release ref contract
         run: bash ./scripts/test-verify-release-ref.sh
 

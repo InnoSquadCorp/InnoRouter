@@ -16,14 +16,11 @@ expect_success() {
     exit 1
   fi
 
-  while IFS= read -r line; do
-    [[ -z "$line" ]] && continue
-    if ! grep -Fqx -- "$line" <<<"$output"; then
-      echo "[test-resolve-release-metadata] $name: missing '$line'" >&2
-      printf '%s\n' "$output" | sed 's/^/[test-resolve-release-metadata]   /' >&2
-      exit 1
-    fi
-  done <<<"$expected"
+  if [[ "$output" != "$expected" ]]; then
+    echo "[test-resolve-release-metadata] $name: output mismatch" >&2
+    printf 'expected:\n%s\nactual:\n%s\n' "$expected" "$output" >&2
+    exit 1
+  fi
 
   echo "[test-resolve-release-metadata] $name: passed"
 }
@@ -42,22 +39,22 @@ expect_failure() {
 
 expect_success \
   'GA tag push publishes' \
-  $'version=5.0.0\nrelease_ref=refs/tags/5.0.0\npublish=true\nprerelease=false\nupdate_latest=true' \
+  $'version=5.0.0\nrelease_ref=refs/tags/5.0.0\npublish=true\nprerelease=false' \
   push 5.0.0 false
 
 expect_success \
   'manual GA publishes' \
-  $'publish=true\nprerelease=false\nupdate_latest=true' \
+  $'version=5.1.0\nrelease_ref=refs/tags/5.1.0\npublish=true\nprerelease=false' \
   workflow_dispatch 5.1.0 false
 
 expect_success \
   'manual release candidate publishes without latest' \
-  $'publish=true\nprerelease=true\nupdate_latest=false' \
+  $'version=5.0.0-rc.1\nrelease_ref=refs/tags/5.0.0-rc.1\npublish=true\nprerelease=true' \
   workflow_dispatch 5.0.0-rc.1 true
 
 expect_success \
   'prerelease tag push is a no-op' \
-  $'publish=false\nprerelease=true\nupdate_latest=false' \
+  $'version=5.0.0-beta.2\nrelease_ref=refs/tags/5.0.0-beta.2\npublish=false\nprerelease=true' \
   push 5.0.0-beta.2 false
 
 expect_failure 'manual prerelease requires flag' workflow_dispatch 5.0.0-rc.1 false

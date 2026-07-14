@@ -33,7 +33,6 @@ jobs:
       release_ref: ${{ steps.metadata.outputs.release_ref }}
       publish: ${{ steps.metadata.outputs.publish }}
       prerelease: ${{ steps.metadata.outputs.prerelease }}
-      update_latest: ${{ steps.metadata.outputs.update_latest }}
       commit_sha: ${{ steps.tag.outputs.commit_sha }}
 
     steps:
@@ -126,8 +125,7 @@ jobs:
     outputs:
       version: ${{ needs.preflight.outputs.version }}
       prerelease: ${{ needs.preflight.outputs.prerelease }}
-      update_latest: ${{ needs.preflight.outputs.update_latest }}
-      make_latest: ${{ steps.github_latest.outputs.make_latest }}
+      make_latest: ${{ steps.publication_policy.outputs.make_latest }}
 
     steps:
       - name: Checkout
@@ -163,38 +161,15 @@ jobs:
           fi
 
       - name: Resolve GitHub Latest Release Policy
-        id: github_latest
+        id: publication_policy
         shell: bash
         env:
           RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
-          RELEASE_PRERELEASE: ${{ needs.preflight.outputs.prerelease }}
         run: |
           set -euo pipefail
-
-          make_latest=false
-          if [[ "$RELEASE_PRERELEASE" != "true" ]]; then
-            decision="$(
-              find .build/gh-pages-cache \
-                -mindepth 1 \
-                -maxdepth 1 \
-                -type d \
-                ! -name latest \
-                -exec basename {} \; |
-                python3 ./scripts/release-version-policy.py latest-action "$RELEASE_VERSION"
-            )"
-
-            read -r latest_action _ <<< "$decision"
-            case "$latest_action" in
-              update) make_latest=true ;;
-              preserve) ;;
-              *)
-                echo "Unexpected latest release policy: $decision" >&2
-                exit 1
-                ;;
-            esac
-          fi
-
-          echo "make_latest=$make_latest" >> "$GITHUB_OUTPUT"
+          ./scripts/resolve-latest-publication.sh \
+            "$RELEASE_VERSION" \
+            .build/gh-pages-cache >> "$GITHUB_OUTPUT"
 
       - name: Run Principle Gates
         run: ./scripts/principle-gates.sh
@@ -203,7 +178,7 @@ jobs:
         shell: bash
         run: |
           latest_args=()
-          if [[ "${{ needs.preflight.outputs.update_latest }}" != "true" ]]; then
+          if [[ "${{ steps.publication_policy.outputs.skip_latest }}" == "true" ]]; then
             latest_args+=(--skip-latest)
           fi
 

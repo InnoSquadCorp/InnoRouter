@@ -52,7 +52,6 @@ fi
 
 publish="true"
 prerelease="false"
-update_latest="true"
 
 if [[ "$EVENT_NAME" == "push" ]]; then
   if [[ "$REQUESTED_PRERELEASE" != "false" ]]; then
@@ -67,7 +66,6 @@ if [[ "$EVENT_NAME" == "push" ]]; then
     # successful no-ops; the documented manual dispatch performs publication.
     publish="false"
     prerelease="true"
-    update_latest="false"
   else
     echo "[resolve-release-metadata] Tag pushes must use a bare GA version or supported rc/beta version." >&2
     exit 1
@@ -78,7 +76,6 @@ elif [[ "$REQUESTED_PRERELEASE" == "true" ]]; then
     exit 1
   fi
   prerelease="true"
-  update_latest="false"
 else
   if [[ "$version_kind" != "ga" ]]; then
     echo "[resolve-release-metadata] GA release tags must use bare semantic versioning." >&2
@@ -90,4 +87,3 @@ printf 'version=%s\n' "$TAG"
 printf 'release_ref=refs/tags/%s\n' "$TAG"
 printf 'publish=%s\n' "$publish"
 printf 'prerelease=%s\n' "$prerelease"
-printf 'update_latest=%s\n' "$update_latest"
