@@ -17,7 +17,7 @@ import InnoRouterCore
 /// Store that coordinates spatial scene presentations on visionOS.
 ///
 /// ``SceneStore`` owns the app's spatial scene inventory and publishes
-/// open/dismiss intents that a ``SceneHost`` view translates into
+/// open/dismiss intents that `innoRouterSceneHost` translates into
 /// SwiftUI environment actions (`openWindow`, `openImmersiveSpace`,
 /// `dismissImmersiveSpace`, `dismissWindow`).
 ///

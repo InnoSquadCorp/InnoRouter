@@ -182,12 +182,12 @@ internal struct SceneAnchor<R: Route>: ViewModifier {
 }
 
 public extension View {
-    /// Attaches a ``SceneAnchor`` that reconciles a scene root with a
+    /// Attaches a scene anchor that reconciles a scene root with a
     /// ``SceneStore`` inventory and provides fallback dispatch when no
     /// explicit host is alive.
     ///
     /// Available on visionOS only. On other platforms this modifier is
-    /// not declared; `SceneStore`, `SceneHost`, and `SceneAnchor` exist
+    /// not declared; `SceneStore` and the scene host/anchor modifiers exist
     /// only behind `#if os(visionOS)`. This overload is for immersive
     /// spaces; windows and volumetric scenes must use the `instanceID`
     /// overload.
@@ -199,7 +199,7 @@ public extension View {
         modifier(SceneAnchor(store: store, scenes: scenes, attachedTo: attachedTo))
     }
 
-    /// Attaches a ``SceneAnchor`` to a specific window or volumetric
+    /// Attaches a scene anchor to a specific window or volumetric
     /// instance using the `UUID` supplied by a value-based `WindowGroup`.
     func innoRouterSceneAnchor<R: Route>(
         _ store: SceneStore<R>,

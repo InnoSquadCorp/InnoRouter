@@ -297,11 +297,11 @@ internal struct SceneHost<R: Route>: ViewModifier {
 }
 
 public extension View {
-    /// Attaches a ``SceneHost`` that bridges `store` to SwiftUI's
+    /// Attaches the primary scene host that bridges `store` to SwiftUI's
     /// spatial scene environment actions.
     ///
     /// Available on visionOS only. On other platforms this modifier is
-    /// not declared; `SceneStore` and `SceneHost` exist only behind
+    /// not declared; `SceneStore` and this host modifier exist only behind
     /// `#if os(visionOS)`.
     func innoRouterSceneHost<R: Route>(
         _ store: SceneStore<R>,
@@ -310,13 +310,13 @@ public extension View {
         modifier(SceneHost(store: store, scenes: scenes))
     }
 
-    /// Attaches a ``SceneHost`` and also registers the containing
+    /// Attaches the primary scene host and also registers the containing
     /// scene in the store's active inventory.
     ///
     /// Use this overload for the scene that physically hosts the
     /// dispatcher so ``SceneStore/currentScene`` and window dismissal
     /// requests stay accurate without adding a redundant same-scene
-    /// ``SceneAnchor``. This overload is for immersive host scenes;
+    /// `innoRouterSceneAnchor`. This overload is for immersive host scenes;
     /// windows and volumetric scenes should use the `instanceID`
     /// overload.
     func innoRouterSceneHost<R: Route>(
@@ -327,7 +327,7 @@ public extension View {
         modifier(SceneHost(store: store, scenes: scenes, attachedTo: attachedTo))
     }
 
-    /// Attaches a ``SceneHost`` to a specific window or volumetric
+    /// Attaches the primary scene host to a specific window or volumetric
     /// instance using the `UUID` supplied by a value-based `WindowGroup`.
     func innoRouterSceneHost<R: Route>(
         _ store: SceneStore<R>,

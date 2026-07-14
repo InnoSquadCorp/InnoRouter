@@ -16,8 +16,9 @@ that never drains its stream would otherwise retain every event
 indefinitely — behaving as an unbounded leak when the broadcaster
 outlives all consumers.
 
-To bound that growth, every store accepts an
-`EventBufferingPolicy` in its configuration.
+To bound that growth, every store uses an `EventBufferingPolicy`.
+`NavigationStore`, `ModalStore`, and `FlowStore` expose the policy through
+their configurations. `SceneStore` currently uses the default policy.
 
 ## Default policy
 
@@ -35,9 +36,10 @@ subscriber cannot balloon memory in production.
 | `.bufferingOldest(N)` | Retain at most `N` oldest-broadcast events per subscriber, dropping newer events when the buffer fills. | Audit pipelines that care about the *first* burst more than the latest tail (rare). |
 | `.unbounded` | Buffer every event until the subscriber drains it. | Test harnesses or short-lived subscribers where you control lifetime and require deterministic, lossless ordering. |
 
-## Configuring per store
+## Configuring supported stores
 
-The policy is set per store at construction time via its configuration:
+For Navigation, Modal, and Flow stores, the policy is set at construction
+time via the store's configuration:
 
 ```swift skip doc-fragment
 let store = try NavigationStore<HomeRoute>(
@@ -58,6 +60,9 @@ published stream:
 - `FlowStoreConfiguration.navigation.eventBufferingPolicy` and
   `FlowStoreConfiguration.modal.eventBufferingPolicy` for the wrapped
   inner store streams
+
+`SceneStore` does not currently expose a buffering configuration. Its events
+stream always uses `EventBufferingPolicy.default`.
 
 ## Drop semantics under load
 

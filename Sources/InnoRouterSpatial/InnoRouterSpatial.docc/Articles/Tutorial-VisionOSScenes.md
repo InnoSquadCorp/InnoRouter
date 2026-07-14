@@ -34,6 +34,7 @@ import SwiftUI
 
 import InnoRouter
 import InnoRouterMacros
+import InnoRouterSpatial
 
 @Routable
 enum SpatialRoute {
@@ -51,8 +52,8 @@ struct MyApp: App {
     @State private var sceneStore = SceneStore<SpatialRoute>()
 
     var body: some Scene {
-        // Host-owned scene: SceneHost only. Do NOT also attach a
-        // SceneAnchor here — the host already reconciles its own
+        // Host-owned scene: innoRouterSceneHost only. Do NOT also attach
+        // innoRouterSceneAnchor here — the host already reconciles its own
         // scene's lifecycle, and a redundant anchor registers a
         // fallback dispatcher on the scene the host already owns.
         WindowGroup(id: "main", for: UUID.self) { $sceneID in
@@ -67,7 +68,7 @@ struct MyApp: App {
             UUID()
         }
 
-        // Non-host scene: SceneAnchor only. Keeps the store's
+        // Non-host scene: innoRouterSceneAnchor only. Keeps the store's
         // inventory in sync with system-driven appear/disappear and
         // can temporarily serve dismissals if the host scene is gone;
         // fallback opens are still limited to the same scene.
@@ -90,7 +91,7 @@ matching `WindowGroup` / `ImmersiveSpace` declarations.
 
 ### Which modifier goes where?
 
-| Scene declaration | Attach `SceneHost` | Attach `SceneAnchor` |
+| Scene declaration | Attach `innoRouterSceneHost` | Attach `innoRouterSceneAnchor` |
 |---|---|---|
 | The app's primary `WindowGroup` | ✅ exactly once | ❌ redundant |
 | Secondary `WindowGroup` | ❌ | ✅ |
@@ -98,7 +99,8 @@ matching `WindowGroup` / `ImmersiveSpace` declarations.
 | Any scene that isn't the host's scene | ❌ | ✅ |
 
 A mnemonic: **"one host per store, one anchor per non-host scene"**.
-`SceneHost` is the single primary dispatcher; `SceneAnchor` is a
+`innoRouterSceneHost` is the single primary dispatcher;
+`innoRouterSceneAnchor` is a
 lifecycle reconciler that also serves as a restricted fallback
 dispatcher for its own scene. Fallback anchors are deliberately
 limited to same-scene opens and any dismissal — a cross-scene open
@@ -130,10 +132,10 @@ style does not match the registry entry, the host emits
 `SceneEvent.rejected(.open(...), reason: .sceneDeclarationMismatch)`
 and leaves the active scene inventory untouched.
 
-The `SceneHost` modifier is the preferred primary dispatcher: it
+The `innoRouterSceneHost` modifier is the preferred primary dispatcher: it
 observes pending request tokens, claims work, dispatches through the
 SwiftUI environment, and reports success back into the store.
-`SceneAnchor` mirrors that dispatch loop as a fallback only when no
+`innoRouterSceneAnchor` mirrors that dispatch loop as a fallback only when no
 explicit host is currently alive. If `openImmersiveSpace` returns
 `.userCancelled` or `.error`,
 the host emits a
@@ -143,7 +145,7 @@ a recency-ordered summary of that inventory, while `activeScenes`
 exposes the full inventory. Calling `dismissImmersive()` without an active
 immersive scene emits
 `SceneEvent.rejected(.dismissImmersive, reason: .nothingActive)`.
-`SceneAnchor` still never emits public lifecycle events; it reconciles
+`innoRouterSceneAnchor` still never emits public lifecycle events; it reconciles
 inventory when the system opens or closes a scene outside the store's
 explicit command path and can temporarily forward commands while the
 preferred host scene is gone.
@@ -182,9 +184,8 @@ ContentView()
     }
 ```
 
-`OrnamentAnchor` lives in `InnoRouterCore` so ornament placement is
-serialisable and testable on platforms that never materialise the
-visual effect.
+`OrnamentAnchor` lives in `InnoRouterSpatial`, but remains serialisable and
+testable on platforms that never materialise the visual effect.
 
 ## Composing with `FlowStore`
 

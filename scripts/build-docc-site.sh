@@ -70,6 +70,11 @@ if ! command -v swift >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v xcodebuild >/dev/null 2>&1; then
+  echo "[build-docc-site] xcodebuild is required" >&2
+  exit 1
+fi
+
 if ! command -v python3 >/dev/null 2>&1; then
   echo "[build-docc-site] python3 is required" >&2
   exit 1
@@ -157,6 +162,7 @@ fi
 DOCC_MODULES=(
   "InnoRouterCore|Sources/InnoRouterCore/InnoRouterCore.docc|core|InnoRouterCore|com.innosquad.innorouter.docs.core"
   "InnoRouterSwiftUI|Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc|swiftui|InnoRouterSwiftUI|com.innosquad.innorouter.docs.swiftui"
+  "InnoRouterSpatial|Sources/InnoRouterSpatial/InnoRouterSpatial.docc|spatial|InnoRouterSpatial|com.innosquad.innorouter.docs.spatial"
   "InnoRouterDeepLink|Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc|deeplink|InnoRouterDeepLink|com.innosquad.innorouter.docs.deeplink"
   "InnoRouterEffects|Sources/InnoRouterEffects/InnoRouterEffects.docc|effects|InnoRouterEffects|com.innosquad.innorouter.docs.effects"
   "InnoRouterMacros|Sources/InnoRouterMacros/InnoRouterMacros.docc|macros|InnoRouterMacros|com.innosquad.innorouter.docs.macros"
@@ -167,6 +173,7 @@ SYMBOL_GRAPH_MODULES=(
   "InnoRouter"
   "InnoRouterCore"
   "InnoRouterSwiftUI"
+  "InnoRouterSpatial"
   "InnoRouterDeepLink"
   "InnoRouterEffects"
   "InnoRouterMacros"
@@ -184,6 +191,12 @@ sdk_path=""
 toolchain_bin_dir=""
 swift_symbolgraph_extract_bin=""
 docc_bin=""
+xr_derived_data_dir="$temp_root/xros-derived-data"
+xr_modules_dir=""
+xr_module_cache_dir=""
+xr_sdk_path=""
+xr_target_triple="arm64-apple-xros2.0-simulator"
+xr_resource_dir=""
 
 cleanup() {
   rm -rf "$temp_root"
@@ -213,6 +226,13 @@ fi
 echo "[build-docc-site] Generating symbol graphs"
 swift build >/dev/null
 
+echo "[build-docc-site] Building InnoRouterSpatial for visionOS symbols"
+xcodebuild build \
+  -scheme InnoRouterSpatial \
+  -destination 'generic/platform=visionOS Simulator' \
+  -derivedDataPath "$xr_derived_data_dir" \
+  -quiet
+
 build_bin_dir="$(swift build --show-bin-path)"
 modules_dir="$build_bin_dir/Modules"
 module_cache_dir="$build_bin_dir/ModuleCache"
@@ -235,15 +255,41 @@ if [[ -n "$platform_frameworks_dir" ]]; then
   framework_search_args=(-F "$platform_frameworks_dir")
 fi
 
+xr_modules_dir="$xr_derived_data_dir/Build/Products/Debug-xrsimulator"
+xr_module_cache_dir="$xr_derived_data_dir/ModuleCache.noindex"
+xr_sdk_path="$(xcrun --sdk xrsimulator --show-sdk-path)"
+xr_sdk_platform_path="$(xcrun --sdk xrsimulator --show-sdk-platform-path 2>/dev/null || true)"
+xr_platform_frameworks_dir=""
+if [[ -n "$xr_sdk_platform_path" ]]; then
+  candidate_xr_platform_frameworks_dir="$xr_sdk_platform_path/Developer/Library/Frameworks"
+  if [[ -d "$candidate_xr_platform_frameworks_dir" ]]; then
+    xr_platform_frameworks_dir="$candidate_xr_platform_frameworks_dir"
+  fi
+fi
+
+xros_framework_search_args=()
+xr_package_frameworks_dir="$xr_modules_dir/PackageFrameworks"
+if [[ -d "$xr_package_frameworks_dir" ]]; then
+  xros_framework_search_args+=(-F "$xr_package_frameworks_dir")
+fi
+if [[ -n "$xr_platform_frameworks_dir" ]]; then
+  xros_framework_search_args+=(-F "$xr_platform_frameworks_dir")
+fi
+
 [[ -d "$modules_dir" ]] || die "failed to locate build modules directory"
 [[ -d "$module_cache_dir" ]] || die "failed to locate module cache directory"
 [[ -n "$sdk_path" ]] || die "failed to locate SDK path"
+[[ -d "$xr_modules_dir" ]] || die "failed to locate xros build products directory"
+[[ -d "$xr_module_cache_dir" ]] || die "failed to locate xros module cache directory"
+[[ -n "$xr_sdk_path" ]] || die "failed to locate xrsimulator SDK path"
 
 target_triple="$(swift -print-target-info | python3 -c 'import json, sys; print(json.load(sys.stdin)["target"]["triple"])')"
 resource_dir="$(swift -print-target-info | python3 -c 'import json, sys; print(json.load(sys.stdin)["paths"]["runtimeResourcePath"])')"
+xr_resource_dir="$(swift -print-target-info -target "$xr_target_triple" | python3 -c 'import json, sys; print(json.load(sys.stdin)["paths"]["runtimeResourcePath"])')"
 
 [[ -n "$target_triple" ]] || die "failed to determine target triple"
 [[ -n "$resource_dir" ]] || die "failed to determine Swift resource directory"
+[[ -n "$xr_resource_dir" ]] || die "failed to determine xros Swift resource directory"
 
 toolchain_bin_dir="$(cd "$(dirname "$(dirname "$resource_dir")")/bin" && pwd -P)"
 swift_symbolgraph_extract_bin="$toolchain_bin_dir/swift-symbolgraph-extract"
@@ -252,7 +298,7 @@ docc_bin="$toolchain_bin_dir/docc"
 [[ -x "$swift_symbolgraph_extract_bin" ]] || die "failed to locate swift-symbolgraph-extract in active toolchain: $swift_symbolgraph_extract_bin"
 [[ -x "$docc_bin" ]] || die "failed to locate docc in active toolchain: $docc_bin"
 
-extract_module_symbols() {
+extract_host_module_symbols() {
   local target="$1"
   local output="$2"
 
@@ -272,6 +318,39 @@ extract_module_symbols() {
     -output-dir "$output" >/dev/null
 
   [[ -f "$output/${target}.symbols.json" ]] || die "failed to generate symbol graph for $target"
+}
+
+extract_xros_module_symbols() {
+  local target="$1"
+  local output="$2"
+
+  rm -rf "$output"
+  mkdir -p "$output"
+
+  "$swift_symbolgraph_extract_bin" \
+    -module-name "$target" \
+    -I "$xr_modules_dir" \
+    "${xros_framework_search_args[@]}" \
+    -target "$xr_target_triple" \
+    -module-cache-path "$xr_module_cache_dir" \
+    -sdk "$xr_sdk_path" \
+    -resource-dir "$xr_resource_dir" \
+    -minimum-access-level public \
+    -omit-extension-block-symbols \
+    -output-dir "$output" >/dev/null
+
+  [[ -f "$output/${target}.symbols.json" ]] || die "failed to generate xros symbol graph for $target"
+}
+
+extract_module_symbols() {
+  local target="$1"
+  local output="$2"
+
+  if [[ "$target" == "InnoRouterSpatial" ]]; then
+    extract_xros_module_symbols "$target" "$output"
+  else
+    extract_host_module_symbols "$target" "$output"
+  fi
 }
 
 build_module_archive() {
@@ -393,6 +472,7 @@ render_version_portal() {
     <div class="grid">
       <a class="card" href="./core/"><strong>InnoRouterCore</strong><p>Route stack, commands, validators, middleware, batch, and transaction execution.</p></a>
       <a class="card" href="./swiftui/"><strong>InnoRouterSwiftUI</strong><p>Stores, hosts, split layouts, modal routing, coordinators, and environment intent.</p></a>
+      <a class="card" href="./spatial/"><strong>InnoRouterSpatial</strong><p>Opt-in visionOS windows, volumes, immersive spaces, scene lifecycle, and ornaments.</p></a>
       <a class="card" href="./deeplink/"><strong>InnoRouterDeepLink</strong><p>Pattern matching, diagnostics, pipelines, and pending deep-link replay.</p></a>
       <a class="card" href="./effects/"><strong>InnoRouterEffects</strong><p>App-boundary navigation and deep-link execution helpers with typed outcomes.</p></a>
       <a class="card" href="./macros/"><strong>InnoRouterMacros</strong><p>@Routable and @CasePathable for concise route declarations and extraction.</p></a>

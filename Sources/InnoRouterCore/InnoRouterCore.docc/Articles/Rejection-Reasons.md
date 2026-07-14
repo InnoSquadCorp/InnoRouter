@@ -96,8 +96,8 @@ Identical shape to `NavigationCancellationReason` but parameterised on
 | `.sceneNotDeclared` | Requested route missing from the shared `SceneRegistry` | Add the declaration, or fix the route |
 | `.sceneDeclarationMismatch` | Presentation kind / size / style does not match the registry entry | Use the registry's declaration unchanged |
 | `.supersededByNewerIntent` | A newer intent replaced the pending one before the host committed it | Expected during rapid intent bursts; no action |
-| `.fallbackCannotDispatch` | A fallback `SceneAnchor` cannot serve a cross-scene open (the primary `SceneHost` scene is not live) | Re-attach a `SceneHost`, or surface UI asking the user to focus the target scene |
-| `.duplicateHostRegistration` | A second `SceneHost` tried to register with the same store | Enforce one host per store; usually a SwiftUI scene-rehydration artefact |
+| `.fallbackCannotDispatch` | A fallback `innoRouterSceneAnchor` cannot serve a cross-scene open (the primary host scene is not live) | Re-attach `innoRouterSceneHost`, or surface UI asking the user to focus the target scene |
+| `.duplicateHostRegistration` | A second `innoRouterSceneHost` tried to register with the same store | Enforce one host per store; usually a SwiftUI scene-rehydration artefact |
 | `.hostTornDownDuringDispatch` | The dispatcher's `Task` was cancelled while a claimed intent was mid-flight | Re-issue the intent once a host is live again |
 
 ## Deep links

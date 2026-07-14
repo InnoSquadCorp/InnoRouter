@@ -23,10 +23,13 @@ That means **different imports pull different surfaces into scope**:
   `@CasePathable` on a declaration. The umbrella `InnoRouter` does
   **not** re-export the macros — this is deliberate so non-macro
   files don't pay the macro-plugin resolution cost.
-- `import InnoRouter` (or `import InnoRouterSwiftUI` directly) is
-  enough for everything else — stores, hosts, intents, events,
-  `@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`,
-  `innoRouterSceneHost`, `innoRouterOrnament`, and the Core types.
+- `import InnoRouter` (or `import InnoRouterSwiftUI` directly) provides
+  the default stack, modal, flow, coordinator, intent, event, and Core
+  runtime surfaces.
+- `import InnoRouterSpatial` is additionally required for `SceneStore`,
+  `innoRouterSceneHost`, `innoRouterSceneAnchor`, and
+  `innoRouterOrnament`. The umbrella intentionally does not re-export
+  this opt-in product.
 
 A file that uses both macros and runtime symbols imports both:
 

@@ -15,11 +15,12 @@ This module owns:
 - `NavigationIntent` and `ModalIntent`
 - `EnvironmentNavigationIntent` and `EnvironmentModalIntent`
 - `StepCoordinator` and `TabCoordinator`
-- `SceneDeclaration`, `SceneRegistry`
-- `SceneStore`, `innoRouterSceneHost`, `innoRouterSceneAnchor` (visionOS only)
-- `innoRouterOrnament(_:content:)` view modifier (no-op off visionOS)
 
 The guiding rule is simple: views emit intent, stores own transition authority, and hosts bridge system UI state back into those authorities.
+
+Spatial scene routing is an opt-in boundary documented by the separate
+`InnoRouterSpatial` product. It is not re-exported by the `InnoRouter`
+umbrella.
 
 ## Choosing a surface
 
@@ -31,7 +32,7 @@ Pick the narrowest authority that matches the app boundary:
 | Split-view stack on supported platforms | `NavigationStore` + `NavigationSplitHost` |
 | Sheet / cover authority | `ModalStore` + `ModalHost` |
 | Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
-| visionOS windows, volumes, immersive spaces | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
+| visionOS windows, volumes, immersive spaces | Opt in to `InnoRouterSpatial` |
 | Reducer, effect, or app-boundary execution | `InnoRouterEffects` |
 | Host-less router assertions | `InnoRouterTesting` |
 
@@ -46,8 +47,6 @@ InnoRouter ships on every Apple platform it currently supports:
 | `ModalHost` `.sheet` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `ModalHost` `.fullScreenCover` (native) | ✅ | ✅ | ⚠ degrades to `.sheet` | ✅ | ⚠ degrades to `.sheet` | ⚠ degrades to `.sheet` |
 | `TabCoordinator.badge` state API / native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
-| `SceneStore`, `innoRouterSceneHost` | — | — | — | — | — | ✅ |
-| `innoRouterOrnament` | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ state only` means `TabCoordinator` stores and exposes badge state, but
 `TabCoordinatorView` omits SwiftUI's native visual badge because `.badge(_:)`
@@ -69,7 +68,6 @@ is unavailable on that platform.
 - <doc:Tutorial-MigratingFromNestedHosts>
 - <doc:Tutorial-Throttling>
 - <doc:Tutorial-StoreObserver>
-- <doc:Tutorial-VisionOSScenes>
 - <doc:Migration-FromTCA>
 - <doc:CaseStudy-OnboardingFlow>
 

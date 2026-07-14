@@ -22,10 +22,10 @@ public enum SceneEvent<R: Route>: Sendable, Equatable {
     /// An open or dismiss request was rejected.
     case rejected(SceneIntent<R>, reason: SceneRejectionReason)
 
-    /// A ``SceneHost`` tried to register but the store already has a
-    /// primary dispatcher. The losing host goes dormant instead of
-    /// crashing so SwiftUI scene rehydration and hot-reload don't
-    /// take the app down.
+    /// An `innoRouterSceneHost` modifier tried to register but the store
+    /// already has a primary dispatcher. The losing host goes dormant
+    /// instead of crashing so SwiftUI scene rehydration and hot-reload
+    /// don't take the app down.
     case hostRegistrationRejected(reason: SceneRejectionReason)
 }
 
@@ -56,20 +56,20 @@ public enum SceneRejectionReason: String, Sendable, Equatable, Codable {
     /// commit it.
     case supersededByNewerIntent
 
-    /// The currently elected dispatcher is a fallback ``SceneAnchor``
+    /// The currently elected dispatcher is a fallback scene-anchor modifier
     /// attached to a different scene than the one the intent would
     /// affect, so the intent is refused instead of being serviced from
     /// an unrelated scene. Apps typically see this after the preferred
-    /// ``SceneHost`` scene disappears while cross-scene opens are still
-    /// queued; attach a new ``SceneHost`` to resume delivery.
+    /// primary host scene disappears while cross-scene opens are still
+    /// queued; attach a new `innoRouterSceneHost` modifier to resume delivery.
     case fallbackCannotDispatch
 
-    /// A second ``SceneHost`` tried to register with the store while
-    /// another host was already primary. The losing host goes dormant
+    /// A second `innoRouterSceneHost` modifier tried to register with the
+    /// store while another host was already primary. The losing host goes dormant
     /// rather than crashing so SwiftUI scene rehydration and hot-reload
     /// sequences remain safe in production. Apps that hit this reason
     /// in normal steady state should attach exactly one
-    /// ``SceneHost`` per ``SceneStore``.
+    /// `innoRouterSceneHost` modifier per ``SceneStore``.
     case duplicateHostRegistration
 
     /// The dispatcher's ``Task`` was cancelled (the owning view
@@ -126,12 +126,12 @@ internal enum SceneDispatchCapability<R: Route>: Equatable {
     case fallbackAnchor(attachedTo: ScenePresentation<R>)
 }
 
-/// Intent queued by ``SceneStore`` for a ``SceneHost`` to act on.
+/// Intent queued by ``SceneStore`` for the host modifier to act on.
 ///
 /// The store doesn't call SwiftUI's `openWindow` / `openImmersiveSpace`
 /// actions directly — those are only accessible from a view's
 /// environment. Instead the store publishes an intent here and a
-/// ``SceneHost`` view observes it and dispatches.
+/// `innoRouterSceneHost` observes it and dispatches.
 public enum SceneIntent<R: Route>: Sendable, Equatable {
     /// Open the given spatial presentation.
     case open(ScenePresentation<R>)
@@ -143,8 +143,8 @@ public enum SceneIntent<R: Route>: Sendable, Equatable {
     case dismissWindow(ScenePresentation<R>)
 }
 
-/// Declared scene metadata shared between your `App` scene declarations,
-/// ``SceneHost``, and ``SceneAnchor``.
+/// Declared scene metadata shared between your `App` scene declarations
+/// and the scene host/anchor modifiers.
 public struct SceneDeclaration<R: Route>: Sendable, Hashable {
     /// The kind of scene declared for a route.
     internal enum Kind: Sendable, Hashable {
@@ -191,7 +191,7 @@ public struct SceneDeclaration<R: Route>: Sendable, Hashable {
     }
 }
 
-/// Registry of scenes that a ``SceneHost`` is allowed to open or dismiss.
+/// Registry of scenes that the spatial host and anchor modifiers can dispatch.
 ///
 /// Build the registry from stable scene identifier constants, use those same
 /// constants in your `App`'s `WindowGroup` / `ImmersiveSpace` declarations,
