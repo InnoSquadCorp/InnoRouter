@@ -100,15 +100,16 @@ echo "[principle-gates] Checking documentation Swift code blocks"
 echo "[principle-gates] Checking Examples↔ExamplesSmoke parity"
 ./scripts/check-examples-parity.sh
 
-# Gate 7 — compiler-stable smoke fixtures. ExamplesSmoke targets must
-# build with conservative patterns (no macros) so toolchain churn
-# does not cause spurious example failures.
+# Gate 7 — compiler-stable smoke fixtures. The dedicated macro-first target
+# contains a downstream `import InnoRouter` + `@Router` fixture, so the default
+# umbrella must expose both the macro declaration and generated runtime surface.
 # Failure signal: smoke build error.
 # Local repro: swift build --target <name>
 echo "[principle-gates] Building example smoke targets"
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterExamplesSmoke
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterStandaloneExampleSmoke
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterCoordinatorExampleSmoke
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterMacroFirstSmoke
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterEffects
 
 # Gate 8 — human-facing examples must build. These exercise the
@@ -284,6 +285,14 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
     echo "[principle-gates] xcodebuild build -scheme InnoRouterTesting ($name)"
     xcodebuild build \
       -scheme InnoRouterTesting \
+      -destination "$dest" \
+      -jobs "$XCODEBUILD_JOBS" \
+      -quiet
+
+    echo "[principle-gates] xcodebuild build -scheme InnoRouterMacroFirstSmoke ($name)"
+    xcodebuild build \
+      -workspace .github/platform-tests.xcworkspace \
+      -scheme InnoRouterMacroFirstSmoke \
       -destination "$dest" \
       -jobs "$XCODEBUILD_JOBS" \
       -quiet

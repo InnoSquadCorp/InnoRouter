@@ -130,6 +130,17 @@ jobs:
             -destination '${{ matrix.platform.destination }}' \
             -quiet
 
+      # Building the declaration product is not enough to prove that a client
+      # can expand @Router after importing only the default umbrella. This
+      # target contains the downstream macro-first smoke fixture.
+      - name: Build macro-first consumer for ${{ matrix.platform.name }}
+        run: |
+          xcodebuild build \
+            -workspace .github/platform-tests.xcworkspace \
+            -scheme InnoRouterMacroFirstSmoke \
+            -destination '${{ matrix.platform.destination }}' \
+            -quiet
+
       - name: Build visionOS spatial consumer smoke
         if: matrix.platform.name == 'visionOS'
         run: |

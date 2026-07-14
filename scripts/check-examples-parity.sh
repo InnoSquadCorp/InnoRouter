@@ -108,6 +108,22 @@ for file in "${smoke_files[@]}"; do
     report "$SMOKE_DIR/$file has no matching $EXAMPLES_DIR/${base}Example.swift (and is not in SMOKE_ONLY_ALLOWLIST)"
 done
 
+# The macro-first smoke is a product-contract fixture, not just a source
+# example: it must compile after importing only the default umbrella and its
+# dedicated one-dependency target must stay in the main gate.
+macro_smoke="$SMOKE_DIR/MacrosSmoke.swift"
+if [[ -r "$macro_smoke" ]]; then
+    if ! grep -qx 'import InnoRouter' "$macro_smoke"; then
+        report "$macro_smoke must import the default InnoRouter umbrella"
+    fi
+    if grep -Eq '^import InnoRouterMacros$' "$macro_smoke"; then
+        report "$macro_smoke must not depend on a second InnoRouterMacros import"
+    fi
+    if ! grep -q '@Router' "$macro_smoke"; then
+        report "$macro_smoke must expand @Router through the default umbrella"
+    fi
+fi
+
 # 3) Manifest must reference every example source and every smoke source.
 #    The main gate must also build every human-facing example target.
 require_readable_file "$MANIFEST" "Swift package manifest"
@@ -117,28 +133,33 @@ if (( missing_required_file > 0 )); then
     echo "Examples↔ExamplesSmoke parity gate failed with $errors violation(s)." >&2
     exit 1
 fi
-manifest_text="$(cat "$MANIFEST")"
-principle_gates_text="$(cat "$PRINCIPLE_GATES")"
-
 for base in "${example_bases[@]}"; do
     src="${base}Example.swift"
     target="InnoRouter${base}Example"
-    if ! grep -q "\"$src\"" <<<"$manifest_text"; then
+    if ! grep -q "\"$src\"" "$MANIFEST"; then
         report "$MANIFEST does not reference $EXAMPLES_DIR/$src"
     fi
-    if ! grep -q "name: \"$target\"" <<<"$manifest_text"; then
+    if ! grep -q "name: \"$target\"" "$MANIFEST"; then
         report "$MANIFEST does not declare target $target for $EXAMPLES_DIR/$src"
     fi
-    if ! grep -Eq -- "--target[[:space:]]+$target([[:space:]]|$)" <<<"$principle_gates_text"; then
+    if ! grep -Eq -- "--target[[:space:]]+$target([[:space:]]|$)" "$PRINCIPLE_GATES"; then
         report "$PRINCIPLE_GATES does not build $target"
     fi
 done
 
 for file in "${smoke_files[@]}"; do
-    if ! grep -q "\"$file\"" <<<"$manifest_text"; then
+    if ! grep -q "\"$file\"" "$MANIFEST"; then
         report "$MANIFEST does not reference $SMOKE_DIR/$file"
     fi
 done
+
+
+if ! grep -q 'soloSmokeTarget(name: "InnoRouterMacroFirstSmoke",[[:space:]]*source: "MacrosSmoke.swift")' "$MANIFEST"; then
+    report "$MANIFEST must keep MacrosSmoke.swift in the dedicated one-dependency InnoRouterMacroFirstSmoke target"
+fi
+if ! grep -Eq -- '--target[[:space:]]+InnoRouterMacroFirstSmoke([[:space:]]|$)' "$PRINCIPLE_GATES"; then
+    report "$PRINCIPLE_GATES does not build InnoRouterMacroFirstSmoke"
+fi
 
 if (( errors > 0 )); then
     echo "" >&2

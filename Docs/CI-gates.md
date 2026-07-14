@@ -41,13 +41,13 @@ early with a clear message if it is missing.
 | 4 | Maintainer docs consistency | README / CLAUDE.md / AGENTS.md / RELEASING.md / CHANGELOG.md cross-reference and version-string sync. | `./scripts/check-docs-consistency.sh` |
 | 5 | Doc Swift code blocks | Code blocks tagged `swift compile` / `swift skip` typecheck against the published API. | `./scripts/check-docs-code-blocks.sh` |
 | 6 | Examples ↔ ExamplesSmoke parity | 1:1 file alignment between the two example trees. See `Examples/README.md` for which side to edit. | `./scripts/check-examples-parity.sh` |
-| 7 | Smoke targets build | Compiler-stable fixtures (no macros) so toolchain churn does not break unrelated examples. | `swift build --target InnoRouterExamplesSmoke` (and siblings) |
+| 7 | Smoke targets build | Compiler-stable runtime fixtures plus a one-product downstream `import InnoRouter` + `@Router` expansion check. | `swift build --target InnoRouterExamplesSmoke` and `swift build --target InnoRouterMacroFirstSmoke` (plus siblings) |
 | 8 | Human-facing examples build | Macro-using examples in `Examples/` — exercises the idiomatic surface. | `swift build --target InnoRouterStandaloneExample` (and siblings) |
 | 9 | Performance smoke | Coarse timing budget for engine dispatch / command algebra. | `./scripts/performance-smoke.sh` |
 | 10 | Source/workflow lint gates | Forbidden source patterns (`@unchecked Sendable`, `nonisolated(unsafe)`, etc.), debug-only fences, and invalid GitHub Actions syntax. | `./scripts/lint-source-gates.sh` and `actionlint -config-file .github/actionlint.yaml` |
 | 11 | Fail-fast probe | Missing `NavigationEnvironmentStorage` must crash deterministically with the documented message — guards against silent fallback regressions. | `swift run NavigationEnvironmentFailFastProbe` (expected to fail) |
 | 12 | Public Bool naming | Public `Bool` properties must start with `is`, `has`, `can`, or `should`. | `rg "public (var\|let) [A-Za-z_][A-Za-z0-9_]*: Bool" Sources` |
-| 13 | Per-platform compile probe (optional) | `xcodebuild` against each Apple-platform generic simulator destination. Only runs when `--platforms=…` is passed. | `./scripts/principle-gates.sh --platforms=all` |
+| 13 | Per-platform compile probe (optional) | `xcodebuild` against each Apple-platform generic simulator destination, including the macro-first consumer smoke. Only runs when `--platforms=…` is passed. | `./scripts/principle-gates.sh --platforms=all` |
 
 ## `--platforms=` flag
 
@@ -62,11 +62,11 @@ Rules:
 - Empty value (`--platforms=`) is rejected.
 - `all` cannot be combined with explicit names — `--platforms=all,ios`
   is rejected to keep the flag unambiguous.
-- Each requested platform invokes `xcodebuild build` for the root
-  `InnoRouterSwiftUI`, `InnoRouterSpatial`, `InnoRouterEffects`, and
-  `InnoRouterTesting` schemes against the selected generic destination. Their
-  dependency graph also compiles Core and DeepLink. Generic destinations avoid
-  drift between local toolchains and CI runners.
+- Each requested platform invokes `xcodebuild build` for all eight public
+  product schemes and `InnoRouterMacroFirstSmoke` against the selected generic
+  destination. The smoke is an actual one-product macro consumer, not only a
+  macro declaration build. Generic destinations avoid drift between local
+  toolchains and CI runners.
 - `xcodebuild` must be available; the gate aborts otherwise.
 - This flag is compile-only. It does not replace the runtime tests in
   the GitHub `platforms` workflow.
@@ -78,7 +78,7 @@ Every gate above runs under one of the workflows in `.github/workflows/`:
 | Workflow | Gates |
 | --- | --- |
 | `principle-gates.yml` | 1–12 plus public-API / `Unreleased` changelog sync (every PR / push to `main` and `develop`) |
-| `platforms.yml` | 13 (explicit Apple compile matrix for Core, SwiftUI, Spatial, DeepLink, Effects, and Testing), a visionOS Spatial consumer build, plus tvOS, watchOS, and visionOS runtime tests with minimum executed-test counts |
+| `platforms.yml` | 13 (all eight public products plus the macro-first consumer on every Apple platform), a visionOS Spatial consumer build, plus tvOS, watchOS, and visionOS runtime tests with minimum executed-test counts |
 | `docs-ci.yml` | 2 (DocC build validation) |
 | `coverage.yml` | 1 (with coverage instrumentation) |
 | `performance-smoke.yml` | 9 (perf regression detection) |

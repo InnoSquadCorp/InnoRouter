@@ -3,7 +3,8 @@
 Files under `ExamplesSmoke/` exist for one reason: to keep the
 public InnoRouter surface compiling under
 [`scripts/principle-gates.sh`](../scripts/principle-gates.sh) on
-every commit, even when the macro toolchain or DocC catalog churns.
+every commit, including one downstream expansion through the default
+macro-first umbrella.
 
 They are **not** documentation. Adopters should read
 [`Examples/`](../Examples/) instead — that's where the idiomatic,
@@ -13,9 +14,10 @@ macro-driven code lives.
 
 - Plain Swift covering the same public symbols that the matching
   `Examples/<Name>Example.swift` exercises.
-- Conservative patterns: **no `@Routable` / `@CasePathable` macros**
-  (smoke fixtures must keep building if `swift-syntax` host plugin
-  support breaks).
+- Conservative runtime patterns in the ordinary mirrors.
+- Macro usage in `MacrosSmoke.swift`, which deliberately proves that
+  `import InnoRouter` exposes `@Router`, `@Routable`, and
+  `@CasePathable` without a second product or import.
 - Smoke-only files that exercise surface area not yet narrated by an
   example. These are listed in
   [`scripts/check-examples-parity.sh`](../scripts/check-examples-parity.sh)
@@ -24,9 +26,10 @@ macro-driven code lives.
 
 ## What does NOT belong here
 
-- Macro usage. Macro coverage lives in
-  `Tests/InnoRouterMacrosTests/` and
-  `Tests/InnoRouterMacrosBehaviorTests/`.
+- Macro edge cases. Expansion diagnostics and detailed behavior coverage live
+  in `Tests/InnoRouterMacrosTests/` and
+  `Tests/InnoRouterMacrosBehaviorTests/`; this directory keeps only the
+  downstream consumer smoke.
 - Comments explaining the InnoRouter API. Smoke files are CI fixtures,
   not tutorials — keep prose minimal.
 - Any pattern an adopter would not realistically write.
@@ -56,6 +59,7 @@ why no narrative example exists yet.
 ```bash
 swift build --target InnoRouterExamplesSmoke
 swift build --target InnoRouter<Name>ExampleSmoke   # solo smokes
+swift build --target InnoRouterMacroFirstSmoke
 ./scripts/check-examples-parity.sh
 ```
 

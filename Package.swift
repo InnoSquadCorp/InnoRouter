@@ -33,13 +33,14 @@ private let exampleSources: [String] = [
     "SampleAppExample.swift",
 ]
 
-/// Smoke files that live in their own per-file targets because
-/// they declare top-level symbols (e.g. `HomeRoute`) that collide
-/// with another smoke. Everything outside this list shares
+/// Smoke files that live in their own per-file targets because they either
+/// declare colliding top-level symbols or enforce a deliberately narrow
+/// dependency contract. Everything outside this list shares
 /// `InnoRouterExamplesSmoke`.
 private let soloSmokeSources: [String] = [
     "StandaloneSmoke.swift",
     "CoordinatorSmoke.swift",
+    "MacrosSmoke.swift",
 ]
 
 /// All smoke sources under `ExamplesSmoke/`. Used both to derive
@@ -82,8 +83,8 @@ private func exampleTarget(
     )
 }
 
-/// Build a per-file `ExamplesSmoke/` target. Used only for the
-/// solo smokes whose top-level symbols collide with another smoke.
+/// Build a per-file `ExamplesSmoke/` target. Used for solo smokes whose
+/// top-level symbols collide or whose dependency graph is itself under test.
 /// `README.md` is excluded for the same reason as `exampleTarget`.
 private func soloSmokeTarget(
     name: String,
@@ -278,11 +279,12 @@ let package = Package(
         //
         // Most smoke files live in one shared target (`InnoRouterExamplesSmoke`)
         // because their top-level symbols don't collide. Two smokes
-        // (`Standalone` and `Coordinator`) both declare `HomeRoute`, so
-        // they stay in their own targets to avoid a module-level
-        // redeclaration. If a future smoke needs a distinct name, add it
-        // to `smokeSources` and (if it does not collide) leave it out of
-        // `soloSmokeSources` — the shared target picks it up automatically.
+        // (`Standalone` and `Coordinator`) both declare `HomeRoute`, so they
+        // stay in their own targets to avoid a module-level redeclaration.
+        // `MacrosSmoke` stays solo to prove that the macro-first consumer
+        // needs only the `InnoRouter` dependency. If a future smoke needs a
+        // distinct name, add it to `smokeSources` and (if it does not collide
+        // or enforce a narrower contract) leave it out of `soloSmokeSources`.
         .target(
             name: "InnoRouterExamplesSmoke",
             dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterSpatial"],
@@ -293,6 +295,7 @@ let package = Package(
         ),
         soloSmokeTarget(name: "InnoRouterStandaloneExampleSmoke",  source: "StandaloneSmoke.swift"),
         soloSmokeTarget(name: "InnoRouterCoordinatorExampleSmoke", source: "CoordinatorSmoke.swift"),
+        soloSmokeTarget(name: "InnoRouterMacroFirstSmoke",          source: "MacrosSmoke.swift"),
 
         // MARK: - Macro Declarations (Public API)
         .target(

@@ -14,8 +14,9 @@ gate enforces that pairing.
 ## What belongs here
 
 - Complete, idiomatic snippets that build standalone.
-- Macro-driven surface (`@Routable`, `@CasePathable`,
-  `@EnvironmentNavigationIntent`, …) where it is the natural choice.
+- Macro-driven surface (`@Router`, `RouterHost`,
+  `@EnvironmentRouter`, …) as the default simple path, with the lower-level
+  store and intent APIs where the example genuinely needs them.
 - The full headline feature surface (deep-link pipeline + auth
   policy + flow projection + middleware) where the example narrates a
   real adoption path — see
@@ -34,7 +35,7 @@ gate enforces that pairing.
 | Change | Edit `Examples/` | Edit `ExamplesSmoke/` |
 | --- | --- | --- |
 | Rename a public symbol | ✅ | ✅ |
-| Add a new macro-driven surface | ✅ (idiomatic example) | ➖ (smoke stays macro-free) |
+| Add a new macro-driven surface | ✅ (idiomatic example) | ✅ in `MacrosSmoke.swift` when the default consumer contract changes |
 | Add a non-macro public API used in multiple examples | ✅ | ✅ |
 | Add a one-off compile-stability regression test | ➖ | ✅ (`*Smoke.swift` only) |
 | Bug fix in narrative prose / comments | ✅ | ➖ |
