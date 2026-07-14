@@ -111,7 +111,7 @@ public struct AnyFlowTelemetrySink<R: Route>: FlowTelemetrySink {
 public struct OSLogNavigationTelemetrySink<R: Route>: NavigationTelemetrySink {
     public typealias RouteType = R
 
-    public let logger: Logger
+    private let logger: Logger
 
     /// Creates an OSLog adapter using `logger`.
     public init(logger: Logger) {
@@ -148,7 +148,7 @@ public struct OSLogNavigationTelemetrySink<R: Route>: NavigationTelemetrySink {
 public struct OSLogModalTelemetrySink<M: Route>: ModalTelemetrySink {
     public typealias RouteType = M
 
-    public let logger: Logger
+    private let logger: Logger
 
     /// Creates an OSLog adapter using `logger`.
     public init(logger: Logger) {
@@ -187,7 +187,7 @@ public struct OSLogModalTelemetrySink<M: Route>: ModalTelemetrySink {
 public struct OSLogFlowTelemetrySink<R: Route>: FlowTelemetrySink {
     public typealias RouteType = R
 
-    public let logger: Logger
+    private let logger: Logger
 
     /// Creates an OSLog adapter using `logger`.
     public init(logger: Logger) {

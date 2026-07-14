@@ -257,15 +257,12 @@ relationship | memberOf | NavigationStoreConfiguration.routeStackValidator | Nav
 relationship | memberOf | NavigationStoreConfiguration.telemetrySink | NavigationStoreConfiguration |  |
 relationship | memberOf | OSLogFlowTelemetrySink.RouteType | OSLogFlowTelemetrySink |  |
 relationship | memberOf | OSLogFlowTelemetrySink.init(logger:) | OSLogFlowTelemetrySink |  |
-relationship | memberOf | OSLogFlowTelemetrySink.logger | OSLogFlowTelemetrySink |  |
 relationship | memberOf | OSLogFlowTelemetrySink.record(_:) | OSLogFlowTelemetrySink |  |
 relationship | memberOf | OSLogModalTelemetrySink.RouteType | OSLogModalTelemetrySink |  |
 relationship | memberOf | OSLogModalTelemetrySink.init(logger:) | OSLogModalTelemetrySink |  |
-relationship | memberOf | OSLogModalTelemetrySink.logger | OSLogModalTelemetrySink |  |
 relationship | memberOf | OSLogModalTelemetrySink.record(_:) | OSLogModalTelemetrySink |  |
 relationship | memberOf | OSLogNavigationTelemetrySink.RouteType | OSLogNavigationTelemetrySink |  |
 relationship | memberOf | OSLogNavigationTelemetrySink.init(logger:) | OSLogNavigationTelemetrySink |  |
-relationship | memberOf | OSLogNavigationTelemetrySink.logger | OSLogNavigationTelemetrySink |  |
 relationship | memberOf | OSLogNavigationTelemetrySink.record(_:) | OSLogNavigationTelemetrySink |  |
 relationship | memberOf | QueueCoalescePolicy.Action | QueueCoalescePolicy |  |
 relationship | memberOf | QueueCoalescePolicy.Action.dropQueued | QueueCoalescePolicy.Action |  |
@@ -683,9 +680,6 @@ symbol | swift.property | NavigationStoreConfiguration.pathMismatchPolicy | path
 symbol | swift.property | NavigationStoreConfiguration.pathReconciler | pathReconciler | var pathReconciler: any NavigationPathReconciling<R> | []
 symbol | swift.property | NavigationStoreConfiguration.routeStackValidator | routeStackValidator | var routeStackValidator: RouteStackValidator<R> | []
 symbol | swift.property | NavigationStoreConfiguration.telemetrySink | telemetrySink | var telemetrySink: AnyNavigationTelemetrySink<R>? | []
-symbol | swift.property | OSLogFlowTelemetrySink.logger | logger | @MainActor let logger: Logger | []
-symbol | swift.property | OSLogModalTelemetrySink.logger | logger | @MainActor let logger: Logger | []
-symbol | swift.property | OSLogNavigationTelemetrySink.logger | logger | @MainActor let logger: Logger | []
 symbol | swift.property | StateRestorationFailure.message | message | let message: String | []
 symbol | swift.property | StateRestorationFailure.target | target | let target: StateRestorationTarget | []
 symbol | swift.property | StepCoordinator.completedSteps | completedSteps | @MainActor var completedSteps: Set<Self.Step> { get set } | []

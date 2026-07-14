@@ -41,6 +41,9 @@ are bare semver (no leading `v`).
   implementation, so every `NavigationStore` now creates the same engine
   internally. Direct `NavigationEngine` use remains public for command-model
   validation and standalone state transitions.
+- The `logger` stored by each `OSLog*TelemetrySink` is now private. Configure
+  these adapters through `init(logger:)`; retain the original `Logger`
+  separately if the app also needs to use it directly.
 - `.whenCancelled(primary, fallback:)` now evaluates each attempted leg behind
   a separate savepoint. If the fallback also fails or is cancelled, its partial
   state is discarded, the original snapshot remains authoritative, and no
