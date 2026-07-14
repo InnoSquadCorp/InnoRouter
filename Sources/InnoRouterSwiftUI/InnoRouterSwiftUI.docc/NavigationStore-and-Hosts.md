@@ -58,7 +58,7 @@ closures remain.
 Views should not mutate a store directly. They should emit `NavigationIntent` through the environment.
 
 `NavigationStoreConfiguration.telemetrySink` receives structured
-`NavigationTelemetryEvent` values for analytics or diagnostics. When
+`NavigationEvent` values for analytics or diagnostics. When
 the sink is omitted but `logger` is supplied, the store installs the
 default `OSLogNavigationTelemetrySink`.
 

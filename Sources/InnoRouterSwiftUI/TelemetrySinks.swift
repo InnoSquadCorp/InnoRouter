@@ -2,22 +2,13 @@ import OSLog
 
 import InnoRouterCore
 
-/// Structured navigation telemetry emitted by ``NavigationStore``.
-public typealias NavigationTelemetryEvent<R: Route> = NavigationEvent<R>
-
-/// Structured modal telemetry emitted by ``ModalStore``.
-public typealias ModalTelemetryEvent<M: Route> = ModalEvent<M>
-
-/// Structured flow telemetry emitted by ``FlowStore``.
-public typealias FlowTelemetryEvent<R: Route> = FlowEvent<R>
-
 /// Receives structured navigation telemetry from a ``NavigationStore``.
 @MainActor
 public protocol NavigationTelemetrySink: Sendable {
     associatedtype RouteType: Route
 
     /// Records a single navigation telemetry event.
-    func record(_ event: NavigationTelemetryEvent<RouteType>)
+    func record(_ event: NavigationEvent<RouteType>)
 }
 
 /// Receives structured modal telemetry from a ``ModalStore``.
@@ -26,7 +17,7 @@ public protocol ModalTelemetrySink: Sendable {
     associatedtype RouteType: Route
 
     /// Records a single modal telemetry event.
-    func record(_ event: ModalTelemetryEvent<RouteType>)
+    func record(_ event: ModalEvent<RouteType>)
 }
 
 /// Receives structured flow telemetry from a ``FlowStore``.
@@ -35,17 +26,17 @@ public protocol FlowTelemetrySink: Sendable {
     associatedtype RouteType: Route
 
     /// Records a single flow telemetry event.
-    func record(_ event: FlowTelemetryEvent<RouteType>)
+    func record(_ event: FlowEvent<RouteType>)
 }
 
 /// Type-erased navigation telemetry sink.
 public struct AnyNavigationTelemetrySink<R: Route>: NavigationTelemetrySink {
     public typealias RouteType = R
 
-    private let recordEvent: @MainActor @Sendable (NavigationTelemetryEvent<R>) -> Void
+    private let recordEvent: @MainActor @Sendable (NavigationEvent<R>) -> Void
 
     /// Creates a sink from a recording closure.
-    public init(record: @escaping @MainActor @Sendable (NavigationTelemetryEvent<R>) -> Void) {
+    public init(record: @escaping @MainActor @Sendable (NavigationEvent<R>) -> Void) {
         self.recordEvent = record
     }
 
@@ -56,7 +47,7 @@ public struct AnyNavigationTelemetrySink<R: Route>: NavigationTelemetrySink {
         }
     }
 
-    public func record(_ event: NavigationTelemetryEvent<R>) {
+    public func record(_ event: NavigationEvent<R>) {
         recordEvent(event)
     }
 }
@@ -65,10 +56,10 @@ public struct AnyNavigationTelemetrySink<R: Route>: NavigationTelemetrySink {
 public struct AnyModalTelemetrySink<M: Route>: ModalTelemetrySink {
     public typealias RouteType = M
 
-    private let recordEvent: @MainActor @Sendable (ModalTelemetryEvent<M>) -> Void
+    private let recordEvent: @MainActor @Sendable (ModalEvent<M>) -> Void
 
     /// Creates a sink from a recording closure.
-    public init(record: @escaping @MainActor @Sendable (ModalTelemetryEvent<M>) -> Void) {
+    public init(record: @escaping @MainActor @Sendable (ModalEvent<M>) -> Void) {
         self.recordEvent = record
     }
 
@@ -79,7 +70,7 @@ public struct AnyModalTelemetrySink<M: Route>: ModalTelemetrySink {
         }
     }
 
-    public func record(_ event: ModalTelemetryEvent<M>) {
+    public func record(_ event: ModalEvent<M>) {
         recordEvent(event)
     }
 }
@@ -88,10 +79,10 @@ public struct AnyModalTelemetrySink<M: Route>: ModalTelemetrySink {
 public struct AnyFlowTelemetrySink<R: Route>: FlowTelemetrySink {
     public typealias RouteType = R
 
-    private let recordEvent: @MainActor @Sendable (FlowTelemetryEvent<R>) -> Void
+    private let recordEvent: @MainActor @Sendable (FlowEvent<R>) -> Void
 
     /// Creates a sink from a recording closure.
-    public init(record: @escaping @MainActor @Sendable (FlowTelemetryEvent<R>) -> Void) {
+    public init(record: @escaping @MainActor @Sendable (FlowEvent<R>) -> Void) {
         self.recordEvent = record
     }
 
@@ -102,7 +93,7 @@ public struct AnyFlowTelemetrySink<R: Route>: FlowTelemetrySink {
         }
     }
 
-    public func record(_ event: FlowTelemetryEvent<R>) {
+    public func record(_ event: FlowEvent<R>) {
         recordEvent(event)
     }
 }
@@ -118,7 +109,7 @@ public struct OSLogNavigationTelemetrySink<R: Route>: NavigationTelemetrySink {
         self.logger = logger
     }
 
-    public func record(_ event: NavigationTelemetryEvent<R>) {
+    public func record(_ event: NavigationEvent<R>) {
         logger.notice(
             """
             navigation telemetry \
@@ -128,7 +119,7 @@ public struct OSLogNavigationTelemetrySink<R: Route>: NavigationTelemetrySink {
         )
     }
 
-    private static func kind(for event: NavigationTelemetryEvent<R>) -> String {
+    private static func kind(for event: NavigationEvent<R>) -> String {
         switch event {
         case .changed:
             return "changed"
@@ -155,7 +146,7 @@ public struct OSLogModalTelemetrySink<M: Route>: ModalTelemetrySink {
         self.logger = logger
     }
 
-    public func record(_ event: ModalTelemetryEvent<M>) {
+    public func record(_ event: ModalEvent<M>) {
         logger.notice(
             """
             modal telemetry \
@@ -165,7 +156,7 @@ public struct OSLogModalTelemetrySink<M: Route>: ModalTelemetrySink {
         )
     }
 
-    private static func kind(for event: ModalTelemetryEvent<M>) -> String {
+    private static func kind(for event: ModalEvent<M>) -> String {
         switch event {
         case .presented:
             return "presented"
@@ -194,7 +185,7 @@ public struct OSLogFlowTelemetrySink<R: Route>: FlowTelemetrySink {
         self.logger = logger
     }
 
-    public func record(_ event: FlowTelemetryEvent<R>) {
+    public func record(_ event: FlowEvent<R>) {
         logger.notice(
             """
             flow telemetry \
@@ -204,7 +195,7 @@ public struct OSLogFlowTelemetrySink<R: Route>: FlowTelemetrySink {
         )
     }
 
-    private static func kind(for event: FlowTelemetryEvent<R>) -> String {
+    private static func kind(for event: FlowEvent<R>) -> String {
         switch event {
         case .pathChanged:
             return "pathChanged"

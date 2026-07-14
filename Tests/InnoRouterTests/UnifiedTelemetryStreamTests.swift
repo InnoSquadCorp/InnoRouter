@@ -167,7 +167,7 @@ struct UnifiedTelemetryStreamTests {
     @Test("NavigationStore configuration telemetry sink receives structured events")
     @MainActor
     func navigationTelemetrySinkReceivesEvents() {
-        let captured = Mutex<[NavigationTelemetryEvent<StreamRoute>]>([])
+        let captured = Mutex<[NavigationEvent<StreamRoute>]>([])
         let sink = AnyNavigationTelemetrySink<StreamRoute> { event in
             captured.withLock { $0.append(event) }
         }
@@ -374,7 +374,7 @@ struct UnifiedTelemetryStreamTests {
     @Test("ModalStore configuration telemetry sink receives replacement events")
     @MainActor
     func modalTelemetrySinkReceivesEvents() {
-        let captured = Mutex<[ModalTelemetryEvent<StreamRoute>]>([])
+        let captured = Mutex<[ModalEvent<StreamRoute>]>([])
         let sink = AnyModalTelemetrySink<StreamRoute> { event in
             captured.withLock { $0.append(event) }
         }
@@ -654,7 +654,7 @@ struct UnifiedTelemetryStreamTests {
     @Test("FlowStore configuration telemetry sink receives wrapped events")
     @MainActor
     func flowTelemetrySinkReceivesWrappedEvents() {
-        let captured = Mutex<[FlowTelemetryEvent<StreamRoute>]>([])
+        let captured = Mutex<[FlowEvent<StreamRoute>]>([])
         let sink = AnyFlowTelemetrySink<StreamRoute> { event in
             captured.withLock { $0.append(event) }
         }

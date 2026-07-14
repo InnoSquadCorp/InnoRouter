@@ -170,6 +170,11 @@ are bare semver (no leading `v`).
   construction. Middleware metadata and mutation events, path-mismatch events,
   and state-restoration failures remain public readable values emitted by their
   owning stores and adapters, but their initializers are now framework-only.
+- Telemetry sinks now use the canonical `NavigationEvent`, `ModalEvent`, and
+  `FlowEvent` names directly. The redundant `NavigationTelemetryEvent`,
+  `ModalTelemetryEvent`, and `FlowTelemetryEvent` aliases are removed; update
+  explicit annotations and custom sink method signatures to the canonical
+  event types.
 - `DeepLinkPipeline` now accepts a `DeepLinkMatcher` through its canonical
   `matcher:` initializer. The old `resolve:` initializer and nested `Resolver`
   type alias are removed. Migrate `resolve: { matcher.match($0) }` to

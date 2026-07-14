@@ -114,7 +114,7 @@ private final class ReentrantInnerNavigationTelemetryObserver {
     var flowEvents: [FlowEvent<FlowDelegationRoute>] = []
     private var didReenter = false
 
-    func record(_ event: NavigationTelemetryEvent<FlowDelegationRoute>) {
+    func record(_ event: NavigationEvent<FlowDelegationRoute>) {
         guard !didReenter, case .changed = event else { return }
         didReenter = true
         store?.send(.push(.detail))
@@ -128,7 +128,7 @@ private final class ReentrantInnerModalTelemetryObserver {
     var pathAtReplacementTelemetry: [RouteStep<FlowDelegationRoute>]?
     private var didReenter = false
 
-    func record(_ event: ModalTelemetryEvent<FlowDelegationRoute>) {
+    func record(_ event: ModalEvent<FlowDelegationRoute>) {
         guard !didReenter, case .replaced = event else { return }
         didReenter = true
         pathAtReplacementTelemetry = store?.path
