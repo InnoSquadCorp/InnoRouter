@@ -20,9 +20,9 @@ check_absent() {
     return
   fi
 
-  if grep -Fn "$pattern" "$file_path" >/dev/null 2>&1; then
+  if grep -Fn -- "$pattern" "$file_path" >/dev/null 2>&1; then
     echo "[check-docs-consistency] Failed: $message" >&2
-    grep -Fn "$pattern" "$file_path" >&2
+    grep -Fn -- "$pattern" "$file_path" >&2
     failures=1
   fi
 }
@@ -38,7 +38,7 @@ check_present() {
     return
   fi
 
-  if ! grep -F "$pattern" "$file_path" >/dev/null 2>&1; then
+  if ! grep -F -- "$pattern" "$file_path" >/dev/null 2>&1; then
     echo "[check-docs-consistency] Failed: $message" >&2
     failures=1
   fi
@@ -244,6 +244,27 @@ check_present "$ROOT_DIR/scripts/build-docc-site.sh" \
 if ! bash "$ROOT_DIR/scripts/test-resolve-docc-source-ref.sh"; then
   failures=1
 fi
+
+echo "[check-docs-consistency] Checking release-site preservation contract"
+check_present "$ROOT_DIR/.github/workflows/release.yml" \
+  'group: innorouter-release-publish' \
+  "release workflows do not share one publishing concurrency group"
+check_present "$ROOT_DIR/.github/workflows/release.yml" 'queue: max' \
+  "release workflow does not queue concurrent publishing attempts"
+check_present "$ROOT_DIR/.github/actionlint.yaml" \
+  'unexpected key "queue" for "concurrency" section' \
+  "actionlint does not scope its temporary queue-schema exception"
+check_absent "$ROOT_DIR/.github/workflows/release.yml" 'continue-on-error: true' \
+  "release workflow still ignores an existing-site checkout failure"
+check_present "$ROOT_DIR/.github/workflows/release.yml" \
+  'Verify Existing gh-pages Site' \
+  "release workflow does not validate the preserved site snapshot"
+check_present "$ROOT_DIR/.github/workflows/release.yml" \
+  '--existing-site-dir .build/gh-pages-cache' \
+  "release workflow can build without merging the existing site"
+check_absent "$ROOT_DIR/.github/workflows/release.yml" \
+  'if [[ -d ".build/gh-pages-cache"' \
+  "release workflow still falls back to a destructive fresh-site build"
 
 echo "[check-docs-consistency] Checking rejection catalog enum coverage"
 check_enum_cases_documented \

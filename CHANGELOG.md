@@ -212,6 +212,11 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Release publishing now fails closed when the existing `gh-pages` site cannot
+  be checked out or lacks its root portal, and every version unconditionally
+  merges that snapshot before deployment. All release runs share a queued
+  concurrency group, preventing simultaneous tags from publishing stale site
+  snapshots that erase one another or older versioned documentation.
 - Versioned DocC source links now use the exact GA, release-candidate, or beta
   tag. Pre-release builds such as `5.0.0-rc.1` no longer send “View Source”
   links to a potentially newer `main`; preview builds remain pinned to their

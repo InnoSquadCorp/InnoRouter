@@ -17,7 +17,8 @@ on:
         default: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  group: innorouter-release-publish
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -96,11 +97,18 @@ jobs:
 
       - name: Checkout Existing gh-pages Site
         uses: actions/checkout@v7
-        continue-on-error: true
         with:
           ref: gh-pages
           path: .build/gh-pages-cache
           fetch-depth: 1
+
+      - name: Verify Existing gh-pages Site
+        shell: bash
+        run: |
+          if [[ ! -f ".build/gh-pages-cache/index.html" ]]; then
+            echo "The existing gh-pages site is unavailable; refusing a destructive replacement." >&2
+            exit 1
+          fi
 
       - name: Run Principle Gates
         run: ./scripts/principle-gates.sh
@@ -113,11 +121,7 @@ jobs:
             latest_args+=(--skip-latest)
           fi
 
-          if [[ -d ".build/gh-pages-cache" && -f ".build/gh-pages-cache/index.html" ]]; then
-            ./scripts/build-docc-site.sh --version "${{ steps.version.outputs.version }}" --existing-site-dir .build/gh-pages-cache "${latest_args[@]}"
-          else
-            ./scripts/build-docc-site.sh --version "${{ steps.version.outputs.version }}" "${latest_args[@]}"
-          fi
+          ./scripts/build-docc-site.sh --version "${{ steps.version.outputs.version }}" --existing-site-dir .build/gh-pages-cache "${latest_args[@]}"
 
       - name: Package Release Site Artifact
         run: tar -czf .build/docc-site-release.tar.gz -C .build docc-site

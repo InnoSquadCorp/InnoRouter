@@ -195,9 +195,13 @@ that same reusable gate again before it publishes anything.
 - runs on bare-semver tag pushes for GA releases
 - supports manual `workflow_dispatch` with `tag` and `prerelease=true`
   for `rc` / `beta` pre-releases
+- serializes all release runs in one FIFO publishing queue so two tags cannot
+  deploy from the same stale `gh-pages` snapshot
 - rebuilds and revalidates the package
 - invokes the reusable Apple platform gate and blocks publishing until it passes
 - builds versioned DocC output
+- requires a valid checkout of the existing `gh-pages` site and fails closed if
+  it cannot preserve older released documentation
 - merges new docs with existing released docs
 - updates `/latest/` only for GA releases
 - deploys GitHub Pages
@@ -218,6 +222,8 @@ Migration guides are intentionally not part of this release process.
 
 - `CHANGELOG.md` has been cut from `Unreleased` to the release version/date,
   and a new `## Unreleased` section exists above it.
+- The `gh-pages` branch contains a root `index.html`; release publication fails
+  closed rather than replacing an unavailable site snapshot.
 - Public APIs match current README and DocC examples.
 - All `.md` files use bare semver tags, not `v`-prefixed tags.
 - `Examples/` still match current human-facing API usage.
