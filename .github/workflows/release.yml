@@ -22,30 +22,96 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    name: Resolve release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      release_ref: ${{ steps.metadata.outputs.release_ref }}
+      publish: ${{ steps.metadata.outputs.publish }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+      update_latest: ${{ steps.metadata.outputs.update_latest }}
+      commit_sha: ${{ steps.tag.outputs.commit_sha }}
+
+    steps:
+      - name: Checkout release policy
+        uses: actions/checkout@v7
+        with:
+          ref: refs/heads/main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Validate release request
+        id: metadata
+        shell: bash
+        env:
+          RELEASE_EVENT: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          RELEASE_PRERELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
+        run: |
+          set -euo pipefail
+          ./scripts/resolve-release-metadata.sh \
+            "$RELEASE_EVENT" \
+            "$RELEASE_TAG" \
+            "$RELEASE_PRERELEASE" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve exact tag commit
+        id: tag
+        shell: bash
+        env:
+          RELEASE_EVENT: ${{ github.event_name }}
+          RELEASE_EVENT_REF: ${{ github.ref }}
+          RELEASE_EVENT_SHA: ${{ github.sha }}
+          RELEASE_REF: ${{ steps.metadata.outputs.release_ref }}
+        run: |
+          set -euo pipefail
+
+          git fetch --force origin "+${RELEASE_REF}:${RELEASE_REF}"
+          git fetch --force origin "+refs/heads/main:refs/remotes/origin/main"
+
+          ./scripts/verify-release-ref.sh \
+            "$RELEASE_EVENT" \
+            "$RELEASE_EVENT_REF" \
+            "$RELEASE_EVENT_SHA" \
+            "$RELEASE_REF" \
+            refs/remotes/origin/main >> "$GITHUB_OUTPUT"
+
+      - name: Explain prerelease tag no-op
+        if: steps.metadata.outputs.publish != 'true'
+        run: |
+          echo "::notice::Pre-release tag pushes are intentionally not published. Dispatch release.yml with prerelease=true."
+
   platform-gates:
     name: Apple platform gates
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
     uses: ./.github/workflows/platforms.yml
     with:
-      ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      ref: ${{ needs.preflight.outputs.commit_sha }}
     permissions:
       contents: read
 
   build:
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
     runs-on: macos-15
     timeout-minutes: 45
     permissions:
       contents: read
     outputs:
-      version: ${{ steps.version.outputs.version }}
-      prerelease: ${{ steps.version.outputs.prerelease }}
-      update_latest: ${{ steps.version.outputs.update_latest }}
+      version: ${{ needs.preflight.outputs.version }}
+      prerelease: ${{ needs.preflight.outputs.prerelease }}
+      update_latest: ${{ needs.preflight.outputs.update_latest }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          ref: ${{ needs.preflight.outputs.commit_sha }}
 
       - name: Select Xcode 26.3
         uses: maxim-lobanov/setup-xcode@v1
@@ -57,43 +123,6 @@ jobs:
 
       - name: Install gate tools
         run: brew install ripgrep swiftformat swiftlint
-
-      - name: Validate Release Tag
-        id: version
-        shell: bash
-        run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            TAG="${{ inputs.tag }}"
-            PRERELEASE="${{ inputs.prerelease }}"
-          else
-            TAG="${GITHUB_REF_NAME}"
-            PRERELEASE="false"
-          fi
-
-          GA_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
-          PRERELEASE_REGEX='^[0-9]+\.[0-9]+\.[0-9]+-(rc|beta)\.[0-9]+$'
-
-          if [[ "$PRERELEASE" == "true" ]]; then
-            if [[ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]]; then
-              echo "Pre-release publishing is only allowed through workflow_dispatch." >&2
-              exit 1
-            fi
-            if [[ ! "$TAG" =~ $PRERELEASE_REGEX ]]; then
-              echo "Pre-release tags must use <major>.<minor>.<patch>-(rc|beta).<n> (for example 5.0.0-rc.1)." >&2
-              exit 1
-            fi
-          elif [[ ! "$TAG" =~ $GA_REGEX ]]; then
-            echo "GA release tags must use bare semantic versioning (for example 5.0.0)." >&2
-            exit 1
-          fi
-
-          echo "version=$TAG" >> "$GITHUB_OUTPUT"
-          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
-          if [[ "$PRERELEASE" == "true" ]]; then
-            echo "update_latest=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "update_latest=true" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Checkout Existing gh-pages Site
         uses: actions/checkout@v7
@@ -117,11 +146,11 @@ jobs:
         shell: bash
         run: |
           latest_args=()
-          if [[ "${{ steps.version.outputs.update_latest }}" != "true" ]]; then
+          if [[ "${{ needs.preflight.outputs.update_latest }}" != "true" ]]; then
             latest_args+=(--skip-latest)
           fi
 
-          ./scripts/build-docc-site.sh --version "${{ steps.version.outputs.version }}" --existing-site-dir .build/gh-pages-cache "${latest_args[@]}"
+          ./scripts/build-docc-site.sh --version "${{ needs.preflight.outputs.version }}" --existing-site-dir .build/gh-pages-cache "${latest_args[@]}"
 
       - name: Package Release Site Artifact
         run: tar -czf .build/docc-site-release.tar.gz -C .build docc-site
