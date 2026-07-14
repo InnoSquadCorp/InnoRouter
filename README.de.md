@@ -53,7 +53,7 @@ ist ein Router, dessen `Sendable`/`@MainActor`-Disziplin vom Compiler
 Das Macro-Target hängt von `swift-syntax` `603.0.1` mit einer
 `.upToNextMinor`-Beschränkung ab. InnoRouter 5.0 hebt die Paketbasis auf
 Swift 6.3 an und richtet sie damit an dieser Host-Abhängigkeit sowie dem in CI
-gepinnten Xcode-26.3-Toolchain aus. Weitere Swift-Anhebungen bleiben
+gepinnten Xcode-26.6-Toolchain aus. Weitere Swift-Anhebungen bleiben
 Major-Versionen vorbehalten.
 
 | Concurrency-Haltung | InnoRouter | TCA / FlowStacks / andere auf iOS 13+ |

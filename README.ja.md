@@ -51,7 +51,7 @@ iOS 18 フロアと `swift-tools-version: 6.3` パッケージベースライン
 コンパイラによってチェックされることです。
 
 マクロターゲットは `swift-syntax` `603.0.1` に `.upToNextMinor` 制約で
-依存しています。InnoRouter 5.0 は、このホスト依存と CI で固定した Xcode 26.3
+依存しています。InnoRouter 5.0 は、このホスト依存と CI で固定した Xcode 26.6
 toolchain に合わせてパッケージフロアを Swift 6.3 に引き上げます。今後の
 Swift フロア引き上げもメジャーバージョンでのみ行います。
 

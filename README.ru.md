@@ -52,7 +52,7 @@ concurrency и `Sendable` без аварийных выходов `@preconcurre
 
 Macros target зависит от `swift-syntax` `603.0.1` с ограничением
 `.upToNextMinor`. InnoRouter 5.0 поднимает базовую линию пакета до Swift 6.3,
-согласуя её с этой host-зависимостью и закреплённым в CI toolchain Xcode 26.3.
+согласуя её с этой host-зависимостью и закреплённым в CI toolchain Xcode 26.6.
 Дальнейшие повышения минимума Swift остаются изменениями major-версии.
 
 | Стойка concurrency | InnoRouter | TCA / FlowStacks / другие на iOS 13+ |

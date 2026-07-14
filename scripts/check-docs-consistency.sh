@@ -156,7 +156,7 @@ if [[ "$swift_syntax_series" != '603' ]]; then
   failures=1
 fi
 
-workflow_pin_expectations=(
+workflow_toolchain_expectations=(
   'principle-gates.yml:1'
   'platforms.yml:2'
   'release.yml:1'
@@ -164,16 +164,26 @@ workflow_pin_expectations=(
   'coverage.yml:1'
   'performance-smoke.yml:1'
 )
-for expectation in "${workflow_pin_expectations[@]}"; do
+for expectation in "${workflow_toolchain_expectations[@]}"; do
   workflow_name="${expectation%%:*}"
   expected_count="${expectation##*:}"
   workflow_path="$ROOT_DIR/.github/workflows/$workflow_name"
-  actual_count="$(grep -Fc 'xcode-version: "26.3"' "$workflow_path" || true)"
-  if [[ "$actual_count" != "$expected_count" ]]; then
-    echo "[check-docs-consistency] Failed: $workflow_name must pin Xcode 26.3 exactly $expected_count time(s)" >&2
+  xcode_pin_count="$(grep -Fc 'xcode-version: "26.6"' "$workflow_path" || true)"
+  runner_count="$(grep -Ec '^[[:space:]]+runs-on: macos-26$' "$workflow_path" || true)"
+  if [[ "$xcode_pin_count" != "$expected_count" ]]; then
+    echo "[check-docs-consistency] Failed: $workflow_name must pin Xcode 26.6 exactly $expected_count time(s)" >&2
+    failures=1
+  fi
+  if [[ "$runner_count" != "$expected_count" ]]; then
+    echo "[check-docs-consistency] Failed: $workflow_name must use macos-26 exactly $expected_count time(s)" >&2
     failures=1
   fi
 done
+
+check_present "$ROOT_DIR/RELEASING.md" '**macos-26**' \
+  "RELEASING.md does not document the compiling runner image"
+check_present "$ROOT_DIR/RELEASING.md" '**26.6**' \
+  "RELEASING.md does not document the pinned Xcode version"
 
 check_absent "$ROOT_DIR/.github/workflows/platforms.yml" \
   'Swift 6.2 is the floor' \

@@ -118,7 +118,7 @@ jobs:
   build:
     needs: preflight
     if: needs.preflight.outputs.publish == 'true'
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 45
     permissions:
       contents: read
@@ -134,10 +134,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ needs.preflight.outputs.commit_sha }}
 
-      - name: Select Xcode 26.3
+      - name: Select Xcode 26.6
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "26.3"
+          xcode-version: "26.6"
 
       - name: Swift Version
         run: swift --version

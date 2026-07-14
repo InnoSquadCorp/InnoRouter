@@ -50,7 +50,7 @@ view 코드와 store 사이 경계에서 네비게이션 상태가 main actor �
 컴파일러로 검증된다는 점입니다.
 
 매크로 타깃은 `swift-syntax` `603.0.1`에 `.upToNextMinor` 제약으로 의존합니다.
-InnoRouter 5.0은 이 host 의존성과 CI에 핀된 Xcode 26.3 toolchain에 맞춰 package
+InnoRouter 5.0은 이 host 의존성과 CI에 핀된 Xcode 26.6 toolchain에 맞춰 package
 floor를 Swift 6.3으로 올립니다. 이후 Swift floor 상향도 메이저 버전에서만 진행합니다.
 
 | Concurrency 자세 | InnoRouter | iOS 13+ 타깃의 TCA / FlowStacks 등 |

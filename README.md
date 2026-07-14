@@ -53,7 +53,7 @@ by the compiler instead of documented in prose.
 
 The macro target depends on `swift-syntax` `603.0.1` with an
 `.upToNextMinor` constraint. InnoRouter 5.0 aligns its Swift 6.3 package
-floor with that host dependency and CI's pinned Xcode 26.3 toolchain.
+floor with that host dependency and CI's pinned Xcode 26.6 toolchain.
 Future Swift floor increases remain major-version changes.
 
 | Concurrency posture | InnoRouter | TCA / FlowStacks / others on iOS 13+ |

@@ -10,7 +10,7 @@ are bare semver (no leading `v`).
 
 - The minimum supported Swift version is now 6.3
   (`swift-tools-version: 6.3`), aligned with `swift-syntax` 603.x and the
-  Xcode 26.3 / Swift 6.3 release gates. Consumers building with Swift 6.2 must
+  Xcode 26.6 / Swift 6.3 release gates. Consumers building with Swift 6.2 must
   upgrade their toolchain before adopting InnoRouter 5.0.
 - visionOS scene routing and ornaments now ship in the opt-in
   `InnoRouterSpatial` product. Add that product dependency and
@@ -237,6 +237,10 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Swift 6.3 CI jobs now run on the `macos-26` runner image and pin Xcode 26.6.
+  The previous `macos-15` / Xcode 26.3 combination selected Swift 6.2.4 and
+  rejected the package manifest before tests, DocC, coverage, performance, or
+  platform gates could run.
 - Performance smoke measurements now alternate small/large input order, report
   median timings, and gate scaling on the median of five pair ratios instead of
   dividing two independently aggregated medians. Transient runner preemption no

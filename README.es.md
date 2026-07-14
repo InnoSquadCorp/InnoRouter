@@ -52,7 +52,7 @@ es verificada por el compilador en lugar de documentada en prosa.
 
 El target de macros depende de `swift-syntax` `603.0.1` con una restricción
 `.upToNextMinor`. InnoRouter 5.0 eleva el piso del paquete a Swift 6.3 para
-alinearlo con esa dependencia host y con el toolchain Xcode 26.3 fijado en CI.
+alinearlo con esa dependencia host y con el toolchain Xcode 26.6 fijado en CI.
 Los futuros aumentos del piso de Swift seguirán reservados para versiones
 mayores.
 

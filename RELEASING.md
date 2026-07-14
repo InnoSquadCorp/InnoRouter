@@ -96,24 +96,26 @@ bump that pin everywhere** — see the release checklist below.
 
 `swift-tools-version: 6.3` is the package floor. The macro target pins
 `swift-syntax` with `.upToNextMinor(from: "603.0.1")`, and every release
-workflow selects Xcode 26.3 whose host compiler reports Swift 6.3. These
-three levers are intentionally aligned for 5.0. Raising the Swift floor
-again belongs in a major release note.
+workflow runs on `macos-26` with Xcode 26.6, whose host compiler reports
+Swift 6.3.3. These four levers are intentionally aligned for 5.0. Raising
+the Swift floor again belongs in a major release note.
 
 #### Toolchain pin matrix
 
 | Lever | Current value | Source of truth | Notes |
 | --- | --- | --- | --- |
-| Minimum Xcode for releasing | **26.3** | `xcode-version` in every workflow under `.github/workflows/` | Bumping requires updating every workflow file in the same commit. |
-| Bundled Swift host compiler | Swift 6.3 (with Xcode 26.3) | `swift --version` on the pinned Xcode | Must match the package's supported Swift line. |
+| GitHub Actions runner | **macos-26** | `runs-on` in every compiling workflow under `.github/workflows/` | The runner image must provide the pinned Xcode version. |
+| Minimum Xcode for releasing | **26.6** | `xcode-version` in every workflow under `.github/workflows/` | Bumping requires updating every workflow file in the same commit. |
+| Bundled Swift host compiler | Swift 6.3.3 (with Xcode 26.6) | `swift --version` on the pinned Xcode | Must match the package's supported Swift line. |
 | Package supported Swift floor | **Swift 6.3** | `swift-tools-version` line in `Package.swift` | Raising belongs in a major release. |
 | `swift-syntax` constraint | `.upToNextMinor(from: "603.0.1")` (i.e. `603.0.x`) | `Package.swift` macro plugin dependency | Allows patch bumps; minor / major bumps require a deliberate audit. |
 | Apple platform floor | iOS 18 / iPadOS 18 / macOS 15 / tvOS 18 / watchOS 11 / visionOS 2 | `platforms` block in `Package.swift` | Raising belongs in a major release. |
 | Macro host availability | macOS only (SwiftSyntax host plugin) | `Tests/InnoRouterMacrosTests`, `Tests/InnoRouterMacrosBehaviorTests` | Macro expansion is exercised by the macOS test jobs. |
 
-To bump the Xcode pin, change `xcode-version` in every workflow file
-in a single commit, regenerate the public-API baseline with the same
-toolchain (`Baselines/PublicAPI` is symbol-graph–sensitive), and rerun
+To bump the Xcode pin, confirm that the matching runner image provides it,
+then change `runs-on` and `xcode-version` in every compiling workflow file
+in a single commit. Regenerate the public-API baseline with the same toolchain
+(`Baselines/PublicAPI` is symbol-graph–sensitive), and rerun
 `./scripts/principle-gates.sh` locally before tagging.
 
 ## Changelog cut
