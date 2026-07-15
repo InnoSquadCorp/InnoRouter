@@ -34,7 +34,9 @@ public protocol ChildCoordinator: LifecycleAware {
     /// Default implementation is a no-op — conforming coordinators
     /// override this when they need to tear down transient state
     /// triggered by the parent push (dismiss sheets, cancel
-    /// in-flight work, release temporary stores, etc.).
+    /// in-flight work, release temporary stores, etc.). Keep any
+    /// app-owned `Task` handles on the child and cancel them here, or
+    /// install the same cleanup on ``lifecycleSignals``.
     ///
     /// The callback is directional: `parentDidCancel` flows
     /// **parent → child**. Use `onCancel` when the child itself

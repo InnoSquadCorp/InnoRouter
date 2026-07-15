@@ -85,8 +85,7 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
   `await` on the child result.
 - **Former lag (closed)**: "back to root across coordinators" remains
   app-owned cleanup, but parent `Task` cancellation now propagates
-  through `ChildCoordinator.parentDidCancel` and
-  `ChildCoordinatorTaskTracker`.
+  through `ChildCoordinator.parentDidCancel` and `LifecycleSignals`.
 
 ### vs Stinsen — 960★ (legacy)
 - **Lead**: every axis. NavigationStack-era, Observation, Sendable,
@@ -224,7 +223,7 @@ Shape (landed):
 - Design rationale in `Docs/design-child-coordinator-handoff.md`.
 
 The P3 cancellation follow-up is now closed by
-`ChildCoordinator.parentDidCancel` and `ChildCoordinatorTaskTracker`.
+`ChildCoordinator.parentDidCancel` and `LifecycleSignals`.
 
 #### P1-2 Typed destination bindings — **Shipped (#14)**
 
@@ -417,10 +416,10 @@ Shape (landed):
   `.pushUniqueRootDismissingModal(R)` dismiss any active modal
   tail then dispatch through the base intent, with middleware
   cancellation propagating coherently.
-- **P3-8 ChildCoordinatorTaskTracker** — opt-in helper that
-  child coordinators compose into `parentDidCancel()` to cancel
-  tracked async `Task`s in one call. No protocol change, so
-  coordinators that don't need task tracking skip it entirely.
+- **P3-8 Child task tracking helper (superseded in 5.0)** — 4.x shipped
+  `ChildCoordinatorTaskTracker` as opt-in bookkeeping. The 5.0 API removes the
+  wrapper: child coordinators keep their app-owned `Task` handles directly and
+  cancel them from `parentDidCancel()` or `lifecycleSignals.onParentCancel`.
 - **P3-9 Cross-launch pending deep links** — `FlowPendingDeepLink`
   gains conditional `Codable` conformance and a
   `FlowPendingDeepLinkPersistence<R: Route & Codable>` helper
@@ -460,7 +459,7 @@ Shape (landed):
 | P3 | Direct `store.events` observation (`StoreObserver` removed in 5.0) | observability ergonomics | small | **shipped** |
 | P3 | Property-based tests (Swift Testing `@Test(arguments:)`) | invariant coverage | small | **shipped** |
 | P3 | FlowIntent modal-aware variants | ergonomics | small | **shipped** |
-| P3 | `ChildCoordinatorTaskTracker` | cancellation ergonomics | small | **shipped** |
+| P3 | Child cancellation hooks (`ChildCoordinatorTaskTracker` removed in 5.0) | cancellation ergonomics | small | **shipped** |
 | P3 | Cross-launch pending deep links (Codable `FlowPendingDeepLink` + persistence) | state restoration | small | **shipped** |
 | All-platform | All six Apple platforms via SwiftUI + opt-in visionOS spatial presentations | positioning | medium | **shipped** |
 
@@ -469,7 +468,7 @@ Shape (landed):
 With the P3 polish cluster shipped (macro FixIts, `.whenCancelled`,
 `ThrottleNavigationMiddleware`, `DebouncingNavigator`, direct store event
 streams, property-based tests, modal-aware FlowIntent
-variants, `ChildCoordinatorTaskTracker`,
+variants, child cancellation hooks,
 `FlowPendingDeepLinkPersistence`) **and the all-platform /
 visionOS-spatial product** (`InnoRouterSpatial`, `ScenePresentation`,
 `SceneDeclaration`, `SceneRegistry`, `SceneStore`, `innoRouterSceneHost`,

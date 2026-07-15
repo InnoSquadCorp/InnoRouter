@@ -212,6 +212,11 @@ are bare semver (no leading `v`).
   or `FlowStore.events` before starting a lifecycle-owned task so the subscriber
   is registered synchronously; cancelling that task ends the subscription.
   `FlowStore.events` continues to wrap its inner navigation and modal events.
+- `ChildCoordinatorTaskTracker` is removed. Child coordinators should retain
+  their app-owned `Task` handles directly and cancel them from
+  `parentDidCancel()` or `lifecycleSignals.onParentCancel`; `push(child:)`
+  continues to fire both parent-cancellation hooks. `activeCount` and automatic
+  deinit cancellation bookkeeping are no longer framework-provided.
 - The unused `FlowNavigating` forwarding protocol is removed. Flow owners
   should keep a `FlowStore` directly and dispatch with `send(_:)` or
   `apply(_:)`; `FlowHost` publishes the store's capabilities through the

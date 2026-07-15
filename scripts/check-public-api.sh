@@ -195,12 +195,6 @@ checks = [
             "var onCancel: (@MainActor @Sendable () -> Void)? { get set }",
         ],
     ),
-    (
-        "Sources/InnoRouterSwiftUI/ChildCoordinatorTaskTracker.swift",
-        [
-            "_ operation: @escaping @MainActor @Sendable () async -> Void",
-        ],
-    ),
 ]
 
 missing: list[str] = []

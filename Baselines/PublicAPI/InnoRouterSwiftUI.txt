@@ -7,10 +7,6 @@ relationship | defaultImplementationOf | StepCoordinator.canProceed(from:) | Ste
 relationship | memberOf | AsyncNavigationMiddlewareExecutor.add(_:) | AsyncNavigationMiddlewareExecutor |  |
 relationship | memberOf | AsyncNavigationMiddlewareExecutor.execute(_:) | AsyncNavigationMiddlewareExecutor |  |
 relationship | memberOf | AsyncNavigationMiddlewareExecutor.init(store:) | AsyncNavigationMiddlewareExecutor |  |
-relationship | memberOf | ChildCoordinatorTaskTracker.activeCount | ChildCoordinatorTaskTracker |  |
-relationship | memberOf | ChildCoordinatorTaskTracker.cancelAll() | ChildCoordinatorTaskTracker |  |
-relationship | memberOf | ChildCoordinatorTaskTracker.init() | ChildCoordinatorTaskTracker |  |
-relationship | memberOf | ChildCoordinatorTaskTracker.track(priority:_:) | ChildCoordinatorTaskTracker |  |
 relationship | memberOf | Coordinator.push(child:) | Coordinator |  |
 relationship | memberOf | Coordinator.send(_:) | Coordinator |  |
 relationship | memberOf | CoordinatorHost.body | CoordinatorHost |  |
@@ -320,7 +316,6 @@ symbol | swift.associatedtype | StepCoordinator.Step | Step | associatedtype Ste
 symbol | swift.associatedtype | TabCoordinator.TabContent | TabContent | associatedtype TabContent : View | []
 symbol | swift.associatedtype | TabCoordinator.TabType | TabType | associatedtype TabType : RouterTab | []
 symbol | swift.class | AsyncNavigationMiddlewareExecutor | AsyncNavigationMiddlewareExecutor | @MainActor final class AsyncNavigationMiddlewareExecutor<R> where R : Route | []
-symbol | swift.class | ChildCoordinatorTaskTracker | ChildCoordinatorTaskTracker | @MainActor final class ChildCoordinatorTaskTracker | []
 symbol | swift.class | DebouncingNavigator | DebouncingNavigator | @MainActor final class DebouncingNavigator<N, C> where N : NavigationCommandExecutor, C : Clock, C.Duration == Duration | []
 symbol | swift.class | FlowStore | FlowStore | @MainActor final class FlowStore<R> where R : Route | []
 symbol | swift.class | ModalStore | ModalStore | @MainActor final class ModalStore<M> where M : Route | []
@@ -439,7 +434,6 @@ symbol | swift.enum.case | QueueCoalescePolicy.preserve | QueueCoalescePolicy.pr
 symbol | swift.enum.case | StateRestorationTarget.flowPlan | StateRestorationTarget.flowPlan | case flowPlan | []
 symbol | swift.enum.case | StateRestorationTarget.navigationStack | StateRestorationTarget.navigationStack | case navigationStack | []
 symbol | swift.init | AsyncNavigationMiddlewareExecutor.init(store:) | init(store:) | @MainActor init(store: NavigationStore<R>) | []
-symbol | swift.init | ChildCoordinatorTaskTracker.init() | init() | @MainActor init() | []
 symbol | swift.init | CoordinatorHost.init(coordinator:root:) | init(coordinator:root:) | @MainActor init(coordinator: C, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | CoordinatorSplitHost.init(coordinator:sidebar:root:) | init(coordinator:sidebar:root:) | @MainActor init(coordinator: C, @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | DebouncingNavigator.init(wrapping:interval:) | init(wrapping:interval:) | @MainActor convenience init(wrapping inner: N, interval: Duration) | []
@@ -476,8 +470,6 @@ symbol | swift.init | ThrottleNavigationMiddleware.init(interval:key:) | init(in
 symbol | swift.method | AsyncNavigationMiddlewareExecutor.add(_:) | add(_:) | @MainActor func add(_ middleware: any AsyncNavigationMiddleware<R>) | []
 symbol | swift.method | AsyncNavigationMiddlewareExecutor.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) async -> NavigationResult<R> | []
 symbol | swift.method | ChildCoordinator.parentDidCancel() | parentDidCancel() | @MainActor func parentDidCancel() | []
-symbol | swift.method | ChildCoordinatorTaskTracker.cancelAll() | cancelAll() | @MainActor func cancelAll() | []
-symbol | swift.method | ChildCoordinatorTaskTracker.track(priority:_:) | track(priority:_:) | @discardableResult @MainActor func track(priority: TaskPriority? = nil, _ operation: @escaping @MainActor () async -> Void) -> Task<Void, Never> | []
 symbol | swift.method | Coordinator.destination(for:) | destination(for:) | @ViewBuilder @MainActor func destination(for route: Self.RouteType) -> Self.Destination | []
 symbol | swift.method | Coordinator.handle(_:) | handle(_:) | @MainActor func handle(_ intent: NavigationIntent<Self.RouteType>) | []
 symbol | swift.method | Coordinator.push(child:) | push(child:) | @discardableResult @MainActor func push<Child>(child: Child) -> Task<Child.Result?, Never> where Child : ChildCoordinator | []
@@ -550,7 +542,6 @@ symbol | swift.method | ThrottleNavigationMiddleware.willExecute(_:state:) | wil
 symbol | swift.method | View.innoRouterEnvironmentMissingPolicy(_:) | innoRouterEnvironmentMissingPolicy(_:) | @MainActor func innoRouterEnvironmentMissingPolicy(_ policy: EnvironmentMissingPolicy) -> some View | []
 symbol | swift.property | ChildCoordinator.onCancel | onCancel | @MainActor var onCancel: (@MainActor () -> Void)? { get set } | []
 symbol | swift.property | ChildCoordinator.onFinish | onFinish | @MainActor var onFinish: (@MainActor (Self.Result) -> Void)? { get set } | []
-symbol | swift.property | ChildCoordinatorTaskTracker.activeCount | activeCount | @MainActor var activeCount: Int { get } | []
 symbol | swift.property | Coordinator.store | store | @MainActor var store: NavigationStore<Self.RouteType> { get } | []
 symbol | swift.property | CoordinatorHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | CoordinatorSplitHost.body | body | @MainActor var body: some View { get } | []

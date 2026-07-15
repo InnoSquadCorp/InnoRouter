@@ -51,6 +51,33 @@ private final class DefaultChild: ChildCoordinator {
     var lifecycleSignals: LifecycleSignals = LifecycleSignals()
 }
 
+/// Child that owns its transient work directly instead of relying on a
+/// framework task-tracking abstraction.
+@MainActor
+private final class TaskOwningChild: ChildCoordinator {
+    typealias Result = Int
+
+    var onFinish: (@MainActor @Sendable (Int) -> Void)?
+    var onCancel: (@MainActor @Sendable () -> Void)?
+    var lifecycleSignals: LifecycleSignals = LifecycleSignals()
+    private var workTask: Task<Void, Never>?
+
+    func startWork() -> Task<Void, Never> {
+        let task = Task { @MainActor in
+            while !Task.isCancelled {
+                await Task.yield()
+            }
+        }
+        workTask = task
+        return task
+    }
+
+    func parentDidCancel() {
+        workTask?.cancel()
+        workTask = nil
+    }
+}
+
 @Suite("ChildCoordinator Cancellation Tests")
 struct ChildCoordinatorCancellationTests {
 
@@ -120,9 +147,26 @@ struct ChildCoordinatorCancellationTests {
         #expect(result == nil)
     }
 
-    @Test("Cancelling a grandparent Task propagates parentDidCancel to the grandchild")
+    @Test("A child can cancel its directly owned task from parentDidCancel")
     @MainActor
-    func nestedCancellationReachesGrandchild() async {
+    func parentCancellationCancelsChildOwnedTask() async {
+        let parent = CancelParent()
+        let child = TaskOwningChild()
+        let workTask = child.startWork()
+
+        let task = parent.push(child: child)
+        task.cancel()
+
+        let result = await task.value
+        await workTask.value
+
+        #expect(result == nil)
+        #expect(workTask.isCancelled)
+    }
+
+    @Test("Cancelling nested coordinator tasks notifies each matching child")
+    @MainActor
+    func cancellingNestedTasksNotifiesEachChild() async {
         let rootParent = CancelParent()
         let child = TrackingChild()
         let grandchild = TrackingChild()
@@ -134,9 +178,8 @@ struct ChildCoordinatorCancellationTests {
         let intermediateParent = CancelParent()
         let grandchildTask = intermediateParent.push(child: grandchild)
 
-        // Cancel both tasks at once by cancelling the inner task (which
-        // is what an app would do when the parent coordinator dismisses
-        // its hosted view).
+        // Coordinator-tree ownership is app policy. When the parent tears
+        // down both placements, it explicitly cancels both task handles.
         grandchildTask.cancel()
         childTask.cancel()
 
