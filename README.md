@@ -481,6 +481,20 @@ lives in the DocC tutorial
 - `.backToRoot`
 - `.replaceStack([Route])`
 
+Intent projection is stable across `NavigationStore` and `FlowStore`:
+an empty `goMany` / `pushMany` is a no-op, one route becomes `.push`, and
+multiple routes become one atomic `.pushAll` command. A `backBy` / `popCount`
+equal to the full navigation depth becomes `.popToRoot`.
+
+When no modal tail is active, pop and dismiss attempts still cross their
+respective middleware boundary even if the underlying stack or modal state is
+empty. This lets middleware observe, cancel, or rewrite no-op attempts exactly
+as it can on the direct stores. Cancelled FlowStore previews still finalize the
+captured `didExecute` / `.commandIntercepted` lifecycle; modal cancellation
+also applies `ModalQueueCancellationPolicy` before the rejection is emitted.
+An aborted reset discards successful navigation previews and never commits an
+intermediate modal shadow state.
+
 Macro-first views normally do not need the store. Read actions with
 `@EnvironmentRouter`, use `router.go(_:)` / `router.back()` for common
 transitions, and use `router.send(_:)` for advanced intents. Call

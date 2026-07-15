@@ -129,6 +129,21 @@ the lower-level dispatcher itself.
 the sink is omitted but `logger` is supplied, the store installs the
 default `OSLogNavigationTelemetrySink`.
 
+### Intent command shape
+
+`NavigationStore.send(_:)` and the navigation adapter owned by `FlowStore`
+use the same middleware-visible command shape:
+
+- empty `goMany` / `pushMany` -> no command
+- one route -> `.push`
+- multiple routes -> one atomic `.pushAll`
+- `backBy` / `popCount` equal to the current stack depth -> `.popToRoot`
+
+With no modal tail, pop attempts enter middleware even on an empty stack.
+The engine may still return a no-op or failure, but middleware can consistently
+observe, cancel, or rewrite the attempt. A modal tail remains the flow boundary:
+stack-pop intents do not bypass it.
+
 ## Path reconciliation
 
 When SwiftUI changes the path, InnoRouter translates that change back into semantic commands:

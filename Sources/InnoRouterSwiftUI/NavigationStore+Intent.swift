@@ -46,7 +46,9 @@ extension NavigationStore {
     /// - single element — a single `.execute(_:)` call's worth.
     /// - multiple elements — a batch the caller can hand to
     ///   `.executeBatch(_:stopOnFailure:)`, exactly the way
-    ///   ``send(_:)`` does internally.
+    ///   ``send(_:)`` does internally. High-level intents currently
+    ///   project to at most one command; the array shape remains useful
+    ///   for custom state-dependent projections and source compatibility.
     ///
     /// This accessor surfaces the intent ↔ command projection so
     /// tests and middleware can preview "what would `send(_:)` do"
@@ -64,7 +66,7 @@ extension NavigationStore {
             case 1:
                 return [.push(routes[0])]
             default:
-                return routes.map(NavigationCommand.push)
+                return [.pushAll(routes)]
             }
         case .back:
             return [.pop]

@@ -433,6 +433,17 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         }
     }
 
+    /// Balances middleware lifecycle for a preview that an enclosing
+    /// `FlowStore` transaction ultimately rolls back.
+    ///
+    /// The live navigation state was never changed by the preview, so this
+    /// only runs the middleware discard hook captured by the journal.
+    func discardFlowPreview(_ preview: NavigationExecutionJournal<R>) {
+        preview
+            .forDiscardedTransaction()
+            .discardExecuted(using: middlewareRegistry)
+    }
+
     // `reconcileNavigationPath` is `internal` rather than `private`
     // because the binding helpers live in
     // `NavigationStore+Binding.swift`. Access stays within the

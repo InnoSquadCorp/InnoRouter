@@ -25,6 +25,11 @@ struct MacroFirstRuntimeTests {
         var intents: [NavigationIntent<MacroFirstRuntimeRoute>] = []
     }
 
+    @MainActor
+    private final class FlowEventRecorder {
+        var events: [FlowEvent<MacroFirstRuntimeRoute>] = []
+    }
+
     @Test("RouterActions maps convenience methods to navigation intents")
     @MainActor
     func routerActionsIntentMapping() {
@@ -83,14 +88,76 @@ struct MacroFirstRuntimeTests {
         #expect(store.state.path == [.settings])
     }
 
-    @Test("RouterHost constructs a locally owned simple router")
+    @Test("FlowHost removes the destination closure for a DestinationRoute")
     @MainActor
-    func routerHostConstruction() {
-        let host = RouterHost(MacroFirstRuntimeRoute.self) {
+    func destinationRouteFlowHostConstruction() {
+        let store = FlowStore<MacroFirstRuntimeRoute>()
+        let host = FlowHost(store: store) {
             Text("Root")
         }
 
         _ = host.body
+        store.send(.push(.settings))
+
+        #expect(store.path == [.push(.settings)])
+    }
+
+    @Test("RouterHost constructs a locally owned push and modal router")
+    @MainActor
+    func routerHostConstruction() {
+        let host = RouterHost(
+            MacroFirstRuntimeRoute.self,
+            initial: [.push(.settings)]
+        ) {
+            Text("Root")
+        }
+
+        _ = host.body
+    }
+
+    @Test("RouterModalHost constructs a locally owned modal router")
+    @MainActor
+    func routerModalHostConstruction() {
+        let current = ModalPresentation(
+            route: MacroFirstRuntimeRoute.settings,
+            style: .sheet
+        )
+        let queued = ModalPresentation(
+            route: MacroFirstRuntimeRoute.detail(id: "queued"),
+            style: .fullScreenCover
+        )
+        let host = RouterModalHost(
+            MacroFirstRuntimeRoute.self,
+            initial: current,
+            queued: [queued]
+        ) {
+            Text("Root")
+        }
+
+        _ = host.body
+    }
+
+    @Test("Macro-first diagnostics preserve the caller's flow event hook")
+    @MainActor
+    func macroFirstDiagnosticsChainUserOnEvent() {
+        let recorder = FlowEventRecorder()
+        let configuration = FlowStoreConfiguration<MacroFirstRuntimeRoute>(
+            onEvent: { event in
+                recorder.events.append(event)
+            }
+        ).withMacroFirstDiagnostics()
+        let store = FlowStore(
+            initial: [.sheet(.settings)],
+            configuration: configuration
+        )
+
+        store.send(.push(.detail(id: "blocked")))
+
+        #expect(
+            recorder.events.contains(
+                .intentRejected(.push(.detail(id: "blocked")), .pushBlockedByModalTail)
+            )
+        )
     }
 
     @Test("EnvironmentRouter can be declared without exposing a store")

@@ -2,13 +2,13 @@ import SwiftUI
 
 import InnoRouterCore
 
-/// A navigation host that owns a local ``NavigationStore`` for a
+/// A macro-first router host that owns a local ``FlowStore`` for a
 /// ``DestinationRoute``.
 ///
-/// Use `RouterHost` for a self-contained stack that does not need external
-/// access to its store. When restoration, deep-link reconciliation, or
-/// middleware mutation requires an external authority, create the store at the
-/// application boundary and use ``NavigationHost`` instead.
+/// `RouterHost` is the default self-contained surface for both push navigation
+/// and modal presentation. When restoration, deep-link reconciliation, or
+/// middleware mutation requires an external authority, create a ``FlowStore``
+/// at the application boundary and use ``FlowHost`` instead.
 ///
 /// ```swift
 /// @Router
@@ -32,7 +32,7 @@ import InnoRouterCore
 /// ```
 @MainActor
 public struct RouterHost<R: DestinationRoute, Root: View>: View {
-    @State private var store: NavigationStore<R>
+    @State private var store: FlowStore<R>
     private let root: () -> Root
 
     /// Creates a locally owned router for `routeType`.
@@ -42,21 +42,21 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
     /// existing store.
     public init(
         _ routeType: R.Type,
-        initial: RouteStack<R> = .init(),
-        configuration: NavigationStoreConfiguration<R> = .init(),
+        initial: [RouteStep<R>] = [],
+        configuration: FlowStoreConfiguration<R> = .init(),
         @ViewBuilder root: @escaping () -> Root
     ) {
         _ = routeType
         self._store = State(
-            initialValue: NavigationStore(
+            initialValue: FlowStore(
                 initial: initial,
-                configuration: configuration
+                configuration: configuration.withMacroFirstDiagnostics()
             )
         )
         self.root = root
     }
 
     public var body: some View {
-        NavigationHost(store: store, root: root)
+        FlowHost(store: store, root: root)
     }
 }

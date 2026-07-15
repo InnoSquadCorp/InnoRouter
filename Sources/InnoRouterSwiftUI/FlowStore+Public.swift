@@ -6,8 +6,8 @@
 // Extracted from FlowStore.swift in the 4.1.0 cleanup so the store
 // core does not have to host the public entry points alongside the
 // FlowMutationPlan dispatch logic. Both methods are thin wrappers
-// that build a FlowMutationPlan via `mutationPlan(for:)` and route
-// it through `apply(_:intent:)`.
+// that route intent planning + commit through one Flow mutation
+// boundary.
 
 import InnoRouterCore
 
@@ -27,7 +27,7 @@ extension FlowStore {
             recorder: traceRecorder,
             metadata: ["intent": String(describing: intent)]
         ) {
-            apply(mutationPlan(for: intent), intent: intent)
+            dispatch(intent)
         } outcome: { result in
             Self.traceOutcome(for: result)
         }
@@ -59,7 +59,7 @@ extension FlowStore {
             metadata: ["stepCount": String(plan.steps.count)]
         ) {
             let intent = FlowIntent<R>.reset(plan.steps)
-            return apply(mutationPlan(for: intent), intent: intent)
+            return dispatch(intent)
         } outcome: { result in
             Self.traceOutcome(for: result)
         }

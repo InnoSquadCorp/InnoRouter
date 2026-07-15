@@ -95,8 +95,16 @@ struct FlowTestStoreTests {
 
         store.send(.presentSheet(.sheet))
 
-        // FlowStore takes the preview-only path for cancelled middleware outcomes —
-        // it never commits, so no modal.* events fire. Only .intentRejected does.
+        // A cancelled preview still finalizes the captured middleware and
+        // publishes its command-interception lifecycle before FlowStore emits
+        // the matching rejection. No presentation or path mutation commits.
+        store.receiveModal { event in
+            guard case .commandIntercepted(
+                .present(let presentation),
+                .cancelled(.middleware(let debugName, _))
+            ) = event else { return false }
+            return presentation.route == .sheet && debugName == "BlockSheet"
+        }
         store.receiveIntentRejected(
             intent: .presentSheet(.sheet),
             reason: .middlewareRejected(debugName: "BlockSheet")

@@ -2,7 +2,12 @@ import SwiftUI
 
 import InnoRouterCore
 
-private struct NavigationStackHostContent<R: Route, DestinationView: View, Root: View>: View {
+/// Environment-free stack rendering surface shared by public hosts.
+///
+/// Dispatcher and router authority publication deliberately live at the
+/// public host boundary. `FlowHost` can therefore reuse this surface without
+/// exposing its inner `NavigationStore` as an independent mutation authority.
+struct NavigationStackSurface<R: Route, DestinationView: View, Root: View>: View {
     @Bindable private var store: NavigationStore<R>
     private let destination: (R) -> DestinationView
     private let root: () -> Root
@@ -60,9 +65,13 @@ public struct NavigationHost<R: Route, DestinationView: View, Root: View>: View 
     }
 
     public var body: some View {
-        NavigationStackHostContent(store: store, destination: destination, root: root)
+        NavigationStackSurface(store: store, destination: destination, root: root)
             .navigationIntentDispatcher(store.intentDispatcher, owner: store)
             .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
+            .routerAuthority(
+                for: R.self,
+                navigation: store.intentDispatcher
+            )
     }
 }
 
@@ -99,7 +108,7 @@ public struct NavigationSplitHost<R: Route, Sidebar: View, DestinationView: View
         NavigationSplitView {
             sidebar()
         } detail: {
-            NavigationStackHostContent(
+            NavigationStackSurface(
                 store: store,
                 destination: destination,
                 root: root
@@ -107,6 +116,10 @@ public struct NavigationSplitHost<R: Route, Sidebar: View, DestinationView: View
         }
         .navigationIntentDispatcher(store.intentDispatcher, owner: store)
         .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
+        .routerAuthority(
+            for: R.self,
+            navigation: store.intentDispatcher
+        )
     }
 }
 #endif

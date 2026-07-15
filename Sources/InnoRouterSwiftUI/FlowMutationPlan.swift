@@ -5,19 +5,30 @@ struct FlowMutationPlan<R: Route> {
     let rejectionReason: FlowRejectionReason?
     let queueCoalescePolicyEligible: Bool
     let navigationJournal: NavigationExecutionJournal<R>?
+    let discardedNavigationJournals: [NavigationExecutionJournal<R>]
     let modalJournals: [ModalExecutionJournal<R>]
+    let discardedModalJournals: [ModalExecutionJournal<R>]
+    let modalCancellationJournals: [ModalExecutionJournal<R>]
 
     static func rejected(
         oldPath: [RouteStep<R>],
         reason: FlowRejectionReason,
-        queueCoalescePolicyEligible: Bool = false
+        queueCoalescePolicyEligible: Bool = false,
+        navigationJournal: NavigationExecutionJournal<R>? = nil,
+        discardedNavigationJournals: [NavigationExecutionJournal<R>] = [],
+        modalJournals: [ModalExecutionJournal<R>] = [],
+        discardedModalJournals: [ModalExecutionJournal<R>] = [],
+        modalCancellationJournals: [ModalExecutionJournal<R>] = []
     ) -> Self {
         Self(
             oldPath: oldPath,
             rejectionReason: reason,
             queueCoalescePolicyEligible: queueCoalescePolicyEligible,
-            navigationJournal: nil,
-            modalJournals: []
+            navigationJournal: navigationJournal,
+            discardedNavigationJournals: discardedNavigationJournals,
+            modalJournals: modalJournals,
+            discardedModalJournals: discardedModalJournals,
+            modalCancellationJournals: modalCancellationJournals
         )
     }
 
@@ -31,7 +42,10 @@ struct FlowMutationPlan<R: Route> {
             rejectionReason: nil,
             queueCoalescePolicyEligible: false,
             navigationJournal: navigationJournal,
-            modalJournals: modalJournals
+            discardedNavigationJournals: [],
+            modalJournals: modalJournals,
+            discardedModalJournals: [],
+            modalCancellationJournals: []
         )
     }
 }

@@ -22,10 +22,35 @@ public protocol ModalMiddleware {
         queuedPresentations: [ModalPresentation<RouteType>]
     ) -> ModalInterception<RouteType>
 
-    /// Called after `command` mutates the store state. Runs only for
-    /// middlewares whose `willExecute` returned `.proceed` for the same
-    /// command (participant discipline mirrors `NavigationMiddleware`).
+    /// Finalizes a command attempt with the actual live modal state that
+    /// remains after execution or cancellation.
+    ///
+    /// Direct execution and committed Flow execution call this for the exact
+    /// prefix of middleware whose `willExecute` ran, including a middleware
+    /// that cancelled the command. A successful preview later rolled back by
+    /// an enclosing atomic Flow reset does not call `didExecute`; package-owned
+    /// stateful middleware can use `ModalMiddlewareDiscardCleanup` for that
+    /// internal cleanup path. This commit-only rule prevents a callback from
+    /// reporting shadow state that never became live.
     func didExecute(
+        _ command: ModalCommand<RouteType>,
+        currentPresentation: ModalPresentation<RouteType>?,
+        queuedPresentations: [ModalPresentation<RouteType>]
+    )
+}
+
+/// Package-only lifecycle cleanup for modal attempts previewed by a larger
+/// atomic transaction and then rolled back.
+///
+/// This mirrors `NavigationMiddlewareDiscardCleanup`: public middleware keeps
+/// the compact `willExecute` / `didExecute` surface, while package-owned
+/// stateful middleware can release reservations made during `willExecute`
+/// without receiving a false `didExecute` for state that never committed.
+@MainActor
+package protocol ModalMiddlewareDiscardCleanup<RouteType> {
+    associatedtype RouteType: Route
+
+    func discardExecution(
         _ command: ModalCommand<RouteType>,
         currentPresentation: ModalPresentation<RouteType>?,
         queuedPresentations: [ModalPresentation<RouteType>]
@@ -47,6 +72,11 @@ public struct AnyModalMiddleware<M: Route>: ModalMiddleware, Sendable {
         ModalPresentation<M>?,
         [ModalPresentation<M>]
     ) -> Void
+    private let _discardExecution: @MainActor @Sendable (
+        ModalCommand<M>,
+        ModalPresentation<M>?,
+        [ModalPresentation<M>]
+    ) -> Void
 
     /// Wraps a concrete `ModalMiddleware`.
     public init<Wrapped: ModalMiddleware>(_ middleware: Wrapped) where Wrapped.RouteType == M {
@@ -63,6 +93,17 @@ public struct AnyModalMiddleware<M: Route>: ModalMiddleware, Sendable {
                 currentPresentation: current,
                 queuedPresentations: queue
             )
+        }
+        if let cleanupMiddleware = middleware as? any ModalMiddlewareDiscardCleanup<M> {
+            self._discardExecution = { command, current, queue in
+                cleanupMiddleware.discardExecution(
+                    command,
+                    currentPresentation: current,
+                    queuedPresentations: queue
+                )
+            }
+        } else {
+            self._discardExecution = { _, _, _ in }
         }
     }
 
@@ -81,6 +122,7 @@ public struct AnyModalMiddleware<M: Route>: ModalMiddleware, Sendable {
     ) {
         self._willExecute = willExecute
         self._didExecute = didExecute
+        self._discardExecution = { _, _, _ in }
     }
 
     public func willExecute(
@@ -97,5 +139,13 @@ public struct AnyModalMiddleware<M: Route>: ModalMiddleware, Sendable {
         queuedPresentations: [ModalPresentation<M>]
     ) {
         _didExecute(command, currentPresentation, queuedPresentations)
+    }
+
+    package func discardExecution(
+        _ command: ModalCommand<M>,
+        currentPresentation: ModalPresentation<M>?,
+        queuedPresentations: [ModalPresentation<M>]
+    ) {
+        _discardExecution(command, currentPresentation, queuedPresentations)
     }
 }

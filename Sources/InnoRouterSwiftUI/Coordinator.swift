@@ -9,8 +9,12 @@ import SwiftUI
 /// additional `where R: Sendable` constraints.
 public enum NavigationIntent<R: Route>: Sendable, Equatable {
     case go(R)
+    /// Projects an empty array to no command, one route to `.push`, and
+    /// multiple routes to one atomic `.pushAll` command.
     case goMany([R])
     case back
+    /// Normalizes a positive count equal to the current stack depth to
+    /// `.popToRoot`; other counts project to `.popCount`.
     case backBy(Int)
     case backTo(R)
     case backToRoot
@@ -103,9 +107,15 @@ public struct CoordinatorHost<C: Coordinator, Root: View>: View {
     }
 
     public var body: some View {
+        let navigationDispatcher = coordinator.navigationIntentDispatcher
+
         CoordinatorStackHostContent(coordinator: coordinator, root: root)
-        .navigationIntentDispatcher(coordinator.navigationIntentDispatcher, owner: coordinator)
-        .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
+            .navigationIntentDispatcher(navigationDispatcher, owner: coordinator)
+            .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
+            .routerAuthority(
+                for: C.RouteType.self,
+                navigation: navigationDispatcher
+            )
     }
 }
 
@@ -136,13 +146,19 @@ public struct CoordinatorSplitHost<C: Coordinator, Sidebar: View, Root: View>: V
     }
 
     public var body: some View {
+        let navigationDispatcher = coordinator.navigationIntentDispatcher
+
         NavigationSplitView {
             sidebar()
         } detail: {
             CoordinatorStackHostContent(coordinator: coordinator, root: root)
         }
-        .navigationIntentDispatcher(coordinator.navigationIntentDispatcher, owner: coordinator)
+        .navigationIntentDispatcher(navigationDispatcher, owner: coordinator)
         .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
+        .routerAuthority(
+            for: C.RouteType.self,
+            navigation: navigationDispatcher
+        )
     }
 }
 #endif

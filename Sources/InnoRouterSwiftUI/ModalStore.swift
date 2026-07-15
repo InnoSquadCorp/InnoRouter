@@ -416,13 +416,18 @@ public final class ModalStore<M: Route> {
 
         switch outcome.interception {
         case .cancel(let reason):
+            let stateAfter = cancellationState(
+                command: outcome.command,
+                reason: reason,
+                from: stateBefore
+            )
             return ModalExecutionJournal(
                 requestedCommand: command,
                 effectiveCommand: outcome.command,
                 result: .cancelled(reason),
                 participants: outcome.participants,
                 stateBefore: stateBefore,
-                stateAfter: stateBefore
+                stateAfter: stateAfter
             )
         case .proceed(let effectiveCommand):
             let previewOutcome = previewApplyCommand(effectiveCommand, to: stateBefore)
@@ -439,6 +444,35 @@ public final class ModalStore<M: Route> {
 
     @discardableResult
     func commitFlowPreview(_ preview: ModalExecutionJournal<M>) -> ModalExecutionResult<M> {
+        commitFlowPreview(preview, appliesState: true)
+    }
+
+    /// Finalizes a cancelled modal preview captured by `FlowStore`.
+    ///
+    /// A cancellation can still change the modal queue through
+    /// ``ModalQueueCancellationPolicy``. That shadow-state delta is committed
+    /// only when the journal was previewed from the current live state. A
+    /// later leg of an aborted reset was previewed from an intermediate shadow
+    /// instead; in that case middleware and telemetry are finalized against
+    /// the actual live post-state without leaking the uncommitted shadow.
+    @discardableResult
+    func commitFlowCancellation(
+        _ preview: ModalExecutionJournal<M>
+    ) -> ModalExecutionResult<M> {
+        guard case .cancelled = preview.result else {
+            preconditionFailure("commitFlowCancellation requires a cancelled preview.")
+        }
+        return commitFlowPreview(
+            preview,
+            appliesState: flowStateSnapshot == preview.stateBefore
+        )
+    }
+
+    @discardableResult
+    private func commitFlowPreview(
+        _ preview: ModalExecutionJournal<M>,
+        appliesState: Bool
+    ) -> ModalExecutionResult<M> {
         eventDispatcher.withExecutionBoundary {
             InternalExecutionTrace.withSpan(
             domain: .modal,
@@ -446,15 +480,24 @@ public final class ModalStore<M: Route> {
             recorder: effectiveTraceRecorder,
             metadata: ["command": String(describing: preview.requestedCommand)]
         ) {
-            currentPresentation = preview.stateAfter.currentPresentation
-            queuedPresentations = preview.stateAfter.queuedPresentations
+            if appliesState {
+                currentPresentation = preview.stateAfter.currentPresentation
+                queuedPresentations = preview.stateAfter.queuedPresentations
 
-            emitCommittedEvents(for: preview)
+                emitCommittedEvents(for: preview)
+            }
+
+            // `didExecute` is a post-state callback. For an ordinary commit
+            // the live snapshot now equals `preview.stateAfter`. For a
+            // cancellation previewed from an aborted reset's intermediate
+            // shadow, no shadow state was committed, so participants must see
+            // the real live state that survived rollback instead.
+            let finalState = flowStateSnapshot
 
             middlewareRegistry.didExecute(
                 preview.effectiveCommand,
-                currentPresentation: currentPresentation,
-                queuedPresentations: queuedPresentations,
+                currentPresentation: finalState.currentPresentation,
+                queuedPresentations: finalState.queuedPresentations,
                 participants: preview.participants
             )
 
@@ -477,6 +520,21 @@ public final class ModalStore<M: Route> {
                 String(describing: result)
             }
         }
+    }
+
+    /// Balances package-owned middleware lifecycle for a modal preview that
+    /// an enclosing FlowStore reset rolled back.
+    ///
+    /// Public `didExecute` is intentionally not called because the preview's
+    /// state never became live. Stateful package middleware can opt into the
+    /// same discard-cleanup model used by navigation transactions.
+    func discardFlowPreview(_ preview: ModalExecutionJournal<M>) {
+        middlewareRegistry.discardExecution(
+            preview.effectiveCommand,
+            currentPresentation: preview.stateAfter.currentPresentation,
+            queuedPresentations: preview.stateAfter.queuedPresentations,
+            participants: preview.participants
+        )
     }
 
     func commitFlowPreviews(_ previews: [ModalExecutionJournal<M>]) {
@@ -691,21 +749,39 @@ public final class ModalStore<M: Route> {
         command: ModalCommand<M>,
         reason: ModalCancellationReason<M>
     ) {
-        guard !queuedPresentations.isEmpty else { return }
-
-        let action = queueCancellationPolicy.resolve(
+        let stateBefore = flowStateSnapshot
+        let stateAfter = cancellationState(
             command: command,
-            reason: reason
+            reason: reason,
+            from: stateBefore
         )
-        switch action {
+        guard stateAfter != stateBefore else { return }
+
+        currentPresentation = stateAfter.currentPresentation
+        queuedPresentations = stateAfter.queuedPresentations
+        telemetrySink.recordQueueChanged(
+            oldQueue: stateBefore.queuedPresentations,
+            newQueue: stateAfter.queuedPresentations
+        )
+    }
+
+    /// Applies cancellation policy to a preview snapshot without mutating the
+    /// live store. FlowStore uses this to keep preview and direct execution
+    /// semantics aligned while preserving atomic reset rollback.
+    private func cancellationState(
+        command: ModalCommand<M>,
+        reason: ModalCancellationReason<M>,
+        from snapshot: ModalExecutionState<M>
+    ) -> ModalExecutionState<M> {
+        guard !snapshot.queuedPresentations.isEmpty else { return snapshot }
+
+        switch queueCancellationPolicy.resolve(command: command, reason: reason) {
         case .preserve:
-            return
+            return snapshot
         case .dropQueued:
-            let oldQueue = queuedPresentations
-            queuedPresentations.removeAll()
-            telemetrySink.recordQueueChanged(
-                oldQueue: oldQueue,
-                newQueue: queuedPresentations
+            return Self.makeSnapshot(
+                currentPresentation: snapshot.currentPresentation,
+                queuedPresentations: []
             )
         }
     }
@@ -753,7 +829,15 @@ public final class ModalStore<M: Route> {
                 newQueue: preview.stateAfter.queuedPresentations
             )
 
-        case .cancelled, .noop:
+        case .cancelled:
+            if preview.stateBefore.queuedPresentations != preview.stateAfter.queuedPresentations {
+                telemetrySink.recordQueueChanged(
+                    oldQueue: preview.stateBefore.queuedPresentations,
+                    newQueue: preview.stateAfter.queuedPresentations
+                )
+            }
+
+        case .noop:
             break
         }
     }

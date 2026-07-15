@@ -6,10 +6,12 @@ final class ModalMiddlewareRegistry<M: Route> {
         let command: ModalCommand<M>
         let interception: ModalInterception<M>
         /// Snapshot of the middlewares that ran `willExecute` for this
-        /// command, in the same order they ran. The follow-up
-        /// `didExecute` call iterates this exact list so a middleware
-        /// mutated into or out of the live `entries` array between
-        /// intercept and finalisation cannot receive a one-sided
+        /// command, in the same order they ran. A committed or cancelled
+        /// attempt finalizes this exact list through `didExecute`; a proceeded
+        /// preview rolled back by an atomic Flow reset instead runs the
+        /// package-only discard cleanup on this same list. Capturing the list
+        /// prevents registry mutation between interception and finalization
+        /// from changing which middleware receives the matching lifecycle
         /// callback.
         let participants: [AnyModalMiddleware<M>]
     }
@@ -172,6 +174,21 @@ final class ModalMiddlewareRegistry<M: Route> {
     ) {
         for middleware in participants {
             middleware.didExecute(
+                command,
+                currentPresentation: currentPresentation,
+                queuedPresentations: queuedPresentations
+            )
+        }
+    }
+
+    func discardExecution(
+        _ command: ModalCommand<M>,
+        currentPresentation: ModalPresentation<M>?,
+        queuedPresentations: [ModalPresentation<M>],
+        participants: [AnyModalMiddleware<M>]
+    ) {
+        for middleware in participants {
+            middleware.discardExecution(
                 command,
                 currentPresentation: currentPresentation,
                 queuedPresentations: queuedPresentations

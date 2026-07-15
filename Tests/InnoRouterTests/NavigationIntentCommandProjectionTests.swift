@@ -62,11 +62,11 @@ struct NavigationIntentCommandProjectionTests {
         #expect(plan == [.push(.home)])
     }
 
-    @Test(".goMany([multi]) projects to a multi-push batch")
-    func goMany_multipleProjectsToPushBatch() {
+    @Test(".goMany([multi]) projects to one atomic pushAll command")
+    func goMany_multipleProjectsToPushAll() {
         let store = NavigationStore<ProjectionRoute>()
         let plan = store.commands(for: .goMany([.home, .settings]))
-        #expect(plan == [.push(.home), .push(.settings)])
+        #expect(plan == [.pushAll([.home, .settings])])
     }
 
     // MARK: - State-dependent intents
@@ -131,8 +131,8 @@ struct NavigationIntentCommandProjectionTests {
 
         store.send(intent)
 
-        // The projection said: 3-element batch of pushes. Path
-        // ends at exactly those routes.
+        // The projection said: one atomic pushAll command. Path ends at
+        // exactly those routes.
         #expect(store.state.path == [.home, .detail(1), .settings])
     }
 }

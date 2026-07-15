@@ -16,13 +16,24 @@ import InnoRouterEffects
 
 @Suite("NavigationIntent Tests")
 struct NavigationIntentTests {
-    @Test("NavigationStore send goMany uses batch execution for multiple routes")
+    @Test("NavigationStore send goMany uses one atomic pushAll command")
     @MainActor
     func testSendGoMany() {
         var changeCount = 0
         var observedBatch: NavigationBatchResult<TestRoute>?
+        var seenCommands: [NavigationCommand<TestRoute>] = []
         let store = NavigationStore<TestRoute>(
             configuration: NavigationStoreConfiguration(
+                middlewares: [
+                    .init(
+                        middleware: AnyNavigationMiddleware(
+                            willExecute: { command, _ in
+                                seenCommands.append(command)
+                                return .proceed(command)
+                            }
+                        )
+                    )
+                ],
                 onEvent: { event in
                     switch event {
                     case .changed:
@@ -40,9 +51,8 @@ struct NavigationIntentTests {
 
         #expect(store.state.path == [.home, .detail(id: "123"), .settings])
         #expect(changeCount == 1)
-        #expect(observedBatch?.requestedCommands == [.push(.home), .push(.detail(id: "123")), .push(.settings)])
-        #expect(observedBatch?.executedCommands == [.push(.home), .push(.detail(id: "123")), .push(.settings)])
-        #expect(observedBatch?.results == [.success, .success, .success])
+        #expect(seenCommands == [.pushAll([.home, .detail(id: "123"), .settings])])
+        #expect(observedBatch == nil)
     }
 
     @Test("NavigationStore send backBy pops expected count")
