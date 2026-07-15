@@ -203,6 +203,10 @@ are bare semver (no leading `v`).
   `NavigationTransactionResult` directly; both concrete results retain
   `isSuccess`, and transaction code can continue to use `isCommitted` when the
   commit-specific spelling is clearer.
+- The unused `FlowStateReading` protocol is removed. Read flow state directly
+  from `FlowStore`; its `path`, `navigationPath`, `currentModalRoute`,
+  `currentModalPresentation`, and `hasModalTail` projections remain public with
+  the same behavior.
 - The unused `FlowNavigating` forwarding protocol is removed. Flow owners
   should keep a `FlowStore` directly and dispatch with `send(_:)` or
   `apply(_:)`; `FlowHost` publishes the store's capabilities through the

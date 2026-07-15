@@ -1,6 +1,5 @@
 # Public API baseline for InnoRouterSwiftUI
 relationship | conformsTo | ChildCoordinator | LifecycleAware |  |
-relationship | conformsTo | FlowStore | FlowStateReading |  |
 relationship | conformsTo | NavigationPathReconciler | NavigationPathReconciling |  |
 relationship | defaultImplementationOf | ChildCoordinator.parentDidCancel() | ChildCoordinator.parentDidCancel() |  |
 relationship | defaultImplementationOf | Coordinator.handle(_:) | Coordinator.handle(_:) |  |
@@ -303,12 +302,6 @@ relationship | requirementOf | Coordinator.handle(_:) | Coordinator |  |
 relationship | requirementOf | Coordinator.store | Coordinator |  |
 relationship | requirementOf | DestinationRoute.Destination | DestinationRoute |  |
 relationship | requirementOf | DestinationRoute.destination(for:) | DestinationRoute |  |
-relationship | requirementOf | FlowStateReading.RouteType | FlowStateReading |  |
-relationship | requirementOf | FlowStateReading.currentModalPresentation | FlowStateReading |  |
-relationship | requirementOf | FlowStateReading.currentModalRoute | FlowStateReading |  |
-relationship | requirementOf | FlowStateReading.hasModalTail | FlowStateReading |  |
-relationship | requirementOf | FlowStateReading.navigationPath | FlowStateReading |  |
-relationship | requirementOf | FlowStateReading.path | FlowStateReading |  |
 relationship | requirementOf | LifecycleAware.lifecycleSignals | LifecycleAware |  |
 relationship | requirementOf | NavigationPathReconciling.RouteType | NavigationPathReconciling |  |
 relationship | requirementOf | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | NavigationPathReconciling |  |
@@ -329,7 +322,6 @@ symbol | swift.associatedtype | ChildCoordinator.Result | Result | associatedtyp
 symbol | swift.associatedtype | Coordinator.Destination | Destination | associatedtype Destination : View | []
 symbol | swift.associatedtype | Coordinator.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | DestinationRoute.Destination | Destination | associatedtype Destination : View | []
-symbol | swift.associatedtype | FlowStateReading.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | NavigationPathReconciling.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | StepCoordinator.Step | Step | associatedtype Step : CaseIterable, Hashable, Sendable | []
 symbol | swift.associatedtype | StoreObserver.RouteType | RouteType | associatedtype RouteType : Route | []
@@ -582,11 +574,6 @@ symbol | swift.property | EnvironmentRouter.wrappedValue | wrappedValue | @MainA
 symbol | swift.property | EnvironmentValues.innoRouterEnvironmentMissingPolicy | innoRouterEnvironmentMissingPolicy | var innoRouterEnvironmentMissingPolicy: EnvironmentMissingPolicy { get set } | []
 symbol | swift.property | FlowEvent.description | description | var description: String { get } | []
 symbol | swift.property | FlowHost.body | body | @MainActor var body: some View { get } | []
-symbol | swift.property | FlowStateReading.currentModalPresentation | currentModalPresentation | @MainActor var currentModalPresentation: ModalPresentation<Self.RouteType>? { get } | []
-symbol | swift.property | FlowStateReading.currentModalRoute | currentModalRoute | @MainActor var currentModalRoute: Self.RouteType? { get } | []
-symbol | swift.property | FlowStateReading.hasModalTail | hasModalTail | @MainActor var hasModalTail: Bool { get } | []
-symbol | swift.property | FlowStateReading.navigationPath | navigationPath | @MainActor var navigationPath: [Self.RouteType] { get } | []
-symbol | swift.property | FlowStateReading.path | path | @MainActor var path: [RouteStep<Self.RouteType>] { get } | []
 symbol | swift.property | FlowStore.currentModalPresentation | currentModalPresentation | @MainActor var currentModalPresentation: ModalPresentation<R>? { get } | []
 symbol | swift.property | FlowStore.currentModalRoute | currentModalRoute | @MainActor var currentModalRoute: R? { get } | []
 symbol | swift.property | FlowStore.events | events | @MainActor var events: AsyncStream<FlowEvent<R>> { get } | []
@@ -669,7 +656,6 @@ symbol | swift.property | TabCoordinatorView.body | body | @MainActor var body: 
 symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor protocol ChildCoordinator : LifecycleAware | []
 symbol | swift.protocol | Coordinator | Coordinator | @MainActor protocol Coordinator : AnyObject, Observable | []
 symbol | swift.protocol | DestinationRoute | DestinationRoute | protocol DestinationRoute : Route | []
-symbol | swift.protocol | FlowStateReading | FlowStateReading | @MainActor protocol FlowStateReading<RouteType> : Sendable | []
 symbol | swift.protocol | LifecycleAware | LifecycleAware | @MainActor protocol LifecycleAware : AnyObject | []
 symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<RouteType> : Sendable | []
 symbol | swift.protocol | RouterTab | RouterTab | protocol RouterTab : Route, CaseIterable, Identifiable | []

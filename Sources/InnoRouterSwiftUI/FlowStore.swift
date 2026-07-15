@@ -34,15 +34,15 @@ public final class FlowStore<R: Route> {
     public private(set) var path: [RouteStep<R>]
 
     /// Inner navigation store that owns stack state for `.push` steps.
-    /// Plain `internal`; production code should use the public
-    /// ``FlowStateReading`` projection for reads and
+    /// Plain `internal`; production code should use ``path`` or the public
+    /// state projections on `FlowStore` for reads and
     /// ``FlowStore/send(_:)`` / ``FlowStore/apply(_:)`` for mutations
     /// rather than bypassing FlowStore invariants through this inner store.
     internal let navigationStore: NavigationStore<R>
 
     /// Inner modal store that owns presentation state for the tail modal step.
-    /// Plain `internal`; production code should use the public
-    /// ``FlowStateReading`` projection for reads and
+    /// Plain `internal`; production code should use ``path`` or the public
+    /// state projections on `FlowStore` for reads and
     /// ``FlowStore/send(_:)`` / ``FlowStore/apply(_:)`` for mutations
     /// rather than bypassing FlowStore invariants through this inner store.
     internal let modalStore: ModalStore<R>

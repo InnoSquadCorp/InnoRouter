@@ -1,5 +1,5 @@
-// MARK: - FlowStateReadingTests.swift
-// InnoRouterTests - non-SPI FlowStateReading projection
+// MARK: - FlowStoreStateProjectionTests.swift
+// InnoRouterTests - public FlowStore state projections
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Testing
@@ -13,9 +13,9 @@ private enum ReadingRoute: Route {
     case settings
 }
 
-@Suite("FlowStateReading projection")
+@Suite("FlowStore state projections")
 @MainActor
-struct FlowStateReadingTests {
+struct FlowStoreStateProjectionTests {
 
     @Test("empty FlowStore exposes empty navigationPath and nil modal")
     func empty_projection() {
@@ -24,6 +24,8 @@ struct FlowStateReadingTests {
         #expect(flow.path.isEmpty)
         #expect(flow.navigationPath.isEmpty)
         #expect(flow.currentModalRoute == nil)
+        #expect(flow.currentModalPresentation == nil)
+        #expect(!flow.hasModalTail)
     }
 
     @Test("push-only path projects to navigationPath without a modal route")
@@ -33,6 +35,7 @@ struct FlowStateReadingTests {
 
         #expect(flow.navigationPath == [.home, .detail(1)])
         #expect(flow.currentModalRoute == nil)
+        #expect(!flow.hasModalTail)
     }
 
     @Test("trailing sheet step projects to currentModalRoute")
@@ -42,6 +45,7 @@ struct FlowStateReadingTests {
 
         #expect(flow.navigationPath == [.home])
         #expect(flow.currentModalRoute == .settings)
+        #expect(flow.hasModalTail)
     }
 
     @Test("currentModalPresentation keeps the active modal identity stable")
@@ -64,16 +68,6 @@ struct FlowStateReadingTests {
 
         #expect(flow.navigationPath == [.home])
         #expect(flow.currentModalRoute == .detail(2))
-    }
-
-    @Test("FlowStateReading existential lets generic helpers read flow state")
-    func existential_canBeUsedAsParameter() {
-        let flow = FlowStore<ReadingRoute>()
-        flow.apply(FlowPlan(steps: [.push(.home)]))
-
-        let reading: any FlowStateReading<ReadingRoute> = flow
-
-        #expect(reading.navigationPath == [.home])
-        #expect(reading.currentModalRoute == nil)
+        #expect(flow.hasModalTail)
     }
 }
