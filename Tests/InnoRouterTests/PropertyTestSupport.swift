@@ -163,25 +163,35 @@ func randomFlowIntent(
 ) -> FlowIntent<PropertyRoute> {
     let route = rng.nextRoute()
     switch rng.nextInt(upperBound: 100) {
-    case 0..<18:
+    case 0..<12:
         return .push(route)
-    case 18..<32:
+    case 12..<19:
+        return .pushMany(rng.nextRoutes(maxCount: 3))
+    case 19..<30:
         return .presentSheet(route)
-    case 32..<42:
+    case 30..<38:
         return .presentCover(route)
-    case 42..<54:
+    case 38..<45:
         return .pop
-    case 54..<64:
+    case 45..<52:
+        return .popCount(rng.nextInt(upperBound: 5))
+    case 52..<58:
+        return .popTo(route)
+    case 58..<63:
+        return .popToRoot
+    case 63..<69:
         return .dismiss
-    case 64..<76:
+    case 69..<73:
+        return .dismissAll
+    case 73..<81:
         return .reset(rng.nextFlowSteps())
-    case 76..<84:
+    case 81..<87:
         return .replaceStack(rng.nextRoutes(maxCount: 3))
-    case 84..<90:
+    case 87..<91:
         return .backOrPush(route)
-    case 90..<95:
+    case 91..<94:
         return .pushUniqueRoot(route)
-    case 95..<98:
+    case 94..<97:
         return .backOrPushDismissingModal(route)
     default:
         return .pushUniqueRootDismissingModal(route)
@@ -251,6 +261,8 @@ struct FlowModelState: Equatable {
         switch intent {
         case .push(let route):
             return applyPush(route, middlewarePolicy: middlewarePolicy)
+        case .pushMany(let routes):
+            return applyPushMany(routes, middlewarePolicy: middlewarePolicy)
         case .presentSheet(let route):
             return applyModalPresent(
                 ModelModalState(route: route, style: .sheet),
@@ -263,8 +275,16 @@ struct FlowModelState: Equatable {
             )
         case .pop:
             return applyPop(middlewarePolicy: middlewarePolicy)
+        case .popCount(let count):
+            return applyPopCount(count, middlewarePolicy: middlewarePolicy)
+        case .popTo(let route):
+            return applyPopTo(route, middlewarePolicy: middlewarePolicy)
+        case .popToRoot:
+            return applyPopToRoot(middlewarePolicy: middlewarePolicy)
         case .dismiss:
             return applyDismiss(middlewarePolicy: middlewarePolicy)
+        case .dismissAll:
+            return applyDismissAll(middlewarePolicy: middlewarePolicy)
         case .reset(let steps):
             return applyReset(steps, middlewarePolicy: middlewarePolicy)
         case .replaceStack(let routes):
@@ -298,6 +318,28 @@ struct FlowModelState: Equatable {
             return reject(.pushBlockedByModalTail)
         }
         switch navigationDecision(for: .push(route), middlewarePolicy: middlewarePolicy) {
+        case .cancel(let debugName, _):
+            return reject(.middlewareRejected(debugName: debugName))
+        case .proceed(let command):
+            let changed = applyNavigationCommand(command)
+            return FlowStepExpectation(
+                outcome: changed ? .pathChangedLast : .none,
+                navigationChanged: changed
+            )
+        }
+    }
+
+    private mutating func applyPushMany(
+        _ routes: [PropertyRoute],
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
+    ) -> FlowStepExpectation {
+        guard !routes.isEmpty else {
+            return FlowStepExpectation(outcome: .none)
+        }
+        guard currentModal == nil else {
+            return reject(.pushBlockedByModalTail)
+        }
+        switch navigationDecision(for: .pushAll(routes), middlewarePolicy: middlewarePolicy) {
         case .cancel(let debugName, _):
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
@@ -348,6 +390,62 @@ struct FlowModelState: Equatable {
         }
     }
 
+    private mutating func applyPopCount(
+        _ count: Int,
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
+    ) -> FlowStepExpectation {
+        guard currentModal == nil, !navigationPath.isEmpty else {
+            return FlowStepExpectation(outcome: .none)
+        }
+        switch navigationDecision(for: .popCount(count), middlewarePolicy: middlewarePolicy) {
+        case .cancel(let debugName, _):
+            return reject(.middlewareRejected(debugName: debugName))
+        case .proceed(let command):
+            let changed = applyNavigationCommand(command)
+            return FlowStepExpectation(
+                outcome: changed ? .pathChangedLast : .none,
+                navigationChanged: changed
+            )
+        }
+    }
+
+    private mutating func applyPopTo(
+        _ route: PropertyRoute,
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
+    ) -> FlowStepExpectation {
+        guard currentModal == nil, !navigationPath.isEmpty else {
+            return FlowStepExpectation(outcome: .none)
+        }
+        switch navigationDecision(for: .popTo(route), middlewarePolicy: middlewarePolicy) {
+        case .cancel(let debugName, _):
+            return reject(.middlewareRejected(debugName: debugName))
+        case .proceed(let command):
+            let changed = applyNavigationCommand(command)
+            return FlowStepExpectation(
+                outcome: changed ? .pathChangedLast : .none,
+                navigationChanged: changed
+            )
+        }
+    }
+
+    private mutating func applyPopToRoot(
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
+    ) -> FlowStepExpectation {
+        guard currentModal == nil, !navigationPath.isEmpty else {
+            return FlowStepExpectation(outcome: .none)
+        }
+        switch navigationDecision(for: .popToRoot, middlewarePolicy: middlewarePolicy) {
+        case .cancel(let debugName, _):
+            return reject(.middlewareRejected(debugName: debugName))
+        case .proceed(let command):
+            let changed = applyNavigationCommand(command)
+            return FlowStepExpectation(
+                outcome: changed ? .pathChangedLast : .none,
+                navigationChanged: changed
+            )
+        }
+    }
+
     private mutating func applyDismiss(
         middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
     ) -> FlowStepExpectation {
@@ -356,6 +454,18 @@ struct FlowModelState: Equatable {
         }
         return applyModalDismissCommand(
             .dismissCurrent(reason: .dismiss),
+            middlewarePolicy: middlewarePolicy
+        )
+    }
+
+    private mutating func applyDismissAll(
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
+    ) -> FlowStepExpectation {
+        guard currentModal != nil || !queuedModals.isEmpty else {
+            return FlowStepExpectation(outcome: .none)
+        }
+        return applyModalDismissCommand(
+            .dismissAll,
             middlewarePolicy: middlewarePolicy
         )
     }
@@ -545,11 +655,7 @@ struct FlowModelState: Equatable {
         case .replace(let routes):
             navigationPath = routes
         case .popToRoot:
-            if let first = navigationPath.first {
-                navigationPath = [first]
-            } else {
-                navigationPath = []
-            }
+            navigationPath.removeAll()
         case .pushAll(let routes):
             navigationPath.append(contentsOf: routes)
         case .popCount(let count):
@@ -754,6 +860,15 @@ struct PropertyMiddlewarePolicy: PropertyFlowMiddlewareModeling {
             default:
                 return .proceed(command)
             }
+        case .pushAll(let routes):
+            switch score % 7 {
+            case 0:
+                return .cancel(debugName: Self.navigationDebugName, command: command)
+            case 1:
+                return .proceed(.pushAll(routes.map(rotated)))
+            default:
+                return .proceed(command)
+            }
         case .replace(let routes):
             switch score % 9 {
             case 0:
@@ -763,7 +878,7 @@ struct PropertyMiddlewarePolicy: PropertyFlowMiddlewareModeling {
             default:
                 return .proceed(command)
             }
-        case .pop, .popTo, .popToRoot:
+        case .pop, .popCount, .popTo, .popToRoot:
             return score % 11 == 0
                 ? .cancel(debugName: Self.navigationDebugName, command: command)
                 : .proceed(command)

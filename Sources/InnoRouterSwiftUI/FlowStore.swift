@@ -279,14 +279,24 @@ public final class FlowStore<R: Route> {
         switch intent {
         case .push(let route):
             return dispatchPush(route, in: context)
+        case .pushMany(let routes):
+            return dispatchPushMany(routes, in: context)
         case .presentSheet(let route):
             return dispatchModal(step: .sheet(route), in: context)
         case .presentCover(let route):
             return dispatchModal(step: .cover(route), in: context)
         case .pop:
             return dispatchPop(in: context)
+        case .popCount(let count):
+            return dispatchPopCount(count, in: context)
+        case .popTo(let route):
+            return dispatchPopTo(route, in: context)
+        case .popToRoot:
+            return dispatchPopToRoot(in: context)
         case .dismiss:
             return dispatchDismiss(in: context)
+        case .dismissAll:
+            return dispatchDismissAll(in: context)
         case .reset(let steps):
             return dispatchReset(steps, in: context)
         case .replaceStack(let routes):
@@ -356,17 +366,18 @@ public final class FlowStore<R: Route> {
         if context.projection.currentPresentation != nil {
             return .rejected(oldPath: path, reason: .pushBlockedByModalTail)
         }
+        return dispatchNavigation(.push(route), in: context)
+    }
 
-        let journal = navigationStore.previewFlowCommand(.push(route), from: context.navigationState)
-        if case .cancelled(let reason) = journal.result {
-            return .rejected(
-                oldPath: path,
-                reason: .middlewareRejected(debugName: Self.debugName(from: reason)),
-                queueCoalescePolicyEligible: true
-            )
+    private func dispatchPushMany(
+        _ routes: [R],
+        in context: FlowMutationContext
+    ) -> FlowMutationPlan<R> {
+        guard !routes.isEmpty else { return .commit(oldPath: path) }
+        if context.projection.currentPresentation != nil {
+            return .rejected(oldPath: path, reason: .pushBlockedByModalTail)
         }
-
-        return .commit(oldPath: path, navigationJournal: journal)
+        return dispatchNavigation(.pushAll(routes), in: context)
     }
 
     private func dispatchModal(
@@ -391,8 +402,38 @@ public final class FlowStore<R: Route> {
     private func dispatchPop(in context: FlowMutationContext) -> FlowMutationPlan<R> {
         guard !context.navigationState.path.isEmpty else { return .commit(oldPath: path) }
         guard context.projection.currentPresentation == nil else { return .commit(oldPath: path) }
+        return dispatchNavigation(.pop, in: context)
+    }
 
-        let journal = navigationStore.previewFlowCommand(.pop, from: context.navigationState)
+    private func dispatchPopCount(
+        _ count: Int,
+        in context: FlowMutationContext
+    ) -> FlowMutationPlan<R> {
+        guard !context.navigationState.path.isEmpty else { return .commit(oldPath: path) }
+        guard context.projection.currentPresentation == nil else { return .commit(oldPath: path) }
+        return dispatchNavigation(.popCount(count), in: context)
+    }
+
+    private func dispatchPopTo(
+        _ route: R,
+        in context: FlowMutationContext
+    ) -> FlowMutationPlan<R> {
+        guard !context.navigationState.path.isEmpty else { return .commit(oldPath: path) }
+        guard context.projection.currentPresentation == nil else { return .commit(oldPath: path) }
+        return dispatchNavigation(.popTo(route), in: context)
+    }
+
+    private func dispatchPopToRoot(in context: FlowMutationContext) -> FlowMutationPlan<R> {
+        guard !context.navigationState.path.isEmpty else { return .commit(oldPath: path) }
+        guard context.projection.currentPresentation == nil else { return .commit(oldPath: path) }
+        return dispatchNavigation(.popToRoot, in: context)
+    }
+
+    private func dispatchNavigation(
+        _ command: NavigationCommand<R>,
+        in context: FlowMutationContext
+    ) -> FlowMutationPlan<R> {
+        let journal = navigationStore.previewFlowCommand(command, from: context.navigationState)
         if case .cancelled(let reason) = journal.result {
             return .rejected(
                 oldPath: path,
@@ -408,6 +449,25 @@ public final class FlowStore<R: Route> {
         guard context.projection.currentPresentation != nil else { return .commit(oldPath: path) }
         let journal = modalStore.previewFlowCommand(
             .dismissCurrent(reason: .dismiss),
+            from: context.modalState
+        )
+        if case .cancelled(let reason) = journal.result {
+            return .rejected(
+                oldPath: path,
+                reason: .middlewareRejected(debugName: Self.debugName(from: reason))
+            )
+        }
+
+        return .commit(oldPath: path, modalJournals: [journal])
+    }
+
+    private func dispatchDismissAll(in context: FlowMutationContext) -> FlowMutationPlan<R> {
+        guard context.projection.currentPresentation != nil
+            || !context.projection.queuedPresentations.isEmpty
+        else { return .commit(oldPath: path) }
+
+        let journal = modalStore.previewFlowCommand(
+            .dismissAll,
             from: context.modalState
         )
         if case .cancelled(let reason) = journal.result {

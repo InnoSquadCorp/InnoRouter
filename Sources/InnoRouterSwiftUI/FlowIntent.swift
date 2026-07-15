@@ -13,14 +13,29 @@ import InnoRouterCore
 public enum FlowIntent<R: Route>: Sendable, Equatable {
     /// Push a route onto the navigation stack prefix of the flow.
     case push(R)
+    /// Push multiple routes onto the navigation stack prefix as one
+    /// coordinated flow mutation. An empty array is a silent no-op.
+    case pushMany([R])
     /// Present a sheet modal as the tail of the flow.
     case presentSheet(R)
     /// Present a full-screen cover modal as the tail of the flow.
     case presentCover(R)
     /// Pop the last navigation push from the flow, if any.
     case pop
+    /// Pop exactly `count` navigation pushes from the flow.
+    ///
+    /// Invalid counts leave the path unchanged, matching the result-discarding
+    /// semantics of `NavigationStore.send(.backBy(count))`.
+    case popCount(Int)
+    /// Pop back to the last matching route in the navigation prefix.
+    /// A missing route leaves the path unchanged.
+    case popTo(R)
+    /// Pop every navigation push and return to the host's root view.
+    case popToRoot
     /// Dismiss the currently active modal tail, if any.
     case dismiss
+    /// Dismiss the active modal tail and clear every queued presentation.
+    case dismissAll
     /// Replace the flow path with the supplied steps, subject to the
     /// FlowStore invariants (at most one modal step, and only at the tail).
     case reset([RouteStep<R>])
