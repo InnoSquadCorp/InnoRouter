@@ -234,9 +234,9 @@ let package = Package(
 
         // MARK: - Executable Target
         .executableTarget(
-            name: "NavigationEnvironmentFailFastProbe",
+            name: "RouterEnvironmentFailFastProbe",
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
-            path: "Sources/NavigationEnvironmentFailFastProbe",
+            path: "Sources/RouterEnvironmentFailFastProbe",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .executableTarget(

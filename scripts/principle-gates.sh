@@ -139,15 +139,15 @@ echo "[principle-gates] Running performance smoke"
 echo "[principle-gates] Running source-level lint gates"
 ./scripts/lint-source-gates.sh
 
-# Gate 11 — fail-fast probe verifies that missing NavigationEnvironment
+# Gate 11 — fail-fast probe verifies that a missing RouterEnvironment
 # wiring crashes deterministically with an explanatory message instead
 # of producing silent fallback behavior.
 # Failure signal: probe succeeded (regression — fallback re-introduced)
 #                 or message missing the expected substring.
-echo "[principle-gates] Checking fail-fast probe (missing NavigationEnvironmentStorage)"
+echo "[principle-gates] Checking fail-fast probe (missing RouterEnvironment)"
 PROBE_OUTPUT_FILE="$(mktemp)"
 set +e
-swift run --jobs "$SWIFTPM_JOBS" NavigationEnvironmentFailFastProbe >"$PROBE_OUTPUT_FILE" 2>&1
+swift run --jobs "$SWIFTPM_JOBS" RouterEnvironmentFailFastProbe >"$PROBE_OUTPUT_FILE" 2>&1
 PROBE_EXIT_CODE=$?
 set -e
 
@@ -158,7 +158,7 @@ if [[ "$PROBE_EXIT_CODE" -eq 0 ]]; then
   exit 1
 fi
 
-if ! rg -q "NavigationEnvironmentStorage is missing" "$PROBE_OUTPUT_FILE"; then
+if ! rg -q "Router environment is missing" "$PROBE_OUTPUT_FILE"; then
   echo "[principle-gates] Failed: fail-fast probe did not report expected message"
   cat "$PROBE_OUTPUT_FILE"
   rm -f "$PROBE_OUTPUT_FILE"

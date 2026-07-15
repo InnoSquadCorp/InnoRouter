@@ -18,7 +18,7 @@ Use the relevant rule files based on the development task at hand to ensure cons
 
 ## Project Overview
 
-InnoRouter is a SwiftUI-native navigation framework built around **state**, **unidirectional execution**, and **dependency inversion**. Navigation is expressed as data (`RouteStack`, `NavigationCommand`) and rendered by SwiftUI. Domain helpers depend on focused execution contracts such as `Navigator`; SwiftUI views dispatch `NavigationIntent` through `EnvironmentNavigationIntent`. Deep links are handled as plans (`DeepLinkPipeline → DeepLinkDecision → NavigationPlan`) instead of ad-hoc `if/switch` chains.
+InnoRouter is a SwiftUI-native navigation framework built around **state**, **unidirectional execution**, and **dependency inversion**. Navigation is expressed as data (`RouteStack`, `NavigationCommand`) and rendered by SwiftUI. Domain helpers depend on focused execution contracts such as `Navigator`; SwiftUI views invoke typed actions through `@EnvironmentRouter`. Deep links are handled as plans (`DeepLinkPipeline → DeepLinkDecision → NavigationPlan`) instead of ad-hoc `if/switch` chains.
 
 ## Core Concepts
 

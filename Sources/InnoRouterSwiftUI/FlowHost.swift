@@ -6,14 +6,10 @@ import InnoRouterCore
 /// presentation, backed by a `FlowStore`.
 ///
 /// `FlowHost` composes environment-free navigation and modal rendering
-/// surfaces around the store's inner stores. All three public environment
-/// entry points — navigation, modal, and flow — dispatch through `FlowStore`,
-/// so a low-level environment wrapper cannot bypass unified-flow invariants.
+/// surfaces around the store's inner stores. Every ``EnvironmentRouter``
+/// action dispatches through `FlowStore`, preserving unified-flow invariants.
 public struct FlowHost<R: Route, Destination: View, Root: View>: View {
     @Bindable private var store: FlowStore<R>
-    @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
-    @State private var modalEnvironmentStorage = ModalEnvironmentStorage()
-    @State private var flowEnvironmentStorage = FlowEnvironmentStorage()
     private let destination: (R) -> Destination
     private let root: () -> Root
 
@@ -41,15 +37,6 @@ public struct FlowHost<R: Route, Destination: View, Root: View>: View {
                 root: root
             )
         }
-        .navigationIntentDispatcher(navigationDispatcher, owner: flowStore)
-        .modalIntentDispatcher(modalDispatcher, owner: flowStore)
-        .flowIntentDispatcher(
-            flowDispatcher,
-            owner: flowStore
-        )
-        .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
-        .environment(\.modalEnvironmentStorage, modalEnvironmentStorage)
-        .environment(\.flowEnvironmentStorage, flowEnvironmentStorage)
         .routerAuthority(
             for: R.self,
             navigation: navigationDispatcher,

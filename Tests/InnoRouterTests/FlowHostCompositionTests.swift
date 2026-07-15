@@ -1,5 +1,5 @@
 // MARK: - FlowHostCompositionTests.swift
-// InnoRouterTests - FlowHost composition and environment dispatcher injection
+// InnoRouterTests - FlowHost composition and unified router authority publication
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Testing
@@ -19,7 +19,7 @@ private enum FlowHostRoute: Route {
 @Suite("FlowHost Composition Tests")
 struct FlowHostCompositionTests {
 
-    @Test("FlowHost body can be constructed over NavigationHost + ModalHost")
+    @Test("FlowHost body constructs unified navigation and modal surfaces")
     @MainActor
     func flowHostConstructs() {
         let store = FlowStore<FlowHostRoute>()
@@ -31,9 +31,9 @@ struct FlowHostCompositionTests {
         _ = host.body
     }
 
-    @Test("FlowStore intentDispatcher forwards flow intents")
+    @Test("FlowStore host handler forwards flow intents")
     @MainActor
-    func flowStoreIntentDispatcherIsCachedAndForwardsIntents() {
+    func flowStoreHostHandlerForwardsIntents() {
         let store = FlowStore<FlowHostRoute>()
         let dispatcher = store.intentDispatcher
 
@@ -122,9 +122,9 @@ struct FlowHostCompositionTests {
         )
     }
 
-    @Test("Raw environment intents cannot push past a FlowHost modal tail")
+    @Test("EnvironmentRouter explicit sends cannot push past a FlowHost modal tail")
     @MainActor
-    func rawIntentsCannotBypassFlowModalTail() throws {
+    func explicitIntentsCannotBypassFlowModalTail() throws {
         var events: [FlowEvent<FlowHostRoute>] = []
         let store = FlowStore<FlowHostRoute>(
             configuration: FlowStoreConfiguration { events.append($0) }
@@ -132,7 +132,12 @@ struct FlowHostCompositionTests {
         let host = FlowHost(
             store: store,
             destination: { _ in EmptyView() },
-            root: { RawFlowIntentProbe() }
+            root: {
+                UnifiedFlowRouterProbe {
+                    $0.send(ModalIntent.present(.sheetChild, style: .sheet))
+                    $0.send(NavigationIntent.go(.child))
+                }
+            }
         )
 
         _ = try renderFlowHost(host)
@@ -144,47 +149,6 @@ struct FlowHostCompositionTests {
             )
         )
     }
-
-    @Test("FlowEnvironmentStorage isolates dispatchers across hosts")
-    @MainActor
-    func flowEnvironmentStorageIsolatesDispatchers() {
-        let firstStore = FlowStore<FlowHostRoute>()
-        let secondStore = FlowStore<FlowHostRoute>()
-        let firstStorage = FlowEnvironmentStorage()
-        let secondStorage = FlowEnvironmentStorage()
-
-        firstStorage[FlowHostRoute.self] = { firstStore.send($0) }
-        secondStorage[FlowHostRoute.self] = { secondStore.send($0) }
-
-        firstStorage[FlowHostRoute.self]?(.push(.landing))
-        secondStorage[FlowHostRoute.self]?(.push(.child))
-
-        #expect(firstStore.path == [.push(.landing)])
-        #expect(secondStore.path == [.push(.child)])
-    }
-
-    @Test("FlowEnvironmentStorage accepts same-store dispatcher refreshes")
-    @MainActor
-    func flowEnvironmentStorageAcceptsSameStoreDispatcherRefreshes() {
-        let store = FlowStore<FlowHostRoute>()
-        let storage = FlowEnvironmentStorage()
-        let ownerID = ObjectIdentifier(store)
-
-        storage.setIntentDispatcher(
-            { store.send($0) },
-            ownerID: ownerID,
-            routeType: FlowHostRoute.self
-        )
-        storage.setIntentDispatcher(
-            { store.send($0) },
-            ownerID: ownerID,
-            routeType: FlowHostRoute.self
-        )
-
-        storage[FlowHostRoute.self]?(.push(.landing))
-
-        #expect(store.path == [.push(.landing)])
-    }
 }
 
 private struct UnifiedFlowRouterProbe: View {
@@ -195,18 +159,6 @@ private struct UnifiedFlowRouterProbe: View {
     var body: some View {
         Color.clear.onAppear {
             action(router)
-        }
-    }
-}
-
-private struct RawFlowIntentProbe: View {
-    @EnvironmentNavigationIntent(FlowHostRoute.self) private var navigation
-    @EnvironmentModalIntent(FlowHostRoute.self) private var modal
-
-    var body: some View {
-        Color.clear.onAppear {
-            modal(.present(.sheetChild, style: .sheet))
-            navigation(.go(.child))
         }
     }
 }

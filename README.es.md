@@ -234,7 +234,7 @@ contra el costo de migración.
 
 - `InnoRouter`: re-exportación paraguas de `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink` y las declaraciones de macros
 - `InnoRouterCore`: route stack, validators, comandos, resultados, ejecutores de batch/transaction, middleware
-- `InnoRouterSwiftUI`: stores, hosts de stack/split/modal, coordinators, dispatch de intent vía environment
+- `InnoRouterSwiftUI`: stores, hosts de stack/split/modal/flow, coordinators y acciones tipadas de `EnvironmentRouter`
 - `InnoRouterSpatial`: routing opt-in para escenas de visionOS, modificadores de scene host/anchor y ornaments; no se re-exporta desde el módulo paraguas
 - `InnoRouterDeepLink`: coincidencia de patrones, diagnósticos, planificación de pipeline, deep links pendientes
 - `InnoRouterEffects`: ayudantes de ejecución de navegación y deep links para límites de app
@@ -315,16 +315,16 @@ muestren todos el mismo contenido.
 
 ```mermaid
 flowchart LR
-    View["Vista SwiftUI"] --> Intent["Dispatcher de intent vía environment"]
-    Intent --> Store["NavigationStore / ModalStore"]
-    Store --> Policy["Middleware / telemetría / validación"]
+    View["Vista SwiftUI"] --> Actions["Acciones tipadas de @EnvironmentRouter"]
+    Actions --> Store["NavigationStore / ModalStore / FlowStore"]
+    Store --> Policy["Middleware / observación / validación"]
     Policy --> Execution["NavigationEngine / cola modal"]
-    Execution --> Host["NavigationHost / NavigationSplitHost / CoordinatorSplitHost / ModalHost"]
+    Execution --> Host["RouterHost / NavigationHost / ModalHost / FlowHost"]
     Host --> System["NavigationStack / NavigationSplitView / sheet / fullScreenCover"]
 ```
 
-- Las vistas emiten intent tipado a través de dispatchers de environment.
-- Los stores poseen autoridad de navegación o modal.
+- Las vistas invocan acciones tipadas por ruta mediante `@EnvironmentRouter`.
+- Los stores poseen autoridad de navegación, modal o flow unificado.
 - Los hosts traducen estado del store a APIs nativas de navegación SwiftUI.
 
 ### Flujo de deep-link
@@ -384,7 +384,7 @@ struct AppRoot: View {
 }
 ```
 
-`RouterHost` posee el `NavigationStore` local; en este camino simple no hay que
+`RouterHost` posee el `FlowStore` local; en este camino simple no hay que
 crear un store manualmente.
 
 ### 3. Navegue desde una vista hija
@@ -464,7 +464,7 @@ Elija el punto de entrada que coincida con el sitio de llamada, no con la forma 
 | Capa                       | Entrada                               | Use cuando |
 | -------------------------- | ------------------------------------- | ---------- |
 | Acción de vista (default)  | `router.go(_:)`, `router.back()`, …   | Enruta desde una vista SwiftUI normal mediante `@EnvironmentRouter`. |
-| Intent de vista (avanzado) | `router.send(_:)`                     | Hace dispatch de un `NavigationIntent` sin método de conveniencia con nombre. |
+| Intent de vista (avanzado) | `router.send(_:)`                     | Envía un `NavigationIntent` sin método de conveniencia con nombre. |
 | Límite de store externo    | `store.send(_:)`                      | La app posee e inyecta deliberadamente un `NavigationStore`. |
 | Comando                    | `store.execute(_:)`                   | Reenvía un solo `NavigationCommand` al engine e inspecciona el `NavigationResult` tipado. |
 | Batch                      | `store.executeBatch(_:)`              | Ejecuta múltiples comandos uno por uno mientras mantiene visibilidad del middleware y un solo evento de observador. |
@@ -528,7 +528,7 @@ Use:
 - `ModalStore`
 - `ModalHost`
 - `ModalIntent`
-- `@EnvironmentModalIntent`
+- `@EnvironmentRouter`
 
 Ejemplo:
 
@@ -990,10 +990,10 @@ internos, delegando a cada uno mientras hace cumplir invariantes (un modal
 final como máximo, modal siempre en la cola, los rollbacks de middleware
 reconcilian el path).
 
-Esos stores internos son `@_spi(FlowStoreInternals)` en 4.0. El código de app
-debería tratar `FlowStore.path`, `send(_:)`, `apply(_:)`, `events` e
-`intentDispatcher` como la superficie pública de autoridad; la mutación directa
-del store interno está reservada para hosts y tests de invariante enfocados.
+Esos stores internos son detalles de implementación. El código de app debería
+tratar `FlowStore.path`, `send(_:)`, `apply(_:)` y `events` como la superficie
+pública de autoridad; la mutación directa del store interno está reservada para
+hosts y tests de invariante enfocados.
 
 Uso típico:
 
@@ -1009,8 +1009,10 @@ flow.send(.presentSheet(.share))   // tail modal
 flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 ```
 
-- `FlowHost` compone `ModalHost` sobre `NavigationHost` e inyecta una clausura
-  de environment para dispatch `@EnvironmentFlowIntent(Route.self)`.
+- `FlowHost` renderiza superficies de navegación y modal sin environment,
+  respaldadas por `FlowStore`, y publica una autoridad unificada para
+  `@EnvironmentRouter(Route.self)`. Los intents específicos de flow se envían
+  con `router.send(flow:)`.
 - `FlowStoreConfiguration` compone `NavigationStoreConfiguration` y
   `ModalStoreConfiguration`, agregando un único `onEvent` para `FlowEvent`.
   Recibe path/rejection de nivel flow y eventos internos envueltos en

@@ -156,8 +156,8 @@ Shape (landed):
 - `FlowStore<R>` (`InnoRouterSwiftUI`) owns an inner `NavigationStore`
   + `ModalStore` and exposes `path: [RouteStep<R>]` as the single
   source of truth. `FlowIntent` + `FlowPlan` are the public entry points.
-- `FlowHost` composes `ModalHost` over `NavigationHost` and injects a
-  flow-intent environment closure for dispatch.
+- `FlowHost` composes environment-free stack and modal rendering surfaces and
+  publishes one unified authority consumed through `@EnvironmentRouter`.
 - Invariants are enforced with explicit rejection reasons
   (`pushBlockedByModalTail`, `invalidResetPath`, `middlewareRejected`).
 - Atomic commits (`47467b50`): every `FlowIntent` now previews both

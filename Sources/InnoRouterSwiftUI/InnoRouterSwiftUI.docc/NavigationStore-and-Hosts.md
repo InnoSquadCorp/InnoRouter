@@ -114,15 +114,15 @@ closures remain.
 
 - render the root view
 - render destinations for pushed routes
-- inject environment intent closures
+- publish one route-typed authority consumed through `@EnvironmentRouter`
 - bridge system path changes back into router commands
 
 Views should not mutate a store directly. The default view-facing surface is
 `@EnvironmentRouter`, whose `RouterActions` methods emit typed
 `NavigationIntent` values. Use `go`, `back`, and the other focused conveniences
 for common transitions, and `send(_:)` as the explicit escape hatch for an
-advanced intent. Use `@EnvironmentNavigationIntent` only when a feature needs
-the lower-level dispatcher itself.
+advanced intent. The same `@EnvironmentRouter(Route.self)` surface is used for
+navigation, modal, flow, and tab capabilities supplied by the matching host.
 
 Use `onEvent` for synchronous analytics or diagnostics and `events` when an
 asynchronous consumer should own the observation task. Supplying `logger`

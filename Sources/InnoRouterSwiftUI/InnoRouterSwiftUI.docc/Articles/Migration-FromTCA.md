@@ -165,11 +165,11 @@ ModalHost(store: modalStore) { route in
 }
 ```
 
-The reducer no longer fires `Action.sheet(.presented(…))`; the
-view dispatches `ModalIntent.present` through
-`@EnvironmentModalIntent(AppModalRoute.self)`. Move to `FlowStore` and
-`@EnvironmentFlowIntent` only when stack and modal state must form one
-atomic timeline.
+The reducer no longer fires `Action.sheet(.presented(…))`; the view reads
+`@EnvironmentRouter(AppModalRoute.self)` and calls `router.sheet(_:)`. Move to
+`FlowStore` only when stack and modal state must form one atomic timeline;
+flow-specific intents use `router.send(flow:)` through the same environment
+router surface.
 
 ## Stack + modal as one value (`StackState` + `@Presents` → `FlowStore`)
 
@@ -225,7 +225,8 @@ no longer needs reducer-level modeling.
    parent reducer. Verify the existing tests still pass against
    the trimmed reducer state.
 3. Repeat per feature. The blast radius per migration is contained because
-   each `RouterHost` owns an independent `NavigationStore`.
+   each `RouterHost` owns an independent local `FlowStore` behind
+   `@EnvironmentRouter`.
 4. Tackle modal authority feature-by-feature once the navigation
    stacks are ported. `@Presents` is the cheapest swap.
 5. For features with both stack and modal authority, migrate

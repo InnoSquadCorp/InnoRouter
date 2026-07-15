@@ -224,7 +224,7 @@ package-traits または別のマクロパッケージへの分割は、
 
 - `InnoRouter`:`InnoRouterCore`、`InnoRouterSwiftUI`、`InnoRouterDeepLink` と macro 宣言のアンブレラ re-export（`InnoRouterSpatial` は含みません）
 - `InnoRouterCore`:route stack、validators、commands、results、batch/transaction executors、middleware
-- `InnoRouterSwiftUI`:stores、stack/split/modal hosts、coordinators、environment intent dispatch
+- `InnoRouterSwiftUI`:stores、stack/split/modal/flow hosts、coordinators、型付き `EnvironmentRouter` actions
 - `InnoRouterSpatial`:opt-in の visionOS scene declarations、`SceneStore`、scene host/anchor/ornament modifiers
 - `InnoRouterDeepLink`:パターンマッチング、診断、pipeline プランニング、保留中ディープリンク
 - `InnoRouterEffects`:アプリ境界用のナビゲーションとディープリンク実行ヘルパー
@@ -304,16 +304,16 @@ DocC カタログ内に存在し、レンダリングされた DocC サイト、
 
 ```mermaid
 flowchart LR
-    View["SwiftUI ビュー"] --> Intent["環境 intent dispatcher"]
-    Intent --> Store["NavigationStore / ModalStore"]
-    Store --> Policy["Middleware / テレメトリー / 検証"]
+    View["SwiftUI ビュー"] --> Actions["@EnvironmentRouter の型付き actions"]
+    Actions --> Store["NavigationStore / ModalStore / FlowStore"]
+    Store --> Policy["Middleware / observation / 検証"]
     Policy --> Execution["NavigationEngine / モーダルキュー"]
-    Execution --> Host["NavigationHost / NavigationSplitHost / CoordinatorSplitHost / ModalHost"]
+    Execution --> Host["RouterHost / NavigationHost / ModalHost / FlowHost"]
     Host --> System["NavigationStack / NavigationSplitView / sheet / fullScreenCover"]
 ```
 
-- ビューは環境ディスパッチャーを通じて型付き intent を発行します。
-- ストアはナビゲーションまたはモーダルの権限を所有します。
+- ビューは `@EnvironmentRouter` を通じて route 型付き action を呼び出します。
+- ストアは navigation、modal、または統合 flow の authority を所有します。
 - ホストはストアの状態をネイティブな SwiftUI ナビゲーション API に変換します。
 
 ### ディープリンクフロー
@@ -372,7 +372,7 @@ struct AppRoot: View {
 }
 ```
 
-`RouterHost` がローカルな `NavigationStore` を所有するため、このシンプルな方法では
+`RouterHost` がローカルな `FlowStore` を所有するため、このシンプルな方法では
 store を自分で作成する必要がありません。
 
 ### 3. 子ビューからナビゲートする
@@ -454,7 +454,7 @@ InnoRouter は目的ごとに view action と store/engine API を階層化し�
 | レイヤー | エントリー | 使用するとき |
 | --- | --- | --- |
 | View action (標準) | `router.go(_:)`、`router.back()`、… | 通常の SwiftUI view から `@EnvironmentRouter` 経由でルーティングするとき。 |
-| View intent (高度) | `router.send(_:)` | 名前付きの convenience method がない `NavigationIntent` を dispatch するとき。 |
+| View intent (高度) | `router.send(_:)` | 名前付きの convenience method がない `NavigationIntent` を送るとき。 |
 | 外部 store 境界 | `store.send(_:)` | アプリが `NavigationStore` を意図的に外部所有して注入するとき。 |
 | Command | `store.execute(_:)` | 単一の `NavigationCommand` をエンジンに転送し、型付き `NavigationResult` を検査するとき。 |
 | Batch | `store.executeBatch(_:)` | 複数のコマンドを 1 つずつ実行しつつ、ミドルウェアの可視性と単一のオブザーバーイベントを保持するとき。 |
@@ -516,7 +516,7 @@ InnoRouter は以下のモーダルルーティングをサポートします:
 - `ModalStore`
 - `ModalHost`
 - `ModalIntent`
-- `@EnvironmentModalIntent`
+- `@EnvironmentRouter`
 
 例:
 
@@ -981,10 +981,10 @@ swift test
 (末尾モーダルは最大 1 つ、モーダルは常に末尾、ミドルウェアロールバックが
 パスを調整)。
 
-これらの内部ストアは 4.0 では `@_spi(FlowStoreInternals)` です。アプリ
-コードは `FlowStore.path`、`send(_:)`、`apply(_:)`、`events`、
-`intentDispatcher` を公開権限 surface として扱うべきです。直接の内部ストア
-変更はホストとフォーカスされた不変条件テストのために予約されています。
+これらの内部ストアは実装の詳細です。アプリコードは `FlowStore.path`、
+`send(_:)`、`apply(_:)`、`events` を公開権限 surface として扱うべきです。
+直接の内部ストア変更はホストとフォーカスされた不変条件テストのために
+予約されています。
 
 典型的な使用法:
 
@@ -1000,9 +1000,9 @@ flow.send(.presentSheet(.share))   // tail modal
 flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 ```
 
-- `FlowHost` は `NavigationHost` の上に `ModalHost` を構成し、
-  `@EnvironmentFlowIntent(Route.self)` ディスパッチのための環境クロージャを
-  注入します。
+- `FlowHost` は `FlowStore` を基盤に environment-free な navigation / modal
+  surface を描画し、`@EnvironmentRouter(Route.self)` 向けの統合 authority を
+  1 つ公開します。Flow 固有の intent は `router.send(flow:)` で送信します。
 - `FlowStoreConfiguration` は `NavigationStoreConfiguration` と
   `ModalStoreConfiguration` を構成し、`FlowEvent` を受け取る 1 つの
   `onEvent` を追加します。flow-level の path / rejection に加え、

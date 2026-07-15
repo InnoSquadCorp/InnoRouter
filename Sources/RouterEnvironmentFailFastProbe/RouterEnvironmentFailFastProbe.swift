@@ -8,18 +8,18 @@ private enum ProbeRoute: Route {
 }
 
 private struct ProbeView: View {
-    @EnvironmentNavigationIntent(ProbeRoute.self) private var navigationIntent
+    @EnvironmentRouter(ProbeRoute.self) private var router
 
     var body: some View {
         // Intentionally triggers fail-fast when host injection is missing.
-        _ = navigationIntent
+        router.go(.root)
         return EmptyView()
     }
 }
 
 @MainActor
 @main
-struct NavigationEnvironmentFailFastProbe {
+struct RouterEnvironmentFailFastProbe {
     static func main() {
         _ = ProbeView().body
     }

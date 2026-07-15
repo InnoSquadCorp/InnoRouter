@@ -82,8 +82,8 @@ public final class FlowStore<R: Route> {
     ///
     /// The adapter maps every `NavigationIntent` to its equivalent
     /// `FlowIntent` instead of exposing `navigationStore.intentDispatcher`.
-    /// This preserves the modal-tail invariant even for descendants that use
-    /// `EnvironmentNavigationIntent` directly.
+    /// This preserves the modal-tail invariant for both named router actions
+    /// and explicit `NavigationIntent` sends.
     @ObservationIgnored
     private var cachedNavigationIntentDispatcher: NavigationIntentHandler<R>?
     /// Cached low-level modal adapter published by `FlowHost`.
@@ -120,12 +120,12 @@ public final class FlowStore<R: Route> {
     /// A closure that forwards `FlowIntent` values to this store's
     /// ``send(_:)`` entry point.
     ///
-    /// Hosts publish this through the SwiftUI environment so descendants can
-    /// use ``EnvironmentFlowIntent`` to dispatch view-layer intents without
-    /// holding a direct store reference. The dispatcher is created on first
-    /// access and reused for the lifetime of the store, so a SwiftUI host
-    /// does not allocate a fresh closure on every render.
-    public var intentDispatcher: @MainActor @Sendable (FlowIntent<R>) -> Void {
+    /// Hosts publish this through their unified router authority so descendants
+    /// can use ``EnvironmentRouter`` without holding a direct store reference.
+    /// The dispatcher is created on first access and reused for the lifetime of
+    /// the store, so a SwiftUI host does not allocate a fresh closure on every
+    /// render.
+    var intentDispatcher: FlowIntentHandler<R> {
         if let cachedIntentDispatcher {
             return cachedIntentDispatcher
         }
@@ -138,8 +138,9 @@ public final class FlowStore<R: Route> {
 
     /// Navigation-intent adapter used by `FlowHost`.
     ///
-    /// Internal by design: consumers use `EnvironmentNavigationIntent`, while
-    /// the host ensures the request still enters through `FlowStore.send(_:)`.
+    /// Internal by design: ``EnvironmentRouter`` exposes the public action,
+    /// while the host ensures the request still enters through
+    /// `FlowStore.send(_:)`.
     internal var navigationIntentDispatcher: NavigationIntentHandler<R> {
         if let cachedNavigationIntentDispatcher {
             return cachedNavigationIntentDispatcher
@@ -153,8 +154,9 @@ public final class FlowStore<R: Route> {
 
     /// Modal-intent adapter used by `FlowHost`.
     ///
-    /// Internal by design: consumers use `EnvironmentModalIntent`, while the
-    /// host keeps the inner `ModalStore` inaccessible as a mutation authority.
+    /// Internal by design: ``EnvironmentRouter`` exposes the public action,
+    /// while the host keeps the inner `ModalStore` inaccessible as a mutation
+    /// authority.
     internal var modalIntentDispatcher: ModalIntentHandler<R> {
         if let cachedModalIntentDispatcher {
             return cachedModalIntentDispatcher

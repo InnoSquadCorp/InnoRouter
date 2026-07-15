@@ -65,14 +65,14 @@ struct AppDestinationView: View {
 }
 
 struct CoordinatorRootView: View {
-    @EnvironmentNavigationIntent(AppRoute.self) private var navigationIntent
+    @EnvironmentRouter(AppRoute.self) private var router
 
     var body: some View {
         VStack(spacing: 12) {
-            Button("Go Auth") { navigationIntent(.go(.auth)) }
-            Button("Go Home") { navigationIntent(.go(.home)) }
+            Button("Go Auth") { router.go(.auth) }
+            Button("Go Home") { router.go(.home) }
             Button("Go Home (Many)") {
-                navigationIntent(.goMany([.home]))
+                router.goMany([.home])
             }
         }
         .padding()

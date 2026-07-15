@@ -2,6 +2,10 @@ import SwiftUI
 
 import InnoRouterCore
 
+typealias NavigationIntentHandler<R: Route> = @MainActor @Sendable (NavigationIntent<R>) -> Void
+typealias ModalIntentHandler<R: Route> = @MainActor @Sendable (ModalIntent<R>) -> Void
+typealias FlowIntentHandler<R: Route> = @MainActor @Sendable (FlowIntent<R>) -> Void
+
 enum RouterTabAction<R: Route>: Sendable {
     case select(R)
     case setBadge(Int?, for: R)

@@ -63,13 +63,12 @@ the same enum.
 
 ### 1. Swap the host layering
 
-Replace the nested host pair with `FlowHost`. `FlowHost` owns the
-same `ModalHost` + `NavigationHost` composition internally —
-external observable behavior is unchanged — but views now resolve
-intents through a `FlowIntent` dispatcher in the SwiftUI
-environment.
+Replace the nested host pair with `FlowHost`. It renders environment-free
+navigation and modal surfaces around one `FlowStore`, then publishes one
+unified authority for `@EnvironmentRouter`. External observable behavior stays
+the same without exposing the inner stores as independent mutation surfaces.
 
-### 2. Route view intents through `FlowIntent`
+### 2. Route view actions through `EnvironmentRouter`
 
 Old:
 ```swift skip doc-fragment
@@ -79,15 +78,18 @@ modalStore.present(.sheet, style: .sheet)
 
 New:
 ```swift skip doc-fragment
-@EnvironmentFlowIntent(AppRoute.self) private var flow
+@EnvironmentRouter(AppRoute.self) private var router
 // ...
-flow(.push(.detail))
-flow(.presentSheet(.sheet))
+router.go(.detail)
+router.sheet(.sheet)
 ```
 
-`FlowStore.send` still delegates to the inner
-`NavigationStore.send` and `ModalStore.present`, so any middleware
-or telemetry attached to those stores continues to run.
+Use `router.send(flow:)` only for flow-specific operations such as resetting a
+complete `RouteStep` path.
+
+`FlowStore.send` routes navigation and modal intents through the corresponding
+configured middleware and reports their wrapped events through the unified
+flow observation stream.
 
 ### 3. Port store configuration through `FlowStoreConfiguration`
 

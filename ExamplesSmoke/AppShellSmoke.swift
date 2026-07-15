@@ -122,19 +122,19 @@ struct AppShellHomeScene: View {
 }
 
 struct HomeDashboardView: View {
-    @EnvironmentNavigationIntent(HomeShellRoute.self) private var navigationIntent
-    @EnvironmentModalIntent(AppShellModalRoute.self) private var modalIntent
+    @EnvironmentRouter(HomeShellRoute.self) private var navigationRouter
+    @EnvironmentRouter(AppShellModalRoute.self) private var modalRouter
 
     var body: some View {
         VStack(spacing: 12) {
             Button("Start Checkout Flow") {
-                navigationIntent(.go(.checkoutFlow))
+                navigationRouter.go(.checkoutFlow)
             }
             Button("Show Profile Sheet") {
-                modalIntent(.present(.profile, style: .sheet))
+                modalRouter.sheet(.profile)
             }
             Button("Show Onboarding Full Screen") {
-                modalIntent(.present(.onboarding, style: .fullScreenCover))
+                modalRouter.cover(.onboarding)
             }
         }
         .navigationTitle("Home")
@@ -142,12 +142,12 @@ struct HomeDashboardView: View {
 }
 
 struct SettingsRootView: View {
-    @EnvironmentNavigationIntent(SettingsShellRoute.self) private var navigationIntent
+    @EnvironmentRouter(SettingsShellRoute.self) private var router
 
     var body: some View {
         VStack(spacing: 12) {
             Button("Open Settings Detail") {
-                navigationIntent(.go(.detail))
+                router.go(.detail)
             }
         }
         .navigationTitle("Settings")
@@ -155,13 +155,13 @@ struct SettingsRootView: View {
 }
 
 struct AppShellProfileModalView: View {
-    @EnvironmentModalIntent(AppShellModalRoute.self) private var modalIntent
+    @EnvironmentRouter(AppShellModalRoute.self) private var router
 
     var body: some View {
         VStack(spacing: 12) {
             Text("Profile Modal")
             Button("Dismiss") {
-                modalIntent(.dismiss)
+                router.dismiss()
             }
         }
         .padding()
@@ -169,14 +169,14 @@ struct AppShellProfileModalView: View {
 }
 
 struct AppShellOnboardingModalView: View {
-    @EnvironmentModalIntent(AppShellModalRoute.self) private var modalIntent
+    @EnvironmentRouter(AppShellModalRoute.self) private var router
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 12) {
                 Text("Onboarding Full Screen")
                 Button("Dismiss") {
-                    modalIntent(.dismiss)
+                    router.dismiss()
                 }
             }
             .padding()

@@ -28,15 +28,15 @@ struct StandaloneExampleView: View {
 }
 
 struct HomeListView: View {
-    @EnvironmentNavigationIntent(HomeRoute.self) private var navigationIntent
+    @EnvironmentRouter(HomeRoute.self) private var router
 
     var body: some View {
         List {
             Button("Go Detail") {
-                navigationIntent(.go(.detail(id: "123")))
+                router.go(.detail(id: "123"))
             }
             Button("Go Settings") {
-                navigationIntent(.go(.settings))
+                router.go(.settings)
             }
         }
         .navigationTitle("Home")

@@ -227,7 +227,7 @@ package-traits или отдельный macro-пакет должно
 
 - `InnoRouter`: зонтичный re-export `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink` и объявлений macros (без `InnoRouterSpatial`)
 - `InnoRouterCore`: route stack, validators, commands, results, batch/transaction executors, middleware
-- `InnoRouterSwiftUI`: stores, stack/split/modal hosts, coordinators, environment intent dispatch
+- `InnoRouterSwiftUI`: stores, stack/split/modal/flow hosts, coordinators и типизированные действия `EnvironmentRouter`
 - `InnoRouterSpatial`: opt-in declarations сцен visionOS, `SceneStore`, modifiers host/anchor/ornament для сцен
 - `InnoRouterDeepLink`: сопоставление шаблонов, диагностика, планирование pipeline, ожидающие deep links
 - `InnoRouterEffects`: помощники выполнения навигации и deep-link для границ приложения
@@ -309,16 +309,16 @@ DocC — детальный модульный набор справочнико
 
 ```mermaid
 flowchart LR
-    View["SwiftUI view"] --> Intent["Environment intent dispatcher"]
-    Intent --> Store["NavigationStore / ModalStore"]
-    Store --> Policy["Middleware / телеметрия / валидация"]
+    View["SwiftUI view"] --> Actions["Типизированные действия @EnvironmentRouter"]
+    Actions --> Store["NavigationStore / ModalStore / FlowStore"]
+    Store --> Policy["Middleware / наблюдение / валидация"]
     Policy --> Execution["NavigationEngine / модальная очередь"]
-    Execution --> Host["NavigationHost / NavigationSplitHost / CoordinatorSplitHost / ModalHost"]
+    Execution --> Host["RouterHost / NavigationHost / ModalHost / FlowHost"]
     Host --> System["NavigationStack / NavigationSplitView / sheet / fullScreenCover"]
 ```
 
-- Views издают типизированный intent через environment dispatchers.
-- Stores владеют авторитетом навигации или модального.
+- Views вызывают типизированные по route действия через `@EnvironmentRouter`.
+- Stores владеют authority навигации, modal или единого flow.
 - Hosts переводят состояние store в нативные SwiftUI API навигации.
 
 ### Deep-link flow
@@ -380,7 +380,7 @@ struct AppRoot: View {
 }
 ```
 
-`RouterHost` владеет локальным `NavigationStore`; для этого простого пути
+`RouterHost` владеет локальным `FlowStore`; для этого простого пути
 не нужно создавать store вручную.
 
 ### 3. Навигация из дочерней view
@@ -465,7 +465,7 @@ InnoRouter разделяет по назначению действия view и
 | Слой                       | Вход                                  | Используйте, когда |
 | -------------------------- | ------------------------------------- | ----------------- |
 | Действие view (по умолчанию) | `router.go(_:)`, `router.back()`, … | Маршрутизация из обычного SwiftUI view через `@EnvironmentRouter`. |
-| View intent (расширенный)  | `router.send(_:)`                     | Dispatch `NavigationIntent`, для которого нет именованного удобного метода. |
+| View intent (расширенный)  | `router.send(_:)`                     | Отправить `NavigationIntent`, для которого нет именованного удобного метода. |
 | Граница внешнего store     | `store.send(_:)`                      | Приложение намеренно владеет `NavigationStore` извне и внедряет его. |
 | Команда                    | `store.execute(_:)`                   | Перенаправить одну `NavigationCommand` в engine и проверить типизированный `NavigationResult`. |
 | Batch                      | `store.executeBatch(_:)`              | Запустить несколько команд по одной, сохраняя видимость middleware и одно событие наблюдателя. |
@@ -530,7 +530,7 @@ InnoRouter поддерживает модальную маршрутизаци�
 - `ModalStore`
 - `ModalHost`
 - `ModalIntent`
-- `@EnvironmentModalIntent`
+- `@EnvironmentRouter`
 
 Пример:
 
@@ -997,11 +997,10 @@ swift test
 инварианты (один хвостовой modal максимум, modal всегда в хвосте,
 rollback middleware согласовывает путь).
 
-Эти внутренние stores в 4.0 — `@_spi(FlowStoreInternals)`. Код приложения
-должен относиться к `FlowStore.path`, `send(_:)`, `apply(_:)`, `events`
-и `intentDispatcher` как к публичной поверхности авторитета; прямая
-мутация внутреннего store зарезервирована для hosts и сфокусированных
-тестов инвариантов.
+Эти внутренние stores — детали реализации. Код приложения должен относиться
+к `FlowStore.path`, `send(_:)`, `apply(_:)` и `events` как к публичной
+поверхности авторитета; прямая мутация внутреннего store зарезервирована для
+hosts и сфокусированных тестов инвариантов.
 
 Типичное использование:
 
@@ -1017,8 +1016,10 @@ flow.send(.presentSheet(.share))   // tail modal
 flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 ```
 
-- `FlowHost` составляет `ModalHost` поверх `NavigationHost` и инжектит
-  environment closure для dispatch `@EnvironmentFlowIntent(Route.self)`.
+- `FlowHost` рендерит не зависящие от environment поверхности навигации и
+  modal на основе `FlowStore`, затем публикует единую authority для
+  `@EnvironmentRouter(Route.self)`. Flow-specific intent отправляется через
+  `router.send(flow:)`.
 - `FlowStoreConfiguration` составляет `NavigationStoreConfiguration` и
   `ModalStoreConfiguration`, добавляя один `onEvent` для `FlowEvent`.
   Он получает path/rejection уровня flow и внутренние события в обёртках

@@ -30,8 +30,8 @@ InnoRouter는 Swift tools 6.2, Swift 6 언어 모드를 사용하는 멀티 타�
 - 주요 API: `NavigationStore`, `NavigationStoreConfiguration`, `NavigationEvent`,
   `NavigationHost`, `NavigationSplitHost`, `Coordinator`, `StepCoordinator`,
   `TabCoordinator`, `ModalStore`, `FlowStore`
-- View 계층의 navigation dispatch는 `@EnvironmentNavigationIntent(AppRoute.self)`를
-  사용하며 `NavigationHost` 또는 `CoordinatorHost`가 dispatcher를 제공합니다.
+- View 계층의 navigation action은 `@EnvironmentRouter(AppRoute.self)`를
+  사용하며 `NavigationHost` 또는 `CoordinatorHost`가 authority를 제공합니다.
 - Store 관찰은 구성의 단일 `onEvent`와 동일한 순서의 `events` 스트림을 사용합니다.
 
 ### InnoRouterDeepLink

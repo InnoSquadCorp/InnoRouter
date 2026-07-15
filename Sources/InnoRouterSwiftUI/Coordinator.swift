@@ -91,10 +91,10 @@ private struct CoordinatorStackHostContent<C: Coordinator, Root: View>: View {
     }
 }
 
-/// Hosts a stack-based coordinator surface and injects its navigation dispatcher into the environment.
+/// Hosts a stack-based coordinator surface and publishes its navigation
+/// authority through ``EnvironmentRouter``.
 public struct CoordinatorHost<C: Coordinator, Root: View>: View {
     @Bindable private var coordinator: C
-    @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
     private let root: () -> Root
 
     /// Creates a coordinator host with the supplied coordinator and root builder.
@@ -110,8 +110,6 @@ public struct CoordinatorHost<C: Coordinator, Root: View>: View {
         let navigationDispatcher = coordinator.navigationIntentDispatcher
 
         CoordinatorStackHostContent(coordinator: coordinator, root: root)
-            .navigationIntentDispatcher(navigationDispatcher, owner: coordinator)
-            .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
             .routerAuthority(
                 for: C.RouteType.self,
                 navigation: navigationDispatcher
@@ -130,7 +128,6 @@ public struct CoordinatorHost<C: Coordinator, Root: View>: View {
 ///   inside a `#if !os(watchOS)` fallback on watchOS targets.
 public struct CoordinatorSplitHost<C: Coordinator, Sidebar: View, Root: View>: View {
     @Bindable private var coordinator: C
-    @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
     private let sidebar: () -> Sidebar
     private let root: () -> Root
 
@@ -153,8 +150,6 @@ public struct CoordinatorSplitHost<C: Coordinator, Sidebar: View, Root: View>: V
         } detail: {
             CoordinatorStackHostContent(coordinator: coordinator, root: root)
         }
-        .navigationIntentDispatcher(navigationDispatcher, owner: coordinator)
-        .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
         .routerAuthority(
             for: C.RouteType.self,
             navigation: navigationDispatcher

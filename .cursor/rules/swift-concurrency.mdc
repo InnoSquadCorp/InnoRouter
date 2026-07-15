@@ -64,21 +64,23 @@ public protocol NavigationCommandExecutor: AnyObject {
 public typealias Navigator = NavigationStateReader & NavigationCommandExecutor
 ```
 
-SwiftUI 자식 뷰에는 스토어 자체 대신 main-actor dispatcher를 주입합니다.
+SwiftUI 자식 뷰는 스토어 자체를 주입받지 않고 `@EnvironmentRouter`에서
+main-actor action을 읽습니다.
 
 ```swift
 struct DetailButton: View {
-    @EnvironmentNavigationIntent(AppRoute.self) private var navigationIntent
+    @EnvironmentRouter(AppRoute.self) private var router
 
     var body: some View {
         Button("Detail") {
-            navigationIntent(.go(.detail(id: "123")))
+            router.go(.detail(id: "123"))
         }
     }
 }
 ```
 
-같은 방식으로 `@EnvironmentModalIntent`와 `@EnvironmentFlowIntent`를 사용합니다.
+Modal도 같은 `@EnvironmentRouter`에서 `sheet` / `cover`를 호출하고, flow 전용
+intent는 `router.send(flow:)`로 보냅니다.
 
 ## Sendable values and closures
 

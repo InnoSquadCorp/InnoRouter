@@ -10,7 +10,7 @@ case it was designed for.
 | Surface | Type | Use when |
 |---|---|---|
 | Stack view facade (default) | `RouterActions<R>` | A view reads `@EnvironmentRouter` and calls `go`, `back`, or another named action without knowing about the store. |
-| Explicit intent | `NavigationIntent<R>` / `ModalIntent<M>` / `FlowIntent<R>` | A transition needs a lower-level stack intent, modal presentation, or unified push+modal flow semantics. Send advanced stack intents with `router.send(_:)`; use the modal/flow environment wrappers for those surfaces. |
+| Explicit intent | `NavigationIntent<R>` / `ModalIntent<M>` / `FlowIntent<R>` | A transition needs a lower-level intent value. Use `router.send(_:)` for navigation or modal intents and `router.send(flow:)` for flow-only intents. |
 | Imperative low-level | `NavigationCommand<R>` / `ModalCommand<M>` | You hold a store reference and want explicit control over a single push, pop, present, or replace. Middleware sees this. |
 | Composite multi-step | `FlowPlan<R>` | A deep link, restoration snapshot, or pre-built scenario commits a whole push prefix + modal tail in one shot. |
 
@@ -45,26 +45,30 @@ the semantics.
 `.dismissAll`. `ModalIntent<M>` is the view-layer wrapper:
 `.present(M, style:)`, `.dismiss`, `.dismissAll`.
 
-The same imperative-vs-view-layer split applies. Inside a flow,
-prefer `FlowIntent` over either of these — see below.
+The same imperative-vs-view-layer split applies. Ordinary views call
+`router.sheet`, `router.cover`, `router.dismiss`, or `router.dismissAll`.
+Use `router.send(ModalIntent.present(...))` when the presentation style is
+chosen dynamically or an explicit intent value must cross an app boundary.
+Inside a `FlowHost`, these actions still enter through `FlowStore` and preserve
+its modal-tail invariant.
 
 ## NavigationIntent vs FlowIntent
 
-`FlowIntent<R>` is the only intent vocabulary that can express the
-"push then sheet" / "cover then dismiss while keeping push tail"
-patterns that span both stores in a `FlowStore<R>`. Cases you only
-get from `FlowIntent`:
+`FlowIntent<R>` names operations against the unified push-plus-modal timeline
+owned by `FlowStore<R>`. Common push, pop, presentation, and dismissal actions
+remain available through the same `@EnvironmentRouter` facade. Reach for an
+explicit `FlowIntent` when the operation itself is flow-specific, especially:
 
-- `.presentSheet(R)` / `.presentCover(R)` over the current push tail
+- `.reset([RouteStep<R>])` — replace the complete push prefix and modal tail
 - `.backOrPushDismissingModal(R)` — pop modal tail, then either pop
   back to an existing push or push fresh
 - `.pushUniqueRootDismissingModal(R)` — same, but only push if the
   root doesn't already contain that route
 
-If you are inside a `FlowStore`, use `FlowIntent`. Six of its eleven
-cases overlap with `NavigationIntent` semantically (push, pop, reset,
-replaceStack, backOrPush, pushUniqueRoot), but only `FlowIntent`
-correctly accounts for the modal tail.
+Views send these with `router.send(flow:)`; application boundaries that own the
+store call `flowStore.send(_:)`. `FlowHost` projects named navigation and modal
+actions into the equivalent `FlowIntent`, so choosing the simpler facade never
+bypasses the flow authority.
 
 ## When to use FlowPlan
 
@@ -85,13 +89,14 @@ apply.
 ## Quick decision flowchart
 
 ```text
-Are you in an ordinary SwiftUI stack view?
-├── Yes → use @EnvironmentRouter (go / back; send an advanced intent if needed)
-└── No  → does a modal or unified flow own the transition?
-         ├── Yes → use ModalIntent / FlowIntent through its environment wrapper
-         └── No  → are you composing a multi-step landing surface?
-                  ├── Yes → use FlowPlan
-                  └── No  → use commands at the store/effect boundary
+Are you in an ordinary SwiftUI view?
+├── Yes → use @EnvironmentRouter named actions
+│        └── Need an exact intent value?
+│            ├── Navigation / modal → router.send(_:)
+│            └── Flow-only         → router.send(flow:)
+└── No  → are you composing a multi-step landing surface?
+         ├── Yes → use FlowPlan
+         └── No  → use send / execute at the owning store or effect boundary
 ```
 
 ## Pitfalls
@@ -100,11 +105,11 @@ Are you in an ordinary SwiftUI stack view?
    Direct inner-store mutation bypasses FlowStore-level invariants
    such as the modal-tail block on `push` while a sheet is up. Use
    the FlowStore surface (`apply` / `send` with a `FlowIntent`) in
-   flow scenarios. In 4.0 the inner stores are SPI so this bypass is
-   reserved for `FlowHost` and focused package-internal invariant tests.
+   flow scenarios. The inner stores are implementation details reserved for
+   rendering surfaces and focused package-internal invariant tests.
 2. **Don't pick `NavigationCommand.replace([])` to "reset".** An
    empty replace clears the stack but is a single command; a clear
-   reset of an in-flight flow is `flowStore.send(.reset)`.
+   reset of an in-flight flow is `flowStore.send(.reset([]))`.
 3. **Don't synthesise composite plans from `FlowIntent` chains.**
    A sequence of `.push` + `.presentSheet` runs middleware twice and
    surfaces two `.pathChanged` events; `FlowPlan` runs the same

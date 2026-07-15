@@ -98,6 +98,13 @@ if rg -n "@EnvironmentNavigator|public func navigator\\(" Sources Examples Examp
   exit 1
 fi
 
+echo "[lint-source-gates] Checking legacy type-specific environment wrappers"
+if rg -n '\b(EnvironmentNavigationIntent|EnvironmentModalIntent|EnvironmentFlowIntent|NavigationEnvironmentStorage|ModalEnvironmentStorage|FlowEnvironmentStorage)\b' \
+  Sources Examples ExamplesSmoke --glob '*.swift'; then
+  echo "[lint-source-gates] Failed: legacy type-specific environment wrapper found"
+  exit 1
+fi
+
 echo "[lint-source-gates] Checking AnyCoordinator removal"
 if rg -n "AnyCoordinator" Sources Examples ExamplesSmoke README.md; then
   echo "[lint-source-gates] Failed: AnyCoordinator symbol found"

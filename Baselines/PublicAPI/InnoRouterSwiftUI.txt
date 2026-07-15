@@ -23,15 +23,9 @@ relationship | memberOf | DebouncingNavigator.cancelPending() | DebouncingNaviga
 relationship | memberOf | DebouncingNavigator.debouncedExecute(_:) | DebouncingNavigator |  |
 relationship | memberOf | DebouncingNavigator.init(wrapping:interval:) | DebouncingNavigator |  |
 relationship | memberOf | DebouncingNavigator.init(wrapping:interval:clock:) | DebouncingNavigator |  |
-relationship | memberOf | EnvironmentFlowIntent.init(_:) | EnvironmentFlowIntent |  |
-relationship | memberOf | EnvironmentFlowIntent.wrappedValue | EnvironmentFlowIntent |  |
 relationship | memberOf | EnvironmentMissingPolicy.assertAndLog | EnvironmentMissingPolicy |  |
 relationship | memberOf | EnvironmentMissingPolicy.crash | EnvironmentMissingPolicy |  |
 relationship | memberOf | EnvironmentMissingPolicy.logAndDegrade | EnvironmentMissingPolicy |  |
-relationship | memberOf | EnvironmentModalIntent.init(_:) | EnvironmentModalIntent |  |
-relationship | memberOf | EnvironmentModalIntent.wrappedValue | EnvironmentModalIntent |  |
-relationship | memberOf | EnvironmentNavigationIntent.init(_:) | EnvironmentNavigationIntent |  |
-relationship | memberOf | EnvironmentNavigationIntent.wrappedValue | EnvironmentNavigationIntent |  |
 relationship | memberOf | EnvironmentRouter.init(_:) | EnvironmentRouter |  |
 relationship | memberOf | EnvironmentRouter.wrappedValue | EnvironmentRouter |  |
 relationship | memberOf | FlowEvent.description | FlowEvent |  |
@@ -66,7 +60,6 @@ relationship | memberOf | FlowStore.events | FlowStore |  |
 relationship | memberOf | FlowStore.hasModalTail | FlowStore |  |
 relationship | memberOf | FlowStore.init(initial:configuration:) | FlowStore |  |
 relationship | memberOf | FlowStore.init(validating:configuration:) | FlowStore |  |
-relationship | memberOf | FlowStore.intentDispatcher | FlowStore |  |
 relationship | memberOf | FlowStore.navigationPath | FlowStore |  |
 relationship | memberOf | FlowStore.observe(_:) | FlowStore |  |
 relationship | memberOf | FlowStore.path | FlowStore |  |
@@ -144,7 +137,6 @@ relationship | memberOf | ModalStore.events | ModalStore |  |
 relationship | memberOf | ModalStore.execute(_:) | ModalStore |  |
 relationship | memberOf | ModalStore.init(currentPresentation:queuedPresentations:configuration:) | ModalStore |  |
 relationship | memberOf | ModalStore.insertMiddleware(_:at:debugName:) | ModalStore |  |
-relationship | memberOf | ModalStore.intentDispatcher | ModalStore |  |
 relationship | memberOf | ModalStore.middlewareMetadata | ModalStore |  |
 relationship | memberOf | ModalStore.moveMiddleware(_:to:) | ModalStore |  |
 relationship | memberOf | ModalStore.observe(_:) | ModalStore |  |
@@ -218,7 +210,6 @@ relationship | memberOf | NavigationStore.executeTransaction(_:) | NavigationSto
 relationship | memberOf | NavigationStore.init(initial:configuration:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.init(initialPath:configuration:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.insertMiddleware(_:at:debugName:) | NavigationStore |  |
-relationship | memberOf | NavigationStore.intentDispatcher | NavigationStore |  |
 relationship | memberOf | NavigationStore.middlewareMetadata | NavigationStore |  |
 relationship | memberOf | NavigationStore.moveMiddleware(_:to:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.observe(_:) | NavigationStore |  |
@@ -470,9 +461,6 @@ symbol | swift.init | CoordinatorHost.init(coordinator:root:) | init(coordinator
 symbol | swift.init | CoordinatorSplitHost.init(coordinator:sidebar:root:) | init(coordinator:sidebar:root:) | @MainActor init(coordinator: C, @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | DebouncingNavigator.init(wrapping:interval:) | init(wrapping:interval:) | @MainActor convenience init(wrapping inner: N, interval: Duration) | []
 symbol | swift.init | DebouncingNavigator.init(wrapping:interval:clock:) | init(wrapping:interval:clock:) | @MainActor init(wrapping inner: N, interval: Duration, clock: C) | []
-symbol | swift.init | EnvironmentFlowIntent.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
-symbol | swift.init | EnvironmentModalIntent.init(_:) | init(_:) | @MainActor init(_ routeType: M.Type) | []
-symbol | swift.init | EnvironmentNavigationIntent.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
 symbol | swift.init | EnvironmentRouter.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
 symbol | swift.init | FlowHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: FlowStore<R>, @ViewBuilder destination: @escaping (R) -> Destination, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | FlowHost.init(store:root:) | init(store:root:) | @MainActor init(store: FlowStore<R>, @ViewBuilder root: @escaping () -> Root) | []
@@ -590,9 +578,6 @@ symbol | swift.property | ChildCoordinatorTaskTracker.activeCount | activeCount 
 symbol | swift.property | Coordinator.store | store | @MainActor var store: NavigationStore<Self.RouteType> { get } | []
 symbol | swift.property | CoordinatorHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | CoordinatorSplitHost.body | body | @MainActor var body: some View { get } | []
-symbol | swift.property | EnvironmentFlowIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: @MainActor (FlowIntent<R>) -> Void { get } | []
-symbol | swift.property | EnvironmentModalIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: @MainActor (ModalIntent<M>) -> Void { get } | []
-symbol | swift.property | EnvironmentNavigationIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: @MainActor (NavigationIntent<R>) -> Void { get } | []
 symbol | swift.property | EnvironmentRouter.wrappedValue | wrappedValue | @MainActor var wrappedValue: RouterActions<R> { get } | []
 symbol | swift.property | EnvironmentValues.innoRouterEnvironmentMissingPolicy | innoRouterEnvironmentMissingPolicy | var innoRouterEnvironmentMissingPolicy: EnvironmentMissingPolicy { get set } | []
 symbol | swift.property | FlowEvent.description | description | var description: String { get } | []
@@ -606,7 +591,6 @@ symbol | swift.property | FlowStore.currentModalPresentation | currentModalPrese
 symbol | swift.property | FlowStore.currentModalRoute | currentModalRoute | @MainActor var currentModalRoute: R? { get } | []
 symbol | swift.property | FlowStore.events | events | @MainActor var events: AsyncStream<FlowEvent<R>> { get } | []
 symbol | swift.property | FlowStore.hasModalTail | hasModalTail | @MainActor var hasModalTail: Bool { get } | []
-symbol | swift.property | FlowStore.intentDispatcher | intentDispatcher | @MainActor var intentDispatcher: @MainActor (FlowIntent<R>) -> Void { get } | []
 symbol | swift.property | FlowStore.navigationPath | navigationPath | @MainActor var navigationPath: [R] { get } | []
 symbol | swift.property | FlowStore.path | path | @MainActor var path: [RouteStep<R>] { get set } | []
 symbol | swift.property | FlowStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | var eventBufferingPolicy: EventBufferingPolicy | []
@@ -634,7 +618,6 @@ symbol | swift.property | ModalPresentResult.isShownImmediately | isShownImmedia
 symbol | swift.property | ModalPresentResult.presentationID | presentationID | var presentationID: UUID? { get } | []
 symbol | swift.property | ModalStore.currentPresentation | currentPresentation | @MainActor var currentPresentation: ModalPresentation<M>? { get set } | []
 symbol | swift.property | ModalStore.events | events | @MainActor var events: AsyncStream<ModalEvent<M>> { get } | []
-symbol | swift.property | ModalStore.intentDispatcher | intentDispatcher | @MainActor var intentDispatcher: @MainActor (ModalIntent<M>) -> Void { get } | []
 symbol | swift.property | ModalStore.middlewareMetadata | middlewareMetadata | @MainActor var middlewareMetadata: [ModalMiddlewareMetadata] { get } | []
 symbol | swift.property | ModalStore.queuedPresentations | queuedPresentations | @MainActor var queuedPresentations: [ModalPresentation<M>] { get set } | []
 symbol | swift.property | ModalStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | var eventBufferingPolicy: EventBufferingPolicy | []
@@ -654,7 +637,6 @@ symbol | swift.property | NavigationPathMismatchEvent.policy | policy | let poli
 symbol | swift.property | NavigationPathMismatchEvent.resolution | resolution | let resolution: NavigationPathMismatchEvent<R>.Resolution | []
 symbol | swift.property | NavigationSplitHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | NavigationStore.events | events | @MainActor var events: AsyncStream<NavigationEvent<R>> { get } | []
-symbol | swift.property | NavigationStore.intentDispatcher | intentDispatcher | @MainActor var intentDispatcher: @MainActor (NavigationIntent<R>) -> Void { get } | []
 symbol | swift.property | NavigationStore.middlewareMetadata | middlewareMetadata | @MainActor var middlewareMetadata: [NavigationMiddlewareMetadata] { get } | []
 symbol | swift.property | NavigationStore.pathBinding | pathBinding | @MainActor var pathBinding: Binding<[R]> { get } | []
 symbol | swift.property | NavigationStore.state | state | @MainActor var state: RouteStack<R> { get set } | []
@@ -696,9 +678,6 @@ symbol | swift.protocol | StoreObserver | StoreObserver | @MainActor protocol St
 symbol | swift.protocol | TabCoordinator | TabCoordinator | @MainActor protocol TabCoordinator : AnyObject, Observable | []
 symbol | swift.struct | CoordinatorHost | CoordinatorHost | @MainActor struct CoordinatorHost<C, Root> where C : Coordinator, Root : View | []
 symbol | swift.struct | CoordinatorSplitHost | CoordinatorSplitHost | @MainActor struct CoordinatorSplitHost<C, Sidebar, Root> where C : Coordinator, Sidebar : View, Root : View | []
-symbol | swift.struct | EnvironmentFlowIntent | EnvironmentFlowIntent | @MainActor @propertyWrapper struct EnvironmentFlowIntent<R> where R : Route | []
-symbol | swift.struct | EnvironmentModalIntent | EnvironmentModalIntent | @MainActor @propertyWrapper struct EnvironmentModalIntent<M> where M : Route | []
-symbol | swift.struct | EnvironmentNavigationIntent | EnvironmentNavigationIntent | @MainActor @propertyWrapper struct EnvironmentNavigationIntent<R> where R : Route | []
 symbol | swift.struct | EnvironmentRouter | EnvironmentRouter | @MainActor @propertyWrapper struct EnvironmentRouter<R> where R : Route | []
 symbol | swift.struct | FlowHost | FlowHost | @MainActor struct FlowHost<R, Destination, Root> where R : Route, Destination : View, Root : View | []
 symbol | swift.struct | FlowStoreConfiguration | FlowStoreConfiguration | struct FlowStoreConfiguration<R> where R : Route | []

@@ -1,23 +1,23 @@
 import OSLog
 import SwiftUI
 
-/// Controls how InnoRouter property wrappers respond when the
+/// Controls how ``EnvironmentRouter`` actions respond when the
 /// matching `NavigationHost` / `CoordinatorHost` / `ModalHost` /
 /// `FlowHost` environment is not in scope.
 ///
 /// The default is ``crash`` so production builds catch missing
-/// environment wiring early, exactly as before this option existed.
+/// environment wiring on the first attempted router action.
 /// SwiftUI Previews, snapshot tests, and other host-less rendering
 /// paths can override the default through the
 /// ``SwiftUI/View/innoRouterEnvironmentMissingPolicy(_:)`` modifier
 /// to keep rendering instead of trapping.
 ///
-/// `logAndDegrade` substitutes a no-op dispatcher and emits a
+/// `logAndDegrade` skips the unavailable action and emits a
 /// `Logger.error` line so the missing wiring is still visible in
 /// the console without aborting the process.
 ///
 /// `assertAndLog` traps in Debug builds (catching the wiring bug
-/// during development) but degrades to a logged no-op dispatcher in
+/// during development) but logs and skips the unavailable action in
 /// Release. Use this when ``crash`` feels too aggressive for
 /// production cold-starts but ``logAndDegrade`` is too quiet during
 /// development.
@@ -25,29 +25,27 @@ public enum EnvironmentMissingPolicy: Sendable, Hashable {
     /// Trap with `preconditionFailure` when the environment is
     /// missing. Default behaviour.
     case crash
-    /// Log an error and return a no-op dispatcher / placeholder so
+    /// Log an error and skip the unavailable action so
     /// the surrounding view tree can keep rendering. Intended for
     /// SwiftUI Previews, host-less snapshot tests, and similar
     /// out-of-app contexts.
     case logAndDegrade
     /// Log an error and trap with `assertionFailure` so Debug builds
     /// catch the missing wiring while Release builds keep rendering
-    /// against a no-op dispatcher. Useful when shipping a pre-launch
+    /// without performing the action. Useful when shipping a pre-launch
     /// build where a stray missing host should not crash the app but
     /// must still surface during development.
     case assertAndLog
 }
 
 extension EnvironmentValues {
-    /// The `EnvironmentMissingPolicy` applied to InnoRouter's
-    /// `@Environment*Intent` property wrappers within the current
-    /// view tree.
+    /// The policy applied when ``EnvironmentRouter`` cannot resolve the
+    /// requested route authority or capability in the current view tree.
     @Entry public var innoRouterEnvironmentMissingPolicy: EnvironmentMissingPolicy = .crash
 }
 
 extension View {
-    /// Override the policy InnoRouter property wrappers apply when
-    /// their matching host is missing from the environment.
+    /// Overrides the policy for unresolved ``EnvironmentRouter`` actions.
     ///
     /// ```swift
     /// #Preview {

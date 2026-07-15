@@ -12,7 +12,7 @@ InnoRouter는 네비게이션을 typed state와 명시적인 실행 결과로 �
 
 - `RouteStack`, `NavigationCommand`, `NavigationResult`는 UI와 독립적인 Core 값이다.
 - `NavigationStore`, `ModalStore`, `FlowStore`는 `@MainActor`에 격리된 전이 권한(authority)이다.
-- View는 store state를 직접 고치지 않고 environment intent를 보낸다.
+- View는 store state를 직접 고치지 않고 `@EnvironmentRouter` action을 보낸다.
 - Coordinator는 정책이 필요할 때 선택하는 계층이다. 모든 Feature가 Coordinator나 하나의 공통 router protocol에 의존해야 하는 것은 아니다.
 - 딥링크 matcher와 pipeline은 결정을 만들고, 실제 실행은 store 또는 effect handler가 명시적으로 수행한다.
 - InnoRouter는 비즈니스 상태, 인증 세션, 네트워크 재시도, alert/confirmation 상태를 소유하지 않는다.
@@ -24,7 +24,7 @@ InnoRouter는 네비게이션을 typed state와 명시적인 실행 결과로 �
 | 모듈 | 책임 |
 |---|---|
 | `InnoRouterCore` | `Route`, `RouteStack`, command/result/engine, middleware 계약, `FlowPlan` |
-| `InnoRouterSwiftUI` | stack/modal/flow stores, hosts, coordinator, environment intents, observation |
+| `InnoRouterSwiftUI` | stack/modal/flow stores, hosts, coordinator, environment router, observation |
 | `InnoRouterSpatial` | opt-in visionOS scene registry/store, host/anchor modifier, ornament |
 | `InnoRouterDeepLink` | matcher, 진단, push-only/flow pipeline과 pending plan |
 | `InnoRouter` | Core + SwiftUI + DeepLink를 재수출하는 앱 코드용 umbrella |
@@ -82,11 +82,11 @@ struct AppRoot: View {
 }
 
 struct HomeView: View {
-    @EnvironmentNavigationIntent(AppRoute.self) private var navigationIntent
+    @EnvironmentRouter(AppRoute.self) private var router
 
     var body: some View {
         Button("Detail") {
-            navigationIntent(.go(.detail(id: "123")))
+            router.go(.detail(id: "123"))
         }
     }
 }
@@ -96,7 +96,7 @@ struct HomeView: View {
 - `@Routable`은 `Route` conformance와 typed case paths를 생성한다.
 - `@CasePathable`은 case paths만 생성하며 `Route`를 추가하지 않는다.
 - `RouteStack.path`는 외부에서 읽기 전용이다. `send`, `execute`, binding reconciliation을 통해 변경한다.
-- `NavigationHost`와 `CoordinatorHost`가 matching intent dispatcher를 environment에 설치한다.
+- `NavigationHost`와 `CoordinatorHost`가 matching router authority를 environment에 설치한다.
 
 ## Intent와 Command
 

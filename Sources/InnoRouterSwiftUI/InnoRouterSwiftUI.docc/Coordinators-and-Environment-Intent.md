@@ -1,4 +1,4 @@
-# Coordinators and environment intent
+# Coordinators and environment router
 
 @Metadata {
   @PageKind(article)
@@ -19,7 +19,7 @@ A coordinator:
 
 `Coordinator` remains `AnyObject` by design because it is a shared authority object, not ephemeral view state.
 
-## Environment intent
+## Environment router actions
 
 `EnvironmentRouter` is the primary route-action API for views. It exposes
 discoverable `RouterActions` methods such as `go`, `sheet`, and, for a
@@ -45,10 +45,10 @@ struct ProductRow: View {
 }
 ```
 
-`EnvironmentNavigationIntent` remains the lower-level stack surface for code
-that needs to construct `NavigationIntent` directly. `EnvironmentModalIntent`
-and `EnvironmentFlowIntent` provide the corresponding modal and unified-flow
-dispatchers.
+Use `router.send(_:)` when code needs to construct a `NavigationIntent` or
+`ModalIntent` directly, and `router.send(flow:)` for an explicit `FlowIntent`.
+When stack and modal authorities use different route types, declare one
+`@EnvironmentRouter` property for each route type.
 
 This keeps view code declarative:
 
@@ -57,29 +57,20 @@ This keeps view code declarative:
 - fail-fast environment behavior catches host wiring mistakes at runtime
 - multi-host trees can keep separate routing authorities in the same hierarchy
 
-### Sibling hosts and duplicate registration
+### Host scoping and authority replacement
 
-Each `NavigationHost` / `ModalHost` / `FlowHost` owns its own
-`*EnvironmentStorage` instance through `@State`, so SwiftUI scopes the
-handler table to the host's view subtree. Re-registering the
-same routing authority is allowed across SwiftUI updates, even when
-the forwarding closure is freshly allocated. A sibling host with a
-different authority that registers against the same `Route` type in
-the same environment scope is treated as a wiring bug: in Debug
-builds the storage setter traps with `assertionFailure`, and in
-Release it logs an error through the `duplicate-dispatcher`
-`os_log` category before letting the overwrite proceed (preserving
-prior behaviour for production cold-starts).
+Each `NavigationHost`, `ModalHost`, `FlowHost`, and `RouterTabHost` publishes
+one route-typed authority to its own view subtree. SwiftUI environment value
+semantics keep sibling hosts independent. When a nested host uses the same
+`Route` type, it replaces the complete authority for that subtree instead of
+merging capabilities from two stores.
 
-If two surfaces legitimately need different routing authorities,
-either give them distinct `Route` types or scope them with separate
-environment subtrees so each host gets its own storage.
-
-Low-level tests or custom integrations that write directly into an
-environment storage should either assign a handler once per storage
-instance, or call the explicit owner registration helper with a stable
-store / coordinator identity. The host modifiers do this for normal
-`NavigationHost`, `ModalHost`, and `FlowHost` usage.
+This replacement prevents an inner stack-only host from accidentally driving
+an outer modal or flow authority. Different route types can coexist in one
+subtree; views declare one `@EnvironmentRouter` property for each route type
+they use. The registration and storage types are implementation details, so
+custom view trees should compose the public hosts rather than write router
+environment state directly.
 
 ## Flow and tab coordinators
 

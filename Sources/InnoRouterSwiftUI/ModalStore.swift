@@ -51,12 +51,12 @@ public final class ModalStore<M: Route> {
     /// A closure that forwards `ModalIntent` values to this store's
     /// ``send(_:)`` entry point.
     ///
-    /// Hosts publish this through the SwiftUI environment so descendants can
-    /// use ``EnvironmentModalIntent`` to dispatch view-layer intents without
-    /// holding a direct store reference. The dispatcher is created on first
-    /// access and reused for the lifetime of the store, so a SwiftUI host
-    /// does not allocate a fresh closure on every render.
-    public var intentDispatcher: @MainActor @Sendable (ModalIntent<M>) -> Void {
+    /// Hosts publish this through their unified router authority so descendants
+    /// can use ``EnvironmentRouter`` without holding a direct store reference.
+    /// The dispatcher is created on first access and reused for the lifetime of
+    /// the store, so a SwiftUI host does not allocate a fresh closure on every
+    /// render.
+    var intentDispatcher: ModalIntentHandler<M> {
         if let cachedIntentDispatcher {
             return cachedIntentDispatcher
         }

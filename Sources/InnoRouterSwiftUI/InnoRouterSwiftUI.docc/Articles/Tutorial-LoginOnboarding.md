@@ -31,8 +31,8 @@ enum AppRoute: Route {
 
 ## Wiring the flow host
 
-`FlowHost` composes an inner `ModalHost` over a `NavigationHost` and
-exposes both authorities through a single `FlowStore`:
+`FlowHost` renders environment-free navigation and modal surfaces around one
+`FlowStore`, then publishes a unified router authority to its view subtree:
 
 ```swift skip doc-fragment
 @main
@@ -65,26 +65,29 @@ struct DemoApp: App {
 
 ## Emitting intents from views
 
-Views never mutate `FlowStore.path` directly; they emit
-`FlowIntent` values through the environment dispatcher so
-middleware and telemetry observe every step:
+Views never mutate `FlowStore.path` directly. They read typed actions from
+`@EnvironmentRouter`; the host projects those actions through `FlowStore`, so
+middleware and event observation see every step:
 
 ```swift skip doc-fragment
 struct WelcomeRootView: View {
-    @EnvironmentFlowIntent(AppRoute.self) private var flow
+    @EnvironmentRouter(AppRoute.self) private var router
 
     var body: some View {
         VStack {
             Button("Continue") {
-                flow(.push(.preAuth))
+                router.go(.preAuth)
             }
             Button("Create account") {
-                flow(.presentSheet(.signup))
+                router.sheet(.signup)
             }
         }
     }
 }
 ```
+
+Use `router.send(flow:)` only for flow-specific operations that do not have a
+focused action, such as resetting a complete `RouteStep` path.
 
 ## Awaiting a signup sub-flow
 

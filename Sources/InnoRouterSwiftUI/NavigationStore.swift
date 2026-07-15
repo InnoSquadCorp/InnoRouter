@@ -41,12 +41,12 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     /// A closure that forwards `NavigationIntent` values to this store's
     /// ``send(_:)`` entry point.
     ///
-    /// Hosts publish this through the SwiftUI environment so descendants can
-    /// use ``EnvironmentNavigationIntent`` to dispatch view-layer intents
-    /// without holding a direct store reference. The dispatcher is created
-    /// on first access and reused for the lifetime of the store, so a
-    /// SwiftUI host does not allocate a fresh closure on every render.
-    public var intentDispatcher: @MainActor @Sendable (NavigationIntent<R>) -> Void {
+    /// Hosts publish this through their unified router authority so descendants
+    /// can use ``EnvironmentRouter`` without holding a direct store reference.
+    /// The dispatcher is created on first access and reused for the lifetime of
+    /// the store, so a SwiftUI host does not allocate a fresh closure on every
+    /// render.
+    var intentDispatcher: NavigationIntentHandler<R> {
         if let cachedIntentDispatcher {
             return cachedIntentDispatcher
         }

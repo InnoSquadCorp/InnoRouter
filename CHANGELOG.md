@@ -139,6 +139,21 @@ are bare semver (no leading `v`).
   modal configuration when the framework's private OSLog summaries are
   sufficient. These paths now observe one canonical event delivery instead of
   receiving duplicate callback and sink fan-out.
+- The type-specific SwiftUI environment wrappers and mutable storage tables are
+  removed. Replace `@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`,
+  and `@EnvironmentFlowIntent` with one `@EnvironmentRouter`. Use its named
+  `go`, `back`, `sheet`, `cover`, and dismissal actions for ordinary routing;
+  use `send(_:)` for explicit navigation or modal intents and `send(flow:)` for
+  flow-only intents such as `reset`. `NavigationStore.intentDispatcher`,
+  `ModalStore.intentDispatcher`, and `FlowStore.intentDispatcher` are now
+  framework implementation details; advanced owners call each store's public
+  `send(_:)` API directly. The nearest host for a route type replaces that
+  route's complete authority, so a unified stack-plus-modal route belongs in
+  `RouterHost` or `FlowHost`; independently owned surfaces should use distinct
+  route enums. Environment resolution is now lazy: the configured
+  `EnvironmentMissingPolicy` reports a missing host, mismatched route, or
+  unsupported capability when a router action is invoked, not merely when the
+  property wrapper is read.
 - `FlowCoordinator` and `FlowCoordinatorView` are now
   `StepCoordinator` and `StepCoordinatorView`, clarifying that this
   helper owns checklist progress rather than navigation/modal state.
@@ -182,14 +197,10 @@ are bare semver (no leading `v`).
   construction. Middleware metadata and mutation events, path-mismatch events,
   and state-restoration failures remain public readable values emitted by their
   owning stores and adapters, but their initializers are now framework-only.
-- Telemetry sinks now use the canonical `NavigationEvent`, `ModalEvent`, and
-  `FlowEvent` names directly. The redundant `NavigationTelemetryEvent`,
-  `ModalTelemetryEvent`, and `FlowTelemetryEvent` aliases are removed; update
-  explicit annotations and custom sink method signatures to the canonical
-  event types.
 - The unused `FlowNavigating` forwarding protocol is removed. Flow owners
-  should keep a `FlowStore` directly and dispatch with `send(_:)` or its cached
-  `intentDispatcher`; `FlowHost` already consumes that store-native dispatcher.
+  should keep a `FlowStore` directly and dispatch with `send(_:)` or
+  `apply(_:)`; `FlowHost` publishes the store's capabilities through the
+  unified environment router.
 - `DeepLinkPipeline` now accepts a `DeepLinkMatcher` through its canonical
   `matcher:` initializer. The old `resolve:` initializer and nested `Resolver`
   type alias are removed. Migrate `resolve: { matcher.match($0) }` to
@@ -217,11 +228,12 @@ are bare semver (no leading `v`).
   witness. Invalid attachment, missing or malformed destinations, conflicting
   manual witnesses, empty routers, and redundant conformance now produce
   stable compiler errors or warnings at the declaration site.
-- `RouterHost` owns the `NavigationStore` for a simple stack, while
-  `@EnvironmentRouter` exposes short typed actions such as `go`, `back`, and
-  `backToRoot` to descendants. Applications that need external store access,
-  restoration, middleware mutation, or deep-link orchestration can continue
-  with `NavigationHost(store:)` without changing their route type.
+- `RouterHost` owns one local `FlowStore` for stack and modal routing, while
+  `@EnvironmentRouter` exposes short typed actions such as `go`, `back`,
+  `sheet`, and `dismiss` to descendants. Applications that need external store
+  access, restoration, middleware mutation, or deep-link orchestration use
+  `FlowHost(store:)`; stack-only external ownership remains available through
+  `NavigationHost(store:)`.
 - `@DeepLink` gives `@Router` enums a typed, fail-closed `DeepLinkRoute`
   resolver from literal scheme, host, and path declarations. Generated
   matching uses deterministic specificity precedence—literal paths, typed

@@ -51,17 +51,16 @@ private struct RouterSplitHostProbe: View {
 }
 
 @MainActor
-private struct RawRouterSplitHostProbe: View {
-    @EnvironmentNavigationIntent(RouterSplitHostRoute.self) private var navigation
-    @EnvironmentModalIntent(RouterSplitHostRoute.self) private var modal
+private struct ExplicitRouterSplitHostProbe: View {
+    @EnvironmentRouter(RouterSplitHostRoute.self) private var router
 
     let gate: RouterSplitHostInvocationGate
 
     var body: some View {
         Color.clear.onAppear {
             gate.run {
-                modal(.present(.modal, style: .sheet))
-                navigation(.go(.detail(id: "blocked")))
+                router.send(ModalIntent.present(.modal, style: .sheet))
+                router.send(NavigationIntent.go(.detail(id: "blocked")))
             }
         }
     }
@@ -114,8 +113,8 @@ struct RouterSplitHostTests {
         )
     }
 
-    @Test("raw split intent wrappers cannot bypass the FlowStore modal-tail invariant")
-    func rawIntentAuthority() throws {
+    @Test("explicit router sends cannot bypass the FlowStore modal-tail invariant")
+    func explicitIntentAuthority() throws {
         var events: [FlowEvent<RouterSplitHostRoute>] = []
         let store = FlowStore<RouterSplitHostRoute>(
             configuration: FlowStoreConfiguration { events.append($0) }
@@ -125,7 +124,7 @@ struct RouterSplitHostTests {
             store: store,
             sidebar: { Text("Sidebar") },
             destination: RouterSplitHostRoute.destination(for:),
-            root: { RawRouterSplitHostProbe(gate: gate) }
+            root: { ExplicitRouterSplitHostProbe(gate: gate) }
         )
 
         _ = try renderRouterSplitHost(surface)

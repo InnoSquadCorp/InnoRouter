@@ -45,7 +45,7 @@ early with a clear message if it is missing.
 | 8 | Human-facing examples build | Macro-using examples in `Examples/` — exercises the idiomatic surface. | `swift build --target InnoRouterStandaloneExample` (and siblings) |
 | 9 | Performance smoke | Coarse timing budget for engine dispatch / command algebra. | `./scripts/performance-smoke.sh` |
 | 10 | Source/workflow lint gates | Forbidden source patterns (`@unchecked Sendable`, `nonisolated(unsafe)`, etc.), debug-only fences, and invalid GitHub Actions syntax. | `./scripts/lint-source-gates.sh` and `actionlint -config-file .github/actionlint.yaml` |
-| 11 | Fail-fast probe | Missing `NavigationEnvironmentStorage` must crash deterministically with the documented message — guards against silent fallback regressions. | `swift run NavigationEnvironmentFailFastProbe` (expected to fail) |
+| 11 | Fail-fast probe | Invoking `EnvironmentRouter` without a matching host must crash deterministically with the documented message — guards against silent fallback regressions. | `swift run RouterEnvironmentFailFastProbe` (expected to fail) |
 | 12 | Public Bool naming | Public `Bool` properties must start with `is`, `has`, `can`, or `should`. | `rg "public (var\|let) [A-Za-z_][A-Za-z0-9_]*: Bool" Sources` |
 | 13 | Per-platform compile probe (optional) | `xcodebuild` against each Apple-platform generic simulator destination, including the macro-first consumer smoke. Only runs when `--platforms=…` is passed. | `./scripts/principle-gates.sh --platforms=all` |
 

@@ -270,7 +270,7 @@ evaluated only after measuring `swift package show-traits`,
 
 - `InnoRouter`: default macro-first umbrella re-export of `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`, and `InnoRouterMacros`
 - `InnoRouterCore`: route stack, validators, commands, results, batch/transaction executors, middleware
-- `InnoRouterSwiftUI`: stores, stack/split/modal hosts, coordinators, environment intent dispatch
+- `InnoRouterSwiftUI`: stores, stack/split/modal/flow hosts, coordinators, and typed `EnvironmentRouter` actions
 - `InnoRouterSpatial`: opt-in scene registry/store, visionOS scene host/anchor modifiers, and ornaments
 - `InnoRouterDeepLink`: pattern matching, diagnostics, pipeline planning, pending deep links
 - `InnoRouterEffects`: opt-in app-boundary navigation and deep-link execution helpers
@@ -319,7 +319,7 @@ Does the screen surface combine push and modal in one flow?
 For ordinary stack navigation from a view, use `@EnvironmentRouter` and its
 `go` / `back` actions. Use the lower-level intent types in
 [`Docs/IntentSelectionGuide.md`](Docs/IntentSelectionGuide.md) when a feature
-needs explicit `NavigationIntent`, modal dispatch, or unified `FlowIntent`
+needs explicit `NavigationIntent`, modal actions, or unified `FlowIntent`
 semantics.
 
 ## Documentation
@@ -358,16 +358,16 @@ generate-documentation` build all show the same content.
 
 ```mermaid
 flowchart LR
-    View["SwiftUI view"] --> Intent["Environment intent dispatcher"]
-    Intent --> Store["NavigationStore / ModalStore"]
-    Store --> Policy["Middleware / telemetry / validation"]
+    View["SwiftUI view"] --> Actions["@EnvironmentRouter typed actions"]
+    Actions --> Store["NavigationStore / ModalStore / FlowStore"]
+    Store --> Policy["Middleware / observation / validation"]
     Policy --> Execution["NavigationEngine / modal queue"]
-    Execution --> Host["NavigationHost / NavigationSplitHost / CoordinatorSplitHost / ModalHost"]
+    Execution --> Host["RouterHost / NavigationHost / ModalHost / FlowHost"]
     Host --> System["NavigationStack / NavigationSplitView / sheet / fullScreenCover"]
 ```
 
-- Views emit typed intent through environment dispatchers.
-- Stores own navigation or modal authority.
+- Views invoke route-typed actions through `@EnvironmentRouter`.
+- Stores own navigation, modal, or unified flow authority.
 - Hosts translate store state into native SwiftUI navigation APIs.
 
 ### Deep-link flow
@@ -435,7 +435,7 @@ point that matches the call site, not the one that matches the data shape.
 | Layer                   | Entry                                          | Use when                                                                                          |
 | ----------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | View action (default)   | `router.go(_:)`, `router.back()`, …            | Routing from an ordinary SwiftUI view through `@EnvironmentRouter`.                               |
-| View intent (advanced)  | `router.send(_:)`                              | Dispatching a `NavigationIntent` that has no named convenience method.                            |
+| View intent (advanced)  | `router.send(_:)`                              | Sending a `NavigationIntent` that has no named convenience method.                                |
 | External store boundary | `store.send(_:)`                               | The app deliberately owns and injects a `NavigationStore`.                                       |
 | Command                 | `store.execute(_:)`                            | Forwarding a single `NavigationCommand` to the engine and inspecting the typed `NavigationResult`. |
 | Batch                   | `store.executeBatch(_:)`                       | Running multiple commands one-by-one while keeping middleware visibility and a single observer event. |
@@ -513,7 +513,7 @@ Use:
 - `ModalStore`
 - `ModalHost`
 - `ModalIntent`
-- `@EnvironmentModalIntent`
+- `@EnvironmentRouter`
 
 Example:
 
@@ -970,10 +970,10 @@ single array of `RouteStep<R>` values. It owns an inner
 enforcing invariants (one trailing modal at most, modal always at the
 tail, middleware rollbacks reconcile the path).
 
-Those inner stores are `@_spi(FlowStoreInternals)` in 4.0. App code
-should treat `FlowStore.path`, `send(_:)`, `apply(_:)`, `events`, and
-`intentDispatcher` as the public authority surface; direct inner-store
-mutation is reserved for hosts and focused invariant tests.
+Those inner stores are implementation details. App code should treat
+`FlowStore.path`, `send(_:)`, `apply(_:)`, and `events` as the public authority
+surface; direct inner-store mutation is reserved for hosts and focused
+invariant tests.
 
 Typical usage:
 
@@ -989,8 +989,10 @@ flow.send(.presentSheet(.share))   // tail modal
 flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 ```
 
-- `FlowHost` composes `ModalHost` over `NavigationHost` and injects an
-  environment closure for `@EnvironmentFlowIntent(Route.self)` dispatch.
+- `FlowHost` renders environment-free navigation and modal surfaces backed by
+  `FlowStore`, then publishes one unified authority for
+  `@EnvironmentRouter(Route.self)`. Send flow-specific intents with
+  `router.send(flow:)`.
 - `FlowStoreConfiguration` composes `NavigationStoreConfiguration` and
   `ModalStoreConfiguration`, adding one `onEvent` callback for
   `FlowEvent`. It receives flow-level path/rejection cases and wrapped

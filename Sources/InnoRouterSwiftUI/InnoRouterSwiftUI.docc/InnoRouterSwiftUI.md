@@ -1,7 +1,7 @@
 # InnoRouterSwiftUI
 
 Macro-first SwiftUI routing, externally owned stores, modal routing,
-coordinators, and environment intent dispatch for InnoRouter.
+coordinators, and typed `EnvironmentRouter` actions for InnoRouter.
 
 ## Overview
 
@@ -15,7 +15,7 @@ This module owns:
 - `CoordinatorHost` and `CoordinatorSplitHost` (watchOS not supported for split host)
 - `ModalStore` and `ModalHost`
 - `NavigationIntent` and `ModalIntent`
-- `RouterActions`, `EnvironmentNavigationIntent`, and `EnvironmentModalIntent`
+- `RouterActions` and `EnvironmentRouter`
 - `RouterTab`, `StepCoordinator`, and `TabCoordinator`
 
 The guiding rule is simple: start with `@Router` + `RouterHost`, let views use

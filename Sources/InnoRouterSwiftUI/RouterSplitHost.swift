@@ -7,14 +7,11 @@ import InnoRouterCore
 /// and focused integration tests.
 ///
 /// The detail stack and modal presentation both render the inner stores, but
-/// every published dispatcher remains an adapter to the owning `FlowStore`.
+/// every published handler remains an adapter to the owning `FlowStore`.
 /// Descendants therefore cannot push past a modal tail through
-/// ``EnvironmentRouter`` or one of the advanced intent wrappers.
+/// ``EnvironmentRouter`` or its explicit intent escape hatches.
 struct RouterSplitFlowSurface<R: Route, Sidebar: View, Destination: View, Root: View>: View {
     @Bindable private var store: FlowStore<R>
-    @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
-    @State private var modalEnvironmentStorage = ModalEnvironmentStorage()
-    @State private var flowEnvironmentStorage = FlowEnvironmentStorage()
     private let sidebar: () -> Sidebar
     private let destination: (R) -> Destination
     private let root: () -> Root
@@ -48,12 +45,6 @@ struct RouterSplitFlowSurface<R: Route, Sidebar: View, Destination: View, Root: 
                 )
             }
         }
-        .navigationIntentDispatcher(navigationDispatcher, owner: flowStore)
-        .modalIntentDispatcher(modalDispatcher, owner: flowStore)
-        .flowIntentDispatcher(flowDispatcher, owner: flowStore)
-        .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
-        .environment(\.modalEnvironmentStorage, modalEnvironmentStorage)
-        .environment(\.flowEnvironmentStorage, flowEnvironmentStorage)
         .routerAuthority(
             for: R.self,
             navigation: navigationDispatcher,

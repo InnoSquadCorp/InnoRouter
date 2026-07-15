@@ -253,7 +253,7 @@ SwiftSyntax 기반 매크로 구현은 이 패키지에 포함되어 있습니�
 
 - `InnoRouter`: `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`, `InnoRouterMacros`의 macro-first umbrella re-export
 - `InnoRouterCore`: route stack, validator, command, result, batch/transaction executor, middleware
-- `InnoRouterSwiftUI`: store, stack/split/modal host, coordinator, environment intent dispatch
+- `InnoRouterSwiftUI`: store, stack/split/modal/flow host, coordinator, typed `EnvironmentRouter` action
 - `InnoRouterSpatial`: opt-in visionOS scene/immersive-space store, host, anchor, ornament
 - `InnoRouterDeepLink`: 패턴 매칭, 진단, pipeline planning, pending 딥링크
 - `InnoRouterEffects`: 앱 경계용 네비게이션·딥링크 실행 헬퍼
@@ -295,7 +295,7 @@ SwiftSyntax 기반 매크로 구현은 이 패키지에 포함되어 있습니�
 ```
 
 view의 일반적인 stack 네비게이션에는 `@EnvironmentRouter`의 `go` / `back`을
-사용하세요. 명시적인 `NavigationIntent`, modal dispatch, 통합 `FlowIntent` 시멘틱이
+사용하세요. 명시적인 `NavigationIntent`, modal action, 통합 `FlowIntent` 시멘틱이
 필요할 때만 [`Docs/IntentSelectionGuide.md`](Docs/IntentSelectionGuide.md)의
 하위 수준 intent 타입으로 내려갑니다.
 
@@ -334,16 +334,16 @@ DocC는 상세한 모듈 레벨 레퍼런스 모음입니다.
 
 ```mermaid
 flowchart LR
-    View["SwiftUI view"] --> Intent["Environment intent dispatcher"]
-    Intent --> Store["NavigationStore / ModalStore"]
-    Store --> Policy["Middleware / telemetry / validation"]
+    View["SwiftUI view"] --> Actions["@EnvironmentRouter typed action"]
+    Actions --> Store["NavigationStore / ModalStore / FlowStore"]
+    Store --> Policy["Middleware / observation / validation"]
     Policy --> Execution["NavigationEngine / modal queue"]
-    Execution --> Host["NavigationHost / NavigationSplitHost / CoordinatorSplitHost / ModalHost"]
+    Execution --> Host["RouterHost / NavigationHost / ModalHost / FlowHost"]
     Host --> System["NavigationStack / NavigationSplitView / sheet / fullScreenCover"]
 ```
 
-- View는 typed intent를 environment dispatcher를 통해 emit합니다.
-- Store는 네비게이션 또는 모달 권한을 소유합니다.
+- View는 `@EnvironmentRouter`를 통해 route-typed action을 호출합니다.
+- Store는 네비게이션·모달 또는 통합 flow 권한을 소유합니다.
 - Host는 store 상태를 네이티브 SwiftUI 네비게이션 API로 변환합니다.
 
 ### 딥링크 흐름
@@ -411,7 +411,7 @@ InnoRouter는 목적에 따라 view action과 store/engine API를 계층화합�
 | 계층 | 진입점 | 사용 시점 |
 | --- | --- | --- |
 | View action (기본) | `router.go(_:)`, `router.back()`, … | 일반 SwiftUI view에서 `@EnvironmentRouter`로 라우팅할 때. |
-| View intent (고급) | `router.send(_:)` | 이름 있는 편의 메서드가 없는 `NavigationIntent`를 dispatch할 때. |
+| View intent (고급) | `router.send(_:)` | 이름 있는 편의 메서드가 없는 `NavigationIntent`를 보낼 때. |
 | 외부 store 경계 | `store.send(_:)` | 앱이 `NavigationStore`를 의도적으로 외부 소유하고 주입할 때. |
 | Command | `store.execute(_:)` | 단일 `NavigationCommand`를 엔진에 전달하고 typed `NavigationResult`를 검사할 때. |
 | Batch | `store.executeBatch(_:)` | 여러 command를 하나씩 실행하되 middleware 가시성과 단일 관찰자 이벤트를 유지할 때. |
@@ -471,7 +471,7 @@ InnoRouter는 다음에 대한 모달 라우팅을 지원합니다:
 - `ModalStore`
 - `ModalHost`
 - `ModalIntent`
-- `@EnvironmentModalIntent`
+- `@EnvironmentRouter`
 
 예제:
 
@@ -907,9 +907,9 @@ swift test
 내부 `NavigationStore<R>`와 `ModalStore<R>`를 소유하며, 각각에 위임하면서 불변식을 강제합니다
 (modal은 끝에 최대 하나, modal은 항상 끝, middleware rollback이 path를 조정).
 
-이 내부 store들은 4.0에서 `@_spi(FlowStoreInternals)`입니다. 앱 코드는
-`FlowStore.path`, `send(_:)`, `apply(_:)`, `events`, `intentDispatcher`를 public 권한 surface로
-취급해야 하며, 직접적인 inner-store 변경은 host와 집중된 invariant 테스트에 한정됩니다.
+이 내부 store들은 구현 세부사항입니다. 앱 코드는 `FlowStore.path`, `send(_:)`,
+`apply(_:)`, `events`를 public 권한 surface로 취급해야 하며, 직접적인 inner-store
+변경은 host와 집중된 invariant 테스트에 한정됩니다.
 
 전형적 사용:
 
@@ -925,8 +925,9 @@ flow.send(.presentSheet(.share))   // tail modal
 flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 ```
 
-- `FlowHost`는 `NavigationHost` 위에 `ModalHost`를 합성하고 `@EnvironmentFlowIntent(Route.self)`
-  dispatch를 위한 environment 클로저를 주입합니다.
+- `FlowHost`는 `FlowStore`를 기반으로 environment-free 네비게이션·모달 surface를
+  렌더링하고 `@EnvironmentRouter(Route.self)`용 통합 authority 하나를 제공합니다.
+  Flow 전용 intent는 `router.send(flow:)`로 보냅니다.
 - `FlowStoreConfiguration`은 `NavigationStoreConfiguration`과 `ModalStoreConfiguration`을 합성하며,
   `FlowEvent`를 받는 하나의 `onEvent`를 추가합니다. 이 콜백은 flow-level path/rejection뿐 아니라
   `.navigation(...)` / `.modal(...)`로 감싼 inner-store 이벤트도 받습니다.

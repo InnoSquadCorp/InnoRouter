@@ -5,10 +5,11 @@ InnoRouter exposes four navigation authorities: `NavigationStore`,
 the right one is the most common adoption question. This guide
 answers it with a decision tree and four worked examples.
 
-The short rule: **start small, compose up**. A self-contained push stack
-starts with `@Router` + `RouterHost`; most apps only promote to an externally
-owned `NavigationStore` when deep links, restoration, middleware, or
-cross-surface composition need access to the authority.
+The short rule: **start small, compose up**. A self-contained push or modal
+surface starts with `@Router` + `RouterHost`, which keeps its unified store
+local. Promote to an externally owned `FlowStore` + `FlowHost` when another
+boundary needs the combined authority, or to `NavigationStore` +
+`NavigationHost` when that external authority is deliberately stack-only.
 
 ## Decision tree
 
@@ -83,14 +84,16 @@ struct ReadingApp: View {
 }
 ```
 
-`RouterHost` creates and owns the `NavigationStore` locally, and `@Router`
-supplies both `Route` conformance and destination rendering. The root view is
-not a route in the pushed path, so the example does not duplicate `.library`
-as its first destination.
+`RouterHost` creates and owns one local `FlowStore`, and `@Router` supplies
+both `Route` conformance and destination rendering. The view only sees
+`@EnvironmentRouter`; it does not need to know which store backs the host. The
+root view is not a route in the pushed path, so the example does not duplicate
+`.library` as its first destination.
 
-Promote the store to the application boundary only when another subsystem
-must reach it. Because `@Router` also supplies `DestinationRoute`, the advanced
-host still does not need a destination switch:
+Promote authority to the application boundary only when another subsystem
+must reach it. If that authority remains stack-only, `NavigationStore` and
+`NavigationHost` still do not need a destination switch because `@Router`
+supplies `DestinationRoute`:
 
 ```swift skip doc-fragment
 @State private var store = NavigationStore<LibraryRoute>()
@@ -100,10 +103,11 @@ NavigationHost(store: store) {
 }
 ```
 
-Do not reach for `FlowStore` just because the app might add a settings sheet
-later — adding `ModalStore` independently is the additive change.
+Do not promote to an externally owned `FlowStore` just because the app might
+add an independently owned settings sheet later. Add a distinct modal route
+through `ModalStore` + `ModalHost` instead.
 
-### 2. Push + independent modal (`RouterHost` + `ModalStore`)
+### 2. Push + independent modal (`RouterHost` + `ModalHost`)
 
 The same reading app gains a *Settings* sheet and an *Onboarding*
 full-screen cover. Settings can open over any push depth, and the
@@ -134,10 +138,10 @@ struct ReadingApp: View {
 }
 ```
 
-The two authorities stay independent. `NavigationIntent.go(.book(id:))`
-does not touch the modal queue, and `ModalIntent.present(.settings)`
-does not perturb the push stack. This is the most common shape and
-should be your default once you outgrow `RouterHost` alone.
+The two route-typed authorities stay independent. A navigation router action
+does not touch the modal queue, and a modal router action does not perturb the
+push stack. This is the most common shape once one `RouterHost` route is not the
+right owner for both surfaces.
 
 ### 3. Atomic URL → push prefix + modal tail (`FlowStore`)
 
@@ -164,7 +168,7 @@ flow.apply(FlowPlan(steps: [
 
 If you do not need this atomic semantics — for example, the URL
 only ever rebuilds the push stack and any modal step is a separate
-user gesture — stay with `RouterHost + ModalStore`.
+user gesture — stay with `RouterHost + ModalHost`.
 `FlowStore` adds a single timeline invariant (one trailing modal,
 modal always at the tail) that your app must honour. That is a
 cost worth paying *only* when an URL or a persisted snapshot
@@ -220,23 +224,24 @@ principle (`Docs/v2-principle-scorecard.md` § Remaining trade-offs).
 
 - **`FlowStore` for every screen.** If push and modal flow
   independently, the FlowStore invariants (single trailing modal,
-  one timeline) are friction without a payoff. Use
-  `RouterHost + ModalStore`.
+  one timeline) are friction without a payoff. Use separate stack and modal
+  hosts with distinct route enums.
 - **Reaching for a `Coordinator` before a store.** Coordinators are
   policy objects layered *over* stores. A view that just pushes and pops a
   typed route does not need a coordinator — `@EnvironmentRouter(Route.self)`
-  is enough. Use `@EnvironmentNavigationIntent` only when the view genuinely
-  needs to construct the lower-level intent value itself.
+  is enough. Use `router.send(_:)` only when the view genuinely needs to
+  construct the lower-level intent value itself.
 - **Passing `NavigationStore` deep into the view tree.** Inject
-  intent dispatchers via the environment instead. Hosts wire them
-  for you.
+  neither the store nor a handler. Read typed actions with
+  `@EnvironmentRouter(Route.self)`; the matching host publishes its authority
+  for the view subtree.
 - **One mega-`Route` enum across the entire app.** `Route` is
   per-authority. A reading app with a settings sheet has *two*
   small `enum`s — one for stack, one for modal — not one with 30
   cases.
 - **Adopting `SceneStore` because the app runs on visionOS.** Most
   visionOS apps use a single `WindowGroup` and need only the same
-  `RouterHost + ModalStore` as iOS. Reach for `SceneStore`
+  `RouterHost + ModalHost` as iOS. Reach for `SceneStore`
   only when you actually open multiple windows / volumes /
   immersive spaces *and* want a single authority over their
   open/dismiss lifecycle. Add and import `InnoRouterSpatial` only in

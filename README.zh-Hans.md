@@ -200,7 +200,7 @@ SwiftSyntax 支持的 macro 实现包含在此包中。package-traits 或独立 
 
 - `InnoRouter`:`InnoRouterCore`、`InnoRouterSwiftUI`、`InnoRouterDeepLink` 和 macro 声明的伞形重新导出
 - `InnoRouterCore`:route stack、validators、commands、results、batch/transaction executors、middleware
-- `InnoRouterSwiftUI`:stores、stack/split/modal hosts、coordinators、environment intent dispatch
+- `InnoRouterSwiftUI`:stores、stack/split/modal/flow hosts、coordinators 和类型化 `EnvironmentRouter` actions
 - `InnoRouterSpatial`:opt-in visionOS scene/immersive-space stores、hosts、anchors 和 ornaments
 - `InnoRouterDeepLink`:模式匹配、诊断、pipeline 规划、挂起深链接
 - `InnoRouterEffects`:用于应用边界的导航与深链接执行助手
@@ -278,16 +278,16 @@ GitHub 源代码视图和离线 `swift package generate-documentation` 构建都
 
 ```mermaid
 flowchart LR
-    View["SwiftUI 视图"] --> Intent["环境 intent dispatcher"]
-    Intent --> Store["NavigationStore / ModalStore"]
-    Store --> Policy["Middleware / 遥测 / 验证"]
+    View["SwiftUI 视图"] --> Actions["@EnvironmentRouter 类型化 actions"]
+    Actions --> Store["NavigationStore / ModalStore / FlowStore"]
+    Store --> Policy["Middleware / 观察 / 验证"]
     Policy --> Execution["NavigationEngine / 模态队列"]
-    Execution --> Host["NavigationHost / NavigationSplitHost / CoordinatorSplitHost / ModalHost"]
+    Execution --> Host["RouterHost / NavigationHost / ModalHost / FlowHost"]
     Host --> System["NavigationStack / NavigationSplitView / sheet / fullScreenCover"]
 ```
 
-- 视图通过环境 dispatcher 发出类型化 intent。
-- Store 拥有导航或模态权限。
+- 视图通过 `@EnvironmentRouter` 调用按 route 类型化的 action。
+- Store 拥有导航、模态或统一 flow 权限。
 - Host 将 store 状态翻译为原生 SwiftUI 导航 API。
 
 ### 深链接流程
@@ -346,7 +346,7 @@ struct AppRoot: View {
 }
 ```
 
-`RouterHost` 会拥有本地 `NavigationStore`；在这条简单路径中，无需手动创建 store。
+`RouterHost` 会拥有本地 `FlowStore`；在这条简单路径中，无需手动创建 store。
 
 ### 3. 从子视图导航
 
@@ -424,7 +424,7 @@ InnoRouter 按目的对视图操作和 store/engine API 进行分层。
 | 层 | 入口 | 何时使用 |
 | --- | --- | --- |
 | 视图操作(默认) | `router.go(_:)`、`router.back()`、… | 从普通 SwiftUI 视图通过 `@EnvironmentRouter` 路由。 |
-| 视图 intent(高级) | `router.send(_:)` | dispatch 没有命名便捷方法的 `NavigationIntent`。 |
+| 视图 intent(高级) | `router.send(_:)` | 发送没有命名便捷方法的 `NavigationIntent`。 |
 | 外部 store 边界 | `store.send(_:)` | 应用有意在外部持有并注入 `NavigationStore`。 |
 | Command | `store.execute(_:)` | 将单个 `NavigationCommand` 转发到 engine 并检查类型化 `NavigationResult`。 |
 | Batch | `store.executeBatch(_:)` | 一个接一个运行多个命令,同时保持 middleware 可见性和单个观察者事件。 |
@@ -483,7 +483,7 @@ InnoRouter 支持以下模态路由:
 - `ModalStore`
 - `ModalHost`
 - `ModalIntent`
-- `@EnvironmentModalIntent`
+- `@EnvironmentRouter`
 
 示例:
 
@@ -917,9 +917,9 @@ swift test
 委托给每个,同时强制不变量(尾部最多一个 modal、modal 始终在尾部、
 middleware 回滚协调路径)。
 
-那些内部 store 在 4.0 中是 `@_spi(FlowStoreInternals)`。应用代码应将
-`FlowStore.path`、`send(_:)`、`apply(_:)`、`events` 和 `intentDispatcher`
-视为公开权限表面;直接的内部 store 变更保留给 host 和聚焦的不变量测试。
+那些内部 store 是实现细节。应用代码应将 `FlowStore.path`、`send(_:)`、
+`apply(_:)` 和 `events` 视为公开权限表面;直接的内部 store 变更保留给
+host 和聚焦的不变量测试。
 
 典型用法:
 
@@ -935,8 +935,9 @@ flow.send(.presentSheet(.share))   // tail modal
 flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 ```
 
-- `FlowHost` 在 `NavigationHost` 之上组合 `ModalHost`,并为
-  `@EnvironmentFlowIntent(Route.self)` dispatch 注入环境闭包。
+- `FlowHost` 基于 `FlowStore` 渲染不发布 environment authority 的导航和模态
+  surface，然后为 `@EnvironmentRouter(Route.self)` 发布一个统一 authority。
+  Flow 专用 intent 通过 `router.send(flow:)` 发送。
 - `FlowStoreConfiguration` 组合 `NavigationStoreConfiguration` 和
   `ModalStoreConfiguration`,并为 `FlowEvent` 添加单个 `onEvent` 回调。
   它接收 flow 级 path/rejection 以及包装为 `.navigation(...)` /

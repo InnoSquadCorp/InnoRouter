@@ -1,33 +1,31 @@
 # Choosing an `EnvironmentMissingPolicy`
 
-InnoRouter property wrappers (`@EnvironmentRouter`,
-`@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`, and
-`@EnvironmentFlowIntent`) resolve their dispatcher through the SwiftUI
-environment. `@EnvironmentRouter` is the macro-first stack API; the intent
-wrappers remain available for lower-level modal, flow, and custom-intent code.
-When the matching host is missing, `EnvironmentMissingPolicy` decides whether
-to crash, log, or both.
+`@EnvironmentRouter` resolves typed navigation, modal, flow, and tab authority
+through the SwiftUI environment. Focused methods cover common actions;
+`router.send(_:)` and `router.send(flow:)` cover explicit intent values. When
+the matching host is missing, `EnvironmentMissingPolicy` decides whether to
+crash, log, or both.
 
 ## The three policies
 
 | Policy | Debug | Release | When to use |
 |---|---|---|---|
 | `.crash` | `preconditionFailure` | `preconditionFailure` | App code where missing wiring is always a bug. Default. |
-| `.logAndDegrade` | `Logger.error` + no-op dispatcher | `Logger.error` + no-op dispatcher | SwiftUI Previews, host-less snapshot tests, and similar out-of-app rendering paths. |
-| `.assertAndLog` | `Logger.error` + `assertionFailure` | `Logger.error` + no-op dispatcher | Pre-launch production builds where you want loud signal during development without paging users on a stray missing host. |
+| `.logAndDegrade` | `Logger.error` + skipped action | `Logger.error` + skipped action | SwiftUI Previews, host-less snapshot tests, and similar out-of-app rendering paths. |
+| `.assertAndLog` | `Logger.error` + `assertionFailure` | `Logger.error` + skipped action | Pre-launch production builds where you want loud signal during development without paging users on a stray missing host. |
 
 ## Selecting one
 
 Pick the narrowest policy that still surfaces wiring bugs at the
 right time:
 
-- **Default app code** stays on `.crash`. Production cold-starts
-  will fail loudly and immediately on a missing host — exactly
-  the behaviour you want once a real user is running the build.
+- **Default app code** stays on `.crash`. The first router action attempted
+  without its matching host fails loudly — exactly the behaviour you want once
+  a real user is running the build.
 - **`#Preview` blocks** use `.logAndDegrade`. Previews routinely
-  render leaf views without their hosts; the no-op dispatcher
-  keeps the canvas alive and the logged error still surfaces in
-  the Xcode console.
+  render leaf views without their hosts; the unavailable action is skipped so
+  the canvas stays alive, while the logged error still surfaces in the Xcode
+  console.
 - **TestFlight / pre-launch builds** can adopt `.assertAndLog`
   from a single ship config. Engineers see `assertionFailure`
   traps locally, but a testflight tester does not get a crash
@@ -60,10 +58,9 @@ struct AppEntry: App {
 }
 ```
 
-The setting flows through the environment, so a single modifier
-covers every nested `@EnvironmentRouter`,
-`@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`, and
-`@EnvironmentFlowIntent` it contains.
+The setting flows through the environment, so a single modifier covers every
+nested `@EnvironmentRouter` it contains, including navigation, modal, flow,
+and tab actions.
 
 ## Why `.assertAndLog` is not the new default
 

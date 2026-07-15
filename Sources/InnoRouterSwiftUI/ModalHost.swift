@@ -57,14 +57,12 @@ struct ModalPresentationSurface<M: Route, Destination: View, Content: View>: Vie
 /// Ownership split:
 ///
 /// - The `ModalStore` is owned by the caller and outlives this host.
-/// - ``ModalStore/intentDispatcher`` is cached on the store, so the host
-///   reads it instead of allocating a fresh dispatcher per render.
-/// - The route-type lookup table (``ModalEnvironmentStorage``) is
-///   `@State` because it scopes to the host's view-tree subtree, not to
-///   the store's lifetime.
+/// - The store caches the handler published through ``EnvironmentRouter``, so
+///   the host does not allocate a fresh closure per render.
+/// - A nested host replaces the complete authority for the matching route
+///   type, preventing accidental capability merging across host boundaries.
 public struct ModalHost<M: Route, Destination: View, Content: View>: View {
     @Bindable private var store: ModalStore<M>
-    @State private var modalEnvironmentStorage = ModalEnvironmentStorage()
     private let destination: (M) -> Destination
     private let content: () -> Content
 
@@ -87,8 +85,6 @@ public struct ModalHost<M: Route, Destination: View, Content: View>: View {
             destination: destination,
             content: content
         )
-            .modalIntentDispatcher(modalStore.intentDispatcher, owner: modalStore)
-            .environment(\.modalEnvironmentStorage, modalEnvironmentStorage)
             .routerAuthority(
                 for: M.self,
                 modal: modalStore.intentDispatcher

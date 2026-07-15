@@ -40,28 +40,28 @@ struct ModalSmokeExampleView: View {
 }
 
 struct ModalRootView: View {
-    @EnvironmentModalIntent(ModalDemoPresentation.self) private var modalIntent
+    @EnvironmentRouter(ModalDemoPresentation.self) private var router
 
     var body: some View {
         VStack(spacing: 12) {
             Button("Show Profile") {
-                modalIntent(.present(.profile, style: .sheet))
+                router.sheet(.profile)
             }
             Button("Show Onboarding") {
-                modalIntent(.present(.onboarding, style: .fullScreenCover))
+                router.cover(.onboarding)
             }
         }
     }
 }
 
 struct ModalProfileView: View {
-    @EnvironmentModalIntent(ModalDemoPresentation.self) private var modalIntent
+    @EnvironmentRouter(ModalDemoPresentation.self) private var router
 
     var body: some View {
         VStack(spacing: 12) {
             Text("Profile")
             Button("Dismiss") {
-                modalIntent(.dismiss)
+                router.dismiss()
             }
         }
         .padding()
@@ -69,14 +69,14 @@ struct ModalProfileView: View {
 }
 
 struct ModalOnboardingView: View {
-    @EnvironmentModalIntent(ModalDemoPresentation.self) private var modalIntent
+    @EnvironmentRouter(ModalDemoPresentation.self) private var router
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 12) {
                 Text("Onboarding")
                 Button("Dismiss") {
-                    modalIntent(.dismiss)
+                    router.dismiss()
                 }
             }
             .padding()

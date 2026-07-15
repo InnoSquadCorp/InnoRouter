@@ -41,15 +41,12 @@ struct NavigationStackSurface<R: Route, DestinationView: View, Root: View>: View
 /// Ownership split:
 ///
 /// - The `NavigationStore` is owned by the caller and outlives this host.
-/// - ``NavigationStore/intentDispatcher`` is cached on the store, so the
-///   host reads it instead of allocating a fresh closure per render.
-/// - The route-type lookup table (``NavigationEnvironmentStorage``) is
-///   `@State` because it scopes to the host's view-tree subtree, not to
-///   the store's lifetime — multiple hosts can share a store while
-///   maintaining distinct handler tables.
+/// - The store caches the handler published through ``EnvironmentRouter``, so
+///   the host does not allocate a fresh closure per render.
+/// - A nested host replaces the complete authority for the matching route
+///   type, preventing accidental capability merging across host boundaries.
 public struct NavigationHost<R: Route, DestinationView: View, Root: View>: View {
     @Bindable private var store: NavigationStore<R>
-    @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
     private let destination: (R) -> DestinationView
     private let root: () -> Root
 
@@ -66,8 +63,6 @@ public struct NavigationHost<R: Route, DestinationView: View, Root: View>: View 
 
     public var body: some View {
         NavigationStackSurface(store: store, destination: destination, root: root)
-            .navigationIntentDispatcher(store.intentDispatcher, owner: store)
-            .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
             .routerAuthority(
                 for: R.self,
                 navigation: store.intentDispatcher
@@ -86,7 +81,6 @@ public struct NavigationHost<R: Route, DestinationView: View, Root: View>: View 
 ///   inside a `#if !os(watchOS)` fallback on watchOS targets.
 public struct NavigationSplitHost<R: Route, Sidebar: View, DestinationView: View, Root: View>: View {
     @Bindable private var store: NavigationStore<R>
-    @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
     private let sidebar: () -> Sidebar
     private let destination: (R) -> DestinationView
     private let root: () -> Root
@@ -114,8 +108,6 @@ public struct NavigationSplitHost<R: Route, Sidebar: View, DestinationView: View
                 root: root
             )
         }
-        .navigationIntentDispatcher(store.intentDispatcher, owner: store)
-        .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
         .routerAuthority(
             for: R.self,
             navigation: store.intentDispatcher
