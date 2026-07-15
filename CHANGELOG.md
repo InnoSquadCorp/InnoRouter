@@ -342,6 +342,12 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- The human-facing deep-link example now uses the generated `@DeepLink`
+  resolver and automatic `RouterHost` handling. Its previous authentication
+  sketch discarded the pending destination and never replayed it after login;
+  authenticated, pending, and multi-step policies are now left to the complete
+  pipeline and Effects documentation instead of demonstrating a broken partial
+  flow.
 - `@DeepLink` no longer rejects a reachable typed fallback as an unreachable
   duplicate. Two structurally identical patterns such as `UUID` followed by
   `String` now retain declaration-order matching and emit
