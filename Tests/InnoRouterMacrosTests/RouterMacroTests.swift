@@ -30,9 +30,8 @@ struct RouterMacroTests {
             expandedSource: """
             enum AppRoute {
                 case settings
+                @Swift.MainActor @SwiftUI.ViewBuilder
 
-                @Swift.MainActor
-                @SwiftUI.ViewBuilder
                 var destination: some View {
                     switch self {
                     case .settings:
@@ -104,8 +103,7 @@ struct RouterMacroTests {
             expandedSource: """
             public enum PublicRoute {
                 case settings
-                @Swift.MainActor
-                @SwiftUI.ViewBuilder
+                @Swift.MainActor @SwiftUI.ViewBuilder
                 private var destination: some View { SettingsView() }
             }
 
@@ -238,8 +236,7 @@ struct RouterMacroTests {
             expandedSource: """
             enum ManualDestination {
                 case settings
-                @Swift.MainActor
-                @SwiftUI.ViewBuilder
+                @Swift.MainActor @SwiftUI.ViewBuilder
                 var destination: some View { SettingsView() }
                 static func destination(for route: Self) -> some View { route.destination }
             }
@@ -269,8 +266,7 @@ struct RouterMacroTests {
             expandedSource: """
             enum GenericDestination<Value: Hashable & Sendable> {
                 case detail(Value)
-                @Swift.MainActor
-                @SwiftUI.ViewBuilder
+                @Swift.MainActor @SwiftUI.ViewBuilder
                 var destination: some View { DetailView(value: self) }
                 static func destination(for route: GenericDestination<Value>) -> some View { route.destination }
             }
@@ -300,8 +296,7 @@ struct RouterMacroTests {
             expandedSource: """
             enum StyledDestination {
                 case settings
-                @Swift.MainActor
-                @SwiftUI.ViewBuilder
+                @Swift.MainActor @SwiftUI.ViewBuilder
                 var destination: some View { SettingsView() }
                 static func destination(for style: Int) -> String { "Style \\(style)" }
             }
@@ -329,8 +324,7 @@ struct RouterMacroTests {
             """,
             expandedSource: """
             enum RootOnlyRoute {
-                @Swift.MainActor
-                @SwiftUI.ViewBuilder
+                @Swift.MainActor @SwiftUI.ViewBuilder
                 var destination: some View { EmptyView() }
             }
 
@@ -367,8 +361,7 @@ struct RouterMacroTests {
             expandedSource: """
             enum RedundantRoute: DestinationRoute {
                 case settings
-                @Swift.MainActor
-                @SwiftUI.ViewBuilder
+                @Swift.MainActor @SwiftUI.ViewBuilder
                 var destination: some View { SettingsView() }
             }
 
@@ -405,8 +398,7 @@ struct RouterMacroTests {
             expandedSource: """
             enum RedundantRoute: Route {
                 case settings
-                @Swift.MainActor
-                @SwiftUI.ViewBuilder
+                @Swift.MainActor @SwiftUI.ViewBuilder
                 var destination: some View { SettingsView() }
             }
 
@@ -443,8 +435,7 @@ struct RouterMacroTests {
             expandedSource: """
             enum GenericRoute<Value: Hashable & Sendable> {
                 case detail(Value)
-                @Swift.MainActor
-                @SwiftUI.ViewBuilder
+                @Swift.MainActor @SwiftUI.ViewBuilder
                 var destination: some View { DetailView(value: self) }
             }
 
