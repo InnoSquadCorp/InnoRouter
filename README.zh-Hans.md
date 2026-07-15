@@ -266,7 +266,6 @@ GitHub 源代码视图和离线 `swift package generate-documentation` 构建都
 | [Tutorial-MiddlewareComposition](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MiddlewareComposition.md) | `InnoRouterSwiftUI` | 组合类型化 middleware、拦截命令、观察 churn |
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | 用 `FlowHost` 替换嵌套的 `NavigationHost` + `ModalHost` 栈 |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | 配合确定性测试 clock 使用 `ThrottleNavigationMiddleware` |
-| [Tutorial-StoreObserver](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-StoreObserver.md) | `InnoRouterSwiftUI` | 在统一 `events` 流之上采用 `StoreObserver` |
 | [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | 从 `SceneStore` 驱动 visionOS windows、volumetric scenes 和 immersive spaces |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | 通过 `FlowDeepLinkPipeline` 构建组合 push + modal 深链接 |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | 使用 `StatePersistence` 跨启动持久化 `FlowPlan` / `RouteStack` |
@@ -1052,9 +1051,14 @@ batch / transaction 完成、路径不匹配解决、middleware-registry 变更�
 模态 present / dismiss / queue 更新、命令拦截,以及 flow 级路径或 intent
 拒绝信号。
 
+在启动由生命周期管理的 Task 之前先获取一个新的 stream。这样 subscriber 会
+同步注册，不会漏掉 Task 创建后立即发出的事件；所有者结束时取消
+`observationTask`。
+
 ```swift skip doc-fragment
-Task {
-    for await event in flowStore.events {
+let events = flowStore.events
+let observationTask = Task { @MainActor in
+    for await event in events {
         switch event {
         case .navigation(.changed(_, let to)):
             analytics.track("nav_path", to.path)

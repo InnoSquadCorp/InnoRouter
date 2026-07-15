@@ -297,7 +297,6 @@ DocC — детальный модульный набор справочнико
 | [Tutorial-MiddlewareComposition](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MiddlewareComposition.md) | `InnoRouterSwiftUI` | Композиция типизированной middleware, перехват команд, наблюдение churn |
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | Замена вложенных стеков `NavigationHost` + `ModalHost` на `FlowHost` |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | Использование `ThrottleNavigationMiddleware` с детерминированными test clocks |
-| [Tutorial-StoreObserver](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-StoreObserver.md) | `InnoRouterSwiftUI` | Принятие `StoreObserver` поверх единого потока `events` |
 | [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | Управление visionOS windows, volumetric scenes и immersive spaces из `SceneStore` |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | Создание составных push + modal deep links через `FlowDeepLinkPipeline` |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | Сохранение `FlowPlan` / `RouteStack` между запусками с `StatePersistence` |
@@ -1146,9 +1145,14 @@ transaction, разрешения path-mismatch, мутации middleware-regis
 обновления modal present / dismiss / queue, перехваты команд и сигналы
 flow-level path или intent-rejection.
 
+Получите новый stream до запуска Task, привязанного к жизненному циклу. Так
+subscriber регистрируется синхронно и не пропустит событие сразу после создания
+Task. Отменяйте `observationTask` при завершении владельца.
+
 ```swift skip doc-fragment
-Task {
-    for await event in flowStore.events {
+let events = flowStore.events
+let observationTask = Task { @MainActor in
+    for await event in events {
         switch event {
         case .navigation(.changed(_, let to)):
             analytics.track("nav_path", to.path)

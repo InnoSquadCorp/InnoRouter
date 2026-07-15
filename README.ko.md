@@ -322,7 +322,6 @@ DocC는 상세한 모듈 레벨 레퍼런스 모음입니다.
 | [Tutorial-MiddlewareComposition](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MiddlewareComposition.md) | `InnoRouterSwiftUI` | typed middleware 구성, command 가로채기, churn 관찰 |
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | 중첩된 `NavigationHost` + `ModalHost` stack을 `FlowHost`로 교체 |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | 결정론적 test clock과 `ThrottleNavigationMiddleware` 사용 |
-| [Tutorial-StoreObserver](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-StoreObserver.md) | `InnoRouterSwiftUI` | 통합 `events` 스트림 위에서 `StoreObserver` 채택 |
 | [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | `SceneStore`로 visionOS window, volumetric scene, immersive space 구동 |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | `FlowDeepLinkPipeline`을 통한 push + modal 합성 딥링크 |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | `StatePersistence`로 launch 간 `FlowPlan` / `RouteStack` 영속화 |
@@ -1037,9 +1036,14 @@ middleware-registry 변경, modal present / dismiss / queue 업데이트, comman
 flow-level path 또는 intent-rejection 시그널 등 전체 관찰 surface를 단일 `events: AsyncStream`
 하나로 publish합니다.
 
+lifecycle이 관리하는 Task를 시작하기 전에 새 stream을 캡처하세요. subscriber가
+동기 등록되므로 Task 생성 직후 발생한 이벤트도 놓치지 않습니다. 소유자가 끝날 때
+`observationTask`를 취소하세요.
+
 ```swift skip doc-fragment
-Task {
-    for await event in flowStore.events {
+let events = flowStore.events
+let observationTask = Task { @MainActor in
+    for await event in events {
         switch event {
         case .navigation(.changed(_, let to)):
             analytics.track("nav_path", to.path)

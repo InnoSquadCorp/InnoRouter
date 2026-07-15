@@ -20,6 +20,12 @@ To bound that growth, every store uses an `EventBufferingPolicy`.
 `NavigationStore`, `ModalStore`, and `FlowStore` expose the policy through
 their configurations. `SceneStore` currently uses the default policy.
 
+Each access to a store's `events` property creates and synchronously registers
+a new subscriber. Capture that stream before starting its lifecycle-owned task;
+otherwise a route mutation performed immediately after task creation can occur
+before the task first evaluates `store.events`. Request a fresh stream for each
+independent consumer.
+
 ## Default policy
 
 The default is `EventBufferingPolicy.default`, which is
@@ -92,8 +98,9 @@ fires and the broadcaster removes that slot from its private
 continuation storage. When a store releases its broadcaster, that
 storage deinitializes, snapshots any outstanding continuations, and
 finishes them outside the broadcaster's actor-isolated deinitializer.
-As a result, `for await` loops terminate naturally when their store is
-released - no manual cleanup required.
+Cancelling the consumer task also terminates the subscription. Tie that task to
+the owning feature or scene; `for await` loops additionally terminate naturally
+when their store is released.
 
 ## Related
 

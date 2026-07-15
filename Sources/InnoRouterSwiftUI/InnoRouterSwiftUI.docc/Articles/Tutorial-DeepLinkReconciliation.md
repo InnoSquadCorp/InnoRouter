@@ -120,11 +120,14 @@ the user cancelled or that no longer validates) is dropped.
 
 `NavigationStore.events` exposes the full sequence of batch +
 path-mismatch events as a single stream, which is handy for
-diagnostics dashboards:
+diagnostics dashboards. Capture the stream before starting its lifecycle-owned
+task so the subscriber is registered before any immediate reconciliation
+command:
 
 ```swift skip doc-fragment
-Task {
-    for await event in store.events {
+let events = store.events
+let observationTask = Task { @MainActor in
+    for await event in events {
         switch event {
         case .batchExecuted(let result):
             analytics.track("deep_link_applied", [

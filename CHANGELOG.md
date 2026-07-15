@@ -207,6 +207,11 @@ are bare semver (no leading `v`).
   from `FlowStore`; its `path`, `navigationPath`, `currentModalRoute`,
   `currentModalPresentation`, and `hasModalTail` projections remain public with
   the same behavior.
+- `StoreObserver`, `StoreObserverSubscription`, and the three `observe(_:)`
+  adapters are removed. Capture `NavigationStore.events`, `ModalStore.events`,
+  or `FlowStore.events` before starting a lifecycle-owned task so the subscriber
+  is registered synchronously; cancelling that task ends the subscription.
+  `FlowStore.events` continues to wrap its inner navigation and modal events.
 - The unused `FlowNavigating` forwarding protocol is removed. Flow owners
   should keep a `FlowStore` directly and dispatch with `send(_:)` or
   `apply(_:)`; `FlowHost` publishes the store's capabilities through the

@@ -155,11 +155,14 @@ preferred host scene is gone.
 ## Observing lifecycle through `events`
 
 `SceneStore.events` is an `AsyncStream<SceneEvent<R>>` that mirrors
-the `events` channel shipped by `NavigationStore` and `ModalStore`:
+the `events` channel shipped by `NavigationStore` and `ModalStore`. Capture the
+stream before starting its lifecycle-owned task so the subscriber is registered
+before the next scene action:
 
 ```swift skip doc-fragment
-Task {
-    for await event in sceneStore.events {
+let events = sceneStore.events
+let observationTask = Task { @MainActor in
+    for await event in events {
         analytics.record(event)
     }
 }

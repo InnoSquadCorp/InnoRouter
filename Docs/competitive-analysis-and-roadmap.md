@@ -401,13 +401,11 @@ Shape (landed):
   deterministic test-clock injection. Debounce semantics shipped
   in 4.0.0 as `DebouncingNavigator`, keeping timer-driven delayed
   execution outside the synchronous `NavigationCommand` algebra.
-- **P3-5 StoreObserver protocol adapter** — replaces a full
-  `NavigationPlugin` surface (which would have duplicated the
-  `events: AsyncStream` channel). `StoreObserver` is a thin
-  protocol over the existing stream with typed `handle(_:)`
-  dispatch for `NavigationEvent` / `ModalEvent` / `FlowEvent`,
-  plus a `StoreObserverSubscription` token with isolated-deinit
-  auto-cancellation.
+- **P3-5 Store observation adapter (superseded in 5.0)** — 4.x shipped
+  `StoreObserver` as a protocol adapter over `events: AsyncStream`. The 5.0
+  API removes that duplicate abstraction: consumers capture each store's typed
+  `events` stream before starting a lifecycle-owned task, then cancel that task
+  with its owning feature or scene.
 - **P3-6 Property-based tests** — `NavigationPropertyBasedTests`
   uses `@Test(arguments:)` to exercise compositionality of
   `.sequence` and both-leg savepoint semantics of `.whenCancelled`
@@ -437,10 +435,8 @@ Shape (landed):
 - **`.debounce` as a `NavigationCommand` case** — superseded by
   `DebouncingNavigator`. The engine remains synchronous and the
   debounce window lives in an async wrapper with `Clock` injection.
-- **Full `NavigationPlugin` surface** — superseded by
-  `StoreObserver` for the observability use case. A
-  plugin-style lifecycle sub-framework is not currently
-  justified given the `events` stream.
+- **Full `NavigationPlugin` surface** — declined. A plugin-style lifecycle
+  sub-framework is not justified given each store's typed `events` stream.
 
 ## 5. Summary backlog table
 
@@ -461,7 +457,7 @@ Shape (landed):
 | P3 | FlowIntent named-intent parity (`.replaceStack`/`.backOrPush`/`.pushUniqueRoot`) | ergonomics parity | small | **shipped** |
 | P3 | Macro diagnostics + FixIts | DX polish | small | **shipped** |
 | P3 | Command algebra: `.whenCancelled` + throttling + debouncing wrapper | UX polish | small | **shipped** |
-| P3 | `StoreObserver` protocol adapter | observability ergonomics | small | **shipped** |
+| P3 | Direct `store.events` observation (`StoreObserver` removed in 5.0) | observability ergonomics | small | **shipped** |
 | P3 | Property-based tests (Swift Testing `@Test(arguments:)`) | invariant coverage | small | **shipped** |
 | P3 | FlowIntent modal-aware variants | ergonomics | small | **shipped** |
 | P3 | `ChildCoordinatorTaskTracker` | cancellation ergonomics | small | **shipped** |
@@ -471,8 +467,8 @@ Shape (landed):
 ## 6. Suggested next work
 
 With the P3 polish cluster shipped (macro FixIts, `.whenCancelled`,
-`ThrottleNavigationMiddleware`, `DebouncingNavigator`,
-`StoreObserver`, property-based tests, modal-aware FlowIntent
+`ThrottleNavigationMiddleware`, `DebouncingNavigator`, direct store event
+streams, property-based tests, modal-aware FlowIntent
 variants, `ChildCoordinatorTaskTracker`,
 `FlowPendingDeepLinkPersistence`) **and the all-platform /
 visionOS-spatial product** (`InnoRouterSpatial`, `ScenePresentation`,

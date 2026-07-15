@@ -77,7 +77,6 @@ submitted through `RouterActions`, `RouterTabHost` initial state, or
 - <doc:Tutorial-MiddlewareComposition>
 - <doc:Tutorial-MigratingFromNestedHosts>
 - <doc:Tutorial-Throttling>
-- <doc:Tutorial-StoreObserver>
 - <doc:Migration-FromTCA>
 - <doc:CaseStudy-OnboardingFlow>
 

@@ -105,6 +105,13 @@ if rg -n '\b(EnvironmentNavigationIntent|EnvironmentModalIntent|EnvironmentFlowI
   exit 1
 fi
 
+echo "[lint-source-gates] Checking race-safe event stream examples"
+if rg -n 'for await[[:space:]].*[[:space:]]in[[:space:]].*\.events' \
+  Sources Docs README*.md AGENTS.md CLAUDE.md --glob '*.md'; then
+  echo "[lint-source-gates] Failed: capture store.events before starting its consumer Task so immediate events cannot race subscription registration" >&2
+  exit 1
+fi
+
 echo "[lint-source-gates] Checking AnyCoordinator removal"
 if rg -n "AnyCoordinator" Sources Examples ExamplesSmoke README.md; then
   echo "[lint-source-gates] Failed: AnyCoordinator symbol found"

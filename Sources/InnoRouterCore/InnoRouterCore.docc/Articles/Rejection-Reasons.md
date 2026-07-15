@@ -139,30 +139,34 @@ The typed outcome from `DeepLinkEffectHandler` / `FlowDeepLinkEffectHandler`:
 
 Every store exposes an `events: AsyncStream<Event>` where rejection
 cases arrive alongside successful transitions. A single analytics
-listener can cover the full surface:
+listener can cover the full surface. Capture each stream before starting its
+lifecycle-owned task so every subscriber is registered synchronously:
 
 ```swift skip doc-fragment
 let navigationResult = navigationStore.execute(.push(.profile))
 if case .cancelled(let reason) = navigationResult {
     analytics.record("nav-cancel", reason: reason)
 }
-Task {
-    for await event in modalStore.events {
+let modalEvents = modalStore.events
+let modalObservationTask = Task { @MainActor in
+    for await event in modalEvents {
         if case .commandIntercepted(_, .cancelled(let reason)) = event {
             analytics.record("modal-cancel", reason: reason)
         }
     }
 }
-Task {
-    for await event in flowStore.events {
+let flowEvents = flowStore.events
+let flowObservationTask = Task { @MainActor in
+    for await event in flowEvents {
         if case .intentRejected(_, let reason) = event {
             analytics.record("flow-reject", reason: reason)
         }
     }
 }
 #if os(visionOS)
-Task {
-    for await event in sceneStore.events {
+let sceneEvents = sceneStore.events
+let sceneObservationTask = Task { @MainActor in
+    for await event in sceneEvents {
         if case .rejected(let intent, let reason) = event {
             analytics.record("scene-reject-\(intent)", reason: reason)
         } else if case .hostRegistrationRejected(let reason) = event {

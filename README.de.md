@@ -302,7 +302,6 @@ denselben Inhalt zeigen.
 | [Tutorial-MiddlewareComposition](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MiddlewareComposition.md) | `InnoRouterSwiftUI` | Typisiertes Middleware komponieren, Befehle abfangen, Churn beobachten |
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | Verschachtelte `NavigationHost` + `ModalHost` Stacks durch `FlowHost` ersetzen |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | `ThrottleNavigationMiddleware` mit deterministischen Test-Clocks verwenden |
-| [Tutorial-StoreObserver](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-StoreObserver.md) | `InnoRouterSwiftUI` | `StoreObserver` über den vereinheitlichten `events`-Stream übernehmen |
 | [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | visionOS-Windows, volumetrische Scenes und Immersive Spaces aus `SceneStore` ansteuern |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | Zusammengesetzte Push-+-Modal-Deep-Links über `FlowDeepLinkPipeline` aufbauen |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | `FlowPlan` / `RouteStack` über Launches mit `StatePersistence` persistieren |
@@ -1127,9 +1126,14 @@ Transaction-Abschlüsse, Path-Mismatch-Auflösungen, Middleware-Registry-Mutatio
 Modal-Present-/Dismiss-/Queue-Updates, Befehlsabfangungen und Flow-Level-Path-
 oder Intent-Rejection-Signale.
 
+Erfassen Sie einen frischen Stream, bevor Sie den lebenszyklusgebundenen Task
+starten. So wird der Subscriber synchron registriert und verpasst kein Ereignis
+direkt nach der Task-Erstellung. Beenden Sie dann `observationTask` mit seinem Besitzer.
+
 ```swift skip doc-fragment
-Task {
-    for await event in flowStore.events {
+let events = flowStore.events
+let observationTask = Task { @MainActor in
+    for await event in events {
         switch event {
         case .navigation(.changed(_, let to)):
             analytics.track("nav_path", to.path)

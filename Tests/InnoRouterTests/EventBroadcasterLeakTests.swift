@@ -51,6 +51,26 @@ struct EventBroadcasterLeakTests {
         }
     }
 
+    @Test("Cancelling a suspended for-await task drains the subscriber")
+    @MainActor
+    func cancellingConsumerTaskDrains() async throws {
+        let broadcaster = makeBroadcaster()
+        let stream = broadcaster.stream()
+        #expect(broadcaster.subscriberCount == 1)
+
+        let task = Task<Void, Never> { @MainActor in
+            for await _ in stream {}
+        }
+        await Task.yield()
+
+        task.cancel()
+        await task.value
+
+        try await waitUntil(timeout: .seconds(1)) {
+            broadcaster.subscriberCount == 0
+        }
+    }
+
     @Test("100 subscribe + cancel cycles drain to zero subscribers")
     @MainActor
     func bulkSubscribeAndCancelDrains() async throws {

@@ -240,11 +240,13 @@ navigation store, the modal presentation (if any), and the
 settled FlowStore-level event as one chain. `FlowStore` wraps inner
 navigation / modal events synchronously before emitting the
 flow-level event, so one subscriber can assert the same ordering that
-`FlowStoreConfiguration.onEvent` observes.
+`FlowStoreConfiguration.onEvent` observes. Capture the stream before starting
+its lifecycle-owned task so the subscriber exists before applying the link.
 
 ```swift skip doc-fragment
-Task {
-    for await event in flow.events {
+let events = flow.events
+let observationTask = Task { @MainActor in
+    for await event in events {
         switch event {
         case .navigation(.batchExecuted(let result)):
             analytics.track("deep_link_applied", [

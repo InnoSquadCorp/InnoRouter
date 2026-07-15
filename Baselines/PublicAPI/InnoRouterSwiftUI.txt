@@ -4,7 +4,6 @@ relationship | conformsTo | NavigationPathReconciler | NavigationPathReconciling
 relationship | defaultImplementationOf | ChildCoordinator.parentDidCancel() | ChildCoordinator.parentDidCancel() |  |
 relationship | defaultImplementationOf | Coordinator.handle(_:) | Coordinator.handle(_:) |  |
 relationship | defaultImplementationOf | StepCoordinator.canProceed(from:) | StepCoordinator.canProceed(from:) |  |
-relationship | defaultImplementationOf | StoreObserver.handle(_:) | StoreObserver.handle(_:) |  |
 relationship | memberOf | AsyncNavigationMiddlewareExecutor.add(_:) | AsyncNavigationMiddlewareExecutor |  |
 relationship | memberOf | AsyncNavigationMiddlewareExecutor.execute(_:) | AsyncNavigationMiddlewareExecutor |  |
 relationship | memberOf | AsyncNavigationMiddlewareExecutor.init(store:) | AsyncNavigationMiddlewareExecutor |  |
@@ -60,7 +59,6 @@ relationship | memberOf | FlowStore.hasModalTail | FlowStore |  |
 relationship | memberOf | FlowStore.init(initial:configuration:) | FlowStore |  |
 relationship | memberOf | FlowStore.init(validating:configuration:) | FlowStore |  |
 relationship | memberOf | FlowStore.navigationPath | FlowStore |  |
-relationship | memberOf | FlowStore.observe(_:) | FlowStore |  |
 relationship | memberOf | FlowStore.path | FlowStore |  |
 relationship | memberOf | FlowStore.send(_:) | FlowStore |  |
 relationship | memberOf | FlowStoreConfiguration.eventBufferingPolicy | FlowStoreConfiguration |  |
@@ -138,7 +136,6 @@ relationship | memberOf | ModalStore.init(currentPresentation:queuedPresentation
 relationship | memberOf | ModalStore.insertMiddleware(_:at:debugName:) | ModalStore |  |
 relationship | memberOf | ModalStore.middlewareMetadata | ModalStore |  |
 relationship | memberOf | ModalStore.moveMiddleware(_:to:) | ModalStore |  |
-relationship | memberOf | ModalStore.observe(_:) | ModalStore |  |
 relationship | memberOf | ModalStore.present(_:style:) | ModalStore |  |
 relationship | memberOf | ModalStore.queuedPresentations | ModalStore |  |
 relationship | memberOf | ModalStore.removeMiddleware(_:) | ModalStore |  |
@@ -211,7 +208,6 @@ relationship | memberOf | NavigationStore.init(initialPath:configuration:) | Nav
 relationship | memberOf | NavigationStore.insertMiddleware(_:at:debugName:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.middlewareMetadata | NavigationStore |  |
 relationship | memberOf | NavigationStore.moveMiddleware(_:to:) | NavigationStore |  |
-relationship | memberOf | NavigationStore.observe(_:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.pathBinding | NavigationStore |  |
 relationship | memberOf | NavigationStore.pathBinding(policy:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.removeMiddleware(_:) | NavigationStore |  |
@@ -276,7 +272,6 @@ relationship | memberOf | StepCoordinator.reset() | StepCoordinator |  |
 relationship | memberOf | StepCoordinator.totalSteps | StepCoordinator |  |
 relationship | memberOf | StepCoordinatorView.body | StepCoordinatorView |  |
 relationship | memberOf | StepCoordinatorView.init(coordinator:showProgress:content:) | StepCoordinatorView |  |
-relationship | memberOf | StoreObserverSubscription.cancel() | StoreObserverSubscription |  |
 relationship | memberOf | TabCoordinator.badge(for:) | TabCoordinator |  |
 relationship | memberOf | TabCoordinator.clearAllBadges() | TabCoordinator |  |
 relationship | memberOf | TabCoordinator.setBadge(_:for:) | TabCoordinator |  |
@@ -311,8 +306,6 @@ relationship | requirementOf | StepCoordinator.Step | StepCoordinator |  |
 relationship | requirementOf | StepCoordinator.canProceed(from:) | StepCoordinator |  |
 relationship | requirementOf | StepCoordinator.completedSteps | StepCoordinator |  |
 relationship | requirementOf | StepCoordinator.currentStep | StepCoordinator |  |
-relationship | requirementOf | StoreObserver.RouteType | StoreObserver |  |
-relationship | requirementOf | StoreObserver.handle(_:) | StoreObserver |  |
 relationship | requirementOf | TabCoordinator.TabContent | TabCoordinator |  |
 relationship | requirementOf | TabCoordinator.TabType | TabCoordinator |  |
 relationship | requirementOf | TabCoordinator.content(for:) | TabCoordinator |  |
@@ -324,7 +317,6 @@ symbol | swift.associatedtype | Coordinator.RouteType | RouteType | associatedty
 symbol | swift.associatedtype | DestinationRoute.Destination | Destination | associatedtype Destination : View | []
 symbol | swift.associatedtype | NavigationPathReconciling.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | StepCoordinator.Step | Step | associatedtype Step : CaseIterable, Hashable, Sendable | []
-symbol | swift.associatedtype | StoreObserver.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | TabCoordinator.TabContent | TabContent | associatedtype TabContent : View | []
 symbol | swift.associatedtype | TabCoordinator.TabType | TabType | associatedtype TabType : RouterTab | []
 symbol | swift.class | AsyncNavigationMiddlewareExecutor | AsyncNavigationMiddlewareExecutor | @MainActor final class AsyncNavigationMiddlewareExecutor<R> where R : Route | []
@@ -334,7 +326,6 @@ symbol | swift.class | FlowStore | FlowStore | @MainActor final class FlowStore<
 symbol | swift.class | ModalStore | ModalStore | @MainActor final class ModalStore<M> where M : Route | []
 symbol | swift.class | NavigationStore | NavigationStore | @MainActor final class NavigationStore<R> where R : Route | []
 symbol | swift.class | StateRestorationAdapter | StateRestorationAdapter | @MainActor final class StateRestorationAdapter<R> where R : Route, R : Decodable, R : Encodable | []
-symbol | swift.class | StoreObserverSubscription | StoreObserverSubscription | @MainActor final class StoreObserverSubscription | []
 symbol | swift.class | ThrottleNavigationMiddleware | ThrottleNavigationMiddleware | @MainActor final class ThrottleNavigationMiddleware<R, C> where R : Route, C : Clock, C.Duration == Duration | []
 symbol | swift.enum | EnvironmentMissingPolicy | EnvironmentMissingPolicy | enum EnvironmentMissingPolicy | []
 symbol | swift.enum | FlowEvent | FlowEvent | enum FlowEvent<R> where R : Route | []
@@ -494,7 +485,6 @@ symbol | swift.method | Coordinator.send(_:) | send(_:) | @MainActor func send(_
 symbol | swift.method | DebouncingNavigator.cancelPending() | cancelPending() | @MainActor func cancelPending() | []
 symbol | swift.method | DebouncingNavigator.debouncedExecute(_:) | debouncedExecute(_:) | @discardableResult @MainActor func debouncedExecute(_ command: NavigationCommand<N.RouteType>) async -> NavigationResult<N.RouteType>? | []
 symbol | swift.method | FlowStore.apply(_:) | apply(_:) | @discardableResult @MainActor func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> | []
-symbol | swift.method | FlowStore.observe(_:) | observe(_:) | @MainActor func observe<O>(_ observer: O) -> StoreObserverSubscription where R == O.RouteType, O : StoreObserver | []
 symbol | swift.method | FlowStore.send(_:) | send(_:) | @MainActor func send(_ intent: FlowIntent<R>) | []
 symbol | swift.method | LifecycleSignals.fireParentCancel() | fireParentCancel() | @MainActor func fireParentCancel() | []
 symbol | swift.method | LifecycleSignals.fireTeardown() | fireTeardown() | @MainActor func fireTeardown() | []
@@ -505,7 +495,6 @@ symbol | swift.method | ModalStore.dismissCurrent() | dismissCurrent() | @MainAc
 symbol | swift.method | ModalStore.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: ModalCommand<M>) -> ModalExecutionResult<M> | []
 symbol | swift.method | ModalStore.insertMiddleware(_:at:debugName:) | insertMiddleware(_:at:debugName:) | @discardableResult @MainActor func insertMiddleware(_ middleware: AnyModalMiddleware<M>, at index: Int, debugName: String? = nil) -> ModalMiddlewareHandle | []
 symbol | swift.method | ModalStore.moveMiddleware(_:to:) | moveMiddleware(_:to:) | @discardableResult @MainActor func moveMiddleware(_ handle: ModalMiddlewareHandle, to index: Int) -> Bool | []
-symbol | swift.method | ModalStore.observe(_:) | observe(_:) | @MainActor func observe<O>(_ observer: O) -> StoreObserverSubscription where M == O.RouteType, O : StoreObserver | []
 symbol | swift.method | ModalStore.present(_:style:) | present(_:style:) | @discardableResult @MainActor func present(_ route: M, style: ModalPresentationStyle) -> ModalPresentResult<M> | []
 symbol | swift.method | ModalStore.removeMiddleware(_:) | removeMiddleware(_:) | @discardableResult @MainActor func removeMiddleware(_ handle: ModalMiddlewareHandle) -> AnyModalMiddleware<M>? | []
 symbol | swift.method | ModalStore.replaceCurrent(_:style:) | replaceCurrent(_:style:) | @MainActor func replaceCurrent(_ route: M, style: ModalPresentationStyle) | []
@@ -521,7 +510,6 @@ symbol | swift.method | NavigationStore.executeBatch(_:stopOnFailure:) | execute
 symbol | swift.method | NavigationStore.executeTransaction(_:) | executeTransaction(_:) | @discardableResult @MainActor func executeTransaction(_ commands: [NavigationCommand<R>]) -> NavigationTransactionResult<R> | []
 symbol | swift.method | NavigationStore.insertMiddleware(_:at:debugName:) | insertMiddleware(_:at:debugName:) | @discardableResult @MainActor func insertMiddleware(_ middleware: AnyNavigationMiddleware<R>, at index: Int, debugName: String? = nil) -> NavigationMiddlewareHandle | []
 symbol | swift.method | NavigationStore.moveMiddleware(_:to:) | moveMiddleware(_:to:) | @discardableResult @MainActor func moveMiddleware(_ handle: NavigationMiddlewareHandle, to index: Int) -> Bool | []
-symbol | swift.method | NavigationStore.observe(_:) | observe(_:) | @MainActor func observe<O>(_ observer: O) -> StoreObserverSubscription where R == O.RouteType, O : StoreObserver | []
 symbol | swift.method | NavigationStore.pathBinding(policy:) | pathBinding(policy:) | @MainActor func pathBinding(policy: NavigationPathMismatchPolicy<R>) -> Binding<[R]> | []
 symbol | swift.method | NavigationStore.removeMiddleware(_:) | removeMiddleware(_:) | @discardableResult @MainActor func removeMiddleware(_ handle: NavigationMiddlewareHandle) -> AnyNavigationMiddleware<R>? | []
 symbol | swift.method | NavigationStore.replaceMiddleware(_:with:debugName:) | replaceMiddleware(_:with:debugName:) | @discardableResult @MainActor func replaceMiddleware(_ handle: NavigationMiddlewareHandle, with middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) -> Bool | []
@@ -552,10 +540,6 @@ symbol | swift.method | StepCoordinator.jump(to:) | jump(to:) | @MainActor func 
 symbol | swift.method | StepCoordinator.next() | next() | @MainActor func next() | []
 symbol | swift.method | StepCoordinator.previous() | previous() | @MainActor func previous() | []
 symbol | swift.method | StepCoordinator.reset() | reset() | @MainActor func reset() | []
-symbol | swift.method | StoreObserver.handle(_:) | handle(_:) | @MainActor func handle(_ event: FlowEvent<Self.RouteType>) | []
-symbol | swift.method | StoreObserver.handle(_:) | handle(_:) | @MainActor func handle(_ event: ModalEvent<Self.RouteType>) | []
-symbol | swift.method | StoreObserver.handle(_:) | handle(_:) | @MainActor func handle(_ event: NavigationEvent<Self.RouteType>) | []
-symbol | swift.method | StoreObserverSubscription.cancel() | cancel() | @MainActor func cancel() | []
 symbol | swift.method | TabCoordinator.badge(for:) | badge(for:) | @MainActor func badge(for tab: Self.TabType) -> Int? | []
 symbol | swift.method | TabCoordinator.clearAllBadges() | clearAllBadges() | @MainActor func clearAllBadges() | []
 symbol | swift.method | TabCoordinator.content(for:) | content(for:) | @ViewBuilder @MainActor func content(for tab: Self.TabType) -> Self.TabContent | []
@@ -660,7 +644,6 @@ symbol | swift.protocol | LifecycleAware | LifecycleAware | @MainActor protocol 
 symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<RouteType> : Sendable | []
 symbol | swift.protocol | RouterTab | RouterTab | protocol RouterTab : Route, CaseIterable, Identifiable | []
 symbol | swift.protocol | StepCoordinator | StepCoordinator | @MainActor protocol StepCoordinator : AnyObject, Observable | []
-symbol | swift.protocol | StoreObserver | StoreObserver | @MainActor protocol StoreObserver : AnyObject | []
 symbol | swift.protocol | TabCoordinator | TabCoordinator | @MainActor protocol TabCoordinator : AnyObject, Observable | []
 symbol | swift.struct | CoordinatorHost | CoordinatorHost | @MainActor struct CoordinatorHost<C, Root> where C : Coordinator, Root : View | []
 symbol | swift.struct | CoordinatorSplitHost | CoordinatorSplitHost | @MainActor struct CoordinatorSplitHost<C, Sidebar, Root> where C : Coordinator, Sidebar : View, Root : View | []

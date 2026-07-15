@@ -133,11 +133,13 @@ while a direct `NavigationStore.execute(_:)` cancellation is returned
 as `NavigationResult.cancelled`; a path-reconciliation policy may
 separately emit `.pathMismatch`. For a `FlowStore` in particular,
 `FlowStore.events` wraps both in `.navigation(...)` / `.modal(...)`
-cases so one subscriber sees the whole picture.
+cases so one subscriber sees the whole picture. Capture the stream before
+starting its lifecycle-owned task to register the subscriber synchronously.
 
 ```swift skip doc-fragment
-Task {
-    for await event in flowStore.events {
+let events = flowStore.events
+let observationTask = Task { @MainActor in
+    for await event in events {
         if case .modal(.commandIntercepted(_, .cancelled(let reason))) = event {
             Log.info("modal cancelled: \(reason)")
         }

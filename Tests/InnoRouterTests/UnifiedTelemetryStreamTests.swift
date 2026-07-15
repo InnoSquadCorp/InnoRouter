@@ -47,6 +47,27 @@ struct UnifiedTelemetryStreamTests {
         #expect(to.path == [.home])
     }
 
+    @Test("Capturing events before its task preserves an immediate first event")
+    @MainActor
+    func preCapturedNavigationEventsPreserveImmediateEvent() async {
+        let store = NavigationStore<StreamRoute>()
+        let events = store.events
+        let receiveTask = Task { @MainActor in
+            var iterator = events.makeAsyncIterator()
+            return await iterator.next()
+        }
+
+        // The child task cannot run on MainActor until this method suspends.
+        // Capturing `events` first must therefore buffer this immediate send.
+        store.send(.go(.home))
+
+        guard case .changed(_, let to) = await receiveTask.value else {
+            Issue.record("Expected the pre-captured stream to preserve .changed")
+            return
+        }
+        #expect(to.path == [.home])
+    }
+
     @Test("NavigationStore.events emits .batchExecuted alongside a coalesced .changed")
     @MainActor
     func navigationEventsEmitsBatchExecuted() async {

@@ -109,9 +109,8 @@ and `DebouncingNavigator` for delayed "latest wins" behavior.
 
 ## Next steps
 
-- See <doc:Tutorial-StoreObserver> for a protocol-style adapter
-  that can observe throttle cancellations via
-  `NavigationStore.events` without threading callbacks.
+- See <doc:NavigationStore-and-Hosts> for the typed `onEvent` callback and
+  `NavigationStore.events` stream that expose throttle cancellations.
 - See <doc:Tutorial-MiddlewareComposition> for the broader
   middleware composition story (logging, entitlement gating,
   analytics).
