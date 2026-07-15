@@ -15,12 +15,14 @@ InnoRouter는 typed state, 명시적 command 실행, 그리고 앱 경계에서�
 
 InnoRouter는 다음을 책임집니다:
 
-- `RouteStack`을 통한 stack 네비게이션 상태
+- `@Router`를 통한 route·destination wiring 생성
+- `RouterHost`, `RouterModalHost`, `RouterSplitHost`, `RouterTabHost`를 통한
+  feature-local stack·modal·split-detail·tab 권한
+- `@DeepLink`를 통한 fail-closed URL-to-route 매핑
+- `@SceneRouter`와 `@Scene`을 통한 opt-in 공간 scene 합성
+- `NavigationStore`, `ModalStore`, `FlowStore`를 통한 고급 store-owned 네비게이션
 - `NavigationCommand`와 `NavigationEngine`을 통한 command 실행
-- `NavigationStore`를 통한 SwiftUI 네비게이션 권한
-- `ModalStore`를 통한 `sheet`와 `fullScreenCover`의 모달 권한
-- `DeepLinkMatcher`와 `DeepLinkPipeline`을 통한 딥링크 매칭과 planning
-- `InnoRouterEffects`를 통한 앱 경계 실행 헬퍼
+- `DeepLinkPipeline`과 `InnoRouterEffects`를 통한 고급 딥링크 planning과 pending replay
 
 InnoRouter는 의도적으로 범용 애플리케이션 state machine이 아닙니다.
 
@@ -67,20 +69,22 @@ AppKit 브릿지 모듈은 필요하지 않습니다.
 
 | 기능 | iOS | iPadOS | macOS | tvOS | watchOS | visionOS |
 |---|---|---|---|---|---|---|
+| `@Router` + `RouterHost` / `RouterModalHost` / `RouterTabHost` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `@Router` + `RouterSplitHost` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | `NavigationStore` / `NavigationHost` / `FlowStore` / `FlowHost` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `NavigationSplitHost` / `CoordinatorSplitHost` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | `ModalHost` `.sheet` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `ModalHost` `.fullScreenCover` 네이티브 | ✅ | ✅ | ⚠ degrades | ✅ | ⚠ degrades | ⚠ degrades |
-| `TabCoordinator.badge` 상태 API / 네이티브 시각 표현 | ✅ | ✅ | ✅ | ⚠ 상태 only | ⚠ 상태 only | ✅ |
+| Tab badge 상태 API / 네이티브 시각 표현 | ✅ | ✅ | ✅ | ⚠ 상태 only | ⚠ 상태 only | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `InnoRouterSpatial`: `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `InnoRouterSpatial`: `@SceneRouter` / `@Scene` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
 | `InnoRouterSpatial`: `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ degrades`는 store API가 요청을 그대로 수락하지만 SwiftUI host가 `.fullScreenCover`를
-사용할 수 없어 `.sheet`로 렌더링한다는 뜻입니다. `⚠ 상태 only`는 coordinator가
-badge 상태를 저장·노출하지만, `.badge(_:)`가 사용 불가능해 `TabCoordinatorView`가
-SwiftUI의 네이티브 시각 badge를 생략한다는 뜻입니다. `❌`는 해당 플랫폼에서
-심볼이 선언되지 않는다는 뜻이며, `#if !os(...)` 뒤에서 빌드해야 합니다.
+사용할 수 없어 `.sheet`로 렌더링한다는 뜻입니다. `⚠ 상태 only`는 router가 badge
+상태를 보존·노출하지만, `.badge(_:)`가 사용 불가능해 `RouterTabHost`와
+`TabCoordinatorView`가 SwiftUI의 네이티브 시각 badge를 생략한다는 뜻입니다. `❌`는 해당 플랫폼에서
+심볼을 사용할 수 없다는 뜻이며, 알맞은 availability guard 뒤에서 빌드해야 합니다.
 공간 라우팅 surface는 5.0의 정식 opt-in API이며 experimental로 분류되지 않습니다.
 
 ## 설치
@@ -162,6 +166,23 @@ struct HomeView: View {
 route 타입 불일치는 SwiftUI 계층이 만들어진 뒤에만 알 수 있으므로 InnoRouter의 설정된
 environment 진단 정책을 따릅니다.
 
+### Store를 추가하지 않고 surface 확장하기
+
+같은 route-first 모델을 유지하고 UI에 맞는 host만 고르세요:
+
+| 추가할 것 | 선언 | Host |
+|---|---|---|
+| sheet / cover | 같은 `@Router` case | `RouterHost` 또는 modal-only `RouterModalHost` |
+| split detail | 같은 `@Router` enum | `RouterSplitHost` |
+| 네이티브 tab | 모든 `@Router` case에 `@TabItem` | `RouterTabHost` |
+| route 하나로 가는 딥링크 | `@Router`의 literal allowlist + `@DeepLink` case | `RouterHost`, `RouterSplitHost`, 또는 `RouterTabHost` |
+| visionOS scene | `@SceneRouter` + case마다 `@Scene` | `App.body`에 `<Route>.scenes` 설치 |
+
+모든 route action은 계속 `@EnvironmentRouter`에서 읽고, spatial scene action은
+`@EnvironmentSceneRouter`에서 읽습니다. 잘못되거나 불완전한 macro 선언은 수정 방법을
+포함한 컴파일러 진단을 냅니다. 런타임 host 권한 누락 또는 route 타입 불일치는 설정된
+environment 진단 정책을 따릅니다.
+
 ## OSS 릴리즈 및 SemVer 계약
 
 `4.0.0`은 InnoRouter의 첫 OSS 릴리즈이며, public SemVer 계약이 적용되는 첫 버전입니다.
@@ -230,9 +251,10 @@ import InnoRouterSpatial     // visionOS scenes와 ornaments를 사용할 때만
 import InnoRouterEffects     // app-boundary 실행과 pending replay
 ```
 
-`InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`,
-`InnoRouterMacros` 직접 import는 의도적으로 더 작은 surface를 선택하는 고급 escape
-hatch입니다. 특히 macro가 아닌 세부 product를 선택하면 해당 타깃의 빌드 그래프에서
+직접 import는 고급 모듈화 선택입니다. `InnoRouterCore`, `InnoRouterSwiftUI`,
+`InnoRouterDeepLink`는 더 작은 non-macro surface를 선택하게 해주고,
+`InnoRouterMacros`는 macro 선언과 생성 코드가 사용하는 Core, SwiftUI, DeepLink API를
+직접 re-export합니다. Macro가 아닌 세부 product를 선택하면 해당 타깃의 빌드 그래프에서
 compiler-plugin target을 제외할 수 있습니다. 다만 SwiftPM은 이 source package가 선언한
 package-level `swift-syntax` dependency 자체는 계속 resolve합니다.
 
@@ -243,9 +265,9 @@ SwiftSyntax 기반 매크로 구현은 이 패키지에 포함되어 있습니�
 
 | Product | 언제 import할지 |
 |---|---|
-| `InnoRouter` | 앱 코드의 기본값. `@Router`, store, stack/modal host, intent, coordinator, deep link, persistence 헬퍼. |
-| `InnoRouterSpatial` | visionOS scene, immersive space, ornament 라우팅을 사용하는 앱 타깃. `InnoRouter`와 별도로 product를 추가하고 import합니다. |
-| `InnoRouterMacros` | macro와 Core/SwiftUI API는 필요하지만 전체 deep-link umbrella는 필요하지 않은 타깃용 granular product. 앱 타깃은 보통 `InnoRouter`를 사용합니다. |
+| `InnoRouter` | 앱 코드의 기본값. `@Router`, `@TabItem`, `@DeepLink`, macro-first host와 그 아래의 고급 store API. |
+| `InnoRouterSpatial` | `@SceneRouter` / `@Scene`으로 visionOS window, volume, immersive space를 선언하거나 수동 scene store·ornament API를 사용하는 앱 타깃. `InnoRouter`와 별도로 추가하고 import합니다. |
+| `InnoRouterMacros` | macro 선언과 생성 코드가 사용하는 Core, SwiftUI, DeepLink API를 re-export하는 직접 macro 모듈. 앱 타깃은 보통 `InnoRouter` umbrella를 사용합니다. |
 | `InnoRouterEffects` | `NavigationCommand` 값을 실행하고 pending 딥링크를 처리하거나 재개하는 앱-경계 코드. |
 | `InnoRouterTesting` | host-less `NavigationTestStore` / `ModalTestStore` / `FlowTestStore`를 원하는 테스트 타깃. |
 
@@ -253,49 +275,55 @@ SwiftSyntax 기반 매크로 구현은 이 패키지에 포함되어 있습니�
 
 - `InnoRouter`: `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`, `InnoRouterMacros`의 macro-first umbrella re-export
 - `InnoRouterCore`: route stack, validator, command, result, batch/transaction executor, middleware
-- `InnoRouterSwiftUI`: store, stack/split/modal/flow host, coordinator, typed `EnvironmentRouter` action
-- `InnoRouterSpatial`: opt-in visionOS scene/immersive-space store, host, anchor, ornament
+- `InnoRouterSwiftUI`: `RouterHost`, `RouterModalHost`, `RouterSplitHost`, `RouterTabHost`, 고급 store/host, coordinator, typed `EnvironmentRouter` action
+- `InnoRouterSpatial`: opt-in `@SceneRouter` / `@Scene`, 생성된 scene 합성, 수동 scene registry/store, host/anchor modifier, ornament
 - `InnoRouterDeepLink`: 패턴 매칭, 진단, pipeline planning, pending 딥링크
 - `InnoRouterEffects`: 앱 경계용 네비게이션·딥링크 실행 헬퍼
-- `InnoRouterMacros`: `@Router`, `@Routable`, `@CasePathable`
+- `InnoRouterMacros`: `@Router`, `@TabItem`, `@DeepLink`, `@Routable`, `@CasePathable`
 
 ## 적합한 surface 고르기
 
-전이 권한(transition authority)을 갖는 가장 작은 surface를 사용하세요:
+route enum과 macro-first host로 시작하세요. 복원, middleware 변경, 직접 관찰,
+인증된 pending replay, atomic multi-step plan을 앱 경계가 소유해야 할 때만 외부 소유
+store로 내려갑니다.
 
 | 필요 | 사용 |
 |---|---|
-| 자체 완결형 typed SwiftUI stack 한 개 | `@Router` + `RouterHost` |
-| 딥링크·복원·middleware·앱 상태가 소유하는 stack | `NavigationStore` + `NavigationHost` |
-| 지원 플랫폼에서 split-view stack | `NavigationStore` + `NavigationSplitHost` |
-| stack reset 없는 sheet / cover 권한 | `ModalStore` + `ModalHost` |
-| push + modal 흐름, 복원, 또는 multi-step 딥링크 | `FlowStore` + `FlowHost` + `FlowPlan` |
-| URL을 push-only command plan으로 변환 | `DeepLinkMatcher` + `DeepLinkPipeline` |
-| URL을 push-prefix + modal-tail 흐름으로 변환 | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS window, volume, immersive space | `InnoRouterSpatial` + `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
+| 하나의 local feature에서 stack + sheet / cover | `@Router` + `RouterHost` |
+| modal만 소유하는 local feature | `@Router` + `RouterModalHost` |
+| 지원 플랫폼의 split-detail 네비게이션 | `@Router` + `RouterSplitHost` |
+| 생성된 label·image를 쓰는 네이티브 tab | `@Router` + `@TabItem` + `RouterTabHost` |
+| 허용된 URL 하나가 route 하나를 선택하거나 push | `@Router(deepLinkSchemes:deepLinkHosts:)` + `@DeepLink` + `RouterHost`, `RouterSplitHost`, 또는 `RouterTabHost` |
+| visionOS window, volume, immersive space | `InnoRouterSpatial`: `@SceneRouter` + `@Scene` + `<Route>.scenes` |
+| 외부 소유 stack, 복원, middleware, 직접 관찰 | `NavigationStore` + `NavigationHost` |
+| 외부 소유 modal queue | `ModalStore` + `ModalHost` |
+| atomic push + modal plan 또는 복원된 flow | `FlowStore` + `FlowHost` + `FlowPlan` |
+| 인증, pending replay, multi-step URL planning | `DeepLinkPipeline` / `FlowDeepLinkPipeline` + `InnoRouterEffects` |
+| 수동 visionOS scene 권한 또는 custom scene 합성 | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer, effect, 또는 앱-경계 실행 | `InnoRouterEffects` |
 | SwiftUI host 없는 router assertion | `InnoRouterTesting` |
 
-`NavigationStore`, `FlowStore`, `ModalStore`, `SceneStore`, effects, testing은
-의도적으로 분리되어 있습니다. visionOS 공간 surface를 선택했다면 앱 타깃에
-`InnoRouterSpatial` product를 추가하고 해당 소스 파일에서 `import InnoRouterSpatial`을
-사용하세요. 이 라이브러리는 이 권한들을 명시적으로 유지해서 앱이 라우팅 경계에 맞는
-조각만 채택할 수 있게 합니다.
+Macro-first host는 store를 local로 소유하고 `@EnvironmentRouter`로 typed action을
+공개합니다. Store, Effects, Testing, 수동 spatial API는 일반 feature의 필수 설정이
+아니라 명시적인 확장 경로로 남습니다. Spatial macro나 수동 scene API를 선택했다면 앱
+타깃에 `InnoRouterSpatial` product를 추가하고 해당 소스에서 import하세요.
 
 ### 빠른 의사결정 흐름도
 
 ```text
-화면 surface가 push와 modal을 한 흐름에 결합하나요?
-├── 예  → FlowStore + FlowHost (단일 진실, 단일 events 스트림)
-└── 아니오 → modal 권한(sheet / cover)만 갖나요?
-         ├── 예  → ModalStore + ModalHost
-         └── 아니오 → @Router + RouterHost
-                    (외부 authority: NavigationStore + NavigationHost;
-                     split-view: NavigationSplitHost)
+라우팅 상태를 앱 경계가 직접 소유하거나 복원해야 하나요?
+├── 아니오 → @Router를 선언하고 local host를 선택
+│            ├── stack + modal → RouterHost
+│            ├── modal only   → RouterModalHost
+│            ├── split detail → RouterSplitHost
+│            └── tabs         → @TabItem + RouterTabHost
+└── 예 → 해당 권한에 NavigationStore, ModalStore, FlowStore 사용
+         (인증 또는 multi-step URL: DeepLinkPipeline + Effects)
 ```
 
 view의 일반적인 stack 네비게이션에는 `@EnvironmentRouter`의 `go` / `back`을
-사용하세요. 명시적인 `NavigationIntent`, modal action, 통합 `FlowIntent` 시멘틱이
+사용하세요. 설치된 host가 지원하면 같은 값에서 modal·tab action도 사용할 수 있습니다.
+명시적인 `NavigationIntent`, modal action, 통합 `FlowIntent` 시멘틱이
 필요할 때만 [`Docs/IntentSelectionGuide.md`](Docs/IntentSelectionGuide.md)의
 하위 수준 intent 타입으로 내려갑니다.
 
@@ -322,7 +350,7 @@ DocC는 상세한 모듈 레벨 레퍼런스 모음입니다.
 | [Tutorial-MiddlewareComposition](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MiddlewareComposition.md) | `InnoRouterSwiftUI` | typed middleware 구성, command 가로채기, churn 관찰 |
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | 중첩된 `NavigationHost` + `ModalHost` stack을 `FlowHost`로 교체 |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | 결정론적 test clock과 `ThrottleNavigationMiddleware` 사용 |
-| [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | `SceneStore`로 visionOS window, volumetric scene, immersive space 구동 |
+| [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | `@SceneRouter`와 `@Scene`으로 visionOS window, volumetric scene, immersive space 선언 |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | `FlowDeepLinkPipeline`을 통한 push + modal 합성 딥링크 |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | `StatePersistence`로 launch 간 `FlowPlan` / `RouteStack` 영속화 |
 | [Tutorial-TestingFlows](Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/Tutorial-TestingFlows.md) | `InnoRouterTesting` | `FlowTestStore`를 통한 host-less Swift Testing assertion |
@@ -334,33 +362,31 @@ DocC는 상세한 모듈 레벨 레퍼런스 모음입니다.
 ```mermaid
 flowchart LR
     View["SwiftUI view"] --> Actions["@EnvironmentRouter typed action"]
-    Actions --> Store["NavigationStore / ModalStore / FlowStore"]
+    Actions --> Host["RouterHost / RouterModalHost / RouterSplitHost / RouterTabHost"]
+    Host --> Store["local 소유 store"]
     Store --> Policy["Middleware / observation / validation"]
     Policy --> Execution["NavigationEngine / modal queue"]
-    Execution --> Host["RouterHost / NavigationHost / ModalHost / FlowHost"]
-    Host --> System["NavigationStack / NavigationSplitView / sheet / fullScreenCover"]
+    Execution --> System["NavigationStack / NavigationSplitView / TabView / presentation"]
 ```
 
 - View는 `@EnvironmentRouter`를 통해 route-typed action을 호출합니다.
-- Store는 네비게이션·모달 또는 통합 flow 권한을 소유합니다.
-- Host는 store 상태를 네이티브 SwiftUI 네비게이션 API로 변환합니다.
+- Macro-first host는 필요한 store를 소유하고 네이티브 SwiftUI 네비게이션 API로 변환합니다.
+- 고급 앱은 외부 소유·주입이 가능한 동등한 Store 또는 Coordinator 권한을 선택할 수 있습니다.
 
 ### 딥링크 흐름
 
 ```mermaid
 flowchart LR
-    URL["Incoming URL"] --> Match["DeepLinkMatcher"]
-    Match --> Plan["DeepLinkPipeline"]
-    Plan --> Effect["DeepLinkEffectHandler"]
-    Effect --> Decision{"지금 인가?"}
-    Decision -->|"아니오"| Pending["PendingDeepLink"]
-    Decision -->|"예"| Execute["Batch / transaction 실행"]
-    Execute --> Store["NavigationStore / ModalStore"]
+    URL["Incoming URL"] --> Resolve["@DeepLink 생성 resolver"]
+    Resolve --> Host["RouterHost / RouterSplitHost / RouterTabHost"]
+    Host --> Route["route push 또는 tab 선택"]
+    URL -.->|고급 정책| Pipeline["DeepLinkPipeline + Effects"]
+    Pipeline --> Pending["인증 / pending replay / multi-step plan"]
 ```
 
-- 매칭과 planning은 순수합니다.
-- Effect 핸들러는 앱 정책이 지금 실행할지 미룰지 결정하는 경계입니다.
-- Pending 딥링크는 앱이 replay 가능한 시점까지 계획된 전이를 보존합니다.
+- literal origin allowlist와 `@DeepLink` case가 별도 plumbing 없는 기본 경로입니다.
+- Host는 incoming URL을 자동 resolve하고 중첩된 macro-first host 사이를 중재합니다.
+- 앱 정책이 여러 전이를 인가·지연·replay·합성해야 할 때만 pipeline과 Effects API로 내려갑니다.
 
 ## 상태와 실행 모델
 
@@ -467,42 +493,54 @@ InnoRouter는 다음에 대한 모달 라우팅을 지원합니다:
 
 사용:
 
-- `ModalStore`
-- `ModalHost`
-- `ModalIntent`
+- `@Router`
+- modal-only feature는 `RouterModalHost`, stack + modal은 `RouterHost`
 - `@EnvironmentRouter`
 
 예제:
 
 ```swift skip doc-fragment
-@Routable
+@Router
 enum AppModalRoute {
     case profile
     case onboarding
+
+    var destination: some View {
+        switch self {
+        case .profile: ProfileView()
+        case .onboarding: OnboardingView()
+        }
+    }
 }
 
 struct ShellView: View {
-    @State private var modalStore = ModalStore<AppModalRoute>()
+    var body: some View {
+        RouterModalHost(AppModalRoute.self) {
+            ModalLauncher()
+        }
+    }
+}
+
+struct ModalLauncher: View {
+    @EnvironmentRouter(AppModalRoute.self) private var router
 
     var body: some View {
-        ModalHost(store: modalStore) { route in
-            switch route {
-            case .profile:
-                ProfileView()
-            case .onboarding:
-                OnboardingView()
-            }
-        } content: {
-            HomeView()
+        Button("Profile") {
+            router.sheet(.profile)
         }
     }
 }
 ```
 
+하위 view는 `router.sheet(.profile)` 또는 `router.cover(.onboarding)`으로 표시하고
+`router.dismiss()`로 닫습니다. 앱이 modal queue를 소유·복원하거나 middleware를
+변경하거나 직접 관찰해야 할 때만 `ModalStore` + `ModalHost`로 내려갑니다.
+
 ### 모달 scope 경계
 
-iOS와 tvOS에서 `ModalHost`는 style을 `sheet`와 `fullScreenCover`로 직접 매핑합니다.
-다른 지원 플랫폼에서는 `fullScreenCover`가 안전하게 `sheet`로 degrade됩니다.
+iOS와 tvOS에서 macro-first host와 `ModalHost`는 style을 `sheet`와
+`fullScreenCover`로 직접 매핑합니다. 다른 지원 플랫폼에서는
+`fullScreenCover`가 안전하게 `sheet`로 degrade됩니다.
 
 InnoRouter는 의도적으로 다음을 소유하지 **않습니다**:
 
@@ -543,18 +581,55 @@ present, dismiss, replace, queue 변경, command 가로채기, middleware 변경
 
 ## Split 네비게이션
 
-iPad와 macOS의 detail 네비게이션은 다음을 사용:
+지원 플랫폼의 local split-detail surface에는 `@Router` + `RouterSplitHost`를 사용합니다:
 
-- `NavigationSplitHost`
-- `CoordinatorSplitHost`
+```swift skip doc-fragment
+RouterSplitHost(AppRoute.self) {
+    SidebarView()
+} root: {
+    ContentUnavailableView("항목을 선택하세요", systemImage: "sidebar.left")
+}
+```
 
-InnoRouter는 split 레이아웃에서 detail stack만 소유합니다.
+Host가 detail stack과 modal 권한을 소유하며, 하위 view는 같은 `@EnvironmentRouter`
+action을 사용합니다. 앱이 stack을 직접 소유하거나 coordinator를 통해 intent를
+라우팅해야 하면 `NavigationSplitHost` 또는 `CoordinatorSplitHost`로 내려갑니다.
+`RouterSplitHost`는 watchOS에서 사용할 수 없습니다.
 
 다음은 앱 소유로 남습니다:
 
 - sidebar 선택
 - 컬럼 가시성
 - compact 적응
+
+## Tab 라우팅 surface
+
+연관값이 없는 모든 `@Router` case에 `@TabItem`을 붙이면 macro가 `RouterTab`,
+`CaseIterable`, title, system image를 생성합니다:
+
+```swift skip doc-fragment
+@Router
+enum AppTab {
+    @TabItem("Home", systemImage: "house")
+    case home
+
+    @TabItem("Settings", systemImage: "gear")
+    case settings
+
+    var destination: some View {
+        switch self {
+        case .home: HomeView()
+        case .settings: SettingsView()
+        }
+    }
+}
+
+RouterTabHost(AppTab.self, initial: .home)
+```
+
+하위 view는 `router.select(_:)`, `router.setBadge(_:for:)`, badge clear action을
+사용합니다. 앱이 selection을 직접 소유하거나 custom shell 또는 독립적인 tab별 store를
+합성해야 할 때는 `TabCoordinatorView`로 내려갑니다.
 
 ## Coordinator surface
 
@@ -646,7 +721,35 @@ binding은 모든 set을 기존 command pipeline을 통해 라우팅하므로 mi
 
 ## 딥링크 모델
 
-딥링크는 숨겨진 부수효과가 아닌 plan으로 처리됩니다.
+기본 경로는 route마다 annotation 하나를 붙이는 것입니다. literal scheme·host
+allowlist로 생성 resolver가 fail closed하며, 일치하는 macro-first host가 incoming URL을
+자동 처리합니다:
+
+```swift skip doc-fragment
+@Router(
+    deepLinkSchemes: ["myapp", "https"],
+    deepLinkHosts: ["app.example.com"]
+)
+enum AppRoute {
+    @DeepLink("/products/:id")
+    case product(id: String)
+
+    var destination: some View {
+        switch self {
+        case .product(let id): ProductView(id: id)
+        }
+    }
+}
+
+RouterHost(AppRoute.self) { HomeView() }
+```
+
+`RouterHost`와 `RouterSplitHost`는 resolve된 route를 push하고,
+`RouterTabHost`는 해당 tab을 선택합니다. Macro는 잘못된 pattern, 빠진 origin
+allowlist, 지원하지 않는 payload, 생성 member 충돌, 도달 불가능하거나 순서에 민감한
+매핑을 컴파일 시점에 진단합니다.
+
+앱이 정책을 소유해야 할 때는 deep-link plan API가 고급 경로로 남습니다:
 
 핵심 구성:
 
@@ -714,6 +817,42 @@ FlowHost(store: flowStore, destination: destination) { RootView() }
 + `PendingDeepLink` 시멘틱을 그대로 재사용해 인증 지연과 replay가 대칭이 됩니다.
 전체 walk-through는 [`Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md`](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md)
 를 참조하세요.
+
+## Spatial scene surface
+
+공간 라우팅은 opt-in `InnoRouterSpatial` product에서도 macro-first입니다. enum 하나에
+`@SceneRouter`를 붙이고 모든 case를 `@Scene`으로 선언한 뒤, 생성된 scene tree를
+`App.body`에 설치합니다:
+
+```swift skip doc-fragment
+import InnoRouterSpatial
+
+@SceneRouter
+enum AppScene {
+    @Scene(.window)
+    case main
+
+    @Scene(.immersive(style: .mixed))
+    case theatre
+
+    var destination: some View {
+        switch self {
+        case .main: MainView()
+        case .theatre: TheatreView()
+        }
+    }
+}
+
+@main
+struct ExampleApp: App {
+    var body: some Scene { AppScene.scenes }
+}
+```
+
+하위 view는 `@EnvironmentSceneRouter(AppScene.self)`와 route-aware `open(_:)`,
+`dismissWindow(_:)`, `dismissImmersive()` action을 사용합니다. custom scene 합성 또는
+외부 소유 scene 권한이 필요할 때만 `SceneStore`, `innoRouterSceneHost`,
+`innoRouterSceneAnchor`로 내려갑니다.
 
 ## Middleware
 
@@ -813,10 +952,15 @@ replay는 `resumePendingDeepLink()` 또는 `resumePendingDeepLinkIfAllowed(_:)`�
 
 저장소는 의도적으로 문서 예제와 CI 예제를 분리합니다.
 
-- `Examples/`: 사람용, 관용적, 매크로 기반 예제
+- `Examples/`: macro-first 진입점과 명시적인 Store / Coordinator 확장 경로를 모두 다루는 사람용 예제
 - `ExamplesSmoke/`: CI용 컴파일러 안정 smoke fixture
 
-현재 예제는 다음을 다룹니다:
+`InnoRouterMacroFirstSmoke`는 downstream `@Router`, `@TabItem`, `@DeepLink` 계약과
+`RouterHost`, `RouterModalHost`, `RouterSplitHost`, `RouterTabHost`를 지원 플랫폼
+매트릭스에서 함께 컴파일합니다. 별도 spatial consumer smoke는 visionOS에서
+`@SceneRouter`를 컴파일합니다.
+
+사람용 예제는 다음을 다룹니다:
 
 - 단독 stack 라우팅
 - coordinator 라우팅
@@ -824,6 +968,7 @@ replay는 `resumePendingDeepLink()` 또는 `resumePendingDeepLinkIfAllowed(_:)`�
 - split 네비게이션
 - 앱 shell 구성
 - 모달 라우팅
+- macro-first visionOS scene 라우팅
 
 ## 문서와 릴리즈 흐름
 
@@ -884,11 +1029,12 @@ InnoRouter는 SwiftUI의 declarative 방향을 따르되 공유 네비게이션 
 
 사람용 예제는 여기에 있습니다:
 
-- [Examples/StandaloneExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/StandaloneExample.swift)
-- [Examples/CoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/CoordinatorExample.swift)
-- [Examples/DeepLinkExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/DeepLinkExample.swift)
-- [Examples/SplitCoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/SplitCoordinatorExample.swift)
-- [Examples/AppShellExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/AppShellExample.swift)
+- Macro-first stack: [Examples/StandaloneExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/StandaloneExample.swift)
+- 수동 deep-link decision wiring: [Examples/DeepLinkExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/DeepLinkExample.swift)
+- Macro-first visionOS scene: [Examples/VisionOSImmersiveExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/VisionOSImmersiveExample.swift)
+- 고급 coordinator: [Examples/CoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/CoordinatorExample.swift)
+- 고급 split coordinator: [Examples/SplitCoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/SplitCoordinatorExample.swift)
+- 고급 app shell: [Examples/AppShellExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/AppShellExample.swift)
 
 ## Quality 게이트
 
@@ -1118,9 +1264,10 @@ InnoRouter는 public 채택 곡선의 시작점에 있습니다. production에�
 
 - _귀하의 프로젝트._
 
-[`Examples/SampleAppExample.swift`](Examples/SampleAppExample.swift) 파일은 헤드라인 기능
-surface 전체를 보여줍니다 — 인증 게이팅이 있는 딥링크 pipeline, FlowStore push+modal projection,
-DebouncingNavigator 검색 디바운싱이 하나의 자기완결적 권한 클래스로 합성된 모습입니다.
+[`Examples/SampleAppExample.swift`](Examples/SampleAppExample.swift)는 고급 앱 경계 정책
+스케치입니다. 인증된 딥링크 처리, Store 권한, debounce 네비게이션을 하나의 authority
+타입에서 구성합니다. 먼저 위의 macro-first 예제로 시작하고, 이런 정책을 feature-local
+host 밖에서 소유해야 할 때 이 파일을 참고하세요.
 
 ## 기여
 

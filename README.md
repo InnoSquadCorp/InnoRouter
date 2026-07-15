@@ -15,13 +15,16 @@ It treats navigation as a first-class state machine instead of a scattering of v
 
 InnoRouter is responsible for:
 
-- stack navigation state through `RouteStack`
+- macro-generated route and destination wiring through `@Router`
+- locally owned stack, modal, split-detail, and tab authority through
+  `RouterHost`, `RouterModalHost`, `RouterSplitHost`, and `RouterTabHost`
+- fail-closed URL-to-route mapping through `@DeepLink`
+- opt-in spatial scene composition through `@SceneRouter` and `@Scene`
+- advanced store-owned navigation through `NavigationStore`, `ModalStore`, and
+  `FlowStore`
 - command execution through `NavigationCommand` and `NavigationEngine`
-- SwiftUI navigation authority through `NavigationStore`
-- modal authority for `sheet` and `fullScreenCover` through `ModalStore`
-- deep-link matching and planning through `DeepLinkMatcher` and `DeepLinkPipeline`
-- app-boundary execution helpers through `InnoRouterEffects`
-- opt-in spatial scene authority through `InnoRouterSpatial`
+- advanced deep-link planning and pending replay through `DeepLinkPipeline`
+  and `InnoRouterEffects`
 
 It is intentionally not a general application state machine.
 
@@ -70,21 +73,23 @@ AppKit bridge modules are required.
 
 | Capability | iOS | iPadOS | macOS | tvOS | watchOS | visionOS |
 |---|---|---|---|---|---|---|
+| `@Router` + `RouterHost` / `RouterModalHost` / `RouterTabHost` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `@Router` + `RouterSplitHost` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | `NavigationStore` / `NavigationHost` / `FlowStore` / `FlowHost` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `NavigationSplitHost` / `CoordinatorSplitHost` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | `ModalHost` `.sheet` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `ModalHost` `.fullScreenCover` native | ✅ | ✅ | ⚠ degrades | ✅ | ⚠ degrades | ⚠ degrades |
-| `TabCoordinator.badge` state API / native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
+| Tab badge state API / native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `InnoRouterSpatial`: `SceneStore` / `innoRouterSceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `InnoRouterSpatial`: `@SceneRouter` / `@Scene` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
 | `InnoRouterSpatial`: `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ degrades` means the store API accepts the request unchanged but the
 SwiftUI host renders it as a `.sheet` because `.fullScreenCover` is
-unavailable. `⚠ state only` means the coordinator stores and exposes badge
-state, but `TabCoordinatorView` omits SwiftUI's native visual badge because
-`.badge(_:)` is unavailable. `❌` means the symbol is not declared on that
-platform; build it behind `#if !os(...)`.
+unavailable. `⚠ state only` means the router retains and exposes badge
+state, but `RouterTabHost` and `TabCoordinatorView` omit SwiftUI's native visual
+badge because `.badge(_:)` is unavailable. `❌` means the symbol is unavailable
+on that platform; build it behind the appropriate availability guard.
 
 ## Installation
 
@@ -167,6 +172,23 @@ members would conflict with manual declarations. A missing or mismatched host
 is a runtime hierarchy problem and follows InnoRouter's configured environment
 diagnostic policy.
 
+### Add another surface without adding a store
+
+Keep the same route-first model and choose the host that matches the UI:
+
+| Add | Declare | Host |
+|---|---|---|
+| sheet / cover | the same `@Router` cases | `RouterHost` or modal-only `RouterModalHost` |
+| split detail | the same `@Router` enum | `RouterSplitHost` |
+| native tabs | `@TabItem` on every `@Router` case | `RouterTabHost` |
+| one-route deep links | literal allowlists on `@Router` plus `@DeepLink` cases | `RouterHost`, `RouterSplitHost`, or `RouterTabHost` |
+| visionOS scenes | `@SceneRouter` plus one `@Scene` per case | install `<Route>.scenes` in `App.body` |
+
+Every route action still comes from `@EnvironmentRouter`; spatial scene actions
+come from `@EnvironmentSceneRouter`. Invalid or incomplete macro declarations
+produce actionable compiler diagnostics. Missing or mismatched runtime host
+authority follows the configured environment diagnostic policy.
+
 ## OSS release and SemVer contract
 
 `4.0.0` is InnoRouter's first OSS release and the first version
@@ -245,12 +267,13 @@ import InnoRouterSpatial     // visionOS scenes and ornaments
 import InnoRouterEffects     // app-boundary execution and pending replay
 ```
 
-Direct imports of `InnoRouterCore`, `InnoRouterSwiftUI`,
-`InnoRouterDeepLink`, or `InnoRouterMacros` are advanced escape hatches for
-targets that deliberately want a smaller surface. In particular, choosing a
-granular non-macro product keeps the compiler-plugin target out of that
-target's build graph. SwiftPM still resolves the package-level `swift-syntax`
-dependency recorded by this source package.
+Direct imports are advanced modularization choices. `InnoRouterCore`,
+`InnoRouterSwiftUI`, and `InnoRouterDeepLink` let a target select a smaller
+non-macro surface; `InnoRouterMacros` directly exposes the macro declarations
+and re-exports the Core, SwiftUI, and DeepLink APIs they generate against.
+Choosing a granular non-macro product keeps the compiler-plugin target out of
+that target's build graph. SwiftPM still resolves the package-level
+`swift-syntax` dependency recorded by this source package.
 
 The SwiftSyntax-backed macro implementation remains in this package.
 A package-traits or separate-macro-package split should be
@@ -260,9 +283,9 @@ evaluated only after measuring `swift package show-traits`,
 
 | Product | Import when |
 |---|---|
-| `InnoRouter` | Default for app code: `@Router`, stack/modal/flow stores, hosts, intents, coordinators, deep links, and persistence helpers. |
-| `InnoRouterSpatial` | Targets that own visionOS windows, volumes, immersive spaces, scene lifecycle, or ornaments. This product is not re-exported by `InnoRouter`. |
-| `InnoRouterMacros` | Granular product for targets that need macros plus the Core/SwiftUI APIs, but not the full deep-link umbrella; app targets normally use `InnoRouter`. |
+| `InnoRouter` | Default for app code: `@Router`, `@TabItem`, `@DeepLink`, macro-first hosts, and the advanced stores beneath them. |
+| `InnoRouterSpatial` | Targets that declare visionOS windows, volumes, or immersive spaces with `@SceneRouter` / `@Scene`, or use the manual scene store and ornament APIs. This product is not re-exported by `InnoRouter`. |
+| `InnoRouterMacros` | Direct macro module that re-exports the Core, SwiftUI, and DeepLink APIs used by generated code; app targets normally use the `InnoRouter` umbrella. |
 | `InnoRouterEffects` | App-boundary code that executes `NavigationCommand` values, handles or resumes deep links, or both. |
 | `InnoRouterTesting` | Test targets that want host-less `NavigationTestStore`, `ModalTestStore`, or `FlowTestStore`. |
 
@@ -270,54 +293,56 @@ evaluated only after measuring `swift package show-traits`,
 
 - `InnoRouter`: default macro-first umbrella re-export of `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`, and `InnoRouterMacros`
 - `InnoRouterCore`: route stack, validators, commands, results, batch/transaction executors, middleware
-- `InnoRouterSwiftUI`: stores, stack/split/modal/flow hosts, coordinators, and typed `EnvironmentRouter` actions
-- `InnoRouterSpatial`: opt-in scene registry/store, visionOS scene host/anchor modifiers, and ornaments
+- `InnoRouterSwiftUI`: `RouterHost`, `RouterModalHost`, `RouterSplitHost`, `RouterTabHost`, advanced stores/hosts, coordinators, and typed `EnvironmentRouter` actions
+- `InnoRouterSpatial`: opt-in `@SceneRouter` / `@Scene`, generated scene composition, manual scene registry/store, host/anchor modifiers, and ornaments
 - `InnoRouterDeepLink`: pattern matching, diagnostics, pipeline planning, pending deep links
 - `InnoRouterEffects`: opt-in app-boundary navigation and deep-link execution helpers
-- `InnoRouterMacros`: `@Router`, `@Routable`, and `@CasePathable`
+- `InnoRouterMacros`: `@Router`, `@TabItem`, `@DeepLink`, `@Routable`, and `@CasePathable`
 
 ## Choosing the right surface
 
-> New to InnoRouter? Start with
-> [`Docs/StoreSelectionGuide.md`](Docs/StoreSelectionGuide.md) — a
-> decision tree plus four worked examples (single push stack,
-> push + independent modal, atomic URL → push + modal, iPad split).
-> The table below is the dense reference once you know the shape.
-
-Use the smallest surface that owns the transition authority you need:
+Start with a route enum and a macro-first host. Move to an externally owned
+store only when the application boundary needs restoration, mutable
+middleware, direct observation, authenticated pending replay, or an atomic
+multi-step plan.
 
 | Need | Use |
 |---|---|
-| One self-contained typed SwiftUI stack | `@Router` + `RouterHost` |
-| Stack state owned by deep links, restoration, middleware, or app state | `NavigationStore` + `NavigationHost` |
-| Split-view stack on supported platforms | `NavigationStore` + `NavigationSplitHost` |
-| Sheet / cover authority without stack resets | `ModalStore` + `ModalHost` |
-| Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
-| URL to push-only command plan | `DeepLinkMatcher` + `DeepLinkPipeline` |
-| URL to push-prefix plus modal-tail flow | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS windows, volumes, immersive spaces | `InnoRouterSpatial`: `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
+| Stack plus sheet / cover in one local feature | `@Router` + `RouterHost` |
+| Modal-only local feature | `@Router` + `RouterModalHost` |
+| Split-detail navigation on supported platforms | `@Router` + `RouterSplitHost` |
+| Native tabs with generated labels and images | `@Router` + `@TabItem` + `RouterTabHost` |
+| One admitted URL selecting or pushing one route | `@Router(deepLinkSchemes:deepLinkHosts:)` + `@DeepLink` + `RouterHost`, `RouterSplitHost`, or `RouterTabHost` |
+| visionOS windows, volumes, and immersive spaces | `InnoRouterSpatial`: `@SceneRouter` + `@Scene` + `<Route>.scenes` |
+| Externally owned stack, restoration, middleware, or direct observation | `NavigationStore` + `NavigationHost` |
+| Externally owned modal queue | `ModalStore` + `ModalHost` |
+| Atomic push + modal plans or restored flows | `FlowStore` + `FlowHost` + `FlowPlan` |
+| Authentication, pending replay, or multi-step URL planning | `DeepLinkPipeline` / `FlowDeepLinkPipeline` + `InnoRouterEffects` |
+| Manual visionOS scene authority or custom scene composition | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer, effect, or app-boundary execution | `InnoRouterEffects` |
 | Router assertions without SwiftUI hosts | `InnoRouterTesting` |
 
-`NavigationStore`, `FlowStore`, `ModalStore`, the opt-in spatial product,
-effects, and testing are intentionally separate. The library keeps these
-authorities explicit so apps can adopt only the pieces that match their
-routing boundary.
+The macro-first hosts own their stores locally and publish typed actions through
+`@EnvironmentRouter`. The Store, Effects, Testing, and manual spatial APIs stay
+available as explicit escalation paths rather than setup required for a normal
+feature.
 
 ### Quick decision flowchart
 
 ```text
-Does the screen surface combine push and modal in one flow?
-├── Yes → FlowStore + FlowHost (one source of truth, one events stream)
-└── No  → does it own modal authority (sheet / cover) only?
-         ├── Yes → ModalStore + ModalHost
-         └── No  → @Router + RouterHost
-                  (external authority: NavigationStore + NavigationHost;
-                   split-view: NavigationSplitHost)
+Is this an app-boundary flow that must own or restore routing state?
+├── No  → declare @Router, then choose a local host
+│        ├── stack + modal → RouterHost
+│        ├── modal only   → RouterModalHost
+│        ├── split detail → RouterSplitHost
+│        └── tabs         → @TabItem + RouterTabHost
+└── Yes → choose NavigationStore, ModalStore, or FlowStore for that authority
+         (authenticated or multi-step URLs: DeepLinkPipeline + Effects)
 ```
 
 For ordinary stack navigation from a view, use `@EnvironmentRouter` and its
-`go` / `back` actions. Use the lower-level intent types in
+`go` / `back` actions; the same value also exposes modal and tab actions when
+the installed host supports them. Use the lower-level intent types in
 [`Docs/IntentSelectionGuide.md`](Docs/IntentSelectionGuide.md) when a feature
 needs explicit `NavigationIntent`, modal actions, or unified `FlowIntent`
 semantics.
@@ -346,7 +371,7 @@ generate-documentation` build all show the same content.
 | [Tutorial-MiddlewareComposition](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MiddlewareComposition.md) | `InnoRouterSwiftUI` | Composing typed middleware, intercepting commands, observing churn |
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | Replacing nested `NavigationHost` + `ModalHost` stacks with `FlowHost` |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | Using `ThrottleNavigationMiddleware` with deterministic test clocks |
-| [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | Driving visionOS windows, volumetric scenes, and immersive spaces from `SceneStore` |
+| [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | Declaring visionOS windows, volumetric scenes, and immersive spaces with `@SceneRouter` and `@Scene` |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | Building composite push + modal deep links through `FlowDeepLinkPipeline` |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | Persisting `FlowPlan` / `RouteStack` across launches with `StatePersistence` |
 | [Tutorial-TestingFlows](Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/Tutorial-TestingFlows.md) | `InnoRouterTesting` | Host-less Swift Testing assertions via `FlowTestStore` |
@@ -358,33 +383,34 @@ generate-documentation` build all show the same content.
 ```mermaid
 flowchart LR
     View["SwiftUI view"] --> Actions["@EnvironmentRouter typed actions"]
-    Actions --> Store["NavigationStore / ModalStore / FlowStore"]
+    Actions --> Host["RouterHost / RouterModalHost / RouterSplitHost / RouterTabHost"]
+    Host --> Store["Locally owned store"]
     Store --> Policy["Middleware / observation / validation"]
     Policy --> Execution["NavigationEngine / modal queue"]
-    Execution --> Host["RouterHost / NavigationHost / ModalHost / FlowHost"]
-    Host --> System["NavigationStack / NavigationSplitView / sheet / fullScreenCover"]
+    Execution --> System["NavigationStack / NavigationSplitView / TabView / presentation"]
 ```
 
 - Views invoke route-typed actions through `@EnvironmentRouter`.
-- Stores own navigation, modal, or unified flow authority.
-- Hosts translate store state into native SwiftUI navigation APIs.
+- Macro-first hosts own the appropriate store and translate it into native
+  SwiftUI navigation APIs.
+- Advanced applications can choose the equivalent explicit Store or Coordinator
+  authority for external ownership and injection.
 
 ### Deep-link flow
 
 ```mermaid
 flowchart LR
-    URL["Incoming URL"] --> Match["DeepLinkMatcher"]
-    Match --> Plan["DeepLinkPipeline"]
-    Plan --> Effect["DeepLinkEffectHandler"]
-    Effect --> Decision{"Authorized now?"}
-    Decision -->|"No"| Pending["PendingDeepLink"]
-    Decision -->|"Yes"| Execute["Batch / transaction execution"]
-    Execute --> Store["NavigationStore / ModalStore"]
+    URL["Incoming URL"] --> Resolve["@DeepLink generated resolver"]
+    Resolve --> Host["RouterHost / RouterSplitHost / RouterTabHost"]
+    Host --> Route["Push route or select tab"]
+    URL -.->|advanced policy| Pipeline["DeepLinkPipeline + Effects"]
+    Pipeline --> Pending["Auth / pending replay / multi-step plan"]
 ```
 
-- Matching and planning stay pure.
-- Effect handlers are the boundary where app policy decides whether to execute now or defer.
-- Pending deep links preserve the planned transition until the app is ready to replay it.
+- Literal origin allowlists and `@DeepLink` cases provide the zero-plumbing path.
+- Hosts resolve incoming URLs automatically and arbitrate nested macro-first hosts.
+- Move to the pipeline and Effects APIs only when app policy must authorize,
+  defer, replay, or compose multiple transitions.
 
 ## State and execution model
 
@@ -509,42 +535,55 @@ InnoRouter supports modal routing for:
 
 Use:
 
-- `ModalStore`
-- `ModalHost`
-- `ModalIntent`
+- `@Router`
+- `RouterModalHost` for a modal-only feature, or `RouterHost` for stack + modal
 - `@EnvironmentRouter`
 
 Example:
 
 ```swift skip doc-fragment
-@Routable
+@Router
 enum AppModalRoute {
     case profile
     case onboarding
+
+    var destination: some View {
+        switch self {
+        case .profile: ProfileView()
+        case .onboarding: OnboardingView()
+        }
+    }
 }
 
 struct ShellView: View {
-    @State private var modalStore = ModalStore<AppModalRoute>()
+    var body: some View {
+        RouterModalHost(AppModalRoute.self) {
+            ModalLauncher()
+        }
+    }
+}
+
+struct ModalLauncher: View {
+    @EnvironmentRouter(AppModalRoute.self) private var router
 
     var body: some View {
-        ModalHost(store: modalStore) { route in
-            switch route {
-            case .profile:
-                ProfileView()
-            case .onboarding:
-                OnboardingView()
-            }
-        } content: {
-            HomeView()
+        Button("Profile") {
+            router.sheet(.profile)
         }
     }
 }
 ```
 
+Descendants present with `router.sheet(.profile)` or
+`router.cover(.onboarding)`, then dismiss with `router.dismiss()`. Use
+`ModalStore` + `ModalHost` only when the application must own the modal queue,
+restore it, mutate middleware, or observe it directly.
+
 ### Modal scope boundary
 
-On iOS and tvOS, `ModalHost` maps styles directly to `sheet` and `fullScreenCover`.
-On other supported platforms, `fullScreenCover` safely degrades to `sheet`.
+On iOS and tvOS, the macro-first hosts and `ModalHost` map styles directly to
+`sheet` and `fullScreenCover`. On other supported platforms,
+`fullScreenCover` safely degrades to `sheet`.
 
 InnoRouter intentionally does **not** own:
 
@@ -588,18 +627,56 @@ command-intercepted, and middleware-mutation cases.
 
 ## Split navigation
 
-For iPad and macOS detail navigation, use:
+For a local split-detail surface on supported platforms, use
+`@Router` + `RouterSplitHost`:
 
-- `NavigationSplitHost`
-- `CoordinatorSplitHost`
+```swift skip doc-fragment
+RouterSplitHost(AppRoute.self) {
+    SidebarView()
+} root: {
+    ContentUnavailableView("Select an item", systemImage: "sidebar.left")
+}
+```
 
-InnoRouter owns only the detail stack in split layouts.
+The host owns the detail stack and modal authority. Descendants keep using the
+same `@EnvironmentRouter` actions. Use `NavigationSplitHost` or
+`CoordinatorSplitHost` when the app must own the stack or route intents through
+a coordinator. `RouterSplitHost` is unavailable on watchOS.
 
 These remain app-owned:
 
 - sidebar selection
 - column visibility
 - compact adaptation
+
+## Tab routing surface
+
+Annotate every parameterless `@Router` case with `@TabItem`; the macros generate
+`RouterTab`, `CaseIterable`, titles, and system images:
+
+```swift skip doc-fragment
+@Router
+enum AppTab {
+    @TabItem("Home", systemImage: "house")
+    case home
+
+    @TabItem("Settings", systemImage: "gear")
+    case settings
+
+    var destination: some View {
+        switch self {
+        case .home: HomeView()
+        case .settings: SettingsView()
+        }
+    }
+}
+
+RouterTabHost(AppTab.self, initial: .home)
+```
+
+Descendants use `router.select(_:)`, `router.setBadge(_:for:)`, and the clear
+badge actions. Use `TabCoordinatorView` when the application must own selection,
+provide a custom shell, or compose independent per-tab stores.
 
 ## Coordinator surface
 
@@ -699,7 +776,35 @@ presentation style (`.sheet` / `.fullScreenCover`).
 
 ## Deep-link model
 
-Deep links are handled as plans, not hidden side effects.
+The default path is one annotation per route. Literal scheme and host allowlists
+make the generated resolver fail closed, and a matching macro-first host handles
+incoming URLs automatically:
+
+```swift skip doc-fragment
+@Router(
+    deepLinkSchemes: ["myapp", "https"],
+    deepLinkHosts: ["app.example.com"]
+)
+enum AppRoute {
+    @DeepLink("/products/:id")
+    case product(id: String)
+
+    var destination: some View {
+        switch self {
+        case .product(let id): ProductView(id: id)
+        }
+    }
+}
+
+RouterHost(AppRoute.self) { HomeView() }
+```
+
+`RouterHost` and `RouterSplitHost` push the resolved route;
+`RouterTabHost` selects it. The macros diagnose malformed patterns, missing
+origin allowlists, unsupported payloads, conflicting generated members, and
+unreachable or order-sensitive mappings during compilation.
+
+Deep-link plans remain the advanced path when the application owns policy:
 
 Core pieces:
 
@@ -770,6 +875,42 @@ semantics from the push-only pipeline for symmetric authentication
 deferral and replay. See
 [`Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md`](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md)
 for the full walk-through.
+
+## Spatial scene surface
+
+Spatial routing is macro-first in the opt-in `InnoRouterSpatial` product. Add
+`@SceneRouter` to one enum, annotate every case with `@Scene`, and install the
+generated scene tree in `App.body`:
+
+```swift skip doc-fragment
+import InnoRouterSpatial
+
+@SceneRouter
+enum AppScene {
+    @Scene(.window)
+    case main
+
+    @Scene(.immersive(style: .mixed))
+    case theatre
+
+    var destination: some View {
+        switch self {
+        case .main: MainView()
+        case .theatre: TheatreView()
+        }
+    }
+}
+
+@main
+struct ExampleApp: App {
+    var body: some Scene { AppScene.scenes }
+}
+```
+
+Descendants use `@EnvironmentSceneRouter(AppScene.self)` and route-aware
+`open(_:)`, `dismissWindow(_:)`, and `dismissImmersive()` actions. Reach for
+`SceneStore`, `innoRouterSceneHost`, and `innoRouterSceneAnchor` only for custom
+scene composition or externally owned scene authority.
 
 ## Middleware
 
@@ -874,10 +1015,16 @@ Use `FlowPendingDeepLinkPersistence` for cross-launch pending links.
 
 The repository intentionally separates documentation examples from CI examples.
 
-- `Examples/`: human-facing, idiomatic, macro-based examples
+- `Examples/`: human-facing examples for both macro-first entry points and
+  explicit Store / Coordinator escalation
 - `ExamplesSmoke/`: compiler-stable smoke fixtures for CI
 
-Current examples cover:
+`InnoRouterMacroFirstSmoke` compiles the downstream `@Router`, `@TabItem`, and
+`@DeepLink` contract together with `RouterHost`, `RouterModalHost`,
+`RouterSplitHost`, and `RouterTabHost` across the supported platform matrix.
+The separate spatial consumer smoke compiles `@SceneRouter` on visionOS.
+
+Human-facing examples cover:
 
 - standalone stack routing
 - coordinator routing
@@ -885,6 +1032,7 @@ Current examples cover:
 - split navigation
 - app shell composition
 - modal routing
+- macro-first visionOS scene routing
 
 ## Docs and release flow
 
@@ -945,11 +1093,12 @@ This is an intentional pragmatic trade-off, not an accidental drift away from Sw
 
 Human-facing examples live here:
 
-- [Examples/StandaloneExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/StandaloneExample.swift)
-- [Examples/CoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/CoordinatorExample.swift)
-- [Examples/DeepLinkExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/DeepLinkExample.swift)
-- [Examples/SplitCoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/SplitCoordinatorExample.swift)
-- [Examples/AppShellExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/AppShellExample.swift)
+- Macro-first stack: [Examples/StandaloneExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/StandaloneExample.swift)
+- Manual deep-link decision wiring: [Examples/DeepLinkExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/DeepLinkExample.swift)
+- Macro-first visionOS scenes: [Examples/VisionOSImmersiveExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/VisionOSImmersiveExample.swift)
+- Advanced coordinator: [Examples/CoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/CoordinatorExample.swift)
+- Advanced split coordinator: [Examples/SplitCoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/SplitCoordinatorExample.swift)
+- Advanced app shell: [Examples/AppShellExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/AppShellExample.swift)
 
 ## Quality gates
 
@@ -1211,12 +1360,11 @@ possible. Adopter signal helps prospective users gauge maturity.
 
 - _Your project here._
 
-The
-[`Examples/SampleAppExample.swift`](Examples/SampleAppExample.swift)
-file shows the full headline feature surface — deep-link pipeline
-with auth gating, FlowStore push+modal projection, and
-DebouncingNavigator search debouncing — composed into one
-self-contained authority class.
+[`Examples/SampleAppExample.swift`](Examples/SampleAppExample.swift) is an
+advanced app-boundary policy sketch: it constructs authenticated deep-link
+handling, Store authorities, and debounced navigation in one authority type.
+Start with the macro-first examples above; use this file when those policies
+must be owned outside a feature-local host.
 
 ## Contributing
 
