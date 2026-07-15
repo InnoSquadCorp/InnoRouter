@@ -80,6 +80,24 @@ private enum GenericOverloadedBehaviorRouterRoute<Value: Hashable & Sendable> {
     }
 }
 
+@Router
+private enum BehaviorRouterTab {
+    @TabItem("Home", systemImage: "house")
+    case home
+
+    @TabItem("Settings", systemImage: "gear")
+    case settings
+
+    var destination: some View {
+        switch self {
+        case .home:
+            Text("Home")
+        case .settings:
+            Text("Settings")
+        }
+    }
+}
+
 @Suite("@Router behavior")
 struct RouterBehaviorTests {
     @Test("Generated destination witness composes with RouterHost")
@@ -141,6 +159,17 @@ struct RouterBehaviorTests {
 
         #expect(output == "Specialized 7")
         _ = GenericOverloadedBehaviorRouterRoute<String>.destination(for: .detail("42"))
+    }
+
+    @Test("Tab metadata expands and composes with RouterTabHost")
+    @MainActor
+    func generatedRouterTabAndHost() {
+        #expect(BehaviorRouterTab.allCases == [.home, .settings])
+        #expect(BehaviorRouterTab.home.title == "Home")
+        #expect(BehaviorRouterTab.settings.systemImage == "gear")
+
+        let host = RouterTabHost(BehaviorRouterTab.self, initial: .home)
+        _ = host.body
     }
 }
 

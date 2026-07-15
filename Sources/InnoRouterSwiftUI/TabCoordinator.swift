@@ -1,20 +1,22 @@
 import Observation
 import SwiftUI
 
-/// Marker protocol for the tabs surfaced by a `TabCoordinator`.
+import InnoRouterCore
+
+/// A route that can be rendered as a native tab item.
 ///
-/// Adopters provide an icon and a title for each case; everything
-/// else (selection, badges, switching) is handled by the coordinator
-/// machinery. The default `id` implementation makes every tab its own
-/// identity, so `TabView(selection:)` can use the conformer directly.
-public protocol Tab: Hashable, CaseIterable, Identifiable, Sendable {
-    /// SF Symbol (or asset) name rendered in the tab's `Label`.
-    var icon: String { get }
+/// `@Router` generates this conformance when every route case carries
+/// `@TabItem` metadata. Manual conformances remain available for advanced
+/// `TabCoordinator` shells. The default `id` implementation makes every tab
+/// its own identity so `TabView(selection:)` can use the route directly.
+public protocol RouterTab: Route, CaseIterable, Identifiable {
     /// Human-readable label rendered alongside the icon.
     var title: String { get }
+    /// SF Symbol name rendered in the tab's `Label`.
+    var systemImage: String { get }
 }
 
-public extension Tab {
+public extension RouterTab {
     var id: Self { self }
 }
 
@@ -28,11 +30,10 @@ public extension Tab {
 ///
 /// ## Platform availability
 ///
-/// `TabCoordinatorView` renders through `TabView`, which is available
-/// on every InnoRouter platform. The badge modifier degrades silently
-/// on tvOS / watchOS (see the platform note inside the
-/// `tabBadge(_:)` helper below) so adopters do not have to gate
-/// badge state themselves.
+/// `TabCoordinatorView` renders through `TabView`, which is available on every
+/// InnoRouter platform. On tvOS and watchOS badge state is preserved while the
+/// unavailable native visual is omitted. The first positive badge passed to
+/// ``TabCoordinator/setBadge(_:for:)`` reports one privacy-safe runtime warning.
 ///
 /// ## Conforming
 ///
@@ -44,9 +45,9 @@ public extension Tab {
 /// ```swift
 /// @Observable @MainActor
 /// final class AppTabs: TabCoordinator {
-///     enum TabType: String, Tab { case home, search, profile
-///         var icon: String { rawValue + ".fill" }
+///     enum TabType: String, RouterTab { case home, search, profile
 ///         var title: String { rawValue.capitalized }
+///         var systemImage: String { rawValue + ".fill" }
 ///     }
 ///     var selectedTab: TabType = .home
 ///     var tabBadges: [TabType: Int] = [:]
@@ -56,7 +57,7 @@ public extension Tab {
 /// ```
 @MainActor
 public protocol TabCoordinator: AnyObject, Observable {
-    associatedtype TabType: Tab
+    associatedtype TabType: RouterTab
     associatedtype TabContent: View
 
     var selectedTab: TabType { get set }
@@ -72,6 +73,7 @@ public extension TabCoordinator {
     }
 
     func setBadge(_ count: Int, for tab: TabType) {
+        UnsupportedTabBadgeDiagnostics.reportIfNeeded(count)
         tabBadges[tab] = count > 0 ? count : nil
     }
 
@@ -96,30 +98,11 @@ public struct TabCoordinatorView<C: TabCoordinator>: View {
             ForEach(Array(C.TabType.allCases), id: \.self) { tab in
                 coordinator.content(for: tab)
                     .tabItem {
-                        Label(tab.title, systemImage: tab.icon)
+                        Label(tab.title, systemImage: tab.systemImage)
                     }
                     .tag(tab)
-                    .tabBadge(coordinator.tabBadges[tab])
+                    .routerTabBadge(coordinator.tabBadges[tab])
             }
         }
-    }
-}
-
-private extension View {
-    // MARK: - Platform: TabView.badge(_:) is unavailable on tvOS and watchOS.
-    // On those platforms we drop the badge silently so the TabCoordinator API
-    // surface stays identical; on iOS / iPadOS / macOS / visionOS a non-nil,
-    // positive count is rendered through SwiftUI's native badge modifier.
-    @ViewBuilder
-    func tabBadge(_ count: Int?) -> some View {
-#if os(tvOS) || os(watchOS)
-        self
-#else
-        if let count, count > 0 {
-            self.badge(count)
-        } else {
-            self
-        }
-#endif
     }
 }

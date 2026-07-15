@@ -16,12 +16,12 @@ import InnoRouterEffects
 
 @Suite("TabCoordinator Tests")
 struct TabCoordinatorTests {
-    enum TestTab: String, InnoRouterSwiftUI.Tab, CaseIterable {
+    enum TestTab: String, InnoRouterSwiftUI.RouterTab, CaseIterable {
         case home
         case inbox
         case settings
 
-        var icon: String {
+        var systemImage: String {
             switch self {
             case .home: "house"
             case .inbox: "tray"

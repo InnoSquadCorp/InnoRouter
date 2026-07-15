@@ -21,10 +21,11 @@ A coordinator:
 
 ## Environment intent
 
-`EnvironmentRouter` is the primary stack-navigation API for views. It exposes
-discoverable `RouterActions` methods such as `go`, `back`, and `backToRoot`
-without revealing the store. Advanced `NavigationIntent` values remain
-available through the explicit `send(_:)` escape hatch:
+`EnvironmentRouter` is the primary route-action API for views. It exposes
+discoverable `RouterActions` methods such as `go`, `sheet`, and, for a
+`RouterTab`, `select` without revealing host-owned state. Advanced
+`NavigationIntent` values remain available through the explicit `send(_:)`
+escape hatch:
 
 ```swift skip doc-fragment
 struct ProductRow: View {
@@ -82,12 +83,32 @@ store / coordinator identity. The host modifiers do this for normal
 
 ## Flow and tab coordinators
 
-`StepCoordinator` and `TabCoordinator` complement `NavigationStore`; they do not replace it.
+`RouterTabHost` is the macro-first tab surface. It owns selection and badge
+state locally, renders every generated `RouterTab` case through native
+`TabView`, and exposes `select`, `setBadge`, `clearBadge`, and
+`clearAllBadges` through `EnvironmentRouter`:
+
+```swift skip doc-fragment
+struct InboxButton: View {
+    @EnvironmentRouter(AppTab.self) private var router
+
+    var body: some View {
+        Button("Inbox") {
+            router.select(.inbox)
+            router.setBadge(3, for: .inbox)
+        }
+    }
+}
+```
+
+`StepCoordinator` and `TabCoordinator` remain advanced composition tools and
+complement `NavigationStore`; they do not replace it.
 
 Recommended mental model:
 
 - `NavigationStore` owns route-stack authority
-- `TabCoordinator` owns shell tab state
+- `RouterTabHost` owns local macro-first shell tab state
+- `TabCoordinator` owns externally managed or custom-shell tab state
 - `StepCoordinator` owns local step state inside a destination
 
 Use composition rather than trying to collapse all three responsibilities into one type.

@@ -2,7 +2,7 @@ import SwiftUI
 
 import InnoRouterCore
 
-/// Type-safe navigation, modal, and flow actions exposed by
+/// Type-safe navigation, modal, flow, and tab actions exposed by
 /// ``EnvironmentRouter``.
 ///
 /// The named methods cover ordinary transitions. `send(_:)` and
@@ -13,6 +13,7 @@ public struct RouterActions<R: Route>: Sendable {
         case navigation
         case modal
         case flow
+        case tab
     }
 
     private let resolveEnvironment: @MainActor @Sendable () -> RouterEnvironment?
@@ -195,6 +196,11 @@ public struct RouterActions<R: Route>: Sendable {
     }
 
     @MainActor
+    private func tabHandler(action: String) -> RouterTabActionHandler<R>? {
+        authority(capability: .tab, action: action)?.tab
+    }
+
+    @MainActor
     private func authority(
         capability: Capability,
         action: String
@@ -223,6 +229,8 @@ public struct RouterActions<R: Route>: Sendable {
             hasCapability = authority.modal != nil
         case .flow:
             hasCapability = authority.flow != nil
+        case .tab:
+            hasCapability = authority.tab != nil
         }
 
         guard hasCapability else {
@@ -242,6 +250,45 @@ public struct RouterActions<R: Route>: Sendable {
             policy: environmentMissingPolicy,
             message: message
         )
+    }
+}
+
+public extension RouterActions where R: RouterTab {
+    /// Selects a tab owned by the nearest matching ``RouterTabHost``.
+    @MainActor
+    func select(_ tab: R) {
+        guard let handler = tabHandler(action: "select(_:)") else {
+            return
+        }
+        handler(.select(tab))
+    }
+
+    /// Sets a positive badge count, or clears the badge for non-positive
+    /// values, on the nearest matching ``RouterTabHost``.
+    @MainActor
+    func setBadge(_ count: Int, for tab: R) {
+        guard let handler = tabHandler(action: "setBadge(_:for:)") else {
+            return
+        }
+        handler(.setBadge(count, for: tab))
+    }
+
+    /// Clears the badge for one tab.
+    @MainActor
+    func clearBadge(for tab: R) {
+        guard let handler = tabHandler(action: "clearBadge(for:)") else {
+            return
+        }
+        handler(.setBadge(nil, for: tab))
+    }
+
+    /// Clears every badge owned by the nearest matching ``RouterTabHost``.
+    @MainActor
+    func clearAllBadges() {
+        guard let handler = tabHandler(action: "clearAllBadges()") else {
+            return
+        }
+        handler(.clearAllBadges)
     }
 }
 

@@ -2,24 +2,35 @@ import SwiftUI
 
 import InnoRouterCore
 
+enum RouterTabAction<R: Route>: Sendable {
+    case select(R)
+    case setBadge(Int?, for: R)
+    case clearAllBadges
+}
+
+typealias RouterTabActionHandler<R: Route> = @MainActor @Sendable (RouterTabAction<R>) -> Void
+
 /// The route-typed capabilities published by an InnoRouter host.
 ///
 /// This is intentionally internal. Consumers interact with the stable
 /// ``RouterActions`` facade while hosts compose whichever low-level
-/// navigation, modal, and flow handlers they actually own.
+/// navigation, modal, flow, and tab handlers they actually own.
 struct RouterAuthority<R: Route>: Sendable {
     let navigation: NavigationIntentHandler<R>?
     let modal: ModalIntentHandler<R>?
     let flow: FlowIntentHandler<R>?
+    let tab: RouterTabActionHandler<R>?
 
     init(
         navigation: NavigationIntentHandler<R>? = nil,
         modal: ModalIntentHandler<R>? = nil,
-        flow: FlowIntentHandler<R>? = nil
+        flow: FlowIntentHandler<R>? = nil,
+        tab: RouterTabActionHandler<R>? = nil
     ) {
         self.navigation = navigation
         self.modal = modal
         self.flow = flow
+        self.tab = tab
     }
 }
 
@@ -71,7 +82,7 @@ struct RouterEnvironment: Sendable {
     ) {
         // One host is one source of truth. Replacing the complete authority
         // prevents a nested stack-only host from accidentally combining its
-        // navigation store with an outer FlowHost's modal/flow stores.
+        // navigation store with an outer host's modal, flow, or tab state.
         self[routeType] = authority
     }
 }
@@ -102,13 +113,15 @@ extension View {
         for routeType: R.Type,
         navigation: NavigationIntentHandler<R>? = nil,
         modal: ModalIntentHandler<R>? = nil,
-        flow: FlowIntentHandler<R>? = nil
+        flow: FlowIntentHandler<R>? = nil,
+        tab: RouterTabActionHandler<R>? = nil
     ) -> some View {
         routerAuthority(
             RouterAuthority(
                 navigation: navigation,
                 modal: modal,
-                flow: flow
+                flow: flow,
+                tab: tab
             ),
             for: routeType
         )

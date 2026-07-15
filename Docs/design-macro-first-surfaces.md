@@ -135,7 +135,11 @@ RouterTabHost(AppTab.self, initial: .home)
 When any `@TabItem` is present, `@Router` requires every case to have exactly
 one marker and rejects associated values. It generates the iteration and tab
 metadata witnesses. `RouterTabHost` owns selection and badge state internally;
-the existing `TabCoordinator` API remains the explicit custom-shell path.
+descendants use `@EnvironmentRouter` actions to select tabs and update badges.
+The existing `TabCoordinator` API remains the explicit custom-shell path. On
+tvOS and watchOS badge state is retained while the unavailable native visual is
+omitted, with one privacy-safe warning on the first positive macro-first badge
+action or initial badge value.
 
 ### Deep links
 

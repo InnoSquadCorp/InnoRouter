@@ -9,14 +9,14 @@ coordinators, and environment intent dispatch for InnoRouter.
 
 This module owns:
 
-- `DestinationRoute`, `RouterHost`, and `EnvironmentRouter`
+- `DestinationRoute`, `RouterHost`, `RouterTabHost`, and `EnvironmentRouter`
 - `NavigationStore`
 - `NavigationHost` and `NavigationSplitHost` (watchOS not supported for split host)
 - `CoordinatorHost` and `CoordinatorSplitHost` (watchOS not supported for split host)
 - `ModalStore` and `ModalHost`
 - `NavigationIntent` and `ModalIntent`
 - `RouterActions`, `EnvironmentNavigationIntent`, and `EnvironmentModalIntent`
-- `StepCoordinator` and `TabCoordinator`
+- `RouterTab`, `StepCoordinator`, and `TabCoordinator`
 
 The guiding rule is simple: start with `@Router` + `RouterHost`, let views use
 `@EnvironmentRouter`, and promote the `NavigationStore` to an application-owned
@@ -39,6 +39,8 @@ Pick the narrowest authority that matches the app boundary:
 | Split-view stack on supported platforms | `NavigationStore` + `NavigationSplitHost` |
 | Sheet / cover authority | `ModalStore` + `ModalHost` |
 | Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
+| Native tabs with host-owned selection and badges | `@Router` + `@TabItem` + `RouterTabHost` |
+| Custom app shell with externally owned tab state | `TabCoordinator` + `TabCoordinatorView` |
 | visionOS windows, volumes, immersive spaces | Opt in to `InnoRouterSpatial` |
 | Reducer, effect, or app-boundary execution | `InnoRouterEffects` |
 | Host-less router assertions | `InnoRouterTesting` |
@@ -53,11 +55,12 @@ InnoRouter ships on every Apple platform it currently supports:
 | `NavigationSplitHost` / `CoordinatorSplitHost` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | `ModalHost` `.sheet` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `ModalHost` `.fullScreenCover` (native) | ✅ | ✅ | ⚠ degrades to `.sheet` | ✅ | ⚠ degrades to `.sheet` | ⚠ degrades to `.sheet` |
-| `TabCoordinator.badge` state API / native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
+| `RouterTabHost` / `TabCoordinator` badge state and native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
 
-`⚠ state only` means `TabCoordinator` stores and exposes badge state, but
-`TabCoordinatorView` omits SwiftUI's native visual badge because `.badge(_:)`
-is unavailable on that platform.
+`⚠ state only` means tab selection and badge values remain functional, but the
+host omits SwiftUI's unavailable native badge visual. The first positive badge
+submitted through `RouterActions`, `RouterTabHost` initial state, or
+`TabCoordinator.setBadge` reports one privacy-safe warning on that platform.
 
 ## Topics
 

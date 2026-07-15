@@ -17,11 +17,11 @@ enum AppShellModalRoute: Route {
     case onboarding
 }
 
-enum AppShellTab: String, InnoRouter.Tab {
+enum AppShellTab: String, InnoRouter.RouterTab {
     case home
     case settings
 
-    var icon: String {
+    var systemImage: String {
         switch self {
         case .home: "house"
         case .settings: "gearshape"

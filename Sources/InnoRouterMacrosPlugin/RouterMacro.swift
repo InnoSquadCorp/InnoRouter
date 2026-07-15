@@ -91,41 +91,78 @@ public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
             return []
         }
 
-        if extractCasePathEnumCases(from: enumDecl).isEmpty {
-            diagnose(.emptyRouter, at: node, context: context)
+        let tabExpansion = analyzeRouterTabs(in: enumDecl, context: context)
+        if case .invalid = tabExpansion {
+            return []
         }
-
-        let hasConformance = directlyConformsToDestinationRoute(enumDecl)
-        if hasConformance, let inheritanceClause = enumDecl.inheritanceClause {
-            diagnose(
-                .redundantDestinationRouteConformance,
-                at: inheritanceClause,
-                context: context
-            )
-        }
-        if directlyConformsToRoute(enumDecl), let inheritanceClause = enumDecl.inheritanceClause {
-            diagnose(
-                .redundantRouteConformance,
-                at: inheritanceClause,
-                context: context
-            )
-        }
-
-        let access = inferAccessLevel(from: enumDecl).keyword
-        let conformance = hasConformance ? "" : ": InnoRouterSwiftUI.DestinationRoute"
-        let extensionDecl = try ExtensionDeclSyntax(
-            """
-            extension \(type)\(raw: conformance) {
-                @Swift.MainActor
-                @SwiftUI.ViewBuilder
-                \(raw: access) static func destination(for route: Self) -> some SwiftUI.View {
-                    route.destination
-                }
-            }
-            """
+        return try makeRouterExtensions(
+            for: type,
+            enumDecl: enumDecl,
+            tabExpansion: tabExpansion,
+            node: node,
+            context: context
         )
-        return [extensionDecl]
     }
+}
+
+private func makeRouterExtensions(
+    for type: some TypeSyntaxProtocol,
+    enumDecl: EnumDeclSyntax,
+    tabExpansion: RouterTabExpansion,
+    node: AttributeSyntax,
+    context: some MacroExpansionContext
+) throws -> [ExtensionDeclSyntax] {
+    if extractCasePathEnumCases(from: enumDecl).isEmpty {
+        diagnose(.emptyRouter, at: node, context: context)
+    }
+
+    let hasDestinationRouteConformance = directlyConformsToDestinationRoute(enumDecl)
+    if hasDestinationRouteConformance, let inheritanceClause = enumDecl.inheritanceClause {
+        diagnose(
+            .redundantDestinationRouteConformance,
+            at: inheritanceClause,
+            context: context
+        )
+    }
+    if directlyConformsToRoute(enumDecl), let inheritanceClause = enumDecl.inheritanceClause {
+        diagnose(
+            .redundantRouteConformance,
+            at: inheritanceClause,
+            context: context
+        )
+    }
+
+    var conformances: [String] = []
+    if !hasDestinationRouteConformance {
+        conformances.append("InnoRouterSwiftUI.DestinationRoute")
+    }
+
+    let access = inferAccessLevel(from: enumDecl).keyword
+    let tabMembers: String
+    if case .valid(let specification) = tabExpansion {
+        if !specification.directlyConformsToRouterTab {
+            conformances.append("InnoRouterSwiftUI.RouterTab")
+        }
+        tabMembers = "\n\n" + renderRouterTabMembers(from: specification, access: access)
+    } else {
+        tabMembers = ""
+    }
+
+    let conformanceClause = conformances.isEmpty
+        ? ""
+        : ": " + conformances.joined(separator: ", ")
+    let extensionDecl = try ExtensionDeclSyntax(
+        """
+        extension \(type)\(raw: conformanceClause) {
+            @Swift.MainActor
+            @SwiftUI.ViewBuilder
+            \(raw: access) static func destination(for route: Self) -> some SwiftUI.View {
+                route.destination
+            }\(raw: tabMembers)
+        }
+        """
+    )
+    return [extensionDecl]
 }
 
 private func containsDestinationBinding(_ variable: VariableDeclSyntax) -> Bool {

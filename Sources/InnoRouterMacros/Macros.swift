@@ -16,6 +16,7 @@
 /// - adds `@MainActor` and `@ViewBuilder` to that property when needed
 /// - synthesises `DestinationRoute` (and therefore `Route`) conformance
 /// - generates the access-level-matched `static destination(for:)` witness
+/// - synthesises `RouterTab` metadata when every case has `@TabItem`
 ///
 /// Host the result with `RouterHost` and navigate from descendants with
 /// `EnvironmentRouter`.
@@ -51,17 +52,53 @@
 /// The macro emits actionable compiler diagnostics when it is attached to a
 /// non-enum declaration, when `destination` is missing or has the wrong shape,
 /// or when a manual `static destination(for:)` conflicts with the generated
-/// witness. It warns for root-only enums and redundant explicit `Route` or
-/// `DestinationRoute` conformance.
+/// witness. Tab routers also diagnose partial, conditional, unavailable, or
+/// associated-value cases at compile time. It warns for root-only enums and
+/// redundant explicit `Route`, `DestinationRoute`, `RouterTab`, or
+/// `CaseIterable` conformance.
 @attached(memberAttribute)
 @attached(
     extension,
-    conformances: DestinationRoute,
-    names: named(destination)
+    conformances: DestinationRoute, RouterTab,
+    names: named(destination), named(allCases), named(title), named(systemImage)
 )
 public macro Router() = #externalMacro(
     module: "InnoRouterMacrosPlugin",
     type: "RouterMacro"
+)
+
+// MARK: - @TabItem
+
+/// Marks a parameterless `@Router` enum case as a tab destination.
+///
+/// When any case carries `@TabItem`, every case in that router must carry one.
+/// `@Router` then synthesises `RouterTab`, `CaseIterable`, and the tab metadata
+/// witnesses used by `RouterTabHost`.
+///
+/// ```swift
+/// @Router
+/// enum AppTab {
+///     @TabItem("Home", systemImage: "house")
+///     case home
+///
+///     @TabItem("Settings", systemImage: "gear")
+///     case settings
+///
+///     var destination: some View {
+///         switch self {
+///         case .home: HomeView()
+///         case .settings: SettingsView()
+///         }
+///     }
+/// }
+/// ```
+@attached(peer)
+public macro TabItem(
+    _ title: String,
+    systemImage: String
+) = #externalMacro(
+    module: "InnoRouterMacrosPlugin",
+    type: "TabItemMacro"
 )
 
 // MARK: - @Routable
