@@ -164,28 +164,6 @@ struct UnifiedTelemetryStreamTests {
         #expect(callbackPaths == [[.home]])
     }
 
-    @Test("NavigationStore configuration telemetry sink receives structured events")
-    @MainActor
-    func navigationTelemetrySinkReceivesEvents() {
-        let captured = Mutex<[NavigationEvent<StreamRoute>]>([])
-        let sink = AnyNavigationTelemetrySink<StreamRoute> { event in
-            captured.withLock { $0.append(event) }
-        }
-        let store = NavigationStore<StreamRoute>(
-            configuration: NavigationStoreConfiguration(telemetrySink: sink)
-        )
-
-        store.send(.go(.home))
-
-        let events = captured.withLock { $0 }
-        guard case .changed(let from, let to) = events.first else {
-            Issue.record("Expected .changed, got \(String(describing: events.first))")
-            return
-        }
-        #expect(from.path.isEmpty)
-        #expect(to.path == [.home])
-    }
-
     @Test("NavigationStore onEvent receives every event kind in events stream order")
     @MainActor
     func navigationOnEventMatchesStreamForEveryEventKind() async {
@@ -227,15 +205,10 @@ struct UnifiedTelemetryStreamTests {
     @MainActor
     func navigationObservationFanOutIsReentrantSafe() async {
         let callbackEvents = Mutex<[NavigationEvent<StreamRoute>]>([])
-        let telemetryEvents = Mutex<[NavigationEvent<StreamRoute>]>([])
         let hasReentered = Mutex(false)
-        let telemetrySink = AnyNavigationTelemetrySink<StreamRoute> { event in
-            telemetryEvents.withLock { $0.append(event) }
-        }
         let storeReference = WeakStoreReference<NavigationStore<StreamRoute>>()
         let store = NavigationStore(
             configuration: NavigationStoreConfiguration(
-                telemetrySink: telemetrySink,
                 onEvent: { event in
                     callbackEvents.withLock { $0.append(event) }
                     guard case .changed(_, let newState) = event,
@@ -259,7 +232,6 @@ struct UnifiedTelemetryStreamTests {
         _ = store.execute(.push(.home))
 
         let callbacks = callbackEvents.withLock { $0 }
-        let telemetry = telemetryEvents.withLock { $0 }
         var streamed: [NavigationEvent<StreamRoute>] = []
         for _ in callbacks.indices {
             guard let event = await iterator.next() else {
@@ -271,7 +243,6 @@ struct UnifiedTelemetryStreamTests {
 
         #expect(store.state.path == [.home, .detail])
         #expect(callbacks.count == 2)
-        #expect(callbacks == telemetry)
         #expect(callbacks == streamed)
     }
 
@@ -371,33 +342,6 @@ struct UnifiedTelemetryStreamTests {
         #expect(promoted.route == .settings)
     }
 
-    @Test("ModalStore configuration telemetry sink receives replacement events")
-    @MainActor
-    func modalTelemetrySinkReceivesEvents() {
-        let captured = Mutex<[ModalEvent<StreamRoute>]>([])
-        let sink = AnyModalTelemetrySink<StreamRoute> { event in
-            captured.withLock { $0.append(event) }
-        }
-        let store = ModalStore<StreamRoute>(
-            configuration: ModalStoreConfiguration(telemetrySink: sink)
-        )
-
-        store.present(.sheet, style: .sheet)
-        store.replaceCurrent(.settings, style: .sheet)
-
-        let events = captured.withLock { $0 }
-        let replacement = events.first {
-            if case .replaced = $0 { return true }
-            return false
-        }
-        guard case .replaced(let old, let new) = replacement else {
-            Issue.record("Expected .replaced event, got \(events)")
-            return
-        }
-        #expect(old.route == .sheet)
-        #expect(new.route == .settings)
-    }
-
     @Test("ModalStore onEvent receives every event kind in events stream order")
     @MainActor
     func modalOnEventMatchesStreamForEveryEventKind() async {
@@ -443,15 +387,10 @@ struct UnifiedTelemetryStreamTests {
     @MainActor
     func modalObservationFanOutIsReentrantSafe() async {
         let callbackEvents = Mutex<[ModalEvent<StreamRoute>]>([])
-        let telemetryEvents = Mutex<[ModalEvent<StreamRoute>]>([])
         let hasReentered = Mutex(false)
-        let telemetrySink = AnyModalTelemetrySink<StreamRoute> { event in
-            telemetryEvents.withLock { $0.append(event) }
-        }
         let storeReference = WeakStoreReference<ModalStore<StreamRoute>>()
         let store = ModalStore(
             configuration: ModalStoreConfiguration(
-                telemetrySink: telemetrySink,
                 onEvent: { event in
                     callbackEvents.withLock { $0.append(event) }
                     guard case .dismissed = event else { return }
@@ -471,13 +410,11 @@ struct UnifiedTelemetryStreamTests {
         store.present(.sheet, style: .sheet)
         store.present(.detail, style: .sheet)
         callbackEvents.withLock { $0.removeAll() }
-        telemetryEvents.withLock { $0.removeAll() }
         var iterator = store.events.makeAsyncIterator()
 
         store.dismissAll()
 
         let callbacks = callbackEvents.withLock { $0 }
-        let telemetry = telemetryEvents.withLock { $0 }
         var streamed: [ModalEvent<StreamRoute>] = []
         for _ in callbacks.indices {
             guard let event = await iterator.next() else {
@@ -490,7 +427,6 @@ struct UnifiedTelemetryStreamTests {
         #expect(store.currentPresentation?.route == .settings)
         #expect(store.queuedPresentations.isEmpty)
         #expect(callbacks.count == 5)
-        #expect(callbacks == telemetry)
         #expect(callbacks == streamed)
         guard callbacks.count == 5 else { return }
         #expect({ if case .queueChanged = callbacks[0] { true } else { false } }())
@@ -649,33 +585,6 @@ struct UnifiedTelemetryStreamTests {
             }
         }
         #expect(sawRejected)
-    }
-
-    @Test("FlowStore configuration telemetry sink receives wrapped events")
-    @MainActor
-    func flowTelemetrySinkReceivesWrappedEvents() {
-        let captured = Mutex<[FlowEvent<StreamRoute>]>([])
-        let sink = AnyFlowTelemetrySink<StreamRoute> { event in
-            captured.withLock { $0.append(event) }
-        }
-        let store = FlowStore<StreamRoute>(
-            configuration: FlowStoreConfiguration(telemetrySink: sink)
-        )
-
-        store.send(.push(.home))
-
-        let events = captured.withLock { $0 }
-        #expect(events.count == 2)
-        guard case .navigation(.changed) = events.first else {
-            Issue.record("Expected .navigation(.changed), got \(String(describing: events.first))")
-            return
-        }
-        guard case .pathChanged(let old, let new) = events.last else {
-            Issue.record("Expected .pathChanged, got \(String(describing: events.last))")
-            return
-        }
-        #expect(old.isEmpty)
-        #expect(new == [.push(.home)])
     }
 
     @Test("FlowStore onEvent receives wrapped inner events before pathChanged in stream order")

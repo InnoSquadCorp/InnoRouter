@@ -109,12 +109,12 @@ private final class ReentrantInnerPathMismatchObserver {
 }
 
 @MainActor
-private final class ReentrantInnerNavigationTelemetryObserver {
+private final class ReentrantInnerNavigationEventObserver {
     weak var store: FlowStore<FlowDelegationRoute>?
     var flowEvents: [FlowEvent<FlowDelegationRoute>] = []
     private var didReenter = false
 
-    func record(_ event: NavigationEvent<FlowDelegationRoute>) {
+    func handle(_ event: NavigationEvent<FlowDelegationRoute>) {
         guard !didReenter, case .changed = event else { return }
         didReenter = true
         store?.send(.push(.detail))
@@ -122,16 +122,16 @@ private final class ReentrantInnerNavigationTelemetryObserver {
 }
 
 @MainActor
-private final class ReentrantInnerModalTelemetryObserver {
+private final class ReentrantInnerModalEventObserver {
     weak var store: FlowStore<FlowDelegationRoute>?
     var flowEvents: [FlowEvent<FlowDelegationRoute>] = []
-    var pathAtReplacementTelemetry: [RouteStep<FlowDelegationRoute>]?
+    var pathAtReplacementEvent: [RouteStep<FlowDelegationRoute>]?
     private var didReenter = false
 
-    func record(_ event: ModalEvent<FlowDelegationRoute>) {
+    func handle(_ event: ModalEvent<FlowDelegationRoute>) {
         guard !didReenter, case .replaced = event else { return }
         didReenter = true
-        pathAtReplacementTelemetry = store?.path
+        pathAtReplacementEvent = store?.path
         store?.send(.dismiss)
     }
 }
@@ -357,15 +357,15 @@ struct FlowStoreDelegationTests {
         #expect(changedPaths == [[.paywall], [.paywall, .detail]])
     }
 
-    @Test("inner navigation telemetry reentry waits for wrapped flow events")
+    @Test("inner navigation onEvent reentry waits for wrapped flow events")
     @MainActor
-    func innerNavigationTelemetryReentryPreservesOrder() {
-        let observer = ReentrantInnerNavigationTelemetryObserver()
+    func innerNavigationOnEventReentryPreservesOrder() {
+        let observer = ReentrantInnerNavigationEventObserver()
         let store = FlowStore<FlowDelegationRoute>(
             configuration: .init(
                 navigation: .init(
-                    telemetrySink: AnyNavigationTelemetrySink { event in
-                        observer.record(event)
+                    onEvent: { event in
+                        observer.handle(event)
                     }
                 ),
                 onEvent: { event in
@@ -402,15 +402,15 @@ struct FlowStoreDelegationTests {
         )
     }
 
-    @Test("inner modal telemetry reentry waits for replacement flow events")
+    @Test("inner modal onEvent reentry waits for replacement flow events")
     @MainActor
-    func innerModalTelemetryReentryPreservesOrder() {
-        let observer = ReentrantInnerModalTelemetryObserver()
+    func innerModalOnEventReentryPreservesOrder() {
+        let observer = ReentrantInnerModalEventObserver()
         let store = FlowStore<FlowDelegationRoute>(
             configuration: .init(
                 modal: .init(
-                    telemetrySink: AnyModalTelemetrySink { event in
-                        observer.record(event)
+                    onEvent: { event in
+                        observer.handle(event)
                     }
                 ),
                 onEvent: { event in
@@ -424,7 +424,7 @@ struct FlowStoreDelegationTests {
 
         store.modalStore.replaceCurrent(.paywall, style: .fullScreenCover)
 
-        #expect(observer.pathAtReplacementTelemetry == [.cover(.paywall)])
+        #expect(observer.pathAtReplacementEvent == [.cover(.paywall)])
         #expect(store.path.isEmpty)
         #expect(observer.flowEvents.count == 6)
         guard observer.flowEvents.count == 6 else { return }

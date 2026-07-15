@@ -237,9 +237,7 @@ public final class FlowStore<R: Route> {
         let link = FlowStoreLink<R>()
 
         let userNavigationOnEvent = configuration.navigation.onEvent
-        let userNavigationTelemetrySink = configuration.navigation.telemetrySink
         let userModalOnEvent = configuration.modal.onEvent
-        let userModalTelemetrySink = configuration.modal.telemetrySink
 
         var navigationConfiguration = configuration.navigation
         navigationConfiguration.onEvent = { event in
@@ -252,18 +250,6 @@ public final class FlowStore<R: Route> {
                 userNavigationOnEvent?(event)
             }
         }
-        if let userNavigationTelemetrySink {
-            navigationConfiguration.telemetrySink = AnyNavigationTelemetrySink { event in
-                guard let owner = link.owner else {
-                    userNavigationTelemetrySink.record(event)
-                    return
-                }
-                owner.withInnerObservationSource(.navigation) {
-                    userNavigationTelemetrySink.record(event)
-                }
-            }
-        }
-
         var modalConfiguration = configuration.modal
         modalConfiguration.onEvent = { event in
             guard let owner = link.owner else {
@@ -275,26 +261,12 @@ public final class FlowStore<R: Route> {
                 userModalOnEvent?(event)
             }
         }
-        if let userModalTelemetrySink {
-            modalConfiguration.telemetrySink = AnyModalTelemetrySink { event in
-                guard let owner = link.owner else {
-                    userModalTelemetrySink.record(event)
-                    return
-                }
-                owner.withInnerObservationSource(.modal) {
-                    userModalTelemetrySink.record(event)
-                }
-            }
-        }
-
         let broadcaster = EventBroadcaster<FlowEvent<R>>(
             bufferingPolicy: configuration.eventBufferingPolicy
         )
         let onEvent = configuration.onEvent
-        let telemetrySink = configuration.telemetrySink
         let eventDispatcher = SerializedEventDispatcher<FlowEvent<R>> { event in
             onEvent?(event)
-            telemetrySink?.record(event)
             broadcaster.broadcast(event)
         }
 

@@ -7,7 +7,7 @@
 /// delivered.
 ///
 /// A store can enqueue a complete event sequence before delivery begins. If
-/// an `onEvent` callback or telemetry sink synchronously mutates the same
+/// an `onEvent` callback or another synchronous observer mutates the same
 /// store, the resulting events are appended and delivered after the current
 /// queued sequence has reached every observer.
 @MainActor

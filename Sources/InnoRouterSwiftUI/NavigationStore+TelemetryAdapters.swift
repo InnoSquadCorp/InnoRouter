@@ -38,12 +38,9 @@ extension NavigationStore {
 
     static func defaultTelemetrySink(
         for configuration: NavigationStoreConfiguration<R>
-    ) -> AnyNavigationTelemetrySink<R>? {
-        if let telemetrySink = configuration.telemetrySink {
-            return telemetrySink
-        }
+    ) -> OSLogNavigationTelemetrySink<R>? {
         guard let logger = configuration.logger else { return nil }
-        return AnyNavigationTelemetrySink(OSLogNavigationTelemetrySink<R>(logger: logger))
+        return OSLogNavigationTelemetrySink(logger: logger)
     }
 
     static func publicPolicy(

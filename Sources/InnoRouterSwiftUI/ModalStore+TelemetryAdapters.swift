@@ -74,12 +74,9 @@ extension ModalStore {
 
     static func defaultTelemetrySink(
         for configuration: ModalStoreConfiguration<M>
-    ) -> AnyModalTelemetrySink<M>? {
-        if let telemetrySink = configuration.telemetrySink {
-            return telemetrySink
-        }
+    ) -> OSLogModalTelemetrySink<M>? {
         guard let logger = configuration.logger else { return nil }
-        return AnyModalTelemetrySink(OSLogModalTelemetrySink<M>(logger: logger))
+        return OSLogModalTelemetrySink(logger: logger)
     }
 
     static func publicAction(

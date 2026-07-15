@@ -60,16 +60,8 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
     /// ``NavigationPathMismatchPolicy/assertAndReplace`` without changing the
     /// production default.
     public var pathMismatchPolicy: NavigationPathMismatchPolicy<R>
-    /// Optional logger used by the default OSLog telemetry adapter and
-    /// internal execution traces.
+    /// Optional logger used for observation events and internal execution traces.
     public var logger: Logger?
-    /// Structured telemetry sink used for store lifecycle events.
-    ///
-    /// When this is `nil` and `logger` is supplied, ``NavigationStore``
-    /// installs ``OSLogNavigationTelemetrySink`` as the default adapter.
-    /// Provide this sink when telemetry should go to analytics, tests,
-    /// or another structured pipeline instead of OSLog.
-    public var telemetrySink: AnyNavigationTelemetrySink<R>?
     /// Called synchronously for every public navigation observation event.
     ///
     /// The callback receives stack changes, batch and transaction completions,
@@ -102,7 +94,6 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         routeStackValidator: RouteStackValidator<R> = .permissive,
         pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace,
         logger: Logger? = nil,
-        telemetrySink: AnyNavigationTelemetrySink<R>? = nil,
         onEvent: (@MainActor @Sendable (NavigationEvent<R>) -> Void)? = nil,
         eventBufferingPolicy: EventBufferingPolicy = .default,
         pathReconciler: (any NavigationPathReconciling<R>)? = nil
@@ -111,7 +102,6 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         self.routeStackValidator = routeStackValidator
         self.pathMismatchPolicy = pathMismatchPolicy
         self.logger = logger
-        self.telemetrySink = telemetrySink
         self.onEvent = onEvent
         self.eventBufferingPolicy = eventBufferingPolicy
         self.pathReconciler = pathReconciler ?? NavigationPathReconciler<R>()

@@ -65,14 +65,14 @@ private func cancelReplaceMiddleware() -> AnyNavigationMiddleware<PreservedRoute
 @MainActor
 struct TestStoreConfigurationPreservationTests {
 
-    @Test("NavigationTestStore preserves telemetry, buffering, and path reconciliation")
+    @Test("NavigationTestStore preserves observation, buffering, and path reconciliation")
     func navigationConfigurationIsPreserved() async {
-        let telemetry = Mutex<[NavigationEvent<PreservedRoute>]>([])
+        let observed = Mutex<[NavigationEvent<PreservedRoute>]>([])
         let reconciler = RecordingPathReconciler()
         let store = NavigationTestStore<PreservedRoute>(
             configuration: NavigationStoreConfiguration(
-                telemetrySink: AnyNavigationTelemetrySink { event in
-                    telemetry.withLock { $0.append(event) }
+                onEvent: { event in
+                    observed.withLock { $0.append(event) }
                 },
                 eventBufferingPolicy: .bufferingNewest(1),
                 pathReconciler: reconciler
@@ -86,7 +86,7 @@ struct TestStoreConfigurationPreservationTests {
         #expect(reconciler.calls.count == 1)
         #expect(reconciler.calls.first?.old == [.home])
         #expect(reconciler.calls.first?.new == [.home, .detail])
-        #expect(telemetry.withLock { $0.count } == 2)
+        #expect(observed.withLock { $0.count } == 2)
 
         guard case .changed(_, let finalState) = await iterator.next() else {
             Issue.record("Expected the newest navigation change event")
@@ -104,14 +104,10 @@ struct TestStoreConfigurationPreservationTests {
         let queued = ModalPresentation<PreservedRoute>(route: .sheetA, style: .sheet)
         let replacement = ModalPresentation<PreservedRoute>(route: .detail, style: .fullScreenCover)
         let replacements = Mutex<[(PreservedRoute, PreservedRoute)]>([])
-        let telemetry = Mutex<[ModalEvent<PreservedRoute>]>([])
         let store = ModalTestStore<PreservedRoute>(
             currentPresentation: active,
             queuedPresentations: [queued],
             configuration: ModalStoreConfiguration(
-                telemetrySink: AnyModalTelemetrySink { event in
-                    telemetry.withLock { $0.append(event) }
-                },
                 middlewares: [
                     ModalMiddlewareRegistration(
                         middleware: cancelDismissAllMiddleware(),
@@ -140,13 +136,6 @@ struct TestStoreConfigurationPreservationTests {
             guard case .replaced(let old, let new) = event else { return false }
             return old == active && new == replacement
         })
-        #expect(telemetry.withLock { events in
-            events.contains { event in
-                if case .replaced = event { return true }
-                return false
-            }
-        })
-
         guard
             case .commandIntercepted(command: .dismissAll, result: .cancelled) = await iterator.next()
         else {
@@ -158,10 +147,9 @@ struct TestStoreConfigurationPreservationTests {
         store.finish()
     }
 
-    @Test("FlowTestStore preserves top-level onEvent, telemetry, buffering, and coalescing")
+    @Test("FlowTestStore preserves top-level observation, buffering, and coalescing")
     func flowConfigurationIsPreserved() async {
         let callbackEvents = Mutex<[FlowEvent<PreservedRoute>]>([])
-        let telemetry = Mutex<[FlowEvent<PreservedRoute>]>([])
         let store = FlowTestStore<PreservedRoute>(
             configuration: FlowStoreConfiguration(
                 navigation: NavigationStoreConfiguration(
@@ -172,9 +160,6 @@ struct TestStoreConfigurationPreservationTests {
                         ),
                     ]
                 ),
-                telemetrySink: AnyFlowTelemetrySink { event in
-                    telemetry.withLock { $0.append(event) }
-                },
                 onEvent: { event in
                     callbackEvents.withLock { $0.append(event) }
                 },
@@ -195,13 +180,6 @@ struct TestStoreConfigurationPreservationTests {
                 return false
             }
         })
-        #expect(telemetry.withLock { events in
-            events.contains { event in
-                if case .intentRejected = event { return true }
-                return false
-            }
-        })
-
         guard case .intentRejected(.replaceStack([.home]), _) = await iterator.next() else {
             Issue.record("Expected the newest flow rejection event")
             return
@@ -211,30 +189,20 @@ struct TestStoreConfigurationPreservationTests {
         store.finish()
     }
 
-    @Test("FlowTestStore preserves inner telemetry and observers")
+    @Test("FlowTestStore preserves inner observers")
     func flowInnerConfigurationsArePreserved() {
-        let navigationTelemetry = Mutex<[NavigationEvent<PreservedRoute>]>([])
-        let modalTelemetry = Mutex<[ModalEvent<PreservedRoute>]>([])
-        let navigationCallbackCount = Mutex(0)
-        let modalCallbackCount = Mutex(0)
+        let navigationEvents = Mutex<[NavigationEvent<PreservedRoute>]>([])
+        let modalEvents = Mutex<[ModalEvent<PreservedRoute>]>([])
         let store = FlowTestStore<PreservedRoute>(
             configuration: FlowStoreConfiguration(
                 navigation: NavigationStoreConfiguration(
-                    telemetrySink: AnyNavigationTelemetrySink { event in
-                        navigationTelemetry.withLock { $0.append(event) }
-                    },
                     onEvent: { event in
-                        guard case .changed = event else { return }
-                        navigationCallbackCount.withLock { $0 += 1 }
+                        navigationEvents.withLock { $0.append(event) }
                     }
                 ),
                 modal: ModalStoreConfiguration(
-                    telemetrySink: AnyModalTelemetrySink { event in
-                        modalTelemetry.withLock { $0.append(event) }
-                    },
                     onEvent: { event in
-                        guard case .presented = event else { return }
-                        modalCallbackCount.withLock { $0 += 1 }
+                        modalEvents.withLock { $0.append(event) }
                     }
                 )
             )
@@ -244,15 +212,13 @@ struct TestStoreConfigurationPreservationTests {
         store.send(.presentSheet(.sheetA))
 
         #expect(store.path == [.push(.home), .sheet(.sheetA)])
-        #expect(navigationCallbackCount.withLock { $0 } == 1)
-        #expect(modalCallbackCount.withLock { $0 } == 1)
-        #expect(navigationTelemetry.withLock { events in
+        #expect(navigationEvents.withLock { events in
             events.contains { event in
                 if case .changed = event { return true }
                 return false
             }
         })
-        #expect(modalTelemetry.withLock { events in
+        #expect(modalEvents.withLock { events in
             events.contains { event in
                 if case .presented = event { return true }
                 return false

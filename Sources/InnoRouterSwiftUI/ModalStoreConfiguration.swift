@@ -108,16 +108,8 @@ public enum ModalPresentResult<M: Route>: Sendable, Equatable {
 /// observation hook after construction without re-stating every other
 /// parameter — see ``NavigationStoreConfiguration`` for the same pattern.
 public struct ModalStoreConfiguration<M: Route>: Sendable {
-    /// Optional logger used by the default OSLog telemetry adapter and
-    /// internal execution traces.
+    /// Optional logger used for observation events and internal execution traces.
     public var logger: Logger?
-    /// Structured telemetry sink used for modal lifecycle events.
-    ///
-    /// When this is `nil` and `logger` is supplied, ``ModalStore``
-    /// installs ``OSLogModalTelemetrySink`` as the default adapter.
-    /// Provide this sink when telemetry should go to analytics, tests,
-    /// or another structured pipeline instead of OSLog.
-    public var telemetrySink: AnyModalTelemetrySink<M>?
     /// Initial middleware registrations applied at store construction time.
     public var middlewares: [ModalMiddlewareRegistration<M>]
     /// Called synchronously for every public modal observation event.
@@ -147,14 +139,12 @@ public struct ModalStoreConfiguration<M: Route>: Sendable {
     /// Creates a modal store configuration.
     public init(
         logger: Logger? = nil,
-        telemetrySink: AnyModalTelemetrySink<M>? = nil,
         middlewares: [ModalMiddlewareRegistration<M>] = [],
         onEvent: (@MainActor @Sendable (ModalEvent<M>) -> Void)? = nil,
         eventBufferingPolicy: EventBufferingPolicy = .default,
         queueCancellationPolicy: ModalQueueCancellationPolicy<M> = .preserve
     ) {
         self.logger = logger
-        self.telemetrySink = telemetrySink
         self.middlewares = middlewares
         self.onEvent = onEvent
         self.eventBufferingPolicy = eventBufferingPolicy

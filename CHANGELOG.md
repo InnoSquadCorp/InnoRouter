@@ -55,9 +55,6 @@ are bare semver (no leading `v`).
   their redundant `using:` argument; call `validate(on:)` or `canExecute(on:)`,
   or invoke `NavigationEngine.apply(_:to:)` directly when applying a sequence
   against one mutable preview stack.
-- The `logger` stored by each `OSLog*TelemetrySink` is now private. Configure
-  these adapters through `init(logger:)`; retain the original `Logger`
-  separately if the app also needs to use it directly.
 - `DebouncingNavigator.inner` is now private. Keep the wrapped navigator at
   the composition site when immediate execution or state inspection is also
   required, instead of reaching through the debounce wrapper.
@@ -133,6 +130,15 @@ are bare semver (no leading `v`).
   so one callback can observe the complete flow without separately wiring
   the nested configurations. This is a 5.0 source-breaking change; no
   compatibility callback shims are provided.
+- The duplicate public telemetry sink hierarchy is removed. This includes
+  `NavigationTelemetrySink`, `ModalTelemetrySink`, `FlowTelemetrySink`, their
+  `Any*TelemetrySink` erasers, the public `OSLog*TelemetrySink` adapters, and
+  each store configuration's `telemetrySink` property and initializer
+  argument. Use `onEvent` for synchronous analytics and diagnostics, consume
+  `events` for asynchronous observation, and supply `logger` on navigation or
+  modal configuration when the framework's private OSLog summaries are
+  sufficient. These paths now observe one canonical event delivery instead of
+  receiving duplicate callback and sink fan-out.
 - `FlowCoordinator` and `FlowCoordinatorView` are now
   `StepCoordinator` and `StepCoordinatorView`, clarifying that this
   helper owns checklist progress rather than navigation/modal state.

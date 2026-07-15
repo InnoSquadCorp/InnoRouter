@@ -1,29 +1,11 @@
 # Public API baseline for InnoRouterSwiftUI
-relationship | conformsTo | AnyFlowTelemetrySink | FlowTelemetrySink |  |
-relationship | conformsTo | AnyModalTelemetrySink | ModalTelemetrySink |  |
-relationship | conformsTo | AnyNavigationTelemetrySink | NavigationTelemetrySink |  |
 relationship | conformsTo | ChildCoordinator | LifecycleAware |  |
 relationship | conformsTo | FlowStore | FlowStateReading |  |
 relationship | conformsTo | NavigationPathReconciler | NavigationPathReconciling |  |
-relationship | conformsTo | OSLogFlowTelemetrySink | FlowTelemetrySink |  |
-relationship | conformsTo | OSLogModalTelemetrySink | ModalTelemetrySink |  |
-relationship | conformsTo | OSLogNavigationTelemetrySink | NavigationTelemetrySink |  |
 relationship | defaultImplementationOf | ChildCoordinator.parentDidCancel() | ChildCoordinator.parentDidCancel() |  |
 relationship | defaultImplementationOf | Coordinator.handle(_:) | Coordinator.handle(_:) |  |
 relationship | defaultImplementationOf | StepCoordinator.canProceed(from:) | StepCoordinator.canProceed(from:) |  |
 relationship | defaultImplementationOf | StoreObserver.handle(_:) | StoreObserver.handle(_:) |  |
-relationship | memberOf | AnyFlowTelemetrySink.RouteType | AnyFlowTelemetrySink |  |
-relationship | memberOf | AnyFlowTelemetrySink.init(_:) | AnyFlowTelemetrySink |  |
-relationship | memberOf | AnyFlowTelemetrySink.init(record:) | AnyFlowTelemetrySink |  |
-relationship | memberOf | AnyFlowTelemetrySink.record(_:) | AnyFlowTelemetrySink |  |
-relationship | memberOf | AnyModalTelemetrySink.RouteType | AnyModalTelemetrySink |  |
-relationship | memberOf | AnyModalTelemetrySink.init(_:) | AnyModalTelemetrySink |  |
-relationship | memberOf | AnyModalTelemetrySink.init(record:) | AnyModalTelemetrySink |  |
-relationship | memberOf | AnyModalTelemetrySink.record(_:) | AnyModalTelemetrySink |  |
-relationship | memberOf | AnyNavigationTelemetrySink.RouteType | AnyNavigationTelemetrySink |  |
-relationship | memberOf | AnyNavigationTelemetrySink.init(_:) | AnyNavigationTelemetrySink |  |
-relationship | memberOf | AnyNavigationTelemetrySink.init(record:) | AnyNavigationTelemetrySink |  |
-relationship | memberOf | AnyNavigationTelemetrySink.record(_:) | AnyNavigationTelemetrySink |  |
 relationship | memberOf | AsyncNavigationMiddlewareExecutor.add(_:) | AsyncNavigationMiddlewareExecutor |  |
 relationship | memberOf | AsyncNavigationMiddlewareExecutor.execute(_:) | AsyncNavigationMiddlewareExecutor |  |
 relationship | memberOf | AsyncNavigationMiddlewareExecutor.init(store:) | AsyncNavigationMiddlewareExecutor |  |
@@ -90,12 +72,11 @@ relationship | memberOf | FlowStore.observe(_:) | FlowStore |  |
 relationship | memberOf | FlowStore.path | FlowStore |  |
 relationship | memberOf | FlowStore.send(_:) | FlowStore |  |
 relationship | memberOf | FlowStoreConfiguration.eventBufferingPolicy | FlowStoreConfiguration |  |
-relationship | memberOf | FlowStoreConfiguration.init(navigation:modal:telemetrySink:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | FlowStoreConfiguration |  |
+relationship | memberOf | FlowStoreConfiguration.init(navigation:modal:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.modal | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.navigation | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.onEvent | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.queueCoalescePolicy | FlowStoreConfiguration |  |
-relationship | memberOf | FlowStoreConfiguration.telemetrySink | FlowStoreConfiguration |  |
 relationship | memberOf | LifecycleSignals.fireParentCancel() | LifecycleSignals |  |
 relationship | memberOf | LifecycleSignals.fireTeardown() | LifecycleSignals |  |
 relationship | memberOf | LifecycleSignals.init(onParentCancel:onTeardown:) | LifecycleSignals |  |
@@ -174,12 +155,11 @@ relationship | memberOf | ModalStore.replaceCurrent(_:style:) | ModalStore |  |
 relationship | memberOf | ModalStore.replaceMiddleware(_:with:debugName:) | ModalStore |  |
 relationship | memberOf | ModalStore.send(_:) | ModalStore |  |
 relationship | memberOf | ModalStoreConfiguration.eventBufferingPolicy | ModalStoreConfiguration |  |
-relationship | memberOf | ModalStoreConfiguration.init(logger:telemetrySink:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | ModalStoreConfiguration |  |
+relationship | memberOf | ModalStoreConfiguration.init(logger:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | ModalStoreConfiguration |  |
 relationship | memberOf | ModalStoreConfiguration.logger | ModalStoreConfiguration |  |
 relationship | memberOf | ModalStoreConfiguration.middlewares | ModalStoreConfiguration |  |
 relationship | memberOf | ModalStoreConfiguration.onEvent | ModalStoreConfiguration |  |
 relationship | memberOf | ModalStoreConfiguration.queueCancellationPolicy | ModalStoreConfiguration |  |
-relationship | memberOf | ModalStoreConfiguration.telemetrySink | ModalStoreConfiguration |  |
 relationship | memberOf | NavigationEvent.batchExecuted(_:) | NavigationEvent |  |
 relationship | memberOf | NavigationEvent.changed(from:to:) | NavigationEvent |  |
 relationship | memberOf | NavigationEvent.description | NavigationEvent |  |
@@ -249,23 +229,13 @@ relationship | memberOf | NavigationStore.replaceMiddleware(_:with:debugName:) |
 relationship | memberOf | NavigationStore.send(_:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.state | NavigationStore |  |
 relationship | memberOf | NavigationStoreConfiguration.eventBufferingPolicy | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.init(middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onEvent:eventBufferingPolicy:pathReconciler:) | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.init(middlewares:routeStackValidator:pathMismatchPolicy:logger:onEvent:eventBufferingPolicy:pathReconciler:) | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.logger | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.middlewares | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.onEvent | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.pathMismatchPolicy | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.pathReconciler | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.routeStackValidator | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.telemetrySink | NavigationStoreConfiguration |  |
-relationship | memberOf | OSLogFlowTelemetrySink.RouteType | OSLogFlowTelemetrySink |  |
-relationship | memberOf | OSLogFlowTelemetrySink.init(logger:) | OSLogFlowTelemetrySink |  |
-relationship | memberOf | OSLogFlowTelemetrySink.record(_:) | OSLogFlowTelemetrySink |  |
-relationship | memberOf | OSLogModalTelemetrySink.RouteType | OSLogModalTelemetrySink |  |
-relationship | memberOf | OSLogModalTelemetrySink.init(logger:) | OSLogModalTelemetrySink |  |
-relationship | memberOf | OSLogModalTelemetrySink.record(_:) | OSLogModalTelemetrySink |  |
-relationship | memberOf | OSLogNavigationTelemetrySink.RouteType | OSLogNavigationTelemetrySink |  |
-relationship | memberOf | OSLogNavigationTelemetrySink.init(logger:) | OSLogNavigationTelemetrySink |  |
-relationship | memberOf | OSLogNavigationTelemetrySink.record(_:) | OSLogNavigationTelemetrySink |  |
 relationship | memberOf | QueueCoalescePolicy.Action | QueueCoalescePolicy |  |
 relationship | memberOf | QueueCoalescePolicy.Action.dropQueued | QueueCoalescePolicy.Action |  |
 relationship | memberOf | QueueCoalescePolicy.Action.preserve | QueueCoalescePolicy.Action |  |
@@ -348,15 +318,9 @@ relationship | requirementOf | FlowStateReading.currentModalRoute | FlowStateRea
 relationship | requirementOf | FlowStateReading.hasModalTail | FlowStateReading |  |
 relationship | requirementOf | FlowStateReading.navigationPath | FlowStateReading |  |
 relationship | requirementOf | FlowStateReading.path | FlowStateReading |  |
-relationship | requirementOf | FlowTelemetrySink.RouteType | FlowTelemetrySink |  |
-relationship | requirementOf | FlowTelemetrySink.record(_:) | FlowTelemetrySink |  |
 relationship | requirementOf | LifecycleAware.lifecycleSignals | LifecycleAware |  |
-relationship | requirementOf | ModalTelemetrySink.RouteType | ModalTelemetrySink |  |
-relationship | requirementOf | ModalTelemetrySink.record(_:) | ModalTelemetrySink |  |
 relationship | requirementOf | NavigationPathReconciling.RouteType | NavigationPathReconciling |  |
 relationship | requirementOf | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | NavigationPathReconciling |  |
-relationship | requirementOf | NavigationTelemetrySink.RouteType | NavigationTelemetrySink |  |
-relationship | requirementOf | NavigationTelemetrySink.record(_:) | NavigationTelemetrySink |  |
 relationship | requirementOf | RouterTab.systemImage | RouterTab |  |
 relationship | requirementOf | RouterTab.title | RouterTab |  |
 relationship | requirementOf | StepCoordinator.Step | StepCoordinator |  |
@@ -375,10 +339,7 @@ symbol | swift.associatedtype | Coordinator.Destination | Destination | associat
 symbol | swift.associatedtype | Coordinator.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | DestinationRoute.Destination | Destination | associatedtype Destination : View | []
 symbol | swift.associatedtype | FlowStateReading.RouteType | RouteType | associatedtype RouteType : Route | []
-symbol | swift.associatedtype | FlowTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
-symbol | swift.associatedtype | ModalTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | NavigationPathReconciling.RouteType | RouteType | associatedtype RouteType : Route | []
-symbol | swift.associatedtype | NavigationTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | StepCoordinator.Step | Step | associatedtype Step : CaseIterable, Hashable, Sendable | []
 symbol | swift.associatedtype | StoreObserver.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | TabCoordinator.TabContent | TabContent | associatedtype TabContent : View | []
@@ -503,12 +464,6 @@ symbol | swift.enum.case | QueueCoalescePolicy.dropQueued | QueueCoalescePolicy.
 symbol | swift.enum.case | QueueCoalescePolicy.preserve | QueueCoalescePolicy.preserve | case preserve | []
 symbol | swift.enum.case | StateRestorationTarget.flowPlan | StateRestorationTarget.flowPlan | case flowPlan | []
 symbol | swift.enum.case | StateRestorationTarget.navigationStack | StateRestorationTarget.navigationStack | case navigationStack | []
-symbol | swift.init | AnyFlowTelemetrySink.init(_:) | init(_:) | @MainActor init<S>(_ sink: S) where R == S.RouteType, S : FlowTelemetrySink | []
-symbol | swift.init | AnyFlowTelemetrySink.init(record:) | init(record:) | @MainActor init(record: @escaping @MainActor (FlowEvent<R>) -> Void) | []
-symbol | swift.init | AnyModalTelemetrySink.init(_:) | init(_:) | @MainActor init<S>(_ sink: S) where M == S.RouteType, S : ModalTelemetrySink | []
-symbol | swift.init | AnyModalTelemetrySink.init(record:) | init(record:) | @MainActor init(record: @escaping @MainActor (ModalEvent<M>) -> Void) | []
-symbol | swift.init | AnyNavigationTelemetrySink.init(_:) | init(_:) | @MainActor init<S>(_ sink: S) where R == S.RouteType, S : NavigationTelemetrySink | []
-symbol | swift.init | AnyNavigationTelemetrySink.init(record:) | init(record:) | @MainActor init(record: @escaping @MainActor (NavigationEvent<R>) -> Void) | []
 symbol | swift.init | AsyncNavigationMiddlewareExecutor.init(store:) | init(store:) | @MainActor init(store: NavigationStore<R>) | []
 symbol | swift.init | ChildCoordinatorTaskTracker.init() | init() | @MainActor init() | []
 symbol | swift.init | CoordinatorHost.init(coordinator:root:) | init(coordinator:root:) | @MainActor init(coordinator: C, @ViewBuilder root: @escaping () -> Root) | []
@@ -523,12 +478,12 @@ symbol | swift.init | FlowHost.init(store:destination:root:) | init(store:destin
 symbol | swift.init | FlowHost.init(store:root:) | init(store:root:) | @MainActor init(store: FlowStore<R>, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | FlowStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init()) | []
 symbol | swift.init | FlowStore.init(validating:configuration:) | init(validating:configuration:) | @MainActor convenience init(validating initial: [RouteStep<R>], configuration: FlowStoreConfiguration<R> = .init()) throws | []
-symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:telemetrySink:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation:modal:telemetrySink:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), telemetrySink: AnyFlowTelemetrySink<R>? = nil, onEvent: (@MainActor (FlowEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve) | []
+symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation:modal:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), onEvent: (@MainActor (FlowEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve) | []
 symbol | swift.init | LifecycleSignals.init(onParentCancel:onTeardown:) | init(onParentCancel:onTeardown:) | @MainActor init(onParentCancel: (@MainActor () -> Void)? = nil, onTeardown: (@MainActor () -> Void)? = nil) | []
 symbol | swift.init | ModalHost.init(store:destination:content:) | init(store:destination:content:) | @MainActor init(store: ModalStore<M>, @ViewBuilder destination: @escaping (M) -> Destination, @ViewBuilder content: @escaping () -> Content) | []
 symbol | swift.init | ModalMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyModalMiddleware<M>, debugName: String? = nil) | []
 symbol | swift.init | ModalStore.init(currentPresentation:queuedPresentations:configuration:) | init(currentPresentation:queuedPresentations:configuration:) | @MainActor init(currentPresentation: ModalPresentation<M>? = nil, queuedPresentations: [ModalPresentation<M>] = [], configuration: ModalStoreConfiguration<M> = .init()) | []
-symbol | swift.init | ModalStoreConfiguration.init(logger:telemetrySink:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | init(logger:telemetrySink:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | init(logger: Logger? = nil, telemetrySink: AnyModalTelemetrySink<M>? = nil, middlewares: [ModalMiddlewareRegistration<M>] = [], onEvent: (@MainActor (ModalEvent<M>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCancellationPolicy: ModalQueueCancellationPolicy<M> = .preserve) | []
+symbol | swift.init | ModalStoreConfiguration.init(logger:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | init(logger:middlewares:onEvent:eventBufferingPolicy:queueCancellationPolicy:) | init(logger: Logger? = nil, middlewares: [ModalMiddlewareRegistration<M>] = [], onEvent: (@MainActor (ModalEvent<M>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCancellationPolicy: ModalQueueCancellationPolicy<M> = .preserve) | []
 symbol | swift.init | NavigationHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationHost.init(store:root:) | init(store:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) | []
@@ -536,10 +491,7 @@ symbol | swift.init | NavigationPathReconciler.init() | init() | nonisolated ini
 symbol | swift.init | NavigationSplitHost.init(store:sidebar:destination:root:) | init(store:sidebar:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: RouteStack<R> = .init(), configuration: NavigationStoreConfiguration<R> = .init()) | []
 symbol | swift.init | NavigationStore.init(initialPath:configuration:) | init(initialPath:configuration:) | @MainActor convenience init(initialPath: [R], configuration: NavigationStoreConfiguration<R> = .init()) throws | []
-symbol | swift.init | NavigationStoreConfiguration.init(middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onEvent:eventBufferingPolicy:pathReconciler:) | init(middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onEvent:eventBufferingPolicy:pathReconciler:) | init(middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, telemetrySink: AnyNavigationTelemetrySink<R>? = nil, onEvent: (@MainActor (NavigationEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, pathReconciler: (any NavigationPathReconciling<R>)? = nil) | []
-symbol | swift.init | OSLogFlowTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
-symbol | swift.init | OSLogModalTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
-symbol | swift.init | OSLogNavigationTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
+symbol | swift.init | NavigationStoreConfiguration.init(middlewares:routeStackValidator:pathMismatchPolicy:logger:onEvent:eventBufferingPolicy:pathReconciler:) | init(middlewares:routeStackValidator:pathMismatchPolicy:logger:onEvent:eventBufferingPolicy:pathReconciler:) | init(middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, onEvent: (@MainActor (NavigationEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, pathReconciler: (any NavigationPathReconciling<R>)? = nil) | []
 symbol | swift.init | RouterHost.init(_:initial:configuration:root:) | init(_:initial:configuration:root:) | @MainActor init(_ routeType: R.Type, initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init(), @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | RouterModalHost.init(_:initial:queued:configuration:content:) | init(_:initial:queued:configuration:content:) | @MainActor init(_ routeType: R.Type, initial: ModalPresentation<R>? = nil, queued: [ModalPresentation<R>] = [], configuration: ModalStoreConfiguration<R> = .init(), @ViewBuilder content: @escaping () -> Content) | []
 symbol | swift.init | RouterSplitHost.init(_:initial:configuration:sidebar:root:) | init(_:initial:configuration:sidebar:root:) | @MainActor init(_ routeType: R.Type, initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init(), @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder root: @escaping () -> Root) | []
@@ -550,9 +502,6 @@ symbol | swift.init | TabCoordinatorView.init(coordinator:) | init(coordinator:)
 symbol | swift.init | ThrottleNavigationMiddleware.init(interval:) | init(interval:) | @MainActor convenience init(interval: Duration) | []
 symbol | swift.init | ThrottleNavigationMiddleware.init(interval:clock:key:) | init(interval:clock:key:) | @MainActor init(interval: Duration, clock: C, key: @escaping @MainActor (NavigationCommand<R>) -> ThrottleNavigationMiddleware<R, C>.Key?) | []
 symbol | swift.init | ThrottleNavigationMiddleware.init(interval:key:) | init(interval:key:) | @MainActor convenience init(interval: Duration, key: @escaping @MainActor (NavigationCommand<R>) -> String?) | []
-symbol | swift.method | AnyFlowTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: FlowEvent<R>) | []
-symbol | swift.method | AnyModalTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: ModalEvent<M>) | []
-symbol | swift.method | AnyNavigationTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: NavigationEvent<R>) | []
 symbol | swift.method | AsyncNavigationMiddlewareExecutor.add(_:) | add(_:) | @MainActor func add(_ middleware: any AsyncNavigationMiddleware<R>) | []
 symbol | swift.method | AsyncNavigationMiddlewareExecutor.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) async -> NavigationResult<R> | []
 symbol | swift.method | ChildCoordinator.parentDidCancel() | parentDidCancel() | @MainActor func parentDidCancel() | []
@@ -567,7 +516,6 @@ symbol | swift.method | DebouncingNavigator.debouncedExecute(_:) | debouncedExec
 symbol | swift.method | FlowStore.apply(_:) | apply(_:) | @discardableResult @MainActor func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> | []
 symbol | swift.method | FlowStore.observe(_:) | observe(_:) | @MainActor func observe<O>(_ observer: O) -> StoreObserverSubscription where R == O.RouteType, O : StoreObserver | []
 symbol | swift.method | FlowStore.send(_:) | send(_:) | @MainActor func send(_ intent: FlowIntent<R>) | []
-symbol | swift.method | FlowTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: FlowEvent<Self.RouteType>) | []
 symbol | swift.method | LifecycleSignals.fireParentCancel() | fireParentCancel() | @MainActor func fireParentCancel() | []
 symbol | swift.method | LifecycleSignals.fireTeardown() | fireTeardown() | @MainActor func fireTeardown() | []
 symbol | swift.method | ModalStore.addMiddleware(_:debugName:) | addMiddleware(_:debugName:) | @discardableResult @MainActor func addMiddleware(_ middleware: AnyModalMiddleware<M>, debugName: String? = nil) -> ModalMiddlewareHandle | []
@@ -583,7 +531,6 @@ symbol | swift.method | ModalStore.removeMiddleware(_:) | removeMiddleware(_:) |
 symbol | swift.method | ModalStore.replaceCurrent(_:style:) | replaceCurrent(_:style:) | @MainActor func replaceCurrent(_ route: M, style: ModalPresentationStyle) | []
 symbol | swift.method | ModalStore.replaceMiddleware(_:with:debugName:) | replaceMiddleware(_:with:debugName:) | @discardableResult @MainActor func replaceMiddleware(_ handle: ModalMiddlewareHandle, with middleware: AnyModalMiddleware<M>, debugName: String? = nil) -> Bool | []
 symbol | swift.method | ModalStore.send(_:) | send(_:) | @MainActor func send(_ intent: ModalIntent<M>) | []
-symbol | swift.method | ModalTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: ModalEvent<Self.RouteType>) | []
 symbol | swift.method | NavigationPathReconciler.reconcile(from:to:resolveMismatch:execute:executeBatch:) | reconcile(from:to:resolveMismatch:execute:executeBatch:) | @MainActor func reconcile(from oldPath: [R], to newPath: [R], resolveMismatch: @MainActor ([R], [R]) -> NavigationPathMismatchResolution<R>, execute: @MainActor (NavigationCommand<R>) -> Void, executeBatch: @MainActor ([NavigationCommand<R>]) -> Void) | []
 symbol | swift.method | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | reconcile(from:to:resolveMismatch:execute:executeBatch:) | @MainActor func reconcile(from oldPath: [Self.RouteType], to newPath: [Self.RouteType], resolveMismatch: @MainActor ([Self.RouteType], [Self.RouteType]) -> NavigationPathMismatchResolution<Self.RouteType>, execute: @MainActor (NavigationCommand<Self.RouteType>) -> Void, executeBatch: @MainActor ([NavigationCommand<Self.RouteType>]) -> Void) | []
 symbol | swift.method | NavigationStore.addMiddleware(_:debugName:) | addMiddleware(_:debugName:) | @discardableResult @MainActor func addMiddleware(_ middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) -> NavigationMiddlewareHandle | []
@@ -599,10 +546,6 @@ symbol | swift.method | NavigationStore.pathBinding(policy:) | pathBinding(polic
 symbol | swift.method | NavigationStore.removeMiddleware(_:) | removeMiddleware(_:) | @discardableResult @MainActor func removeMiddleware(_ handle: NavigationMiddlewareHandle) -> AnyNavigationMiddleware<R>? | []
 symbol | swift.method | NavigationStore.replaceMiddleware(_:with:debugName:) | replaceMiddleware(_:with:debugName:) | @discardableResult @MainActor func replaceMiddleware(_ handle: NavigationMiddlewareHandle, with middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) -> Bool | []
 symbol | swift.method | NavigationStore.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<R>) | []
-symbol | swift.method | NavigationTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: NavigationEvent<Self.RouteType>) | []
-symbol | swift.method | OSLogFlowTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: FlowEvent<R>) | []
-symbol | swift.method | OSLogModalTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: ModalEvent<M>) | []
-symbol | swift.method | OSLogNavigationTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: NavigationEvent<R>) | []
 symbol | swift.method | RouterActions.back() | back() | @MainActor func back() | []
 symbol | swift.method | RouterActions.back(by:) | back(by:) | @MainActor func back(by count: Int) | []
 symbol | swift.method | RouterActions.back(to:) | back(to:) | @MainActor func back(to route: R) | []
@@ -671,7 +614,6 @@ symbol | swift.property | FlowStoreConfiguration.modal | modal | var modal: Moda
 symbol | swift.property | FlowStoreConfiguration.navigation | navigation | var navigation: NavigationStoreConfiguration<R> | []
 symbol | swift.property | FlowStoreConfiguration.onEvent | onEvent | var onEvent: (@MainActor (FlowEvent<R>) -> Void)? | []
 symbol | swift.property | FlowStoreConfiguration.queueCoalescePolicy | queueCoalescePolicy | var queueCoalescePolicy: QueueCoalescePolicy<R> | []
-symbol | swift.property | FlowStoreConfiguration.telemetrySink | telemetrySink | var telemetrySink: AnyFlowTelemetrySink<R>? | []
 symbol | swift.property | LifecycleAware.lifecycleSignals | lifecycleSignals | @MainActor var lifecycleSignals: LifecycleSignals { get set } | []
 symbol | swift.property | LifecycleSignals.onParentCancel | onParentCancel | @MainActor var onParentCancel: (@MainActor () -> Void)? | []
 symbol | swift.property | LifecycleSignals.onTeardown | onTeardown | @MainActor var onTeardown: (@MainActor () -> Void)? | []
@@ -700,7 +642,6 @@ symbol | swift.property | ModalStoreConfiguration.logger | logger | var logger: 
 symbol | swift.property | ModalStoreConfiguration.middlewares | middlewares | var middlewares: [ModalMiddlewareRegistration<M>] | []
 symbol | swift.property | ModalStoreConfiguration.onEvent | onEvent | var onEvent: (@MainActor (ModalEvent<M>) -> Void)? | []
 symbol | swift.property | ModalStoreConfiguration.queueCancellationPolicy | queueCancellationPolicy | var queueCancellationPolicy: ModalQueueCancellationPolicy<M> | []
-symbol | swift.property | ModalStoreConfiguration.telemetrySink | telemetrySink | var telemetrySink: AnyModalTelemetrySink<M>? | []
 symbol | swift.property | NavigationEvent.description | description | var description: String { get } | []
 symbol | swift.property | NavigationHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | NavigationMiddlewareMetadata.debugName | debugName | let debugName: String? | []
@@ -724,7 +665,6 @@ symbol | swift.property | NavigationStoreConfiguration.onEvent | onEvent | var o
 symbol | swift.property | NavigationStoreConfiguration.pathMismatchPolicy | pathMismatchPolicy | var pathMismatchPolicy: NavigationPathMismatchPolicy<R> | []
 symbol | swift.property | NavigationStoreConfiguration.pathReconciler | pathReconciler | var pathReconciler: any NavigationPathReconciling<R> | []
 symbol | swift.property | NavigationStoreConfiguration.routeStackValidator | routeStackValidator | var routeStackValidator: RouteStackValidator<R> | []
-symbol | swift.property | NavigationStoreConfiguration.telemetrySink | telemetrySink | var telemetrySink: AnyNavigationTelemetrySink<R>? | []
 symbol | swift.property | RouterHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | RouterModalHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | RouterSplitHost.body | body | @MainActor var body: some View { get } | []
@@ -748,18 +688,12 @@ symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor proto
 symbol | swift.protocol | Coordinator | Coordinator | @MainActor protocol Coordinator : AnyObject, Observable | []
 symbol | swift.protocol | DestinationRoute | DestinationRoute | protocol DestinationRoute : Route | []
 symbol | swift.protocol | FlowStateReading | FlowStateReading | @MainActor protocol FlowStateReading<RouteType> : Sendable | []
-symbol | swift.protocol | FlowTelemetrySink | FlowTelemetrySink | @MainActor protocol FlowTelemetrySink : Sendable | []
 symbol | swift.protocol | LifecycleAware | LifecycleAware | @MainActor protocol LifecycleAware : AnyObject | []
-symbol | swift.protocol | ModalTelemetrySink | ModalTelemetrySink | @MainActor protocol ModalTelemetrySink : Sendable | []
 symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<RouteType> : Sendable | []
-symbol | swift.protocol | NavigationTelemetrySink | NavigationTelemetrySink | @MainActor protocol NavigationTelemetrySink : Sendable | []
 symbol | swift.protocol | RouterTab | RouterTab | protocol RouterTab : Route, CaseIterable, Identifiable | []
 symbol | swift.protocol | StepCoordinator | StepCoordinator | @MainActor protocol StepCoordinator : AnyObject, Observable | []
 symbol | swift.protocol | StoreObserver | StoreObserver | @MainActor protocol StoreObserver : AnyObject | []
 symbol | swift.protocol | TabCoordinator | TabCoordinator | @MainActor protocol TabCoordinator : AnyObject, Observable | []
-symbol | swift.struct | AnyFlowTelemetrySink | AnyFlowTelemetrySink | @MainActor struct AnyFlowTelemetrySink<R> where R : Route | []
-symbol | swift.struct | AnyModalTelemetrySink | AnyModalTelemetrySink | @MainActor struct AnyModalTelemetrySink<M> where M : Route | []
-symbol | swift.struct | AnyNavigationTelemetrySink | AnyNavigationTelemetrySink | @MainActor struct AnyNavigationTelemetrySink<R> where R : Route | []
 symbol | swift.struct | CoordinatorHost | CoordinatorHost | @MainActor struct CoordinatorHost<C, Root> where C : Coordinator, Root : View | []
 symbol | swift.struct | CoordinatorSplitHost | CoordinatorSplitHost | @MainActor struct CoordinatorSplitHost<C, Sidebar, Root> where C : Coordinator, Sidebar : View, Root : View | []
 symbol | swift.struct | EnvironmentFlowIntent | EnvironmentFlowIntent | @MainActor @propertyWrapper struct EnvironmentFlowIntent<R> where R : Route | []
@@ -784,9 +718,6 @@ symbol | swift.struct | NavigationPathMismatchEvent | NavigationPathMismatchEven
 symbol | swift.struct | NavigationPathReconciler | NavigationPathReconciler | @MainActor struct NavigationPathReconciler<R> where R : Route | []
 symbol | swift.struct | NavigationSplitHost | NavigationSplitHost | @MainActor struct NavigationSplitHost<R, Sidebar, DestinationView, Root> where R : Route, Sidebar : View, DestinationView : View, Root : View | []
 symbol | swift.struct | NavigationStoreConfiguration | NavigationStoreConfiguration | struct NavigationStoreConfiguration<R> where R : Route | []
-symbol | swift.struct | OSLogFlowTelemetrySink | OSLogFlowTelemetrySink | @MainActor struct OSLogFlowTelemetrySink<R> where R : Route | []
-symbol | swift.struct | OSLogModalTelemetrySink | OSLogModalTelemetrySink | @MainActor struct OSLogModalTelemetrySink<M> where M : Route | []
-symbol | swift.struct | OSLogNavigationTelemetrySink | OSLogNavigationTelemetrySink | @MainActor struct OSLogNavigationTelemetrySink<R> where R : Route | []
 symbol | swift.struct | RouterActions | RouterActions | struct RouterActions<R> where R : Route | []
 symbol | swift.struct | RouterHost | RouterHost | @MainActor struct RouterHost<R, Root> where R : DestinationRoute, Root : View | []
 symbol | swift.struct | RouterModalHost | RouterModalHost | @MainActor struct RouterModalHost<R, Content> where R : DestinationRoute, Content : View | []
@@ -797,13 +728,7 @@ symbol | swift.struct | StepCoordinatorView | StepCoordinatorView | @MainActor s
 symbol | swift.struct | TabCoordinatorView | TabCoordinatorView | @MainActor struct TabCoordinatorView<C> where C : TabCoordinator | []
 symbol | swift.type.method | DestinationRoute.destination(for:) | destination(for:) | @MainActor @ViewBuilder static func destination(for route: Self) -> Self.Destination | []
 symbol | swift.type.property | ThrottleNavigationMiddleware.globalKey | globalKey | @MainActor static var globalKey: ThrottleNavigationMiddleware<R, C>.Key { get } | []
-symbol | swift.typealias | AnyFlowTelemetrySink.RouteType | AnyFlowTelemetrySink.RouteType | typealias RouteType = R | []
-symbol | swift.typealias | AnyModalTelemetrySink.RouteType | AnyModalTelemetrySink.RouteType | typealias RouteType = M | []
-symbol | swift.typealias | AnyNavigationTelemetrySink.RouteType | AnyNavigationTelemetrySink.RouteType | typealias RouteType = R | []
 symbol | swift.typealias | FlowStore.RouteType | FlowStore.RouteType | typealias RouteType = R | []
 symbol | swift.typealias | NavigationStore.RouteType | NavigationStore.RouteType | typealias RouteType = R | []
-symbol | swift.typealias | OSLogFlowTelemetrySink.RouteType | OSLogFlowTelemetrySink.RouteType | typealias RouteType = R | []
-symbol | swift.typealias | OSLogModalTelemetrySink.RouteType | OSLogModalTelemetrySink.RouteType | typealias RouteType = M | []
-symbol | swift.typealias | OSLogNavigationTelemetrySink.RouteType | OSLogNavigationTelemetrySink.RouteType | typealias RouteType = R | []
 symbol | swift.typealias | ThrottleNavigationMiddleware.Key | ThrottleNavigationMiddleware.Key | typealias Key = String | []
 symbol | swift.typealias | ThrottleNavigationMiddleware.RouteType | ThrottleNavigationMiddleware.RouteType | typealias RouteType = R | []

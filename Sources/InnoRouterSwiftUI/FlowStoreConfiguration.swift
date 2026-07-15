@@ -16,8 +16,6 @@ public struct FlowStoreConfiguration<R: Route>: Sendable {
     public var navigation: NavigationStoreConfiguration<R>
     /// Configuration applied to the inner `ModalStore`.
     public var modal: ModalStoreConfiguration<R>
-    /// Structured telemetry sink used for flow-level and wrapped inner-store events.
-    public var telemetrySink: AnyFlowTelemetrySink<R>?
     /// Called synchronously for every public flow observation event.
     ///
     /// This includes flow-level path changes and intent rejections as well as
@@ -47,14 +45,12 @@ public struct FlowStoreConfiguration<R: Route>: Sendable {
     public init(
         navigation: NavigationStoreConfiguration<R> = .init(),
         modal: ModalStoreConfiguration<R> = .init(),
-        telemetrySink: AnyFlowTelemetrySink<R>? = nil,
         onEvent: (@MainActor @Sendable (FlowEvent<R>) -> Void)? = nil,
         eventBufferingPolicy: EventBufferingPolicy = .default,
         queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve
     ) {
         self.navigation = navigation
         self.modal = modal
-        self.telemetrySink = telemetrySink
         self.onEvent = onEvent
         self.eventBufferingPolicy = eventBufferingPolicy
         self.queueCoalescePolicy = queueCoalescePolicy
