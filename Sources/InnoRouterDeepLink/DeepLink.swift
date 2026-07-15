@@ -370,7 +370,7 @@ struct DeepLinkParser: Sendable {
     }
 }
 
-struct DeepLinkPattern: Sendable {
+package struct DeepLinkPattern: Sendable {
     struct MatchResult: Sendable {
         let parameters: [String: [String]]
 
@@ -401,7 +401,7 @@ struct DeepLinkPattern: Sendable {
         }
     }
 
-    init(_ pattern: String) {
+    package init(_ pattern: String) {
         self.rawPattern = pattern
         self.patternParts = pattern
             .split(separator: "/")
@@ -577,7 +577,7 @@ struct DeepLinkPattern: Sendable {
         return true
     }
 
-    static func makeDiagnostics(
+    package static func makeDiagnostics(
         for patterns: [DeepLinkPattern]
     ) -> [DeepLinkMatcherDiagnostic] {
         var diagnostics: [DeepLinkMatcherDiagnostic] = []
