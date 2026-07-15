@@ -50,6 +50,7 @@ struct NavigationTransactionTests {
         let transaction = store.executeTransaction([.push(.home), .push(.settings)])
 
         #expect(transaction.isCommitted == true)
+        #expect(transaction.isSuccess)
         #expect(transaction.failureIndex == nil)
         #expect(transaction.results == [.success, .success])
         #expect(transaction.stateBefore == RouteStack<TestRoute>())
@@ -93,6 +94,7 @@ struct NavigationTransactionTests {
         let transaction = store.executeTransaction([.push(.home), .popCount(5)])
 
         #expect(transaction.isCommitted == false)
+        #expect(!transaction.isSuccess)
         #expect(transaction.failureIndex == 1)
         #expect(transaction.results == [.success, .insufficientStackDepth(requested: 5, available: 1)])
         #expect(transaction.stateBefore == RouteStack<TestRoute>())

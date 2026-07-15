@@ -197,6 +197,12 @@ are bare semver (no leading `v`).
   construction. Middleware metadata and mutation events, path-mismatch events,
   and state-restoration failures remain public readable values emitted by their
   owning stores and adapters, but their initializers are now framework-only.
+- The unused `NavigationExecutionResult` protocol is removed. No framework API
+  accepted the abstraction, so generic conformance added public surface without
+  reducing call-site work. Use `NavigationBatchResult` or
+  `NavigationTransactionResult` directly; both concrete results retain
+  `isSuccess`, and transaction code can continue to use `isCommitted` when the
+  commit-specific spelling is clearer.
 - The unused `FlowNavigating` forwarding protocol is removed. Flow owners
   should keep a `FlowStore` directly and dispatch with `send(_:)` or
   `apply(_:)`; `FlowHost` publishes the store's capabilities through the

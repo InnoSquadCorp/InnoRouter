@@ -24,6 +24,10 @@ public struct NavigationTransactionResult<R: Route>: Sendable, Equatable {
     /// committed; `false` on rollback or for an empty request.
     public let isCommitted: Bool
 
+    /// Mirrors ``isCommitted`` using the same success spelling as
+    /// ``NavigationBatchResult/isSuccess``.
+    public var isSuccess: Bool { isCommitted }
+
     /// Creates a transaction execution result.
     public init(
         requestedCommands: [NavigationCommand<R>],
