@@ -19,13 +19,14 @@ enum RouterDeepLinkDiagnostic: DiagnosticMessage {
     case invalidAssociatedValue(reason: String)
     case patternPayloadMismatch(reason: String)
     case unreachablePattern(reason: String)
+    case typedFallbackPattern(reason: String)
     case conflictingResolver
     case unusedAllowlist
     case redundantConformance
 
     var severity: DiagnosticSeverity {
         switch self {
-        case .unusedAllowlist, .redundantConformance:
+        case .typedFallbackPattern, .unusedAllowlist, .redundantConformance:
             return .warning
         default:
             return .error
@@ -49,6 +50,7 @@ enum RouterDeepLinkDiagnostic: DiagnosticMessage {
         case .conflictingResolver: return "InnoRouterMacro.E029"
         case .unusedAllowlist: return "InnoRouterMacro.W006"
         case .redundantConformance: return "InnoRouterMacro.W007"
+        case .typedFallbackPattern: return "InnoRouterMacro.W012"
         }
     }
 
@@ -79,6 +81,8 @@ enum RouterDeepLinkDiagnostic: DiagnosticMessage {
             return prefix + "@DeepLink pattern and case payload do not match: \(reason)"
         case .unreachablePattern(let reason):
             return prefix + "@DeepLink mapping is unreachable: \(reason)"
+        case .typedFallbackPattern(let reason):
+            return prefix + "@DeepLink mappings overlap: \(reason)"
         case .conflictingResolver:
             return prefix + "@Router with @DeepLink generates `resolveDeepLink(_:)`; remove the manual static resolver"
         case .unusedAllowlist:
@@ -103,6 +107,16 @@ struct DeepLinkFirstMappingNote: NoteMessage {
     }
 }
 
+struct DeepLinkPrecedingMappingNote: NoteMessage {
+    var message: String {
+        "A preceding overlapping mapping is declared here."
+    }
+
+    var noteID: MessageID {
+        MessageID(domain: "InnoRouterMacros", id: "deepLinkPrecedingMapping")
+    }
+}
+
 func diagnoseDeepLink(
     _ message: RouterDeepLinkDiagnostic,
     at node: some SyntaxProtocol,
@@ -124,6 +138,23 @@ func diagnoseUnreachableDeepLink(
             notes: [
                 Note(node: Syntax(firstMapping), message: DeepLinkFirstMappingNote())
             ]
+        )
+    )
+}
+
+func diagnoseTypedFallbackDeepLink(
+    reason: String,
+    at node: some SyntaxProtocol,
+    precedingMappings: [AttributeSyntax],
+    context: some MacroExpansionContext
+) {
+    context.diagnose(
+        Diagnostic(
+            node: node,
+            message: RouterDeepLinkDiagnostic.typedFallbackPattern(reason: reason),
+            notes: precedingMappings.map {
+                Note(node: Syntax($0), message: DeepLinkPrecedingMappingNote())
+            }
         )
     )
 }

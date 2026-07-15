@@ -56,11 +56,11 @@
 /// non-enum declaration, when `destination` is missing or has the wrong shape,
 /// or when a manual `static destination(for:)` conflicts with the generated
 /// witness. Tab and deep-link routers also diagnose partial or conditional
-/// declarations, invalid metadata, unsupported payloads, unreachable URL
-/// patterns, and generated-member conflicts at compile time. It warns for
-/// root-only enums, unused deep-link allowlists, and redundant explicit
-/// `Route`, `DestinationRoute`, `RouterTab`, `CaseIterable`, or
-/// `DeepLinkRoute` conformance.
+/// declarations, invalid metadata, unsupported payloads, semantically
+/// unreachable URL patterns, and generated-member conflicts at compile time.
+/// It warns for ordered typed deep-link fallbacks, root-only enums, unused
+/// deep-link allowlists, and redundant explicit `Route`, `DestinationRoute`,
+/// `RouterTab`, `CaseIterable`, or `DeepLinkRoute` conformance.
 @attached(memberAttribute)
 @attached(
     extension,

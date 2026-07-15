@@ -265,8 +265,10 @@ are bare semver (no leading `v`).
   resolver from literal scheme, host, and path declarations. Generated
   matching uses deterministic specificity precedence—literal paths, typed
   parameters, then terminal wildcards—and emits compiler diagnostics for
-  invalid origins, payload mismatches, conditional mappings, and normalized
-  duplicates.
+  invalid origins, payload mismatches, conditional mappings, and overlapping
+  normalized patterns. A mapping fully covered by an earlier generated
+  conversion is an error; mappings with distinct, potentially reachable typed
+  conversion rules are ordered fallbacks and emit a warning.
 - Macro-first hosts now consume those generated resolvers automatically:
   `RouterHost` and `RouterSplitHost` push one resolved route, while
   `RouterTabHost` selects one resolved tab. Nested hosts arbitrate one incoming
@@ -330,6 +332,12 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- `@DeepLink` no longer rejects a reachable typed fallback as an unreachable
+  duplicate. Two structurally identical patterns such as `UUID` followed by
+  `String` now retain declaration-order matching and emit
+  `InnoRouterMacro.W012`; the later mapping runs when the earlier conversion
+  returns `nil`. Mappings whose generated parsing conditions are already
+  covered by an earlier mapping remain the `InnoRouterMacro.E028` build error.
 - Swift 6.3 CI jobs now run on the `macos-26` runner image and pin Xcode 26.6.
   The previous `macos-15` / Xcode 26.3 combination selected Swift 6.2.4 and
   rejected the package manifest before tests, DocC, coverage, performance, or

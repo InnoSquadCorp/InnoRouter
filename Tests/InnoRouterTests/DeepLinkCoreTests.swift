@@ -180,6 +180,42 @@ struct DeepLinkTests {
         #expect(matcher.match("myapp://app/detail/99") == .detail(id: "99"))
     }
 
+    @Test("DeepLinkMatcher preserves ordered typed fallbacks for one pattern")
+    func testMatcherTypedFallthrough() {
+        let matcher = DeepLinkMatcher<String>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/items/:value") { parameters in
+                guard parameters.firstValue(
+                    forName: "value",
+                    as: UUID.self
+                ) != nil else {
+                    return nil
+                }
+                return "uuid"
+            }
+            DeepLinkMapping("/items/:value") { parameters in
+                guard parameters.firstValue(
+                    forName: "value",
+                    as: Int.self
+                ) != nil else {
+                    return nil
+                }
+                return "integer"
+            }
+            DeepLinkMapping("/items/:value") { parameters in
+                parameters.firstValue(forName: "value", as: String.self)
+            }
+        }
+
+        #expect(
+            matcher.match("myapp://app/items/550e8400-e29b-41d4-a716-446655440000") ==
+                "uuid"
+        )
+        #expect(matcher.match("myapp://app/items/42") == "integer")
+        #expect(matcher.match("myapp://app/items/books") == "books")
+    }
+
     @Test("DeepLinkMatcher supports non-route Sendable outputs")
     func testMatcherGenericOutput() {
         let matcher = DeepLinkMatcher<String> {

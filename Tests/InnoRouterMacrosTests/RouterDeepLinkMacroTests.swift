@@ -95,6 +95,138 @@ struct RouterDeepLinkExpansionMacroTests {
         )
     }
 
+    @Test("W012 permits ordered fallbacks when typed conversions differ")
+    func typedFallbackExpansion() throws {
+        assertMacroExpansion(
+            """
+            @Router(
+                deepLinkSchemes: ["innorouter"],
+                deepLinkHosts: ["app.example.com"]
+            )
+            enum TypedFallbackRoute {
+                @DeepLink("/items/:value")
+                case paged(value: Foundation.UUID, page: Swift.Int?)
+                @DeepLink("/items/:value")
+                case identifier(value: Foundation.UUID)
+                @DeepLink("/items/:value")
+                case name(value: Swift.String)
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum TypedFallbackRoute {
+                case paged(value: Foundation.UUID, page: Swift.Int?)
+                case identifier(value: Foundation.UUID)
+                case name(value: Swift.String)
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension TypedFallbackRoute: InnoRouterSwiftUI.DestinationRoute, InnoRouterDeepLink.DeepLinkRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal static func resolveDeepLink(_ url: Foundation.URL) -> Self? {
+                    guard url.user == nil, url.password == nil, url.port == nil else {
+                        return nil
+                    }
+                    let matcher = InnoRouterDeepLink.DeepLinkMatcher<Self>(
+                        configuration: .init(diagnosticsMode: .disabled)
+                    ) {
+                        InnoRouterDeepLink.DeepLinkMapping("/items/:value") { parameters in
+                            guard let deepLinkValue0 = parameters.firstValue(
+                                forName: "value",
+                                as: Foundation.UUID.self
+                            ) else {
+                                return nil
+                            }
+                            let deepLinkValue1: Swift.Int?
+                            if parameters.firstValue(forName: "page") != nil {
+                                guard let parsedDeepLinkValue1 = parameters.firstValue(
+                                    forName: "page",
+                                    as: Swift.Int.self
+                                ) else {
+                                    return nil
+                                }
+                                deepLinkValue1 = parsedDeepLinkValue1
+                            } else {
+                                deepLinkValue1 = nil
+                            }
+                            return .paged(value: deepLinkValue0, page: deepLinkValue1)
+                        }
+                        InnoRouterDeepLink.DeepLinkMapping("/items/:value") { parameters in
+                            guard let deepLinkValue0 = parameters.firstValue(
+                                forName: "value",
+                                as: Foundation.UUID.self
+                            ) else {
+                                return nil
+                            }
+                            return .identifier(value: deepLinkValue0)
+                        }
+                        InnoRouterDeepLink.DeepLinkMapping("/items/:value") { parameters in
+                            guard let deepLinkValue0 = parameters.firstValue(
+                                forName: "value",
+                                as: Swift.String.self
+                            ) else {
+                                return nil
+                            }
+                            return .name(value: deepLinkValue0)
+                        }
+                    }
+                    let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
+                        allowedSchemes: ["innorouter"],
+                        allowedHosts: ["app.example.com"],
+                        matcher: matcher
+                    )
+                    guard case .plan(let plan) = pipeline.decide(for: url),
+                          plan.commands.count == 1,
+                          case .push(let route) = plan.commands[0] else {
+                        return nil
+                    }
+                    return route
+                }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.W012] @DeepLink mappings overlap: `/items/:param` also matches 1 preceding mapping; declaration order is used, and this mapping is attempted only after all preceding typed conversions return nil",
+                    line: 8,
+                    column: 5,
+                    severity: .warning,
+                    notes: [
+                        NoteSpec(
+                            message: "A preceding overlapping mapping is declared here.",
+                            line: 6,
+                            column: 5
+                        )
+                    ]
+                ),
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.W012] @DeepLink mappings overlap: `/items/:param` also matches 2 preceding mappings; declaration order is used, and this mapping is attempted only after all preceding typed conversions return nil",
+                    line: 10,
+                    column: 5,
+                    severity: .warning,
+                    notes: [
+                        NoteSpec(
+                            message: "A preceding overlapping mapping is declared here.",
+                            line: 6,
+                            column: 5
+                        ),
+                        NoteSpec(
+                            message: "A preceding overlapping mapping is declared here.",
+                            line: 8,
+                            column: 5
+                        )
+                    ]
+                )
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Preserves generic payload types and constraints")
     func genericExpansion() throws {
         assertMacroExpansion(
@@ -684,14 +816,39 @@ struct RouterDeepLinkDiagnosticMacroTests {
         )
     }
 
-    @Test("E028 rejects normalized duplicate mappings")
-    func unreachablePattern() throws {
-        let cases = """
-        @DeepLink("/items/:id")
-        case item(id: String)
-        @DeepLink("/items/:slug")
-        case duplicate(slug: String)
-        """
+    @Test(
+        "E028 rejects mappings covered by an earlier generated handler",
+        arguments: [
+            (
+                """
+                @DeepLink("/items/:id")
+                case item(id: String)
+                @DeepLink("/items/:slug")
+                case duplicate(slug: String)
+                """,
+                "`/items/:param` duplicates mapping 1"
+            ),
+            (
+                """
+                @DeepLink("/items/:value")
+                case text(value: Swift.String)
+                @DeepLink("/items/:value")
+                case identifier(value: Foundation.UUID)
+                """,
+                "`/items/:param` is fully handled by mapping 1, whose generated typed conversion accepts every value this mapping accepts"
+            ),
+            (
+                """
+                @DeepLink("/items/:id")
+                case base(id: Foundation.UUID)
+                @DeepLink("/items/:id")
+                case paged(id: Foundation.UUID, page: Swift.Int?)
+                """,
+                "`/items/:param` is fully handled by mapping 1, whose generated typed conversion accepts every value this mapping accepts"
+            ),
+        ]
+    )
+    func unreachablePattern(cases: String, reason: String) throws {
         let declarations = cases
             .split(separator: "\n", omittingEmptySubsequences: false)
             .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("@DeepLink") }
@@ -708,7 +865,7 @@ struct RouterDeepLinkDiagnosticMacroTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "[InnoRouterMacro.E028] @DeepLink mapping is unreachable: `/items/:param` duplicates mapping 1",
+                    message: "[InnoRouterMacro.E028] @DeepLink mapping is unreachable: \(reason)",
                     line: 8,
                     column: 5,
                     notes: [
