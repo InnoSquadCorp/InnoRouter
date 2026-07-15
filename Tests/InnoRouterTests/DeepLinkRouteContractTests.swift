@@ -90,4 +90,21 @@ struct DeepLinkPackageGrammarParityTests {
 
         #expect(packageDiagnostics == matcher.diagnostics)
     }
+
+    @Test("Specificity ordering removes structural shadows without reordering peers")
+    func specificityOrdering() {
+        let patterns = [
+            "/*",
+            "/:id",
+            "/settings",
+            "/products/:id",
+            "/products/featured",
+        ].map(DeepLinkPattern.init)
+
+        let indices = DeepLinkPattern.specificityOrderedIndices(for: patterns)
+        let ordered = indices.map { patterns[$0] }
+
+        #expect(indices == [2, 1, 4, 3, 0])
+        #expect(DeepLinkPattern.makeDiagnostics(for: ordered).isEmpty)
+    }
 }

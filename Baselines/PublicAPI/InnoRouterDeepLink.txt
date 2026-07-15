@@ -79,6 +79,7 @@ relationship | memberOf | PendingDeepLink.plan | PendingDeepLink |  |
 relationship | memberOf | PendingDeepLink.route | PendingDeepLink |  |
 relationship | memberOf | PendingDeepLink.url | PendingDeepLink |  |
 relationship | requirementOf | DeepLinkParameterValue.parseDeepLinkParameter(_:) | DeepLinkParameterValue |  |
+relationship | requirementOf | DeepLinkRoute.resolveDeepLink(_:) | DeepLinkRoute |  |
 symbol | swift.enum | DeepLinkAuthenticationPolicy | DeepLinkAuthenticationPolicy | enum DeepLinkAuthenticationPolicy<R> where R : Route | []
 symbol | swift.enum | DeepLinkDecision | DeepLinkDecision | enum DeepLinkDecision<R> where R : Route | []
 symbol | swift.enum | DeepLinkInputLimitViolation | DeepLinkInputLimitViolation | enum DeepLinkInputLimitViolation | []
@@ -157,6 +158,7 @@ symbol | swift.property | PendingDeepLink.plan | plan | let plan: NavigationPlan
 symbol | swift.property | PendingDeepLink.route | route | let route: R | []
 symbol | swift.property | PendingDeepLink.url | url | let url: URL | []
 symbol | swift.protocol | DeepLinkParameterValue | DeepLinkParameterValue | protocol DeepLinkParameterValue : Sendable | []
+symbol | swift.protocol | DeepLinkRoute | DeepLinkRoute | protocol DeepLinkRoute : Route | []
 symbol | swift.struct | DeepLinkInputLimits | DeepLinkInputLimits | struct DeepLinkInputLimits | []
 symbol | swift.struct | DeepLinkMapping | DeepLinkMapping | struct DeepLinkMapping<Output> where Output : Sendable | []
 symbol | swift.struct | DeepLinkMappingBuilder | DeepLinkMappingBuilder | @resultBuilder struct DeepLinkMappingBuilder<Output> where Output : Sendable | []
@@ -180,6 +182,7 @@ symbol | swift.type.method | DeepLinkMappingBuilder.buildExpression(_:) | buildE
 symbol | swift.type.method | DeepLinkMappingBuilder.buildExpression(_:) | buildExpression(_:) | static func buildExpression(_ expression: [DeepLinkMapping<Output>]) -> [DeepLinkMapping<Output>] | []
 symbol | swift.type.method | DeepLinkMappingBuilder.buildOptional(_:) | buildOptional(_:) | static func buildOptional(_ component: [DeepLinkMapping<Output>]?) -> [DeepLinkMapping<Output>] | []
 symbol | swift.type.method | DeepLinkParameterValue.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Self? | []
+symbol | swift.type.method | DeepLinkRoute.resolveDeepLink(_:) | resolveDeepLink(_:) | static func resolveDeepLink(_ url: URL) -> Self? | []
 symbol | swift.type.method | Double.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Double? | []
 symbol | swift.type.method | Float.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Float? | []
 symbol | swift.type.method | Int.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Int? | []

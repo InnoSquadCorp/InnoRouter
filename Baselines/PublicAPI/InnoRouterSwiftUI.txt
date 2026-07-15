@@ -59,13 +59,19 @@ relationship | memberOf | FlowEvent.navigation(_:) | FlowEvent |  |
 relationship | memberOf | FlowEvent.pathChanged(old:new:) | FlowEvent |  |
 relationship | memberOf | FlowHost.body | FlowHost |  |
 relationship | memberOf | FlowHost.init(store:destination:root:) | FlowHost |  |
+relationship | memberOf | FlowHost.init(store:root:) | FlowHost |  |
 relationship | memberOf | FlowIntent.backOrPush(_:) | FlowIntent |  |
 relationship | memberOf | FlowIntent.backOrPushDismissingModal(_:) | FlowIntent |  |
 relationship | memberOf | FlowIntent.dismiss | FlowIntent |  |
+relationship | memberOf | FlowIntent.dismissAll | FlowIntent |  |
 relationship | memberOf | FlowIntent.pop | FlowIntent |  |
+relationship | memberOf | FlowIntent.popCount(_:) | FlowIntent |  |
+relationship | memberOf | FlowIntent.popTo(_:) | FlowIntent |  |
+relationship | memberOf | FlowIntent.popToRoot | FlowIntent |  |
 relationship | memberOf | FlowIntent.presentCover(_:) | FlowIntent |  |
 relationship | memberOf | FlowIntent.presentSheet(_:) | FlowIntent |  |
 relationship | memberOf | FlowIntent.push(_:) | FlowIntent |  |
+relationship | memberOf | FlowIntent.pushMany(_:) | FlowIntent |  |
 relationship | memberOf | FlowIntent.pushUniqueRoot(_:) | FlowIntent |  |
 relationship | memberOf | FlowIntent.pushUniqueRootDismissingModal(_:) | FlowIntent |  |
 relationship | memberOf | FlowIntent.replaceStack(_:) | FlowIntent |  |
@@ -270,10 +276,27 @@ relationship | memberOf | RouterActions.back() | RouterActions |  |
 relationship | memberOf | RouterActions.back(by:) | RouterActions |  |
 relationship | memberOf | RouterActions.back(to:) | RouterActions |  |
 relationship | memberOf | RouterActions.backToRoot() | RouterActions |  |
+relationship | memberOf | RouterActions.clearAllBadges() | RouterActions |  |
+relationship | memberOf | RouterActions.clearBadge(for:) | RouterActions |  |
+relationship | memberOf | RouterActions.cover(_:) | RouterActions |  |
+relationship | memberOf | RouterActions.dismiss() | RouterActions |  |
+relationship | memberOf | RouterActions.dismissAll() | RouterActions |  |
 relationship | memberOf | RouterActions.go(_:) | RouterActions |  |
+relationship | memberOf | RouterActions.goMany(_:) | RouterActions |  |
+relationship | memberOf | RouterActions.select(_:) | RouterActions |  |
 relationship | memberOf | RouterActions.send(_:) | RouterActions |  |
+relationship | memberOf | RouterActions.send(flow:) | RouterActions |  |
+relationship | memberOf | RouterActions.setBadge(_:for:) | RouterActions |  |
+relationship | memberOf | RouterActions.sheet(_:) | RouterActions |  |
 relationship | memberOf | RouterHost.body | RouterHost |  |
 relationship | memberOf | RouterHost.init(_:initial:configuration:root:) | RouterHost |  |
+relationship | memberOf | RouterModalHost.body | RouterModalHost |  |
+relationship | memberOf | RouterModalHost.init(_:initial:queued:configuration:content:) | RouterModalHost |  |
+relationship | memberOf | RouterSplitHost.body | RouterSplitHost |  |
+relationship | memberOf | RouterSplitHost.init(_:initial:configuration:sidebar:root:) | RouterSplitHost |  |
+relationship | memberOf | RouterTab.id | RouterTab |  |
+relationship | memberOf | RouterTabHost.body | RouterTabHost |  |
+relationship | memberOf | RouterTabHost.init(_:initial:badges:) | RouterTabHost |  |
 relationship | memberOf | StateRestorationAdapter.init(persistence:onRestorationFailure:) | StateRestorationAdapter |  |
 relationship | memberOf | StateRestorationAdapter.restoreFlowPlan(from:into:) | StateRestorationAdapter |  |
 relationship | memberOf | StateRestorationAdapter.restoreNavigationStack(from:into:) | StateRestorationAdapter |  |
@@ -294,7 +317,6 @@ relationship | memberOf | StepCoordinator.totalSteps | StepCoordinator |  |
 relationship | memberOf | StepCoordinatorView.body | StepCoordinatorView |  |
 relationship | memberOf | StepCoordinatorView.init(coordinator:showProgress:content:) | StepCoordinatorView |  |
 relationship | memberOf | StoreObserverSubscription.cancel() | StoreObserverSubscription |  |
-relationship | memberOf | Tab.id | Tab |  |
 relationship | memberOf | TabCoordinator.badge(for:) | TabCoordinator |  |
 relationship | memberOf | TabCoordinator.clearAllBadges() | TabCoordinator |  |
 relationship | memberOf | TabCoordinator.setBadge(_:for:) | TabCoordinator |  |
@@ -335,14 +357,14 @@ relationship | requirementOf | NavigationPathReconciling.RouteType | NavigationP
 relationship | requirementOf | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | NavigationPathReconciling |  |
 relationship | requirementOf | NavigationTelemetrySink.RouteType | NavigationTelemetrySink |  |
 relationship | requirementOf | NavigationTelemetrySink.record(_:) | NavigationTelemetrySink |  |
+relationship | requirementOf | RouterTab.systemImage | RouterTab |  |
+relationship | requirementOf | RouterTab.title | RouterTab |  |
 relationship | requirementOf | StepCoordinator.Step | StepCoordinator |  |
 relationship | requirementOf | StepCoordinator.canProceed(from:) | StepCoordinator |  |
 relationship | requirementOf | StepCoordinator.completedSteps | StepCoordinator |  |
 relationship | requirementOf | StepCoordinator.currentStep | StepCoordinator |  |
 relationship | requirementOf | StoreObserver.RouteType | StoreObserver |  |
 relationship | requirementOf | StoreObserver.handle(_:) | StoreObserver |  |
-relationship | requirementOf | Tab.icon | Tab |  |
-relationship | requirementOf | Tab.title | Tab |  |
 relationship | requirementOf | TabCoordinator.TabContent | TabCoordinator |  |
 relationship | requirementOf | TabCoordinator.TabType | TabCoordinator |  |
 relationship | requirementOf | TabCoordinator.content(for:) | TabCoordinator |  |
@@ -360,7 +382,7 @@ symbol | swift.associatedtype | NavigationTelemetrySink.RouteType | RouteType | 
 symbol | swift.associatedtype | StepCoordinator.Step | Step | associatedtype Step : CaseIterable, Hashable, Sendable | []
 symbol | swift.associatedtype | StoreObserver.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | TabCoordinator.TabContent | TabContent | associatedtype TabContent : View | []
-symbol | swift.associatedtype | TabCoordinator.TabType | TabType | associatedtype TabType : Tab | []
+symbol | swift.associatedtype | TabCoordinator.TabType | TabType | associatedtype TabType : RouterTab | []
 symbol | swift.class | AsyncNavigationMiddlewareExecutor | AsyncNavigationMiddlewareExecutor | @MainActor final class AsyncNavigationMiddlewareExecutor<R> where R : Route | []
 symbol | swift.class | ChildCoordinatorTaskTracker | ChildCoordinatorTaskTracker | @MainActor final class ChildCoordinatorTaskTracker | []
 symbol | swift.class | DebouncingNavigator | DebouncingNavigator | @MainActor final class DebouncingNavigator<N, C> where N : NavigationCommandExecutor, C : Clock, C.Duration == Duration | []
@@ -400,10 +422,15 @@ symbol | swift.enum.case | FlowEvent.pathChanged(old:new:) | FlowEvent.pathChang
 symbol | swift.enum.case | FlowIntent.backOrPush(_:) | FlowIntent.backOrPush(_:) | case backOrPush(R) | []
 symbol | swift.enum.case | FlowIntent.backOrPushDismissingModal(_:) | FlowIntent.backOrPushDismissingModal(_:) | case backOrPushDismissingModal(R) | []
 symbol | swift.enum.case | FlowIntent.dismiss | FlowIntent.dismiss | case dismiss | []
+symbol | swift.enum.case | FlowIntent.dismissAll | FlowIntent.dismissAll | case dismissAll | []
 symbol | swift.enum.case | FlowIntent.pop | FlowIntent.pop | case pop | []
+symbol | swift.enum.case | FlowIntent.popCount(_:) | FlowIntent.popCount(_:) | case popCount(Int) | []
+symbol | swift.enum.case | FlowIntent.popTo(_:) | FlowIntent.popTo(_:) | case popTo(R) | []
+symbol | swift.enum.case | FlowIntent.popToRoot | FlowIntent.popToRoot | case popToRoot | []
 symbol | swift.enum.case | FlowIntent.presentCover(_:) | FlowIntent.presentCover(_:) | case presentCover(R) | []
 symbol | swift.enum.case | FlowIntent.presentSheet(_:) | FlowIntent.presentSheet(_:) | case presentSheet(R) | []
 symbol | swift.enum.case | FlowIntent.push(_:) | FlowIntent.push(_:) | case push(R) | []
+symbol | swift.enum.case | FlowIntent.pushMany(_:) | FlowIntent.pushMany(_:) | case pushMany([R]) | []
 symbol | swift.enum.case | FlowIntent.pushUniqueRoot(_:) | FlowIntent.pushUniqueRoot(_:) | case pushUniqueRoot(R) | []
 symbol | swift.enum.case | FlowIntent.pushUniqueRootDismissingModal(_:) | FlowIntent.pushUniqueRootDismissingModal(_:) | case pushUniqueRootDismissingModal(R) | []
 symbol | swift.enum.case | FlowIntent.replaceStack(_:) | FlowIntent.replaceStack(_:) | case replaceStack([R]) | []
@@ -493,6 +520,7 @@ symbol | swift.init | EnvironmentModalIntent.init(_:) | init(_:) | @MainActor in
 symbol | swift.init | EnvironmentNavigationIntent.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
 symbol | swift.init | EnvironmentRouter.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
 symbol | swift.init | FlowHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: FlowStore<R>, @ViewBuilder destination: @escaping (R) -> Destination, @ViewBuilder root: @escaping () -> Root) | []
+symbol | swift.init | FlowHost.init(store:root:) | init(store:root:) | @MainActor init(store: FlowStore<R>, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | FlowStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init()) | []
 symbol | swift.init | FlowStore.init(validating:configuration:) | init(validating:configuration:) | @MainActor convenience init(validating initial: [RouteStep<R>], configuration: FlowStoreConfiguration<R> = .init()) throws | []
 symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:telemetrySink:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation:modal:telemetrySink:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), telemetrySink: AnyFlowTelemetrySink<R>? = nil, onEvent: (@MainActor (FlowEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve) | []
@@ -512,7 +540,10 @@ symbol | swift.init | NavigationStoreConfiguration.init(middlewares:routeStackVa
 symbol | swift.init | OSLogFlowTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogModalTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogNavigationTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
-symbol | swift.init | RouterHost.init(_:initial:configuration:root:) | init(_:initial:configuration:root:) | @MainActor init(_ routeType: R.Type, initial: RouteStack<R> = .init(), configuration: NavigationStoreConfiguration<R> = .init(), @ViewBuilder root: @escaping () -> Root) | []
+symbol | swift.init | RouterHost.init(_:initial:configuration:root:) | init(_:initial:configuration:root:) | @MainActor init(_ routeType: R.Type, initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init(), @ViewBuilder root: @escaping () -> Root) | []
+symbol | swift.init | RouterModalHost.init(_:initial:queued:configuration:content:) | init(_:initial:queued:configuration:content:) | @MainActor init(_ routeType: R.Type, initial: ModalPresentation<R>? = nil, queued: [ModalPresentation<R>] = [], configuration: ModalStoreConfiguration<R> = .init(), @ViewBuilder content: @escaping () -> Content) | []
+symbol | swift.init | RouterSplitHost.init(_:initial:configuration:sidebar:root:) | init(_:initial:configuration:sidebar:root:) | @MainActor init(_ routeType: R.Type, initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init(), @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder root: @escaping () -> Root) | []
+symbol | swift.init | RouterTabHost.init(_:initial:badges:) | init(_:initial:badges:) | @MainActor init(_ routeType: R.Type, initial: R, badges: [R : Int] = [:]) | []
 symbol | swift.init | StateRestorationAdapter.init(persistence:onRestorationFailure:) | init(persistence:onRestorationFailure:) | @MainActor init(persistence: StatePersistence<R> = StatePersistence<R>(), onRestorationFailure: @escaping @MainActor (StateRestorationFailure) -> Void = { _ in }) | []
 symbol | swift.init | StepCoordinatorView.init(coordinator:showProgress:content:) | init(coordinator:showProgress:content:) | @MainActor init(coordinator: C, showProgress: Bool = true, @ViewBuilder content: @escaping (C.Step) -> Content) | []
 symbol | swift.init | TabCoordinatorView.init(coordinator:) | init(coordinator:) | @MainActor init(coordinator: C) | []
@@ -576,8 +607,19 @@ symbol | swift.method | RouterActions.back() | back() | @MainActor func back() |
 symbol | swift.method | RouterActions.back(by:) | back(by:) | @MainActor func back(by count: Int) | []
 symbol | swift.method | RouterActions.back(to:) | back(to:) | @MainActor func back(to route: R) | []
 symbol | swift.method | RouterActions.backToRoot() | backToRoot() | @MainActor func backToRoot() | []
+symbol | swift.method | RouterActions.clearAllBadges() | clearAllBadges() | @MainActor func clearAllBadges() | []
+symbol | swift.method | RouterActions.clearBadge(for:) | clearBadge(for:) | @MainActor func clearBadge(for tab: R) | []
+symbol | swift.method | RouterActions.cover(_:) | cover(_:) | @MainActor func cover(_ route: R) | []
+symbol | swift.method | RouterActions.dismiss() | dismiss() | @MainActor func dismiss() | []
+symbol | swift.method | RouterActions.dismissAll() | dismissAll() | @MainActor func dismissAll() | []
 symbol | swift.method | RouterActions.go(_:) | go(_:) | @MainActor func go(_ route: R) | []
+symbol | swift.method | RouterActions.goMany(_:) | goMany(_:) | @MainActor func goMany(_ routes: [R]) | []
+symbol | swift.method | RouterActions.select(_:) | select(_:) | @MainActor func select(_ tab: R) | []
+symbol | swift.method | RouterActions.send(_:) | send(_:) | @MainActor func send(_ intent: ModalIntent<R>) | []
 symbol | swift.method | RouterActions.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<R>) | []
+symbol | swift.method | RouterActions.send(flow:) | send(flow:) | @MainActor func send(flow intent: FlowIntent<R>) | []
+symbol | swift.method | RouterActions.setBadge(_:for:) | setBadge(_:for:) | @MainActor func setBadge(_ count: Int, for tab: R) | []
+symbol | swift.method | RouterActions.sheet(_:) | sheet(_:) | @MainActor func sheet(_ route: R) | []
 symbol | swift.method | StateRestorationAdapter.restoreFlowPlan(from:into:) | restoreFlowPlan(from:into:) | @discardableResult @MainActor func restoreFlowPlan(from data: Data, into store: FlowStore<R>) -> Bool | []
 symbol | swift.method | StateRestorationAdapter.restoreNavigationStack(from:into:) | restoreNavigationStack(from:into:) | @discardableResult @MainActor func restoreNavigationStack(from data: Data, into store: NavigationStore<R>) -> Bool | []
 symbol | swift.method | StateRestorationAdapter.snapshotFlowPlan(from:) | snapshotFlowPlan(from:) | @MainActor func snapshotFlowPlan(from store: FlowStore<R>) throws -> Data | []
@@ -684,6 +726,12 @@ symbol | swift.property | NavigationStoreConfiguration.pathReconciler | pathReco
 symbol | swift.property | NavigationStoreConfiguration.routeStackValidator | routeStackValidator | var routeStackValidator: RouteStackValidator<R> | []
 symbol | swift.property | NavigationStoreConfiguration.telemetrySink | telemetrySink | var telemetrySink: AnyNavigationTelemetrySink<R>? | []
 symbol | swift.property | RouterHost.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | RouterModalHost.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | RouterSplitHost.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | RouterTab.id | id | var id: Self { get } | []
+symbol | swift.property | RouterTab.systemImage | systemImage | var systemImage: String { get } | []
+symbol | swift.property | RouterTab.title | title | var title: String { get } | []
+symbol | swift.property | RouterTabHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | StateRestorationFailure.message | message | let message: String | []
 symbol | swift.property | StateRestorationFailure.target | target | let target: StateRestorationTarget | []
 symbol | swift.property | StepCoordinator.completedSteps | completedSteps | @MainActor var completedSteps: Set<Self.Step> { get set } | []
@@ -693,9 +741,6 @@ symbol | swift.property | StepCoordinator.isAtStart | isAtStart | @MainActor var
 symbol | swift.property | StepCoordinator.progress | progress | @MainActor var progress: Double { get } | []
 symbol | swift.property | StepCoordinator.totalSteps | totalSteps | @MainActor var totalSteps: Int { get } | []
 symbol | swift.property | StepCoordinatorView.body | body | @MainActor var body: some View { get } | []
-symbol | swift.property | Tab.icon | icon | var icon: String { get } | []
-symbol | swift.property | Tab.id | id | var id: Self { get } | []
-symbol | swift.property | Tab.title | title | var title: String { get } | []
 symbol | swift.property | TabCoordinator.selectedTab | selectedTab | @MainActor var selectedTab: Self.TabType { get set } | []
 symbol | swift.property | TabCoordinator.tabBadges | tabBadges | @MainActor var tabBadges: [Self.TabType : Int] { get set } | []
 symbol | swift.property | TabCoordinatorView.body | body | @MainActor var body: some View { get } | []
@@ -708,9 +753,9 @@ symbol | swift.protocol | LifecycleAware | LifecycleAware | @MainActor protocol 
 symbol | swift.protocol | ModalTelemetrySink | ModalTelemetrySink | @MainActor protocol ModalTelemetrySink : Sendable | []
 symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<RouteType> : Sendable | []
 symbol | swift.protocol | NavigationTelemetrySink | NavigationTelemetrySink | @MainActor protocol NavigationTelemetrySink : Sendable | []
+symbol | swift.protocol | RouterTab | RouterTab | protocol RouterTab : Route, CaseIterable, Identifiable | []
 symbol | swift.protocol | StepCoordinator | StepCoordinator | @MainActor protocol StepCoordinator : AnyObject, Observable | []
 symbol | swift.protocol | StoreObserver | StoreObserver | @MainActor protocol StoreObserver : AnyObject | []
-symbol | swift.protocol | Tab | Tab | protocol Tab : CaseIterable, Hashable, Identifiable, Sendable | []
 symbol | swift.protocol | TabCoordinator | TabCoordinator | @MainActor protocol TabCoordinator : AnyObject, Observable | []
 symbol | swift.struct | AnyFlowTelemetrySink | AnyFlowTelemetrySink | @MainActor struct AnyFlowTelemetrySink<R> where R : Route | []
 symbol | swift.struct | AnyModalTelemetrySink | AnyModalTelemetrySink | @MainActor struct AnyModalTelemetrySink<M> where M : Route | []
@@ -744,6 +789,9 @@ symbol | swift.struct | OSLogModalTelemetrySink | OSLogModalTelemetrySink | @Mai
 symbol | swift.struct | OSLogNavigationTelemetrySink | OSLogNavigationTelemetrySink | @MainActor struct OSLogNavigationTelemetrySink<R> where R : Route | []
 symbol | swift.struct | RouterActions | RouterActions | struct RouterActions<R> where R : Route | []
 symbol | swift.struct | RouterHost | RouterHost | @MainActor struct RouterHost<R, Root> where R : DestinationRoute, Root : View | []
+symbol | swift.struct | RouterModalHost | RouterModalHost | @MainActor struct RouterModalHost<R, Content> where R : DestinationRoute, Content : View | []
+symbol | swift.struct | RouterSplitHost | RouterSplitHost | @MainActor struct RouterSplitHost<R, Sidebar, Root> where R : DestinationRoute, Sidebar : View, Root : View | []
+symbol | swift.struct | RouterTabHost | RouterTabHost | @MainActor struct RouterTabHost<R> where R : DestinationRoute, R : RouterTab | []
 symbol | swift.struct | StateRestorationFailure | StateRestorationFailure | struct StateRestorationFailure | []
 symbol | swift.struct | StepCoordinatorView | StepCoordinatorView | @MainActor struct StepCoordinatorView<C, Content> where C : StepCoordinator, Content : View | []
 symbol | swift.struct | TabCoordinatorView | TabCoordinatorView | @MainActor struct TabCoordinatorView<C> where C : TabCoordinator | []

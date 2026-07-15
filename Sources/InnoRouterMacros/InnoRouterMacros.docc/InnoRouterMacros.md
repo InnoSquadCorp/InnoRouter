@@ -13,11 +13,18 @@ import SwiftUI
 import InnoRouter
 ```
 
-The module exposes three macros with separate responsibilities:
+The module exposes five macros with separate responsibilities:
 
 - `@Router` is the default macro-first path. It turns route cases and an
   instance `destination` view into a `DestinationRoute` that works with
-  `RouterHost`.
+  `RouterHost`, and generates tab or deep-link capabilities when their marker
+  macros are present.
+- `@TabItem` marks parameterless router cases and generates the metadata used
+  by `RouterTabHost`.
+- `@DeepLink` maps literal URL paths to typed router cases. `@Router` validates
+  literal scheme and host allowlists and generates the `DeepLinkRoute`
+  resolver. Generated matching prefers literal paths, then typed parameters,
+  then terminal wildcards, regardless of case declaration order.
 - `@Routable` adds `Route` conformance plus typed `Cases`, `is(_:)`, and
   `subscript(case:)` helpers. It does not build destination views.
 - `@CasePathable` adds the same case-path helpers without adding `Route`
@@ -83,7 +90,7 @@ Use granular products only when a target intentionally needs a narrower graph:
 | `InnoRouterCore` | Typed route state and command execution without SwiftUI or a compiler-plugin target in this target's build graph. |
 | `InnoRouterSwiftUI` | Manually conformed routes, externally owned stores, hosts, and coordinators without a compiler-plugin target in this target's build graph. |
 | `InnoRouterDeepLink` | Deep-link matching and planning without the SwiftUI authority layer. |
-| `InnoRouterMacros` | A feature target that wants macros plus Core and SwiftUI, but not the deep-link umbrella surface. |
+| `InnoRouterMacros` | A feature target that wants macro declarations plus their Core, SwiftUI, and deep-link runtime requirements without the full umbrella target. |
 | `InnoRouterSpatial` | visionOS windows, volumes, immersive spaces, and ornaments. This remains opt-in. |
 
 Keeping the compiler-plugin target out of a consumer target's build graph

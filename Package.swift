@@ -300,7 +300,12 @@ let package = Package(
         // MARK: - Macro Declarations (Public API)
         .target(
             name: "InnoRouterMacros",
-            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterMacrosPlugin"],
+            dependencies: [
+                "InnoRouterCore",
+                "InnoRouterDeepLink",
+                "InnoRouterSwiftUI",
+                "InnoRouterMacrosPlugin",
+            ],
             resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -321,6 +326,7 @@ let package = Package(
         .macro(
             name: "InnoRouterMacrosPlugin",
             dependencies: [
+                "InnoRouterDeepLink",
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),

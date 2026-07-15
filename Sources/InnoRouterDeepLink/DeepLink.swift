@@ -644,6 +644,42 @@ package struct DeepLinkPattern: Sendable {
 
         return diagnostics
     }
+
+    /// Returns a stable order that places structurally narrower patterns before
+    /// every broader pattern that would otherwise shadow them.
+    ///
+    /// Duplicate normalized patterns retain declaration order so callers can
+    /// diagnose them with ``makeDiagnostics(for:)`` after applying the order.
+    package static func specificityOrderedIndices(
+        for patterns: [DeepLinkPattern]
+    ) -> [Int] {
+        var remaining = Array(patterns.indices)
+        var ordered: [Int] = []
+        ordered.reserveCapacity(remaining.count)
+
+        while !remaining.isEmpty {
+            guard let position = remaining.firstIndex(where: { candidate in
+                !remaining.contains(where: { other in
+                    guard candidate != other,
+                          patterns[candidate].normalizedPattern !=
+                          patterns[other].normalizedPattern else {
+                        return false
+                    }
+                    return patterns[candidate].shadows(patterns[other]) != nil
+                })
+            }) else {
+                // Structural coverage is acyclic once equivalent normalized
+                // patterns are excluded. Keep this fail-safe deterministic if
+                // the grammar gains a new relationship in the future.
+                ordered.append(contentsOf: remaining)
+                break
+            }
+
+            ordered.append(remaining.remove(at: position))
+        }
+
+        return ordered
+    }
 }
 
 /// Resolves URLs by walking ``DeepLinkMapping`` values in declaration order.

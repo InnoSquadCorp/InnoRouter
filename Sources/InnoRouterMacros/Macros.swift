@@ -3,6 +3,7 @@
 // Copyright © 2025 Inno Squad. All rights reserved.
 
 @_exported import InnoRouterCore
+@_exported import InnoRouterDeepLink
 @_exported import InnoRouterSwiftUI
 
 // MARK: - @Router
@@ -17,6 +18,8 @@
 /// - synthesises `DestinationRoute` (and therefore `Route`) conformance
 /// - generates the access-level-matched `static destination(for:)` witness
 /// - synthesises `RouterTab` metadata when every case has `@TabItem`
+/// - synthesises a fail-closed `DeepLinkRoute` resolver when cases have
+///   `@DeepLink` and literal origin allowlists are supplied
 ///
 /// Host the result with `RouterHost` and navigate from descendants with
 /// `EnvironmentRouter`.
@@ -52,17 +55,22 @@
 /// The macro emits actionable compiler diagnostics when it is attached to a
 /// non-enum declaration, when `destination` is missing or has the wrong shape,
 /// or when a manual `static destination(for:)` conflicts with the generated
-/// witness. Tab routers also diagnose partial, conditional, unavailable, or
-/// associated-value cases at compile time. It warns for root-only enums and
-/// redundant explicit `Route`, `DestinationRoute`, `RouterTab`, or
-/// `CaseIterable` conformance.
+/// witness. Tab and deep-link routers also diagnose partial or conditional
+/// declarations, invalid metadata, unsupported payloads, unreachable URL
+/// patterns, and generated-member conflicts at compile time. It warns for
+/// root-only enums, unused deep-link allowlists, and redundant explicit
+/// `Route`, `DestinationRoute`, `RouterTab`, `CaseIterable`, or
+/// `DeepLinkRoute` conformance.
 @attached(memberAttribute)
 @attached(
     extension,
-    conformances: DestinationRoute, RouterTab,
-    names: named(destination), named(allCases), named(title), named(systemImage)
+    conformances: DeepLinkRoute, DestinationRoute, RouterTab,
+    names: named(destination), named(allCases), named(title), named(systemImage), named(resolveDeepLink)
 )
-public macro Router() = #externalMacro(
+public macro Router(
+    deepLinkSchemes: [String] = [],
+    deepLinkHosts: [String] = []
+) = #externalMacro(
     module: "InnoRouterMacrosPlugin",
     type: "RouterMacro"
 )
@@ -99,6 +107,37 @@ public macro TabItem(
 ) = #externalMacro(
     module: "InnoRouterMacrosPlugin",
     type: "TabItemMacro"
+)
+
+// MARK: - @DeepLink
+
+/// Maps one fail-closed URL path pattern to an `@Router` enum case.
+///
+/// Add literal scheme and host allowlists to `@Router`. The generated
+/// ``DeepLinkRoute`` resolver accepts only exact, case-insensitive origin
+/// matches and returns one typed route. Generated mappings prefer literal
+/// paths, then typed parameters, then terminal wildcards, independent of case
+/// declaration order. Authentication, pending replay, and multi-step plans
+/// remain on the explicit deep-link pipeline APIs.
+///
+/// ```swift
+/// @Router(
+///     deepLinkSchemes: ["innorouter", "https"],
+///     deepLinkHosts: ["app.example.com"]
+/// )
+/// enum AppRoute {
+///     @DeepLink("/products/:id")
+///     case product(id: String)
+///
+///     var destination: some View {
+///         EmptyView()
+///     }
+/// }
+/// ```
+@attached(peer)
+public macro DeepLink(_ pattern: String) = #externalMacro(
+    module: "InnoRouterMacrosPlugin",
+    type: "DeepLinkMacro"
 )
 
 // MARK: - @Routable

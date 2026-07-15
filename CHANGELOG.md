@@ -216,6 +216,12 @@ are bare semver (no leading `v`).
   `backToRoot` to descendants. Applications that need external store access,
   restoration, middleware mutation, or deep-link orchestration can continue
   with `NavigationHost(store:)` without changing their route type.
+- `@DeepLink` gives `@Router` enums a typed, fail-closed `DeepLinkRoute`
+  resolver from literal scheme, host, and path declarations. Generated
+  matching uses deterministic specificity precedence—literal paths, typed
+  parameters, then terminal wildcards—and emits compiler diagnostics for
+  invalid origins, payload mismatches, conditional mappings, and normalized
+  duplicates.
 
 ### Changed
 

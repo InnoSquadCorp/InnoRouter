@@ -95,10 +95,19 @@ public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
         if case .invalid = tabExpansion {
             return []
         }
+        let deepLinkExpansion = analyzeRouterDeepLinks(
+            routerAttribute: node,
+            in: enumDecl,
+            context: context
+        )
+        if case .invalid = deepLinkExpansion {
+            return []
+        }
         return try makeRouterExtensions(
             for: type,
             enumDecl: enumDecl,
             tabExpansion: tabExpansion,
+            deepLinkExpansion: deepLinkExpansion,
             node: node,
             context: context
         )
@@ -109,6 +118,7 @@ private func makeRouterExtensions(
     for type: some TypeSyntaxProtocol,
     enumDecl: EnumDeclSyntax,
     tabExpansion: RouterTabExpansion,
+    deepLinkExpansion: RouterDeepLinkExpansion,
     node: AttributeSyntax,
     context: some MacroExpansionContext
 ) throws -> [ExtensionDeclSyntax] {
@@ -148,6 +158,19 @@ private func makeRouterExtensions(
         tabMembers = ""
     }
 
+    let deepLinkMembers: String
+    if case .valid(let specification) = deepLinkExpansion {
+        if !specification.directlyConformsToDeepLinkRoute {
+            conformances.append("InnoRouterDeepLink.DeepLinkRoute")
+        }
+        deepLinkMembers = "\n\n" + renderRouterDeepLinkMembers(
+            from: specification,
+            access: access
+        )
+    } else {
+        deepLinkMembers = ""
+    }
+
     let conformanceClause = conformances.isEmpty
         ? ""
         : ": " + conformances.joined(separator: ", ")
@@ -158,7 +181,7 @@ private func makeRouterExtensions(
             @SwiftUI.ViewBuilder
             \(raw: access) static func destination(for route: Self) -> some SwiftUI.View {
                 route.destination
-            }\(raw: tabMembers)
+            }\(raw: tabMembers)\(raw: deepLinkMembers)
         }
         """
     )

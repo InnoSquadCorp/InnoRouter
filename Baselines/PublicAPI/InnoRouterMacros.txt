@@ -1,4 +1,6 @@
 # Public API baseline for InnoRouterMacros
 symbol | swift.macro | CasePathable() | CasePathable() | @attached(member, names: named(Cases), named(`is`), named(subscript)) macro CasePathable() | []
+symbol | swift.macro | DeepLink(_:) | DeepLink(_:) | @attached(peer) macro DeepLink(_ pattern: String) | []
 symbol | swift.macro | Routable() | Routable() | @attached(member, names: named(Cases), named(`is`), named(subscript)) @attached(extension, conformances: Route) macro Routable() | []
-symbol | swift.macro | Router() | Router() | @attached(memberAttribute) @attached(extension, conformances: DestinationRoute, names: named(destination)) macro Router() | []
+symbol | swift.macro | Router(deepLinkSchemes:deepLinkHosts:) | Router(deepLinkSchemes:deepLinkHosts:) | @attached(memberAttribute) @attached(extension, conformances: DeepLinkRoute, DestinationRoute, RouterTab, names: named(destination), named(allCases), named(title), named(systemImage), named(resolveDeepLink)) macro Router(deepLinkSchemes: [String] = [], deepLinkHosts: [String] = []) | []
+symbol | swift.macro | TabItem(_:systemImage:) | TabItem(_:systemImage:) | @attached(peer) macro TabItem(_ title: String, systemImage: String) | []
