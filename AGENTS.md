@@ -54,7 +54,7 @@ swift build --target InnoRouterEffects
 - `Route`, `RouteStack`, `RouteStackValidator`
 - `NavigationCommand`, `NavigationEngine`
 - `NavigationResult`, `NavigationBatchResult`, `NavigationTransactionResult`
-- `Navigator`, `AnyNavigator`, `AnyBatchNavigator`
+- `Navigator`, `NavigationBatchExecutor`, `NavigationTransactionExecutor`
 - `NavigationMiddleware`, `NavigationInterception`, `NavigationCancellationReason`
 
 ### InnoRouterSwiftUI

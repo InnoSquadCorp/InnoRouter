@@ -255,7 +255,7 @@ func deepLinkPlanExecutes() {
     let store = NavigationStore<TestRoute>()
     let handler = DeepLinkEffectHandler(
         pipeline: DeepLinkPipeline(customResolver: { _ in .settings }),
-        navigator: AnyBatchNavigator(store)
+        navigator: store
     )
     let url = URL(string: "myapp://app/settings")!
 

@@ -73,7 +73,7 @@ The `DeepLinkEffectHandler` bridges the pipeline output into
 ```swift skip doc-fragment
 let store = NavigationStore<AppRoute>()
 let effectHandler = DeepLinkEffectHandler(
-    navigator: AnyBatchNavigator(store),
+    navigator: store,
     matcher: matcher,
     allowedSchemes: ["myapp"],
     allowedHosts: ["app"],
@@ -157,7 +157,7 @@ side effects for each branch:
 func signedOutDeepLinkDefersUntilSignIn() {
     let store = NavigationTestStore<AppRoute>()
     let handler = DeepLinkEffectHandler(
-        navigator: AnyBatchNavigator(store.store),
+        navigator: store.store,
         matcher: matcher,
         authenticationPolicy: policy
     )

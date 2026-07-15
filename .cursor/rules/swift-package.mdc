@@ -20,7 +20,8 @@ InnoRouter는 Swift tools 6.2, Swift 6 언어 모드를 사용하는 멀티 타�
 - 다른 InnoRouter 타겟에 의존하지 않는 핵심 런타임
 - 주요 API: `Route`, `RouteStack`, `NavigationCommand`, `NavigationEngine`,
   `NavigationResult`, `NavigationStateReader`, `NavigationCommandExecutor`,
-  `Navigator`, `AnyNavigator`, `NavigationMiddleware`, `AnyNavigationMiddleware`
+  `Navigator`, `NavigationBatchExecutor`, `NavigationTransactionExecutor`,
+  `NavigationMiddleware`, `AnyNavigationMiddleware`
 - SwiftUI 타입을 추가하지 않습니다.
 
 ### InnoRouterSwiftUI

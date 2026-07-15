@@ -33,7 +33,7 @@ associated values.
 | Case | When it fires | Typical handling |
 |---|---|---|
 | `.cancelled(reason)` | Middleware or guarded execution cancelled the command | Inspect `reason` (`.middleware`, `.conditionFailed`, `.custom(_)`, `.staleAfterPrepare`) |
-| `.emptyStack` | `.pop` / `.popCount` / `.popToRoot` on an already-empty stack | Treat as no-op, or gate the intent upstream |
+| `.emptyStack` | `.pop` on an already-empty stack | Treat as no-op, or gate the intent upstream |
 | `.invalidPopCount(Int)` | Negative or zero pop count | App-level validation bug; audit the call site |
 | `.insufficientStackDepth(requested:available:)` | Asked to pop more frames than exist | Clamp the pop count or treat as `popToRoot` |
 | `.routeNotFound(R)` | `.popTo(route:)` cannot find the target | Surface "history was cleared" UI; upstream intent likely assumed stale state |

@@ -22,7 +22,7 @@ struct NavigationEffectGuardedRaceTests {
     @MainActor
     func testExecuteGuarded_staleCommandAfterConcurrentPop() async {
         let store = NavigationStore<RaceRoute>()
-        let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        let handler = NavigationEffectHandler(navigator: store)
         var iterator = handler.events.makeAsyncIterator()
 
         store.execute(.push(.home))
@@ -54,7 +54,7 @@ struct NavigationEffectGuardedRaceTests {
     @MainActor
     func testExecuteGuarded_proceedsWhenCommandRemainsValid() async {
         let store = NavigationStore<RaceRoute>()
-        let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        let handler = NavigationEffectHandler(navigator: store)
 
         let result = await handler.executeGuarded(.push(.home)) { command in
             .proceed(command)
@@ -68,7 +68,7 @@ struct NavigationEffectGuardedRaceTests {
     @MainActor
     func testExecuteGuarded_explicitCancelUnchanged() async {
         let store = NavigationStore<RaceRoute>()
-        let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        let handler = NavigationEffectHandler(navigator: store)
 
         let result = await handler.executeGuarded(.push(.home)) { _ in
             .cancel(.custom("denied"))
@@ -92,7 +92,7 @@ struct NavigationEffectGuardedRaceTests {
             }
         }
         let handler = DeepLinkEffectHandler<RaceRoute>(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher,
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },

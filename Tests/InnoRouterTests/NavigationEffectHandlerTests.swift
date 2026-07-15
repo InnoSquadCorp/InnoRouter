@@ -43,7 +43,7 @@ struct NavigationEffectHandlerTests {
             )
         )
 
-        let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        let handler = NavigationEffectHandler(navigator: store)
         var iterator = handler.events.makeAsyncIterator()
         let batch = handler.execute(
             [
@@ -72,23 +72,11 @@ struct NavigationEffectHandlerTests {
         #expect(eventBatch == batch)
     }
 
-    @Test("AnyBatchNavigator convenience methods surface typed results")
-    @MainActor
-    func testAnyBatchNavigatorConvenienceMethodsReturnResults() {
-        let navigator = AnyBatchNavigator(NavigationStore<TestRoute>())
-
-        let popToRootResult = navigator.popToRoot()
-        let replaceResult = navigator.replace(with: [.home])
-
-        #expect(popToRootResult == .success)
-        #expect(replaceResult == .success)
-    }
-
     @Test("single execute clears stale batch result")
     @MainActor
     func testSingleExecuteClearsBatchResult() async {
         let store = NavigationStore<TestRoute>()
-        let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        let handler = NavigationEffectHandler(navigator: store)
         var iterator = handler.events.makeAsyncIterator()
 
         let batch = handler.execute([.push(.home), .push(.settings)])
@@ -115,7 +103,7 @@ struct NavigationEffectHandlerTests {
     @MainActor
     func testExecuteTransaction() async throws {
         let store = NavigationStore<TestRoute>()
-        let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        let handler = NavigationEffectHandler(navigator: store)
         var iterator = handler.events.makeAsyncIterator()
 
         let transaction = handler.executeTransaction([.push(.home), .push(.settings)])
@@ -136,7 +124,7 @@ struct NavigationEffectHandlerTests {
     @MainActor
     func testExecuteGuardedCancel() async {
         let store = NavigationStore<TestRoute>()
-        let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        let handler = NavigationEffectHandler(navigator: store)
         var iterator = handler.events.makeAsyncIterator()
 
         let result = await handler.executeGuarded(.push(.home)) { command in
@@ -157,7 +145,7 @@ struct NavigationEffectHandlerTests {
     @MainActor
     func testExecuteGuardedProceed() async {
         let store = NavigationStore<TestRoute>()
-        let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        let handler = NavigationEffectHandler(navigator: store)
         var iterator = handler.events.makeAsyncIterator()
 
         let result = await handler.executeGuarded(.push(.home)) { command in

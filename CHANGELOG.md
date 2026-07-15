@@ -217,6 +217,13 @@ are bare semver (no leading `v`).
   `parentDidCancel()` or `lifecycleSignals.onParentCancel`; `push(child:)`
   continues to fire both parent-cancellation hooks. `activeCount` and automatic
   deinit cancellation bookkeeping are no longer framework-provided.
+- `AnyNavigator` and `AnyBatchNavigator` are removed. Pass a concrete
+  `NavigationStore` directly to the generic effect and deep-link handlers, or
+  make app boundaries generic over `Navigator`, adding
+  `NavigationBatchExecutor` and `NavigationTransactionExecutor` only where
+  batch or transaction execution is required. Replace the erased convenience
+  methods with `execute(.push(...))`, `execute(.pop)`,
+  `execute(.popToRoot)`, or `execute(.replace(...))`.
 - The unused `FlowNavigating` forwarding protocol is removed. Flow owners
   should keep a `FlowStore` directly and dispatch with `send(_:)` or
   `apply(_:)`; `FlowHost` publishes the store's capabilities through the

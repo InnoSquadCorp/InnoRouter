@@ -91,7 +91,7 @@ struct DeepLinkEffectExecutionTests {
         )
         let handler = DeepLinkEffectHandler(
             pipeline: pipeline(authenticationPolicy: authenticationPolicy),
-            navigator: AnyBatchNavigator(store)
+            navigator: store
         )
         return (handler, store)
     }

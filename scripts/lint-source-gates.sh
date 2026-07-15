@@ -98,6 +98,14 @@ if rg -n "@EnvironmentNavigator|public func navigator\\(" Sources Examples Examp
   exit 1
 fi
 
+echo "[lint-source-gates] Checking removed navigator type erasers"
+if rg -n '\b(AnyNavigator|AnyBatchNavigator)\b' \
+  Sources Tests Examples ExamplesSmoke README*.md Docs AGENTS.md CLAUDE.md .cursor \
+  --glob '*.swift' --glob '*.md' --glob '*.mdc'; then
+  echo "[lint-source-gates] Failed: removed navigator type eraser found"
+  exit 1
+fi
+
 echo "[lint-source-gates] Checking legacy type-specific environment wrappers"
 if rg -n '\b(EnvironmentNavigationIntent|EnvironmentModalIntent|EnvironmentFlowIntent|NavigationEnvironmentStorage|ModalEnvironmentStorage|FlowEnvironmentStorage)\b' \
   Sources Examples ExamplesSmoke --glob '*.swift'; then

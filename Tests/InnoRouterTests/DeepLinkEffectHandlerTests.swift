@@ -36,7 +36,7 @@ struct DeepLinkEffectHandlerTests {
             DeepLinkMapping("/settings") { _ in .settings }
         }
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher,
             plan: { _ in NavigationPlan(commands: [.replace([.home, .settings])]) }
         )
@@ -64,7 +64,7 @@ struct DeepLinkEffectHandlerTests {
         )
         let handler = DeepLinkEffectHandler(
             pipeline: pipeline,
-            navigator: AnyBatchNavigator(store)
+            navigator: store
         )
 
         let result = handler.handle(URL(string: "myapp://myapp.com/custom")!)
@@ -85,7 +85,7 @@ struct DeepLinkEffectHandlerTests {
         let pipeline = DeepLinkPipeline<TestRoute>(customResolver: { _ in .settings })
         let handler = DeepLinkEffectHandler(
             pipeline: pipeline,
-            navigator: AnyBatchNavigator(store)
+            navigator: store
         )
         let pending = PendingDeepLink(
             url: URL(string: "myapp://myapp.com/settings")!,
@@ -115,7 +115,7 @@ struct DeepLinkEffectHandlerTests {
         }
         let authState = Mutex(false)
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher,
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },
@@ -152,7 +152,7 @@ struct DeepLinkEffectHandlerTests {
         }
         let authState = Mutex(false)
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher,
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },
@@ -192,7 +192,7 @@ struct DeepLinkEffectHandlerTests {
             DeepLinkMapping("/home") { _ in .home }
         }
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher,
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },
@@ -226,7 +226,7 @@ struct DeepLinkEffectHandlerTests {
         }
         let authState = Mutex(false)
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher,
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },
@@ -268,7 +268,7 @@ struct DeepLinkEffectHandlerTests {
             DeepLinkMapping("/home") { _ in .home }
         }
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher,
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },
@@ -301,7 +301,7 @@ struct DeepLinkEffectHandlerTests {
             DeepLinkMapping("/settings") { _ in .settings }
         }
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher,
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },
@@ -333,7 +333,7 @@ struct DeepLinkEffectHandlerTests {
             DeepLinkMapping("/settings") { _ in .settings }
         }
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher,
             allowedSchemes: ["myapp"]
         )
@@ -359,7 +359,7 @@ struct DeepLinkEffectHandlerTests {
             DeepLinkMapping("/settings") { _ in .settings }
         }
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher,
             inputLimits: .unlimited
         )
@@ -386,7 +386,7 @@ struct DeepLinkEffectHandlerTests {
             DeepLinkMapping("/settings") { _ in .settings }
         }
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher,
             plan: { _ in NavigationPlan(commands: [.pop]) }
         )
@@ -412,7 +412,7 @@ struct DeepLinkEffectHandlerTests {
             DeepLinkMapping("/settings") { _ in .settings }
         }
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher,
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { _ in true },
@@ -447,7 +447,7 @@ struct DeepLinkEffectHandlerTests {
             DeepLinkMapping("/known") { _ in .settings }
         }
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher
         )
         let url = URL(string: "myapp://myapp.com/unknown")!
@@ -468,7 +468,7 @@ struct DeepLinkEffectHandlerTests {
             DeepLinkMapping("/known") { _ in .settings }
         }
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher
         )
 
@@ -485,7 +485,7 @@ struct DeepLinkEffectHandlerTests {
             DeepLinkMapping("/known") { _ in .settings }
         }
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher
         )
 
@@ -502,7 +502,7 @@ struct DeepLinkEffectHandlerTests {
             DeepLinkMapping("/known") { _ in .settings }
         }
         let handler = DeepLinkEffectHandler(
-            navigator: AnyBatchNavigator(store),
+            navigator: store,
             matcher: matcher
         )
 

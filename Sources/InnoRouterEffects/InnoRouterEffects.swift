@@ -12,7 +12,6 @@
 // ## Key Types
 // - `NavigationEffectHandler`: Execute NavigationCommand as Effects
 // - `DeepLinkEffectHandler`: Handle deep links as Effects
-// - `AnyBatchNavigator`: Type erasure for batch-aware navigation boundaries
 // - `NavigationEffect`: Protocol for Effects containing NavigationCommand
 // - `DeepLinkEffect`: Protocol for Effects containing deep links
 //

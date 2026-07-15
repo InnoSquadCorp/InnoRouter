@@ -28,7 +28,7 @@ InnoRouter is a SwiftUI-native navigation framework built around **state**, **un
 - **Coordinator pattern**: Centralized navigation policy with `Coordinator` protocol
 - **Deep link pipeline**: `DeepLinkMatcher<R>` resolves single routes, while `DeepLinkMatcher<FlowPlan<R>>` resolves complete flow plans for `FlowDeepLinkPipeline`
 - **Observation**: Store configurations expose one typed `onEvent` callback and stores expose the matching `events` stream
-- **Dependency inversion**: Non-UI features depend on focused protocols or type-erased adapters rather than a concrete store
+- **Dependency inversion**: Non-UI features use focused protocol/generic boundaries; composition roots may inject a concrete store directly
 
 ## Development Commands
 

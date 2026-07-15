@@ -67,7 +67,7 @@ final class SampleAppAuthority {
         )
         self.deepLinkHandler = DeepLinkEffectHandler(
             pipeline: Self.makeDeepLinkPipeline(session: session),
-            navigator: AnyBatchNavigator(store)
+            navigator: store
         )
     }
 

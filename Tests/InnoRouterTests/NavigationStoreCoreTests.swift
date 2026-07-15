@@ -103,7 +103,18 @@ struct NavigationStoreTests {
     func testPopToRoot() throws {
         let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123"), .settings])
 
-        _ = store.execute(.popToRoot)
+        let result = store.execute(.popToRoot)
+        #expect(result == .success)
+        #expect(store.state.path.isEmpty)
+    }
+
+    @Test("PopToRoot on an empty stack succeeds as an idempotent no-op")
+    @MainActor
+    func testPopToRootEmpty() {
+        let store = NavigationStore<TestRoute>()
+
+        let result = store.execute(.popToRoot)
+        #expect(result == .success)
         #expect(store.state.path.isEmpty)
     }
 
@@ -112,7 +123,8 @@ struct NavigationStoreTests {
     func testReplace() throws {
         let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
 
-        _ = store.execute(.replace([.settings]))
+        let result = store.execute(.replace([.settings]))
+        #expect(result == .success)
         #expect(store.state.path.count == 1)
         #expect(store.state.path.last == .settings)
     }
