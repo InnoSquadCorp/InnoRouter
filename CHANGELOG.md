@@ -304,6 +304,10 @@ are bare semver (no leading `v`).
   supported platform matrix. The parity gate keeps that coverage from
   regressing to a single stack host. The visionOS consumer smoke likewise
   compiles generated scenes plus environment open and dismissal actions.
+- Macro, SwiftUI, and Spatial DocC now lead with the macro-first surface for
+  stack, modal, split, tab, deep-link, and scene routing. A stable diagnostic
+  catalog maps all `E001`-`E049` and `W001`-`W012` codes to concrete recovery,
+  while manual Store and host composition is documented as the advanced path.
 - Release publication now resolves strict GA/`rc`/`beta` metadata through one
   SemVer policy, reads release policy from `main`, verifies the exact tag and
   triggering SHA against `main` ancestry, and builds only the resulting

@@ -34,6 +34,11 @@ Every generated conformance has a plain Swift equivalent. Applications that
 need externally owned stores, coordinators, restoration, or custom dependency
 construction can continue to use the runtime APIs directly.
 
+The opt-in `InnoRouterSpatial` product adds `@SceneRouter` and `@Scene` for
+visionOS app scenes. Those macros generate the scene tree installed in
+`App.body`; they are intentionally not part of the default `InnoRouter`
+umbrella.
+
 ## Macro-first quick start
 
 ```swift compile
@@ -109,3 +114,4 @@ umbrella target's macro dependency.
 ### Guides
 
 - <doc:Guide-MacroVisibility>
+- <doc:Macro-Diagnostics>

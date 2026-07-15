@@ -4,8 +4,9 @@
   @PageKind(article)
 }
 
-Declare route data and destination views in one enum, then let `@Router` supply
-the SwiftUI routing conformance.
+Declare route data and destination views in one enum, then select the host that
+matches the surface. Stack, modal, split, tab, and single-route deep-link
+handling all keep the same `@EnvironmentRouter` action API.
 
 ## Declare a router
 
@@ -78,9 +79,25 @@ let route = SearchRoute.result(id: "42")
 route[case: SearchRoute.Cases.result]  // Optional("42")
 ```
 
-## Host and navigate
+## Choose a host
 
-Use `RouterHost` when the navigation store is local to the view tree:
+The host owns local state. Start with the narrowest host that covers the
+feature:
+
+| Surface | Macro-first host | Common actions from `@EnvironmentRouter` |
+|---|---|---|
+| Stack plus modal | `RouterHost` | `go`, `back`, `sheet`, `cover`, `dismiss` |
+| Modal only | `RouterModalHost` | `sheet`, `cover`, `dismiss` |
+| Split detail stack plus modal | `RouterSplitHost` | `go`, `back`, `sheet`, `cover`, `dismiss` |
+| Native tabs | `RouterTabHost` | `select`, `setBadge`, `clearBadge` |
+
+Promote state to a `NavigationStore`, `ModalStore`, `FlowStore`, or
+`TabCoordinator` only when another application boundary must restore, observe,
+or mutate that authority directly.
+
+## Stack and modal routing
+
+Use `RouterHost` for the common stack-plus-modal surface:
 
 ```swift skip surrounding view declaration
 RouterHost(LibraryRoute.self) {
@@ -96,27 +113,147 @@ Descendants read typed actions from `EnvironmentRouter`:
 Button("Account") {
     router.go(.account)
 }
+
+Button("Account sheet") {
+    router.sheet(.account)
+}
 ```
 
-Use `NavigationHost` with an externally owned store when restoration,
-deep-link reconciliation, middleware mutation, or external observation needs
-to outlive the local host.
+Use `RouterModalHost` when the feature must not expose stack actions:
+
+```swift skip surrounding view declaration
+RouterModalHost(LibraryRoute.self) {
+    LibraryHomeView()
+}
+```
+
+Calling an action unsupported by the nearest host, such as `go` below a
+modal-only host, follows `EnvironmentMissingPolicy` and fails loudly by
+default.
+
+## Split routing
+
+Use `RouterSplitHost` for a sidebar with a locally owned detail stack and modal
+authority:
+
+```swift skip surrounding view declaration
+RouterSplitHost(LibraryRoute.self) {
+    LibrarySidebar()
+} root: {
+    ContentUnavailableView("Select a book", systemImage: "books.vertical")
+}
+```
+
+Sidebar selection and column visibility remain application and system state;
+routes pushed from descendants appear in the detail column. `RouterSplitHost`
+is unavailable on watchOS, where the compiler directs callers to `RouterHost`.
+
+## Native tabs
+
+Mark every parameterless case with `@TabItem`. `@Router` then supplies
+`RouterTab`, `CaseIterable`, and the metadata consumed by `RouterTabHost`:
+
+```swift compile
+import SwiftUI
+import InnoRouter
+
+@Router
+enum AppTab {
+    @TabItem("Home", systemImage: "house")
+    case home
+
+    @TabItem("Account", systemImage: "person")
+    case account
+
+    var destination: some View {
+        switch self {
+        case .home:
+            Text("Home")
+        case .account:
+            Text("Account")
+        }
+    }
+}
+
+struct AppTabs: View {
+    var body: some View {
+        RouterTabHost(AppTab.self, initial: .home)
+    }
+}
+
+struct AccountShortcut: View {
+    @EnvironmentRouter(AppTab.self) private var router
+
+    var body: some View {
+        Button("Account") {
+            router.select(.account)
+            router.setBadge(1, for: .account)
+        }
+    }
+}
+```
+
+## Automatic single-route deep links
+
+Give `@Router` literal origin allowlists and attach `@DeepLink` to the cases
+that accept URLs:
+
+```swift compile
+import SwiftUI
+import InnoRouter
+
+@Router(
+    deepLinkSchemes: ["myapp", "https"],
+    deepLinkHosts: ["app.example.com"]
+)
+enum DeepLinkRoute {
+    @DeepLink("/books/:id")
+    case book(id: String)
+
+    case account
+
+    var destination: some View {
+        switch self {
+        case .book(let id):
+            Text("Book \(id)")
+        case .account:
+            Text("Account")
+        }
+    }
+}
+
+struct DeepLinkRoot: View {
+    var body: some View {
+        RouterHost(DeepLinkRoute.self) {
+            Text("Library")
+        }
+    }
+}
+```
+
+No `onOpenURL` or parser is needed for this single-route path:
+
+- `RouterHost` pushes the resolved route.
+- `RouterSplitHost` pushes it into the detail stack.
+- `RouterTabHost` selects the resolved tab.
+
+Origin allowlists fail closed. Generated matching prefers literal paths, then
+typed parameters, then terminal wildcards. Authentication, pending replay,
+multi-step plans, modal presentation style, and multi-window scene selection
+remain application-boundary concerns; use the deep-link pipeline and an
+externally owned store for those advanced policies.
 
 ## Diagnostics
 
-The macro rejects invalid declaration shapes before emitting a partial
-conformance. Diagnostic codes are stable so build logs can link to a specific
-recovery path.
+The macros reject invalid declaration shapes before emitting a partial
+conformance. Diagnostic codes are stable and grouped by surface:
 
-| Code | Severity | Meaning and recovery |
-|---|---|---|
-| `InnoRouterMacro.E001` | Error | `@Router` is not attached to an enum. Structs and classes receive a change-to-enum Fix-It; actors and protocols receive a manual-refactor note. |
-| `InnoRouterMacro.E004` | Error | The enum has no `destination` property. Declare it directly inside the enum. A property in a separate extension is outside the attached macro's syntax scope. |
-| `InnoRouterMacro.E005` | Error | The property is not a get-only instance computed `var destination: some View` in its own declaration. Correct the shape reported in the diagnostic. |
-| `InnoRouterMacro.E006` | Error | A manual `static destination(for: Self)` witness conflicts with the generated witness. Remove that function, or remove `@Router` and conform manually; overloads for other parameter types remain valid. |
-| `InnoRouterMacro.W001` | Warning | The enum has no route cases. This is valid for a root-only host, but no destination can be pushed. |
-| `InnoRouterMacro.W002` | Warning | The enum explicitly declares `DestinationRoute`; remove the redundant conformance and let `@Router` supply it. |
-| `InnoRouterMacro.W003` | Warning | The enum explicitly declares `Route`; remove it because the generated `DestinationRoute` already inherits `Route`. |
+- `E001`–`E006`, `W001`–`W003`: enum and destination declarations
+- `E007`–`E016`, `W004`–`W005`: tabs
+- `E017`–`E029`, `W006`–`W007`, `W012`: deep links
+- `E030`–`E049`, `W008`–`W011`: opt-in spatial scenes
+
+See <doc:Macro-Diagnostics> for the complete code-to-recovery catalog.
 
 The Swift type checker remains responsible for view initializer arguments,
 exhaustive switching, and `Hashable` / `Sendable` payload requirements. A
@@ -137,10 +274,10 @@ enum DetailRoute<Value: Hashable & Sendable> {
 }
 ```
 
-The macro cannot prove that a view is mounted below the matching host because
-SwiftUI's environment hierarchy is built at runtime. `EnvironmentRouter`
-therefore preserves InnoRouter's existing missing-host and mismatched-route
-runtime diagnostics.
+The macro cannot prove that a view is mounted below a matching host or that the
+host publishes the action being invoked because SwiftUI's environment
+hierarchy is built at runtime. `EnvironmentRouter` therefore diagnoses a
+missing host, mismatched route type, or unavailable capability at action time.
 
 ## Manual escape hatch
 

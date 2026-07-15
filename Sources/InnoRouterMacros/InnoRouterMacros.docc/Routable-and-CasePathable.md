@@ -64,8 +64,9 @@ case extraction.
 
 The repository intentionally builds both example layers:
 
-- `Examples/` exercises the current idiomatic, macro-driven API and every
-  human-facing example has a SwiftPM build target.
+- `Examples/` covers macro-first entry points and explicitly advanced Store /
+  Coordinator composition; every human-facing example has a SwiftPM build
+  target.
 - `ExamplesSmoke/` mirrors the public runtime surface with conservative
   fixtures. Its dedicated `MacrosSmoke.swift` target depends only on
   `InnoRouter` and proves the one-product macro-first consumer contract.
@@ -86,8 +87,8 @@ enum Generic<T> { case detail(T) } // error: @Routable does not support generic 
 The generated `enum Cases` would need to materialise `CasePath<Self, T>`
 members for each generic instantiation, but Swift does not propagate the
 parent's generic parameters into a nested type that way. Diagnostic ID
-`InnoRouterMacros.unsupportedGenericEnum` is emitted on the generic parameter
-clause.
+`InnoRouterMacro.E003` is emitted on the generic parameter clause. See
+<doc:Macro-Diagnostics> for the complete diagnostic catalog.
 
 This limitation does not apply to `@Router`. A constrained generic router is
 supported as long as its payloads satisfy the `Route` requirements:

@@ -16,8 +16,10 @@ URL context.
 
 This tutorial intentionally uses an externally owned `NavigationStore`: the
 deep-link effect handler must apply plans outside the SwiftUI host. A local
-push-only feature should start with `@Router` + `RouterHost` and promote to
-this shape when URL handling or restoration needs the authority.
+single-route feature should start with `@Router` + `@DeepLink` + `RouterHost`,
+which installs incoming-URL handling automatically. Promote to this shape when
+authentication, pending replay, multi-step plans, restoration, or direct
+effect-handler ownership needs the authority.
 
 ## Modeling the routes
 

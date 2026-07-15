@@ -4,9 +4,10 @@
   @PageKind(article)
 }
 
-Macro-first hosts can unify a detail stack and modal presentation under one
-`FlowStore`. Externally owned stack, modal, and coordinator hosts remain
-separate advanced authorities.
+Choose one macro-first host for the local surface. `RouterHost` and
+`RouterSplitHost` unify stack and modal actions, `RouterModalHost` narrows a
+feature to modal actions, and `RouterTabHost` owns native tab state.
+Externally owned stores and coordinator hosts remain advanced authorities.
 
 ## Split navigation
 
@@ -48,12 +49,41 @@ This keeps shell state out of the stack authority.
 
 ## Modal navigation
 
-Use `ModalStore` with `ModalHost` when `sheet` or `fullScreenCover` should be routed with the same discipline as stack navigation.
+Use `RouterModalHost` when a feature needs only sheet and cover presentation:
+
+```swift skip doc-fragment
+RouterModalHost(AppRoute.self) {
+    ModalLauncher()
+}
+```
+
+Descendants use the same typed environment router as every other macro-first
+surface:
+
+```swift skip doc-fragment
+@EnvironmentRouter(AppRoute.self) private var router
+
+Button("Edit") {
+    router.sheet(.editor)
+}
+
+Button("Preview") {
+    router.cover(.preview)
+}
+```
+
+`RouterModalHost` owns its `ModalStore` locally and publishes only modal
+capability. An accidental `go` call therefore reports a missing navigation
+capability instead of silently inventing a stack.
+
+Use `ModalStore` with `ModalHost` when restoration, middleware management, or
+direct observation requires the application to own the modal authority.
 
 On iOS and tvOS, `ModalHost` uses native `sheet` and `fullScreenCover` presentation.
 On other supported platforms, `fullScreenCover` requests degrade to `sheet`.
 
-Modal routing intentionally stays separate from stack routing:
+The advanced modal authority intentionally stays separate from a stack-only
+authority:
 
 - modal intent uses `ModalIntent`
 - stack intent uses `NavigationIntent`
@@ -116,14 +146,26 @@ let configuration = ModalStoreConfiguration<AppRoute>(
 When migrating to 5.0, merge the former modal lifecycle closures into
 this switch. `ModalStore.events` emits the same cases asynchronously.
 
+`@DeepLink` does not choose a modal presentation style. Automatic URL handling
+pushes through `RouterHost` / `RouterSplitHost` or selects through
+`RouterTabHost`; an application that needs a URL to open a sheet or cover must
+apply that policy at its flow boundary.
+
 ## Composition
 
-The recommended composition order is:
+The recommended composition rules are:
 
-1. shell state such as tabs or app mode
-2. `ModalHost` if modal routing should be shared
-3. `RouterHost` for a local stack, or `NavigationHost` /
-   `CoordinatorHost` when the application owns the routing authority
-4. feature-local flow state inside a destination
+1. Choose exactly one local macro-first authority for a route type in a
+   subtree: `RouterHost`, `RouterModalHost`, `RouterSplitHost`, or
+   `RouterTabHost`.
+2. Put shell state such as tabs or app mode outside feature-local routing.
+3. Use distinct route types for nested authorities that must remain
+   independent.
+4. Promote to `NavigationHost`, `ModalHost`, `FlowHost`, or a coordinator host
+   only when the application owns that state.
+5. Keep feature-local routing inside the destination that owns it.
 
-This keeps each authority narrow and avoids one giant store owning every kind of navigation.
+Do not wrap `RouterHost` in `RouterModalHost` for the same route type:
+`RouterHost` already owns both capabilities, and a nested same-route host
+replaces the outer authority for its subtree. These rules keep each authority
+narrow without creating one application-wide store.

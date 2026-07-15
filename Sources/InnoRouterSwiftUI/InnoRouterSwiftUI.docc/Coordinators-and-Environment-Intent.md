@@ -59,11 +59,11 @@ This keeps view code declarative:
 
 ### Host scoping and authority replacement
 
-Each `NavigationHost`, `ModalHost`, `FlowHost`, and `RouterTabHost` publishes
-one route-typed authority to its own view subtree. SwiftUI environment value
-semantics keep sibling hosts independent. When a nested host uses the same
-`Route` type, it replaces the complete authority for that subtree instead of
-merging capabilities from two stores.
+Each `RouterHost`, `RouterModalHost`, `RouterSplitHost`, `RouterTabHost`, and
+advanced store-backed host publishes one route-typed authority to its own view
+subtree. SwiftUI environment value semantics keep sibling hosts independent.
+When a nested host uses the same `Route` type, it replaces the complete
+authority for that subtree instead of merging capabilities from two stores.
 
 This replacement prevents an inner stack-only host from accidentally driving
 an outer modal or flow authority. Different route types can coexist in one
