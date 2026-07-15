@@ -217,7 +217,9 @@ public struct SceneRouterActions<R: Route>: Sendable {
         guard let environment = resolveEnvironment() else {
             reportMissing {
                 "Scene router environment is missing for \(String(describing: routeType)) " +
-                    "while invoking \(action). Attach this view inside a matching " +
+                    "while invoking \(action). Install \(String(describing: routeType)).scenes " +
+                    "in App.body and render this view from that generated scene tree. " +
+                    "For manual composition, attach this view inside a matching " +
                     "innoRouterSceneHost or innoRouterSceneAnchor."
             }
             return nil
@@ -226,8 +228,9 @@ public struct SceneRouterActions<R: Route>: Sendable {
         guard let authority = environment[routeType] else {
             reportMissing {
                 "Scene router authority is missing for \(String(describing: routeType)) " +
-                    "while invoking \(action). Ensure the nearest scene host or anchor " +
-                    "uses the same route type."
+                    "while invoking \(action). Ensure this view is rendered from " +
+                    "\(String(describing: routeType)).scenes. For manual composition, " +
+                    "ensure the nearest scene host or anchor uses the same route type."
             }
             return nil
         }

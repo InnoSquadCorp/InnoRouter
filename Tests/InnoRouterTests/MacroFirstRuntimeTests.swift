@@ -145,7 +145,7 @@ struct MacroFirstRuntimeTests {
             onEvent: { event in
                 recorder.events.append(event)
             }
-        ).withMacroFirstDiagnostics()
+        ).withMacroFirstDiagnostics(hostName: "RouterHost")
         let store = FlowStore(
             initial: [.sheet(.settings)],
             configuration: configuration

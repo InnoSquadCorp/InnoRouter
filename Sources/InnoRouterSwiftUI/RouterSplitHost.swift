@@ -96,7 +96,9 @@ public struct RouterSplitHost<R: DestinationRoute, Sidebar: View, Root: View>: V
         self._store = State(
             initialValue: FlowStore(
                 initial: initial,
-                configuration: configuration.withMacroFirstDiagnostics()
+                configuration: configuration.withMacroFirstDiagnostics(
+                    hostName: "RouterSplitHost"
+                )
             )
         )
         self.sidebar = sidebar

@@ -15,7 +15,7 @@ extension FlowStoreConfiguration {
     /// helper, so advanced `FlowHost` integrations retain their configured
     /// logging policy exactly.
     @MainActor
-    func withMacroFirstDiagnostics() -> Self {
+    func withMacroFirstDiagnostics(hostName: String) -> Self {
         var result = self
         let userOnEvent = onEvent
 
@@ -28,7 +28,7 @@ extension FlowStoreConfiguration {
 
             macroFirstFlowLogger.warning(
                 """
-                RouterHost rejected a flow intent. \
+                \(hostName, privacy: .public) rejected a flow intent. \
                 route=\(String(reflecting: R.self), privacy: .private(mask: .hash)) \
                 intent=\(String(describing: intent), privacy: .private(mask: .hash)) \
                 reason=\(reason.localizedDescription, privacy: .private(mask: .hash))

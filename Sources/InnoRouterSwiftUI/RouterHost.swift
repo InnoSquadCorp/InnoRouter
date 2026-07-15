@@ -53,7 +53,9 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
         self._store = State(
             initialValue: FlowStore(
                 initial: initial,
-                configuration: configuration.withMacroFirstDiagnostics()
+                configuration: configuration.withMacroFirstDiagnostics(
+                    hostName: "RouterHost"
+                )
             )
         )
         self.root = root

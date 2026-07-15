@@ -324,7 +324,7 @@ struct RouterDeepLinkHostTests {
         let store = FlowStore<HostDeepLinkRoute>(
             initial: [.sheet(.settings)],
             configuration: FlowStoreConfiguration { recorder.values.append($0) }
-                .withMacroFirstDiagnostics()
+                .withMacroFirstDiagnostics(hostName: "RouterHost")
         )
 
         submitRouterDeepLink(
