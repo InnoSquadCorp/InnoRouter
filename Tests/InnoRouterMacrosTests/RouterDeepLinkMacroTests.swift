@@ -758,6 +758,44 @@ struct RouterDeepLinkDiagnosticMacroTests {
         )
     }
 
+    @Test("E029 rejects a conditional manual static resolver")
+    func conditionalConflictingResolver() throws {
+        assertMacroExpansion(
+            """
+            @Router(
+                deepLinkSchemes: ["innorouter"],
+                deepLinkHosts: ["app.example.com"]
+            )
+            enum ManualRoute {
+                @DeepLink("/home")
+                case home
+            #if DEBUG
+                static func resolveDeepLink(_ url: Foundation.URL) -> Self? { nil }
+            #endif
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum ManualRoute {
+                case home
+            #if DEBUG
+                static func resolveDeepLink(_ url: Foundation.URL) -> Self? { nil }
+            #endif
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E029] @Router with @DeepLink generates `resolveDeepLink(_:)`; remove the manual static resolver",
+                    line: 9,
+                    column: 5
+                )
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("W006 warns when allowlists have no marked cases")
     func unusedAllowlist() throws {
         assertMacroExpansion(

@@ -194,7 +194,7 @@ let package = Package(
         // MARK: - SwiftUI Target
         .target(
             name: "InnoRouterSwiftUI",
-            dependencies: ["InnoRouterCore"],
+            dependencies: ["InnoRouterCore", "InnoRouterDeepLink"],
             resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

@@ -6,9 +6,12 @@ import InnoRouterCore
 /// ``DestinationRoute``.
 ///
 /// `RouterHost` is the default self-contained surface for both push navigation
-/// and modal presentation. When restoration, deep-link reconciliation, or
-/// middleware mutation requires an external authority, create a ``FlowStore``
-/// at the application boundary and use ``FlowHost`` instead.
+/// and modal presentation. When `R` conforms to `DeepLinkRoute`, admitted
+/// incoming URLs automatically push the resolved route. Authentication,
+/// pending replay, multi-step reconciliation, restoration, or middleware
+/// mutation remains an application-boundary ``FlowStore`` + ``FlowHost``
+/// responsibility. In multi-window apps, SwiftUI Scene-level external-event
+/// policy still chooses which scene receives the URL.
 ///
 /// ```swift
 /// @Router
@@ -57,6 +60,10 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
     }
 
     public var body: some View {
-        FlowHost(store: store, root: root)
+        let flowStore = store
+        FlowHost(store: flowStore, root: root)
+            .handleRouterDeepLinks(for: R.self) { route in
+                flowStore.send(.push(route))
+            }
     }
 }

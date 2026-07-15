@@ -114,11 +114,13 @@ public macro TabItem(
 /// Maps one fail-closed URL path pattern to an `@Router` enum case.
 ///
 /// Add literal scheme and host allowlists to `@Router`. The generated
-/// ``DeepLinkRoute`` resolver accepts only exact, case-insensitive origin
+/// `DeepLinkRoute` resolver accepts only exact, case-insensitive origin
 /// matches and returns one typed route. Generated mappings prefer literal
 /// paths, then typed parameters, then terminal wildcards, independent of case
-/// declaration order. Authentication, pending replay, and multi-step plans
-/// remain on the explicit deep-link pipeline APIs.
+/// declaration order. `RouterHost` and `RouterSplitHost` automatically push
+/// the result, while `RouterTabHost` selects it. Authentication, pending
+/// replay, modal presentation style, multi-step plans, and heterogeneous
+/// multi-window scene selection remain application-boundary concerns.
 ///
 /// ```swift
 /// @Router(

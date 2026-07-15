@@ -100,7 +100,9 @@ extension View {
 /// Annotate every case of an `@Router` enum with `@TabItem`, then pass the
 /// generated route type and initial selection. Descendants switch tabs or
 /// update badges through ``EnvironmentRouter`` without receiving a coordinator
-/// or binding.
+/// or binding. When the route also has `@DeepLink` mappings, an admitted URL
+/// automatically selects the resolved tab. Multi-window scene selection stays
+/// at the SwiftUI Scene boundary.
 ///
 /// ```swift
 /// RouterTabHost(AppTab.self, initial: .home)
@@ -137,6 +139,7 @@ public struct RouterTabHost<R: DestinationRoute & RouterTab>: View {
 
     public var body: some View {
         @Bindable var state = state
+        let tabState = state
 
         TabView(selection: $state.selection) {
             ForEach(Array(R.allCases), id: \.self) { tab in
@@ -152,5 +155,8 @@ public struct RouterTabHost<R: DestinationRoute & RouterTab>: View {
             for: R.self,
             tab: state.actionHandler
         )
+        .handleRouterDeepLinks(for: R.self) { route in
+            tabState.send(.select(route))
+        }
     }
 }

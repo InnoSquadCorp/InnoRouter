@@ -26,7 +26,6 @@ The key idea is that deep links are not executed ad hoc. They are matched, valid
 
 ### Essentials
 
-- ``DeepLinkRoute``
 - <doc:Matcher-and-Diagnostics>
 - <doc:Pipeline-and-Pending-Deep-Links>
 

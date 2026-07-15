@@ -222,6 +222,12 @@ are bare semver (no leading `v`).
   parameters, then terminal wildcards—and emits compiler diagnostics for
   invalid origins, payload mismatches, conditional mappings, and normalized
   duplicates.
+- Macro-first hosts now consume those generated resolvers automatically:
+  `RouterHost` and `RouterSplitHost` push one resolved route, while
+  `RouterTabHost` selects one resolved tab. Nested hosts arbitrate one incoming
+  URL in favor of the shallowest matching authority inside the selected scene;
+  multi-window scene selection, modal style, authentication, pending replay,
+  and multi-step plans remain explicit.
 
 ### Changed
 

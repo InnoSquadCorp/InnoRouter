@@ -651,8 +651,15 @@ private func collectDeepLinkConditionalCases(
 private func conflictingDeepLinkResolver(
     in enumDecl: EnumDeclSyntax
 ) -> FunctionDeclSyntax? {
-    for member in enumDecl.memberBlock.members {
-        if let function = member.decl.as(FunctionDeclSyntax.self),
+    let declarations = enumDecl.memberBlock.members.flatMap { member -> [DeclSyntax] in
+        if let conditional = member.decl.as(IfConfigDeclSyntax.self) {
+            return declarationsInsideDeepLinkConditional(conditional)
+        }
+        return [member.decl]
+    }
+
+    for declaration in declarations {
+        if let function = declaration.as(FunctionDeclSyntax.self),
            function.name.text == "resolveDeepLink",
            function.genericParameterClause == nil,
            function.modifiers.contains(where: { modifier in
@@ -667,6 +674,22 @@ private func conflictingDeepLinkResolver(
         }
     }
     return nil
+}
+
+private func declarationsInsideDeepLinkConditional(
+    _ conditional: IfConfigDeclSyntax
+) -> [DeclSyntax] {
+    conditional.clauses.flatMap { clause in
+        guard case .decls(let members) = clause.elements else {
+            return [DeclSyntax]()
+        }
+        return members.flatMap { member in
+            if let nestedConditional = member.decl.as(IfConfigDeclSyntax.self) {
+                return declarationsInsideDeepLinkConditional(nestedConditional)
+            }
+            return [member.decl]
+        }
+    }
 }
 
 private func isFoundationURLType(_ type: TypeSyntax) -> Bool {

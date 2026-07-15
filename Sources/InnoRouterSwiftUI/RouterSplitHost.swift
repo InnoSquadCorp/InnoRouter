@@ -69,7 +69,9 @@ struct RouterSplitFlowSurface<R: Route, Sidebar: View, Destination: View, Root: 
 /// application supplies sidebar and root content, while the host owns the
 /// detail navigation stack and modal presentation authority. SwiftUI retains
 /// its native column visibility and compact-adaptation behavior. Descendants
-/// use ``EnvironmentRouter`` for both kinds of transition.
+/// use ``EnvironmentRouter`` for both kinds of transition. A `DeepLinkRoute`
+/// automatically pushes its resolved incoming URLs into the detail stack;
+/// multi-window scene selection remains a Scene-level policy.
 ///
 /// ```swift
 /// RouterSplitHost(AppRoute.self) {
@@ -111,12 +113,16 @@ public struct RouterSplitHost<R: DestinationRoute, Sidebar: View, Root: View>: V
     }
 
     public var body: some View {
+        let flowStore = store
         RouterSplitFlowSurface(
-            store: store,
+            store: flowStore,
             sidebar: sidebar,
             destination: R.destination(for:),
             root: root
         )
+        .handleRouterDeepLinks(for: R.self) { route in
+            flowStore.send(.push(route))
+        }
     }
 }
 #else
