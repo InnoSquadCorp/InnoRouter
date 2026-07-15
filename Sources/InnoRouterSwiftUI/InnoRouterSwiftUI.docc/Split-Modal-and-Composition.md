@@ -4,18 +4,36 @@
   @PageKind(article)
 }
 
-Stack navigation, split detail navigation, and modal presentation are intentionally separate authorities.
+Macro-first hosts can unify a detail stack and modal presentation under one
+`FlowStore`. Externally owned stack, modal, and coordinator hosts remain
+separate advanced authorities.
 
 ## Split navigation
 
-Use `NavigationSplitHost` or `CoordinatorSplitHost` when the app has a sidebar/detail layout.
+Use `RouterSplitHost` for a macro-first sidebar/detail layout. It owns the
+detail stack and modal authority locally, builds destinations from the
+`@Router` enum, and exposes both through `@EnvironmentRouter`:
+
+```swift skip doc-fragment
+RouterSplitHost(AppRoute.self) {
+    SidebarView()
+} root: {
+    ContentUnavailableView("Select an item", systemImage: "sidebar.left")
+}
+```
+
+All stack and modal actions pass through the same `FlowStore`, so a push is
+still rejected while a modal route is the flow tail. Use
+`NavigationSplitHost` or `CoordinatorSplitHost` when the application must own
+an advanced stack-only authority directly.
 
 Important scope boundary:
 
-- InnoRouter owns only the detail stack
+- `RouterSplitHost` owns the detail stack and modal authority
+- advanced split hosts own only the detail stack
 - sidebar selection remains app-owned
-- column visibility remains app-owned
-- compact adaptation remains app-owned
+- column visibility remains system-managed
+- compact adaptation remains system-managed
 
 This keeps shell state out of the stack authority.
 
@@ -23,6 +41,10 @@ This keeps shell state out of the stack authority.
 > because SwiftUI's `NavigationSplitView` is unavailable there. watchOS apps should fall back
 > to `NavigationHost` / `CoordinatorHost` in the `#else` branch of a
 > `#if !os(watchOS)` check.
+>
+> `RouterSplitHost` remains visible to watchOS callers as an explicitly
+> unavailable declaration, whose compiler diagnostic directs macro-first code
+> to `RouterHost`.
 
 ## Modal navigation
 
@@ -49,6 +71,21 @@ Modal queue rules are intentionally small:
 - `replaceCurrent` swaps only the active presentation and leaves the
   queue untouched; observers receive `.replaced` before the command
   interception event.
+
+`dismissCurrent` and `dismissAll` attempts enter modal middleware even when
+there is no active presentation or queue. The resulting command can remain a
+no-op, be cancelled, or be rewritten by middleware; this matches direct
+`ModalStore` execution instead of hiding empty-state attempts in `FlowStore`.
+
+When middleware cancels a FlowStore modal preview, the captured participants
+still receive `didExecute`, observers receive `.commandIntercepted`, and
+`ModalQueueCancellationPolicy` is applied to the preview state. If that policy
+changes the live queue, `.queueChanged` is delivered before the interception
+and flow-level rejection. During an atomic reset, a cancellation previewed from
+an intermediate shadow is finalized with the actual live state that survived
+rollback. Successful navigation and modal previews that preceded that
+cancellation stay off the public `didExecute` path and run their package-owned
+discard cleanup instead.
 
 `alert` and `confirmationDialog` stay outside this framework surface and should remain feature-owned state.
 

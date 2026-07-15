@@ -71,7 +71,14 @@ if rg -n '\bNav[A-Z][[:alnum:]_]*\b|@UseNavigator\b|@EnvironmentNavigator\b|\bPe
 fi
 
 echo "[lint-source-gates] Checking deprecated/availability shims"
-if rg -n "deprecated|@available\\(" Sources --glob '*.swift' --glob '!Sources/InnoRouterSwiftUI/NavigationStore.swift'; then
+# `RouterSplitHost` intentionally keeps an unavailable watchOS declaration so
+# the compiler can direct macro-first callers to `RouterHost`. That is a
+# platform diagnostic, not a compatibility shim. Keep the exception scoped to
+# this one source file; every other availability declaration still fails.
+if rg -n "deprecated|@available\\(" Sources \
+  --glob '*.swift' \
+  --glob '!**/NavigationStore.swift' \
+  --glob '!**/RouterSplitHost.swift'; then
   echo "[lint-source-gates] Failed: deprecated or availability shim found"
   exit 1
 fi
