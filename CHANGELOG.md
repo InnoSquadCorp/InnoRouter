@@ -298,6 +298,12 @@ are bare semver (no leading `v`).
   `RouterSplitHost` surface. Missing spatial authority diagnostics lead with
   the generated `<Route>.scenes` wiring and keep manual scene hosts and anchors
   as the advanced recovery path.
+- The one-product macro-first consumer smoke now compiles `RouterHost`,
+  `RouterModalHost`, `RouterSplitHost`, `RouterTabHost`, `@EnvironmentRouter`,
+  generated tab metadata, and generated deep-link resolution across the
+  supported platform matrix. The parity gate keeps that coverage from
+  regressing to a single stack host. The visionOS consumer smoke likewise
+  compiles generated scenes plus environment open and dismissal actions.
 - Release publication now resolves strict GA/`rc`/`beta` metadata through one
   SemVer policy, reads release policy from `main`, verifies the exact tag and
   triggering SHA against `main` ancestry, and builds only the resulting

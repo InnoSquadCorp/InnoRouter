@@ -17,11 +17,31 @@ enum VisionOSSmokeRoute {
     var destination: some View {
         switch self {
         case .main:
-            Text("Main")
+            VisionOSSmokeSceneActions()
         case .model:
             Text("Model")
         case .theatre:
             Text("Theatre")
+        }
+    }
+}
+
+private struct VisionOSSmokeSceneActions: View {
+    @EnvironmentSceneRouter(VisionOSSmokeRoute.self) private var scenes
+
+    var body: some View {
+        VStack {
+            Button("Open model") {
+                if let presentation = scenes.open(.model) {
+                    scenes.dismissWindow(presentation)
+                }
+            }
+            Button("Enter theatre") {
+                scenes.open(.theatre)
+            }
+            Button("Leave theatre") {
+                scenes.dismissImmersive()
+            }
         }
     }
 }
