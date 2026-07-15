@@ -130,12 +130,18 @@ public final class SceneStore<R: Route> {
         return presentation
     }
 
-    /// Requests that the host open an immersive space for `route`.
-    public func openImmersive(_ route: R, style: ImmersiveStyle) {
+    /// Requests that the host open an immersive space for `route` and
+    /// returns the request handle used to reconcile its lifecycle.
+    @discardableResult
+    public func openImmersive(
+        _ route: R,
+        style: ImmersiveStyle
+    ) -> ScenePresentation<R> {
         let presentation = state.presentationForImmersiveOpen(route: route, style: style)
         applyRequestMutation {
             $0.requestOpen(presentation)
         }
+        return presentation
     }
 
     /// Requests that the host dismiss the active immersive space.

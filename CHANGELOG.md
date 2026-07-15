@@ -228,6 +228,13 @@ are bare semver (no leading `v`).
   URL in favor of the shallowest matching authority inside the selected scene;
   multi-window scene selection, modal style, authentication, pending replay,
   and multi-step plans remain explicit.
+- `@EnvironmentSceneRouter` exposes one route-aware spatial action facade from
+  both `innoRouterSceneHost` and `innoRouterSceneAnchor`. `open(_:)` selects the
+  declared window, volumetric, or immersive behavior automatically and returns
+  an optional request handle; `dismissWindow(_:)` preserves multi-window
+  identity, while `dismissImmersive()` follows SwiftUI's active-space model.
+  `SceneStore.openImmersive` now returns the same request handle as the other
+  open methods.
 
 ### Changed
 

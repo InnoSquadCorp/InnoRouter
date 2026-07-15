@@ -153,6 +153,7 @@ internal struct SceneAnchor<R: Route>: ViewModifier {
             .onChange(of: store.dispatchSignal) { _, _ in
                 spawnDispatchTask()
             }
+            .sceneRouterAuthority(store: store, scenes: scenes)
     }
 
     @MainActor

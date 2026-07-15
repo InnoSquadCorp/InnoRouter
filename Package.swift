@@ -202,7 +202,7 @@ let package = Package(
         // MARK: - Spatial Scene Target
         .target(
             name: "InnoRouterSpatial",
-            dependencies: ["InnoRouterCore"],
+            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
             resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -344,7 +344,7 @@ let package = Package(
         ),
         .testTarget(
             name: "InnoRouterSpatialTests",
-            dependencies: ["InnoRouterCore", "InnoRouterSpatial"],
+            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterSpatial"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

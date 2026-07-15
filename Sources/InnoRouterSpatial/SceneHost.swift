@@ -234,6 +234,7 @@ internal struct SceneHost<R: Route>: ViewModifier {
                     spawnDispatchTask: spawnDispatchTask
                 )
             }
+            .sceneRouterAuthority(store: store, scenes: scenes)
     }
 
     @MainActor

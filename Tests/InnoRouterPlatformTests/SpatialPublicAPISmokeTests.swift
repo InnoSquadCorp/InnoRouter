@@ -16,6 +16,25 @@ private enum SpatialPublicRoute: Route {
     case theatre
 }
 
+private struct SpatialPublicActionsView: View {
+    @EnvironmentSceneRouter(SpatialPublicRoute.self)
+    private var scenes
+
+    var body: some View {
+        Button("Open theatre") {
+            let presentation = scenes.open(.theatre)
+            if let presentation {
+                switch presentation {
+                case .window, .volumetric:
+                    scenes.dismissWindow(presentation)
+                case .immersive:
+                    scenes.dismissImmersive()
+                }
+            }
+        }
+    }
+}
+
 @Suite("visionOS public spatial API", .tags(.unit))
 @MainActor
 struct SpatialPublicAPISmokeTests {
@@ -28,14 +47,15 @@ struct SpatialPublicAPISmokeTests {
         )
 
         _ = store.openWindow(.main)
+        _ = store.openImmersive(.theatre, style: .mixed)
         _ = store.events
-        _ = EmptyView().innoRouterSceneHost(
+        _ = SpatialPublicActionsView().innoRouterSceneHost(
             store,
             scenes: scenes,
             attachedTo: .main,
             instanceID: UUID()
         )
-        _ = EmptyView().innoRouterSceneAnchor(
+        _ = SpatialPublicActionsView().innoRouterSceneAnchor(
             store,
             scenes: scenes,
             attachedTo: .theatre
