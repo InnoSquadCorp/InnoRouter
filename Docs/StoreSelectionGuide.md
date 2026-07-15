@@ -1,257 +1,280 @@
-# Store Selection Guide
+# Surface Selection Guide
 
-InnoRouter exposes four navigation authorities: `NavigationStore`,
-`ModalStore`, `FlowStore`, and `SceneStore`. Picking
-the right one is the most common adoption question. This guide
-answers it with a decision tree and four worked examples.
+InnoRouter 5.0 is macro-first. Most features declare a route enum, install a
+locally owned host, and call typed environment actions. Stores remain public
+for application boundaries that must own, restore, observe, or mutate routing
+state directly; they are not prerequisite setup for an ordinary feature.
 
-The short rule: **start small, compose up**. A self-contained push or modal
-surface starts with `@Router` + `RouterHost`, which keeps its unified store
-local. Promote to an externally owned `FlowStore` + `FlowHost` when another
-boundary needs the combined authority, or to `NavigationStore` +
-`NavigationHost` when that external authority is deliberately stack-only.
+The filename remains `StoreSelectionGuide.md` so existing links stay stable,
+but the first decision is now the SwiftUI surface rather than a store type.
+
+## Default choices
+
+| Need | Start with | Promote when |
+|---|---|---|
+| Stack plus sheet / cover | `@Router` + `RouterHost` | `FlowStore` + `FlowHost` for externally owned unified state |
+| Modal-only feature | `@Router` + `RouterModalHost` | `ModalStore` + `ModalHost` for an externally owned queue |
+| Split detail plus modal | `@Router` + `RouterSplitHost` | `NavigationSplitHost` for an externally owned stack-only detail authority |
+| Native tabs | `@Router` + `@TabItem` + `RouterTabHost` | `TabCoordinatorView` for owned selection, a custom shell, or per-tab stores |
+| One safe URL to one route | `@Router` allowlists + `@DeepLink` | Deep-link pipeline + Effects for authentication, pending replay, or multi-step plans |
+| visionOS app scenes | `InnoRouterSpatial` + `@SceneRouter` + `@Scene` | `SceneStore` and manual hosts for direct event observation or custom composition |
 
 ## Decision tree
 
 ```text
-Does this app surface need to push routes onto a stack?
-├── No  → Does it need to present a sheet or full-screen cover?
-│        ├── No  → You don't need an InnoRouter store. Use plain
-│        │        SwiftUI views.
-│        └── Yes → ModalStore + ModalHost
-│
-└── Yes → Does it also need sheet or cover presentation?
-         ├── No  → @Router + RouterHost
-         │        (promote to NavigationStore + NavigationHost when
-         │         the store needs an external owner; use
-         │         NavigationSplitHost for sidebar+detail layouts)
-         │
-         └── Yes → Do push and modal need to live in *one* state
-                   that a single URL can rehydrate atomically, or
-                   that you want to persist as one snapshot?
-                   ├── No  → RouterHost + ModalStore + ModalHost
-                   │         (two independent authorities, the
-                   │          common case)
-                   │
-                   └── Yes → FlowStore + FlowHost
-                             (single [RouteStep<R>] timeline,
-                              atomic apply(_: FlowPlan), one
-                              events stream)
+Is this a visionOS window, volume, or immersive-space inventory?
+├── Yes → @SceneRouter + @Scene, then install Route.scenes
+└── No  → Is the feature a native tab shell?
+         ├── Yes → @Router + @TabItem + RouterTabHost
+         └── No  → Which local transition authority is needed?
+                  ├── stack + modal → RouterHost
+                  ├── modal only   → RouterModalHost
+                  └── split detail → RouterSplitHost
+
+Does another boundary need to own/restore/observe/mutate that state?
+├── No  → keep the macro-first host
+└── Yes → choose NavigationStore, ModalStore, FlowStore, or SceneStore
+
+Does an incoming URL need authentication, deferral, replay, or multiple steps?
+├── No  → @DeepLink on the route case; RouterHost / RouterSplitHost push it,
+│         or RouterTabHost selects it
+└── Yes → DeepLinkPipeline / FlowDeepLinkPipeline + InnoRouterEffects
 ```
 
-`Coordinator` / `StepCoordinator` / `TabCoordinator` /
-`ChildCoordinator` are not navigation authorities — they sit
-*between* views and stores when you need policy routing or a
-shell that owns a tab selection. Reach for them after you have
-picked a store, not instead of one.
+`RouterModalHost` does not guess a presentation style for an incoming URL and
+therefore does not install automatic deep-link handling. A modal-only URL
+boundary must choose its style explicitly in `onOpenURL` or use the pipeline
+and Effects path.
 
-`SceneStore` is the visionOS spatial-scene authority. It lives in the
-opt-in `InnoRouterSpatial` product rather than the default umbrella and does
-not interact with the stack/modal axes above; treat it as a parallel surface.
+All ordinary route actions come from
+`@EnvironmentRouter(Route.self)`. Spatial scene actions come from
+`@EnvironmentSceneRouter(SceneRoute.self)`. A view should not receive a
+host-owned store just to trigger a transition.
 
-## Four worked examples
+## Worked surfaces
 
-### 1. Single push stack (`@Router` + `RouterHost`)
+### 1. Stack plus modal (`RouterHost`)
 
-A reading app with `Library → BookDetail → ChapterReader`. No
-sheets, no covers, no split layout.
+`RouterHost` owns one local `FlowStore`, so the same route type can be pushed
+or presented without exposing the store.
 
 ```swift skip doc-fragment
-import SwiftUI
-import InnoRouter
-
 @Router
 enum LibraryRoute {
     case book(id: String)
-    case chapter(book: String, chapter: Int)
+    case settings
 
     var destination: some View {
         switch self {
-        case .book(let id):
-            BookDetailView(id: id)
-        case .chapter(let book, let chapter):
-            ChapterReaderView(book: book, chapter: chapter)
+        case .book(let id): BookDetailView(id: id)
+        case .settings: SettingsView()
         }
     }
 }
 
-struct ReadingApp: View {
+struct LibraryRoot: View {
     var body: some View {
         RouterHost(LibraryRoute.self) {
             LibraryView()
         }
     }
 }
-```
 
-`RouterHost` creates and owns one local `FlowStore`, and `@Router` supplies
-both `Route` conformance and destination rendering. The view only sees
-`@EnvironmentRouter`; it does not need to know which store backs the host. The
-root view is not a route in the pushed path, so the example does not duplicate
-`.library` as its first destination.
-
-Promote authority to the application boundary only when another subsystem
-must reach it. If that authority remains stack-only, `NavigationStore` and
-`NavigationHost` still do not need a destination switch because `@Router`
-supplies `DestinationRoute`:
-
-```swift skip doc-fragment
-@State private var store = NavigationStore<LibraryRoute>()
-
-NavigationHost(store: store) {
-    LibraryView()
-}
-```
-
-Do not promote to an externally owned `FlowStore` just because the app might
-add an independently owned settings sheet later. Add a distinct modal route
-through `ModalStore` + `ModalHost` instead.
-
-### 2. Push + independent modal (`RouterHost` + `ModalHost`)
-
-The same reading app gains a *Settings* sheet and an *Onboarding*
-full-screen cover. Settings can open over any push depth, and the
-cover is a one-shot first-launch flow.
-
-```swift skip doc-fragment
-@Routable
-enum AppModalRoute {
-    case settings
-    case onboarding
-}
-
-struct ReadingApp: View {
-    @State private var modal = ModalStore<AppModalRoute>()
+struct LibraryView: View {
+    @EnvironmentRouter(LibraryRoute.self) private var router
 
     var body: some View {
-        ModalHost(store: modal) { route in
-            switch route {
-            case .settings:    SettingsView()
-            case .onboarding:  OnboardingView()
-            }
-        } content: {
-            RouterHost(LibraryRoute.self) {
-                LibraryView()
-            }
+        VStack {
+            Button("Open book") { router.go(.book(id: "42")) }
+            Button("Settings") { router.sheet(.settings) }
         }
     }
 }
 ```
 
-The two route-typed authorities stay independent. A navigation router action
-does not touch the modal queue, and a modal router action does not perturb the
-push stack. This is the most common shape once one `RouterHost` route is not the
-right owner for both surfaces.
+Use an externally owned `FlowStore` only when another boundary needs the
+combined route timeline, restoration snapshot, middleware registry, or event
+stream. A deliberately stack-only external authority uses `NavigationStore`
+and `NavigationHost` instead.
 
-### 3. Atomic URL → push prefix + modal tail (`FlowStore`)
+### 2. Modal-only (`RouterModalHost`)
 
-`myapp://onboarding/privacy` must, in one observable transition,
-rebuild a push prefix `[.onboarding]` *and* present a sheet
-`.privacyPolicy` on top — and a state-restoration snapshot must
-capture both pieces as one value. This is what `FlowStore` is for.
+```swift skip doc-fragment
+@Router
+enum AccountModal {
+    case profile
+    case onboarding
+
+    var destination: some View {
+        switch self {
+        case .profile: ProfileView()
+        case .onboarding: OnboardingView()
+        }
+    }
+}
+
+RouterModalHost(AccountModal.self) {
+    AccountView()
+}
+```
+
+Descendants call `sheet`, `cover`, `dismiss`, or `dismissAll`. On platforms
+without native `fullScreenCover`, cover requests intentionally render as a
+sheet without treating that normal adaptation as a configuration error.
+
+### 3. Split detail (`RouterSplitHost`)
+
+```swift skip doc-fragment
+RouterSplitHost(LibraryRoute.self) {
+    LibrarySidebar()
+} root: {
+    ContentUnavailableView("Select a book", systemImage: "book")
+}
+```
+
+The host owns the detail stack and modal authority. Sidebar selection, column
+visibility, and compact adaptation stay app-owned. `RouterSplitHost` is
+explicitly unavailable on watchOS; use `RouterHost` there.
+
+### 4. Native tabs (`RouterTabHost`)
+
+```swift skip doc-fragment
+@Router
+enum AppTab {
+    @TabItem("Home", systemImage: "house")
+    case home
+
+    @TabItem("Settings", systemImage: "gear")
+    case settings
+
+    var destination: some View {
+        switch self {
+        case .home: HomeView()
+        case .settings: SettingsView()
+        }
+    }
+}
+
+RouterTabHost(AppTab.self, initial: .home)
+```
+
+Every case must be parameterless and carry exactly one `@TabItem` once tab
+metadata is used. Descendants select tabs and update badges through
+`@EnvironmentRouter`. Choose `TabCoordinatorView` for a custom shell or
+externally owned selection.
+
+### 5. One-route deep links (`@DeepLink`)
+
+```swift skip doc-fragment
+@Router(
+    deepLinkSchemes: ["myapp", "https"],
+    deepLinkHosts: ["app.example.com"]
+)
+enum AppRoute {
+    @DeepLink("/products/:id")
+    case product(id: String)
+
+    @DeepLink("/settings")
+    case settings
+
+    var destination: some View {
+        switch self {
+        case .product(let id): ProductView(id: id)
+        case .settings: SettingsView()
+        }
+    }
+}
+
+RouterHost(AppRoute.self) { HomeView() }
+```
+
+The allowlists fail closed. `RouterHost` and `RouterSplitHost` push a resolved
+route; `RouterTabHost` selects a resolved tab. Use the explicit matcher,
+pipeline, and Effects path when a URL needs authentication, pending replay,
+custom admission, dynamic patterns, or more than one transition.
+
+### 6. visionOS scenes (`@SceneRouter`)
+
+```swift skip visionos-only
+import InnoRouterSpatial
+
+@SceneRouter
+enum AppScene {
+    @Scene(.window)
+    case main
+
+    @Scene(.immersive(style: .mixed))
+    case theatre
+
+    var destination: some View {
+        switch self {
+        case .main: MainView()
+        case .theatre: TheatreView()
+        }
+    }
+}
+
+@main
+struct ExampleApp: App {
+    var body: some Scene { AppScene.scenes }
+}
+```
+
+The first case is the primary scene host; later cases are lifecycle anchors.
+Views rendered from that tree use `@EnvironmentSceneRouter` to call `open`,
+`dismissWindow`, and `dismissImmersive`. Promote to manual `SceneStore`
+composition when the generated private store cannot satisfy direct event
+observation or custom scene ownership.
+
+### 7. Atomic app-boundary flow (`FlowStore`)
+
+An explicit store remains correct when one URL or restoration snapshot must
+atomically rebuild a push prefix and a modal tail.
 
 ```swift skip doc-fragment
 @Routable
 enum AppRoute {
-    case home
     case onboarding
     case privacyPolicy
 }
 
 let flow = FlowStore<AppRoute>()
-
 flow.apply(FlowPlan(steps: [
     .push(.onboarding),
-    .sheet(.privacyPolicy)
+    .sheet(.privacyPolicy),
 ]))
 ```
 
-If you do not need this atomic semantics — for example, the URL
-only ever rebuilds the push stack and any modal step is a separate
-user gesture — stay with `RouterHost + ModalHost`.
-`FlowStore` adds a single timeline invariant (one trailing modal,
-modal always at the tail) that your app must honour. That is a
-cost worth paying *only* when an URL or a persisted snapshot
-needs to encode both pieces atomically.
-
-The full deep-link case is documented in
-[`Tutorial-FlowDeepLinkPipeline`](../Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md).
-
-### 4. iPad sidebar + detail stack (`NavigationSplitHost`)
-
-A reference app with a category sidebar and a detail stack rooted in the
-category list. The detail stack is the only thing InnoRouter owns; sidebar
-selection and column visibility stay app-state.
-
-```swift skip doc-fragment
-@Router
-enum DetailRoute {
-    case article(id: String)
-    case section(id: String, anchor: String)
-
-    var destination: some View {
-        switch self {
-        case .article(let id):
-            ArticleView(id: id)
-        case .section(let id, let anchor):
-            SectionView(id: id, anchor: anchor)
-        }
-    }
-}
-
-struct ReferenceApp: View {
-    @State private var detail = NavigationStore<DetailRoute>()
-    @State private var sidebarSelection: Category? = .swift
-
-    var body: some View {
-        NavigationSplitHost(store: detail) {
-            Sidebar(selection: $sidebarSelection)
-        } destination: { route in
-            route.destination
-        } root: {
-            CategoryList(category: sidebarSelection)
-        }
-    }
-}
-```
-
-Do not push the sidebar `Category` into `NavigationStore`. Routing
-authority is for *the part of the screen that pushes routes* — the
-detail column. Keeping shell state app-owned is an explicit
-principle (`Docs/v2-principle-scorecard.md` § Remaining trade-offs).
+This advanced path carries a single `[RouteStep<R>]` timeline and its
+invariants. It is a useful ownership choice, not setup every feature should
+repeat. See
+[`Tutorial-FlowDeepLinkPipeline`](../Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md)
+for authenticated and pending deep-link composition.
 
 ## Anti-patterns
 
-- **`FlowStore` for every screen.** If push and modal flow
-  independently, the FlowStore invariants (single trailing modal,
-  one timeline) are friction without a payoff. Use separate stack and modal
-  hosts with distinct route enums.
-- **Reaching for a `Coordinator` before a store.** Coordinators are
-  policy objects layered *over* stores. A view that just pushes and pops a
-  typed route does not need a coordinator — `@EnvironmentRouter(Route.self)`
-  is enough. Use `router.send(_:)` only when the view genuinely needs to
-  construct the lower-level intent value itself.
-- **Passing `NavigationStore` deep into the view tree.** Inject
-  neither the store nor a handler. Read typed actions with
-  `@EnvironmentRouter(Route.self)`; the matching host publishes its authority
-  for the view subtree.
-- **One mega-`Route` enum across the entire app.** `Route` is
-  per-authority. A reading app with a settings sheet has *two*
-  small `enum`s — one for stack, one for modal — not one with 30
-  cases.
-- **Adopting `SceneStore` because the app runs on visionOS.** Most
-  visionOS apps use a single `WindowGroup` and need only the same
-  `RouterHost + ModalHost` as iOS. Reach for `SceneStore`
-  only when you actually open multiple windows / volumes /
-  immersive spaces *and* want a single authority over their
-  open/dismiss lifecycle. Add and import `InnoRouterSpatial` only in
-  the targets that own those scene declarations.
+- **Creating a Store before choosing a surface.** Start from the locally owned
+  host. Promote only when an external owner has a concrete responsibility.
+- **Passing a host-owned Store through the view tree.** Read typed actions from
+  the matching environment facade.
+- **Calling a capability the nearest host does not own.** A modal-only host
+  does not provide navigation, and a tab host does not provide stack actions.
+  Missing capabilities follow `EnvironmentMissingPolicy` with an actionable
+  diagnostic.
+- **Using `@DeepLink` for session policy.** Route declarations can decode one
+  safe route; authentication and pending replay belong at the application
+  boundary.
+- **Using `SceneStore` merely because the app runs on visionOS.** Ordinary
+  in-window navigation still uses `RouterHost`. Add spatial routing only when
+  the app owns multiple windows, volumes, or immersive spaces.
+- **One route enum for unrelated authorities.** `RouterHost` deliberately
+  unifies one feature's push and modal identity; independent features and app
+  shells should still own focused route types.
 
 ## Cross-references
 
 - [README — Choosing the right surface](../README.md#choosing-the-right-surface)
-- [`Docs/IntentSelectionGuide.md`](IntentSelectionGuide.md) — once a
-  store is picked, this picks `NavigationIntent` vs `ModalIntent` vs
-  `FlowIntent`.
-- [`Docs/v2-principle-scorecard.md`](v2-principle-scorecard.md) —
-  why each authority is separate.
+- [`Docs/IntentSelectionGuide.md`](IntentSelectionGuide.md) — choosing named
+  actions versus explicit intent values
+- [`Docs/design-macro-first-surfaces.md`](design-macro-first-surfaces.md) — the
+  implemented 5.0 surface contract

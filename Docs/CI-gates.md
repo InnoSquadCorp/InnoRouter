@@ -39,15 +39,15 @@ early with a clear message if it is missing.
 | 2 | DocC preview build | Rebuilds every `.docc` catalog; catches symbol drift and broken cross-refs. | `./scripts/build-docc-site.sh --version preview --skip-latest` |
 | 3 | Public API baselines | Diff against recorded baselines under `Baselines/`. Any unrecorded addition, removal, or rename fails. | `./scripts/check-public-api.sh` |
 | 4 | Maintainer docs consistency | README / CLAUDE.md / AGENTS.md / RELEASING.md / CHANGELOG.md cross-reference and version-string sync. | `./scripts/check-docs-consistency.sh` |
-| 5 | Doc Swift code blocks | Code blocks tagged `swift compile` / `swift skip` typecheck against the published API. | `./scripts/check-docs-code-blocks.sh` |
+| 5 | Doc Swift code blocks | `swift compile` blocks typecheck against the published API; `swift skip <reason>` blocks must record why they are intentionally excluded. | `./scripts/check-docs-code-blocks.sh` |
 | 6 | Examples ↔ ExamplesSmoke parity | 1:1 file alignment between the two example trees. See `Examples/README.md` for which side to edit. | `./scripts/check-examples-parity.sh` |
-| 7 | Smoke targets build | Compiler-stable runtime fixtures plus a one-product downstream `import InnoRouter` + `@Router` expansion check. | `swift build --target InnoRouterExamplesSmoke` and `swift build --target InnoRouterMacroFirstSmoke` (plus siblings) |
-| 8 | Human-facing examples build | Macro-using examples in `Examples/` — exercises the idiomatic surface. | `swift build --target InnoRouterStandaloneExample` (and siblings) |
+| 7 | Smoke targets build | Compiler-stable fixtures plus a one-product downstream default-umbrella check for every core macro-first host. | `swift build --target InnoRouterExamplesSmoke`, `swift build --target InnoRouterMacroFirstSmoke`, and siblings |
+| 8 | Human-facing examples build | Macro-first entry examples and explicitly advanced Store / Coordinator examples in `Examples/`. | `swift build --target InnoRouterStandaloneExample` (and siblings) |
 | 9 | Performance smoke | Coarse timing budget for engine dispatch / command algebra. | `./scripts/performance-smoke.sh` |
 | 10 | Source/workflow lint gates | Forbidden source patterns (`@unchecked Sendable`, `nonisolated(unsafe)`, etc.), debug-only fences, and invalid GitHub Actions syntax. | `./scripts/lint-source-gates.sh` and `actionlint -config-file .github/actionlint.yaml` |
 | 11 | Fail-fast probe | Invoking `EnvironmentRouter` without a matching host must crash deterministically with the documented message — guards against silent fallback regressions. | `swift run RouterEnvironmentFailFastProbe` (expected to fail) |
 | 12 | Public Bool naming | Public `Bool` properties must start with `is`, `has`, `can`, or `should`. | `rg "public (var\|let) [A-Za-z_][A-Za-z0-9_]*: Bool" Sources` |
-| 13 | Per-platform compile probe (optional) | `xcodebuild` against each Apple-platform generic simulator destination, including the macro-first consumer smoke. Only runs when `--platforms=…` is passed. | `./scripts/principle-gates.sh --platforms=all` |
+| 13 | Per-platform compile probe (optional) | `xcodebuild` against each Apple-platform generic destination, including the core macro-first consumer and the separate Spatial consumer on visionOS. Only runs when `--platforms=…` is passed. | `./scripts/principle-gates.sh --platforms=all` |
 
 ## `--platforms=` flag
 
@@ -67,6 +67,12 @@ Rules:
   destination. The smoke is an actual one-product macro consumer, not only a
   macro declaration build. Generic destinations avoid drift between local
   toolchains and CI runners.
+- The visionOS destination additionally builds
+  `InnoRouterSpatialConsumerSmoke`, which depends only on
+  `InnoRouterSpatial` and expands the generated scene tree and actions.
+- iOS and iPadOS intentionally map to the same generic iOS Simulator
+  destination. When both are requested, the local script builds that
+  destination once rather than claiming two distinct compile probes.
 - `xcodebuild` must be available; the gate aborts otherwise.
 - This flag is compile-only. It does not replace the runtime tests in
   the GitHub `platforms` workflow.
