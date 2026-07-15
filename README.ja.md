@@ -50,7 +50,7 @@ iOS 18 フロアと `swift-tools-version: 6.3` パッケージベースライン
 ことであり、利点はルーターの `Sendable`/`@MainActor` 規律が散文ではなく
 コンパイラによってチェックされることです。
 
-マクロターゲットは `swift-syntax` `603.0.1` に `.upToNextMinor` 制約で
+マクロターゲットは `swift-syntax` `603.0.2` に `.upToNextMinor` 制約で
 依存しています。InnoRouter 5.0 は、このホスト依存と CI で固定した Xcode 26.6
 toolchain に合わせてパッケージフロアを Swift 6.3 に引き上げます。今後の
 Swift フロア引き上げもメジャーバージョンでのみ行います。

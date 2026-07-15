@@ -50,7 +50,7 @@ Adoptionsfenster als bei Bibliotheken, die iOS 13–16 ansprechen; der Vorteil
 ist ein Router, dessen `Sendable`/`@MainActor`-Disziplin vom Compiler
 überprüft statt in Prosa dokumentiert wird.
 
-Das Macro-Target hängt von `swift-syntax` `603.0.1` mit einer
+Das Macro-Target hängt von `swift-syntax` `603.0.2` mit einer
 `.upToNextMinor`-Beschränkung ab. InnoRouter 5.0 hebt die Paketbasis auf
 Swift 6.3 an und richtet sie damit an dieser Host-Abhängigkeit sowie dem in CI
 gepinnten Xcode-26.6-Toolchain aus. Weitere Swift-Anhebungen bleiben

@@ -50,7 +50,7 @@ El costo es una ventana de adopción más pequeña que las bibliotecas que apunt
 a iOS 13–16; el beneficio es un router cuya disciplina `Sendable`/`@MainActor`
 es verificada por el compilador en lugar de documentada en prosa.
 
-El target de macros depende de `swift-syntax` `603.0.1` con una restricción
+El target de macros depende de `swift-syntax` `603.0.2` con una restricción
 `.upToNextMinor`. InnoRouter 5.0 eleva el piso del paquete a Swift 6.3 para
 alinearlo con esa dependencia host y con el toolchain Xcode 26.6 fijado en CI.
 Los futuros aumentos del piso de Swift seguirán reservados para versiones

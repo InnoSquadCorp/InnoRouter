@@ -50,7 +50,7 @@ concurrency и `Sendable` без аварийных выходов `@preconcurre
 маршрутизатор, чья дисциплина `Sendable`/`@MainActor` проверяется
 компилятором, а не задокументирована в прозе.
 
-Macros target зависит от `swift-syntax` `603.0.1` с ограничением
+Macros target зависит от `swift-syntax` `603.0.2` с ограничением
 `.upToNextMinor`. InnoRouter 5.0 поднимает базовую линию пакета до Swift 6.3,
 согласуя её с этой host-зависимостью и закреплённым в CI toolchain Xcode 26.6.
 Дальнейшие повышения минимума Swift остаются изменениями major-версии.

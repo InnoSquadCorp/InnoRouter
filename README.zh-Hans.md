@@ -47,7 +47,7 @@ iOS 18 floor 和 `swift-tools-version: 6.3` 包基线是有意为之:它们让�
 代价是比那些目标 iOS 13–16 的库更小的采用窗口;好处是 router 的 `Sendable`/`@MainActor`
 纪律由编译器检查而不是文字描述。
 
-宏目标依赖 `swift-syntax` `603.0.1`,使用 `.upToNextMinor` 约束。InnoRouter 5.0
+宏目标依赖 `swift-syntax` `603.0.2`,使用 `.upToNextMinor` 约束。InnoRouter 5.0
 将包基线提升到 Swift 6.3,与该 host 依赖和 CI 固定的 Xcode 26.6 toolchain 对齐。
 后续 Swift 基线提升仍只在主版本中进行。
 
