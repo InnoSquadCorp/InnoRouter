@@ -235,6 +235,12 @@ are bare semver (no leading `v`).
   identity, while `dismissImmersive()` follows SwiftUI's active-space model.
   `SceneStore.openImmersive` now returns the same request handle as the other
   open methods.
+- `@SceneRouter` and case-level `@Scene` add macro-first spatial scene
+  declarations in the opt-in `InnoRouterSpatial` product. Every parameterless
+  case declares `.window`, `.volumetric(...)`, or `.immersive(...)` metadata
+  with an optional stable `id`, while one `var destination: some View` supplies
+  generated `DestinationRoute` conformance. Invalid scene inventories fail at
+  compile time with stable diagnostics.
 
 ### Changed
 

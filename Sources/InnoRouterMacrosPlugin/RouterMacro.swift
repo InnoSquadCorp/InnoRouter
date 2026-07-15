@@ -188,13 +188,13 @@ private func makeRouterExtensions(
     return [extensionDecl]
 }
 
-private func containsDestinationBinding(_ variable: VariableDeclSyntax) -> Bool {
+func containsDestinationBinding(_ variable: VariableDeclSyntax) -> Bool {
     variable.bindings.contains { binding in
         binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text == "destination"
     }
 }
 
-private func qualifiedType(module: String, name: String) -> TypeSyntax {
+func qualifiedType(module: String, name: String) -> TypeSyntax {
     TypeSyntax(
         MemberTypeSyntax(
             baseType: IdentifierTypeSyntax(name: .identifier(module)),
@@ -204,7 +204,7 @@ private func qualifiedType(module: String, name: String) -> TypeSyntax {
     )
 }
 
-private func conflictsWithGeneratedDestination(
+func conflictsWithGeneratedDestination(
     _ function: FunctionDeclSyntax,
     in enumDecl: EnumDeclSyntax
 ) -> Bool {
@@ -224,7 +224,7 @@ private func conflictsWithGeneratedDestination(
     return conflictsWithGeneratedDestinationParameter(parameter.type, in: enumDecl)
 }
 
-private func conflictsWithGeneratedDestinationParameter(
+func conflictsWithGeneratedDestinationParameter(
     _ type: TypeSyntax,
     in enumDecl: EnumDeclSyntax
 ) -> Bool {
@@ -251,7 +251,7 @@ private func conflictsWithGeneratedDestinationParameter(
     }
 }
 
-private func validateDestination(_ variable: VariableDeclSyntax) -> String? {
+func validateDestination(_ variable: VariableDeclSyntax) -> String? {
     guard containsDestinationBinding(variable) else {
         return "the property is not named `destination`"
     }
@@ -291,20 +291,20 @@ private func validateDestination(_ variable: VariableDeclSyntax) -> String? {
     }
 }
 
-private func hasAttribute(named expectedName: String, on variable: VariableDeclSyntax) -> Bool {
+func hasAttribute(named expectedName: String, on variable: VariableDeclSyntax) -> Bool {
     variable.attributes.contains { element in
         guard let attribute = element.as(AttributeSyntax.self) else { return false }
         return attribute.attributeName.trimmedDescription.split(separator: ".").last.map(String.init) == expectedName
     }
 }
 
-private func directlyConformsToDestinationRoute(_ enumDecl: EnumDeclSyntax) -> Bool {
+func directlyConformsToDestinationRoute(_ enumDecl: EnumDeclSyntax) -> Bool {
     enumDecl.inheritanceClause?.inheritedTypes.contains { inherited in
         inherited.type.trimmedDescription.split(separator: ".").last.map(String.init) == "DestinationRoute"
     } ?? false
 }
 
-private func directlyConformsToRoute(_ enumDecl: EnumDeclSyntax) -> Bool {
+func directlyConformsToRoute(_ enumDecl: EnumDeclSyntax) -> Bool {
     enumDecl.inheritanceClause?.inheritedTypes.contains { inherited in
         inherited.type.trimmedDescription.split(separator: ".").last.map(String.init) == "Route"
     } ?? false

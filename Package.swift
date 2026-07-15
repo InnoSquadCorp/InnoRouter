@@ -202,7 +202,11 @@ let package = Package(
         // MARK: - Spatial Scene Target
         .target(
             name: "InnoRouterSpatial",
-            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
+            dependencies: [
+                "InnoRouterCore",
+                "InnoRouterSwiftUI",
+                "InnoRouterMacrosPlugin",
+            ],
             resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -379,6 +383,7 @@ let package = Package(
                 // is empty on non-macOS platforms.
                 .target(name: "InnoRouterMacros", condition: .when(platforms: [.macOS])),
                 "InnoRouterCore",
+                .target(name: "InnoRouterSpatial", condition: .when(platforms: [.macOS])),
             ],
             // README.md documents the macOS-only constraint of this
             // target; it is human-facing only and must not be packaged

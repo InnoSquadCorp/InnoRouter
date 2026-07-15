@@ -63,6 +63,9 @@ relationship | memberOf | SceneStore.init() | SceneStore |  |
 relationship | memberOf | SceneStore.openImmersive(_:style:) | SceneStore |  |
 relationship | memberOf | SceneStore.openVolumetric(_:size:) | SceneStore |  |
 relationship | memberOf | SceneStore.openWindow(_:) | SceneStore |  |
+relationship | memberOf | SpatialSceneStyle.immersive(style:) | SpatialSceneStyle |  |
+relationship | memberOf | SpatialSceneStyle.volumetric(width:height:depth:) | SpatialSceneStyle |  |
+relationship | memberOf | SpatialSceneStyle.window | SpatialSceneStyle |  |
 relationship | memberOf | VolumetricSize.init(x:y:z:) | VolumetricSize |  |
 relationship | memberOf | VolumetricSize.x | VolumetricSize |  |
 relationship | memberOf | VolumetricSize.y | VolumetricSize |  |
@@ -75,6 +78,7 @@ symbol | swift.enum | SceneEvent | SceneEvent | enum SceneEvent<R> where R : Rou
 symbol | swift.enum | SceneIntent | SceneIntent | enum SceneIntent<R> where R : Route | []
 symbol | swift.enum | ScenePresentation | ScenePresentation | enum ScenePresentation<R> where R : Route | []
 symbol | swift.enum | SceneRejectionReason | SceneRejectionReason | enum SceneRejectionReason | []
+symbol | swift.enum | SpatialSceneStyle | SpatialSceneStyle | enum SpatialSceneStyle | []
 symbol | swift.enum.case | ImmersiveStyle.full | ImmersiveStyle.full | case full | []
 symbol | swift.enum.case | ImmersiveStyle.mixed | ImmersiveStyle.mixed | case mixed | []
 symbol | swift.enum.case | ImmersiveStyle.progressive | ImmersiveStyle.progressive | case progressive | []
@@ -115,12 +119,17 @@ symbol | swift.enum.case | SceneRejectionReason.sceneDeclarationMismatch | Scene
 symbol | swift.enum.case | SceneRejectionReason.sceneInstanceNotActive | SceneRejectionReason.sceneInstanceNotActive | case sceneInstanceNotActive | []
 symbol | swift.enum.case | SceneRejectionReason.sceneNotDeclared | SceneRejectionReason.sceneNotDeclared | case sceneNotDeclared | []
 symbol | swift.enum.case | SceneRejectionReason.supersededByNewerIntent | SceneRejectionReason.supersededByNewerIntent | case supersededByNewerIntent | []
+symbol | swift.enum.case | SpatialSceneStyle.immersive(style:) | SpatialSceneStyle.immersive(style:) | case immersive(style: ImmersiveStyle) | []
+symbol | swift.enum.case | SpatialSceneStyle.volumetric(width:height:depth:) | SpatialSceneStyle.volumetric(width:height:depth:) | case volumetric(width: Double, height: Double, depth: Double) | []
+symbol | swift.enum.case | SpatialSceneStyle.window | SpatialSceneStyle.window | case window | []
 symbol | swift.init | EnvironmentSceneRouter.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
 symbol | swift.init | OrnamentAnchor.init(anchor:alignment:) | init(anchor:alignment:) | init(anchor: OrnamentAnchor.Anchor, alignment: OrnamentAnchor.Alignment = .center) | []
 symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: SceneDeclaration<R>...) | []
 symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: [SceneDeclaration<R>]) | []
 symbol | swift.init | SceneStore.init() | init() | @MainActor init() | []
 symbol | swift.init | VolumetricSize.init(x:y:z:) | init(x:y:z:) | init(x: Double, y: Double, z: Double) | []
+symbol | swift.macro | Scene(_:id:) | Scene(_:id:) | @attached(peer) macro Scene(_ style: SpatialSceneStyle, id: String? = nil) | []
+symbol | swift.macro | SceneRouter() | SceneRouter() | @attached(memberAttribute) @attached(extension, conformances: DestinationRoute, names: named(destination)) macro SceneRouter() | []
 symbol | swift.method | SceneRouterActions.dismissImmersive() | dismissImmersive() | @MainActor func dismissImmersive() | []
 symbol | swift.method | SceneRouterActions.dismissWindow(_:) | dismissWindow(_:) | @MainActor func dismissWindow(_ presentation: ScenePresentation<R>) | []
 symbol | swift.method | SceneRouterActions.open(_:) | open(_:) | @discardableResult @MainActor func open(_ route: R) -> ScenePresentation<R>? | []

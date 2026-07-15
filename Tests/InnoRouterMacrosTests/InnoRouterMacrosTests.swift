@@ -19,6 +19,8 @@ import Testing
 func makeTestMacros() -> [String: Macro.Type] {
     [
         "Router": RouterMacro.self,
+        "SceneRouter": SceneRouterMacro.self,
+        "Scene": SceneMacro.self,
         "DeepLink": DeepLinkMacro.self,
         "TabItem": TabItemMacro.self,
         "Routable": RoutableMacro.self,
