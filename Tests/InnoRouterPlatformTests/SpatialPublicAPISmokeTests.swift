@@ -16,6 +16,29 @@ private enum SpatialPublicRoute: Route {
     case theatre
 }
 
+@SceneRouter
+private enum MacroSpatialPublicRoute {
+    @Scene(.window)
+    case main
+
+    @Scene(.volumetric(width: 0.6, height: 0.4, depth: 0.4))
+    case model
+
+    @Scene(.immersive(style: .mixed))
+    case theatre
+
+    var destination: some View {
+        switch self {
+        case .main:
+            Text("Main")
+        case .model:
+            Text("Model")
+        case .theatre:
+            Text("Theatre")
+        }
+    }
+}
+
 private struct SpatialPublicActionsView: View {
     @EnvironmentSceneRouter(SpatialPublicRoute.self)
     private var scenes
@@ -40,6 +63,8 @@ private struct SpatialPublicActionsView: View {
 struct SpatialPublicAPISmokeTests {
     @Test("Consumer imports can construct the documented spatial surface")
     func documentedSurfaceCompiles() {
+        _ = MacroSpatialPublicRoute.scenes
+
         let store = SceneStore<SpatialPublicRoute>()
         let scenes = SceneRegistry<SpatialPublicRoute>(
             .window(.main, id: "main"),

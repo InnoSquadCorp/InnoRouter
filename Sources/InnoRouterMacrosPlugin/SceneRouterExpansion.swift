@@ -3,6 +3,7 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
+import SwiftParser
 import SwiftSyntax
 import SwiftSyntaxMacros
 
@@ -13,6 +14,10 @@ enum SceneRouterExpansion {
 
 struct SceneRouterSpecification {
     let items: [SceneRouterItem]
+}
+
+struct SceneRouterOptions {
+    let immersiveLaunch: Bool
 }
 
 struct SceneRouterItem {
@@ -26,6 +31,41 @@ enum SceneRouterStyle: Equatable {
     case window
     case volumetric(width: Double, height: Double, depth: Double)
     case immersive(style: String)
+}
+
+func parseSceneRouterOptions(
+    from attribute: AttributeSyntax,
+    context: some MacroExpansionContext
+) -> SceneRouterOptions? {
+    guard case .argumentList(let arguments) = attribute.arguments else {
+        return SceneRouterOptions(immersiveLaunch: false)
+    }
+    guard !arguments.isEmpty else {
+        return SceneRouterOptions(immersiveLaunch: false)
+    }
+    guard arguments.count == 1,
+          let argument = arguments.first,
+          argument.label?.text == "immersiveLaunch" else {
+        diagnoseSceneRouter(
+            .invalidRouterArguments(
+                reason: "use only the optional `immersiveLaunch: true` acknowledgement"
+            ),
+            at: attribute,
+            context: context
+        )
+        return nil
+    }
+    let literal = argument.expression.trimmedDescription
+    guard argument.expression.is(BooleanLiteralExprSyntax.self),
+          literal == "true" || literal == "false" else {
+        diagnoseSceneRouter(
+            .invalidRouterArguments(reason: "`immersiveLaunch` must be a Boolean literal"),
+            at: argument.expression,
+            context: context
+        )
+        return nil
+    }
+    return SceneRouterOptions(immersiveLaunch: literal == "true")
 }
 
 func analyzeSceneRouter(
@@ -169,7 +209,7 @@ private func parseSceneAttribute(
         guard let idArgument = arguments.last,
               idArgument.label?.text == "id",
               let literal = nonemptyPlainString(idArgument.expression) else {
-            return .failure(.arguments("`id` must be one nonempty plain string literal"))
+            return .failure(.arguments("`id` must be one nonempty noninterpolated string literal"))
         }
         id = literal
     } else {
@@ -264,12 +304,11 @@ private func numericLiteral(_ expression: ExprSyntax) -> Double? {
 
 private func nonemptyPlainString(_ expression: ExprSyntax) -> String? {
     guard let literal = expression.as(StringLiteralExprSyntax.self),
-          literal.segments.count == 1,
-          let segment = literal.segments.first?.as(StringSegmentSyntax.self),
-          segment.content.text.contains(where: { !$0.isWhitespace }) else {
+          let value = literal.representedLiteralValue,
+          value.contains(where: { !$0.isWhitespace }) else {
         return nil
     }
-    return segment.content.text
+    return value
 }
 
 private func sceneAttributes(on caseDecl: EnumCaseDeclSyntax) -> [AttributeSyntax] {

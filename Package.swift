@@ -7,7 +7,7 @@ import CompilerPluginSupport
 //
 // Every per-file example target has the identical shape:
 // `path: <directory>`, exclude every sibling source, include only
-// the named source, and depend on the macro-first InnoRouter umbrella.
+// the named source, and default to the macro-first InnoRouter umbrella.
 // Hand-rolling that for nine targets repeats
 // the same exclude list nine times and is the source of every
 // "added a new example, forgot to update sibling exclude lists"
@@ -41,6 +41,7 @@ private let soloSmokeSources: [String] = [
     "StandaloneSmoke.swift",
     "CoordinatorSmoke.swift",
     "MacrosSmoke.swift",
+    "VisionOSImmersiveSmoke.swift",
 ]
 
 /// All smoke sources under `ExamplesSmoke/`. Used both to derive
@@ -69,10 +70,8 @@ private let smokeSources: [String] = [
 private func exampleTarget(
     name: String,
     source: String,
-    additionalDependencies: [Target.Dependency] = []
+    dependencies: [Target.Dependency] = ["InnoRouter"]
 ) -> Target {
-    let dependencies: [Target.Dependency] = ["InnoRouter"] + additionalDependencies
-
     return .target(
         name: name,
         dependencies: dependencies,
@@ -88,11 +87,12 @@ private func exampleTarget(
 /// `README.md` is excluded for the same reason as `exampleTarget`.
 private func soloSmokeTarget(
     name: String,
-    source: String
+    source: String,
+    dependencies: [Target.Dependency] = ["InnoRouter"]
 ) -> Target {
     .target(
         name: name,
-        dependencies: ["InnoRouter"],
+        dependencies: dependencies,
         path: "ExamplesSmoke",
         exclude: smokeSources.filter { $0 != source } + ["README.md"],
         sources: [source],
@@ -271,27 +271,28 @@ let package = Package(
         exampleTarget(
             name: "InnoRouterVisionOSImmersiveExample",
             source: "VisionOSImmersiveExample.swift",
-            additionalDependencies: ["InnoRouterSpatial"]
+            dependencies: ["InnoRouterSpatial"]
         ),
         exampleTarget(
             name: "InnoRouterSampleAppExample",
             source: "SampleAppExample.swift",
-            additionalDependencies: ["InnoRouterEffects"]
+            dependencies: ["InnoRouter", "InnoRouterEffects"]
         ),
 
         // MARK: - Example Smoke Targets
         //
         // Most smoke files live in one shared target (`InnoRouterExamplesSmoke`)
-        // because their top-level symbols don't collide. Two smokes
-        // (`Standalone` and `Coordinator`) both declare `HomeRoute`, so they
-        // stay in their own targets to avoid a module-level redeclaration.
-        // `MacrosSmoke` stays solo to prove that the macro-first consumer
-        // needs only the `InnoRouter` dependency. If a future smoke needs a
-        // distinct name, add it to `smokeSources` and (if it does not collide
-        // or enforce a narrower contract) leave it out of `soloSmokeSources`.
+        // because their top-level symbols don't collide. `Standalone` and
+        // `Coordinator` both declare `HomeRoute`, so they stay in their own
+        // targets to avoid a module-level redeclaration. `MacrosSmoke` and
+        // `VisionOSImmersiveSmoke` stay solo to prove one-product consumer
+        // contracts for `InnoRouter` and `InnoRouterSpatial`, respectively.
+        // If a future smoke needs a distinct name, add it to `smokeSources`
+        // and (if it does not collide or enforce a narrower contract) leave it
+        // out of `soloSmokeSources`.
         .target(
             name: "InnoRouterExamplesSmoke",
-            dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterSpatial"],
+            dependencies: ["InnoRouter", "InnoRouterEffects"],
             path: "ExamplesSmoke",
             exclude: soloSmokeSources + ["README.md"],
             sources: smokeSources.filter { !soloSmokeSources.contains($0) },
@@ -300,6 +301,11 @@ let package = Package(
         soloSmokeTarget(name: "InnoRouterStandaloneExampleSmoke",  source: "StandaloneSmoke.swift"),
         soloSmokeTarget(name: "InnoRouterCoordinatorExampleSmoke", source: "CoordinatorSmoke.swift"),
         soloSmokeTarget(name: "InnoRouterMacroFirstSmoke",          source: "MacrosSmoke.swift"),
+        soloSmokeTarget(
+            name: "InnoRouterSpatialConsumerSmoke",
+            source: "VisionOSImmersiveSmoke.swift",
+            dependencies: ["InnoRouterSpatial"]
+        ),
 
         // MARK: - Macro Declarations (Public API)
         .target(
@@ -332,6 +338,7 @@ let package = Package(
             dependencies: [
                 "InnoRouterDeepLink",
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),

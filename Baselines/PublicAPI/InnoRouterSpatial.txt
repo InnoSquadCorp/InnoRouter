@@ -129,7 +129,7 @@ symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: [
 symbol | swift.init | SceneStore.init() | init() | @MainActor init() | []
 symbol | swift.init | VolumetricSize.init(x:y:z:) | init(x:y:z:) | init(x: Double, y: Double, z: Double) | []
 symbol | swift.macro | Scene(_:id:) | Scene(_:id:) | @attached(peer) macro Scene(_ style: SpatialSceneStyle, id: String? = nil) | []
-symbol | swift.macro | SceneRouter() | SceneRouter() | @attached(memberAttribute) @attached(extension, conformances: DestinationRoute, names: named(destination)) macro SceneRouter() | []
+symbol | swift.macro | SceneRouter(immersiveLaunch:) | SceneRouter(immersiveLaunch:) | @attached(memberAttribute) @attached(extension, conformances: DestinationRoute, names: named(destination), named(scenes), named(_InnoRouterSceneContainer)) macro SceneRouter(immersiveLaunch: Bool = false) | []
 symbol | swift.method | SceneRouterActions.dismissImmersive() | dismissImmersive() | @MainActor func dismissImmersive() | []
 symbol | swift.method | SceneRouterActions.dismissWindow(_:) | dismissWindow(_:) | @MainActor func dismissWindow(_ presentation: ScenePresentation<R>) | []
 symbol | swift.method | SceneRouterActions.open(_:) | open(_:) | @discardableResult @MainActor func open(_ route: R) -> ScenePresentation<R>? | []

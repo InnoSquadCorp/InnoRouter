@@ -23,12 +23,19 @@ enum SceneRouterDiagnostic: DiagnosticMessage {
     case missingDestination
     case invalidDestination(reason: String)
     case conflictingDestination
+    case generatedMemberConflict(name: String)
+    case invalidRouterArguments(reason: String)
     case redundantDestinationRouteConformance
     case redundantRouteConformance
+    case immersivePrimaryHost
+    case unusedImmersiveLaunch
 
     var severity: DiagnosticSeverity {
         switch self {
-        case .redundantDestinationRouteConformance, .redundantRouteConformance:
+        case .redundantDestinationRouteConformance,
+             .redundantRouteConformance,
+             .immersivePrimaryHost,
+             .unusedImmersiveLaunch:
             return .warning
         default:
             return .error
@@ -55,8 +62,12 @@ enum SceneRouterDiagnostic: DiagnosticMessage {
         case .missingDestination: return "InnoRouterMacro.E045"
         case .invalidDestination: return "InnoRouterMacro.E046"
         case .conflictingDestination: return "InnoRouterMacro.E047"
+        case .generatedMemberConflict: return "InnoRouterMacro.E048"
+        case .invalidRouterArguments: return "InnoRouterMacro.E049"
         case .redundantDestinationRouteConformance: return "InnoRouterMacro.W008"
         case .redundantRouteConformance: return "InnoRouterMacro.W009"
+        case .immersivePrimaryHost: return "InnoRouterMacro.W010"
+        case .unusedImmersiveLaunch: return "InnoRouterMacro.W011"
         }
     }
 
@@ -100,10 +111,18 @@ enum SceneRouterDiagnostic: DiagnosticMessage {
                 "Declare an instance computed `var destination: some View { ... }`."
         case .conflictingDestination:
             return prefix + "@SceneRouter generates `static destination(for:)`; remove the manual function or remove @SceneRouter and conform to DestinationRoute manually"
+        case .generatedMemberConflict(let name):
+            return prefix + "@SceneRouter generates `\(name)`; remove the manual declaration or remove @SceneRouter and compose spatial scenes manually"
+        case .invalidRouterArguments(let reason):
+            return prefix + "@SceneRouter arguments are invalid: \(reason)"
         case .redundantDestinationRouteConformance:
             return prefix + "DestinationRoute conformance is supplied by @SceneRouter; remove the explicit conformance"
         case .redundantRouteConformance:
             return prefix + "Route conformance is inherited from the DestinationRoute supplied by @SceneRouter; remove the explicit conformance"
+        case .immersivePrimaryHost:
+            return prefix + "the first @SceneRouter case becomes the primary host, but an immersive host cannot dispatch until the system opens it; move a window or volume first, or set `UIApplicationPreferredDefaultSceneSessionRole` to `UISceneSessionRoleImmersiveSpaceApplication` and acknowledge it with `@SceneRouter(immersiveLaunch: true)`"
+        case .unusedImmersiveLaunch:
+            return prefix + "`immersiveLaunch: true` is only needed when the first scene is immersive; remove it while a window or volume is the primary host"
         }
     }
 

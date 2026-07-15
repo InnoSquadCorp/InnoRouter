@@ -58,7 +58,13 @@ public struct SceneRouterMacro: MemberAttributeMacro, ExtensionMacro {
             )
             return []
         }
-        guard case .valid = analyzeSceneRouter(in: enumDecl, context: context) else {
+        guard let options = parseSceneRouterOptions(from: node, context: context) else {
+            return []
+        }
+        guard case .valid(let specification) = analyzeSceneRouter(
+            in: enumDecl,
+            context: context
+        ) else {
             return []
         }
 
@@ -69,6 +75,14 @@ public struct SceneRouterMacro: MemberAttributeMacro, ExtensionMacro {
             diagnoseSceneRouter(
                 .conflictingDestination,
                 at: destinationFunctions[0],
+                context: context
+            )
+            return []
+        }
+        if let conflict = sceneRouterGeneratedMemberConflict(in: enumDecl) {
+            diagnoseSceneRouter(
+                .generatedMemberConflict(name: conflict.name),
+                at: conflict.node,
                 context: context
             )
             return []
@@ -113,11 +127,23 @@ public struct SceneRouterMacro: MemberAttributeMacro, ExtensionMacro {
                 context: context
             )
         }
+        if case .immersive = specification.items[0].style {
+            if options.immersiveLaunch == false {
+                diagnoseSceneRouter(.immersivePrimaryHost, at: node, context: context)
+            }
+        } else if options.immersiveLaunch {
+            diagnoseSceneRouter(.unusedImmersiveLaunch, at: node, context: context)
+        }
 
         let conformance = directlyConformsToDestination
             ? ""
             : ": InnoRouterSwiftUI.DestinationRoute"
         let access = inferAccessLevel(from: enumDecl).keyword
+        let sceneMembers = renderSceneRouterSceneMembers(
+            specification: specification,
+            routeType: type.trimmedDescription,
+            access: access
+        )
         return [
             try ExtensionDeclSyntax(
                 """
@@ -127,6 +153,8 @@ public struct SceneRouterMacro: MemberAttributeMacro, ExtensionMacro {
                     \(raw: access) static func destination(for route: Self) -> some SwiftUI.View {
                         route.destination
                     }
+
+                \(raw: sceneMembers)
                 }
                 """
             )

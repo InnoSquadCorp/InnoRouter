@@ -79,6 +79,90 @@ struct SceneRouterMacroTests {
                 internal static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
                 }
+
+                #if os(visionOS)
+                @Swift.MainActor
+                internal static var scenes: some SwiftUI.Scene {
+                    _InnoRouterSceneContainer()
+                }
+
+                @Swift.MainActor
+                private struct _InnoRouterSceneContainer: SwiftUI.Scene {
+                    @SwiftUI.State
+                    private var _innoRouterStore = InnoRouterSpatial.SceneStore<AppScene>()
+
+                    @SwiftUI.State
+                    private var _innoRouterImmersionStyle2: any SwiftUI.ImmersionStyle =
+                        SwiftUI.MixedImmersionStyle()
+
+                    private let _innoRouterScenes = InnoRouterSpatial.SceneRegistry<AppScene>(
+                        .window(.main, id: "main"),
+                        .volumetric(
+                            .model,
+                            id: "model",
+                            size: InnoRouterSpatial.VolumetricSize(
+                                x: 1.5,
+                                y: 2.0,
+                                z: 3.0
+                            )
+                        ),
+                        .immersive(.immersive, id: "experience", style: .mixed)
+                    )
+
+                    @SwiftUI.SceneBuilder
+                    var body: some SwiftUI.Scene {
+                        SwiftUI.WindowGroup(
+                            id: "main",
+                            for: Foundation.UUID.self
+                        ) { $sceneID in
+                            AppScene.destination(for: .main)
+                                .innoRouterSceneHost(
+                                    _innoRouterStore,
+                                    scenes: _innoRouterScenes,
+                                    attachedTo: .main,
+                                    instanceID: sceneID
+                                )
+                        } defaultValue: {
+                            Foundation.UUID()
+                        }
+
+                        SwiftUI.WindowGroup(
+                            id: "model",
+                            for: Foundation.UUID.self
+                        ) { $sceneID in
+                            AppScene.destination(for: .model)
+                                .innoRouterSceneAnchor(
+                                    _innoRouterStore,
+                                    scenes: _innoRouterScenes,
+                                    attachedTo: .model,
+                                    instanceID: sceneID
+                                )
+                        } defaultValue: {
+                            Foundation.UUID()
+                        }
+                        .windowStyle(SwiftUI.VolumetricWindowStyle())
+                        .defaultSize(
+                            width: 1.5,
+                            height: 2.0,
+                            depth: 3.0,
+                            in: Foundation.UnitLength.meters
+                        )
+
+                        SwiftUI.ImmersiveSpace(id: "experience") {
+                            AppScene.destination(for: .immersive)
+                                .innoRouterSceneAnchor(
+                                    _innoRouterStore,
+                                    scenes: _innoRouterScenes,
+                                    attachedTo: .immersive
+                                )
+                        }
+                        .immersionStyle(
+                            selection: $_innoRouterImmersionStyle2,
+                            in: SwiftUI.MixedImmersionStyle()
+                        )
+                    }
+                }
+                #endif
             }
             """,
             macros: sceneRouterTestMacros
@@ -89,7 +173,7 @@ struct SceneRouterMacroTests {
     func attributesAndAccessExpansion() throws {
         assertMacroExpansion(
             """
-            @SceneRouter
+            @SceneRouter(immersiveLaunch: true)
             public enum PublicScene {
                 @Scene(.immersive(style: .full))
                 case experience
@@ -118,6 +202,43 @@ struct SceneRouterMacroTests {
                 public static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
                 }
+
+                #if os(visionOS)
+                @Swift.MainActor
+                public static var scenes: some SwiftUI.Scene {
+                    _InnoRouterSceneContainer()
+                }
+
+                @Swift.MainActor
+                private struct _InnoRouterSceneContainer: SwiftUI.Scene {
+                    @SwiftUI.State
+                    private var _innoRouterStore = InnoRouterSpatial.SceneStore<PublicScene>()
+
+                    @SwiftUI.State
+                    private var _innoRouterImmersionStyle0: any SwiftUI.ImmersionStyle =
+                        SwiftUI.FullImmersionStyle()
+
+                    private let _innoRouterScenes = InnoRouterSpatial.SceneRegistry<PublicScene>(
+                        .immersive(.experience, id: "experience", style: .full)
+                    )
+
+                    @SwiftUI.SceneBuilder
+                    var body: some SwiftUI.Scene {
+                        SwiftUI.ImmersiveSpace(id: "experience") {
+                            PublicScene.destination(for: .experience)
+                                .innoRouterSceneHost(
+                                    _innoRouterStore,
+                                    scenes: _innoRouterScenes,
+                                    attachedTo: .experience
+                                )
+                        }
+                        .immersionStyle(
+                            selection: $_innoRouterImmersionStyle0,
+                            in: SwiftUI.FullImmersionStyle()
+                        )
+                    }
+                }
+                #endif
             }
             """,
             macros: sceneRouterTestMacros
@@ -564,7 +685,10 @@ struct SceneRouterMacroTests {
             macros: sceneRouterTestMacros
         )
     }
+}
 
+@Suite("Scene Router Macro Validation and Composition Tests")
+struct SceneRouterMacroValidationAndCompositionTests {
     @Test("E045 requires a destination property")
     func missingDestination() throws {
         assertMacroExpansion(
@@ -650,6 +774,206 @@ struct SceneRouterMacroTests {
         )
     }
 
+    @Test("E048 rejects a generated scene member conflict")
+    func conflictingGeneratedSceneMember() throws {
+        assertMacroExpansion(
+            """
+            @SceneRouter
+            enum ManualSceneTree {
+                @Scene(.window)
+                case main
+                var destination: some View { EmptyView() }
+                static var scenes: some Scene { EmptyScene() }
+            }
+            """,
+            expandedSource: """
+            enum ManualSceneTree {
+                case main
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+                static var scenes: some Scene { EmptyScene() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E048] @SceneRouter generates `static var scenes`; remove the manual declaration or remove @SceneRouter and compose spatial scenes manually",
+                    line: 6,
+                    column: 5
+                )
+            ],
+            macros: sceneRouterTestMacros
+        )
+    }
+
+    @Test("Allows a non-visionOS scene-tree fallback")
+    func conditionalNonVisionSceneMember() throws {
+        assertMacroExpansion(
+            """
+            @SceneRouter
+            enum CrossPlatformSceneTree {
+                @Scene(.window)
+                case main
+                var destination: some View { EmptyView() }
+            #if !os(visionOS)
+                static var scenes: some Scene { EmptyScene() }
+            #endif
+            }
+            """,
+            expandedSource: """
+            enum CrossPlatformSceneTree {
+                case main
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            #if !os(visionOS)
+                static var scenes: some Scene { EmptyScene() }
+            #endif
+            }
+
+            extension CrossPlatformSceneTree: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                #if os(visionOS)
+                @Swift.MainActor
+                internal static var scenes: some SwiftUI.Scene {
+                    _InnoRouterSceneContainer()
+                }
+
+                @Swift.MainActor
+                private struct _InnoRouterSceneContainer: SwiftUI.Scene {
+                    @SwiftUI.State
+                    private var _innoRouterStore = InnoRouterSpatial.SceneStore<CrossPlatformSceneTree>()
+
+                    private let _innoRouterScenes = InnoRouterSpatial.SceneRegistry<CrossPlatformSceneTree>(
+                        .window(.main, id: "main")
+                    )
+
+                    @SwiftUI.SceneBuilder
+                    var body: some SwiftUI.Scene {
+                        SwiftUI.WindowGroup(
+                            id: "main",
+                            for: Foundation.UUID.self
+                        ) { $sceneID in
+                            CrossPlatformSceneTree.destination(for: .main)
+                                .innoRouterSceneHost(
+                                    _innoRouterStore,
+                                    scenes: _innoRouterScenes,
+                                    attachedTo: .main,
+                                    instanceID: sceneID
+                                )
+                        } defaultValue: {
+                            Foundation.UUID()
+                        }
+                    }
+                }
+                #endif
+            }
+            """,
+            macros: sceneRouterTestMacros
+        )
+    }
+
+    @Test("E049 rejects unsupported @SceneRouter arguments")
+    func invalidSceneRouterArguments() throws {
+        assertMacroExpansion(
+            """
+            @SceneRouter(primary: true)
+            enum InvalidOptionsScene {
+                @Scene(.window)
+                case main
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum InvalidOptionsScene {
+                case main
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E049] @SceneRouter arguments are invalid: use only the optional `immersiveLaunch: true` acknowledgement",
+                    line: 1,
+                    column: 1
+                )
+            ],
+            macros: sceneRouterTestMacros
+        )
+    }
+
+    @Test("E042 rejects interpolated scene identifiers")
+    func interpolatedID() throws {
+        assertMacroExpansion(
+            """
+            @SceneRouter
+            enum InterpolatedIDScene {
+                @Scene(.window, id: "prefix-\\(suffix)")
+                case main
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum InterpolatedIDScene {
+                case main
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E042] @Scene arguments are invalid: `id` must be one nonempty noninterpolated string literal",
+                    line: 3,
+                    column: 5
+                )
+            ],
+            macros: sceneRouterTestMacros
+        )
+    }
+
+    @Test("Escaped-equivalent identifiers are canonicalized before duplicate validation")
+    func escapedEquivalentDuplicateID() throws {
+        assertMacroExpansion(
+            """
+            @SceneRouter
+            enum EscapedDuplicateIDScene {
+                @Scene(.window, id: "sha\\u{72}ed")
+                case main
+                @Scene(.window, id: "shared")
+                case utility
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum EscapedDuplicateIDScene {
+                case main
+                case utility
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E044] @Scene id `shared` is duplicated; every scene identifier must be unique",
+                    line: 5,
+                    column: 5
+                )
+            ],
+            macros: sceneRouterTestMacros
+        )
+    }
+
+    @Test("Generated scene identifiers preserve Swift literal semantics")
+    func generatedStringLiteralEscaping() {
+        #expect(
+            sceneRouterStringLiteral("tab\tline\nquote\"slash\\control\u{7f}\u{85}\u{2028}\u{2029}") ==
+                "\"tab\\tline\\nquote\\\"slash\\\\control\\u{7f}\\u{85}\\u{2028}\\u{2029}\""
+        )
+    }
+
     @Test("W008 warns for redundant DestinationRoute conformance")
     func redundantDestinationRoute() throws {
         assertMacroExpansion(
@@ -674,6 +998,41 @@ struct SceneRouterMacroTests {
                 internal static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
                 }
+
+                #if os(visionOS)
+                @Swift.MainActor
+                internal static var scenes: some SwiftUI.Scene {
+                    _InnoRouterSceneContainer()
+                }
+
+                @Swift.MainActor
+                private struct _InnoRouterSceneContainer: SwiftUI.Scene {
+                    @SwiftUI.State
+                    private var _innoRouterStore = InnoRouterSpatial.SceneStore<AppScene>()
+
+                    private let _innoRouterScenes = InnoRouterSpatial.SceneRegistry<AppScene>(
+                        .window(.main, id: "main")
+                    )
+
+                    @SwiftUI.SceneBuilder
+                    var body: some SwiftUI.Scene {
+                        SwiftUI.WindowGroup(
+                            id: "main",
+                            for: Foundation.UUID.self
+                        ) { $sceneID in
+                            AppScene.destination(for: .main)
+                                .innoRouterSceneHost(
+                                    _innoRouterStore,
+                                    scenes: _innoRouterScenes,
+                                    attachedTo: .main,
+                                    instanceID: sceneID
+                                )
+                        } defaultValue: {
+                            Foundation.UUID()
+                        }
+                    }
+                }
+                #endif
             }
             """,
             diagnostics: [
@@ -712,6 +1071,41 @@ struct SceneRouterMacroTests {
                 internal static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
                 }
+
+                #if os(visionOS)
+                @Swift.MainActor
+                internal static var scenes: some SwiftUI.Scene {
+                    _InnoRouterSceneContainer()
+                }
+
+                @Swift.MainActor
+                private struct _InnoRouterSceneContainer: SwiftUI.Scene {
+                    @SwiftUI.State
+                    private var _innoRouterStore = InnoRouterSpatial.SceneStore<AppScene>()
+
+                    private let _innoRouterScenes = InnoRouterSpatial.SceneRegistry<AppScene>(
+                        .window(.main, id: "main")
+                    )
+
+                    @SwiftUI.SceneBuilder
+                    var body: some SwiftUI.Scene {
+                        SwiftUI.WindowGroup(
+                            id: "main",
+                            for: Foundation.UUID.self
+                        ) { $sceneID in
+                            AppScene.destination(for: .main)
+                                .innoRouterSceneHost(
+                                    _innoRouterStore,
+                                    scenes: _innoRouterScenes,
+                                    attachedTo: .main,
+                                    instanceID: sceneID
+                                )
+                        } defaultValue: {
+                            Foundation.UUID()
+                        }
+                    }
+                }
+                #endif
             }
             """,
             diagnostics: [
@@ -719,6 +1113,154 @@ struct SceneRouterMacroTests {
                     message: "[InnoRouterMacro.W009] Route conformance is inherited from the DestinationRoute supplied by @SceneRouter; remove the explicit conformance",
                     line: 2,
                     column: 14,
+                    severity: .warning
+                )
+            ],
+            macros: sceneRouterTestMacros
+        )
+    }
+
+    @Test("W010 warns when an immersive scene becomes the primary host without launch acknowledgement")
+    func immersivePrimaryHostRequiresAcknowledgement() throws {
+        assertMacroExpansion(
+            """
+            @SceneRouter
+            enum ImmersivePrimaryScene {
+                @Scene(.immersive(style: .mixed))
+                case theatre
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum ImmersivePrimaryScene {
+                case theatre
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension ImmersivePrimaryScene: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                #if os(visionOS)
+                @Swift.MainActor
+                internal static var scenes: some SwiftUI.Scene {
+                    _InnoRouterSceneContainer()
+                }
+
+                @Swift.MainActor
+                private struct _InnoRouterSceneContainer: SwiftUI.Scene {
+                    @SwiftUI.State
+                    private var _innoRouterStore = InnoRouterSpatial.SceneStore<ImmersivePrimaryScene>()
+
+                    @SwiftUI.State
+                    private var _innoRouterImmersionStyle0: any SwiftUI.ImmersionStyle =
+                        SwiftUI.MixedImmersionStyle()
+
+                    private let _innoRouterScenes = InnoRouterSpatial.SceneRegistry<ImmersivePrimaryScene>(
+                        .immersive(.theatre, id: "theatre", style: .mixed)
+                    )
+
+                    @SwiftUI.SceneBuilder
+                    var body: some SwiftUI.Scene {
+                        SwiftUI.ImmersiveSpace(id: "theatre") {
+                            ImmersivePrimaryScene.destination(for: .theatre)
+                                .innoRouterSceneHost(
+                                    _innoRouterStore,
+                                    scenes: _innoRouterScenes,
+                                    attachedTo: .theatre
+                                )
+                        }
+                        .immersionStyle(
+                            selection: $_innoRouterImmersionStyle0,
+                            in: SwiftUI.MixedImmersionStyle()
+                        )
+                    }
+                }
+                #endif
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.W010] the first @SceneRouter case becomes the primary host, but an immersive host cannot dispatch until the system opens it; move a window or volume first, or set `UIApplicationPreferredDefaultSceneSessionRole` to `UISceneSessionRoleImmersiveSpaceApplication` and acknowledge it with `@SceneRouter(immersiveLaunch: true)`",
+                    line: 1,
+                    column: 1,
+                    severity: .warning
+                )
+            ],
+            macros: sceneRouterTestMacros
+        )
+    }
+
+    @Test("W011 warns when immersive launch acknowledgement is unnecessary")
+    func unusedImmersiveLaunchAcknowledgement() throws {
+        assertMacroExpansion(
+            """
+            @SceneRouter(immersiveLaunch: true)
+            enum WindowPrimaryScene {
+                @Scene(.window)
+                case main
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum WindowPrimaryScene {
+                case main
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension WindowPrimaryScene: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                #if os(visionOS)
+                @Swift.MainActor
+                internal static var scenes: some SwiftUI.Scene {
+                    _InnoRouterSceneContainer()
+                }
+
+                @Swift.MainActor
+                private struct _InnoRouterSceneContainer: SwiftUI.Scene {
+                    @SwiftUI.State
+                    private var _innoRouterStore = InnoRouterSpatial.SceneStore<WindowPrimaryScene>()
+
+                    private let _innoRouterScenes = InnoRouterSpatial.SceneRegistry<WindowPrimaryScene>(
+                        .window(.main, id: "main")
+                    )
+
+                    @SwiftUI.SceneBuilder
+                    var body: some SwiftUI.Scene {
+                        SwiftUI.WindowGroup(
+                            id: "main",
+                            for: Foundation.UUID.self
+                        ) { $sceneID in
+                            WindowPrimaryScene.destination(for: .main)
+                                .innoRouterSceneHost(
+                                    _innoRouterStore,
+                                    scenes: _innoRouterScenes,
+                                    attachedTo: .main,
+                                    instanceID: sceneID
+                                )
+                        } defaultValue: {
+                            Foundation.UUID()
+                        }
+                    }
+                }
+                #endif
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.W011] `immersiveLaunch: true` is only needed when the first scene is immersive; remove it while a window or volume is the primary host",
+                    line: 1,
+                    column: 1,
                     severity: .warning
                 )
             ],

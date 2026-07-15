@@ -29,9 +29,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "InnoRouterExamplesSmoke"
-               BuildableName = "InnoRouterExamplesSmoke"
-               BlueprintName = "InnoRouterExamplesSmoke"
+               BlueprintIdentifier = "InnoRouterSpatialConsumerSmoke"
+               BuildableName = "InnoRouterSpatialConsumerSmoke"
+               BlueprintName = "InnoRouterSpatialConsumerSmoke"
                ReferencedContainer = "container:..">
             </BuildableReference>
          </BuildActionEntry>

@@ -296,6 +296,16 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
       -destination "$dest" \
       -jobs "$XCODEBUILD_JOBS" \
       -quiet
+
+    if [[ "$name_lc" == "visionos" ]]; then
+      echo "[principle-gates] xcodebuild build -scheme InnoRouterSpatialConsumerSmoke ($name)"
+      xcodebuild build \
+        -workspace .github/platform-tests.xcworkspace \
+        -scheme InnoRouterSpatialConsumerSmoke \
+        -destination "$dest" \
+        -jobs "$XCODEBUILD_JOBS" \
+        -quiet
+    fi
   done
 
   if [[ "$MATCHED_PLATFORM_COUNT" -eq 0 ]]; then

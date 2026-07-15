@@ -239,8 +239,11 @@ are bare semver (no leading `v`).
   declarations in the opt-in `InnoRouterSpatial` product. Every parameterless
   case declares `.window`, `.volumetric(...)`, or `.immersive(...)` metadata
   with an optional stable `id`, while one `var destination: some View` supplies
-  generated `DestinationRoute` conformance. Invalid scene inventories fail at
-  compile time with stable diagnostics.
+  generated `DestinationRoute` conformance and the complete `AppScene.scenes`
+  tree. The first case becomes the primary host and later cases become lifecycle
+  anchors; immersive-first launch contracts require an explicit acknowledgement.
+  Invalid scene inventories and generated-member conflicts fail at compile time
+  with stable diagnostics.
 
 ### Changed
 
