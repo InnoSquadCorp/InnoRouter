@@ -43,12 +43,19 @@ func analyzeRouterTabs(
     }
     let allCases = directCases + conditionalCases
 
-    guard allCases.contains(where: { !tabItemAttributes(on: $0).isEmpty }) else {
+    guard allCases.contains(where: containsTabItemAttribute) else {
         return .none
     }
 
     if let conditionalCase = conditionalCases.first {
         diagnoseTabItem(.conditionalCase, at: conditionalCase, context: context)
+        return .invalid
+    }
+
+    if let conditionalAttribute = directCases.lazy.compactMap({
+        conditionalTabItemAttribute(on: $0)
+    }).first {
+        diagnoseTabItem(.conditionalCase, at: conditionalAttribute, context: context)
         return .invalid
     }
 
@@ -237,25 +244,34 @@ private func isNonemptyPlainStringLiteral(_ expression: ExprSyntax) -> Bool {
 private func tabItemAttributes(on caseDecl: EnumCaseDeclSyntax) -> [AttributeSyntax] {
     caseDecl.attributes.compactMap { element in
         guard let attribute = element.as(AttributeSyntax.self),
-              attributeName(attribute) == "TabItem" else {
+              attributeBaseName(attribute) == "TabItem" else {
             return nil
         }
         return attribute
     }
 }
 
-private func hasAvailabilityAttribute(_ caseDecl: EnumCaseDeclSyntax) -> Bool {
-    caseDecl.attributes.contains { element in
-        guard let attribute = element.as(AttributeSyntax.self) else { return false }
-        return attributeName(attribute) == "available"
-    }
+private func containsTabItemAttribute(on caseDecl: EnumCaseDeclSyntax) -> Bool {
+    !tabItemAttributes(on: caseDecl).isEmpty || conditionalTabItemAttribute(on: caseDecl) != nil
 }
 
-private func attributeName(_ attribute: AttributeSyntax) -> String? {
-    attribute.attributeName.trimmedDescription
-        .split(separator: ".")
-        .last
-        .map(String.init)
+private func conditionalTabItemAttribute(on caseDecl: EnumCaseDeclSyntax) -> AttributeSyntax? {
+    caseDecl.attributes.lazy.compactMap { element in
+        guard let conditional = element.as(IfConfigDeclSyntax.self) else { return nil }
+        return firstConditionalAttribute(named: "TabItem", inside: conditional)
+    }.first
+}
+
+private func hasAvailabilityAttribute(_ caseDecl: EnumCaseDeclSyntax) -> Bool {
+    caseDecl.attributes.contains { element in
+        if let attribute = element.as(AttributeSyntax.self) {
+            return attributeBaseName(attribute) == "available"
+        }
+        if let conditional = element.as(IfConfigDeclSyntax.self) {
+            return firstConditionalAttribute(named: "available", inside: conditional) != nil
+        }
+        return false
+    }
 }
 
 private func enumCasesInsideConditional(_ conditional: IfConfigDeclSyntax) -> [EnumCaseDeclSyntax] {

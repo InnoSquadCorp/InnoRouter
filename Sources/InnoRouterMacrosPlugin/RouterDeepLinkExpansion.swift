@@ -606,35 +606,12 @@ private func conditionalDeepLinkAttribute(
 ) -> AttributeSyntax? {
     caseDecl.attributes.lazy.compactMap { element in
         guard let conditional = element.as(IfConfigDeclSyntax.self) else { return nil }
-        return firstAttribute(named: "DeepLink", inside: conditional)
+        return firstConditionalAttribute(named: "DeepLink", inside: conditional)
     }.first
 }
 
-private func firstAttribute(
-    named name: String,
-    inside conditional: IfConfigDeclSyntax
-) -> AttributeSyntax? {
-    for clause in conditional.clauses {
-        guard case .attributes(let attributes) = clause.elements else { continue }
-        for element in attributes {
-            if let attribute = element.as(AttributeSyntax.self),
-               deepLinkAttributeName(attribute) == name {
-                return attribute
-            }
-            if let nestedConditional = element.as(IfConfigDeclSyntax.self),
-               let attribute = firstAttribute(named: name, inside: nestedConditional) {
-                return attribute
-            }
-        }
-    }
-    return nil
-}
-
 private func deepLinkAttributeName(_ attribute: AttributeSyntax) -> String? {
-    attribute.attributeName.trimmedDescription
-        .split(separator: ".")
-        .last
-        .map(String.init)
+    attributeBaseName(attribute)
 }
 
 private func hasDeepLinkAvailabilityAttribute(_ caseDecl: EnumCaseDeclSyntax) -> Bool {
@@ -643,7 +620,7 @@ private func hasDeepLinkAvailabilityAttribute(_ caseDecl: EnumCaseDeclSyntax) ->
             return deepLinkAttributeName(attribute) == "available"
         }
         if let conditional = element.as(IfConfigDeclSyntax.self) {
-            return firstAttribute(named: "available", inside: conditional) != nil
+            return firstConditionalAttribute(named: "available", inside: conditional) != nil
         }
         return false
     }

@@ -456,6 +456,110 @@ struct RouterTabMacroTests {
         )
     }
 
+    @Test("Rejects a conditionally compiled @TabItem attribute")
+    func conditionalTabItemAttribute() throws {
+        assertMacroExpansion(
+            """
+            @Router
+            enum ConditionalAttributeTab {
+            #if DEBUG
+                @TabItem("Debug", systemImage: "wrench")
+            #endif
+                case debug
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum ConditionalAttributeTab {
+            #if DEBUG
+                @TabItem("Debug", systemImage: "wrench")
+            #endif
+                case debug
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E015] @Router tab cases cannot be declared inside #if; declare one stable tab set for every build configuration",
+                    line: 4,
+                    column: 5
+                )
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Conditional @TabItem takes precedence over duplicate diagnostics")
+    func directAndConditionalTabItemAttribute() throws {
+        assertMacroExpansion(
+            """
+            @Router
+            enum DuplicateConditionalAttributeTab {
+                @TabItem("Home", systemImage: "house")
+            #if DEBUG
+                @TabItem("Debug", systemImage: "wrench")
+            #endif
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum DuplicateConditionalAttributeTab {
+            #if DEBUG
+                @TabItem("Debug", systemImage: "wrench")
+            #endif
+                case home
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E015] @Router tab cases cannot be declared inside #if; declare one stable tab set for every build configuration",
+                    line: 5,
+                    column: 5
+                )
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Rejects a conditionally compiled availability attribute on a tab")
+    func conditionalAvailabilityAttribute() throws {
+        assertMacroExpansion(
+            """
+            @Router
+            enum ConditionalAvailabilityTab {
+                @TabItem("Home", systemImage: "house")
+            #if DEBUG
+                @available(macOS 14, *)
+            #endif
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum ConditionalAvailabilityTab {
+            #if DEBUG
+                @available(macOS 14, *)
+            #endif
+                case home
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E014] @Router tab case `home` cannot be conditionally available because allCases must be stable",
+                    line: 3,
+                    column: 5
+                )
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
     @Test(
         "Rejects every manual metadata witness",
         arguments: [
