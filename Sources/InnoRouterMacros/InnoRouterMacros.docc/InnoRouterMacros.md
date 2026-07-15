@@ -16,9 +16,9 @@ import InnoRouter
 The module exposes three macros with separate responsibilities:
 
 - `@Router` is the default macro-first path. It turns route cases and an
-  instance `destination` view into a ``DestinationRoute`` that works with
-  ``RouterHost``.
-- `@Routable` adds ``Route`` conformance plus typed `Cases`, `is(_:)`, and
+  instance `destination` view into a `DestinationRoute` that works with
+  `RouterHost`.
+- `@Routable` adds `Route` conformance plus typed `Cases`, `is(_:)`, and
   `subscript(case:)` helpers. It does not build destination views.
 - `@CasePathable` adds the same case-path helpers without adding `Route`
   conformance.

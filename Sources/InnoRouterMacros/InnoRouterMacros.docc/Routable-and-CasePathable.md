@@ -7,13 +7,13 @@
 Use case-path macros when route code needs typed enum extraction in addition to
 InnoRouter's macro-first destination routing.
 
-For most SwiftUI routers, start with ``Router()``. It combines route data and
+For most SwiftUI routers, start with `@Router`. It combines route data and
 destination views in one enum. Add one of the case-path macros only when a
 feature also needs to inspect or extract a particular enum case.
 
 ## `@Routable`
 
-``Routable()`` generates ``Route`` conformance plus typed `Cases`, `is(_:)`,
+`@Routable` generates `Route` conformance plus typed `Cases`, `is(_:)`,
 and `subscript(case:)` helpers. It is useful for route models that do not own
 destination views, such as a domain route consumed by a coordinator or planner.
 
@@ -35,8 +35,8 @@ route.is(AccountRoute.Cases.overview)    // false
 
 ## `@CasePathable`
 
-``CasePathable()`` generates the same case-path members without adding
-``Route`` conformance. Compose it with `@Router` when a destination-owning
+`@CasePathable` generates the same case-path members without adding
+`Route` conformance. Compose it with `@Router` when a destination-owning
 router also needs typed extraction:
 
 ```swift compile
@@ -90,7 +90,7 @@ parent's generic parameters into a nested type that way. Diagnostic ID
 clause.
 
 This limitation does not apply to `@Router`. A constrained generic router is
-supported as long as its payloads satisfy the ``Route`` requirements:
+supported as long as its payloads satisfy the `Route` requirements:
 
 ```swift compile
 import SwiftUI

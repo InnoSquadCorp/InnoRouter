@@ -14,11 +14,11 @@
 /// one get-only instance property named `destination`. The macro:
 ///
 /// - adds `@MainActor` and `@ViewBuilder` to that property when needed
-/// - synthesises ``DestinationRoute`` (and therefore ``Route``) conformance
+/// - synthesises `DestinationRoute` (and therefore `Route`) conformance
 /// - generates the access-level-matched `static destination(for:)` witness
 ///
-/// Host the result with ``RouterHost`` and navigate from descendants with
-/// ``EnvironmentRouter``.
+/// Host the result with `RouterHost` and navigate from descendants with
+/// `EnvironmentRouter`.
 ///
 /// ```swift
 /// import SwiftUI
@@ -66,7 +66,7 @@ public macro Router() = #externalMacro(
 
 // MARK: - @Routable
 
-/// Synthesises `CasePath` members and the ``Route`` protocol conformance on the
+/// Synthesises `CasePath` members and the `Route` protocol conformance on the
 /// attached enum.
 ///
 /// Use `@Router` for the default macro-first SwiftUI composition. Use

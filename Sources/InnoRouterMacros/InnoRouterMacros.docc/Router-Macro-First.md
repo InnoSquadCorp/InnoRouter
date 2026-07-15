@@ -80,7 +80,7 @@ route[case: SearchRoute.Cases.result]  // Optional("42")
 
 ## Host and navigate
 
-Use ``RouterHost`` when the navigation store is local to the view tree:
+Use `RouterHost` when the navigation store is local to the view tree:
 
 ```swift skip surrounding view declaration
 RouterHost(LibraryRoute.self) {
@@ -88,7 +88,7 @@ RouterHost(LibraryRoute.self) {
 }
 ```
 
-Descendants read typed actions from ``EnvironmentRouter``:
+Descendants read typed actions from `EnvironmentRouter`:
 
 ```swift skip surrounding view declaration
 @EnvironmentRouter(LibraryRoute.self) private var router
@@ -98,7 +98,7 @@ Button("Account") {
 }
 ```
 
-Use ``NavigationHost`` with an externally owned store when restoration,
+Use `NavigationHost` with an externally owned store when restoration,
 deep-link reconciliation, middleware mutation, or external observation needs
 to outlive the local host.
 
@@ -138,7 +138,7 @@ enum DetailRoute<Value: Hashable & Sendable> {
 ```
 
 The macro cannot prove that a view is mounted below the matching host because
-SwiftUI's environment hierarchy is built at runtime. ``EnvironmentRouter``
+SwiftUI's environment hierarchy is built at runtime. `EnvironmentRouter`
 therefore preserves InnoRouter's existing missing-host and mismatched-route
 runtime diagnostics.
 
@@ -166,5 +166,5 @@ enum ManualRoute: DestinationRoute {
 }
 ```
 
-This path keeps the same ``RouterHost`` and ``EnvironmentRouter`` runtime
+This path keeps the same `RouterHost` and `EnvironmentRouter` runtime
 semantics; only the generated declaration work becomes explicit.

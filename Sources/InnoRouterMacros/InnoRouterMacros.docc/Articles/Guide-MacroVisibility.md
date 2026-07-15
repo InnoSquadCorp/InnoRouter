@@ -28,13 +28,13 @@ to the enum case, so a case gated on an OS version does not produce a
 
 ## `@Router`
 
-``Router()`` adds `@MainActor` and `@ViewBuilder` to the developer-declared
+`@Router` adds `@MainActor` and `@ViewBuilder` to the developer-declared
 instance `destination` property. It does not change that property's declared
 access level.
 
 The generated `static destination(for:)` protocol witness follows the enum's
 effective access level. This means a public router can keep the instance hook
-private while exposing only the witness required by ``DestinationRoute``:
+private while exposing only the witness required by `DestinationRoute`:
 
 ```swift compile
 import SwiftUI

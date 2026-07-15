@@ -499,7 +499,7 @@ render_version_portal() {
       <a class="card" href="./spatial/"><strong>InnoRouterSpatial</strong><p>Opt-in visionOS windows, volumes, immersive spaces, scene lifecycle, and ornaments.</p></a>
       <a class="card" href="./deeplink/"><strong>InnoRouterDeepLink</strong><p>Pattern matching, diagnostics, pipelines, and pending deep-link replay.</p></a>
       <a class="card" href="./effects/"><strong>InnoRouterEffects</strong><p>App-boundary navigation and deep-link execution helpers with typed outcomes.</p></a>
-      <a class="card" href="./macros/"><strong>InnoRouterMacros</strong><p>@Routable and @CasePathable for concise route declarations and extraction.</p></a>
+      <a class="card" href="./macros/"><strong>InnoRouterMacros</strong><p>@Router for macro-first SwiftUI routing, plus @Routable and @CasePathable for typed extraction.</p></a>
       <a class="card" href="./testing/"><strong>InnoRouterTesting</strong><p>Host-less assertion test stores for NavigationStore, ModalStore, and FlowStore.</p></a>
     </div>
     <a class="back" href="../">Back to documentation portal</a>
@@ -514,11 +514,9 @@ render_root_portal() {
   local version_links=""
   local primary_docs_link=""
   local latest_section=""
-  local discovered_versions=()
+  local discovered_versions=""
 
-  while IFS= read -r version_dir; do
-    discovered_versions+=("$version_dir")
-  done < <(
+  if ! discovered_versions="$(
     find "$OUTPUT_DIR" \
       -mindepth 1 \
       -maxdepth 1 \
@@ -526,11 +524,14 @@ render_root_portal() {
       ! -name latest \
       -exec basename {} \; |
       python3 "$ROOT_DIR/scripts/release-version-policy.py" sort-published
-  )
+  )"; then
+    die "failed to discover published documentation versions"
+  fi
 
-  for version_dir in "${discovered_versions[@]}"; do
+  while IFS= read -r version_dir; do
+    [[ -n "$version_dir" ]] || continue
     version_links+="<li><a href=\"./${version_dir}/\">${version_dir}</a></li>"
-  done
+  done <<<"$discovered_versions"
 
   if [[ -d "$OUTPUT_DIR/latest" ]]; then
     primary_docs_link='<a class="button primary" href="./latest/">Open latest docs</a>'
@@ -642,6 +643,14 @@ if [[ "$SKIP_LATEST" != "true" ]]; then
 fi
 render_root_portal "$OUTPUT_DIR/index.html"
 touch "$OUTPUT_DIR/.nojekyll"
+
+warning_scan_marker="[build-docc-site] Build output complete; checking warnings"
+echo "$warning_scan_marker"
+for _ in {1..100}; do
+  grep -Fqx "$warning_scan_marker" "$build_log" && break
+  sleep 0.05
+done
+grep -Fqx "$warning_scan_marker" "$build_log" || die "timed out while flushing the build log"
 
 warning_output="$(grep -n "warning:" "$build_log" || true)"
 if [[ -n "$warning_output" ]]; then
