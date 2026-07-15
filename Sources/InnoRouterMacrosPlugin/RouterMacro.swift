@@ -33,10 +33,16 @@ public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
 
         var attributes: [AttributeSyntax] = []
         if !hasAttribute(named: "MainActor", on: variable) {
-            attributes.append(AttributeSyntax(attributeName: qualifiedType(module: "Swift", name: "MainActor")))
+            attributes.append(
+                AttributeSyntax(attributeName: qualifiedType(module: "Swift", name: "MainActor"))
+                    .with(\.trailingTrivia, .newline)
+            )
         }
         if !hasAttribute(named: "ViewBuilder", on: variable) {
-            attributes.append(AttributeSyntax(attributeName: qualifiedType(module: "SwiftUI", name: "ViewBuilder")))
+            attributes.append(
+                AttributeSyntax(attributeName: qualifiedType(module: "SwiftUI", name: "ViewBuilder"))
+                    .with(\.trailingTrivia, .newline)
+            )
         }
         return attributes
     }

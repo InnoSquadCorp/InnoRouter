@@ -31,7 +31,7 @@ struct RouterMacroTests {
             enum AppRoute {
                 case settings
 
-                @MainActor
+                @Swift.MainActor
                 @SwiftUI.ViewBuilder
                 var destination: some View {
                     switch self {
@@ -42,7 +42,7 @@ struct RouterMacroTests {
             }
 
             extension AppRoute: InnoRouterSwiftUI.DestinationRoute {
-                @MainActor
+                @Swift.MainActor
                 @SwiftUI.ViewBuilder
                 internal static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
