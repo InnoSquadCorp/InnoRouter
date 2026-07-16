@@ -331,6 +331,10 @@ are bare semver (no leading `v`).
 
 ### Changed
 
+- The compiler plugin no longer depends on the full Core and DeepLink runtime
+  graph. Runtime matching and compile-time macro validation now share a small
+  package-only pattern grammar target, retaining diagnostic parity while
+  reducing clean plugin compile actions and CPU work.
 - Modal state transitions, deep-link matching concerns, and router deep-link
   macro analysis/rendering now live in focused implementation files. This is
   an internal responsibility split with no public API or routing behavior

@@ -3,7 +3,7 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
-import InnoRouterDeepLink
+import InnoRouterPatternSupport
 import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
@@ -92,8 +92,8 @@ func analyzeRouterDeepLinks(
             items.append(item)
         }
 
-        let patterns = items.map { DeepLinkPattern($0.pattern) }
-        let orderedItems = DeepLinkPattern
+        let patterns = items.map { RoutePattern($0.pattern) }
+        let orderedItems = RoutePattern
             .specificityOrderedIndices(for: patterns)
             .map { items[$0] }
 
@@ -342,8 +342,8 @@ private func validateDeepLinkReachability(
     _ items: [RouterDeepLinkItem],
     context: some MacroExpansionContext
 ) -> Bool {
-    let diagnostics = DeepLinkPattern.makeDiagnostics(
-        for: items.map { DeepLinkPattern($0.pattern) }
+    let diagnostics = RoutePattern.makeDiagnostics(
+        for: items.map { RoutePattern($0.pattern) }
     )
     guard !diagnostics.isEmpty else { return true }
 

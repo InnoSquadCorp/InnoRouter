@@ -1,6 +1,6 @@
 # Macro Dependency Cost Measurement
 
-Date: 2026-07-15
+Date: 2026-07-16
 
 Purpose: record the build-cost trade-off after making `@Router` part of the
 default `InnoRouter` product for 5.0. The macro-first default favors adoption
@@ -49,6 +49,45 @@ Only the default umbrella built the compiler-plugin targets. In this run that
 added about 20 seconds of wall time and 63 seconds of combined user/system CPU
 time to a clean target build; warm builds reduced the absolute difference.
 
+## Compiler-plugin runtime boundary
+
+The first 5.0 graph made `InnoRouterMacrosPlugin` depend directly on
+`InnoRouterDeepLink` so compile-time reachability checks could reuse the runtime
+pattern grammar. A fresh direct plugin build showed that this also compiled
+`InnoRouterCore` and every deep-link runtime file on the host.
+
+The grammar now lives in the package-only `InnoRouterPatternSupport` target.
+Both the runtime matcher and compiler plugin depend on that target, preserving
+one implementation of normalization, structural diagnostics, and specificity
+ordering without making the plugin compile the routing runtime.
+
+Commands:
+
+```bash
+/usr/bin/time -p swift build \
+  --scratch-path <fresh-directory> \
+  --target InnoRouterMacrosPlugin \
+  --disable-automatic-resolution
+
+swift package describe --type json
+```
+
+Direct clean plugin measurements on the same machine:
+
+| Graph | compile actions | real | user | sys | combined CPU |
+|---|---:|---:|---:|---:|---:|
+| Before: plugin → Core + DeepLink | 339 | 18.30s | 64.50s | 15.17s | 79.67s |
+| After run 1: plugin → PatternSupport | 299 | 20.11s | 57.62s | 11.61s | 69.23s |
+| After run 2: plugin → PatternSupport | 299 | 20.77s | 57.91s | 11.70s | 69.61s |
+
+The boundary removed 40 clean compile actions (11.8%) and reduced average
+combined CPU time by 12.9%. The one pre-change wall sample was faster than the
+two post-change samples, so this run does **not** establish a wall-clock
+speedup; concurrent SwiftSyntax compilation, endpoint security, and other
+machine load dominate that number. The verified gain is a smaller dependency
+graph and lower compiler CPU work, not a promised number of seconds for every
+consumer.
+
 ## Decision
 
 Keep `InnoRouter` macro-first for 5.0:
@@ -59,6 +98,9 @@ Keep `InnoRouter` macro-first for 5.0:
   direct `InnoRouterMacros` dependency
 - `InnoRouterCore`, `InnoRouterSwiftUI`, and `InnoRouterDeepLink` remain
   granular runtime products whose target build graphs omit the macro plugin
+- runtime and compiler-plugin pattern checks share the package-only
+  `InnoRouterPatternSupport` grammar; the plugin does not depend on Core or
+  DeepLink
 
 The measured clean-build cost is real and should be revisited if consumer
 reports show it blocking adoption. A package trait or separate macro package
@@ -68,9 +110,10 @@ adequate escape hatch.
 ## Operating guidance
 
 Re-run both fresh-scratch and incremental comparisons when bumping
-`swift-syntax`, changing the umbrella graph, or changing the supported Swift
-toolchain. Record wall and CPU time; wall time alone can hide parallel
-SwiftSyntax compilation.
+`swift-syntax`, changing the umbrella graph, changing the shared pattern
+grammar boundary, or changing the supported Swift toolchain. Record compile
+actions plus wall and CPU time; wall time alone can hide parallel SwiftSyntax
+compilation.
 
 If tests fail at link time with a missing
 `SwiftSyntaxMacrosTestSupport.assertMacroExpansion` symbol, first rule out stale

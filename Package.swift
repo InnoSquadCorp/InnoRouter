@@ -177,6 +177,17 @@ let package = Package(
         .package(url: "https://github.com/swiftlang/swift-syntax.git", .upToNextMinor(from: "603.0.2")),
     ],
     targets: [
+        // MARK: - Shared Route-Pattern Grammar
+        //
+        // Package-only target shared by runtime matching and compiler-plugin
+        // validation. Keeping it free of runtime and SwiftSyntax dependencies
+        // prevents the plugin from compiling the full routing runtime while
+        // preserving one source of truth for ordering and diagnostics.
+        .target(
+            name: "InnoRouterPatternSupport",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+
         // MARK: - Core Runtime Target
         .target(
             name: "InnoRouterCore",
@@ -187,7 +198,7 @@ let package = Package(
         // MARK: - DeepLink Target
         .target(
             name: "InnoRouterDeepLink",
-            dependencies: ["InnoRouterCore"],
+            dependencies: ["InnoRouterCore", "InnoRouterPatternSupport"],
             resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -338,7 +349,7 @@ let package = Package(
         .macro(
             name: "InnoRouterMacrosPlugin",
             dependencies: [
-                "InnoRouterDeepLink",
+                "InnoRouterPatternSupport",
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),

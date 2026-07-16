@@ -36,7 +36,7 @@ struct DeepLinkMatchEngine<Output: Sendable>: Sendable {
     ) {
         let diagnostics = DeepLinkPattern.makeDiagnostics(
             for: mappings.map(\.pattern)
-        )
+        ).map(DeepLinkMatcherDiagnostic.init)
 
         self.mappings = mappings
         self.inputLimits = configuration.inputLimits
@@ -52,7 +52,7 @@ struct DeepLinkMatchEngine<Output: Sendable>: Sendable {
     ) throws {
         let diagnostics = DeepLinkPattern.makeDiagnostics(
             for: mappings.map(\.pattern)
-        )
+        ).map(DeepLinkMatcherDiagnostic.init)
 
         if !diagnostics.isEmpty {
             for diagnostic in diagnostics {

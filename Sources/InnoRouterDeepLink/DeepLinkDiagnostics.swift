@@ -1,6 +1,8 @@
 import Foundation
 import OSLog
 
+import InnoRouterPatternSupport
+
 /// Controls how `DeepLinkMatcher` surfaces structural diagnostics.
 ///
 /// Strict-mode diagnostic promotion is intentionally not a case on this
@@ -69,6 +71,37 @@ public enum DeepLinkMatcherDiagnostic: Sendable, Equatable {
             return "DeepLinkMatcher pattern '\(pattern)' at index \(index) shadows more specific pattern '\(shadowedPattern)' at index \(shadowedIndex)."
         case .invalidParameterName(let pattern, let index, let name):
             return "DeepLinkMatcher pattern '\(pattern)' declares invalid parameter name '\(name)' at segment \(index). Parameter names must match ^[A-Za-z_][A-Za-z0-9_]*$."
+        }
+    }
+}
+
+extension DeepLinkMatcherDiagnostic {
+    package init(_ diagnostic: RoutePatternDiagnostic) {
+        switch diagnostic {
+        case .nonTerminalWildcard(let pattern, let index):
+            self = .nonTerminalWildcard(pattern: pattern, index: index)
+        case .duplicatePattern(let pattern, let firstIndex, let duplicateIndex):
+            self = .duplicatePattern(
+                pattern: pattern,
+                firstIndex: firstIndex,
+                duplicateIndex: duplicateIndex
+            )
+        case .wildcardShadowing(let pattern, let index, let shadowedPattern, let shadowedIndex):
+            self = .wildcardShadowing(
+                pattern: pattern,
+                index: index,
+                shadowedPattern: shadowedPattern,
+                shadowedIndex: shadowedIndex
+            )
+        case .parameterShadowing(let pattern, let index, let shadowedPattern, let shadowedIndex):
+            self = .parameterShadowing(
+                pattern: pattern,
+                index: index,
+                shadowedPattern: shadowedPattern,
+                shadowedIndex: shadowedIndex
+            )
+        case .invalidParameterName(let pattern, let index, let name):
+            self = .invalidParameterName(pattern: pattern, index: index, name: name)
         }
     }
 }

@@ -78,7 +78,7 @@ struct DeepLinkPackageGrammarParityTests {
         ]
         let packageDiagnostics = DeepLinkPattern.makeDiagnostics(
             for: patterns.map(DeepLinkPattern.init)
-        )
+        ).map(DeepLinkMatcherDiagnostic.init)
         let mappings = patterns.map { pattern in
             DeepLinkMapping<GrammarRoute>(pattern) { _ in .matched }
         }
