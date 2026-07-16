@@ -26,11 +26,12 @@ fires every middleware in the registry.
 `backToRoot` for ordinary transitions.
 
 `NavigationIntent<R>` is the complete intent vocabulary: `.go(R)`,
-`.back`, `.backTo(R)`, `.backOrPush(R)`, `.pushUniqueRoot(R)`,
-`.replaceStack([R])`. A child view that needs a case without a named facade
-method sends it with `router.send(_:)`. An application boundary that
-deliberately owns a `NavigationStore` can use `store.send(_:)`. The store maps
-each intent to one or more commands and runs them through the same pipeline.
+`.goMany([R])`, `.back`, `.backBy(Int)`, `.backTo(R)`, `.backToRoot`,
+`.replaceStack([R])`, `.backOrPush(R)`, and `.pushUniqueRoot(R)`. A child view
+that needs a case without a named facade method sends it with `router.send(_:)`.
+An application boundary that deliberately owns a `NavigationStore` can use
+`store.send(_:)`. The store maps each intent to one or more commands and runs
+them through the same pipeline.
 
 Use **commands** in app-boundary code (effect handlers, deep-link
 coordinators, test scaffolding) where you want exact control. Use

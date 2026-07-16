@@ -169,12 +169,14 @@ atomic step.
 
 ### 6. Migrate tests incrementally
 
-`ModalTestStore` / `NavigationTestStore` that targeted legacy
-stores keep building (typealiases preserve source compatibility).
-Re-home the highest-value scenarios onto `FlowTestStore` when you
-get a chance — a single `FlowTestStore` subscription asserts both
-navigation and modal emissions in the same FIFO queue, which
-usually compresses a 40-line legacy test into 15 lines.
+`NavigationTestStore` and `ModalTestStore` remain available, so tests that
+infer their event types can keep the same test-store setup. Removed event
+typealiases do not preserve explicit annotations: migrate those annotations to
+`NavigationEvent<R>` or `ModalEvent<M>`, and use `FlowEvent<R>` with
+`FlowTestStore`. Re-home the highest-value scenarios onto `FlowTestStore` when
+you get a chance — a single `FlowTestStore` subscription asserts both
+navigation and modal emissions in the same FIFO queue, which usually
+compresses a 40-line legacy test into 15 lines.
 
 ## Rollback story
 
