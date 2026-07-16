@@ -632,6 +632,9 @@ intent を coordinator に通す場合は `NavigationSplitHost` または
 すべての引数なし `@Router` case に `@TabItem` を付けます。Macro が
 `RouterTab`、`CaseIterable`、title、system image を生成します:
 
+title literal は `LocalizedStringResource` として生成されるため、String Catalog の
+翻訳が生成された native tab label に自動で適用されます。
+
 ```swift skip doc-fragment
 @Router
 enum AppTab {

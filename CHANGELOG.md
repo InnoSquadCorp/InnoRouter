@@ -12,6 +12,10 @@ are bare semver (no leading `v`).
   (`swift-tools-version: 6.3`), aligned with `swift-syntax` 603.x and the
   Xcode 26.6 / Swift 6.3 release gates. Consumers building with Swift 6.2 must
   upgrade their toolchain before adopting InnoRouter 5.0.
+- `RouterTab.title` is now `LocalizedStringResource` instead of `String`, and
+  `@TabItem` title literals generate that resource directly. Manual
+  `RouterTab` conformances should return localizable literals (or explicit
+  resources) so native tab labels participate in the app's string catalog.
 - The default `InnoRouter` umbrella now includes and re-exports
   `InnoRouterMacros`. A standard app target therefore resolves the compiler
   plugin and uses `import InnoRouter` for both runtime APIs and macros. Targets

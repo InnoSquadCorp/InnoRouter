@@ -657,6 +657,9 @@ Estos permanecen propiedad de la app:
 Anote cada caso sin parámetros de `@Router` con `@TabItem`; las macros generan
 `RouterTab`, `CaseIterable`, títulos e imágenes del sistema:
 
+Los títulos literales se generan como `LocalizedStringResource`, por lo que las
+traducciones del String Catalog se aplican automáticamente a las etiquetas nativas.
+
 ```swift skip doc-fragment
 @Router
 enum AppTab {

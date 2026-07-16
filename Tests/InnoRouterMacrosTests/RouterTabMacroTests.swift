@@ -50,7 +50,7 @@ struct RouterTabMacroTests {
                     [.home, .settings]
                 }
 
-                public var title: Swift.String {
+                public var title: Foundation.LocalizedStringResource {
                     switch self {
                     case .home:
                         return "Home"
@@ -659,7 +659,7 @@ struct RouterTabMacroTests {
                     [.home]
                 }
 
-                internal var title: Swift.String {
+                internal var title: Foundation.LocalizedStringResource {
                     switch self {
                     case .home:
                         return "Home"
@@ -715,7 +715,7 @@ struct RouterTabMacroTests {
                     [.home]
                 }
 
-                internal var title: Swift.String {
+                internal var title: Foundation.LocalizedStringResource {
                     switch self {
                     case .home:
                         return "Home"

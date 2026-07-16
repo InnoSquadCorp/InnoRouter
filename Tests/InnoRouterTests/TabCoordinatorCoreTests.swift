@@ -29,8 +29,12 @@ struct TabCoordinatorTests {
             }
         }
 
-        var title: String {
-            rawValue.capitalized
+        var title: LocalizedStringResource {
+            switch self {
+            case .home: "Home"
+            case .inbox: "Inbox"
+            case .settings: "Settings"
+            }
         }
     }
 

@@ -1,6 +1,7 @@
 #if canImport(AppKit)
 import AppKit
 #endif
+import Foundation
 import Observation
 import SwiftUI
 import Testing
@@ -13,8 +14,12 @@ private enum RouterTabHostRoute: String, DestinationRoute, RouterTab {
     case inbox
     case settings
 
-    var title: String {
-        rawValue.capitalized
+    var title: LocalizedStringResource {
+        switch self {
+        case .home: "Home"
+        case .inbox: "Inbox"
+        case .settings: "Settings"
+        }
     }
 
     var systemImage: String {

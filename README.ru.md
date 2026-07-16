@@ -645,6 +645,9 @@ Host владеет detail stack и modal authority, а дочерние views �
 Добавьте `@TabItem` к каждому case без associated values в `@Router`. Macros
 сгенерируют `RouterTab`, `CaseIterable`, titles и system images:
 
+Литералы title генерируются как `LocalizedStringResource`, поэтому переводы из
+String Catalog автоматически применяются к нативным labels вкладок.
+
 ```swift skip doc-fragment
 @Router
 enum AppTab {

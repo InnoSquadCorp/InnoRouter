@@ -50,7 +50,12 @@ private enum HostDeepLinkTab: String, DestinationRoute, DeepLinkRoute, RouterTab
     case home
     case settings
 
-    var title: String { rawValue.capitalized }
+    var title: LocalizedStringResource {
+        switch self {
+        case .home: "Home"
+        case .settings: "Settings"
+        }
+    }
     var systemImage: String { self == .home ? "house" : "gear" }
 
     static func resolveDeepLink(_ url: URL) -> Self? {

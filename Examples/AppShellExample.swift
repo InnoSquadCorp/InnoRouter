@@ -1,4 +1,5 @@
 import OSLog
+import Foundation
 import SwiftUI
 
 import InnoRouter
@@ -32,8 +33,11 @@ enum AppShellTab: String, InnoRouter.RouterTab {
         }
     }
 
-    var title: String {
-        rawValue.capitalized
+    var title: LocalizedStringResource {
+        switch self {
+        case .home: "Home"
+        case .settings: "Settings"
+        }
     }
 }
 

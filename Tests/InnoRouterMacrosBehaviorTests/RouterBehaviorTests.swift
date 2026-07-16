@@ -3,6 +3,7 @@
 
 #if canImport(InnoRouterMacrosPlugin)
 
+import Foundation
 import SwiftUI
 import Testing
 
@@ -165,7 +166,7 @@ struct RouterBehaviorTests {
     @MainActor
     func generatedRouterTabAndHost() {
         #expect(BehaviorRouterTab.allCases == [.home, .settings])
-        #expect(BehaviorRouterTab.home.title == "Home")
+        #expect(BehaviorRouterTab.home.title.key == "Home")
         #expect(BehaviorRouterTab.settings.systemImage == "gear")
 
         let host = RouterTabHost(BehaviorRouterTab.self, initial: .home)

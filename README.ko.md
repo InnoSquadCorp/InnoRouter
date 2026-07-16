@@ -612,6 +612,9 @@ action을 사용합니다. 앱이 stack을 직접 소유하거나 coordinator를
 연관값이 없는 모든 `@Router` case에 `@TabItem`을 붙이면 macro가 `RouterTab`,
 `CaseIterable`, title, system image를 생성합니다:
 
+title 리터럴은 `LocalizedStringResource`로 생성되므로 String Catalog 번역이
+생성된 네이티브 tab label에 자동으로 적용됩니다.
+
 ```swift skip doc-fragment
 @Router
 enum AppTab {

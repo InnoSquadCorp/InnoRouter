@@ -329,7 +329,7 @@ struct RouterDeepLinkExpansionMacroTests {
                     [.home, .settings]
                 }
 
-                internal var title: Swift.String {
+                internal var title: Foundation.LocalizedStringResource {
                     switch self {
                     case .home:
                         return "Home"

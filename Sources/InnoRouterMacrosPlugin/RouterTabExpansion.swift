@@ -160,7 +160,7 @@ func renderRouterTabMembers(
         "    [\(allCases)]",
         "}",
         "",
-        "\(access) var title: Swift.String {",
+        "\(access) var title: Foundation.LocalizedStringResource {",
         "    switch self {",
     ]
     for item in specification.items {

@@ -597,6 +597,9 @@ Host 持有 detail stack 和 modal authority。子视图继续使用相同的
 在每个无参数的 `@Router` case 上添加 `@TabItem`；macros 会生成
 `RouterTab`、`CaseIterable`、titles 和 system images：
 
+title 字面量会生成为 `LocalizedStringResource`，因此 String Catalog 翻译会
+自动应用到生成的原生 tab label。
+
 ```swift skip doc-fragment
 @Router
 enum AppTab {

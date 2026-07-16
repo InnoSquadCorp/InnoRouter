@@ -658,6 +658,9 @@ These remain app-owned:
 Annotate every parameterless `@Router` case with `@TabItem`; the macros generate
 `RouterTab`, `CaseIterable`, titles, and system images:
 
+Title literals become `LocalizedStringResource` values, so String Catalog
+translations apply to the generated native tab labels automatically.
+
 ```swift skip doc-fragment
 @Router
 enum AppTab {

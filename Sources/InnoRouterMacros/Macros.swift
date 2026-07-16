@@ -2,6 +2,8 @@
 // InnoRouter Macros - Public Macro Declarations
 // Copyright © 2025 Inno Squad. All rights reserved.
 
+import Foundation
+
 @_exported import InnoRouterCore
 @_exported import InnoRouterDeepLink
 @_exported import InnoRouterSwiftUI
@@ -81,7 +83,9 @@ public macro Router(
 ///
 /// When any case carries `@TabItem`, every case in that router must carry one.
 /// `@Router` then synthesises `RouterTab`, `CaseIterable`, and the tab metadata
-/// witnesses used by `RouterTabHost`.
+/// witnesses used by `RouterTabHost`. Title literals become
+/// `LocalizedStringResource` values, so the app's string catalog can localize
+/// generated native tab labels without a manual `RouterTab` conformance.
 ///
 /// ```swift
 /// @Router
@@ -102,7 +106,7 @@ public macro Router(
 /// ```
 @attached(peer)
 public macro TabItem(
-    _ title: String,
+    _ title: LocalizedStringResource,
     systemImage: String
 ) = #externalMacro(
     module: "InnoRouterMacrosPlugin",

@@ -121,8 +121,10 @@ RouterTabHost(AppTab.self, initial: .home)
 
 Once any `@TabItem` appears, every case must carry exactly one annotation and
 associated values are rejected. The macro generates `RouterTab`,
-`CaseIterable`, and metadata witnesses. `RouterTabHost` owns selection and
-badge state; `TabCoordinatorView` remains the custom-shell and external
+`CaseIterable`, and `LocalizedStringResource` title metadata. String catalog
+translations therefore apply to generated native tab labels without a manual
+conformance. `RouterTabHost` owns selection and badge state;
+`TabCoordinatorView` remains the custom-shell and external
 selection path. tvOS and watchOS retain badge state but omit the unavailable
 native visual and emit one privacy-safe warning for the first positive value.
 

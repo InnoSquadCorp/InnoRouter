@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 import SwiftUI
 
@@ -10,8 +11,8 @@ import InnoRouterCore
 /// `TabCoordinator` shells. The default `id` implementation makes every tab
 /// its own identity so `TabView(selection:)` can use the route directly.
 public protocol RouterTab: Route, CaseIterable, Identifiable {
-    /// Human-readable label rendered alongside the icon.
-    var title: String { get }
+    /// Localizable label rendered alongside the icon.
+    var title: LocalizedStringResource { get }
     /// SF Symbol name rendered in the tab's `Label`.
     var systemImage: String { get }
 }
@@ -46,7 +47,13 @@ public extension RouterTab {
 /// @Observable @MainActor
 /// final class AppTabs: TabCoordinator {
 ///     enum TabType: String, RouterTab { case home, search, profile
-///         var title: String { rawValue.capitalized }
+///         var title: LocalizedStringResource {
+///             switch self {
+///             case .home: "Home"
+///             case .search: "Search"
+///             case .profile: "Profile"
+///             }
+///         }
 ///         var systemImage: String { rawValue + ".fill" }
 ///     }
 ///     var selectedTab: TabType = .home

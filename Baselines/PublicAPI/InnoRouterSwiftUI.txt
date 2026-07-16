@@ -601,7 +601,7 @@ symbol | swift.property | RouterModalHost.body | body | @MainActor var body: som
 symbol | swift.property | RouterSplitHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | RouterTab.id | id | var id: Self { get } | []
 symbol | swift.property | RouterTab.systemImage | systemImage | var systemImage: String { get } | []
-symbol | swift.property | RouterTab.title | title | var title: String { get } | []
+symbol | swift.property | RouterTab.title | title | var title: LocalizedStringResource { get } | []
 symbol | swift.property | RouterTabHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | StateRestorationFailure.message | message | let message: String | []
 symbol | swift.property | StateRestorationFailure.target | target | let target: StateRestorationTarget | []

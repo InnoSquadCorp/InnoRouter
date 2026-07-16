@@ -657,6 +657,9 @@ Diese bleiben app-eigentum:
 Versehen Sie jeden parameterlosen `@Router`-Case mit `@TabItem`; die Macros
 erzeugen `RouterTab`, `CaseIterable`, Titel und Systembilder:
 
+Titelliterale werden als `LocalizedStringResource` erzeugt, sodass Übersetzungen
+aus dem String Catalog automatisch für die generierten nativen Tab-Labels gelten.
+
 ```swift skip doc-fragment
 @Router
 enum AppTab {
