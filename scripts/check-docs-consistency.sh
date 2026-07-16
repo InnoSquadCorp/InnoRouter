@@ -5,8 +5,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ROADMAP_PATH="$ROOT_DIR/Docs/competitive-analysis-and-roadmap.md"
 README_PATH="$ROOT_DIR/README.md"
+README_KO_PATH="$ROOT_DIR/README.ko.md"
 CHANGELOG_PATH="$ROOT_DIR/CHANGELOG.md"
 REJECTION_CATALOG_PATH="$ROOT_DIR/Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Rejection-Reasons.md"
+MACRO_CONTRACT_PATH="$ROOT_DIR/Docs/design-macro-first-surfaces.md"
+MACRO_DIAGNOSTIC_PATH="$ROOT_DIR/Sources/InnoRouterMacros/InnoRouterMacros.docc/Macro-Diagnostics.md"
 
 failures=0
 
@@ -40,6 +43,43 @@ check_present() {
   fi
 
   if ! grep -F -- "$pattern" "$file_path" >/dev/null 2>&1; then
+    echo "[check-docs-consistency] Failed: $message" >&2
+    failures=1
+  fi
+}
+
+markdown_section() {
+  local file_path="$1"
+  local start_heading="$2"
+  local end_heading="$3"
+
+  awk -v start="$start_heading" -v end="$end_heading" '
+    $0 == start { in_section = 1; found = 1 }
+    $0 == end && in_section { exit }
+    in_section { print }
+    END { if (!found) exit 1 }
+  ' "$file_path"
+}
+
+check_section_match() {
+  local file_path="$1"
+  local start_heading="$2"
+  local end_heading="$3"
+  local pattern="$4"
+  local message="$5"
+  local section
+
+  if [[ ! -f "$file_path" ]]; then
+    echo "[check-docs-consistency] Failed: required file not found: $file_path" >&2
+    failures=1
+    return
+  fi
+  if ! section="$(markdown_section "$file_path" "$start_heading" "$end_heading")"; then
+    echo "[check-docs-consistency] Failed: $(basename "$file_path") has no $start_heading section" >&2
+    failures=1
+    return
+  fi
+  if ! grep -E -- "$pattern" <<< "$section" >/dev/null 2>&1; then
     echo "[check-docs-consistency] Failed: $message" >&2
     failures=1
   fi
@@ -91,6 +131,101 @@ check_enum_cases_documented() {
   done <<< "$enum_cases"
 }
 
+check_macro_diagnostic_codes_documented() {
+  local source_directory="$ROOT_DIR/Sources/InnoRouterMacrosPlugin"
+
+  if [[ ! -d "$source_directory" ]]; then
+    echo "[check-docs-consistency] Failed: required directory not found: $source_directory" >&2
+    failures=1
+    return
+  fi
+  if [[ ! -f "$MACRO_DIAGNOSTIC_PATH" ]]; then
+    echo "[check-docs-consistency] Failed: required file not found: $MACRO_DIAGNOSTIC_PATH" >&2
+    failures=1
+    return
+  fi
+
+  local source_definitions
+  local source_mentions
+  local catalog_rows
+  local source_codes
+  local documented_codes
+  source_definitions="$(
+    { rg --no-filename --only-matching 'return "InnoRouterMacro\.[EW][0-9]{3}"' \
+      "$source_directory" -g '*.swift' || true; } |
+      sed -E 's/^return "(InnoRouterMacro\.[EW][0-9]{3})"$/\1/'
+  )"
+  source_mentions="$(
+    { rg --no-filename --only-matching 'InnoRouterMacro\.[EW][0-9]{3}' \
+      "$source_directory" -g '*.swift' || true; } | sort -u
+  )"
+  catalog_rows="$(
+    { rg --no-filename '^\| `InnoRouterMacro\.[EW][0-9]{3}` \| (Error|Warning) \| [^|]*[^|[:space:]][^|]* \|$' \
+      "$MACRO_DIAGNOSTIC_PATH" || true; }
+  )"
+  source_codes="$(printf '%s\n' "$source_definitions" | sort -u)"
+  documented_codes="$(
+    printf '%s\n' "$catalog_rows" |
+      sed -E 's/^\| `(InnoRouterMacro\.[EW][0-9]{3})` \|.*$/\1/' |
+      sort -u
+  )"
+
+  if [[ -z "$source_codes" ]]; then
+    echo "[check-docs-consistency] Failed: no macro diagnostic codes found in $source_directory" >&2
+    failures=1
+    return
+  fi
+  if [[ "$source_mentions" != "$source_codes" ]]; then
+    echo "[check-docs-consistency] Failed: macro diagnostic codes must use canonical return definitions" >&2
+    failures=1
+  fi
+
+  local duplicate_source_codes
+  local duplicate_documented_codes
+  duplicate_source_codes="$(printf '%s\n' "$source_definitions" | sort | uniq -d)"
+  duplicate_documented_codes="$(
+    printf '%s\n' "$catalog_rows" |
+      sed -E 's/^\| `(InnoRouterMacro\.[EW][0-9]{3})` \|.*$/\1/' |
+      sort | uniq -d
+  )"
+  if [[ -n "$duplicate_source_codes" ]]; then
+    echo "[check-docs-consistency] Failed: macro diagnostic codes have duplicate source definitions:" >&2
+    printf '%s\n' "$duplicate_source_codes" | sed 's/^/[check-docs-consistency]   /' >&2
+    failures=1
+  fi
+  if [[ -n "$duplicate_documented_codes" ]]; then
+    echo "[check-docs-consistency] Failed: macro diagnostic catalog has duplicate recovery rows:" >&2
+    printf '%s\n' "$duplicate_documented_codes" | sed 's/^/[check-docs-consistency]   /' >&2
+    failures=1
+  fi
+
+  if grep -E '^\| `InnoRouterMacro\.E[0-9]{3}` \| Warning \|' <<< "$catalog_rows" >/dev/null 2>&1 ||
+    grep -E '^\| `InnoRouterMacro\.W[0-9]{3}` \| Error \|' <<< "$catalog_rows" >/dev/null 2>&1; then
+    echo "[check-docs-consistency] Failed: macro diagnostic catalog severity does not match its E/W code" >&2
+    failures=1
+  fi
+
+  local missing_codes
+  local stale_codes
+  missing_codes="$(comm -23 \
+    <(printf '%s\n' "$source_codes") \
+    <(printf '%s\n' "$documented_codes"))"
+  stale_codes="$(comm -13 \
+    <(printf '%s\n' "$source_codes") \
+    <(printf '%s\n' "$documented_codes"))"
+
+  if [[ -n "$missing_codes" ]]; then
+    echo "[check-docs-consistency] Failed: macro diagnostic catalog is missing source codes:" >&2
+    printf '%s\n' "$missing_codes" | sed 's/^/[check-docs-consistency]   /' >&2
+    failures=1
+  fi
+  if [[ -n "$stale_codes" ]]; then
+    echo "[check-docs-consistency] Failed: macro diagnostic catalog contains stale codes:" >&2
+    printf '%s\n' "$stale_codes" | sed 's/^/[check-docs-consistency]   /' >&2
+    failures=1
+  fi
+}
+
 echo "[check-docs-consistency] Checking known roadmap drift claims"
 check_absent "$ROADMAP_PATH" 'Remaining gap: `RouteStep` / `FlowPlan` are not yet' \
   "roadmap still claims RouteStep / FlowPlan are not Codable"
@@ -120,6 +255,68 @@ check_absent "$CHANGELOG_PATH" '### Deferred to 4.1' \
   "changelog still has a 4.1 deferred section after the 4.0 release sweep"
 check_absent "$README_PATH" 'deferred from P3-4' \
   "README still claims debounce is deferred from P3-4"
+
+echo "[check-docs-consistency] Checking macro-first surface contract"
+readme_contracts=(
+  "$README_PATH|## 30-second quick start|## OSS release and SemVer contract|## Choosing the right surface|## Documentation|^Start with a route enum and a macro-first host\."
+  "$README_KO_PATH|## 30초 Quick Start|## OSS 릴리즈 및 SemVer 계약|## 적합한 surface 고르기|## 문서|^route enum과 macro-first host로 시작하세요\."
+)
+for contract in "${readme_contracts[@]}"; do
+  IFS='|' read -r readme_path quick_start_heading quick_start_end \
+    selection_heading selection_end selection_lead <<< "$contract"
+
+  check_section_match "$readme_path" "$quick_start_heading" "$quick_start_end" \
+    '^@Router$' \
+    "$(basename "$readme_path") quick start has no standalone @Router declaration"
+  check_section_match "$readme_path" "$quick_start_heading" "$quick_start_end" \
+    '^[[:space:]]*RouterHost\(' \
+    "$(basename "$readme_path") quick start does not install RouterHost"
+  check_section_match "$readme_path" "$quick_start_heading" "$quick_start_end" \
+    '^[[:space:]]*@EnvironmentRouter\(' \
+    "$(basename "$readme_path") quick start does not read @EnvironmentRouter"
+  check_section_match "$readme_path" "$quick_start_heading" "$quick_start_end" \
+    '`@EnvironmentSceneRouter`' \
+    "$(basename "$readme_path") quick start does not route spatial actions through @EnvironmentSceneRouter"
+
+  check_section_match "$readme_path" "$selection_heading" "$selection_end" \
+    "$selection_lead" \
+    "$(basename "$readme_path") selection guide no longer leads with macro-first routing"
+  selection_rows=(
+    '^\| .* \| `@Router` \+ `RouterHost` \|$'
+    '^\| .* \| `@Router` \+ `RouterModalHost` \|$'
+    '^\| .* \| `@Router` \+ `RouterSplitHost` \|$'
+    '^\| .* \| `@Router` \+ `@TabItem` \+ `RouterTabHost` \|$'
+    '^\| .* \| `@Router\(deepLinkSchemes:deepLinkHosts:\)` \+ `@DeepLink` \+ `RouterHost`, `RouterSplitHost`, (or|또는) `RouterTabHost` \|$'
+    '^\| .* \| `InnoRouterSpatial`: `@SceneRouter` \+ `@Scene` \+ `<Route>\.scenes` \|$'
+  )
+  for row_pattern in "${selection_rows[@]}"; do
+    check_section_match "$readme_path" "$selection_heading" "$selection_end" \
+      "$row_pattern" \
+      "$(basename "$readme_path") selection table is missing a canonical macro-first surface row"
+  done
+done
+
+check_absent "$MACRO_CONTRACT_PATH" 'before implementation' \
+  "macro-first contract still presents the implemented surface as future work"
+check_absent "$MACRO_CONTRACT_PATH" 'skip proposed' \
+  "macro-first contract still labels implemented API as proposed"
+check_absent "$MACRO_CONTRACT_PATH" 'host: true' \
+  "macro-first contract references the nonexistent @Scene host argument"
+check_absent "$MACRO_CONTRACT_PATH" 're-exports spatial support' \
+  "macro-first contract incorrectly claims the default umbrella re-exports Spatial"
+check_absent "$MACRO_CONTRACT_PATH" 'platform adaptation such as cover-to-sheet fallback' \
+  "macro-first contract incorrectly promises a runtime diagnostic for normal cover adaptation"
+check_present "$MACRO_CONTRACT_PATH" 'The first case becomes the primary host' \
+  "macro-first contract does not document generated Spatial host selection"
+check_present "$MACRO_CONTRACT_PATH" 'does not re-export it' \
+  "macro-first contract does not preserve the opt-in Spatial product boundary"
+check_present "$MACRO_CONTRACT_PATH" 'It does not emit an error or warning' \
+  "macro-first contract does not document silent cover-to-sheet adaptation"
+check_present "$MACRO_CONTRACT_PATH" '(`E028`)' \
+  "macro-first contract does not document unreachable deep-link mappings"
+check_present "$MACRO_CONTRACT_PATH" '`W012`' \
+  "macro-first contract does not document reachable typed deep-link fallbacks"
+check_macro_diagnostic_codes_documented
 
 echo "[check-docs-consistency] Checking Swift toolchain contract"
 if [[ "$(head -n 1 "$ROOT_DIR/Package.swift")" != '// swift-tools-version: 6.3' ]]; then

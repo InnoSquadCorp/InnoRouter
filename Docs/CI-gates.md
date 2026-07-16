@@ -38,7 +38,7 @@ early with a clear message if it is missing.
 | 1 | `swift test` | Full Swift Testing suite (`Tests/`). | `swift test` |
 | 2 | DocC preview build | Rebuilds every `.docc` catalog; catches symbol drift and broken cross-refs. | `./scripts/build-docc-site.sh --version preview --skip-latest` |
 | 3 | Public API baselines | Diff against recorded baselines under `Baselines/`. Any unrecorded addition, removal, or rename fails. | `./scripts/check-public-api.sh` |
-| 4 | Maintainer docs consistency | README / CLAUDE.md / AGENTS.md / RELEASING.md / CHANGELOG.md cross-reference and version-string sync. | `./scripts/check-docs-consistency.sh` |
+| 4 | Maintainer docs consistency | Version and release-policy sync, structured macro-first README/contract coverage, and exact source-definition-to-DocC recovery-row parity for macro diagnostics. | `./scripts/check-docs-consistency.sh` |
 | 5 | Doc Swift code blocks | `swift compile` blocks typecheck against the published API; `swift skip <reason>` blocks must record why they are intentionally excluded. | `./scripts/check-docs-code-blocks.sh` |
 | 6 | Examples ↔ ExamplesSmoke parity | 1:1 file alignment between the two example trees. See `Examples/README.md` for which side to edit. | `./scripts/check-examples-parity.sh` |
 | 7 | Smoke targets build | Compiler-stable fixtures plus a one-product downstream default-umbrella check for every core macro-first host. | `swift build --target InnoRouterExamplesSmoke`, `swift build --target InnoRouterMacroFirstSmoke`, and siblings |

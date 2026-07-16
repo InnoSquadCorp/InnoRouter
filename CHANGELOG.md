@@ -308,6 +308,10 @@ are bare semver (no leading `v`).
   stack, modal, split, tab, deep-link, and scene routing. A stable diagnostic
   catalog maps all `E001`-`E049` and `W001`-`W012` codes to concrete recovery,
   while manual Store and host composition is documented as the advanced path.
+- Documentation consistency checks now require every macro-first surface in
+  the English and Korean entry guides, reject stale pre-implementation and
+  Spatial product claims, and enforce exact one-to-one parity between macro
+  diagnostic definitions in source and structured DocC recovery rows.
 - Release publication now resolves strict GA/`rc`/`beta` metadata through one
   SemVer policy, reads release policy from `main`, verifies the exact tag and
   triggering SHA against `main` ancestry, and builds only the resulting
