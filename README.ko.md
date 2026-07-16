@@ -962,6 +962,8 @@ replay는 `resumePendingDeepLink()` 또는 `resumePendingDeepLinkIfAllowed(_:)`�
 
 사람용 예제는 다음을 다룹니다:
 
+- [`Examples/MacrosExample.swift`](Examples/MacrosExample.swift): macro-first
+  stack, modal-only, split-detail, 네이티브 tab, 단일-route 딥링크 surface
 - 단독 stack 라우팅
 - coordinator 라우팅
 - 딥링크
@@ -1029,6 +1031,7 @@ InnoRouter는 SwiftUI의 declarative 방향을 따르되 공유 네비게이션 
 
 사람용 예제는 여기에 있습니다:
 
+- Macro-first modal, split, tab surface: [Examples/MacrosExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/MacrosExample.swift)
 - Macro-first stack: [Examples/StandaloneExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/StandaloneExample.swift)
 - Macro-first 딥링크: [Examples/DeepLinkExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/DeepLinkExample.swift)
 - Macro-first visionOS scene: [Examples/VisionOSImmersiveExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/VisionOSImmersiveExample.swift)

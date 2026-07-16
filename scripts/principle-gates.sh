@@ -118,6 +118,7 @@ swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterEffects
 echo "[principle-gates] Building human-facing example targets"
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterStandaloneExample
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterCoordinatorExample
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterMacrosExample
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterDeepLinkExample
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterSplitCoordinatorExample
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterAppShellExample

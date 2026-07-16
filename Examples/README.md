@@ -16,7 +16,8 @@ gate enforces that pairing.
 - Complete, idiomatic snippets that build standalone.
 - Macro-driven surface (`@Router`, `RouterHost`,
   `@EnvironmentRouter`, …) as the default simple path, with the lower-level
-  store and intent APIs where the example genuinely needs them.
+  store and intent APIs where the example genuinely needs them — see
+  [`MacrosExample.swift`](MacrosExample.swift).
 - The full headline feature surface (deep-link pipeline + auth
   policy + flow projection + middleware) where the example narrates a
   real adoption path — see

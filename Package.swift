@@ -25,6 +25,7 @@ import CompilerPluginSupport
 private let exampleSources: [String] = [
     "StandaloneExample.swift",
     "CoordinatorExample.swift",
+    "MacrosExample.swift",
     "DeepLinkExample.swift",
     "SplitCoordinatorExample.swift",
     "AppShellExample.swift",
@@ -264,6 +265,7 @@ let package = Package(
         // call rather than nine sibling-list edits.
         exampleTarget(name: "InnoRouterStandaloneExample",       source: "StandaloneExample.swift"),
         exampleTarget(name: "InnoRouterCoordinatorExample",      source: "CoordinatorExample.swift"),
+        exampleTarget(name: "InnoRouterMacrosExample",           source: "MacrosExample.swift"),
         exampleTarget(name: "InnoRouterDeepLinkExample",         source: "DeepLinkExample.swift"),
         exampleTarget(name: "InnoRouterSplitCoordinatorExample", source: "SplitCoordinatorExample.swift"),
         exampleTarget(name: "InnoRouterAppShellExample",         source: "AppShellExample.swift"),

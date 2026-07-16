@@ -303,6 +303,9 @@ are bare semver (no leading `v`).
 
 ### Changed
 
+- A new human-facing `Examples/MacrosExample.swift` mirrors the one-product
+  macro smoke with copyable stack, modal-only, split-detail, native-tab, and
+  one-route deep-link compositions using `@EnvironmentRouter`.
 - Macro-first flow rejection logs now identify the owning `RouterHost` or
   `RouterSplitHost` surface. Missing spatial authority diagnostics lead with
   the generated `<Route>.scenes` wiring and keep manual scene hosts and anchors

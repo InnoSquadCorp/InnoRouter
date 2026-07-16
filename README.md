@@ -1026,6 +1026,8 @@ The separate spatial consumer smoke compiles `@SceneRouter` on visionOS.
 
 Human-facing examples cover:
 
+- [`Examples/MacrosExample.swift`](Examples/MacrosExample.swift): macro-first
+  stack, modal-only, split-detail, native-tab, and one-route deep-link surfaces
 - standalone stack routing
 - coordinator routing
 - deep links
@@ -1093,6 +1095,7 @@ This is an intentional pragmatic trade-off, not an accidental drift away from Sw
 
 Human-facing examples live here:
 
+- Macro-first modal, split, and tab surfaces: [Examples/MacrosExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/MacrosExample.swift)
 - Macro-first stack: [Examples/StandaloneExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/StandaloneExample.swift)
 - Macro-first deep links: [Examples/DeepLinkExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/DeepLinkExample.swift)
 - Macro-first visionOS scenes: [Examples/VisionOSImmersiveExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/VisionOSImmersiveExample.swift)

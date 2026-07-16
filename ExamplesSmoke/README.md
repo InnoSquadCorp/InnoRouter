@@ -15,14 +15,13 @@ macro-driven code lives.
 - Plain Swift covering the same public symbols that the matching
   `Examples/<Name>Example.swift` exercises.
 - Conservative runtime patterns in the ordinary mirrors.
-- Macro usage in `MacrosSmoke.swift`, which deliberately proves that
-  `import InnoRouter` exposes `@Router`, `@Routable`, and
-  `@CasePathable` without a second product or import.
+- `MacrosSmoke.swift` mirrors `Examples/MacrosExample.swift` and deliberately
+  proves that `import InnoRouter` exposes `@Router`, `@TabItem`, `@DeepLink`,
+  `@Routable`, and `@CasePathable` without a second product or import.
 - Smoke-only files that exercise surface area not yet narrated by an
   example. These are listed in
   [`scripts/check-examples-parity.sh`](../scripts/check-examples-parity.sh)
-  under `SMOKE_ONLY_ALLOWLIST` (today: `MacrosSmoke.swift`,
-  `ModalSmoke.swift`).
+  under `SMOKE_ONLY_ALLOWLIST` (today: `ModalSmoke.swift`).
 
 ## What does NOT belong here
 

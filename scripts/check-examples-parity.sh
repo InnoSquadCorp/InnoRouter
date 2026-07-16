@@ -10,8 +10,8 @@
 #   build gate.
 #
 # - Smoke files that are not mirrors of an example are allowed
-#   (e.g. `ModalSmoke.swift`, `MacrosSmoke.swift` exercise
-#   surface that has no narrative example yet). They live in the
+#   (`ModalSmoke.swift` currently exercises surface that has no
+#   narrative example yet). They live in the
 #   allowlist below; anything else without a matching example
 #   fails the gate.
 #
@@ -43,7 +43,6 @@ UMBRELLA_SOURCE="Sources/InnoRouterUmbrella/InnoRouter.swift"
 # Smoke files that intentionally have no Examples/ counterpart.
 # Keep this list short — the default expectation is one-to-one.
 SMOKE_ONLY_ALLOWLIST=(
-    "MacrosSmoke.swift"
     "ModalSmoke.swift"
 )
 
