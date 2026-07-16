@@ -27,30 +27,6 @@ private let flowDelegationProfileCase = CasePath<FlowDelegationRoute, String>(
 )
 
 @MainActor
-private final class FlowDelegationRecordingReconciler<R: Route>: NavigationPathReconciling {
-    var calls: [(old: [R], new: [R])] = []
-
-    nonisolated init() {}
-
-    func reconcile(
-        from oldPath: [R],
-        to newPath: [R],
-        resolveMismatch: @MainActor ([R], [R]) -> NavigationPathMismatchResolution<R>,
-        execute: @MainActor (NavigationCommand<R>) -> Void,
-        executeBatch: @MainActor ([NavigationCommand<R>]) -> Void
-    ) {
-        calls.append((old: oldPath, new: newPath))
-        NavigationPathReconciler<R>().reconcile(
-            from: oldPath,
-            to: newPath,
-            resolveMismatch: resolveMismatch,
-            execute: execute,
-            executeBatch: executeBatch
-        )
-    }
-}
-
-@MainActor
 private final class ReentrantFlowEventObserver {
     weak var store: FlowStore<FlowDelegationRoute>?
     var events: [FlowEvent<FlowDelegationRoute>] = []
@@ -715,25 +691,6 @@ struct FlowStoreDelegationTests {
         #expect(captured.first?.newPath == [.detail])
         #expect(store.navigationStore.state.path == [.detail])
         #expect(store.path == [.push(.detail)])
-    }
-
-    @Test("inner navigation receives FlowStoreConfiguration path reconciler")
-    @MainActor
-    func customPathReconcilerPropagatesToInnerNavigationStore() {
-        let recorder = FlowDelegationRecordingReconciler<FlowDelegationRoute>()
-        let config = FlowStoreConfiguration<FlowDelegationRoute>(
-            navigation: .init(pathReconciler: recorder)
-        )
-        let store = FlowStore<FlowDelegationRoute>(configuration: config)
-
-        store.send(.push(.home))
-        store.navigationStore.pathBinding.wrappedValue = [.home, .detail]
-
-        #expect(recorder.calls.count == 1)
-        #expect(recorder.calls.first?.old == [.home])
-        #expect(recorder.calls.first?.new == [.home, .detail])
-        #expect(store.navigationStore.state.path == [.home, .detail])
-        #expect(store.path == [.push(.home), .push(.detail)])
     }
 
     @Test("inner modal onEvent receives presented when caller supplies an observer")

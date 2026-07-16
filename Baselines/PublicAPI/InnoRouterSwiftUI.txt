@@ -1,5 +1,4 @@
 # Public API baseline for InnoRouterSwiftUI
-relationship | conformsTo | NavigationPathReconciler | NavigationPathReconciling |  |
 relationship | defaultImplementationOf | ChildCoordinator.parentDidCancel() | ChildCoordinator.parentDidCancel() |  |
 relationship | defaultImplementationOf | Coordinator.handle(_:) | Coordinator.handle(_:) |  |
 relationship | defaultImplementationOf | StepCoordinator.canProceed(from:) | StepCoordinator.canProceed(from:) |  |
@@ -181,8 +180,6 @@ relationship | memberOf | NavigationPathMismatchPolicy.replace | NavigationPathM
 relationship | memberOf | NavigationPathMismatchResolution.batch(_:) | NavigationPathMismatchResolution |  |
 relationship | memberOf | NavigationPathMismatchResolution.ignore | NavigationPathMismatchResolution |  |
 relationship | memberOf | NavigationPathMismatchResolution.single(_:) | NavigationPathMismatchResolution |  |
-relationship | memberOf | NavigationPathReconciler.init() | NavigationPathReconciler |  |
-relationship | memberOf | NavigationPathReconciler.reconcile(from:to:resolveMismatch:execute:executeBatch:) | NavigationPathReconciler |  |
 relationship | memberOf | NavigationSplitHost.body | NavigationSplitHost |  |
 relationship | memberOf | NavigationSplitHost.init(store:sidebar:destination:root:) | NavigationSplitHost |  |
 relationship | memberOf | NavigationStore.RouteType | NavigationStore |  |
@@ -205,12 +202,11 @@ relationship | memberOf | NavigationStore.replaceMiddleware(_:with:debugName:) |
 relationship | memberOf | NavigationStore.send(_:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.state | NavigationStore |  |
 relationship | memberOf | NavigationStoreConfiguration.eventBufferingPolicy | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.init(middlewares:routeStackValidator:pathMismatchPolicy:logger:onEvent:eventBufferingPolicy:pathReconciler:) | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.init(middlewares:routeStackValidator:pathMismatchPolicy:logger:onEvent:eventBufferingPolicy:) | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.logger | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.middlewares | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.onEvent | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.pathMismatchPolicy | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.pathReconciler | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.routeStackValidator | NavigationStoreConfiguration |  |
 relationship | memberOf | QueueCoalescePolicy.Action | QueueCoalescePolicy |  |
 relationship | memberOf | QueueCoalescePolicy.Action.dropQueued | QueueCoalescePolicy.Action |  |
@@ -287,8 +283,6 @@ relationship | requirementOf | Coordinator.handle(_:) | Coordinator |  |
 relationship | requirementOf | Coordinator.store | Coordinator |  |
 relationship | requirementOf | DestinationRoute.Destination | DestinationRoute |  |
 relationship | requirementOf | DestinationRoute.destination(for:) | DestinationRoute |  |
-relationship | requirementOf | NavigationPathReconciling.RouteType | NavigationPathReconciling |  |
-relationship | requirementOf | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | NavigationPathReconciling |  |
 relationship | requirementOf | RouterTab.systemImage | RouterTab |  |
 relationship | requirementOf | RouterTab.title | RouterTab |  |
 relationship | requirementOf | StepCoordinator.Step | StepCoordinator |  |
@@ -304,7 +298,6 @@ symbol | swift.associatedtype | ChildCoordinator.Result | Result | associatedtyp
 symbol | swift.associatedtype | Coordinator.Destination | Destination | associatedtype Destination : View | []
 symbol | swift.associatedtype | Coordinator.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | DestinationRoute.Destination | Destination | associatedtype Destination : View | []
-symbol | swift.associatedtype | NavigationPathReconciling.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | StepCoordinator.Step | Step | associatedtype Step : CaseIterable, Hashable, Sendable | []
 symbol | swift.associatedtype | TabCoordinator.TabContent | TabContent | associatedtype TabContent : View | []
 symbol | swift.associatedtype | TabCoordinator.TabType | TabType | associatedtype TabType : RouterTab | []
@@ -444,11 +437,10 @@ symbol | swift.init | ModalStoreConfiguration.init(logger:middlewares:onEvent:ev
 symbol | swift.init | NavigationHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationHost.init(store:root:) | init(store:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) | []
-symbol | swift.init | NavigationPathReconciler.init() | init() | nonisolated init() | []
 symbol | swift.init | NavigationSplitHost.init(store:sidebar:destination:root:) | init(store:sidebar:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: RouteStack<R> = .init(), configuration: NavigationStoreConfiguration<R> = .init()) | []
 symbol | swift.init | NavigationStore.init(initialPath:configuration:) | init(initialPath:configuration:) | @MainActor convenience init(initialPath: [R], configuration: NavigationStoreConfiguration<R> = .init()) throws | []
-symbol | swift.init | NavigationStoreConfiguration.init(middlewares:routeStackValidator:pathMismatchPolicy:logger:onEvent:eventBufferingPolicy:pathReconciler:) | init(middlewares:routeStackValidator:pathMismatchPolicy:logger:onEvent:eventBufferingPolicy:pathReconciler:) | init(middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, onEvent: (@MainActor (NavigationEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, pathReconciler: (any NavigationPathReconciling<R>)? = nil) | []
+symbol | swift.init | NavigationStoreConfiguration.init(middlewares:routeStackValidator:pathMismatchPolicy:logger:onEvent:eventBufferingPolicy:) | init(middlewares:routeStackValidator:pathMismatchPolicy:logger:onEvent:eventBufferingPolicy:) | init(middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, onEvent: (@MainActor (NavigationEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default) | []
 symbol | swift.init | RouterHost.init(_:initial:configuration:root:) | init(_:initial:configuration:root:) | @MainActor init(_ routeType: R.Type, initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init(), @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | RouterModalHost.init(_:initial:queued:configuration:content:) | init(_:initial:queued:configuration:content:) | @MainActor init(_ routeType: R.Type, initial: ModalPresentation<R>? = nil, queued: [ModalPresentation<R>] = [], configuration: ModalStoreConfiguration<R> = .init(), @ViewBuilder content: @escaping () -> Content) | []
 symbol | swift.init | RouterSplitHost.init(_:initial:configuration:sidebar:root:) | init(_:initial:configuration:sidebar:root:) | @MainActor init(_ routeType: R.Type, initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init(), @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder root: @escaping () -> Root) | []
@@ -482,8 +474,6 @@ symbol | swift.method | ModalStore.removeMiddleware(_:) | removeMiddleware(_:) |
 symbol | swift.method | ModalStore.replaceCurrent(_:style:) | replaceCurrent(_:style:) | @MainActor func replaceCurrent(_ route: M, style: ModalPresentationStyle) | []
 symbol | swift.method | ModalStore.replaceMiddleware(_:with:debugName:) | replaceMiddleware(_:with:debugName:) | @discardableResult @MainActor func replaceMiddleware(_ handle: ModalMiddlewareHandle, with middleware: AnyModalMiddleware<M>, debugName: String? = nil) -> Bool | []
 symbol | swift.method | ModalStore.send(_:) | send(_:) | @MainActor func send(_ intent: ModalIntent<M>) | []
-symbol | swift.method | NavigationPathReconciler.reconcile(from:to:resolveMismatch:execute:executeBatch:) | reconcile(from:to:resolveMismatch:execute:executeBatch:) | @MainActor func reconcile(from oldPath: [R], to newPath: [R], resolveMismatch: @MainActor ([R], [R]) -> NavigationPathMismatchResolution<R>, execute: @MainActor (NavigationCommand<R>) -> Void, executeBatch: @MainActor ([NavigationCommand<R>]) -> Void) | []
-symbol | swift.method | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | reconcile(from:to:resolveMismatch:execute:executeBatch:) | @MainActor func reconcile(from oldPath: [Self.RouteType], to newPath: [Self.RouteType], resolveMismatch: @MainActor ([Self.RouteType], [Self.RouteType]) -> NavigationPathMismatchResolution<Self.RouteType>, execute: @MainActor (NavigationCommand<Self.RouteType>) -> Void, executeBatch: @MainActor ([NavigationCommand<Self.RouteType>]) -> Void) | []
 symbol | swift.method | NavigationStore.addMiddleware(_:debugName:) | addMiddleware(_:debugName:) | @discardableResult @MainActor func addMiddleware(_ middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) -> NavigationMiddlewareHandle | []
 symbol | swift.method | NavigationStore.binding(case:) | binding(case:) | @MainActor func binding<Value>(case casePath: CasePath<R, Value>) -> Binding<Value?> | []
 symbol | swift.method | NavigationStore.commands(for:) | commands(for:) | @MainActor func commands(for intent: NavigationIntent<R>) -> [NavigationCommand<R>] | []
@@ -594,7 +584,6 @@ symbol | swift.property | NavigationStoreConfiguration.logger | logger | var log
 symbol | swift.property | NavigationStoreConfiguration.middlewares | middlewares | var middlewares: [NavigationMiddlewareRegistration<R>] | []
 symbol | swift.property | NavigationStoreConfiguration.onEvent | onEvent | var onEvent: (@MainActor (NavigationEvent<R>) -> Void)? | []
 symbol | swift.property | NavigationStoreConfiguration.pathMismatchPolicy | pathMismatchPolicy | var pathMismatchPolicy: NavigationPathMismatchPolicy<R> | []
-symbol | swift.property | NavigationStoreConfiguration.pathReconciler | pathReconciler | var pathReconciler: any NavigationPathReconciling<R> | []
 symbol | swift.property | NavigationStoreConfiguration.routeStackValidator | routeStackValidator | var routeStackValidator: RouteStackValidator<R> | []
 symbol | swift.property | RouterHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | RouterModalHost.body | body | @MainActor var body: some View { get } | []
@@ -618,7 +607,6 @@ symbol | swift.property | TabCoordinatorView.body | body | @MainActor var body: 
 symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor protocol ChildCoordinator : AnyObject | []
 symbol | swift.protocol | Coordinator | Coordinator | @MainActor protocol Coordinator : AnyObject, Observable | []
 symbol | swift.protocol | DestinationRoute | DestinationRoute | protocol DestinationRoute : Route | []
-symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<RouteType> : Sendable | []
 symbol | swift.protocol | RouterTab | RouterTab | protocol RouterTab : Route, CaseIterable, Identifiable | []
 symbol | swift.protocol | StepCoordinator | StepCoordinator | @MainActor protocol StepCoordinator : AnyObject, Observable | []
 symbol | swift.protocol | TabCoordinator | TabCoordinator | @MainActor protocol TabCoordinator : AnyObject, Observable | []
@@ -639,7 +627,6 @@ symbol | swift.struct | NavigationMiddlewareHandle | NavigationMiddlewareHandle 
 symbol | swift.struct | NavigationMiddlewareMetadata | NavigationMiddlewareMetadata | struct NavigationMiddlewareMetadata | []
 symbol | swift.struct | NavigationMiddlewareRegistration | NavigationMiddlewareRegistration | struct NavigationMiddlewareRegistration<R> where R : Route | []
 symbol | swift.struct | NavigationPathMismatchEvent | NavigationPathMismatchEvent | struct NavigationPathMismatchEvent<R> where R : Route | []
-symbol | swift.struct | NavigationPathReconciler | NavigationPathReconciler | @MainActor struct NavigationPathReconciler<R> where R : Route | []
 symbol | swift.struct | NavigationSplitHost | NavigationSplitHost | @MainActor struct NavigationSplitHost<R, Sidebar, DestinationView, Root> where R : Route, Sidebar : View, DestinationView : View, Root : View | []
 symbol | swift.struct | NavigationStoreConfiguration | NavigationStoreConfiguration | struct NavigationStoreConfiguration<R> where R : Route | []
 symbol | swift.struct | RouterActions | RouterActions | struct RouterActions<R> where R : Route | []

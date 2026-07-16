@@ -76,18 +76,6 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
     /// with a 1024-event ceiling). Opt into ``EventBufferingPolicy/unbounded`` when a
     /// deterministic test harness needs every emitted event.
     public var eventBufferingPolicy: EventBufferingPolicy
-    /// Reconciler that maps SwiftUI `NavigationStack(path:)` mutations
-    /// into the equivalent ``NavigationCommand`` invocations on the
-    /// store.
-    ///
-    /// Defaults to the framework-supplied ``NavigationPathReconciler``,
-    /// which folds prefix shrinks into `.popCount` / `.popToRoot`,
-    /// prefix expands into batched `.push`, and delegates non-prefix
-    /// rewrites to ``pathMismatchPolicy``. Apps that need a domain-
-    /// specific repair rule on every binding-driven update can supply
-    /// their own ``NavigationPathReconciling`` conformance here.
-    public var pathReconciler: any NavigationPathReconciling<R>
-
     /// Creates a navigation store configuration.
     public init(
         middlewares: [NavigationMiddlewareRegistration<R>] = [],
@@ -95,8 +83,7 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace,
         logger: Logger? = nil,
         onEvent: (@MainActor @Sendable (NavigationEvent<R>) -> Void)? = nil,
-        eventBufferingPolicy: EventBufferingPolicy = .default,
-        pathReconciler: (any NavigationPathReconciling<R>)? = nil
+        eventBufferingPolicy: EventBufferingPolicy = .default
     ) {
         self.middlewares = middlewares
         self.routeStackValidator = routeStackValidator
@@ -104,6 +91,5 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         self.logger = logger
         self.onEvent = onEvent
         self.eventBufferingPolicy = eventBufferingPolicy
-        self.pathReconciler = pathReconciler ?? NavigationPathReconciler<R>()
     }
 }

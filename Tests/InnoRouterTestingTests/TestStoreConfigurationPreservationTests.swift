@@ -17,31 +17,6 @@ private enum PreservedRoute: Route {
 }
 
 @MainActor
-private final class RecordingPathReconciler: NavigationPathReconciling {
-    private(set) var calls: [(old: [PreservedRoute], new: [PreservedRoute])] = []
-
-    nonisolated init() {}
-
-    func reconcile(
-        from oldPath: [PreservedRoute],
-        to newPath: [PreservedRoute],
-        resolveMismatch: @MainActor ([PreservedRoute], [PreservedRoute])
-            -> NavigationPathMismatchResolution<PreservedRoute>,
-        execute: @MainActor (NavigationCommand<PreservedRoute>) -> Void,
-        executeBatch: @MainActor ([NavigationCommand<PreservedRoute>]) -> Void
-    ) {
-        calls.append((old: oldPath, new: newPath))
-        NavigationPathReconciler<PreservedRoute>().reconcile(
-            from: oldPath,
-            to: newPath,
-            resolveMismatch: resolveMismatch,
-            execute: execute,
-            executeBatch: executeBatch
-        )
-    }
-}
-
-@MainActor
 private func cancelDismissAllMiddleware() -> AnyModalMiddleware<PreservedRoute> {
     AnyModalMiddleware(willExecute: { command, _, _ in
         if case .dismissAll = command {
@@ -65,17 +40,15 @@ private func cancelReplaceMiddleware() -> AnyNavigationMiddleware<PreservedRoute
 @MainActor
 struct TestStoreConfigurationPreservationTests {
 
-    @Test("NavigationTestStore preserves observation, buffering, and path reconciliation")
+    @Test("NavigationTestStore preserves observation and buffering")
     func navigationConfigurationIsPreserved() async {
         let observed = Mutex<[NavigationEvent<PreservedRoute>]>([])
-        let reconciler = RecordingPathReconciler()
         let store = NavigationTestStore<PreservedRoute>(
             configuration: NavigationStoreConfiguration(
                 onEvent: { event in
                     observed.withLock { $0.append(event) }
                 },
-                eventBufferingPolicy: .bufferingNewest(1),
-                pathReconciler: reconciler
+                eventBufferingPolicy: .bufferingNewest(1)
             )
         )
         var iterator = store.store.events.makeAsyncIterator()
@@ -83,9 +56,6 @@ struct TestStoreConfigurationPreservationTests {
         store.send(.go(.home))
         store.store.pathBinding.wrappedValue = [.home, .detail]
 
-        #expect(reconciler.calls.count == 1)
-        #expect(reconciler.calls.first?.old == [.home])
-        #expect(reconciler.calls.first?.new == [.home, .detail])
         #expect(observed.withLock { $0.count } == 2)
 
         guard case .changed(_, let finalState) = await iterator.next() else {

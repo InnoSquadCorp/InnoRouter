@@ -16,6 +16,12 @@ are bare semver (no leading `v`).
   `@TabItem` title literals generate that resource directly. Manual
   `RouterTab` conformances should return localizable literals (or explicit
   resources) so native tab labels participate in the app's string catalog.
+- `NavigationStoreConfiguration.pathReconciler`, the
+  `NavigationPathReconciling` protocol, and the public
+  `NavigationPathReconciler` implementation are removed. SwiftUI path
+  reconciliation is now one framework invariant; customize non-prefix repair
+  through `NavigationPathMismatchPolicy.custom` instead of replacing the
+  prefix-reduction algorithm.
 - The default `InnoRouter` umbrella now includes and re-exports
   `InnoRouterMacros`. A standard app target therefore resolves the compiler
   plugin and uses `import InnoRouter` for both runtime APIs and macros. Targets
@@ -661,11 +667,6 @@ ran the pre-OSS `4.0.0` snapshot follow the diffs under
   command plan that `send(_:)` would execute. `send(_:)` is now
   implemented in terms of this projection so the two surfaces
   cannot drift.
-- `NavigationPathReconciling<R>` protocol describing the
-  contract the framework `NavigationPathReconciler<R>` (now
-  public) satisfies. `NavigationStoreConfiguration.pathReconciler`
-  injects a custom conformance — the framework default applies
-  when none is supplied.
 - `LifecycleSignals` value type — bag of optional
   parent-cancel / teardown callbacks shared across coordinator
   types.
