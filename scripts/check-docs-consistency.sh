@@ -16,6 +16,10 @@ REJECTION_CATALOG_PATH="$ROOT_DIR/Sources/InnoRouterCore/InnoRouterCore.docc/Art
 MACRO_CONTRACT_PATH="$ROOT_DIR/Docs/design-macro-first-surfaces.md"
 MACRO_DIAGNOSTIC_PATH="$ROOT_DIR/Sources/InnoRouterMacros/InnoRouterMacros.docc/Macro-Diagnostics.md"
 SPATIAL_TUTORIAL_PATH="$ROOT_DIR/Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md"
+CHILD_HANDOFF_DESIGN_PATH="$ROOT_DIR/Docs/design-child-coordinator-handoff.md"
+CHILD_HANDOFF_SCORECARD_PATH="$ROOT_DIR/Docs/v2-principle-scorecard.md"
+CHILD_HANDOFF_LOGIN_PATH="$ROOT_DIR/Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-LoginOnboarding.md"
+CHILD_HANDOFF_CASE_STUDY_PATH="$ROOT_DIR/Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/CaseStudy-OnboardingFlow.md"
 
 failures=0
 
@@ -380,6 +384,34 @@ for contract in "${readme_contracts[@]}"; do
   check_match "$readme_path" \
     '^\| \[Tutorial-VisionOSScenes\]\(Sources/InnoRouterSpatial/InnoRouterSpatial\.docc/Articles/Tutorial-VisionOSScenes\.md\) \| `InnoRouterSpatial` \| [^|]*`@SceneRouter`[^|]*`@Scene`[^|]* \|$' \
     "$(basename "$readme_path") has a stale Spatial tutorial link, product, or Store-first description"
+
+  check_present "$readme_path" 'child.waitForResult() async -> Child.Result?' \
+    "$(basename "$readme_path") does not document the structured child-result handoff"
+  check_absent_match "$readme_path" 'push\(child:' \
+    "$(basename "$readme_path") still documents the removed Coordinator.push(child:) API"
+done
+
+child_handoff_contract_docs=(
+  "$CHILD_HANDOFF_DESIGN_PATH"
+  "$CHILD_HANDOFF_SCORECARD_PATH"
+  "$ROADMAP_PATH"
+)
+for doc_path in "${child_handoff_contract_docs[@]}"; do
+  check_match "$doc_path" 'waitForResult\(\).*async ->.*Result\?' \
+    "$(basename "$doc_path") does not document the structured waitForResult signature"
+  check_absent_match "$doc_path" 'push\(child:' \
+    "$(basename "$doc_path") still documents the removed Coordinator.push(child:) API"
+done
+
+child_handoff_tutorials=(
+  "$CHILD_HANDOFF_LOGIN_PATH"
+  "$CHILD_HANDOFF_CASE_STUDY_PATH"
+)
+for doc_path in "${child_handoff_tutorials[@]}"; do
+  check_present "$doc_path" 'waitForResult()' \
+    "$(basename "$doc_path") does not use the structured child-result handoff"
+  check_absent_match "$doc_path" 'push\(child:' \
+    "$(basename "$doc_path") still documents the removed Coordinator.push(child:) API"
 done
 
 

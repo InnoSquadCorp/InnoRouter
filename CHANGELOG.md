@@ -212,9 +212,20 @@ are bare semver (no leading `v`).
   or `FlowStore.events` before starting a lifecycle-owned task so the subscriber
   is registered synchronously; cancelling that task ends the subscription.
   `FlowStore.events` continues to wrap its inner navigation and modal events.
+- Child result handoff moves from `Coordinator.push(child:)` to the structured
+  `ChildCoordinator.waitForResult() async -> Result?` operation. Replace
+  `let task = parent.push(child: child)` plus `await task.value` with
+  `await child.waitForResult()`. The result-only helper no longer requires the
+  owning feature to conform to `Coordinator`, and its name no longer implies
+  that it presents a view. Cancellation follows the calling task, keeps the
+  child alive through the handoff, invokes `parentDidCancel()` exactly once
+  when cancellation wins, and removes installed completion callbacks before
+  returning. If the handoff needs an independently cancellable lifetime,
+  create and retain an app-owned `Task` around the `await`; keep the child
+  itself in the app state that presents its view.
 - `ChildCoordinatorTaskTracker` is removed. Child coordinators should retain
   their app-owned `Task` handles directly and cancel them from
-  `parentDidCancel()` or `lifecycleSignals.onParentCancel`; `push(child:)`
+  `parentDidCancel()` or `lifecycleSignals.onParentCancel`; `waitForResult()`
   continues to fire both parent-cancellation hooks. `activeCount` and automatic
   deinit cancellation bookkeeping are no longer framework-provided.
 - `AnyNavigator` and `AnyBatchNavigator` are removed. Pass a concrete
@@ -694,7 +705,7 @@ ran the pre-OSS `4.0.0` snapshot follow the diffs under
   The protocol inherits from the new `LifecycleAware` capability
   protocol. Adopters add the stored property; the protocol
   cannot supply a default for a stored requirement.
-  `Coordinator.push(child:)` fires both
+  `ChildCoordinator.waitForResult()` fires both
   `lifecycleSignals.fireParentCancel()` and the existing
   `parentDidCancel()` hook, so adopters can choose closure-style
   or override-style teardown.

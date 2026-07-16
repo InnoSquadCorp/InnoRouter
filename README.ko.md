@@ -654,32 +654,40 @@ Coordinator는 SwiftUI intent와 command 실행 사이에 위치하는 정책 �
 - `TabCoordinator`: shell/tab 선택 상태
 - `StepCoordinator`: destination 안의 local step 진행
 
-### Child coordinator chaining
+### Child coordinator 결과 handoff
 
-`ChildCoordinator`는 부모 coordinator가 child의 finish 값을
-`parent.push(child:) -> Task<Child.Result?, Never>`를 통해 inline으로 await할 수 있게 합니다:
+`ChildCoordinator`는 구조화된 `child.waitForResult() async -> Child.Result?` 호출을
+제공합니다. 어떤 앱 정의 flow owner에서도 사용할 수 있으며, child의 route, sheet,
+cover가 표시되는 동안에는 그 owner의 presentation 상태가 child를 보유해야 합니다:
 
 ```swift skip doc-fragment
-let signupResult = await parentCoordinator.push(child: SignUpCoordinator())
-if let user = signupResult {
-    parentCoordinator.handle(.go(.home(user)))
+let signUp = SignUpCoordinator()
+activeSignUp = signUp
+defer { activeSignUp = nil }
+
+if let user = await signUp.waitForResult() {
+    flowStore.send(.push(.home(user)))
 }
 ```
 
-콜백(`onFinish`, `onCancel`)은 동기적으로 설치되어 child가 부모의 `await` 이전을
-포함한 어떤 시점에서도 발사할 수 있습니다. 설계 근거는
+여기서 `activeSignUp`은 앱 소유 view 배치 상태입니다. `waitForResult()`는 결과만 기다리며
+child를 표시하지 않습니다. 콜백(`onFinish`, `onCancel`)은 `waitForResult()`가 처음
+suspend하기 전에 설치되므로, 비동기 호출이 시작된 뒤에는 child가 언제든 발사할 수 있습니다.
+설계 근거는
 [`Docs/design-child-coordinator-handoff.md`](Docs/design-child-coordinator-handoff.md)
 를 참조하세요.
 
-부모 `Task` 취소는 `ChildCoordinator.parentDidCancel()` (기본 빈 no-op)을 통해
-child로 전파됩니다. 부모 view가 dismiss되면 transient 상태를 정리하도록 override
-하세요 — sheet dismiss, 진행 중 요청 취소, 임시 store 해제 등:
+`waitForResult()`를 await하는 caller task를 취소하면 호출은 `nil`로 끝나고,
+`ChildCoordinator.parentDidCancel()` (기본 빈 no-op)을 통해 child로 취소가 전파됩니다.
+부모 view가 dismiss되면 transient 상태를 정리하도록 override하세요 — sheet dismiss,
+진행 중 요청 취소, 임시 store 해제 등:
 
 ```swift skip doc-fragment
 final class SignUpCoordinator: ChildCoordinator {
     typealias Result = UserID
     var onFinish: (@MainActor @Sendable (UserID) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
+    var lifecycleSignals = LifecycleSignals()
 
     func parentDidCancel() {
         signUpAPIClient.cancelActiveRequests()

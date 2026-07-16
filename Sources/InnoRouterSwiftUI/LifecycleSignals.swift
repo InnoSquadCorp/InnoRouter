@@ -11,7 +11,7 @@
 // uniformly through the `LifecycleAware` capability protocol.
 //
 // `ChildCoordinator` adopts `LifecycleAware` unconditionally
-// because `Coordinator.push(child:)` fires
+// because `ChildCoordinator.waitForResult()` fires
 // `lifecycleSignals.fireParentCancel()` on parent task
 // cancellation. Other coordinator types opt in case-by-case
 // when a host wants to drive `lifecycleSignals.fireTeardown()`
@@ -27,7 +27,7 @@ import Foundation
 /// bag (more may be added in subsequent minors):
 ///
 /// - ``onParentCancel`` — fired when a parent task cancels.
-///   `Coordinator.push(child:)` calls this on the child after
+///   `ChildCoordinator.waitForResult()` calls this on the child after
 ///   invoking ``ChildCoordinator/parentDidCancel()``.
 /// - ``onTeardown`` — fired when the owning coordinator is
 ///   released so transient resources (subscriptions, timers,
@@ -39,7 +39,7 @@ import Foundation
 @MainActor
 public struct LifecycleSignals: Sendable {
 
-    /// Invoked when a parent task cancels. `Coordinator.push(child:)`
+    /// Invoked when a caller task cancels. `ChildCoordinator.waitForResult()`
     /// fires this through the child's ``LifecycleAware/lifecycleSignals``.
     public var onParentCancel: (@MainActor @Sendable () -> Void)?
 
@@ -71,7 +71,7 @@ public struct LifecycleSignals: Sendable {
 /// lifecycle signals through the unified ``LifecycleSignals`` bag.
 ///
 /// `ChildCoordinator` requires this conformance because the parent
-/// push helper fires ``LifecycleSignals/fireParentCancel()`` on
+/// result-wait helper fires ``LifecycleSignals/fireParentCancel()`` on
 /// task cancellation. Other coordinator types (`Coordinator`,
 /// `StepCoordinator`, `TabCoordinator`) opt in by adopting
 /// `LifecycleAware` directly and declaring a

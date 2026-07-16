@@ -677,26 +677,33 @@ RouterTabHost(AppTab.self, initial: .home)
 - `TabCoordinator`:シェル/タブ選択状態
 - `StepCoordinator`:目的地内のローカルステップ進行
 
-### 子コーディネーターのチェイニング
+### 子コーディネーターの結果ハンドオフ
 
-`ChildCoordinator` は親コーディネーターが
-`parent.push(child:) -> Task<Child.Result?, Never>` を介してインラインで
-完了値を await することを可能にします:
+`ChildCoordinator` は構造化された
+`child.waitForResult() async -> Child.Result?` 呼び出しを提供します。アプリ定義の
+任意の flow owner から使用でき、子の route、sheet、cover が表示されている間は
+その owner の presentation 状態で子を保持します:
 
 ```swift skip doc-fragment
-let signupResult = await parentCoordinator.push(child: SignUpCoordinator())
-if let user = signupResult {
-    parentCoordinator.handle(.go(.home(user)))
+let signUp = SignUpCoordinator()
+activeSignUp = signUp
+defer { activeSignUp = nil }
+
+if let user = await signUp.waitForResult() {
+    flowStore.send(.push(.home(user)))
 }
 ```
 
-コールバック(`onFinish`、`onCancel`)は同期的にインストールされるため、
-子は親の `await` の前を含めいつでもそれらを発火できます。設計の根拠は
+ここで `activeSignUp` は View 配置のためのアプリ所有状態です。`waitForResult()` は
+結果を待つだけで、子を表示しません。コールバック(`onFinish`、`onCancel`)は
+`waitForResult()` が最初に suspend する前にインストールされるため、非同期呼び出しの
+開始後は子がいつでも発火できます。設計の根拠は
 [`Docs/design-child-coordinator-handoff.md`](Docs/design-child-coordinator-handoff.md)
 を参照してください。
 
-親 `Task` のキャンセルは `ChildCoordinator.parentDidCancel()`(デフォルトの
-空 no-op)を介して子に伝播します。親ビューが解除されたときに一時的な状態を
+`waitForResult()` を await している caller task をキャンセルすると呼び出しは `nil` で
+終了し、`ChildCoordinator.parentDidCancel()`(デフォルトの空 no-op)を介して子に
+キャンセルが伝播します。親ビューが解除されたときに一時的な状態を
 解体する(シートを解除、進行中のリクエストをキャンセル、一時ストアを解放)
 ためにオーバーライドします:
 
@@ -705,6 +712,7 @@ final class SignUpCoordinator: ChildCoordinator {
     typealias Result = UserID
     var onFinish: (@MainActor @Sendable (UserID) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
+    var lifecycleSignals = LifecycleSignals()
 
     func parentDidCancel() {
         signUpAPIClient.cancelActiveRequests()

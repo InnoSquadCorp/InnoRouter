@@ -37,7 +37,7 @@ public enum NavigationIntent<R: Route>: Sendable, Equatable {
 /// > lets host code fire `lifecycleSignals.fireTeardown()` when the
 /// > coordinator is being released so transient state can be
 /// > cancelled. `ChildCoordinator` inherits `LifecycleAware`
-/// > unconditionally because the parent push helper drives
+/// > unconditionally because the child result-wait helper drives
 /// > `onParentCancel` through it.
 @MainActor
 public protocol Coordinator: AnyObject, Observable {

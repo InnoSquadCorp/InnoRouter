@@ -3,28 +3,7 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Testing
-import Foundation
-import Synchronization
-import SwiftUI
-import InnoRouter
 import InnoRouterSwiftUI
-
-private enum CancelRoute: Route {
-    case root
-}
-
-@MainActor
-private final class CancelParent: Coordinator {
-    typealias RouteType = CancelRoute
-    typealias Destination = EmptyView
-
-    let store = NavigationStore<CancelRoute>()
-
-    @ViewBuilder
-    func destination(for route: CancelRoute) -> EmptyView {
-        EmptyView()
-    }
-}
 
 /// Child that tracks `parentDidCancel` invocations.
 @MainActor
@@ -81,66 +60,100 @@ private final class TaskOwningChild: ChildCoordinator {
 @Suite("ChildCoordinator Cancellation Tests")
 struct ChildCoordinatorCancellationTests {
 
-    @Test("Cancelling the parent Task invokes child.parentDidCancel() exactly once and the task resolves to nil")
+    @MainActor
+    private func waitForCallbacks<Child: ChildCoordinator>(
+        on child: Child
+    ) async -> Bool {
+        for _ in 0..<1_000 {
+            if child.onFinish != nil, child.onCancel != nil {
+                return true
+            }
+            await Task.yield()
+        }
+        return false
+    }
+
+    @Test("Cancelling the calling Task invokes child.parentDidCancel() exactly once and resolves to nil")
     @MainActor
     func parentTaskCancellationTriggersParentDidCancel() async {
-        let parent = CancelParent()
         let child = TrackingChild()
 
-        let task = parent.push(child: child)
+        let task = Task { @MainActor in
+            await child.waitForResult()
+        }
+        #expect(await waitForCallbacks(on: child))
+        task.cancel()
         task.cancel()
 
         let result = await task.value
         #expect(result == nil)
-
-        // Give the onCancel handler's Task { @MainActor in ... } hop a
-        // chance to land before reading the counter.
-        await Task.yield()
-        await Task.yield()
         #expect(child.parentDidCancelCount == 1)
+        #expect(child.onFinish == nil)
+        #expect(child.onCancel == nil)
+    }
+
+    @Test("An already-cancelled caller still notifies the child exactly once")
+    @MainActor
+    func alreadyCancelledCallerTriggersParentDidCancel() async {
+        let child = TrackingChild()
+
+        // The test owns MainActor until `task.value` is awaited, so cancelling
+        // here guarantees `waitForResult()` observes cancellation at entry.
+        let task = Task { @MainActor in
+            await child.waitForResult()
+        }
+        task.cancel()
+        task.cancel()
+
+        #expect(await task.value == nil)
+        #expect(child.parentDidCancelCount == 1)
+        #expect(child.onFinish == nil)
+        #expect(child.onCancel == nil)
     }
 
     @Test("Normal finish path does NOT invoke parentDidCancel")
     @MainActor
     func normalFinishDoesNotInvokeParentDidCancel() async {
-        let parent = CancelParent()
         let child = TrackingChild()
 
-        let task = parent.push(child: child)
+        let task = Task { @MainActor in
+            await child.waitForResult()
+        }
+        #expect(await waitForCallbacks(on: child))
         child.onFinish?("welcome")
 
         let result = await task.value
         #expect(result == "welcome")
 
-        await Task.yield()
-        await Task.yield()
         #expect(child.parentDidCancelCount == 0)
     }
 
     @Test("Child onCancel path does NOT invoke parentDidCancel (directional hooks are orthogonal)")
     @MainActor
     func childOnCancelDoesNotInvokeParentDidCancel() async {
-        let parent = CancelParent()
         let child = TrackingChild()
 
-        let task = parent.push(child: child)
+        let task = Task { @MainActor in
+            await child.waitForResult()
+        }
+        #expect(await waitForCallbacks(on: child))
         child.onCancel?()
 
         let result = await task.value
         #expect(result == nil)
 
-        await Task.yield()
-        await Task.yield()
         #expect(child.parentDidCancelCount == 0)
     }
 
     @Test("Default ChildCoordinator conformance (no parentDidCancel override) still resolves to nil on cancellation")
     @MainActor
     func defaultConformanceRemainsCompatible() async {
-        let parent = CancelParent()
         let child = DefaultChild()
 
-        let task = parent.push(child: child)
+        let task = Task { @MainActor in
+            await child.waitForResult()
+        }
+        #expect(await waitForCallbacks(on: child))
         task.cancel()
 
         let result = await task.value
@@ -150,11 +163,13 @@ struct ChildCoordinatorCancellationTests {
     @Test("A child can cancel its directly owned task from parentDidCancel")
     @MainActor
     func parentCancellationCancelsChildOwnedTask() async {
-        let parent = CancelParent()
         let child = TaskOwningChild()
         let workTask = child.startWork()
 
-        let task = parent.push(child: child)
+        let task = Task { @MainActor in
+            await child.waitForResult()
+        }
+        #expect(await waitForCallbacks(on: child))
         task.cancel()
 
         let result = await task.value
@@ -167,16 +182,19 @@ struct ChildCoordinatorCancellationTests {
     @Test("Cancelling nested coordinator tasks notifies each matching child")
     @MainActor
     func cancellingNestedTasksNotifiesEachChild() async {
-        let rootParent = CancelParent()
         let child = TrackingChild()
         let grandchild = TrackingChild()
 
-        let childTask = rootParent.push(child: child)
-        // Once `child` is active, spawn the grandchild under it. The
-        // grandchild is itself reachable through child's push(child:)
-        // helper — any Coordinator conformer qualifies.
-        let intermediateParent = CancelParent()
-        let grandchildTask = intermediateParent.push(child: grandchild)
+        let childTask = Task { @MainActor in
+            await child.waitForResult()
+        }
+        // Once `child` is active, start the independently retained
+        // grandchild handoff. Coordinator-tree ownership remains app policy.
+        let grandchildTask = Task { @MainActor in
+            await grandchild.waitForResult()
+        }
+        #expect(await waitForCallbacks(on: child))
+        #expect(await waitForCallbacks(on: grandchild))
 
         // Coordinator-tree ownership is app policy. When the parent tears
         // down both placements, it explicitly cancels both task handles.
@@ -186,9 +204,26 @@ struct ChildCoordinatorCancellationTests {
         _ = await grandchildTask.value
         _ = await childTask.value
 
-        await Task.yield()
-        await Task.yield()
         #expect(child.parentDidCancelCount == 1)
         #expect(grandchild.parentDidCancelCount == 1)
+    }
+
+    @Test("A completed child result wins a later caller cancellation without firing parentDidCancel")
+    @MainActor
+    func finishWinsLaterCallerCancellation() async {
+        let child = TrackingChild()
+
+        let task = Task { @MainActor in
+            await child.waitForResult()
+        }
+        #expect(await waitForCallbacks(on: child))
+
+        child.onFinish?("welcome")
+        task.cancel()
+
+        #expect(await task.value == "welcome")
+        #expect(child.parentDidCancelCount == 0)
+        #expect(child.onFinish == nil)
+        #expect(child.onCancel == nil)
     }
 }

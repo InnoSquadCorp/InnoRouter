@@ -701,24 +701,33 @@ División recomendada:
 - `TabCoordinator`: estado de selección de shell/tab
 - `StepCoordinator`: progresión local de pasos dentro de un destino
 
-### Encadenamiento de coordinator hijo
+### Entrega de resultado de un coordinator hijo
 
-`ChildCoordinator` permite a un coordinator padre esperar un valor de finalización
-en línea a través de `parent.push(child:) -> Task<Child.Result?, Never>`:
+`ChildCoordinator` ofrece la llamada estructurada
+`child.waitForResult() async -> Child.Result?`. Cualquier owner de flujo
+definido por la app puede usarla y conserva al hijo en su estado de presentación
+mientras la ruta, sheet o cover esté visible:
 
 ```swift skip doc-fragment
-let signupResult = await parentCoordinator.push(child: SignUpCoordinator())
-if let user = signupResult {
-    parentCoordinator.handle(.go(.home(user)))
+let signUp = SignUpCoordinator()
+activeSignUp = signUp
+defer { activeSignUp = nil }
+
+if let user = await signUp.waitForResult() {
+    flowStore.send(.push(.home(user)))
 }
 ```
 
-Los callbacks (`onFinish`, `onCancel`) se instalan sincrónicamente para que el
-hijo pueda dispararlos en cualquier momento, incluso antes del `await` del padre.
+Aquí `activeSignUp` es estado de colocación de la vista propiedad de la app;
+`waitForResult()` solo espera el resultado y no presenta al hijo. Los callbacks
+(`onFinish`, `onCancel`) se instalan antes de que `waitForResult()` se suspenda por
+primera vez, por lo que el hijo puede dispararlos en cualquier momento después
+de que comience la llamada asíncrona.
 Vea [`Docs/design-child-coordinator-handoff.md`](Docs/design-child-coordinator-handoff.md)
 para la justificación de diseño.
 
-La cancelación del `Task` padre se propaga al hijo a través de
+Cancelar el task llamador que espera `waitForResult()` resuelve la llamada con
+`nil` y propaga la cancelación al hijo a través de
 `ChildCoordinator.parentDidCancel()` (no-op vacío por defecto). Sobrescríbalo
 para desmontar estado transitorio — descartar sheets, cancelar requests en
 vuelo, liberar stores temporales — cuando la vista padre se descarte:
@@ -728,6 +737,7 @@ final class SignUpCoordinator: ChildCoordinator {
     typealias Result = UserID
     var onFinish: (@MainActor @Sendable (UserID) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
+    var lifecycleSignals = LifecycleSignals()
 
     func parentDidCancel() {
         signUpAPIClient.cancelActiveRequests()

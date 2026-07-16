@@ -1,26 +1,4 @@
-import Observation
-import SwiftUI
-
-import InnoRouterCore
 import InnoRouterSwiftUI
-
-private enum ProbeRoute: Route {
-    case root
-}
-
-@Observable
-@MainActor
-private final class ProbeCoordinator: Coordinator {
-    typealias RouteType = ProbeRoute
-    typealias Destination = EmptyView
-
-    let store = NavigationStore<ProbeRoute>()
-
-    @ViewBuilder
-    func destination(for route: ProbeRoute) -> EmptyView {
-        EmptyView()
-    }
-}
 
 @MainActor
 private final class ProbeChild: ChildCoordinator {
@@ -34,11 +12,17 @@ private final class ProbeChild: ChildCoordinator {
 @MainActor
 @main
 struct ChildCoordinatorFailFastProbe {
-    static func main() {
-        let parent = ProbeCoordinator()
+    static func main() async {
         let child = ProbeChild()
 
-        _ = parent.push(child: child)
-        _ = parent.push(child: child)
+        let firstWait = Task { @MainActor in
+            await child.waitForResult()
+        }
+        while child.onFinish == nil || child.onCancel == nil {
+            await Task.yield()
+        }
+
+        _ = await child.waitForResult()
+        firstWait.cancel()
     }
 }

@@ -700,24 +700,32 @@ Empfohlene Aufteilung:
 - `TabCoordinator`: Shell-/Tab-Auswahl-Zustand
 - `StepCoordinator`: lokale Schritt-Progression in einem Ziel
 
-### Child-Coordinator-Verkettung
+### Ergebnisübergabe eines Child-Coordinators
 
-`ChildCoordinator` lässt einen Parent-Coordinator inline einen Finish-Wert
-über `parent.push(child:) -> Task<Child.Result?, Never>` abwarten:
+`ChildCoordinator` bietet den strukturierten Aufruf
+`child.waitForResult() async -> Child.Result?`. Jeder app-definierte Flow-Owner
+kann ihn verwenden und hält das Child im Präsentationszustand, solange Route,
+Sheet oder Cover sichtbar ist:
 
 ```swift skip doc-fragment
-let signupResult = await parentCoordinator.push(child: SignUpCoordinator())
-if let user = signupResult {
-    parentCoordinator.handle(.go(.home(user)))
+let signUp = SignUpCoordinator()
+activeSignUp = signUp
+defer { activeSignUp = nil }
+
+if let user = await signUp.waitForResult() {
+    flowStore.send(.push(.home(user)))
 }
 ```
 
-Callbacks (`onFinish`, `onCancel`) werden synchron installiert, sodass das
-Child sie zu jedem Zeitpunkt feuern kann, einschließlich vor dem `await` des
-Parents. Die Designbegründung finden Sie in
+`activeSignUp` ist hier app-eigener Zustand für die Platzierung der View;
+`waitForResult()` wartet nur auf das Ergebnis und präsentiert das Child nicht.
+Callbacks (`onFinish`, `onCancel`) werden installiert, bevor `waitForResult()`
+erstmals suspendiert. Nach Beginn des asynchronen Aufrufs kann das Child sie
+jederzeit auslösen. Die Designbegründung finden Sie in
 [`Docs/design-child-coordinator-handoff.md`](Docs/design-child-coordinator-handoff.md).
 
-Die Stornierung des Parent-`Task` propagiert über
+Wird der Caller-Task abgebrochen, der `waitForResult()` abwartet, liefert der
+Aufruf `nil`; die Stornierung propagiert über
 `ChildCoordinator.parentDidCancel()` (Standard-leere No-Op) zum Child. Überschreiben
 Sie es, um vorübergehenden Zustand abzubauen — Sheets schließen, laufende
 Anfragen stornieren, temporäre Stores freigeben — wenn die Parent-View entlassen wird:
@@ -727,6 +735,7 @@ final class SignUpCoordinator: ChildCoordinator {
     typealias Result = UserID
     var onFinish: (@MainActor @Sendable (UserID) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
+    var lifecycleSignals = LifecycleSignals()
 
     func parentDidCancel() {
         signUpAPIClient.cancelActiveRequests()

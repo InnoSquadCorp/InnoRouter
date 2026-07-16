@@ -700,24 +700,32 @@ Recommended division:
 - `TabCoordinator`: shell/tab selection state
 - `StepCoordinator`: local step progression inside a destination
 
-### Child coordinator chaining
+### Child coordinator result handoff
 
-`ChildCoordinator` lets a parent coordinator await a finish value inline
-through `parent.push(child:) -> Task<Child.Result?, Never>`:
+`ChildCoordinator` exposes the structured
+`child.waitForResult() async -> Child.Result?` call. It works with any
+app-defined flow owner; that owner keeps the child in presentation state while
+its route, sheet, or cover is visible:
 
 ```swift skip doc-fragment
-let signupResult = await parentCoordinator.push(child: SignUpCoordinator())
-if let user = signupResult {
-    parentCoordinator.handle(.go(.home(user)))
+let signUp = SignUpCoordinator()
+activeSignUp = signUp
+defer { activeSignUp = nil }
+
+if let user = await signUp.waitForResult() {
+    flowStore.send(.push(.home(user)))
 }
 ```
 
-Callbacks (`onFinish`, `onCancel`) are installed synchronously so the
-child can fire them at any point, including before the parent's
-`await`. See [`Docs/design-child-coordinator-handoff.md`](Docs/design-child-coordinator-handoff.md)
+Here `activeSignUp` is app-owned view-placement state; `waitForResult()` waits
+for the result but does not present the child. Callbacks (`onFinish`, `onCancel`)
+are installed before `waitForResult()` first suspends, so the child can fire them
+at any point after the asynchronous call begins. See
+[`Docs/design-child-coordinator-handoff.md`](Docs/design-child-coordinator-handoff.md)
 for the design rationale.
 
-Parent `Task` cancellation propagates to the child through
+Cancelling the caller task that is awaiting `waitForResult()` resolves the call
+with `nil` and propagates cancellation to the child through
 `ChildCoordinator.parentDidCancel()` (default empty no-op). Override
 it to tear down transient state — dismiss sheets, cancel in-flight
 requests, release temporary stores — when the parent view is
@@ -728,6 +736,7 @@ final class SignUpCoordinator: ChildCoordinator {
     typealias Result = UserID
     var onFinish: (@MainActor @Sendable (UserID) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
+    var lifecycleSignals = LifecycleSignals()
 
     func parentDidCancel() {
         signUpAPIClient.cancelActiveRequests()

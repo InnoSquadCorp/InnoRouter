@@ -640,24 +640,30 @@ Coordinator 是位于 SwiftUI intent 和命令执行之间的高级策略对象�
 - `TabCoordinator`:shell/tab 选择状态
 - `StepCoordinator`:目的地内的局部步骤进展
 
-### 子 coordinator 链接
+### 子 coordinator 结果交接
 
-`ChildCoordinator` 让父 coordinator 通过
-`parent.push(child:) -> Task<Child.Result?, Never>` inline await 完成值:
+`ChildCoordinator` 提供结构化的
+`child.waitForResult() async -> Child.Result?` 调用。任何应用定义的 flow owner
+都可以使用它;子 coordinator 的 route、sheet 或 cover 可见时,由该 owner 的
+presentation 状态持有它:
 
 ```swift skip doc-fragment
-let signupResult = await parentCoordinator.push(child: SignUpCoordinator())
-if let user = signupResult {
-    parentCoordinator.handle(.go(.home(user)))
+let signUp = SignUpCoordinator()
+activeSignUp = signUp
+defer { activeSignUp = nil }
+
+if let user = await signUp.waitForResult() {
+    flowStore.send(.push(.home(user)))
 }
 ```
 
-回调(`onFinish`、`onCancel`)同步安装,因此子可以在任何时候触发它们,
-包括在父的 `await` 之前。设计原理见
+这里的 `activeSignUp` 是应用拥有的 view 放置状态;`waitForResult()` 只等待结果,
+不会呈现子 coordinator。回调(`onFinish`、`onCancel`)会在 `waitForResult()` 第一次
+suspend 前安装,因此异步调用开始后子 coordinator 随时都可以触发它们。设计原理见
 [`Docs/design-child-coordinator-handoff.md`](Docs/design-child-coordinator-handoff.md)。
 
-父 `Task` 取消通过 `ChildCoordinator.parentDidCancel()`(默认空 no-op)
-传播到子。覆盖它以拆除瞬态状态 — 关闭 sheet、取消进行中的请求、释放临时 store
+取消正在 await `waitForResult()` 的 caller task 会使调用以 `nil` 结束,并通过
+`ChildCoordinator.parentDidCancel()`(默认空 no-op)传播到子。覆盖它以拆除瞬态状态 — 关闭 sheet、取消进行中的请求、释放临时 store
 — 当父视图被消除时:
 
 ```swift skip doc-fragment
@@ -665,6 +671,7 @@ final class SignUpCoordinator: ChildCoordinator {
     typealias Result = UserID
     var onFinish: (@MainActor @Sendable (UserID) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
+    var lifecycleSignals = LifecycleSignals()
 
     func parentDidCancel() {
         signUpAPIClient.cancelActiveRequests()

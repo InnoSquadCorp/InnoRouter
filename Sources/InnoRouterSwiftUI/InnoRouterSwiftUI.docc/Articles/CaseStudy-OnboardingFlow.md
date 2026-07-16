@@ -84,6 +84,10 @@ final class OnboardingDriver: ChildCoordinator {
     typealias Route = OnboardingRoute
     typealias Result = OnboardingResult
 
+    var onFinish: (@MainActor @Sendable (OnboardingResult) -> Void)?
+    var onCancel: (@MainActor @Sendable () -> Void)?
+    var lifecycleSignals = LifecycleSignals()
+
     let store: FlowStore<OnboardingRoute>
     private let auth: AuthClient
     private let analytics: AnalyticsClient
@@ -140,11 +144,13 @@ enum OnboardingResult {
 }
 ```
 
-The parent calls
-`parent.push(child: onboardingDriver) -> Task<OnboardingResult?>`
-and `await`s the inline result, which threads cancellation back
-through `parentDidCancel()` if the user pulls down on the
-sheet shell.
+The app-defined flow owner first stores `onboardingDriver` in state that
+presents the sheet, then directly awaits
+`onboardingDriver.waitForResult() async -> OnboardingResult?`. The method waits
+for the result but never presents the driver. Its structured call threads
+caller-task cancellation back through `parentDidCancel()` and returns `nil` if
+the sheet shell tears down its awaiting task. The owner clears its presentation
+state after the call returns.
 
 ## What the middlewares earn
 

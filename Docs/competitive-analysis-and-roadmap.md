@@ -44,7 +44,7 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 | Cross-surface (UIKit / AppKit) | ❌ SwiftUI only (by choice) | ⚠ | ✅ **4 products** | ❌ | ⚠ | ⚠ | ❌ | ❌ |
 | **All Apple platforms via SwiftUI** (iOS / iPadOS / macOS / tvOS / watchOS / visionOS) | ✅ **all 6 with per-platform CI + platform matrix docs** | ⚠ SwiftUI adopters only | ⚠ SwiftUI module only | ⚠ | ⚠ | ⚠ | ⚠ | ⚠ |
 | **visionOS spatial presentations** (ornament / volumetric / immersive space) | ✅ opt-in `InnoRouterSpatial`: `SceneStore` + `innoRouterSceneHost` + `innoRouterOrnament` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Coordinator composition (child → parent) | ✅ `ChildCoordinator` + `parent.push(child:) -> Task<Result?>` | ✅ reducer `forEach` | ❌ | ✅ | ✅ | ✅ | ⚠ | ⚠ |
+| Child-flow result handoff | ✅ `ChildCoordinator.waitForResult() async -> Result?` with app-owned placement | ✅ reducer `forEach` | ❌ | ✅ | ✅ | ✅ | ⚠ | ⚠ |
 | Case-typed destination bindings | ✅ `store.binding(case:)` on Nav + Modal | ⚠ via `@Presents` | ✅ `@CasePathable` | ⚠ | ⚠ | ❌ | ❌ | ❌ |
 
 ## 3. Head-to-head takeaways
@@ -80,11 +80,11 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 - **Lead**: no TCA dependency, lower learning curve,
   `DeepLinkEffectHandler.Result` surfaces typed app-boundary outcomes without
   coupling deep-link execution to the coordinator protocol.
-  `ChildCoordinator` + `parent.push(child:) -> Task<Result?, Never>`
-  (#14) now provides child → parent finish chaining with inline
-  `await` on the child result.
+  `ChildCoordinator.waitForResult() async -> Result?` (#14) now provides a
+  structured child-result handoff to any app-defined flow owner, without
+  coupling that owner to `Coordinator`.
 - **Former lag (closed)**: "back to root across coordinators" remains
-  app-owned cleanup, but parent `Task` cancellation now propagates
+  app-owned cleanup, but caller-task cancellation now propagates
   through `ChildCoordinator.parentDidCancel` and `LifecycleSignals`.
 
 ### vs Stinsen — 960★ (legacy)
@@ -215,11 +215,11 @@ Shape (landed):
 
 - `ChildCoordinator` protocol in `InnoRouterSwiftUI` with associated
   `Result` type + `onFinish` / `onCancel` callback hooks.
-- `Coordinator.push(child:) -> Task<Child.Result?, Never>` lets a
-  parent `await` the child's finish value inline. Callbacks are
-  installed synchronously through `AsyncStream.makeStream()` so the
-  child can fire `onFinish` at any point (including before the
-  parent's `await`), avoiding a `@MainActor` re-entrancy deadlock.
+- `ChildCoordinator.waitForResult() async -> Result?` lets any app-defined
+  flow owner directly await the child's finish value in structured concurrency.
+  Callbacks are installed before the method's first suspension, so the
+  child can fire `onFinish` at any point after the asynchronous call
+  begins without a `@MainActor` re-entrancy deadlock.
 - Design rationale in `Docs/design-child-coordinator-handoff.md`.
 
 The P3 cancellation follow-up is now closed by
@@ -361,11 +361,11 @@ Shape (landed):
 
 #### Shipped
 
-- **P3-1 Parent Task cancellation → `ChildCoordinator.parentDidCancel`**
-  — `push(child:)` now routes Task cancellation through
+- **P3-1 Caller-task cancellation → `ChildCoordinator.parentDidCancel`**
+  — `waitForResult()` routes cancellation of its awaiting caller through
   `withTaskCancellationHandler`, calling a new `parentDidCancel()`
-  protocol requirement on the main actor. Default implementation
-  is an empty no-op so existing conformances keep building.
+  protocol requirement on the main actor and returning `nil`. The default
+  implementation is an empty no-op so existing conformances keep building.
   Directional: `parentDidCancel` is parent → child, `onCancel`
   stays child → parent. Store-level cancellation remains an app
   concern; `parentDidCancel` is the framework's cancellation
@@ -444,7 +444,7 @@ Shape (landed):
 | P0 | NavigationTestStore / ModalTestStore / FlowTestStore (`InnoRouterTesting`) | positioning-decisive | large | **shipped** |
 | P0 | Unified FlowStack (push + sheet + cover) | positioning | medium–large | **shipped (#12 + 47467b50)** |
 | P0 | Deep link path rehydration + `FlowDeepLinkPipeline` | deep-link selling point | medium | **shipped** |
-| P1 | Coordinator composition (`ChildCoordinator` + `push(child:)`) | coordinator UX | medium | **shipped (#14)** |
+| P1 | Child-flow result handoff (`ChildCoordinator.waitForResult()`) | coordinator UX | medium | **shipped (#14)** |
 | P1 | Typed destination bindings (`binding(case:)`) | ergonomics | small | **shipped (#14)** |
 | P1 | Named stack intents (`replaceStack`/`backOrPush`/`pushUniqueRoot`) | ergonomics | small | **shipped (#14)** |
 | P1 | ModalStore middleware | symmetry | small | **shipped (#12)** |
@@ -452,7 +452,7 @@ Shape (landed):
 | P2 | `Codable` (`RouteStack` / `RouteStep` / `FlowPlan`) + `StatePersistence` | real-app requirement | medium | **shipped** |
 | P2 | UIKit escape hatch | adoption path | large | declined for 4.0.0 |
 | P2 | DocC walkthroughs (5 tutorial articles) | learning curve | small–medium | **shipped** |
-| P3 | Parent Task cancellation (`parentDidCancel`) | coordinator UX polish | small | **shipped** |
+| P3 | Caller-task cancellation (`parentDidCancel`) | coordinator UX polish | small | **shipped** |
 | P3 | FlowIntent named-intent parity (`.replaceStack`/`.backOrPush`/`.pushUniqueRoot`) | ergonomics parity | small | **shipped** |
 | P3 | Macro diagnostics + FixIts | DX polish | small | **shipped** |
 | P3 | Command algebra: `.whenCancelled` + throttling + debouncing wrapper | UX polish | small | **shipped** |

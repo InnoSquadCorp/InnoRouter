@@ -7,7 +7,7 @@ relationship | defaultImplementationOf | StepCoordinator.canProceed(from:) | Ste
 relationship | memberOf | AsyncNavigationMiddlewareExecutor.add(_:) | AsyncNavigationMiddlewareExecutor |  |
 relationship | memberOf | AsyncNavigationMiddlewareExecutor.execute(_:) | AsyncNavigationMiddlewareExecutor |  |
 relationship | memberOf | AsyncNavigationMiddlewareExecutor.init(store:) | AsyncNavigationMiddlewareExecutor |  |
-relationship | memberOf | Coordinator.push(child:) | Coordinator |  |
+relationship | memberOf | ChildCoordinator.waitForResult() | ChildCoordinator |  |
 relationship | memberOf | Coordinator.send(_:) | Coordinator |  |
 relationship | memberOf | CoordinatorHost.body | CoordinatorHost |  |
 relationship | memberOf | CoordinatorHost.init(coordinator:root:) | CoordinatorHost |  |
@@ -470,9 +470,9 @@ symbol | swift.init | ThrottleNavigationMiddleware.init(interval:key:) | init(in
 symbol | swift.method | AsyncNavigationMiddlewareExecutor.add(_:) | add(_:) | @MainActor func add(_ middleware: any AsyncNavigationMiddleware<R>) | []
 symbol | swift.method | AsyncNavigationMiddlewareExecutor.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) async -> NavigationResult<R> | []
 symbol | swift.method | ChildCoordinator.parentDidCancel() | parentDidCancel() | @MainActor func parentDidCancel() | []
+symbol | swift.method | ChildCoordinator.waitForResult() | waitForResult() | @MainActor func waitForResult() async -> Self.Result? | []
 symbol | swift.method | Coordinator.destination(for:) | destination(for:) | @ViewBuilder @MainActor func destination(for route: Self.RouteType) -> Self.Destination | []
 symbol | swift.method | Coordinator.handle(_:) | handle(_:) | @MainActor func handle(_ intent: NavigationIntent<Self.RouteType>) | []
-symbol | swift.method | Coordinator.push(child:) | push(child:) | @discardableResult @MainActor func push<Child>(child: Child) -> Task<Child.Result?, Never> where Child : ChildCoordinator | []
 symbol | swift.method | Coordinator.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<Self.RouteType>) | []
 symbol | swift.method | DebouncingNavigator.cancelPending() | cancelPending() | @MainActor func cancelPending() | []
 symbol | swift.method | DebouncingNavigator.debouncedExecute(_:) | debouncedExecute(_:) | @discardableResult @MainActor func debouncedExecute(_ command: NavigationCommand<N.RouteType>) async -> NavigationResult<N.RouteType>? | []

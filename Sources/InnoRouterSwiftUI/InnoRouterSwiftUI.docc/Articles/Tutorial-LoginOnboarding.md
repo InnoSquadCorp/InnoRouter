@@ -1,18 +1,20 @@
 # Building a Login Onboarding Flow
 
-Compose push, sheet, and cover steps into a single serializable flow with `FlowStore`, then scope the signup sub-flow through a `ChildCoordinator` and await its result inline.
+Compose push, sheet, and cover steps into a single serializable flow with
+`FlowStore`, then let the signup `ChildCoordinator` expose its result directly
+to the same app-defined flow owner.
 
 ## Scenario
 
 The app launches on a welcome screen. Tapping *Continue* pushes a
 pre-auth detail screen. Tapping *Create account* presents a signup
-sheet. When the signup finishes (or is cancelled) the parent flow
+sheet. When the signup finishes (or is cancelled) the owning flow
 resumes — either navigating to `.home(user)` or staying put.
 
 Modeling this with raw `NavigationStore` + `ModalStore` means two
 authority objects, two view-layer hosts, and hand-rolled
 continuation plumbing to surface the sheet result back to the
-parent. `FlowStore` + `ChildCoordinator` collapse this to a single
+owner. `FlowStore` + `ChildCoordinator` collapse this to a single
 store and one `await`.
 
 This flow has crossed the macro-first local-stack boundary: push and modal
@@ -37,14 +39,18 @@ enum AppRoute: Route {
 ```swift skip doc-fragment
 @main
 struct DemoApp: App {
-    @State private var flow = FlowStore<AppRoute>()
+    @State private var onboarding = OnboardingCoordinator()
 
     var body: some Scene {
         WindowGroup {
             FlowHost(
-                store: flow,
+                store: onboarding.flowStore,
                 destination: destination,
-                root: { WelcomeRootView() }
+                root: {
+                    WelcomeRootView {
+                        Task { await onboarding.startSignUpFlow() }
+                    }
+                }
             )
         }
     }
@@ -55,7 +61,9 @@ struct DemoApp: App {
         case .preAuth:
             PreAuthDetailView()
         case .signup:
-            SignUpView()
+            if let signUp = onboarding.activeSignUp {
+                SignUpView(coordinator: signUp)
+            }
         case .home(let id):
             HomeView(userID: id)
         }
@@ -72,6 +80,7 @@ middleware and event observation see every step:
 ```swift skip doc-fragment
 struct WelcomeRootView: View {
     @EnvironmentRouter(AppRoute.self) private var router
+    let startSignUp: @MainActor () -> Void
 
     var body: some View {
         VStack {
@@ -79,7 +88,7 @@ struct WelcomeRootView: View {
                 router.go(.preAuth)
             }
             Button("Create account") {
-                router.sheet(.signup)
+                startSignUp()
             }
         }
     }
@@ -91,47 +100,66 @@ focused action, such as resetting a complete `RouteStep` path.
 
 ## Awaiting a signup sub-flow
 
-The signup sheet opens its own `Coordinator` that owns the step
-progression (email → password → confirmation). The outer
-onboarding coordinator launches it via `push(child:)` and `await`s
-the final `UserID`:
+The signup sheet opens its own child coordinator that owns the step progression
+(email → password → confirmation). The app-defined onboarding owner keeps that
+child in presentation state, presents it through the same `FlowStore`, then
+`await`s the final `UserID` through `signUp.waitForResult()`:
 
 ```swift skip doc-fragment
 @MainActor
 final class SignUpCoordinator: ChildCoordinator {
     typealias Result = UserID
-    typealias RouteType = AppRoute
+
+    var onFinish: (@MainActor @Sendable (UserID) -> Void)?
+    var onCancel: (@MainActor @Sendable () -> Void)?
+    var lifecycleSignals = LifecycleSignals()
 
     // ...step state + methods omitted
 
     func userDidCreateAccount(_ userID: UserID) {
-        onFinish(userID)   // emits the result back to the parent
+        onFinish?(userID)   // emits the result back to the owner
     }
 
     func userCancelled() {
-        onCancel()          // parent sees nil
+        onCancel?()          // the owner sees nil
     }
 }
 
+@Observable
 @MainActor
-final class OnboardingCoordinator: Coordinator {
-    typealias RouteType = AppRoute
-    let navigationStore: NavigationStore<AppRoute>
+final class OnboardingCoordinator {
+    let flowStore = FlowStore<AppRoute>()
+
+    // The sheet content observes this app-owned placement state.
+    var activeSignUp: SignUpCoordinator?
 
     func startSignUpFlow() async {
-        let result = await push(child: SignUpCoordinator())
+        guard activeSignUp == nil else { return }
+
+        let signUp = SignUpCoordinator()
+        activeSignUp = signUp
+        defer { activeSignUp = nil }
+
+        flowStore.send(.presentSheet(.signup))
+        let result = await signUp.waitForResult()
+        flowStore.send(.dismiss)
+
         if let userID = result {
-            navigationStore.send(.go(.home(userID)))
+            flowStore.send(.push(.home(userID)))
         }
     }
 }
 ```
 
-`push(child:)` installs the child's `onFinish` / `onCancel`
-callbacks synchronously, so the child can emit a result at any
-point — even before the parent's `await` suspends — without a
-`@MainActor` re-entrancy deadlock. See
-[`Docs/design-child-coordinator-handoff.md`](../../../../../Docs/design-child-coordinator-handoff.md)
+`activeSignUp` determines which child the `.signup` destination renders;
+`flowStore` remains the sole push-and-modal authority. `waitForResult()` only
+waits for a result and never presents the child. It installs the child's `onFinish` /
+`onCancel` callbacks before its first suspension, so the child can emit a
+result at any point after the asynchronous call begins without a `@MainActor`
+re-entrancy deadlock. Cancelling the caller task that awaits `waitForResult()`
+resolves it with `nil`, invokes `parentDidCancel()`, and runs the `defer` that
+clears the app-owned placement state. See
+[`Docs/design-child-coordinator-handoff.md`](../../../../Docs/design-child-coordinator-handoff.md)
 for the design rationale.
 
 ## Verifying the flow host-lessly
