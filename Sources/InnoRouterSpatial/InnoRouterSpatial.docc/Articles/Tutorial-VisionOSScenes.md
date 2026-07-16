@@ -74,11 +74,12 @@ An explicit `id` is optional and defaults to the case name. Supply one only
 when the Swift case may be renamed while the system scene identifier must stay
 stable.
 
-The first case becomes the primary dispatcher host. Put a window or volume
-first for the normal launch path; all later cases become lifecycle anchors.
-The macro diagnoses missing annotations, associated values, duplicate IDs,
-conditional inventories, invalid sizes, and conflicting generated members at
-compile time.
+The first case is the launch-preferred scene, so put a window or volume first
+for the normal launch path. Every live generated scene participates in host
+election. If the launch scene closes while another generated scene remains,
+that survivor is promoted and can still open any declared scene. The macro
+diagnoses missing annotations, associated values, duplicate IDs, conditional
+inventories, invalid sizes, and conflicting generated members at compile time.
 
 ## 2. Install the generated scene tree
 
@@ -97,8 +98,8 @@ That single line owns the common composition:
 
 - one `SceneStore<AppScene>`
 - one `SceneRegistry<AppScene>` built from the annotations
-- a primary `innoRouterSceneHost` on the first scene
-- an `innoRouterSceneAnchor` on every later scene
+- cooperative `innoRouterSceneHost` wiring on every generated scene root
+- automatic dispatcher promotion when the elected scene disappears
 - the matching `WindowGroup`, volumetric style and size, or `ImmersiveSpace`
 
 Do not add a second store, host, or anchor around generated destinations. The

@@ -325,6 +325,83 @@ struct SceneStoreIntegrationTests {
         )
     }
 
+    @Test("A surviving generated host reopens another declaration after the launch host closes")
+    @MainActor
+    func survivingGeneratedHostRetainsCrossSceneAuthority() async {
+        let store = SceneStore<SpatialRoute>()
+        let scenes = makeRegistry()
+        let launchRegistration = SceneHostRegistration(
+            store: store,
+            dispatcherToken: UUID(),
+            scenes: scenes,
+            attachedTo: .main,
+            instanceID: UUID()
+        )
+        let survivingRegistration = SceneHostRegistration(
+            store: store,
+            dispatcherToken: UUID(),
+            scenes: scenes,
+            attachedTo: .theatre,
+            instanceID: nil
+        )
+
+        #expect(launchRegistration.activate())
+        var isDormant = !survivingRegistration.activate()
+        #expect(isDormant)
+
+        launchRegistration.deactivate(dispatcherOwned: true)
+
+        var promotionCount = 0
+        handleSceneHostSignal(
+            .dispatcherChanged,
+            isDormant: &isDormant,
+            registration: survivingRegistration,
+            spawnDispatchTask: {
+                promotionCount += 1
+            }
+        )
+        #expect(isDormant == false)
+        #expect(promotionCount == 1)
+
+        let events = store.events
+        let requestedWindow = store.openWindow(.main)
+        let collectTask = Task { @MainActor in
+            await collectEvent(from: events) { event in
+                event == .presented(requestedWindow)
+            }
+        }
+        var openedSceneIDs: [String] = []
+        var openedWindowIDs: [UUID] = []
+
+        await SceneDispatchDriver<SpatialRoute>(
+            store: store,
+            scenes: scenes,
+            dispatcherToken: survivingRegistration.dispatcherToken,
+            capability: .primaryHost,
+            openWindow: { id, value in
+                openedSceneIDs.append(id)
+                openedWindowIDs.append(value)
+            },
+            openImmersiveSpace: { _ in
+                Issue.record("openImmersiveSpace must not be called")
+                return .userCancelled
+            },
+            dismissImmersiveSpace: {
+                Issue.record("dismissImmersiveSpace must not be called")
+            },
+            dismissWindow: { _, _ in
+                Issue.record("dismissWindow must not be called")
+            }
+        ).run()
+
+        #expect(await collectTask.value == .presented(requestedWindow))
+        #expect(openedSceneIDs == ["main"])
+        #expect(openedWindowIDs == [requestedWindow.id])
+        #expect(store.activeScenes.contains(requestedWindow))
+
+        survivingRegistration.deactivate(dispatcherOwned: true)
+    }
+
     @Test("Dormant host reconciles a distinct window lifecycle without disturbing the primary dispatcher")
     @MainActor
     func dormantHostReconcilesDistinctWindowLifecycle() throws {

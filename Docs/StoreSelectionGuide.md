@@ -220,11 +220,13 @@ struct ExampleApp: App {
 }
 ```
 
-The first case is the primary scene host; later cases are lifecycle anchors.
-Views rendered from that tree use `@EnvironmentSceneRouter` to call `open`,
-`dismissWindow`, and `dismissImmersive`. Promote to manual `SceneStore`
-composition when the generated private store cannot satisfy direct event
-observation or custom scene ownership.
+The first case is launch-preferred, while every live generated scene can become
+the dispatcher. Closing the launch scene therefore does not prevent a surviving
+scene from reopening it or another declaration. Views rendered from that tree
+use `@EnvironmentSceneRouter` to call `open`, `dismissWindow`, and
+`dismissImmersive`. Promote to manual `SceneStore` composition when the
+generated private store cannot satisfy direct event observation or custom scene
+ownership.
 
 ### 7. Atomic app-boundary flow (`FlowStore`)
 

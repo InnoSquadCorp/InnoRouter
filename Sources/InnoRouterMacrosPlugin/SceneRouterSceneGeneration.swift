@@ -40,8 +40,7 @@ func renderSceneRouterSceneMembers(
         renderSceneRouterScene(
             item,
             index: index,
-            routeType: routeType,
-            isPrimaryHost: index == specification.items.startIndex
+            routeType: routeType
         )
     }.joined(separator: "\n\n")
 
@@ -202,22 +201,19 @@ private func renderSceneRouterRegistryItem(_ item: SceneRouterItem) -> String {
 private func renderSceneRouterScene(
     _ item: SceneRouterItem,
     index: Int,
-    routeType: String,
-    isPrimaryHost: Bool
+    routeType: String
 ) -> String {
     switch item.style {
     case .window:
         return renderSceneRouterWindow(
             item,
             routeType: routeType,
-            isPrimaryHost: isPrimaryHost,
             volumetricSize: nil
         )
     case .volumetric(let width, let height, let depth):
         return renderSceneRouterWindow(
             item,
             routeType: routeType,
-            isPrimaryHost: isPrimaryHost,
             volumetricSize: (width, height, depth)
         )
     case .immersive(let style):
@@ -225,7 +221,6 @@ private func renderSceneRouterScene(
             item,
             index: index,
             routeType: routeType,
-            isPrimaryHost: isPrimaryHost,
             style: style
         )
     }
@@ -234,17 +229,15 @@ private func renderSceneRouterScene(
 private func renderSceneRouterWindow(
     _ item: SceneRouterItem,
     routeType: String,
-    isPrimaryHost: Bool,
     volumetricSize: (Double, Double, Double)?
 ) -> String {
-    let modifier = isPrimaryHost ? "innoRouterSceneHost" : "innoRouterSceneAnchor"
     var source = """
     SwiftUI.WindowGroup(
         id: \(sceneRouterStringLiteral(item.id)),
         for: Foundation.UUID.self
     ) { $sceneID in
         \(routeType).destination(for: .\(item.caseName))
-            .\(modifier)(
+            .innoRouterSceneHost(
                 _innoRouterStore,
                 scenes: _innoRouterScenes,
                 attachedTo: .\(item.caseName),
@@ -274,14 +267,12 @@ private func renderSceneRouterImmersive(
     _ item: SceneRouterItem,
     index: Int,
     routeType: String,
-    isPrimaryHost: Bool,
     style: String
 ) -> String {
-    let modifier = isPrimaryHost ? "innoRouterSceneHost" : "innoRouterSceneAnchor"
     return """
     SwiftUI.ImmersiveSpace(id: \(sceneRouterStringLiteral(item.id))) {
         \(routeType).destination(for: .\(item.caseName))
-            .\(modifier)(
+            .innoRouterSceneHost(
                 _innoRouterStore,
                 scenes: _innoRouterScenes,
                 attachedTo: .\(item.caseName)

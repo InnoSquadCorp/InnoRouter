@@ -429,8 +429,10 @@ check_absent "$MACRO_CONTRACT_PATH" 're-exports spatial support' \
   "macro-first contract incorrectly claims the default umbrella re-exports Spatial"
 check_absent "$MACRO_CONTRACT_PATH" 'platform adaptation such as cover-to-sheet fallback' \
   "macro-first contract incorrectly promises a runtime diagnostic for normal cover adaptation"
-check_present "$MACRO_CONTRACT_PATH" 'The first case becomes the primary host' \
-  "macro-first contract does not document generated Spatial host selection"
+check_present "$MACRO_CONTRACT_PATH" 'every live generated scene participates' \
+  "macro-first contract does not document generated Spatial host election"
+check_absent "$MACRO_CONTRACT_PATH" 'later cases become lifecycle' \
+  "macro-first contract still describes generated Spatial scenes as restricted anchors"
 check_present "$MACRO_CONTRACT_PATH" 'does not re-export it' \
   "macro-first contract does not preserve the opt-in Spatial product boundary"
 check_present "$MACRO_CONTRACT_PATH" 'It does not emit an error or warning' \

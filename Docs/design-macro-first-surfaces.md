@@ -188,12 +188,14 @@ struct ExampleApp: App {
 scenes.open(.theatre)
 ```
 
-The first case becomes the primary host and later cases become lifecycle
-anchors. An immersive first case emits `W010` unless the app acknowledges its
-external scene-manifest contract with `@SceneRouter(immersiveLaunch: true)`;
-an unnecessary acknowledgement emits `W011`. The macro owns generated store,
-registry, scene tree, and host/anchor wiring. Manual `SceneStore` composition
-is the advanced path for direct event observation or custom ownership.
+The first case is launch-preferred, and every live generated scene participates
+in host election so a survivor retains cross-scene routing authority after the
+launch scene closes. An immersive first case emits `W010` unless the app
+acknowledges its external scene-manifest contract with
+`@SceneRouter(immersiveLaunch: true)`; an unnecessary acknowledgement emits
+`W011`. The macro owns generated store, registry, scene tree, and cooperative
+host wiring. Manual `SceneStore` composition is the advanced path for direct
+event observation or custom ownership.
 
 `InnoRouterSpatial` must be added and imported separately. The default
 `InnoRouter` umbrella deliberately does not re-export it.

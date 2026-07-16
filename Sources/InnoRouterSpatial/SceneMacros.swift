@@ -24,11 +24,12 @@ public enum SpatialSceneStyle: Sendable, Hashable {
 /// Turns an enum into the macro-first route inventory for app-level scenes.
 ///
 /// Add exactly one ``Scene(_:id:)`` annotation to each parameterless case and
-/// provide one get-only `var destination: some View`. The first declared case
-/// becomes the primary scene host; later cases become lifecycle anchors. An
-/// explicit `id` is optional and defaults to the case name. The macro owns the
-/// scene store and registry behind the generated `scenes`
-/// property, so application code only installs that scene tree in `App.body`.
+/// provide one get-only `var destination: some View`. Every live generated
+/// scene participates in host election, so a surviving scene keeps full routing
+/// authority after the launch scene closes. An explicit `id` is optional and
+/// defaults to the case name. The macro owns the scene store and registry behind
+/// the generated `scenes` property, so application code only installs that scene
+/// tree in `App.body`.
 ///
 /// ```swift
 /// @SceneRouter

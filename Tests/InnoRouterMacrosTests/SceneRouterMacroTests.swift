@@ -131,7 +131,7 @@ struct SceneRouterMacroTests {
                             for: Foundation.UUID.self
                         ) { $sceneID in
                             AppScene.destination(for: .model)
-                                .innoRouterSceneAnchor(
+                                .innoRouterSceneHost(
                                     _innoRouterStore,
                                     scenes: _innoRouterScenes,
                                     attachedTo: .model,
@@ -150,7 +150,7 @@ struct SceneRouterMacroTests {
 
                         SwiftUI.ImmersiveSpace(id: "experience") {
                             AppScene.destination(for: .immersive)
-                                .innoRouterSceneAnchor(
+                                .innoRouterSceneHost(
                                     _innoRouterStore,
                                     scenes: _innoRouterScenes,
                                     attachedTo: .immersive

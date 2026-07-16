@@ -296,10 +296,11 @@ are bare semver (no leading `v`).
   case declares `.window`, `.volumetric(...)`, or `.immersive(...)` metadata
   with an optional stable `id`, while one `var destination: some View` supplies
   generated `DestinationRoute` conformance and the complete `AppScene.scenes`
-  tree. The first case becomes the primary host and later cases become lifecycle
-  anchors; immersive-first launch contracts require an explicit acknowledgement.
-  Invalid scene inventories and generated-member conflicts fail at compile time
-  with stable diagnostics.
+  tree. The first case remains launch-preferred, while every live generated
+  scene participates in host election so a survivor can reopen any declaration
+  after the launch scene closes. Immersive-first launch contracts require an
+  explicit acknowledgement. Invalid scene inventories and generated-member
+  conflicts fail at compile time with stable diagnostics.
 
 ### Changed
 
