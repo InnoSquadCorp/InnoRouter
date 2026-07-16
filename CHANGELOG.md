@@ -261,6 +261,15 @@ are bare semver (no leading `v`).
   access, restoration, middleware mutation, or deep-link orchestration use
   `FlowHost(store:)`; stack-only external ownership remains available through
   `NavigationHost(store:)`.
+- `RouterModalHost` provides a modal-only local authority, and
+  `RouterSplitHost` owns detail-stack plus modal authority for supported split
+  layouts. Both keep the route enum and `@EnvironmentRouter` action model used
+  by `RouterHost`; `RouterSplitHost` is explicitly unavailable on watchOS,
+  where SwiftUI has no `NavigationSplitView`.
+- `@TabItem` adds literal title and system-image metadata to every case of an
+  `@Router` enum, generating `RouterTab` and `CaseIterable` conformance.
+  `RouterTabHost` then owns native tab selection and badge state locally while
+  descendants select tabs and update badges through `@EnvironmentRouter`.
 - `@DeepLink` gives `@Router` enums a typed, fail-closed `DeepLinkRoute`
   resolver from literal scheme, host, and path declarations. Generated
   matching uses deterministic specificity precedence—literal paths, typed
