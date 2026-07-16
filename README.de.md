@@ -208,7 +208,7 @@ Environment-Diagnoserichtlinie.
 öffentlichen SemVer-Vertrag abgedeckt wird. Die aktuelle Kompatibilitätslinie
 beginnt mit `5.0.0`. Frühere private/interne Paket-Snapshots sind nicht Teil der
 OSS-Kompatibilitätslinie; Teams, die von einem 4.x-Release migrieren, sollten
-den 5.0-Migrationshinweisen in [`CHANGELOG.md`](CHANGELOG.md) folgen.
+dem [5.0-Migrationsleitfaden](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Migrating-To-InnoRouter-5.md) folgen.
 
 ### SemVer-Verpflichtung für die 5.x-Linie
 

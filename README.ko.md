@@ -189,7 +189,7 @@ environment 진단 정책을 따릅니다.
 `4.0.0`은 InnoRouter의 첫 OSS 릴리즈이며, public SemVer 계약이 적용되는 첫 버전입니다.
 현재 호환성 라인은 `5.0.0`부터 시작합니다. 이전의 비공개/내부 패키지 스냅샷은
 OSS 호환성 라인의 일부가 아닙니다. 4.x 릴리즈에서 이동하는 팀은
-[`CHANGELOG.md`](CHANGELOG.md)의 5.0 마이그레이션 안내를 따라야 합니다.
+[5.0 마이그레이션 가이드](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Migrating-To-InnoRouter-5.md)를 따라야 합니다.
 
 ### 5.x 라인의 SemVer 약속
 

@@ -192,7 +192,7 @@ struct HomeView: View {
 契約でカバーされる最初のバージョンです。現在の互換性ラインは `5.0.0` から
 始まります。以前のプライベート/内部パッケージスナップショットは OSS 互換性
 ラインの一部ではありません。4.x リリースから移行するチームは
-[`CHANGELOG.md`](CHANGELOG.md) の 5.0 移行ノートに従ってください。
+[5.0 移行ガイド](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Migrating-To-InnoRouter-5.md)に従ってください。
 
 ### 5.x ラインの SemVer コミットメント
 

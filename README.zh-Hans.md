@@ -182,7 +182,7 @@ struct HomeView: View {
 
 `4.0.0` 是 InnoRouter 的首个 OSS 发布,也是公开 SemVer 合约覆盖的第一个版本。
 当前兼容性线从 `5.0.0` 开始。早期的私有/内部包快照不属于 OSS 兼容性线;
-从 4.x 发布迁移的团队应遵循 [`CHANGELOG.md`](CHANGELOG.md) 中的 5.0 迁移说明。
+从 4.x 发布迁移的团队应遵循 [5.0 迁移指南](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Migrating-To-InnoRouter-5.md)。
 
 ### 5.x 线的 SemVer 承诺
 

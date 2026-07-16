@@ -233,12 +233,17 @@ The repository uses `README + DocC` together.
 - `CLAUDE.md`: maintainer/agent quick reference
 - `Docs/v2-principle-scorecard.md`: architecture and quality mapping
 
-Migration guides are intentionally not part of this release process.
+Patch and minor releases do not require a separate migration guide. Every
+major release must publish one task-oriented migration guide, link it from all
+localized READMEs, and keep the exhaustive symbol-level record in the
+versioned changelog.
 
 ## Release checklist
 
 - `CHANGELOG.md` has been cut from `Unreleased` to the release version/date,
   and a new `## Unreleased` section exists above it.
+- A major release links one consolidated migration guide from every localized
+  README and from its GitHub Release notes.
 - The `gh-pages` branch contains a root `index.html`; release publication fails
   closed rather than replacing an unavailable site snapshot.
 - Public APIs match current README and DocC examples.

@@ -196,7 +196,7 @@ authority follows the configured environment diagnostic policy.
 covered by the public SemVer contract. The current compatibility line
 starts at `5.0.0`. Earlier private/internal package snapshots are not
 part of the OSS compatibility line; teams moving from a 4.x release
-should follow the 5.0 migration notes in [`CHANGELOG.md`](CHANGELOG.md).
+should follow the [5.0 migration guide](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Migrating-To-InnoRouter-5.md).
 
 ### SemVer commitment for the 5.x line
 

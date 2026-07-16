@@ -88,6 +88,7 @@ submitted through `RouterActions`, `RouterTabHost` initial state, or
 
 ### Guides
 
+- <doc:Migrating-To-InnoRouter-5>
 - <doc:Guide-SequenceVsBatchVsTransaction>
 - <doc:Guide-StepCoordinatorVsFlowStore>
 - <doc:Guide-EnvironmentMissingPolicy>

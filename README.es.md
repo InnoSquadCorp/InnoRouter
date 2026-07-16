@@ -208,7 +208,7 @@ la política de diagnóstico de environment configurada.
 el contrato público de SemVer. La línea de compatibilidad actual comienza en
 `5.0.0`. Las instantáneas privadas/internas anteriores no son parte de la línea
 de compatibilidad OSS; los equipos que migren desde un release 4.x deberían
-seguir las notas de migración 5.0 de [`CHANGELOG.md`](CHANGELOG.md).
+seguir la [guía de migración 5.0](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Migrating-To-InnoRouter-5.md).
 
 ### Compromiso SemVer para la línea 5.x
 

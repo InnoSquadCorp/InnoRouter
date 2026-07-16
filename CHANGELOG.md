@@ -276,6 +276,9 @@ are bare semver (no leading `v`).
 
 ### Added
 
+- A task-oriented 4.x-to-5.0 migration guide consolidates dependency, host,
+  environment, observation, Effects, deep-link, Spatial, coordinator, and test
+  migrations. Every localized README now links to the same canonical guide.
 - `@Router` is the macro-first SwiftUI entry point. Developers declare an enum
   and one `var destination: some View` switch; the macro supplies `Route` and
   `DestinationRoute` conformance, `@MainActor`, `@ViewBuilder`, and the host

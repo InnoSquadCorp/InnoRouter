@@ -193,7 +193,7 @@ struct HomeView: View {
 публичным контрактом SemVer. Текущая линия совместимости начинается с
 `5.0.0`. Более ранние приватные/внутренние снимки пакета не являются частью
 линии OSS-совместимости; команды, переходящие с релиза 4.x, должны следовать
-указаниям по миграции 5.0 в [`CHANGELOG.md`](CHANGELOG.md).
+[руководству по миграции 5.0](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Migrating-To-InnoRouter-5.md).
 
 ### SemVer-обязательство для линии 5.x
 
