@@ -331,6 +331,10 @@ are bare semver (no leading `v`).
 
 ### Changed
 
+- Modal state transitions, deep-link matching concerns, and router deep-link
+  macro analysis/rendering now live in focused implementation files. This is
+  an internal responsibility split with no public API or routing behavior
+  change.
 - A new human-facing `Examples/MacrosExample.swift` mirrors the one-product
   macro smoke with copyable stack, modal-only, split-detail, native-tab, and
   one-route deep-link compositions using `@EnvironmentRouter`.
