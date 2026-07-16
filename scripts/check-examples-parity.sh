@@ -21,6 +21,10 @@
 #   `ExamplesSmoke/` that forget the manifest / gate update get
 #   caught here, before they reach release CI.
 #
+# - The macro-first and Spatial consumer smokes MUST each resolve exactly one
+#   product dependency. The default umbrella MUST keep Effects and Spatial
+#   opt-in in both its manifest dependencies and source re-exports.
+#
 # Exits non-zero on any drift; prints every violation it finds
 # (does not stop on the first one) so a single run reports the
 # full delta.
@@ -34,6 +38,7 @@ EXAMPLES_DIR="Examples"
 SMOKE_DIR="ExamplesSmoke"
 MANIFEST="Package.swift"
 PRINCIPLE_GATES="scripts/principle-gates.sh"
+UMBRELLA_SOURCE="Sources/InnoRouterUmbrella/InnoRouter.swift"
 
 # Smoke files that intentionally have no Examples/ counterpart.
 # Keep this list short — the default expectation is one-to-one.
@@ -143,11 +148,119 @@ fi
 #    The main gate must also build every human-facing example target.
 require_readable_file "$MANIFEST" "Swift package manifest"
 require_readable_file "$PRINCIPLE_GATES" "principle gates script"
+require_readable_file "$UMBRELLA_SOURCE" "InnoRouter umbrella source"
 if (( missing_required_file > 0 )); then
     echo "" >&2
     echo "Examples↔ExamplesSmoke parity gate failed with $errors violation(s)." >&2
     exit 1
 fi
+
+# The two consumer fixtures prove one-product downstream contracts, not merely
+# that their source happens to compile. Inspect SwiftPM's resolved manifest so
+# helper defaults or later dependency additions cannot silently widen either
+# target. The umbrella target and source exports are checked at the same time
+# to keep Spatial and Effects opt-in.
+package_dump="$(mktemp)"
+trap 'rm -f "$package_dump"' EXIT
+if ! command -v python3 >/dev/null 2>&1; then
+    report "python3 is required to inspect resolved consumer product boundaries"
+elif ! swift package dump-package >"$package_dump"; then
+    report "swift package dump-package failed while checking consumer product boundaries"
+else
+    if ! dependency_errors="$(
+        python3 - "$package_dump" "$UMBRELLA_SOURCE" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+manifest_path = Path(sys.argv[1])
+umbrella_path = Path(sys.argv[2])
+
+with manifest_path.open(encoding="utf-8") as handle:
+    package = json.load(handle)
+
+targets = {target["name"]: target for target in package["targets"]}
+expected_dependencies = {
+    "InnoRouter": [
+        "InnoRouterCore",
+        "InnoRouterDeepLink",
+        "InnoRouterMacros",
+        "InnoRouterSwiftUI",
+    ],
+    "InnoRouterMacroFirstSmoke": ["InnoRouter"],
+    "InnoRouterSpatialConsumerSmoke": ["InnoRouterSpatial"],
+}
+
+for target_name, expected in expected_dependencies.items():
+    target = targets.get(target_name)
+    if target is None:
+        print(f"Package.swift is missing target {target_name}")
+        continue
+
+    actual = []
+    malformed = []
+    for dependency in target.get("dependencies", []):
+        if len(dependency) != 1:
+            malformed.append(dependency)
+            continue
+        kind, payload = next(iter(dependency.items()))
+        if (
+            kind != "byName"
+            or not isinstance(payload, list)
+            or len(payload) != 2
+            or not isinstance(payload[0], str)
+            or payload[1] is not None
+        ):
+            malformed.append(dependency)
+            continue
+        actual.append(payload[0])
+
+    if malformed or sorted(actual) != expected or len(actual) != len(expected):
+        print(
+            f"{target_name} must depend on exactly {expected}; "
+            f"found names={actual}, unsupported={malformed}"
+        )
+
+umbrella_source = umbrella_path.read_text(encoding="utf-8")
+umbrella_code = re.sub(r"/\*.*?\*/", " ", umbrella_source, flags=re.DOTALL)
+umbrella_code = re.sub(r"//[^\n]*", " ", umbrella_code)
+actual_exports = re.findall(
+    r"@_exported\s+import\s+([A-Za-z_][A-Za-z0-9_]*)",
+    umbrella_code,
+)
+expected_exports = [
+    "InnoRouterCore",
+    "InnoRouterDeepLink",
+    "InnoRouterMacros",
+    "InnoRouterSwiftUI",
+]
+exported_attribute_count = len(re.findall(r"@_exported\b", umbrella_code))
+public_imports = re.findall(
+    r"\bpublic\s+import\s+([A-Za-z_][A-Za-z0-9_]*)",
+    umbrella_code,
+)
+if (
+    sorted(actual_exports) != expected_exports
+    or len(actual_exports) != len(expected_exports)
+    or exported_attribute_count != len(expected_exports)
+    or public_imports
+):
+    print(
+        "InnoRouter umbrella must re-export exactly "
+        f"{expected_exports}; found @_exported={actual_exports}, "
+        f"public={public_imports}, attributes={exported_attribute_count}"
+    )
+PY
+    )"; then
+        report "failed to inspect resolved consumer product boundaries"
+    elif [[ -n "$dependency_errors" ]]; then
+        while IFS= read -r dependency_error; do
+            report "$dependency_error"
+        done <<< "$dependency_errors"
+    fi
+fi
+
 for base in "${example_bases[@]}"; do
     src="${base}Example.swift"
     target="InnoRouter${base}Example"

@@ -321,6 +321,11 @@ are bare semver (no leading `v`).
   the English and Korean entry guides, reject stale pre-implementation and
   Spatial product claims, and enforce exact one-to-one parity between macro
   diagnostic definitions in source and structured DocC recovery rows.
+- Consumer contract gates now resolve SwiftPM dependencies to keep the core
+  macro smoke on `InnoRouter` alone, the Spatial smoke on
+  `InnoRouterSpatial` alone, and Effects/Spatial outside the default umbrella.
+  Source lint also locks `RouterSplitHost` as an explicitly unavailable API on
+  watchOS with compiler recovery guidance instead of a callable empty fallback.
 - Release publication now resolves strict GA/`rc`/`beta` metadata through one
   SemVer policy, reads release policy from `main`, verifies the exact tag and
   triggering SHA against `main` ancestry, and builds only the resulting

@@ -83,6 +83,43 @@ if rg -n "deprecated|@available\\(" Sources \
   exit 1
 fi
 
+echo "[lint-source-gates] Checking watchOS split-host unavailability contract"
+require_tool python3
+require_file Sources/InnoRouterSwiftUI/RouterSplitHost.swift "RouterSplitHost source"
+if ! python3 - <<'PY'
+import re
+from pathlib import Path
+
+source = Path("Sources/InnoRouterSwiftUI/RouterSplitHost.swift").read_text(
+    encoding="utf-8"
+)
+parts = source.split("\n#else\n")
+if len(parts) != 2 or "\n#if !os(watchOS)\n" not in parts[0]:
+    raise SystemExit("RouterSplitHost must keep one explicit watchOS fallback branch")
+
+watch_branch = parts[1].rsplit("\n#endif", maxsplit=1)[0]
+contract = re.compile(
+    r"""
+    @available\(
+        \s*watchOS,\s*
+        unavailable,\s*
+        message:\s*"RouterSplitHost\ requires\ NavigationSplitView;\ use\ RouterHost\ on\ watchOS\."\s*
+    \)
+    \s*@MainActor
+    \s*public\ struct\ RouterSplitHost
+    """,
+    flags=re.VERBOSE,
+)
+if contract.search(watch_branch) is None:
+    raise SystemExit(
+        "watchOS RouterSplitHost must remain explicitly unavailable with recovery guidance"
+    )
+PY
+then
+  echo "[lint-source-gates] Failed: RouterSplitHost watchOS unavailable contract drifted"
+  exit 1
+fi
+
 echo "[lint-source-gates] Checking single Effects product boundary"
 for legacy_effects_module in InnoRouterNavigationEffects InnoRouterDeepLinkEffects; do
   if [[ -e "Sources/$legacy_effects_module" ]] \
