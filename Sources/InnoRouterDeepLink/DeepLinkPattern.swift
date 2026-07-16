@@ -1,7 +1,5 @@
 import Foundation
 
-import InnoRouterPatternSupport
-
 struct DeepLinkParser: Sendable {
     struct ParsedURL: Sendable, Equatable {
         let scheme: String?

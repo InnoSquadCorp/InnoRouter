@@ -39,7 +39,15 @@ require_file() {
 echo "[lint-source-gates] Checking swiftformat in lint mode"
 require_tool swiftformat
 require_file .swiftformat "swiftformat configuration"
-swiftformat Sources Tests Examples ExamplesSmoke Package.swift --lint
+swiftformat Sources Tests Examples ExamplesSmoke ConsumerSmoke/Sources Package.swift ConsumerSmoke/Package.swift --lint
+
+MACRO_PATTERN_SOURCE="Sources/InnoRouterPatternSupport/RoutePattern.swift"
+RUNTIME_PATTERN_SOURCE="Sources/InnoRouterDeepLink/RoutePattern.swift"
+if ! cmp -s "$MACRO_PATTERN_SOURCE" "$RUNTIME_PATTERN_SOURCE"; then
+  echo "[lint-source-gates] Failed: macro-host and runtime route-pattern grammar sources differ" >&2
+  echo "[lint-source-gates]         Keep $MACRO_PATTERN_SOURCE and $RUNTIME_PATTERN_SOURCE identical" >&2
+  exit 1
+fi
 
 echo "[lint-source-gates] Checking swiftlint in strict mode"
 require_tool swiftlint

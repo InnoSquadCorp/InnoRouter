@@ -1,8 +1,6 @@
 import Foundation
 import OSLog
 
-import InnoRouterPatternSupport
-
 /// Controls how `DeepLinkMatcher` surfaces structural diagnostics.
 ///
 /// Strict-mode diagnostic promotion is intentionally not a case on this

@@ -177,12 +177,13 @@ let package = Package(
         .package(url: "https://github.com/swiftlang/swift-syntax.git", .upToNextMinor(from: "603.0.2")),
     ],
     targets: [
-        // MARK: - Shared Route-Pattern Grammar
+        // MARK: - Macro Host Route-Pattern Grammar
         //
-        // Package-only target shared by runtime matching and compiler-plugin
-        // validation. Keeping it free of runtime and SwiftSyntax dependencies
-        // prevents the plugin from compiling the full routing runtime while
-        // preserving one source of truth for ordering and diagnostics.
+        // Package-only host target for compiler-plugin validation. The runtime
+        // keeps an identical source copy inside InnoRouterDeepLink because a
+        // downstream SwiftPM build cannot use one target as both a macro-host
+        // dependency and a runtime dependency. A lint gate enforces byte-for-
+        // byte parity between the two grammar files.
         .target(
             name: "InnoRouterPatternSupport",
             swiftSettings: [.swiftLanguageMode(.v6)]
@@ -198,7 +199,7 @@ let package = Package(
         // MARK: - DeepLink Target
         .target(
             name: "InnoRouterDeepLink",
-            dependencies: ["InnoRouterCore", "InnoRouterPatternSupport"],
+            dependencies: ["InnoRouterCore"],
             resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

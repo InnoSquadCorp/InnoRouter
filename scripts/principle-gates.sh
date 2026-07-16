@@ -114,6 +114,13 @@ swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterCoordinatorExampleSmoke
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterMacroFirstSmoke
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterEffects
 
+# Gate 7b — independent SwiftPM consumer boundary. Unlike the root smoke
+# targets, this nested package resolves InnoRouter as a package dependency and
+# therefore catches product discovery, umbrella re-export, and plugin wiring
+# regressions. The same fixture accepts an exact remote version after release.
+echo "[principle-gates] Building independent package consumer smoke"
+./scripts/external-consumer-smoke.sh
+
 # Gate 8 — human-facing examples must build. These exercise the
 # macro-driven, idiomatic surface that Examples/ documents.
 # Failure signal: example build error.

@@ -410,6 +410,12 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Downstream SwiftPM consumers can now build the default macro-enabled
+  `InnoRouter` product. The route-pattern grammar is compiled separately for
+  the macro host and runtime target, avoiding a build plan that emitted only
+  the host module and then failed `InnoRouterDeepLink` with
+  `no such module 'InnoRouterPatternSupport'`. A standalone consumer package
+  now gates the default macro-first product and the opt-in Spatial product.
 - The human-facing deep-link example now uses the generated `@DeepLink`
   resolver and automatic `RouterHost` handling. Its previous authentication
   sketch discarded the pending destination and never replayed it after login;
