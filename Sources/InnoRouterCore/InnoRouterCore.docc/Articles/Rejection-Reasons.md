@@ -91,6 +91,12 @@ modal equivalent.
 
 ### `SceneRejectionReason`
 
+Generated `@SceneRouter` trees attach cooperative full-authority hosts to every
+live scene root. If the elected host disappears, a surviving generated host is
+promoted automatically. The fallback-anchor and duplicate-host recovery steps
+below are therefore manual `SceneStore` composition guidance; do not replace a
+generated host with a manual host or anchor.
+
 | Case | When it fires | Typical handling |
 |---|---|---|
 | `.environmentReturnedFailure` | `OpenImmersiveSpaceAction.Result` was `.userCancelled` or `.error` | User intent; surface a retry affordance if appropriate |
@@ -100,8 +106,8 @@ modal equivalent.
 | `.sceneDeclarationMismatch` | Presentation kind / size / style does not match the registry entry | Use the registry's declaration unchanged |
 | `.sceneInstanceNotActive` | `dismissWindow(_:)` received a window or volume presentation UUID that is not active in the inventory | Keep the exact presentation returned by `openWindow` / `openVolumetric`, and avoid stale handles |
 | `.supersededByNewerIntent` | A newer intent replaced the pending one before the host committed it | Expected during rapid intent bursts; no action |
-| `.fallbackCannotDispatch` | A fallback `innoRouterSceneAnchor` cannot serve a cross-scene open (the primary host scene is not live) | Re-attach `innoRouterSceneHost`, or surface UI asking the user to focus the target scene |
-| `.duplicateHostRegistration` | A second `innoRouterSceneHost` tried to register with the same store | Enforce one host per store; usually a SwiftUI scene-rehydration artefact |
+| `.fallbackCannotDispatch` | Manual composition only: a fallback `innoRouterSceneAnchor` cannot serve a cross-scene open while the elected host is not live | Re-attach the manual `innoRouterSceneHost`, or surface UI asking the user to focus the target scene |
+| `.duplicateHostRegistration` | A cooperative generated host lost election, or a manual second `innoRouterSceneHost` tried to register with the same store | Generated: no action; a surviving dormant host retries after the elected host disappears. Manual: enforce one host per store |
 | `.hostTornDownDuringDispatch` | The dispatcher's `Task` was cancelled while a claimed intent was mid-flight | Re-issue the intent once a host is live again |
 
 ## Deep links

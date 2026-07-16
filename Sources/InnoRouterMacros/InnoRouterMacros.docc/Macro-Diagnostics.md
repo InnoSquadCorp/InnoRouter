@@ -99,8 +99,8 @@ Spatial diagnostics come from the opt-in `InnoRouterSpatial` product.
 | `InnoRouterMacro.E049` | Error | `@SceneRouter` has unsupported arguments. Its only optional argument is the Boolean literal `immersiveLaunch:`; use `true` only when the first scene is immersive and the external launch manifest is configured. |
 | `InnoRouterMacro.W008` | Warning | `DestinationRoute` is written explicitly even though `@SceneRouter` supplies it. Remove the conformance. |
 | `InnoRouterMacro.W009` | Warning | `Route` is written explicitly even though generated `DestinationRoute` inherits it. Remove the conformance. |
-| `InnoRouterMacro.W010` | Warning | The first case is immersive, so the generated primary host cannot dispatch before the system opens it. Put a window or volume first, or configure the immersive launch manifest and acknowledge it with `@SceneRouter(immersiveLaunch: true)`. |
-| `InnoRouterMacro.W011` | Warning | `immersiveLaunch: true` is present while the first case is a window or volume. Remove the unnecessary acknowledgement. |
+| `InnoRouterMacro.W010` | Warning | The first case is launch-preferred and immersive, so it cannot become the elected host before the system opens it. Put a window or volume first, or configure the immersive launch manifest and acknowledge it with `@SceneRouter(immersiveLaunch: true)`. |
+| `InnoRouterMacro.W011` | Warning | `immersiveLaunch: true` is present while the launch-preferred first case is a window or volume. Remove the unnecessary acknowledgement. |
 
 ## Runtime wiring boundary
 

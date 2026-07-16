@@ -32,7 +32,6 @@ explicitly:
 
 ```swift skip doc-fragment
 import SwiftUI
-import InnoRouter
 import InnoRouterSpatial
 
 @SceneRouter
@@ -243,6 +242,11 @@ declaration if the host is gone. They reject cross-scene opens they cannot
 perform instead of pretending success. Value-based windows use the `UUID`
 provided by `WindowGroup`; immersive spaces use route-only host or anchor
 overloads.
+
+These fallback-anchor and duplicate-host recovery rules apply only to manual
+`SceneStore` composition. A generated `@SceneRouter` tree attaches cooperative
+full-authority hosts to every live scene root; when the elected host disappears,
+a surviving generated host is promoted automatically.
 
 ### Observe manual scene lifecycle
 

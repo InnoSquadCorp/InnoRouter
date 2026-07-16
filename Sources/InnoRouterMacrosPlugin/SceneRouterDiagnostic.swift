@@ -120,9 +120,9 @@ enum SceneRouterDiagnostic: DiagnosticMessage {
         case .redundantRouteConformance:
             return prefix + "Route conformance is inherited from the DestinationRoute supplied by @SceneRouter; remove the explicit conformance"
         case .immersivePrimaryHost:
-            return prefix + "the first @SceneRouter case becomes the primary host, but an immersive host cannot dispatch until the system opens it; move a window or volume first, or set `UIApplicationPreferredDefaultSceneSessionRole` to `UISceneSessionRoleImmersiveSpaceApplication` and acknowledge it with `@SceneRouter(immersiveLaunch: true)`"
+            return prefix + "the first @SceneRouter case is launch-preferred, but an immersive scene cannot become the elected host until the system opens it; move a window or volume first, or set `UIApplicationPreferredDefaultSceneSessionRole` to `UISceneSessionRoleImmersiveSpaceApplication` and acknowledge it with `@SceneRouter(immersiveLaunch: true)`"
         case .unusedImmersiveLaunch:
-            return prefix + "`immersiveLaunch: true` is only needed when the first scene is immersive; remove it while a window or volume is the primary host"
+            return prefix + "`immersiveLaunch: true` is only needed when the launch-preferred scene is immersive; remove it while a window or volume is launch-preferred"
         }
     }
 

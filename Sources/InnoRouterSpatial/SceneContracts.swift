@@ -23,9 +23,10 @@ public enum SceneEvent<R: Route>: Sendable, Equatable {
     case rejected(SceneIntent<R>, reason: SceneRejectionReason)
 
     /// An `innoRouterSceneHost` modifier tried to register but the store
-    /// already has a primary dispatcher. The losing host goes dormant
+    /// already has an elected dispatcher. The losing host goes dormant
     /// instead of crashing so SwiftUI scene rehydration and hot-reload
-    /// don't take the app down.
+    /// don't take the app down. In a generated `@SceneRouter` tree, the
+    /// dormant host automatically retries after the elected host disappears.
     case hostRegistrationRejected(reason: SceneRejectionReason)
 }
 
@@ -56,20 +57,24 @@ public enum SceneRejectionReason: String, Sendable, Equatable, Codable {
     /// commit it.
     case supersededByNewerIntent
 
-    /// The currently elected dispatcher is a fallback scene-anchor modifier
-    /// attached to a different scene than the one the intent would
-    /// affect, so the intent is refused instead of being serviced from
-    /// an unrelated scene. Apps typically see this after the preferred
-    /// primary host scene disappears while cross-scene opens are still
-    /// queued; attach a new `innoRouterSceneHost` modifier to resume delivery.
+    /// In manual ``SceneStore`` composition, the currently elected dispatcher
+    /// is a fallback scene-anchor modifier attached to a different scene than
+    /// the one the intent would affect, so the intent is refused instead of
+    /// being serviced from an unrelated scene. Attach a new
+    /// `innoRouterSceneHost` modifier to resume manual delivery. Generated
+    /// `@SceneRouter` trees do not use restricted fallback anchors: every live
+    /// root is a cooperative host, and a surviving host is promoted when the
+    /// elected host disappears.
     case fallbackCannotDispatch
 
     /// A second `innoRouterSceneHost` modifier tried to register with the
-    /// store while another host was already primary. The losing host goes dormant
-    /// rather than crashing so SwiftUI scene rehydration and hot-reload
-    /// sequences remain safe in production. Apps that hit this reason
-    /// in normal steady state should attach exactly one
-    /// `innoRouterSceneHost` modifier per ``SceneStore``.
+    /// store while another host was already elected. The losing host goes
+    /// dormant rather than crashing so SwiftUI scene rehydration and hot-reload
+    /// sequences remain safe in production. Generated `@SceneRouter` trees use
+    /// this cooperative election intentionally; dormant generated hosts retry
+    /// after the elected host disappears. Only manually composed stores should
+    /// recover by attaching exactly one `innoRouterSceneHost` modifier per
+    /// ``SceneStore``.
     case duplicateHostRegistration
 
     /// The dispatcher's ``Task`` was cancelled (the owning view

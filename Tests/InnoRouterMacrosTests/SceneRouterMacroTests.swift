@@ -1120,8 +1120,8 @@ struct SceneRouterMacroValidationAndCompositionTests {
         )
     }
 
-    @Test("W010 warns when an immersive scene becomes the primary host without launch acknowledgement")
-    func immersivePrimaryHostRequiresAcknowledgement() throws {
+    @Test("W010 warns when the launch-preferred scene is immersive without acknowledgement")
+    func immersiveLaunchPreferredSceneRequiresAcknowledgement() throws {
         assertMacroExpansion(
             """
             @SceneRouter
@@ -1185,7 +1185,7 @@ struct SceneRouterMacroValidationAndCompositionTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "[InnoRouterMacro.W010] the first @SceneRouter case becomes the primary host, but an immersive host cannot dispatch until the system opens it; move a window or volume first, or set `UIApplicationPreferredDefaultSceneSessionRole` to `UISceneSessionRoleImmersiveSpaceApplication` and acknowledge it with `@SceneRouter(immersiveLaunch: true)`",
+                    message: "[InnoRouterMacro.W010] the first @SceneRouter case is launch-preferred, but an immersive scene cannot become the elected host until the system opens it; move a window or volume first, or set `UIApplicationPreferredDefaultSceneSessionRole` to `UISceneSessionRoleImmersiveSpaceApplication` and acknowledge it with `@SceneRouter(immersiveLaunch: true)`",
                     line: 1,
                     column: 1,
                     severity: .warning
@@ -1195,8 +1195,8 @@ struct SceneRouterMacroValidationAndCompositionTests {
         )
     }
 
-    @Test("W011 warns when immersive launch acknowledgement is unnecessary")
-    func unusedImmersiveLaunchAcknowledgement() throws {
+    @Test("W011 warns when acknowledgement does not match the launch-preferred scene")
+    func immersiveLaunchAcknowledgementRequiresImmersiveLaunchPreference() throws {
         assertMacroExpansion(
             """
             @SceneRouter(immersiveLaunch: true)
@@ -1258,7 +1258,7 @@ struct SceneRouterMacroValidationAndCompositionTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "[InnoRouterMacro.W011] `immersiveLaunch: true` is only needed when the first scene is immersive; remove it while a window or volume is the primary host",
+                    message: "[InnoRouterMacro.W011] `immersiveLaunch: true` is only needed when the launch-preferred scene is immersive; remove it while a window or volume is launch-preferred",
                     line: 1,
                     column: 1,
                     severity: .warning

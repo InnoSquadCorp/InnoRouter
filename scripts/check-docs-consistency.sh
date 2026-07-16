@@ -15,6 +15,7 @@ CHANGELOG_PATH="$ROOT_DIR/CHANGELOG.md"
 REJECTION_CATALOG_PATH="$ROOT_DIR/Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Rejection-Reasons.md"
 MACRO_CONTRACT_PATH="$ROOT_DIR/Docs/design-macro-first-surfaces.md"
 MACRO_DIAGNOSTIC_PATH="$ROOT_DIR/Sources/InnoRouterMacros/InnoRouterMacros.docc/Macro-Diagnostics.md"
+SPATIAL_TUTORIAL_PATH="$ROOT_DIR/Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md"
 
 failures=0
 
@@ -32,6 +33,24 @@ check_absent() {
   if grep -Fn -- "$pattern" "$file_path" >/dev/null 2>&1; then
     echo "[check-docs-consistency] Failed: $message" >&2
     grep -Fn -- "$pattern" "$file_path" >&2
+    failures=1
+  fi
+}
+
+check_absent_match() {
+  local file_path="$1"
+  local pattern="$2"
+  local message="$3"
+
+  if [[ ! -f "$file_path" ]]; then
+    echo "[check-docs-consistency] Failed: required file not found: $file_path" >&2
+    failures=1
+    return
+  fi
+
+  if grep -E -- "$pattern" "$file_path" >/dev/null 2>&1; then
+    echo "[check-docs-consistency] Failed: $message" >&2
+    grep -En -- "$pattern" "$file_path" >&2
     failures=1
   fi
 }
@@ -441,6 +460,19 @@ check_present "$MACRO_CONTRACT_PATH" '(`E028`)' \
   "macro-first contract does not document unreachable deep-link mappings"
 check_present "$MACRO_CONTRACT_PATH" '`W012`' \
   "macro-first contract does not document reachable typed deep-link fallbacks"
+check_section_match "$SPATIAL_TUTORIAL_PATH" \
+  '## 1. Declare the scene inventory' '## 2. Install the generated scene tree' \
+  '^[[:space:]]*\.product\(name: "InnoRouterSpatial", package: "InnoRouter"\)$' \
+  "Spatial tutorial does not attach the opt-in InnoRouterSpatial product"
+check_absent "$SPATIAL_TUTORIAL_PATH" \
+  '.product(name: "InnoRouter", package: "InnoRouter")' \
+  "Spatial tutorial adds the default umbrella despite documenting a Spatial-only target"
+check_section_match "$SPATIAL_TUTORIAL_PATH" \
+  '## 1. Declare the scene inventory' '## 2. Install the generated scene tree' \
+  '^[[:space:]]*import InnoRouterSpatial[[:space:]]*$' \
+  "Spatial tutorial does not import the product it asks consumers to add"
+check_absent_match "$SPATIAL_TUTORIAL_PATH" '^[[:space:]]*import InnoRouter[[:space:]]*$' \
+  "Spatial tutorial imports InnoRouter without adding the default umbrella product"
 check_macro_diagnostic_codes_documented
 
 echo "[check-docs-consistency] Checking Swift toolchain contract"
