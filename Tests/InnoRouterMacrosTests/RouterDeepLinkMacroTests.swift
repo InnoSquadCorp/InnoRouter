@@ -831,11 +831,29 @@ struct RouterDeepLinkDiagnosticMacroTests {
             (
                 """
                 @DeepLink("/items/:value")
-                case text(value: Swift.String)
+                case text(value: String)
                 @DeepLink("/items/:value")
                 case identifier(value: Foundation.UUID)
                 """,
                 "`/items/:param` is fully handled by mapping 1, whose generated typed conversion accepts every value this mapping accepts"
+            ),
+            (
+                """
+                @DeepLink("/items/:value")
+                case number(value: Int)
+                @DeepLink("/items/:value")
+                case qualifiedNumber(value: Swift.Int)
+                """,
+                "`/items/:param` duplicates mapping 1"
+            ),
+            (
+                """
+                @DeepLink("/items/:value")
+                case identifier(value: UUID)
+                @DeepLink("/items/:value")
+                case qualifiedIdentifier(value: Foundation.UUID)
+                """,
+                "`/items/:param` duplicates mapping 1"
             ),
             (
                 """

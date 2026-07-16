@@ -532,19 +532,61 @@ private func generatedHandlerParsingSignature(
         uniqueKeysWithValues: item.parameters.map { ($0.label, $0) }
     )
     let pathTypes = placeholders.compactMap {
-        parametersByLabel[$0]?.wrappedType
+        parametersByLabel[$0].map {
+            canonicalDeepLinkParameterTypeName($0.wrappedType)
+        }
     }
     guard pathTypes.count == placeholders.count else { return nil }
 
     let placeholderSet = Set(placeholders)
     let queryTypes = Dictionary(uniqueKeysWithValues: item.parameters
         .filter { !placeholderSet.contains($0.label) }
-        .map { ($0.label, $0.wrappedType) })
+        .map {
+            ($0.label, canonicalDeepLinkParameterTypeName($0.wrappedType))
+        })
 
     return RouterDeepLinkParsingSignature(
         pathTypes: pathTypes,
         queryTypes: queryTypes
     )
+}
+
+private let swiftDeepLinkParameterTypeNames: Set<String> = [
+    "String",
+    "Int",
+    "Int8",
+    "Int16",
+    "Int32",
+    "Int64",
+    "UInt",
+    "UInt8",
+    "UInt16",
+    "UInt32",
+    "UInt64",
+    "Double",
+    "Float",
+    "Bool",
+]
+
+/// Macro expansion has syntax but no type-resolution context. Canonicalize the
+/// standard spellings that InnoRouter itself makes `DeepLinkParameterValue` so
+/// reachability does not change when a caller writes `Int` instead of
+/// `Swift.Int`. Preserve every other nominal type verbatim because its parser
+/// may have custom acceptance rules.
+private func canonicalDeepLinkParameterTypeName(_ typeName: String) -> String {
+    if swiftDeepLinkParameterTypeNames.contains(typeName) {
+        return "Swift.\(typeName)"
+    }
+    if typeName.hasPrefix("Swift.") {
+        let unqualified = String(typeName.dropFirst("Swift.".count))
+        if swiftDeepLinkParameterTypeNames.contains(unqualified) {
+            return "Swift.\(unqualified)"
+        }
+    }
+    if typeName == "UUID" || typeName == "Foundation.UUID" {
+        return "Foundation.UUID"
+    }
+    return typeName
 }
 
 private func renderDeepLinkMapping(_ item: RouterDeepLinkItem) -> String {

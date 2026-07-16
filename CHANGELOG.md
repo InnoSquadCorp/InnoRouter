@@ -362,6 +362,11 @@ are bare semver (no leading `v`).
   `InnoRouterMacro.W012`; the later mapping runs when the earlier conversion
   returns `nil`. Mappings whose generated parsing conditions are already
   covered by an earlier mapping remain the `InnoRouterMacro.E028` build error.
+- Deep-link reachability now treats qualified and unqualified standard parser
+  types consistently. An earlier `String` mapping is recognized as accepting
+  every captured value just like `Swift.String`, while pairs such as `Int` and
+  `Swift.Int` no longer produce a misleading typed-fallback warning for the
+  same parser.
 - Swift 6.3 CI jobs now run on the `macos-26` runner image and pin Xcode 26.6.
   The previous `macos-15` / Xcode 26.3 combination selected Swift 6.2.4 and
   rejected the package manifest before tests, DocC, coverage, performance, or
