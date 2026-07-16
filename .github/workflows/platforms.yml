@@ -141,6 +141,15 @@ jobs:
             -destination '${{ matrix.platform.destination }}' \
             -quiet
 
+      - name: Build visionOS human-facing Spatial example
+        if: matrix.platform.name == 'visionOS'
+        run: |
+          xcodebuild build \
+            -workspace .github/platform-tests.xcworkspace \
+            -scheme InnoRouterVisionOSImmersiveExample \
+            -destination '${{ matrix.platform.destination }}' \
+            -quiet
+
       - name: Build visionOS spatial consumer smoke
         if: matrix.platform.name == 'visionOS'
         run: |

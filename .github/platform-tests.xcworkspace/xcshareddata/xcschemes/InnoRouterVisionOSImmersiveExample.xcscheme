@@ -15,9 +15,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "InnoRouterSpatialConsumerSmoke"
-               BuildableName = "InnoRouterSpatialConsumerSmoke"
-               BlueprintName = "InnoRouterSpatialConsumerSmoke"
+               BlueprintIdentifier = "InnoRouterVisionOSImmersiveExample"
+               BuildableName = "InnoRouterVisionOSImmersiveExample"
+               BlueprintName = "InnoRouterVisionOSImmersiveExample"
                ReferencedContainer = "container:..">
             </BuildableReference>
          </BuildActionEntry>

@@ -332,8 +332,11 @@ are bare semver (no leading `v`).
 - Consumer contract gates now resolve SwiftPM dependencies to keep the core
   macro smoke on `InnoRouter` alone, the Spatial smoke on
   `InnoRouterSpatial` alone, and Effects/Spatial outside the default umbrella.
-  Source lint also locks `RouterSplitHost` as an explicitly unavailable API on
-  watchOS with compiler recovery guidance instead of a callable empty fallback.
+  They also lock each resolved fixture target to its one intended source and
+  parse the shared Xcode schemes to require one exact buildable, preventing a
+  platform job from compiling the wrong or an empty fixture. Source lint also
+  locks `RouterSplitHost` as an explicitly unavailable API on watchOS with
+  compiler recovery guidance instead of a callable empty fallback.
 - Release publication now resolves strict GA/`rc`/`beta` metadata through one
   SemVer policy, reads release policy from `main`, verifies the exact tag and
   triggering SHA against `main` ancestry, and builds only the resulting

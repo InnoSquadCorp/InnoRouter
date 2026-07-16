@@ -38,7 +38,12 @@ EXAMPLES_DIR="Examples"
 SMOKE_DIR="ExamplesSmoke"
 MANIFEST="Package.swift"
 PRINCIPLE_GATES="scripts/principle-gates.sh"
+PLATFORM_WORKFLOW=".github/workflows/platforms.yml"
 UMBRELLA_SOURCE="Sources/InnoRouterUmbrella/InnoRouter.swift"
+CONTRACT_VALIDATOR="scripts/validate-example-consumer-contracts.py"
+MACRO_FIRST_SCHEME=".github/platform-tests.xcworkspace/xcshareddata/xcschemes/InnoRouterMacroFirstSmoke.xcscheme"
+SPATIAL_CONSUMER_SCHEME=".github/platform-tests.xcworkspace/xcshareddata/xcschemes/InnoRouterSpatialConsumerSmoke.xcscheme"
+SPATIAL_EXAMPLE_SCHEME=".github/platform-tests.xcworkspace/xcshareddata/xcschemes/InnoRouterVisionOSImmersiveExample.xcscheme"
 
 # Smoke files that intentionally have no Examples/ counterpart.
 # Keep this list short — the default expectation is one-to-one.
@@ -147,7 +152,12 @@ fi
 #    The main gate must also build every human-facing example target.
 require_readable_file "$MANIFEST" "Swift package manifest"
 require_readable_file "$PRINCIPLE_GATES" "principle gates script"
+require_readable_file "$PLATFORM_WORKFLOW" "Apple platform workflow"
 require_readable_file "$UMBRELLA_SOURCE" "InnoRouter umbrella source"
+require_readable_file "$CONTRACT_VALIDATOR" "consumer contract validator"
+require_readable_file "$MACRO_FIRST_SCHEME" "macro-first consumer scheme"
+require_readable_file "$SPATIAL_CONSUMER_SCHEME" "Spatial consumer scheme"
+require_readable_file "$SPATIAL_EXAMPLE_SCHEME" "visionOS human example scheme"
 if (( missing_required_file > 0 )); then
     echo "" >&2
     echo "Examples↔ExamplesSmoke parity gate failed with $errors violation(s)." >&2
@@ -157,7 +167,9 @@ fi
 # The two consumer fixtures prove one-product downstream contracts, not merely
 # that their source happens to compile. Inspect SwiftPM's resolved manifest so
 # helper defaults or later dependency additions cannot silently widen either
-# target. The umbrella target and source exports are checked at the same time
+# target. The exact source list and Xcode scheme BuildableReference are locked
+# too, so a green platform build cannot silently compile the wrong or an empty
+# fixture. The umbrella target and source exports are checked at the same time
 # to keep Spatial and Effects opt-in.
 package_dump="$(mktemp)"
 trap 'rm -f "$package_dump"' EXIT
@@ -166,97 +178,21 @@ if ! command -v python3 >/dev/null 2>&1; then
 elif ! swift package dump-package >"$package_dump"; then
     report "swift package dump-package failed while checking consumer product boundaries"
 else
-    if ! dependency_errors="$(
-        python3 - "$package_dump" "$UMBRELLA_SOURCE" <<'PY'
-import json
-import re
-import sys
-from pathlib import Path
-
-manifest_path = Path(sys.argv[1])
-umbrella_path = Path(sys.argv[2])
-
-with manifest_path.open(encoding="utf-8") as handle:
-    package = json.load(handle)
-
-targets = {target["name"]: target for target in package["targets"]}
-expected_dependencies = {
-    "InnoRouter": [
-        "InnoRouterCore",
-        "InnoRouterDeepLink",
-        "InnoRouterMacros",
-        "InnoRouterSwiftUI",
-    ],
-    "InnoRouterMacroFirstSmoke": ["InnoRouter"],
-    "InnoRouterSpatialConsumerSmoke": ["InnoRouterSpatial"],
-}
-
-for target_name, expected in expected_dependencies.items():
-    target = targets.get(target_name)
-    if target is None:
-        print(f"Package.swift is missing target {target_name}")
-        continue
-
-    actual = []
-    malformed = []
-    for dependency in target.get("dependencies", []):
-        if len(dependency) != 1:
-            malformed.append(dependency)
-            continue
-        kind, payload = next(iter(dependency.items()))
-        if (
-            kind != "byName"
-            or not isinstance(payload, list)
-            or len(payload) != 2
-            or not isinstance(payload[0], str)
-            or payload[1] is not None
-        ):
-            malformed.append(dependency)
-            continue
-        actual.append(payload[0])
-
-    if malformed or sorted(actual) != expected or len(actual) != len(expected):
-        print(
-            f"{target_name} must depend on exactly {expected}; "
-            f"found names={actual}, unsupported={malformed}"
-        )
-
-umbrella_source = umbrella_path.read_text(encoding="utf-8")
-umbrella_code = re.sub(r"/\*.*?\*/", " ", umbrella_source, flags=re.DOTALL)
-umbrella_code = re.sub(r"//[^\n]*", " ", umbrella_code)
-actual_exports = re.findall(
-    r"@_exported\s+import\s+([A-Za-z_][A-Za-z0-9_]*)",
-    umbrella_code,
-)
-expected_exports = [
-    "InnoRouterCore",
-    "InnoRouterDeepLink",
-    "InnoRouterMacros",
-    "InnoRouterSwiftUI",
-]
-exported_attribute_count = len(re.findall(r"@_exported\b", umbrella_code))
-public_imports = re.findall(
-    r"\bpublic\s+import\s+([A-Za-z_][A-Za-z0-9_]*)",
-    umbrella_code,
-)
-if (
-    sorted(actual_exports) != expected_exports
-    or len(actual_exports) != len(expected_exports)
-    or exported_attribute_count != len(expected_exports)
-    or public_imports
-):
-    print(
-        "InnoRouter umbrella must re-export exactly "
-        f"{expected_exports}; found @_exported={actual_exports}, "
-        f"public={public_imports}, attributes={exported_attribute_count}"
-    )
-PY
+    if ! contract_errors="$(
+        python3 "$CONTRACT_VALIDATOR" \
+            "$package_dump" \
+            "$UMBRELLA_SOURCE" \
+            "$MACRO_FIRST_SCHEME" \
+            "$SPATIAL_CONSUMER_SCHEME" \
+            "$SPATIAL_EXAMPLE_SCHEME"
     )"; then
-        report "failed to inspect resolved consumer product boundaries"
-    elif [[ -n "$dependency_errors" ]]; then
-        while IFS= read -r dependency_error; do
-            report "$dependency_error"
-        done <<< "$dependency_errors"
+        if [[ -z "$contract_errors" ]]; then
+            report "failed to inspect resolved consumer product and scheme boundaries"
+        else
+            while IFS= read -r contract_error; do
+                report "$contract_error"
+            done <<< "$contract_errors"
+        fi
     fi
 fi
 
@@ -327,6 +263,17 @@ fi
 if ! grep -q -- '-scheme InnoRouterSpatialConsumerSmoke' "$PRINCIPLE_GATES"; then
     report "$PRINCIPLE_GATES does not build InnoRouterSpatialConsumerSmoke for visionOS"
 fi
+if ! grep -q -- '-scheme InnoRouterVisionOSImmersiveExample' "$PRINCIPLE_GATES"; then
+    report "$PRINCIPLE_GATES does not build InnoRouterVisionOSImmersiveExample for visionOS"
+fi
+for platform_scheme in \
+    InnoRouterMacroFirstSmoke \
+    InnoRouterSpatialConsumerSmoke \
+    InnoRouterVisionOSImmersiveExample; do
+    if ! grep -q -- "-scheme $platform_scheme" "$PLATFORM_WORKFLOW"; then
+        report "$PLATFORM_WORKFLOW does not build $platform_scheme"
+    fi
+done
 
 if (( errors > 0 )); then
     echo "" >&2

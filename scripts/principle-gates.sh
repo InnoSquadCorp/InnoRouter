@@ -96,8 +96,10 @@ echo "[principle-gates] Checking documentation Swift code blocks"
 # Gate 6 — Examples/ ↔ ExamplesSmoke/ 1:1 alignment. See
 # Examples/README.md for the contributor rules on which side to edit.
 # Failure signal: a file present on one side missing on the other.
-# Local repro: ./scripts/check-examples-parity.sh
+# Local repro: python3 ./scripts/test_validate_example_consumer_contracts.py &&
+#              ./scripts/check-examples-parity.sh
 echo "[principle-gates] Checking Examples↔ExamplesSmoke parity"
+python3 ./scripts/test_validate_example_consumer_contracts.py
 ./scripts/check-examples-parity.sh
 
 # Gate 7 — compiler-stable smoke fixtures. The dedicated macro-first target
@@ -299,6 +301,14 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
       -quiet
 
     if [[ "$name_lc" == "visionos" ]]; then
+      echo "[principle-gates] xcodebuild build -scheme InnoRouterVisionOSImmersiveExample ($name)"
+      xcodebuild build \
+        -workspace .github/platform-tests.xcworkspace \
+        -scheme InnoRouterVisionOSImmersiveExample \
+        -destination "$dest" \
+        -jobs "$XCODEBUILD_JOBS" \
+        -quiet
+
       echo "[principle-gates] xcodebuild build -scheme InnoRouterSpatialConsumerSmoke ($name)"
       xcodebuild build \
         -workspace .github/platform-tests.xcworkspace \
