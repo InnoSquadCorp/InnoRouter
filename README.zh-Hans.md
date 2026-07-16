@@ -15,12 +15,14 @@ InnoRouter 是一个 SwiftUI 原生的导航框架,围绕类型化状态、显�
 
 InnoRouter 负责:
 
-- 通过 `RouteStack` 管理栈式导航状态
+- 通过 `@Router` 生成 route 和 destination 连接代码
+- 通过 `RouterHost`、`RouterModalHost`、`RouterSplitHost` 和 `RouterTabHost`
+  在本地拥有 stack、modal、split-detail 和 tab authority
+- 通过 `@DeepLink` 进行 fail-closed 的 URL-to-route 映射
+- 通过 `@SceneRouter` 和 `@Scene` 选择加入 spatial scene 组合
+- 通过 `NavigationStore`、`ModalStore` 和 `FlowStore` 提供外部持有的高级导航
 - 通过 `NavigationCommand` 和 `NavigationEngine` 执行命令
-- 通过 `NavigationStore` 提供 SwiftUI 导航权限
-- 通过 `ModalStore` 提供 `sheet` 和 `fullScreenCover` 的模态权限
-- 通过 `DeepLinkMatcher` 和 `DeepLinkPipeline` 进行深链接匹配和规划
-- 通过 `InnoRouterEffects` 提供应用边界的执行助手
+- 通过 `DeepLinkPipeline` 和 `InnoRouterEffects` 完成高级深链接规划与 pending replay
 
 它有意不是通用的应用程序状态机。
 
@@ -64,19 +66,22 @@ InnoRouter 通过 SwiftUI 在每个 Apple 平台上发布。无需 UIKit 或 App
 
 | 能力 | iOS | iPadOS | macOS | tvOS | watchOS | visionOS |
 |---|---|---|---|---|---|---|
+| `@Router` + `RouterHost` / `RouterModalHost` / `RouterTabHost` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `@Router` + `RouterSplitHost` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | `NavigationStore` / `NavigationHost` / `FlowStore` / `FlowHost` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `NavigationSplitHost` / `CoordinatorSplitHost` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | `ModalHost` `.sheet` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `ModalHost` `.fullScreenCover` 原生 | ✅ | ✅ | ⚠ 降级 | ✅ | ⚠ 降级 | ⚠ 降级 |
-| `TabCoordinator.badge` 状态 API / 原生视觉效果 | ✅ | ✅ | ✅ | ⚠ 仅状态 | ⚠ 仅状态 | ✅ |
+| Tab badge 状态 API / 原生视觉效果 | ✅ | ✅ | ✅ | ⚠ 仅状态 | ⚠ 仅状态 | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `InnoRouterSpatial`：`SceneStore` / `innoRouterSceneHost` (windows、volumetric、immersive) | — | — | — | — | — | ✅ |
+| `InnoRouterSpatial`：`@SceneRouter` / `@Scene` (windows、volumetric、immersive) | — | — | — | — | — | ✅ |
 | `InnoRouterSpatial`：`innoRouterOrnament(_:content:)` 视图 modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ 降级` 表示 store API 不变地接受请求,但 SwiftUI host 因为 `.fullScreenCover`
-不可用而将其渲染为 `.sheet`。`⚠ 仅状态` 表示 coordinator 存储并暴露 badge 状态,
-但 `TabCoordinatorView` 因为 `.badge(_:)` 不可用而省略了 SwiftUI 的原生视觉
-badge。`❌` 表示该符号在该平台上未声明;请用 `#if !os(...)` 包住构建。
+不可用而将其渲染为 `.sheet`。`⚠ 仅状态` 表示 router 存储并暴露 badge 状态,
+但 `RouterTabHost` 和 `TabCoordinatorView` 因为 `.badge(_:)` 不可用而省略了 SwiftUI 的原生视觉
+badge。`❌` 表示该 API 在该平台上不存在或被明确标记为 unavailable，因而无法使用；
+请在适当的 availability 或条件编译 guard 内构建调用。
 空间路由表面是 5.0 的正式 opt-in API，不再标记为 experimental。
 
 ## 安装
@@ -84,40 +89,94 @@ badge。`❌` 表示该符号在该平台上未声明;请用 `#if !os(...)` 包�
 ```swift skip package-manifest-fragment
 dependencies: [
     .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "5.0.0")
+],
+targets: [
+    .target(
+        name: "MyApp",
+        dependencies: [
+            .product(name: "InnoRouter", package: "InnoRouter")
+        ]
+    )
 ]
 ```
 
-请在应用目标中添加用于基础路由的 `InnoRouter` 产品。使用 visionOS scene 或 ornament
-的目标还必须显式添加 `InnoRouterSpatial` 产品。`InnoRouter` 伞形目标不会重新导出
-`InnoRouterSpatial`。
-应用目标只需添加 `InnoRouter` 这一个产品。它同时提供运行时 API 和 macros，
-因此源代码中只需一个 `import InnoRouter`。
+普通应用 target 从 `InnoRouter` 产品开始。它同时提供运行时 API 和 macros，因此
+源码中只需 `import InnoRouter`。使用 visionOS scene routing 或应用边界执行的 target
+分别显式添加 `InnoRouterSpatial` 或 `InnoRouterEffects`；test target 按需添加
+`InnoRouterTesting`。`InnoRouter` 伞形产品不会重新导出这些 opt-in 产品。
 
 InnoRouter 作为纯源码 SwiftPM 包发布。它不发布二进制工件,并且 library evolution
 有意关闭,以便在 Apple 平台上保持源码构建的简单性。
 
-文档门也保持至少一个完整的 Swift 片段对包进行类型检查:
+## 30 秒快速开始
+
+只需导入一次 InnoRouter，在 enum 上添加 `@Router`，并在 enum 的
+`destination` 属性中描述每个目的地。Macro 会提供 `Route` 和
+`DestinationRoute` conformance，以及 SwiftUI 所需的 actor 和 result-builder 注解。
 
 ```swift compile
 import SwiftUI
 import InnoRouter
 
 @Router
-enum CompileCheckedRoute {
-    case detail
+enum HomeRoute {
+    case detail(id: String)
+    case settings
 
     var destination: some View {
-        Text("Detail")
+        switch self {
+        case .detail(let id):
+            Text("Detail \(id)")
+        case .settings:
+            Text("Settings")
+        }
     }
 }
 
-@MainActor
-func makeCompileCheckedHost() -> some View {
-    RouterHost(CompileCheckedRoute.self) {
-        Text("Home")
+struct AppRoot: View {
+    var body: some View {
+        RouterHost(HomeRoute.self) {
+            HomeView()
+        }
+    }
+}
+
+struct HomeView: View {
+    @EnvironmentRouter(HomeRoute.self) private var router
+
+    var body: some View {
+        List {
+            Button("Detail") {
+                router.go(.detail(id: "123"))
+            }
+            Button("Settings") {
+                router.go(.settings)
+            }
+        }
+        .navigationTitle("Home")
     }
 }
 ```
+
+当 `@Router` 附着到错误的声明、`destination` 属性缺失或格式错误，
+或生成成员与手写声明冲突时，macro 会报告编译时诊断。Host 缺失或
+不匹配属于运行时层次问题，会遵循 InnoRouter 配置的 environment 诊断策略。
+
+### 不添加 store 即可扩展其他 surface
+
+保持同一个 route-first 模型，只选择与 UI 匹配的 host：
+
+| 添加 | 声明 | Host |
+|---|---|---|
+| sheet / cover | 同一个 `@Router` cases | `RouterHost` 或仅 modal 的 `RouterModalHost` |
+| split detail | 同一个 `@Router` enum | `RouterSplitHost` |
+| 原生 tabs | 在每个 `@Router` case 上添加 `@TabItem` | `RouterTabHost` |
+| 单 route 深链接 | `@Router` 上的 literal allowlists 加 `@DeepLink` cases | `RouterHost`、`RouterSplitHost` 或 `RouterTabHost` |
+| visionOS scenes | `@SceneRouter` 加每个 case 一个 `@Scene` | 在 `App.body` 中安装 `<Route>.scenes` |
+
+所有 route action 仍来自 `@EnvironmentRouter`；spatial scene action 来自
+`@EnvironmentSceneRouter`。无效或不完整的 macro 声明会产生可执行的编译器诊断。
+运行时 host authority 缺失或不匹配时，会遵循配置的 environment 诊断策略。
 
 ## OSS 发布与 SemVer 合约
 
@@ -170,18 +229,22 @@ func makeCompileCheckedHost() -> some View {
 ### Imports
 
 伞形目标 `InnoRouter` 重新导出 `InnoRouterCore`、`InnoRouterSwiftUI`、
-`InnoRouterDeepLink` 和 macro 声明。因此 `@Router`、`@Routable` 和
-`@CasePathable` 都可以通过一个 import 使用。空间路由和 app-boundary effects
-仍是独立产品；`InnoRouter` 不会重新导出 `InnoRouterSpatial`:
+`InnoRouterDeepLink` 和 router macros。5.0 的默认体验是 macro-first：
+应用 target 只添加一个产品，源文件只需一个 import。空间 scene
+和 app-boundary effects 仍是 opt-in：
 
 ```swift skip doc-fragment
-import InnoRouter            // stores、stack/modal hosts、intents、deep links
-import InnoRouterSpatial     // 仅在使用 visionOS scenes 和 ornaments 时
+import InnoRouter            // stores、hosts、deep links 和 macros
+import InnoRouterSpatial     // visionOS scenes 和 ornaments
 import InnoRouterEffects     // app-boundary 执行与 pending replay
 ```
 
-`@Router`、`RouterHost`、`@EnvironmentRouter` 以及高级属性包装器和
-视图修饰符都来自 `InnoRouter`。
+直接 import 是高级模块化选择。`InnoRouterCore`、`InnoRouterSwiftUI`
+和 `InnoRouterDeepLink` 让 target 选择更小的非 macro 表面；
+`InnoRouterMacros` 直接公开 macro 声明，并重新导出生成代码所依赖的
+Core、SwiftUI 和 DeepLink API。选择细粒度的非 macro 产品可以让
+compiler-plugin target 不进入该 target 的 build graph。SwiftPM 仍会解析
+该 source package 记录的 package-level `swift-syntax` 依赖。
 
 SwiftSyntax 支持的 macro 实现包含在此包中。package-traits 或独立 macro 包拆分
 应在测量 `swift package show-traits`、
@@ -190,58 +253,64 @@ SwiftSyntax 支持的 macro 实现包含在此包中。package-traits 或独立 
 
 | 产品 | 何时导入 |
 |---|---|
-| `InnoRouter` | 应用代码的默认产品：macros、router hosts、stack/modal stores、intents、coordinators、deep links 和持久化助手。 |
-| `InnoRouterSpatial` | 使用 visionOS scenes、immersive spaces 或 ornaments 路由的应用目标。请与 `InnoRouter` 分开添加并导入该产品。 |
-| `InnoRouterMacros` | 需要 macros 与 Core/SwiftUI API、但不需要完整 deep-link 伞形表面的目标所用的细分产品；应用目标通常使用 `InnoRouter`。 |
+| `InnoRouter` | 应用代码的默认产品：`@Router`、`@TabItem`、`@DeepLink`、macro-first hosts，以及其下的高级 stores。 |
+| `InnoRouterSpatial` | 使用 `@SceneRouter` / `@Scene` 声明 visionOS windows、volumes 或 immersive spaces，或使用手动 scene store 和 ornament API 的 targets。`InnoRouter` 不会重新导出该产品。 |
+| `InnoRouterMacros` | 直接 macro 模块，重新导出生成代码使用的 Core、SwiftUI 和 DeepLink API；应用 target 通常使用 `InnoRouter` 伞形产品。 |
 | `InnoRouterEffects` | 执行 `NavigationCommand` 值并处理或恢复挂起深链接的应用边界代码。 |
 | `InnoRouterTesting` | 想要无 host 的 `NavigationTestStore`、`ModalTestStore` 或 `FlowTestStore` 的测试目标。 |
 
 ## 模块
 
-- `InnoRouter`:`InnoRouterCore`、`InnoRouterSwiftUI`、`InnoRouterDeepLink` 和 macro 声明的伞形重新导出
+- `InnoRouter`:默认的 macro-first 伞形产品，重新导出 `InnoRouterCore`、`InnoRouterSwiftUI`、`InnoRouterDeepLink` 和 `InnoRouterMacros`
 - `InnoRouterCore`:route stack、validators、commands、results、batch/transaction executors、middleware
-- `InnoRouterSwiftUI`:stores、stack/split/modal/flow hosts、coordinators 和类型化 `EnvironmentRouter` actions
-- `InnoRouterSpatial`:opt-in visionOS scene/immersive-space stores、hosts、anchors 和 ornaments
+- `InnoRouterSwiftUI`:`RouterHost`、`RouterModalHost`、`RouterSplitHost`、`RouterTabHost`、高级 stores/hosts、coordinators 和类型化 `EnvironmentRouter` actions
+- `InnoRouterSpatial`:opt-in `@SceneRouter` / `@Scene`、生成的 scene 组合、手动 scene registry/store、host/anchor modifiers 和 ornaments
 - `InnoRouterDeepLink`:模式匹配、诊断、pipeline 规划、挂起深链接
-- `InnoRouterEffects`:用于应用边界的导航与深链接执行助手
-- `InnoRouterMacros`:提供 `@Router`、`@Routable` 和 `@CasePathable` 的细分 macro 产品
+- `InnoRouterEffects`:opt-in 应用边界导航与深链接执行助手
+- `InnoRouterMacros`:`@Router`、`@TabItem`、`@DeepLink`、`@Routable` 和 `@CasePathable`
 
 ## 选择正确的表面
 
-使用拥有所需转换权限的最小表面:
+从 route enum 和 macro-first host 开始。只有当应用边界需要状态恢复、
+可变 middleware、直接观察、身份验证后的 pending replay 或原子多步计划时，
+才升级到外部持有的 store。
 
 | 需求 | 使用 |
 |---|---|
-| 一个自包含的类型化 SwiftUI 栈 | `@Router` + `RouterHost` |
-| 由深链接、恢复、middleware 或应用状态拥有的栈 | `NavigationStore` + `NavigationHost` |
-| 在支持的平台上的分屏视图栈 | `NavigationStore` + `NavigationSplitHost` |
-| 不重置栈的 sheet / cover 权限 | `ModalStore` + `ModalHost` |
-| Push + modal 流程、恢复或多步深链接 | `FlowStore` + `FlowHost` + `FlowPlan` |
-| URL 转 push-only 命令计划 | `DeepLinkMatcher` + `DeepLinkPipeline` |
-| URL 转 push-prefix 加 modal-tail 流程 | `DeepLinkMatcher<FlowPlan<R>>` + `FlowDeepLinkPipeline` |
-| visionOS windows、volumes、immersive spaces | `InnoRouterSpatial` + `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
+| 一个本地 feature 中的 stack + sheet / cover | `@Router` + `RouterHost` |
+| 仅 modal 的本地 feature | `@Router` + `RouterModalHost` |
+| 受支持平台上的 split-detail 导航 | `@Router` + `RouterSplitHost` |
+| 具有自动生成 title 和 image 的原生 tabs | `@Router` + `@TabItem` + `RouterTabHost` |
+| 一个允许的 URL 选择或 push 一个 route | `@Router(deepLinkSchemes:deepLinkHosts:)` + `@DeepLink` + `RouterHost`、`RouterSplitHost` 或 `RouterTabHost` |
+| visionOS windows、volumes 和 immersive spaces | `InnoRouterSpatial`:`@SceneRouter` + `@Scene` + `<Route>.scenes` |
+| 外部持有的 stack、状态恢复、middleware 或直接观察 | `NavigationStore` + `NavigationHost` |
+| 外部持有的 modal queue | `ModalStore` + `ModalHost` |
+| 原子 push + modal 计划或恢复流程 | `FlowStore` + `FlowHost` + `FlowPlan` |
+| 身份验证、pending replay 或多步 URL 规划 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` + `InnoRouterEffects` |
+| 手动 visionOS scene authority 或自定义 scene 组合 | `SceneStore` + `innoRouterSceneHost` / `innoRouterSceneAnchor` |
 | Reducer、effect 或应用边界执行 | `InnoRouterEffects` |
 | 无 SwiftUI hosts 的 router 断言 | `InnoRouterTesting` |
 
-`NavigationStore`、`FlowStore`、`ModalStore`、`SceneStore`、effects 和 testing
-有意分离。选择 visionOS 空间表面时，请在应用目标中添加 `InnoRouterSpatial` 产品，
-并在相关源码文件中使用 `import InnoRouterSpatial`。该库保持这些权限明确,以便应用只采用
-与其路由边界匹配的部分。
+Macro-first hosts 在本地持有它们的 stores，并通过
+`@EnvironmentRouter` 发布类型化 actions。Store、Effects、Testing 和手动空间
+API 仍作为显式升级路径，而不是普通 feature 的必要设置。
 
 ### 快速决策流程图
 
 ```text
-屏幕表面是否在一个流程中结合了 push 和 modal?
-├── 是 → FlowStore + FlowHost (单一真相源、单一事件流)
-└── 否 → 它是否仅拥有模态权限(sheet / cover)?
-         ├── 是 → ModalStore + ModalHost
-         └── 否 → @Router + RouterHost
-                 (外部 authority: NavigationStore + NavigationHost;
-                  分屏视图: NavigationSplitHost)
+这是需要持有或恢复路由状态的 app-boundary 流程吗？
+├── 否 → 声明 @Router，然后选择本地 host
+│        ├── stack + modal → RouterHost
+│        ├── 仅 modal       → RouterModalHost
+│        ├── split detail     → RouterSplitHost
+│        └── tabs             → @TabItem + RouterTabHost
+└── 是 → 为该 authority 选择 NavigationStore、ModalStore 或 FlowStore
+         (需要身份验证或多步处理的 URL：DeepLinkPipeline + Effects)
 ```
 
-从视图进行普通 stack 导航时，请使用 `@EnvironmentRouter` 的 `go` / `back`。
-只有在需要显式 navigation、modal 或 flow 语义时，才使用
+从视图进行普通 stack 导航时，请使用 `@EnvironmentRouter` 的 `go` / `back`；
+已安装的 host 支持时，同一个值也会提供 modal 和 tab actions。只有在 feature
+需要显式 `NavigationIntent`、modal actions 或统一 `FlowIntent` 语义时，才使用
 [`Docs/IntentSelectionGuide.md`](Docs/IntentSelectionGuide.md) 中的底层 intent。
 
 ## 文档
@@ -266,7 +335,7 @@ GitHub 源代码视图和离线 `swift package generate-documentation` 构建都
 | [Tutorial-MiddlewareComposition](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MiddlewareComposition.md) | `InnoRouterSwiftUI` | 组合类型化 middleware、拦截命令、观察 churn |
 | [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | 用 `FlowHost` 替换嵌套的 `NavigationHost` + `ModalHost` 栈 |
 | [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | 配合确定性测试 clock 使用 `ThrottleNavigationMiddleware` |
-| [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | 从 `SceneStore` 驱动 visionOS windows、volumetric scenes 和 immersive spaces |
+| [Tutorial-VisionOSScenes](Sources/InnoRouterSpatial/InnoRouterSpatial.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSpatial` | 使用 `@SceneRouter` 和 `@Scene` 声明 visionOS windows、volumetric scenes 和 immersive spaces |
 | [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | 通过 `FlowDeepLinkPipeline` 构建组合 push + modal 深链接 |
 | [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | 使用 `StatePersistence` 跨启动持久化 `FlowPlan` / `RouteStack` |
 | [Tutorial-TestingFlows](Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/Tutorial-TestingFlows.md) | `InnoRouterTesting` | 通过 `FlowTestStore` 进行无 host 的 Swift Testing 断言 |
@@ -278,16 +347,20 @@ GitHub 源代码视图和离线 `swift package generate-documentation` 构建都
 ```mermaid
 flowchart LR
     View["SwiftUI 视图"] --> Actions["@EnvironmentRouter 类型化 actions"]
-    Actions --> Store["NavigationStore / ModalStore / FlowStore"]
+    Actions --> Host["RouterHost / RouterModalHost / RouterSplitHost / RouterTabHost"]
+    Host --> Store["FlowStore / ModalStore"]
+    Host --> Tabs["本地 tab 选择 / badge 状态"]
     Store --> Policy["Middleware / 观察 / 验证"]
     Policy --> Execution["NavigationEngine / 模态队列"]
-    Execution --> Host["RouterHost / NavigationHost / ModalHost / FlowHost"]
-    Host --> System["NavigationStack / NavigationSplitView / sheet / fullScreenCover"]
+    Execution --> Routed["NavigationStack / NavigationSplitView / presentation"]
+    Tabs --> TabView["TabView 选择 / badge 状态"]
 ```
 
 - 视图通过 `@EnvironmentRouter` 调用按 route 类型化的 action。
-- Store 拥有导航、模态或统一 flow 权限。
-- Host 将 store 状态翻译为原生 SwiftUI 导航 API。
+- `RouterHost`、`RouterModalHost` 和 `RouterSplitHost` 拥有本地 `FlowStore` 或
+  `ModalStore`；`RouterTabHost` 直接拥有选择和 badge 状态。每个 host 都会将其
+  authority 转换为原生 SwiftUI API。
+- 高级应用可以选择等价的显式 Store 或 Coordinator authority，以便外部拥有和注入。
 
 ### 深链接流程
 
@@ -305,75 +378,6 @@ flowchart LR
 - 匹配和规划保持纯净。
 - Effect 处理器是应用策略决定是现在执行还是延迟的边界。
 - 挂起深链接保留计划的转换,直到应用准备好重放它。
-
-## 快速开始
-
-添加 `InnoRouter` 产品并只导入 `InnoRouter`。`@Router` 会生成必要的 route
-conformance，并在编译时验证 `destination` 声明。
-
-### 1. 定义 Router 和目的地
-
-```swift skip doc-fragment
-import SwiftUI
-import InnoRouter
-
-@Router
-enum HomeRoute {
-    case detail(id: String)
-    case settings
-
-    var destination: some View {
-        switch self {
-        case .detail(let id):
-            Text("Detail \(id)")
-        case .settings:
-            Text("Settings")
-        }
-    }
-}
-```
-
-### 2. 使用 `RouterHost` 托管
-
-```swift skip doc-fragment
-struct AppRoot: View {
-    var body: some View {
-        RouterHost(HomeRoute.self) {
-            HomeListView()
-        }
-    }
-}
-```
-
-`RouterHost` 会拥有本地 `FlowStore`；在这条简单路径中，无需手动创建 store。
-
-### 3. 从子视图导航
-
-```swift skip doc-fragment
-struct HomeListView: View {
-    @EnvironmentRouter(HomeRoute.self) private var router
-
-    var body: some View {
-        List {
-            Button("Detail") {
-                router.go(.detail(id: "123"))
-            }
-
-            Button("Settings") {
-                router.go(.settings)
-            }
-
-            Button("Back") {
-                router.back()
-            }
-        }
-    }
-}
-```
-
-`@EnvironmentRouter` 会提供类型安全的操作，而不向视图暴露 store。需要状态恢复、
-middleware 或 deep-link 协调的高级应用仍可直接使用 `NavigationStore` 和
-`NavigationHost`。
 
 ## 状态和执行模型
 
@@ -479,41 +483,52 @@ InnoRouter 支持以下模态路由:
 
 使用:
 
-- `ModalStore`
-- `ModalHost`
-- `ModalIntent`
+- `@Router`
+- 仅 modal 的 feature 使用 `RouterModalHost`，stack + modal 使用 `RouterHost`
 - `@EnvironmentRouter`
 
 示例:
 
 ```swift skip doc-fragment
-@Routable
+@Router
 enum AppModalRoute {
     case profile
     case onboarding
+
+    var destination: some View {
+        switch self {
+        case .profile: ProfileView()
+        case .onboarding: OnboardingView()
+        }
+    }
 }
 
 struct ShellView: View {
-    @State private var modalStore = ModalStore<AppModalRoute>()
+    var body: some View {
+        RouterModalHost(AppModalRoute.self) {
+            ModalLauncher()
+        }
+    }
+}
+
+struct ModalLauncher: View {
+    @EnvironmentRouter(AppModalRoute.self) private var router
 
     var body: some View {
-        ModalHost(store: modalStore) { route in
-            switch route {
-            case .profile:
-                ProfileView()
-            case .onboarding:
-                OnboardingView()
-            }
-        } content: {
-            HomeView()
+        Button("Profile") {
+            router.sheet(.profile)
         }
     }
 }
 ```
 
+子视图使用 `router.sheet(.profile)` 或 `router.cover(.onboarding)` 呈现，
+并用 `router.dismiss()` 关闭。只有当应用必须持有 modal queue、恢复它、
+变更 middleware 或直接观察时，才使用 `ModalStore` + `ModalHost`。
+
 ### 模态作用域边界
 
-在 iOS 和 tvOS 上,`ModalHost` 直接将样式映射到 `sheet` 和 `fullScreenCover`。
+在 iOS 和 tvOS 上，macro-first hosts 和 `ModalHost` 直接将样式映射到 `sheet` 和 `fullScreenCover`。
 在其他支持的平台上,`fullScreenCover` 安全地降级为 `sheet`。
 
 InnoRouter **有意不**拥有:
@@ -555,12 +570,21 @@ InnoRouter **有意不**拥有:
 
 ## 分屏导航
 
-对于 iPad 和 macOS 详情导航,使用:
+在受支持的平台上，本地 split-detail surface 使用
+`@Router` + `RouterSplitHost`：
 
-- `NavigationSplitHost`
-- `CoordinatorSplitHost`
+```swift skip doc-fragment
+RouterSplitHost(AppRoute.self) {
+    SidebarView()
+} root: {
+    ContentUnavailableView("Select an item", systemImage: "sidebar.left")
+}
+```
 
-InnoRouter 在分屏布局中仅拥有详情栈。
+Host 持有 detail stack 和 modal authority。子视图继续使用相同的
+`@EnvironmentRouter` actions。当应用必须持有 stack 或通过 coordinator
+路由 intents 时，使用 `NavigationSplitHost` 或 `CoordinatorSplitHost`。
+`RouterSplitHost` 在 watchOS 上不可用。
 
 以下保持应用所有:
 
@@ -568,9 +592,39 @@ InnoRouter 在分屏布局中仅拥有详情栈。
 - 列可见性
 - 紧凑适配
 
+## Tab 路由表面
+
+在每个无参数的 `@Router` case 上添加 `@TabItem`；macros 会生成
+`RouterTab`、`CaseIterable`、titles 和 system images：
+
+```swift skip doc-fragment
+@Router
+enum AppTab {
+    @TabItem("Home", systemImage: "house")
+    case home
+
+    @TabItem("Settings", systemImage: "gear")
+    case settings
+
+    var destination: some View {
+        switch self {
+        case .home: HomeView()
+        case .settings: SettingsView()
+        }
+    }
+}
+
+RouterTabHost(AppTab.self, initial: .home)
+```
+
+子视图使用 `router.select(_:)`、`router.setBadge(_:for:)` 和清除 badge actions。
+当应用必须持有 selection、提供自定义 shell，或组合独立的 per-tab stores 时，
+使用 `TabCoordinatorView`。
+
 ## Coordinator 表面
 
-Coordinator 是位于 SwiftUI intent 和命令执行之间的策略对象。
+Coordinator 是位于 SwiftUI intent 和命令执行之间的高级策略对象。
+先使用 macro-first hosts；只有需要显式协调策略时才升级到 coordinator。
 
 何时使用 `CoordinatorHost` 或 `CoordinatorSplitHost`:
 
@@ -656,7 +710,34 @@ struct DetailSheet: View {
 
 ## 深链接模型
 
-深链接被作为计划处理,而不是隐藏的副作用。
+默认路径是每个 route 一个注解。Literal scheme 和 host allowlists 使生成的
+resolver fail closed，匹配的 macro-first host 会自动处理传入 URL：
+
+```swift skip doc-fragment
+@Router(
+    deepLinkSchemes: ["myapp", "https"],
+    deepLinkHosts: ["app.example.com"]
+)
+enum AppRoute {
+    @DeepLink("/products/:id")
+    case product(id: String)
+
+    var destination: some View {
+        switch self {
+        case .product(let id): ProductView(id: id)
+        }
+    }
+}
+
+RouterHost(AppRoute.self) { HomeView() }
+```
+
+`RouterHost` 和 `RouterSplitHost` 会 push 解析后的 route；
+`RouterTabHost` 会选择它。Macros 会在编译期诊断错误的 patterns、
+缺失的 origin allowlists、不支持的 payloads、冲突的生成成员，以及无法到达
+或受声明顺序影响的 mappings。
+
+当应用拥有 policy 时，deep-link plans 仍是高级路径。
 
 核心部分:
 
@@ -723,6 +804,42 @@ FlowHost(store: flowStore, destination: destination) { RootView() }
 `DeepLinkAuthenticationPolicy` + `PendingDeepLink` 语义,以实现对称的认证延迟
 和重放。完整演练参见
 [`Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md`](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md)。
+
+## Spatial scene 表面
+
+Spatial 路由在 opt-in 的 `InnoRouterSpatial` 产品中也是 macro-first。在一个 enum
+上添加 `@SceneRouter`，为每个 case 添加 `@Scene`，然后在 `App.body`
+中安装生成的 scene tree：
+
+```swift skip doc-fragment
+import InnoRouterSpatial
+
+@SceneRouter
+enum AppScene {
+    @Scene(.window)
+    case main
+
+    @Scene(.immersive(style: .mixed))
+    case theatre
+
+    var destination: some View {
+        switch self {
+        case .main: MainView()
+        case .theatre: TheatreView()
+        }
+    }
+}
+
+@main
+struct ExampleApp: App {
+    var body: some Scene { AppScene.scenes }
+}
+```
+
+子视图使用 `@EnvironmentSceneRouter(AppScene.self)` 以及 route-aware 的
+`open(_:)`、`dismissWindow(_:)` 和 `dismissImmersive()` actions。只有当需要自定义
+scene 组合或外部持有的 scene authority 时，才使用 `SceneStore`、
+`innoRouterSceneHost` 和 `innoRouterSceneAnchor`。
 
 ## Middleware
 
@@ -822,17 +939,26 @@ coordinator 可将返回结果同步到自身状态。跨启动持久化请使�
 
 仓库有意将文档示例与 CI 示例分开。
 
-- `Examples/`:面向人的、惯用的、基于 macro 的示例
+- `Examples/`:同时涵盖 macro-first 入口与显式 Store / Coordinator 升级路径的
+  面向人类的示例
 - `ExamplesSmoke/`:用于 CI 的编译器稳定 smoke 固件
 
-当前示例涵盖:
+`InnoRouterMacroFirstSmoke` 在支持的平台矩阵上同时编译 downstream `@Router`、
+`@TabItem`、`@DeepLink` contract 以及 `RouterHost`、`RouterModalHost`、
+`RouterSplitHost`、`RouterTabHost`。独立的 Spatial consumer smoke 会在 visionOS
+编译 `@SceneRouter`。
 
+面向人的示例涵盖:
+
+- [`Examples/MacrosExample.swift`](Examples/MacrosExample.swift):macro-first
+  stack、仅 modal、split-detail、原生 tab 与单 route deep link surface
 - 独立栈路由
 - coordinator 路由
 - 深链接
 - 分屏导航
 - 应用 shell 组合
 - 模态路由
+- macro-first visionOS scene routing
 
 ## 文档和发布流程
 
@@ -893,11 +1019,13 @@ InnoRouter 遵循 SwiftUI 的声明式方向,同时为共享导航权限做出�
 
 面向人的示例位于此处:
 
-- [Examples/StandaloneExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/StandaloneExample.swift)
-- [Examples/CoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/CoordinatorExample.swift)
-- [Examples/DeepLinkExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/DeepLinkExample.swift)
-- [Examples/SplitCoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/SplitCoordinatorExample.swift)
-- [Examples/AppShellExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/AppShellExample.swift)
+- Macro-first modal、split、tab surface: [Examples/MacrosExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/MacrosExample.swift)
+- Macro-first stack: [Examples/StandaloneExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/StandaloneExample.swift)
+- Macro-first deep link: [Examples/DeepLinkExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/DeepLinkExample.swift)
+- Macro-first visionOS scene: [Examples/VisionOSImmersiveExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/VisionOSImmersiveExample.swift)
+- 高级 coordinator: [Examples/CoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/CoordinatorExample.swift)
+- 高级 split coordinator: [Examples/SplitCoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/SplitCoordinatorExample.swift)
+- 高级 app shell: [Examples/AppShellExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/AppShellExample.swift)
 
 ## 质量门
 

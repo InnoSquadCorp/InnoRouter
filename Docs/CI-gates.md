@@ -38,7 +38,7 @@ early with a clear message if it is missing.
 | 1 | `swift test` | Full Swift Testing suite (`Tests/`). | `swift test` |
 | 2 | DocC preview build | Rebuilds every `.docc` catalog; catches symbol drift and broken cross-refs. | `./scripts/build-docc-site.sh --version preview --skip-latest` |
 | 3 | Public API baselines | Diff against recorded baselines under `Baselines/`. Any unrecorded addition, removal, or rename fails. | `./scripts/check-public-api.sh` |
-| 4 | Maintainer docs consistency | Version and release-policy sync, structured macro-first README/contract coverage, and exact source-definition-to-DocC recovery-row parity for macro diagnostics. | `./scripts/check-docs-consistency.sh` |
+| 4 | Maintainer docs consistency | Version and release-policy sync, structured macro-first coverage across all seven localized README entry guides, contract coverage, and exact source-definition-to-DocC recovery-row parity for macro diagnostics. | `./scripts/check-docs-consistency.sh` |
 | 5 | Doc Swift code blocks | `swift compile` blocks typecheck against the published API; `swift skip <reason>` blocks must record why they are intentionally excluded. | `./scripts/check-docs-code-blocks.sh` |
 | 6 | Examples ↔ ExamplesSmoke parity and consumer boundaries | 1:1 example alignment, exact one-product dependencies for the core and Spatial consumer fixtures, and the default umbrella's Core/SwiftUI/DeepLink/Macros-only export boundary. | `./scripts/check-examples-parity.sh` |
 | 7 | Smoke targets build | Compiler-stable fixtures plus a one-product downstream default-umbrella check for every core macro-first host. | `swift build --target InnoRouterExamplesSmoke`, `swift build --target InnoRouterMacroFirstSmoke`, and siblings |

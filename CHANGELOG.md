@@ -320,10 +320,14 @@ are bare semver (no leading `v`).
   stack, modal, split, tab, deep-link, and scene routing. A stable diagnostic
   catalog maps all `E001`-`E049` and `W001`-`W012` codes to concrete recovery,
   while manual Store and host composition is documented as the advanced path.
-- Documentation consistency checks now require every macro-first surface in
-  the English and Korean entry guides, reject stale pre-implementation and
-  Spatial product claims, and enforce exact one-to-one parity between macro
-  diagnostic definitions in source and structured DocC recovery rows.
+- All seven localized entry guides now share copyable product installation,
+  the same macro-first quick start and surface-selection contract for stack,
+  modal, split, tab, deep-link, and Spatial routing, and an accurate split
+  between macro-first and advanced examples. Documentation consistency checks
+  preserve that structure and macro-first Spatial tutorial discovery, reject
+  stale pre-implementation and Spatial product claims, and enforce exact
+  one-to-one parity between macro diagnostic definitions in source and
+  structured DocC recovery rows.
 - Consumer contract gates now resolve SwiftPM dependencies to keep the core
   macro smoke on `InnoRouter` alone, the Spatial smoke on
   `InnoRouterSpatial` alone, and Effects/Spatial outside the default umbrella.

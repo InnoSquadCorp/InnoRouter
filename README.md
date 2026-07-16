@@ -88,8 +88,9 @@ AppKit bridge modules are required.
 SwiftUI host renders it as a `.sheet` because `.fullScreenCover` is
 unavailable. `⚠ state only` means the router retains and exposes badge
 state, but `RouterTabHost` and `TabCoordinatorView` omit SwiftUI's native visual
-badge because `.badge(_:)` is unavailable. `❌` means the symbol is unavailable
-on that platform; build it behind the appropriate availability guard.
+badge because `.badge(_:)` is unavailable. `❌` means the API cannot be used on
+that platform, whether absent or explicitly unavailable; compile the call
+behind the appropriate availability or conditional-compilation guard.
 
 ## Installation
 
@@ -384,15 +385,18 @@ generate-documentation` build all show the same content.
 flowchart LR
     View["SwiftUI view"] --> Actions["@EnvironmentRouter typed actions"]
     Actions --> Host["RouterHost / RouterModalHost / RouterSplitHost / RouterTabHost"]
-    Host --> Store["Locally owned store"]
+    Host --> Store["FlowStore / ModalStore"]
+    Host --> Tabs["Local tab selection / badge state"]
     Store --> Policy["Middleware / observation / validation"]
     Policy --> Execution["NavigationEngine / modal queue"]
-    Execution --> System["NavigationStack / NavigationSplitView / TabView / presentation"]
+    Execution --> Routed["NavigationStack / NavigationSplitView / presentation"]
+    Tabs --> TabView["TabView selection / badge state"]
 ```
 
 - Views invoke route-typed actions through `@EnvironmentRouter`.
-- Macro-first hosts own the appropriate store and translate it into native
-  SwiftUI navigation APIs.
+- `RouterHost`, `RouterModalHost`, and `RouterSplitHost` own a local
+  `FlowStore` or `ModalStore`; `RouterTabHost` owns selection and badge state
+  directly. Each host translates its authority into native SwiftUI APIs.
 - Advanced applications can choose the equivalent explicit Store or Coordinator
   authority for external ownership and injection.
 

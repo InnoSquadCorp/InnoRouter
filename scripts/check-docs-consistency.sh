@@ -6,6 +6,11 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ROADMAP_PATH="$ROOT_DIR/Docs/competitive-analysis-and-roadmap.md"
 README_PATH="$ROOT_DIR/README.md"
 README_KO_PATH="$ROOT_DIR/README.ko.md"
+README_DE_PATH="$ROOT_DIR/README.de.md"
+README_ES_PATH="$ROOT_DIR/README.es.md"
+README_JA_PATH="$ROOT_DIR/README.ja.md"
+README_RU_PATH="$ROOT_DIR/README.ru.md"
+README_ZH_HANS_PATH="$ROOT_DIR/README.zh-Hans.md"
 CHANGELOG_PATH="$ROOT_DIR/CHANGELOG.md"
 REJECTION_CATALOG_PATH="$ROOT_DIR/Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Rejection-Reasons.md"
 MACRO_CONTRACT_PATH="$ROOT_DIR/Docs/design-macro-first-surfaces.md"
@@ -48,6 +53,23 @@ check_present() {
   fi
 }
 
+check_match() {
+  local file_path="$1"
+  local pattern="$2"
+  local message="$3"
+
+  if [[ ! -f "$file_path" ]]; then
+    echo "[check-docs-consistency] Failed: required file not found: $file_path" >&2
+    failures=1
+    return
+  fi
+
+  if ! grep -E -- "$pattern" "$file_path" >/dev/null 2>&1; then
+    echo "[check-docs-consistency] Failed: $message" >&2
+    failures=1
+  fi
+}
+
 markdown_section() {
   local file_path="$1"
   local start_heading="$2"
@@ -55,9 +77,9 @@ markdown_section() {
 
   awk -v start="$start_heading" -v end="$end_heading" '
     $0 == start { in_section = 1; found = 1 }
-    $0 == end && in_section { exit }
+    $0 == end && in_section { end_found = 1; exit }
     in_section { print }
-    END { if (!found) exit 1 }
+    END { if (!found || !end_found) exit 1 }
   ' "$file_path"
 }
 
@@ -75,11 +97,39 @@ check_section_match() {
     return
   fi
   if ! section="$(markdown_section "$file_path" "$start_heading" "$end_heading")"; then
-    echo "[check-docs-consistency] Failed: $(basename "$file_path") has no $start_heading section" >&2
+    echo "[check-docs-consistency] Failed: $(basename "$file_path") has no complete $start_heading section" >&2
     failures=1
     return
   fi
   if ! grep -E -- "$pattern" <<< "$section" >/dev/null 2>&1; then
+    echo "[check-docs-consistency] Failed: $message" >&2
+    failures=1
+  fi
+}
+
+check_section_line_match() {
+  local file_path="$1"
+  local start_heading="$2"
+  local end_heading="$3"
+  local literal="$4"
+  local pattern="$5"
+  local message="$6"
+  local section
+  local matching_lines
+
+  if [[ ! -f "$file_path" ]]; then
+    echo "[check-docs-consistency] Failed: required file not found: $file_path" >&2
+    failures=1
+    return
+  fi
+  if ! section="$(markdown_section "$file_path" "$start_heading" "$end_heading")"; then
+    echo "[check-docs-consistency] Failed: $(basename "$file_path") has no complete $start_heading section" >&2
+    failures=1
+    return
+  fi
+  matching_lines="$(grep -F -- "$literal" <<< "$section" || true)"
+  if [[ -z "$matching_lines" ]] || \
+    ! grep -E -- "$pattern" <<< "$matching_lines" >/dev/null 2>&1; then
     echo "[check-docs-consistency] Failed: $message" >&2
     failures=1
   fi
@@ -258,12 +308,25 @@ check_absent "$README_PATH" 'deferred from P3-4' \
 
 echo "[check-docs-consistency] Checking macro-first surface contract"
 readme_contracts=(
-  "$README_PATH|## 30-second quick start|## OSS release and SemVer contract|## Choosing the right surface|## Documentation|^Start with a route enum and a macro-first host\."
-  "$README_KO_PATH|## 30초 Quick Start|## OSS 릴리즈 및 SemVer 계약|## 적합한 surface 고르기|## 문서|^route enum과 macro-first host로 시작하세요\."
+  "$README_PATH|## 30-second quick start|## OSS release and SemVer contract|## Choosing the right surface|## Documentation|^Start with a route enum and a macro-first host\.|,[[:space:]]|,[[:space:]]or[[:space:]]|## Installation"
+  "$README_KO_PATH|## 30초 Quick Start|## OSS 릴리즈 및 SemVer 계약|## 적합한 surface 고르기|## 문서|^route enum과 macro-first host로 시작하세요\.|,[[:space:]]|,[[:space:]]또는[[:space:]]|## 설치"
+  "$README_DE_PATH|## 30-Sekunden-Schnellstart|## OSS-Release- und SemVer-Vertrag|## Die richtige Oberfläche wählen|## Dokumentation|^Beginnen Sie mit einem Route-Enum und einem macro-first Host\.|,[[:space:]]|[[:space:]]oder[[:space:]]|## Installation"
+  "$README_ES_PATH|## Inicio rápido en 30 segundos|## Contrato de release OSS y SemVer|## Eligiendo la superficie correcta|## Documentación|^Empiece con un enum de rutas y un host macro-first\.|,[[:space:]]|[[:space:]]o[[:space:]]|## Instalación"
+  "$README_JA_PATH|## 30 秒クイックスタート|## OSS リリースと SemVer 契約|## 適切な surface を選ぶ|## ドキュメント|^まず route enum と macro-first host から始めます。|、|、または[[:space:]]|## インストール"
+  "$README_RU_PATH|## Быстрый старт за 30 секунд|## Контракт OSS-релиза и SemVer|## Выбор правильной поверхности|## Документация|^Начинайте с route enum и macro-first host\.|,[[:space:]]|[[:space:]]или[[:space:]]|## Установка"
+  "$README_ZH_HANS_PATH|## 30 秒快速开始|## OSS 发布与 SemVer 合约|## 选择正确的表面|## 文档|^从 route enum 和 macro-first host 开始。|、|[[:space:]]或[[:space:]]|## 安装"
 )
 for contract in "${readme_contracts[@]}"; do
   IFS='|' read -r readme_path quick_start_heading quick_start_end \
-    selection_heading selection_end selection_lead <<< "$contract"
+    selection_heading selection_end selection_lead first_host_separator \
+    final_host_separator installation_heading <<< "$contract"
+
+  check_section_match "$readme_path" "$installation_heading" "$quick_start_heading" \
+    '^[[:space:]]*\.package\(url: "https://github\.com/InnoSquadCorp/InnoRouter\.git", from: "5\.0\.0"\)' \
+    "$(basename "$readme_path") installation does not use the canonical package dependency"
+  check_section_match "$readme_path" "$installation_heading" "$quick_start_heading" \
+    '^[[:space:]]*\.product\(name: "InnoRouter", package: "InnoRouter"\)' \
+    "$(basename "$readme_path") installation does not attach InnoRouter to an app target"
 
   check_section_match "$readme_path" "$quick_start_heading" "$quick_start_end" \
     '^@Router$' \
@@ -282,17 +345,77 @@ for contract in "${readme_contracts[@]}"; do
     "$selection_lead" \
     "$(basename "$readme_path") selection guide no longer leads with macro-first routing"
   selection_rows=(
-    '^\| .* \| `@Router` \+ `RouterHost` \|$'
-    '^\| .* \| `@Router` \+ `RouterModalHost` \|$'
-    '^\| .* \| `@Router` \+ `RouterSplitHost` \|$'
-    '^\| .* \| `@Router` \+ `@TabItem` \+ `RouterTabHost` \|$'
-    '^\| .* \| `@Router\(deepLinkSchemes:deepLinkHosts:\)` \+ `@DeepLink` \+ `RouterHost`, `RouterSplitHost`, (or|또는) `RouterTabHost` \|$'
-    '^\| .* \| `InnoRouterSpatial`: `@SceneRouter` \+ `@Scene` \+ `<Route>\.scenes` \|$'
+    '^\| [^|]+ \| `@Router` \+ `RouterHost` \|$'
+    '^\| [^|]+ \| `@Router` \+ `RouterModalHost` \|$'
+    '^\| [^|]+ \| `@Router` \+ `RouterSplitHost` \|$'
+    '^\| [^|]+ \| `@Router` \+ `@TabItem` \+ `RouterTabHost` \|$'
+    '^\| [^|]+ \| `@Router\(deepLinkSchemes:deepLinkHosts:\)` \+ `@DeepLink` \+ `RouterHost`'"${first_host_separator}"'`RouterSplitHost`'"${final_host_separator}"'`RouterTabHost` \|$'
+    '^\| [^|]+ \| `InnoRouterSpatial`:[[:space:]]*`@SceneRouter` \+ `@Scene` \+ `<Route>\.scenes` \|$'
   )
   for row_pattern in "${selection_rows[@]}"; do
     check_section_match "$readme_path" "$selection_heading" "$selection_end" \
       "$row_pattern" \
       "$(basename "$readme_path") selection table is missing a canonical macro-first surface row"
+  done
+
+  check_match "$readme_path" \
+    '^\| \[Tutorial-VisionOSScenes\]\(Sources/InnoRouterSpatial/InnoRouterSpatial\.docc/Articles/Tutorial-VisionOSScenes\.md\) \| `InnoRouterSpatial` \| [^|]*`@SceneRouter`[^|]*`@Scene`[^|]* \|$' \
+    "$(basename "$readme_path") has a stale Spatial tutorial link, product, or Store-first description"
+done
+
+
+examples_contracts=(
+  "$README_PATH|## Docs and release flow|## Quality gates|explicit Store / Coordinator escalation|Advanced"
+  "$README_KO_PATH|## 문서와 릴리즈 흐름|## Quality 게이트|명시적인 Store / Coordinator 확장 경로|고급"
+  "$README_DE_PATH|## Docs- und Release-Flow|## Quality-Gates|explizite Store- / Coordinator-Eskalation|Fortgeschritten"
+  "$README_ES_PATH|## Documentos y flujo de release|## Puertas de calidad|escalamiento explícito a Store / Coordinator|avanzado"
+  "$README_JA_PATH|## ドキュメントとリリースフロー|## 品質ゲート|明示的な Store / Coordinator への移行|高度な"
+  "$README_RU_PATH|## Docs и flow релиза|## Шлюзы качества|явного перехода к Store / Coordinator|Продвинутый"
+  "$README_ZH_HANS_PATH|## 文档和发布流程|## 质量门|显式 Store / Coordinator 升级路径|高级"
+)
+for contract in "${examples_contracts[@]}"; do
+  IFS='|' read -r readme_path examples_overview_end examples_list_end \
+    escalation_pattern advanced_label <<< "$contract"
+
+  overview_patterns=(
+    "$escalation_pattern"
+    'InnoRouterMacroFirstSmoke'
+    '`RouterModalHost`'
+    '`RouterSplitHost`'
+    '`RouterTabHost`'
+    '`@SceneRouter`'
+  )
+  for overview_pattern in "${overview_patterns[@]}"; do
+    check_section_match "$readme_path" '## `Examples` vs `ExamplesSmoke`' \
+      "$examples_overview_end" "$overview_pattern" \
+      "$(basename "$readme_path") examples overview is missing macro-first or advanced coverage"
+  done
+
+  check_section_line_match "$readme_path" '## `Examples` vs `ExamplesSmoke`' \
+    "$examples_overview_end" 'Examples/MacrosExample.swift' '[Mm]acro-first' \
+    "$(basename "$readme_path") examples overview does not classify MacrosExample as macro-first"
+
+  macro_example_paths=(
+    Examples/MacrosExample.swift
+    Examples/StandaloneExample.swift
+    Examples/DeepLinkExample.swift
+    Examples/VisionOSImmersiveExample.swift
+  )
+  for example_path in "${macro_example_paths[@]}"; do
+    check_section_line_match "$readme_path" '## Examples' "$examples_list_end" \
+      "$example_path" '[Mm]acro-first' \
+      "$(basename "$readme_path") does not classify $example_path as macro-first"
+  done
+
+  advanced_example_paths=(
+    Examples/CoordinatorExample.swift
+    Examples/SplitCoordinatorExample.swift
+    Examples/AppShellExample.swift
+  )
+  for example_path in "${advanced_example_paths[@]}"; do
+    check_section_line_match "$readme_path" '## Examples' "$examples_list_end" \
+      "$example_path" "$advanced_label" \
+      "$(basename "$readme_path") does not classify $example_path as advanced"
   done
 done
 

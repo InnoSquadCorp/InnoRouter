@@ -83,8 +83,9 @@ AppKit 브릿지 모듈은 필요하지 않습니다.
 `⚠ degrades`는 store API가 요청을 그대로 수락하지만 SwiftUI host가 `.fullScreenCover`를
 사용할 수 없어 `.sheet`로 렌더링한다는 뜻입니다. `⚠ 상태 only`는 router가 badge
 상태를 보존·노출하지만, `.badge(_:)`가 사용 불가능해 `RouterTabHost`와
-`TabCoordinatorView`가 SwiftUI의 네이티브 시각 badge를 생략한다는 뜻입니다. `❌`는 해당 플랫폼에서
-심볼을 사용할 수 없다는 뜻이며, 알맞은 availability guard 뒤에서 빌드해야 합니다.
+`TabCoordinatorView`가 SwiftUI의 네이티브 시각 badge를 생략한다는 뜻입니다. `❌`는 API가
+선언되지 않았거나 명시적으로 unavailable이어서 해당 플랫폼에서 사용할 수 없다는 뜻입니다.
+알맞은 availability 또는 조건부 컴파일 guard 뒤에서 호출을 빌드해야 합니다.
 공간 라우팅 surface는 5.0의 정식 opt-in API이며 experimental로 분류되지 않습니다.
 
 ## 설치
@@ -363,14 +364,18 @@ DocC는 상세한 모듈 레벨 레퍼런스 모음입니다.
 flowchart LR
     View["SwiftUI view"] --> Actions["@EnvironmentRouter typed action"]
     Actions --> Host["RouterHost / RouterModalHost / RouterSplitHost / RouterTabHost"]
-    Host --> Store["local 소유 store"]
+    Host --> Store["FlowStore / ModalStore"]
+    Host --> Tabs["local tab 선택 / badge 상태"]
     Store --> Policy["Middleware / observation / validation"]
     Policy --> Execution["NavigationEngine / modal queue"]
-    Execution --> System["NavigationStack / NavigationSplitView / TabView / presentation"]
+    Execution --> Routed["NavigationStack / NavigationSplitView / presentation"]
+    Tabs --> TabView["TabView 선택 / badge 상태"]
 ```
 
 - View는 `@EnvironmentRouter`를 통해 route-typed action을 호출합니다.
-- Macro-first host는 필요한 store를 소유하고 네이티브 SwiftUI 네비게이션 API로 변환합니다.
+- `RouterHost`, `RouterModalHost`, `RouterSplitHost`는 local `FlowStore` 또는
+  `ModalStore`를 소유하고, `RouterTabHost`는 선택과 badge 상태를 직접 소유합니다.
+  각 host는 자신의 authority를 네이티브 SwiftUI API로 변환합니다.
 - 고급 앱은 외부 소유·주입이 가능한 동등한 Store 또는 Coordinator 권한을 선택할 수 있습니다.
 
 ### 딥링크 흐름
