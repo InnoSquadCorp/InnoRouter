@@ -18,14 +18,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       # Coverage uses the same pinned Xcode/Swift toolchain as the
       # principle-gates workflow so the codecov.io trend reflects the
       # exact build the gates validate. Bump alongside that workflow
       # when cutting a new release — see RELEASING.md.
       - name: Select pinned Xcode
-        uses: maxim-lobanov/setup-xcode@v1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
           xcode-version: "26.6"
 
@@ -79,7 +79,7 @@ jobs:
           wc -l coverage.lcov
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
         with:
           files: ./coverage.lcov
           token: ${{ secrets.CODECOV_TOKEN }}

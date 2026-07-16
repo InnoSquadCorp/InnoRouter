@@ -49,6 +49,17 @@ if ! cmp -s "$MACRO_PATTERN_SOURCE" "$RUNTIME_PATTERN_SOURCE"; then
   exit 1
 fi
 
+echo "[lint-source-gates] Checking immutable GitHub Action references"
+MUTABLE_ACTION_REFS="$(
+  rg -n --no-heading '^\s*uses:\s+[^./][^@]*@' .github/workflows \
+    | rg -v '@[0-9a-f]{40}([[:space:]]+#.*)?$' || true
+)"
+if [[ -n "$MUTABLE_ACTION_REFS" ]]; then
+  echo "[lint-source-gates] Failed: external GitHub Actions must use full commit SHAs" >&2
+  echo "$MUTABLE_ACTION_REFS" >&2
+  exit 1
+fi
+
 echo "[lint-source-gates] Checking swiftlint in strict mode"
 require_tool swiftlint
 require_file .swiftlint.yml "swiftlint configuration"
@@ -146,7 +157,8 @@ fi
 echo "[lint-source-gates] Checking removed navigator type erasers"
 if rg -n '\b(AnyNavigator|AnyBatchNavigator)\b' \
   Sources Tests Examples ExamplesSmoke README*.md Docs AGENTS.md CLAUDE.md .cursor \
-  --glob '*.swift' --glob '*.md' --glob '*.mdc'; then
+  --glob '*.swift' --glob '*.md' --glob '*.mdc' \
+  --glob '!**/Migrating-To-InnoRouter-*.md'; then
   echo "[lint-source-gates] Failed: removed navigator type eraser found"
   exit 1
 fi
@@ -199,7 +211,8 @@ fi
 echo "[lint-source-gates] Checking duplicate coordinator deep-link removal"
 if rg -n "DeepLinkCoordinating|DeepLinkCoordinationOutcome|resumePendingDeepLinkIfPossible" \
   Sources Tests Examples ExamplesSmoke README*.md Docs .cursor \
-  --glob '*.swift' --glob '*.md' --glob '*.mdc'; then
+  --glob '*.swift' --glob '*.md' --glob '*.mdc' \
+  --glob '!**/Migrating-To-InnoRouter-*.md'; then
   echo "[lint-source-gates] Failed: removed coordinator deep-link surface found"
   exit 1
 fi

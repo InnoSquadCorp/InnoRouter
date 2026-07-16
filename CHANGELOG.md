@@ -334,6 +334,12 @@ are bare semver (no leading `v`).
 
 ### Changed
 
+- GitHub Release notes are now rendered from the exact tagged changelog
+  section, include versioned DocC and major-migration links, and retain GitHub's
+  generated commit notes below that curated release contract.
+- Every external GitHub Action reference is pinned to an immutable commit SHA;
+  Dependabot continues to surface reviewed version updates without allowing a
+  mutable major tag to change release behavior between runs.
 - The compiler plugin no longer depends on the full Core and DeepLink runtime
   graph. Runtime matching and compile-time macro validation now share a small
   package-only pattern grammar target, retaining diagnostic parity while

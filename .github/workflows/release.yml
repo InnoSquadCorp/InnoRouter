@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout release policy
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           ref: refs/heads/main
           fetch-depth: 0
@@ -126,16 +126,17 @@ jobs:
       version: ${{ needs.preflight.outputs.version }}
       prerelease: ${{ needs.preflight.outputs.prerelease }}
       make_latest: ${{ steps.publication_policy.outputs.make_latest }}
+      commit_sha: ${{ needs.preflight.outputs.commit_sha }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
           ref: ${{ needs.preflight.outputs.commit_sha }}
 
       - name: Select Xcode 26.6
-        uses: maxim-lobanov/setup-xcode@v1
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
           xcode-version: "26.6"
 
@@ -146,7 +147,7 @@ jobs:
         run: brew install ripgrep swiftformat swiftlint
 
       - name: Checkout Existing gh-pages Site
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           ref: gh-pages
           path: .build/gh-pages-cache
@@ -188,7 +189,7 @@ jobs:
         run: tar -czf .build/docc-site-release.tar.gz -C .build docc-site
 
       - name: Upload Release Site Artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: docc-site-release
           path: .build/docc-site-release.tar.gz
@@ -203,7 +204,7 @@ jobs:
 
     steps:
       - name: Download Release Site Artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: docc-site-release
           path: .build/release-site-artifact
@@ -232,6 +233,18 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout tagged release
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ needs.build.outputs.commit_sha }}
+
+      - name: Render release notes from tagged changelog
+        run: |
+          ./scripts/render-release-notes.sh \
+            "${{ needs.build.outputs.version }}" \
+            CHANGELOG.md \
+            .build/release-notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
@@ -240,11 +253,4 @@ jobs:
           prerelease: ${{ needs.build.outputs.prerelease == 'true' }}
           make_latest: ${{ needs.build.outputs.make_latest }}
           generate_release_notes: true
-          body: |
-            Documentation
-            - Release: https://innosquadcorp.github.io/InnoRouter/${{ needs.build.outputs.version }}/
-            - Latest release docs: https://innosquadcorp.github.io/InnoRouter/latest/
-
-            Repository references
-            - README: https://github.com/InnoSquadCorp/InnoRouter/blob/${{ needs.build.outputs.version }}/README.md
-            - Release checklist: https://github.com/InnoSquadCorp/InnoRouter/blob/${{ needs.build.outputs.version }}/RELEASING.md
+          body_path: .build/release-notes.md
