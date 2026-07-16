@@ -98,7 +98,10 @@ markdown_section() {
   local start_heading="$2"
   local end_heading="$3"
 
-  awk -v start="$start_heading" -v end="$end_heading" '
+  # macOS awk can fail exact non-ASCII string comparisons under some UTF-8
+  # locales (notably en_US.UTF-8). Headings are repository bytes, so make the
+  # extraction locale-independent instead of inheriting the runner locale.
+  LC_ALL=C awk -v start="$start_heading" -v end="$end_heading" '
     $0 == start { in_section = 1; found = 1 }
     $0 == end && in_section { end_found = 1; exit }
     in_section { print }
