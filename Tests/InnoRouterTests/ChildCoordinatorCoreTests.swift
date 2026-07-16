@@ -48,7 +48,6 @@ struct ChildCoordinatorTests {
 
         var onFinish: (@MainActor @Sendable (String) -> Void)?
         var onCancel: (@MainActor @Sendable () -> Void)?
-        var lifecycleSignals: LifecycleSignals = LifecycleSignals()
     }
 
     @MainActor
@@ -66,7 +65,6 @@ struct ChildCoordinatorTests {
             didSet { capture.finish = onFinish }
         }
         var onCancel: (@MainActor @Sendable () -> Void)?
-        var lifecycleSignals: LifecycleSignals = LifecycleSignals()
 
         init(capture: LifetimeCapture) {
             self.capture = capture
@@ -82,7 +80,6 @@ struct ChildCoordinatorTests {
             didSet { onFinish?("immediate") }
         }
         var onCancel: (@MainActor @Sendable () -> Void)?
-        var lifecycleSignals: LifecycleSignals = LifecycleSignals()
         private(set) var parentDidCancelCount = 0
 
         func parentDidCancel() {

@@ -12,7 +12,6 @@ private final class TrackingChild: ChildCoordinator {
 
     var onFinish: (@MainActor @Sendable (String) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
-    var lifecycleSignals: LifecycleSignals = LifecycleSignals()
     private(set) var parentDidCancelCount: Int = 0
 
     func parentDidCancel() {
@@ -27,7 +26,6 @@ private final class DefaultChild: ChildCoordinator {
 
     var onFinish: (@MainActor @Sendable (Int) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
-    var lifecycleSignals: LifecycleSignals = LifecycleSignals()
 }
 
 /// Child that owns its transient work directly instead of relying on a
@@ -38,7 +36,6 @@ private final class TaskOwningChild: ChildCoordinator {
 
     var onFinish: (@MainActor @Sendable (Int) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
-    var lifecycleSignals: LifecycleSignals = LifecycleSignals()
     private var workTask: Task<Void, Never>?
 
     func startWork() -> Task<Void, Never> {

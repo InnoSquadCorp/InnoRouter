@@ -86,7 +86,6 @@ final class OnboardingDriver: ChildCoordinator {
 
     var onFinish: (@MainActor @Sendable (OnboardingResult) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
-    var lifecycleSignals = LifecycleSignals()
 
     let store: FlowStore<OnboardingRoute>
     private let auth: AuthClient

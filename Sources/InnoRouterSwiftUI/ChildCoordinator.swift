@@ -61,13 +61,8 @@ private final class ChildCoordinatorHandoff<Result: Sendable>: Sendable {
 /// asynchronous result wait owns the strong reference until it resolves.
 /// See `Docs/design-child-coordinator-handoff.md` for the full contract.
 ///
-/// A child also carries a ``lifecycleSignals`` bag (via
-/// ``LifecycleAware``) — the result-wait helper fires
-/// ``LifecycleSignals/fireParentCancel()`` alongside the legacy
-/// ``parentDidCancel()`` hook so app code can install teardown
-/// handlers without overriding the protocol method.
 @MainActor
-public protocol ChildCoordinator: LifecycleAware {
+public protocol ChildCoordinator: AnyObject {
     associatedtype Result: Sendable
 
     /// Called by the child to report a successful completion.
@@ -85,8 +80,7 @@ public protocol ChildCoordinator: LifecycleAware {
     /// override this when they need to tear down transient state
     /// triggered by the parent handoff (dismiss sheets, cancel
     /// in-flight work, release temporary stores, etc.). Keep any
-    /// app-owned `Task` handles on the child and cancel them here, or
-    /// install the same cleanup on ``lifecycleSignals``.
+    /// app-owned `Task` handles on the child and cancel them here.
     ///
     /// The callback is directional: `parentDidCancel` flows
     /// **parent → child**. Use `onCancel` when the child itself
@@ -176,7 +170,6 @@ public extension ChildCoordinator {
             return nil
         case .parentCancelled:
             parentDidCancel()
-            lifecycleSignals.fireParentCancel()
             return nil
         }
     }

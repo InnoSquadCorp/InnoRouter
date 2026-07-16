@@ -112,7 +112,6 @@ final class SignUpCoordinator: ChildCoordinator {
 
     var onFinish: (@MainActor @Sendable (UserID) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
-    var lifecycleSignals = LifecycleSignals()
 
     // ...step state + methods omitted
 

@@ -163,6 +163,13 @@ if rg -n "AnyCoordinator" Sources Examples ExamplesSmoke README.md; then
   exit 1
 fi
 
+echo "[lint-source-gates] Checking removed coordinator lifecycle capability"
+if rg -n '\b(LifecycleAware|LifecycleSignals|lifecycleSignals)\b' \
+  Sources Examples ExamplesSmoke --glob '*.swift'; then
+  echo "[lint-source-gates] Failed: removed coordinator lifecycle capability found"
+  exit 1
+fi
+
 echo "[lint-source-gates] Checking optional intent dispatch usage"
 if rg -n "navigationIntent\\?\\.send" Sources Examples ExamplesSmoke README.md RELEASING.md CLAUDE.md Docs --glob '*.swift' --glob '*.md'; then
   echo "[lint-source-gates] Failed: optional intent dispatch usage found"

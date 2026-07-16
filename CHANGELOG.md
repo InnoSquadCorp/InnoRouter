@@ -223,11 +223,17 @@ are bare semver (no leading `v`).
   returning. If the handoff needs an independently cancellable lifetime,
   create and retain an app-owned `Task` around the `await`; keep the child
   itself in the app state that presents its view.
+- `LifecycleAware` and `LifecycleSignals` are removed. No framework host ever
+  fired the advertised teardown callback, and the parent-cancellation callback
+  duplicated `ChildCoordinator.parentDidCancel()`. `ChildCoordinator` no longer
+  requires a `lifecycleSignals` stored property. Move
+  `lifecycleSignals.onParentCancel` cleanup into `parentDidCancel()`; app-owned
+  feature or scene lifetime remains responsible for any broader teardown.
 - `ChildCoordinatorTaskTracker` is removed. Child coordinators should retain
   their app-owned `Task` handles directly and cancel them from
-  `parentDidCancel()` or `lifecycleSignals.onParentCancel`; `waitForResult()`
-  continues to fire both parent-cancellation hooks. `activeCount` and automatic
-  deinit cancellation bookkeeping are no longer framework-provided.
+  `parentDidCancel()`; `waitForResult()` invokes that hook when caller
+  cancellation wins. `activeCount` and automatic deinit cancellation
+  bookkeeping are no longer framework-provided.
 - `AnyNavigator` and `AnyBatchNavigator` are removed. Pass a concrete
   `NavigationStore` directly to the generic effect and deep-link handlers, or
   make app boundaries generic over `Navigator`, adding
@@ -705,7 +711,7 @@ ran the pre-OSS `4.0.0` snapshot follow the diffs under
   The protocol inherits from the new `LifecycleAware` capability
   protocol. Adopters add the stored property; the protocol
   cannot supply a default for a stored requirement.
-  `ChildCoordinator.waitForResult()` fires both
+  `Coordinator.push(child:)` fires both
   `lifecycleSignals.fireParentCancel()` and the existing
   `parentDidCancel()` hook, so adopters can choose closure-style
   or override-style teardown.

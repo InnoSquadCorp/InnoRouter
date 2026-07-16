@@ -85,7 +85,7 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
   coupling that owner to `Coordinator`.
 - **Former lag (closed)**: "back to root across coordinators" remains
   app-owned cleanup, but caller-task cancellation now propagates
-  through `ChildCoordinator.parentDidCancel` and `LifecycleSignals`.
+  through `ChildCoordinator.parentDidCancel`.
 
 ### vs Stinsen — 960★ (legacy)
 - **Lead**: every axis. NavigationStack-era, Observation, Sendable,
@@ -223,7 +223,7 @@ Shape (landed):
 - Design rationale in `Docs/design-child-coordinator-handoff.md`.
 
 The P3 cancellation follow-up is now closed by
-`ChildCoordinator.parentDidCancel` and `LifecycleSignals`.
+`ChildCoordinator.parentDidCancel`.
 
 #### P1-2 Typed destination bindings — **Shipped (#14)**
 
@@ -419,7 +419,7 @@ Shape (landed):
 - **P3-8 Child task tracking helper (superseded in 5.0)** — 4.x shipped
   `ChildCoordinatorTaskTracker` as opt-in bookkeeping. The 5.0 API removes the
   wrapper: child coordinators keep their app-owned `Task` handles directly and
-  cancel them from `parentDidCancel()` or `lifecycleSignals.onParentCancel`.
+  cancel them from `parentDidCancel()`.
 - **P3-9 Cross-launch pending deep links** — `FlowPendingDeepLink`
   gains conditional `Codable` conformance and a
   `FlowPendingDeepLinkPersistence<R: Route & Codable>` helper

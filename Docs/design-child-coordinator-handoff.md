@@ -97,7 +97,7 @@ the app-defined owner:
 
 ```swift skip doc-fragment
 @MainActor
-public protocol ChildCoordinator: LifecycleAware {
+public protocol ChildCoordinator: AnyObject {
     associatedtype Result: Sendable
     var onFinish: (@MainActor @Sendable (Result) -> Void)? { get set }
     var onCancel: (@MainActor @Sendable () -> Void)? { get set }

@@ -389,6 +389,8 @@ for contract in "${readme_contracts[@]}"; do
     "$(basename "$readme_path") does not document the structured child-result handoff"
   check_absent_match "$readme_path" 'push\(child:' \
     "$(basename "$readme_path") still documents the removed Coordinator.push(child:) API"
+  check_absent_match "$readme_path" '(^|[^[:alnum:]_])(LifecycleAware|LifecycleSignals|lifecycleSignals)([^[:alnum:]_]|$)' \
+    "$(basename "$readme_path") still requires the removed lifecycle callback bag"
 done
 
 child_handoff_contract_docs=(
@@ -401,6 +403,8 @@ for doc_path in "${child_handoff_contract_docs[@]}"; do
     "$(basename "$doc_path") does not document the structured waitForResult signature"
   check_absent_match "$doc_path" 'push\(child:' \
     "$(basename "$doc_path") still documents the removed Coordinator.push(child:) API"
+  check_absent_match "$doc_path" '(^|[^[:alnum:]_])(LifecycleAware|LifecycleSignals|lifecycleSignals)([^[:alnum:]_]|$)' \
+    "$(basename "$doc_path") still documents the removed lifecycle callback bag"
 done
 
 child_handoff_tutorials=(
@@ -412,6 +416,8 @@ for doc_path in "${child_handoff_tutorials[@]}"; do
     "$(basename "$doc_path") does not use the structured child-result handoff"
   check_absent_match "$doc_path" 'push\(child:' \
     "$(basename "$doc_path") still documents the removed Coordinator.push(child:) API"
+  check_absent_match "$doc_path" '(^|[^[:alnum:]_])(LifecycleAware|LifecycleSignals|lifecycleSignals)([^[:alnum:]_]|$)' \
+    "$(basename "$doc_path") still requires the removed lifecycle callback bag"
 done
 
 

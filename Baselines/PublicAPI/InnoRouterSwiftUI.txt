@@ -1,5 +1,4 @@
 # Public API baseline for InnoRouterSwiftUI
-relationship | conformsTo | ChildCoordinator | LifecycleAware |  |
 relationship | conformsTo | NavigationPathReconciler | NavigationPathReconciling |  |
 relationship | defaultImplementationOf | ChildCoordinator.parentDidCancel() | ChildCoordinator.parentDidCancel() |  |
 relationship | defaultImplementationOf | Coordinator.handle(_:) | Coordinator.handle(_:) |  |
@@ -63,11 +62,6 @@ relationship | memberOf | FlowStoreConfiguration.modal | FlowStoreConfiguration 
 relationship | memberOf | FlowStoreConfiguration.navigation | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.onEvent | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.queueCoalescePolicy | FlowStoreConfiguration |  |
-relationship | memberOf | LifecycleSignals.fireParentCancel() | LifecycleSignals |  |
-relationship | memberOf | LifecycleSignals.fireTeardown() | LifecycleSignals |  |
-relationship | memberOf | LifecycleSignals.init(onParentCancel:onTeardown:) | LifecycleSignals |  |
-relationship | memberOf | LifecycleSignals.onParentCancel | LifecycleSignals |  |
-relationship | memberOf | LifecycleSignals.onTeardown | LifecycleSignals |  |
 relationship | memberOf | MiddlewareMutationEvent.Action | MiddlewareMutationEvent |  |
 relationship | memberOf | MiddlewareMutationEvent.Action.added | MiddlewareMutationEvent.Action |  |
 relationship | memberOf | MiddlewareMutationEvent.Action.inserted | MiddlewareMutationEvent.Action |  |
@@ -293,7 +287,6 @@ relationship | requirementOf | Coordinator.handle(_:) | Coordinator |  |
 relationship | requirementOf | Coordinator.store | Coordinator |  |
 relationship | requirementOf | DestinationRoute.Destination | DestinationRoute |  |
 relationship | requirementOf | DestinationRoute.destination(for:) | DestinationRoute |  |
-relationship | requirementOf | LifecycleAware.lifecycleSignals | LifecycleAware |  |
 relationship | requirementOf | NavigationPathReconciling.RouteType | NavigationPathReconciling |  |
 relationship | requirementOf | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | NavigationPathReconciling |  |
 relationship | requirementOf | RouterTab.systemImage | RouterTab |  |
@@ -444,7 +437,6 @@ symbol | swift.init | FlowHost.init(store:root:) | init(store:root:) | @MainActo
 symbol | swift.init | FlowStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init()) | []
 symbol | swift.init | FlowStore.init(validating:configuration:) | init(validating:configuration:) | @MainActor convenience init(validating initial: [RouteStep<R>], configuration: FlowStoreConfiguration<R> = .init()) throws | []
 symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation:modal:onEvent:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), onEvent: (@MainActor (FlowEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve) | []
-symbol | swift.init | LifecycleSignals.init(onParentCancel:onTeardown:) | init(onParentCancel:onTeardown:) | @MainActor init(onParentCancel: (@MainActor () -> Void)? = nil, onTeardown: (@MainActor () -> Void)? = nil) | []
 symbol | swift.init | ModalHost.init(store:destination:content:) | init(store:destination:content:) | @MainActor init(store: ModalStore<M>, @ViewBuilder destination: @escaping (M) -> Destination, @ViewBuilder content: @escaping () -> Content) | []
 symbol | swift.init | ModalMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyModalMiddleware<M>, debugName: String? = nil) | []
 symbol | swift.init | ModalStore.init(currentPresentation:queuedPresentations:configuration:) | init(currentPresentation:queuedPresentations:configuration:) | @MainActor init(currentPresentation: ModalPresentation<M>? = nil, queuedPresentations: [ModalPresentation<M>] = [], configuration: ModalStoreConfiguration<M> = .init()) | []
@@ -478,8 +470,6 @@ symbol | swift.method | DebouncingNavigator.cancelPending() | cancelPending() | 
 symbol | swift.method | DebouncingNavigator.debouncedExecute(_:) | debouncedExecute(_:) | @discardableResult @MainActor func debouncedExecute(_ command: NavigationCommand<N.RouteType>) async -> NavigationResult<N.RouteType>? | []
 symbol | swift.method | FlowStore.apply(_:) | apply(_:) | @discardableResult @MainActor func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> | []
 symbol | swift.method | FlowStore.send(_:) | send(_:) | @MainActor func send(_ intent: FlowIntent<R>) | []
-symbol | swift.method | LifecycleSignals.fireParentCancel() | fireParentCancel() | @MainActor func fireParentCancel() | []
-symbol | swift.method | LifecycleSignals.fireTeardown() | fireTeardown() | @MainActor func fireTeardown() | []
 symbol | swift.method | ModalStore.addMiddleware(_:debugName:) | addMiddleware(_:debugName:) | @discardableResult @MainActor func addMiddleware(_ middleware: AnyModalMiddleware<M>, debugName: String? = nil) -> ModalMiddlewareHandle | []
 symbol | swift.method | ModalStore.binding(case:style:) | binding(case:style:) | @MainActor func binding<Value>(case casePath: CasePath<M, Value>, style: ModalPresentationStyle = .sheet) -> Binding<Value?> | []
 symbol | swift.method | ModalStore.dismissAll() | dismissAll() | @MainActor func dismissAll() | []
@@ -560,9 +550,6 @@ symbol | swift.property | FlowStoreConfiguration.modal | modal | var modal: Moda
 symbol | swift.property | FlowStoreConfiguration.navigation | navigation | var navigation: NavigationStoreConfiguration<R> | []
 symbol | swift.property | FlowStoreConfiguration.onEvent | onEvent | var onEvent: (@MainActor (FlowEvent<R>) -> Void)? | []
 symbol | swift.property | FlowStoreConfiguration.queueCoalescePolicy | queueCoalescePolicy | var queueCoalescePolicy: QueueCoalescePolicy<R> | []
-symbol | swift.property | LifecycleAware.lifecycleSignals | lifecycleSignals | @MainActor var lifecycleSignals: LifecycleSignals { get set } | []
-symbol | swift.property | LifecycleSignals.onParentCancel | onParentCancel | @MainActor var onParentCancel: (@MainActor () -> Void)? | []
-symbol | swift.property | LifecycleSignals.onTeardown | onTeardown | @MainActor var onTeardown: (@MainActor () -> Void)? | []
 symbol | swift.property | MiddlewareMutationEvent.action | action | let action: MiddlewareMutationEvent<R>.Action | []
 symbol | swift.property | MiddlewareMutationEvent.index | index | let index: Int? | []
 symbol | swift.property | MiddlewareMutationEvent.metadata | metadata | let metadata: NavigationMiddlewareMetadata | []
@@ -628,10 +615,9 @@ symbol | swift.property | StepCoordinatorView.body | body | @MainActor var body:
 symbol | swift.property | TabCoordinator.selectedTab | selectedTab | @MainActor var selectedTab: Self.TabType { get set } | []
 symbol | swift.property | TabCoordinator.tabBadges | tabBadges | @MainActor var tabBadges: [Self.TabType : Int] { get set } | []
 symbol | swift.property | TabCoordinatorView.body | body | @MainActor var body: some View { get } | []
-symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor protocol ChildCoordinator : LifecycleAware | []
+symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor protocol ChildCoordinator : AnyObject | []
 symbol | swift.protocol | Coordinator | Coordinator | @MainActor protocol Coordinator : AnyObject, Observable | []
 symbol | swift.protocol | DestinationRoute | DestinationRoute | protocol DestinationRoute : Route | []
-symbol | swift.protocol | LifecycleAware | LifecycleAware | @MainActor protocol LifecycleAware : AnyObject | []
 symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<RouteType> : Sendable | []
 symbol | swift.protocol | RouterTab | RouterTab | protocol RouterTab : Route, CaseIterable, Identifiable | []
 symbol | swift.protocol | StepCoordinator | StepCoordinator | @MainActor protocol StepCoordinator : AnyObject, Observable | []
@@ -641,7 +627,6 @@ symbol | swift.struct | CoordinatorSplitHost | CoordinatorSplitHost | @MainActor
 symbol | swift.struct | EnvironmentRouter | EnvironmentRouter | @MainActor @propertyWrapper struct EnvironmentRouter<R> where R : Route | []
 symbol | swift.struct | FlowHost | FlowHost | @MainActor struct FlowHost<R, Destination, Root> where R : Route, Destination : View, Root : View | []
 symbol | swift.struct | FlowStoreConfiguration | FlowStoreConfiguration | struct FlowStoreConfiguration<R> where R : Route | []
-symbol | swift.struct | LifecycleSignals | LifecycleSignals | @MainActor struct LifecycleSignals | []
 symbol | swift.struct | MiddlewareMutationEvent | MiddlewareMutationEvent | struct MiddlewareMutationEvent<R> where R : Route | []
 symbol | swift.struct | ModalHost | ModalHost | @MainActor struct ModalHost<M, Destination, Content> where M : Route, Destination : View, Content : View | []
 symbol | swift.struct | ModalMiddlewareHandle | ModalMiddlewareHandle | struct ModalMiddlewareHandle | []
