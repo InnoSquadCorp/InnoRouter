@@ -6,6 +6,8 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+## 5.0.0 - 2026-07-17
+
 ### Breaking
 
 - The minimum supported Swift version is now 6.3
@@ -340,6 +342,10 @@ are bare semver (no leading `v`).
 - Every external GitHub Action reference is pinned to an immutable commit SHA;
   Dependabot continues to surface reviewed version updates without allowing a
   mutable major tag to change release behavior between runs.
+- Repository rulesets now prevent `main` history rewrites and tag mutation or
+  deletion while preserving normal direct fast-forward development. Immutable
+  Releases, Dependabot security updates, secret scanning, and push protection
+  are enabled for the public repository.
 - The compiler plugin no longer depends on the full Core and DeepLink runtime
   graph. Runtime matching and compile-time macro validation now share a small
   package-only pattern grammar target, retaining diagnostic parity while
