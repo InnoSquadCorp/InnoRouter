@@ -30,11 +30,15 @@ swift build \
 
 (
   cd "$PACKAGE_DIR"
+  # This non-interactive smoke resolves either the current checkout or the
+  # exact GA tag validated above. Avoid a local Xcode trust prompt masking the
+  # actual downstream build result in a fresh DerivedData directory.
   xcodebuild build \
     -scheme InnoRouterConsumerSmoke-Package \
     -destination 'generic/platform=visionOS Simulator' \
     -derivedDataPath "$SCRATCH_DIR/xcode" \
     -jobs "${XCODEBUILD_JOBS:-2}" \
+    -skipMacroValidation \
     -quiet
 )
 
