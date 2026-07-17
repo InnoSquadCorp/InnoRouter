@@ -1,5 +1,5 @@
 // MARK: - SceneStoreVisionOSTests.swift
-// InnoRouterPlatformTests — visionOS spatial-scene regression coverage
+// External consumer tests — visionOS spatial-scene regression coverage
 // Copyright © 2026 Inno Squad. All rights reserved.
 //
 // visionOS exposes spatial scene actions (`openWindow`,

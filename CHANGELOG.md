@@ -431,6 +431,13 @@ are bare semver (no leading `v`).
   the host module and then failed `InnoRouterDeepLink` with
   `no such module 'InnoRouterPatternSupport'`. A standalone consumer package
   now gates the default macro-first product and the opt-in Spatial product.
+- Platform runtime CI no longer links the host-only
+  `InnoRouterMacrosPlugin.o` into tvOS or watchOS simulator test bundles.
+  Those root-package tests now stay on the macro-free Core/SwiftUI boundary,
+  while visionOS links and runs the macro-first Spatial product through the
+  independent `ConsumerSmoke` package. This both avoids Xcode's root-package
+  dependency flattening and validates the actual downstream product boundary
+  without reducing the existing visionOS regression suite.
 - The human-facing deep-link example now uses the generated `@DeepLink`
   resolver and automatic `RouterHost` handling. Its previous authentication
   sketch discarded the pending destination and never replayed it after login;

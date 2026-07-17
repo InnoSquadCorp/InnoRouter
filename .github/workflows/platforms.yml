@@ -171,16 +171,19 @@ jobs:
             destination: "tvOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.tvOS"
             minimumPassedTests: 5
+            testPackage: root
           - name: watchOS
             destination: "watchOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.watchOS"
             minimumPassedTests: 3
+            testPackage: root
           - name: visionOS
             destination: "visionOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.xrOS"
             # xcresult summary counts a parameterized @Test function once;
             # its argument iterations are validated by the test result itself.
             minimumPassedTests: 25
+            testPackage: consumer
 
     steps:
       - name: Checkout
@@ -247,22 +250,40 @@ jobs:
           )
           PY
 
-      - name: Test InnoRouterPlatformTests for ${{ matrix.platform.name }}
+      # Root-package Xcode test bundles flatten macro implementation targets
+      # into the destination linker inputs. That is invalid for Spatial because
+      # its compiler plugin is a host macOS executable. The visionOS suite runs
+      # through ConsumerSmoke instead, which is also the stronger downstream
+      # product/import/macro contract. tvOS and watchOS remain macro-free root
+      # package runtime tests.
+      - name: Test platform consumer for ${{ matrix.platform.name }}
         shell: bash
         run: |
           set -euo pipefail
-          result_bundle="$RUNNER_TEMP/InnoRouterPlatformTests-${{ matrix.platform.name }}.xcresult"
-          summary_json="$RUNNER_TEMP/InnoRouterPlatformTests-${{ matrix.platform.name }}-summary.json"
+          result_bundle="$RUNNER_TEMP/InnoRouterPlatformConsumer-${{ matrix.platform.name }}.xcresult"
+          summary_json="$RUNNER_TEMP/InnoRouterPlatformConsumer-${{ matrix.platform.name }}-summary.json"
           rm -rf "$result_bundle"
 
-          xcodebuild test \
-            -workspace .github/platform-tests.xcworkspace \
-            -scheme InnoRouterPlatformTests \
-            -destination 'platform=${{ matrix.platform.destination }},id=${{ steps.simulator.outputs.udid }}' \
-            -destination-timeout 120 \
-            -parallel-testing-enabled NO \
-            -resultBundlePath "$result_bundle" \
-            -quiet
+          if [[ '${{ matrix.platform.testPackage }}' == 'consumer' ]]; then
+            pushd ConsumerSmoke >/dev/null
+            xcodebuild test \
+              -scheme InnoRouterConsumerSmoke-Package \
+              -destination 'platform=${{ matrix.platform.destination }},id=${{ steps.simulator.outputs.udid }}' \
+              -destination-timeout 120 \
+              -parallel-testing-enabled NO \
+              -resultBundlePath "$result_bundle" \
+              -quiet
+            popd >/dev/null
+          else
+            xcodebuild test \
+              -workspace .github/platform-tests.xcworkspace \
+              -scheme InnoRouterPlatformTests \
+              -destination 'platform=${{ matrix.platform.destination }},id=${{ steps.simulator.outputs.udid }}' \
+              -destination-timeout 120 \
+              -parallel-testing-enabled NO \
+              -resultBundlePath "$result_bundle" \
+              -quiet
+          fi
 
           xcrun xcresulttool get test-results summary \
             --path "$result_bundle" \

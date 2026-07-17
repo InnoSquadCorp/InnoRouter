@@ -1,5 +1,5 @@
 // MARK: - SceneStoreIntegrationTests.swift
-// InnoRouterPlatformTests — integration coverage for the three visionOS SceneStore hardening
+// External consumer tests — integration coverage for visionOS SceneStore hardening
 // paths. Exercises SceneStore + SceneDispatchDriver end-to-end via
 // mocked environment closures, without requiring a live SwiftUI view
 // hierarchy. Scene types are #if os(visionOS), so this test file is

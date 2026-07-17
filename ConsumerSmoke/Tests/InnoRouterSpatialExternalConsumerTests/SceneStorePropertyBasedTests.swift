@@ -1,5 +1,5 @@
 // MARK: - SceneStorePropertyBasedTests.swift
-// InnoRouterPlatformTests — SceneStore invariant probing via parametric tests
+// External consumer tests — SceneStore invariant probing via parametric tests
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 #if os(visionOS)

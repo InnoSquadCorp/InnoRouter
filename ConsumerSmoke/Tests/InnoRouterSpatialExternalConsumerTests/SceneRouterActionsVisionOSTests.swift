@@ -1,5 +1,7 @@
 #if os(visionOS)
 
+// External consumer tests — visionOS scene action forwarding.
+
 import Foundation
 import SwiftUI
 import Testing

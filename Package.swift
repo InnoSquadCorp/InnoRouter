@@ -372,9 +372,14 @@ let package = Package(
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterSpatial"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // This target is intentionally macro-free. Xcode flattens a root
+        // package test target's macro dependency into the simulator test
+        // bundle and attempts to link the host-only plugin object. tvOS and
+        // watchOS runtime tests stay here; visionOS public/runtime integration
+        // runs from ConsumerSmoke as a real downstream package dependency.
         .testTarget(
             name: "InnoRouterPlatformTests",
-            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterSpatial"],
+            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         // InnoRouterMacrosPlugin is a CompilerPlugin built host-only

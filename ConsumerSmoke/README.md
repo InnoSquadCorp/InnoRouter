@@ -19,3 +19,8 @@ platform compilation:
 
 `InnoRouterMacroFirstExternalConsumer` depends only on `InnoRouter`.
 `InnoRouterSpatialExternalConsumer` depends only on `InnoRouterSpatial`.
+`InnoRouterSpatialExternalConsumerTests` links and runs the Spatial product,
+its generated `@SceneRouter` surface, public API, and the complete visionOS
+runtime regression suite in a simulator. The platform workflow owns simulator
+discovery and executes that suite through the nested package's
+`InnoRouterConsumerSmoke-Package` scheme.

@@ -43,5 +43,15 @@ let package = Package(
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        .testTarget(
+            name: "InnoRouterSpatialExternalConsumerTests",
+            dependencies: [
+                "InnoRouterSpatialExternalConsumer",
+                .product(name: "InnoRouterCore", package: "InnoRouter"),
+                .product(name: "InnoRouterSpatial", package: "InnoRouter"),
+                .product(name: "InnoRouterSwiftUI", package: "InnoRouter"),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
     ]
 )

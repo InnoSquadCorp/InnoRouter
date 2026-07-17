@@ -1,5 +1,5 @@
 // MARK: - SpatialPublicAPISmokeTests.swift
-// InnoRouterPlatformTests — visionOS public spatial API compilation
+// External consumer tests — visionOS public spatial API compilation
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 #if os(visionOS)
