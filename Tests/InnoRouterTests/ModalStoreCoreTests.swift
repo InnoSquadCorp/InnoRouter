@@ -85,6 +85,28 @@ struct ModalStoreTests {
         #expect(store.queuedPresentations.isEmpty)
     }
 
+    @Test("Dismiss and replace report the same execution outcome as execute")
+    @MainActor
+    func testDismissAndReplaceReturnExecutionResults() {
+        let store = ModalStore<TestModalRoute>()
+
+        // Nothing is presented yet, so a dismissal is a reported no-op.
+        #expect(store.dismissCurrent() == .noop)
+        #expect(store.dismissAll() == .noop)
+
+        store.present(.profile, style: .sheet)
+        let replaced = store.replaceCurrent(.onboarding, style: .fullScreenCover)
+        guard case .executed(.replaceCurrent(let replacement)) = replaced else {
+            Issue.record("Expected an executed replaceCurrent, got \(replaced)")
+            return
+        }
+        #expect(replacement.route == .onboarding)
+
+        let dismissed = store.dismissCurrent()
+        #expect(dismissed == .executed(.dismissCurrent(reason: .dismiss)))
+        #expect(store.currentPresentation == nil)
+    }
+
     @Test("First present emits presented once without queueChanged")
     @MainActor
     func testPresentEmitsPresentedWithoutQueueChanged() {

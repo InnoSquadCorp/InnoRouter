@@ -92,17 +92,23 @@ public final class ModalTestStore<M: Route> {
     }
 
     /// Forwards to `ModalStore.present(_:style:)`.
-    public func present(_ route: M, style: ModalPresentationStyle = .sheet) {
+    @discardableResult
+    public func present(
+        _ route: M,
+        style: ModalPresentationStyle = .sheet
+    ) -> ModalPresentResult<M> {
         underlying.present(route, style: style)
     }
 
     /// Forwards to `ModalStore.dismissCurrent()`.
-    public func dismissCurrent() {
+    @discardableResult
+    public func dismissCurrent() -> ModalExecutionResult<M> {
         underlying.dismissCurrent()
     }
 
     /// Forwards to `ModalStore.dismissAll()`.
-    public func dismissAll() {
+    @discardableResult
+    public func dismissAll() -> ModalExecutionResult<M> {
         underlying.dismissAll()
     }
 

@@ -6,6 +6,16 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+### Added
+
+- `ModalStore.replaceCurrent(_:style:)`, `dismissCurrent()`, and
+  `dismissAll()` now return the effective `ModalExecutionResult` as a
+  `@discardableResult`, matching the outcome reporting `present(_:style:)`
+  already offered. Callers can observe middleware cancellations or no-ops
+  without subscribing to the event stream; existing call sites compile
+  unchanged. `ModalTestStore` forwards the same results (and `present`
+  now forwards `ModalPresentResult`).
+
 ### Changed
 
 - Off visionOS, invoking `SceneRouterActions` (`open`, `dismissWindow`,

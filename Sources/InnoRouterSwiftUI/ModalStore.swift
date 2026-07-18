@@ -344,7 +344,15 @@ public final class ModalStore<M: Route> {
         }
     }
 
-    public func replaceCurrent(_ route: M, style: ModalPresentationStyle) {
+    /// Replaces the active presentation (or presents, when nothing is
+    /// active) and reports the effective execution outcome so callers can
+    /// observe middleware cancellations or rewrites without subscribing to
+    /// the event stream — the same parity ``present(_:style:)`` offers.
+    @discardableResult
+    public func replaceCurrent(
+        _ route: M,
+        style: ModalPresentationStyle
+    ) -> ModalExecutionResult<M> {
         let replacement: ModalPresentation<M>
         if let currentPresentation {
             replacement = ModalPresentation(
@@ -355,19 +363,27 @@ public final class ModalStore<M: Route> {
         } else {
             replacement = ModalPresentation(route: route, style: style)
         }
-        _ = execute(.replaceCurrent(replacement))
+        return execute(.replaceCurrent(replacement))
     }
 
-    public func dismissCurrent() {
+    /// Dismisses the active presentation and reports the effective
+    /// execution outcome (for example `.cancelled` when middleware vetoed
+    /// the dismissal, or `.noop` when nothing was presented).
+    @discardableResult
+    public func dismissCurrent() -> ModalExecutionResult<M> {
         dismissCurrent(reason: .dismiss)
     }
 
-    func dismissCurrent(reason: ModalDismissalReason) {
-        _ = execute(.dismissCurrent(reason: reason))
+    @discardableResult
+    func dismissCurrent(reason: ModalDismissalReason) -> ModalExecutionResult<M> {
+        execute(.dismissCurrent(reason: reason))
     }
 
-    public func dismissAll() {
-        _ = execute(.dismissAll)
+    /// Dismisses the active presentation and clears the queue, reporting
+    /// the effective execution outcome.
+    @discardableResult
+    public func dismissAll() -> ModalExecutionResult<M> {
+        execute(.dismissAll)
     }
 
     var flowStateSnapshot: ModalExecutionState<M> {
