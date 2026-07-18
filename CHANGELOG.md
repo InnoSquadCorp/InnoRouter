@@ -6,6 +6,8 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+## 5.1.0 - 2026-07-19
+
 ### Added
 
 - `ModalStore.replaceCurrent(_:style:)`, `dismissCurrent()`, and
@@ -17,7 +19,7 @@ are bare semver (no leading `v`).
   now forwards `ModalPresentResult`), and gains a `replaceCurrent`
   forwarder so the test surface mirrors the production store.
 
-### Changed
+### Fixed
 
 - Off visionOS, invoking `SceneRouterActions` (`open`, `dismissWindow`,
   `dismissImmersive`) now always logs and degrades to a no-op instead of
@@ -25,6 +27,10 @@ are bare semver (no leading `v`).
   published on those platforms, so the previous default (`.crash`) trapped
   shared multiplatform view code for a wiring error that does not exist.
   On visionOS the policy behavior is unchanged.
+- Tab-badge diagnostics now log under the package-wide
+  `io.innosquad.innorouter` subsystem instead of a stray
+  `com.innosquad.InnoRouter`, so one `log stream` predicate captures all
+  InnoRouter diagnostics.
 
 ## 5.0.0 - 2026-07-17
 
