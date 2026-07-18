@@ -174,9 +174,11 @@ space.
 
 Environment resolution is lazy. Merely rendering a view outside the generated
 tree does not report an error; invoking an action without the matching route
-authority applies `EnvironmentMissingPolicy`. The default fails loudly and
-points back to installing `AppScene.scenes`. A deliberately degradable preview
-or shared cross-platform view can opt into `.logAndDegrade` at its boundary.
+authority applies `EnvironmentMissingPolicy`. On visionOS the default fails
+loudly and points back to installing `AppScene.scenes`; a deliberately
+degradable preview can opt into `.logAndDegrade` at its boundary. Off
+visionOS no authority can exist, so shared cross-platform view code always
+logs and degrades to a no-op without any opt-in.
 
 ## Advanced: own the store and registry manually
 

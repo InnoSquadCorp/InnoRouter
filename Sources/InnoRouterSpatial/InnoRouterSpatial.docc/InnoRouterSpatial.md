@@ -73,9 +73,11 @@ declarations dynamically outside the generated inventory.
 | `SceneStore`, `innoRouterSceneHost`, `innoRouterSceneAnchor` | — | — | — | — | — | ✅ |
 | `innoRouterOrnament` | no-op | no-op | no-op | no-op | no-op | ✅ |
 
-The cross-platform action facade lets shared view code compile. Invoking it
-without a generated or manually composed visionOS authority follows
-`EnvironmentMissingPolicy`; it does not emulate spatial scenes on another
+The cross-platform action facade lets shared view code compile. On visionOS,
+invoking it without a generated or manually composed authority follows
+`EnvironmentMissingPolicy`. On every other platform an authority can never
+be published, so invocation always logs and degrades to a no-op regardless
+of the configured policy; it does not emulate spatial scenes on another
 platform.
 
 ## Topics

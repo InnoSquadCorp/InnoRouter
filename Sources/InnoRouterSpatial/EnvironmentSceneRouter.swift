@@ -139,6 +139,10 @@ extension View {
 ///
 /// The facade is available cross-platform so shared view code can compile,
 /// while actual scene authority is currently published only on visionOS.
+/// Off visionOS a matching authority can therefore never exist, so invoking
+/// an action there logs and degrades to a no-op regardless of the configured
+/// ``EnvironmentMissingPolicy`` — the policy applies (and can trap) only on
+/// visionOS, where a missing authority is an actionable wiring error.
 public struct SceneRouterActions<R: Route>: Sendable {
     private let resolveEnvironment: @MainActor @Sendable () -> SceneRouterEnvironment?
     private let environmentMissingPolicy: EnvironmentMissingPolicy
@@ -297,6 +301,7 @@ private func handleMissingSceneEnvironment(
     policy: EnvironmentMissingPolicy,
     message: () -> String
 ) {
+    #if os(visionOS)
     switch policy {
     case .crash:
         preconditionFailure(message())
@@ -308,4 +313,15 @@ private func handleMissingSceneEnvironment(
         missingSceneEnvironmentLogger.error("\(resolved, privacy: .public)")
         assertionFailure(resolved)
     }
+    #else
+    // A scene authority can never be published on this platform —
+    // `sceneRouterAuthority(store:scenes:)` and the host/anchor modifiers
+    // are visionOS-only — so a missing authority is the expected state of
+    // shared multiplatform view code, not a wiring error the developer can
+    // fix. Trapping here would punish exactly the sharing the facade
+    // exists to allow, so every policy degrades to a log off-visionOS.
+    _ = policy
+    let resolved = message()
+    missingSceneEnvironmentLogger.error("\(resolved, privacy: .public)")
+    #endif
 }

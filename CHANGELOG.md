@@ -6,6 +6,15 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+### Changed
+
+- Off visionOS, invoking `SceneRouterActions` (`open`, `dismissWindow`,
+  `dismissImmersive`) now always logs and degrades to a no-op instead of
+  applying `EnvironmentMissingPolicy`. A scene authority can never be
+  published on those platforms, so the previous default (`.crash`) trapped
+  shared multiplatform view code for a wiring error that does not exist.
+  On visionOS the policy behavior is unchanged.
+
 ## 5.0.0 - 2026-07-17
 
 ### Breaking

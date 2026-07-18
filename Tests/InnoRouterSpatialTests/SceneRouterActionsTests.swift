@@ -71,6 +71,26 @@ struct SceneRouterActionsTests {
         #expect(didRead)
     }
 
+    #if !os(visionOS)
+    @Test("Off visionOS the default policy degrades instead of trapping")
+    func defaultPolicyDegradesOffVisionOS() throws {
+        var completed = false
+
+        // No `.innoRouterEnvironmentMissingPolicy` modifier: the default is
+        // `.crash`, which must still degrade to a logged no-op off visionOS
+        // because no scene authority can ever be published here.
+        _ = try renderSceneRouter(
+            SceneRouterProbe { scenes in
+                #expect(scenes.open(.main) == nil)
+                scenes.dismissImmersive()
+                completed = true
+            }
+        )
+
+        #expect(completed)
+    }
+    #endif
+
     @Test("Missing authority degrades only when an action is invoked")
     func missingAuthorityDegradesAtInvocation() throws {
         var completed = false
