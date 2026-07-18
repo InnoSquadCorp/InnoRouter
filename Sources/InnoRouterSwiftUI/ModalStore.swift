@@ -97,16 +97,77 @@ public final class ModalStore<M: Route> {
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
+        let wiring = Self.makeObservationWiring(
+            configuration: configuration,
+            telemetryRecorder: nil
+        )
+        self.currentPresentation = normalizedState.current
+        self.queuedPresentations = normalizedState.queue
+        self.queueCancellationPolicy = configuration.queueCancellationPolicy
+        self.eventDispatcher = wiring.eventDispatcher
+        self.telemetrySink = wiring.telemetrySink
+        self.middlewareRegistry = wiring.middlewareRegistry
+        self.broadcaster = wiring.broadcaster
+        self.traceLogger = configuration.logger
+        self.traceRecorder = nil
+        updateEffectiveTraceRecorder()
+    }
+
+    init(
+        currentPresentation: ModalPresentation<M>? = nil,
+        queuedPresentations: [ModalPresentation<M>] = [],
+        configuration: ModalStoreConfiguration<M> = .init(),
+        telemetryRecorder: ModalStoreTelemetryRecorder<M>? = nil
+    ) {
+        let normalizedState = Self.normalize(
+            currentPresentation: currentPresentation,
+            queuedPresentations: queuedPresentations
+        )
+        let wiring = Self.makeObservationWiring(
+            configuration: configuration,
+            telemetryRecorder: telemetryRecorder
+        )
+        self.currentPresentation = normalizedState.current
+        self.queuedPresentations = normalizedState.queue
+        self.queueCancellationPolicy = configuration.queueCancellationPolicy
+        self.eventDispatcher = wiring.eventDispatcher
+        self.telemetrySink = wiring.telemetrySink
+        self.middlewareRegistry = wiring.middlewareRegistry
+        self.broadcaster = wiring.broadcaster
+        self.traceLogger = configuration.logger
+        self.traceRecorder = nil
+        updateEffectiveTraceRecorder()
+    }
+
+    /// Shared observation plumbing for both initializers: broadcaster,
+    /// serialized dispatcher, telemetry sink, and middleware registry.
+    /// The test-only `telemetryRecorder` hook is a no-op when `nil`, so
+    /// the public initializer funnels through the identical wiring.
+    private struct ObservationWiring {
+        let eventDispatcher: SerializedEventDispatcher<ModalObservationDelivery<M>>
+        let telemetrySink: ModalStoreTelemetrySink<M>
+        let middlewareRegistry: ModalMiddlewareRegistry<M>
+        let broadcaster: EventBroadcaster<ModalEvent<M>>
+    }
+
+    private static func makeObservationWiring(
+        configuration: ModalStoreConfiguration<M>,
+        telemetryRecorder: ModalStoreTelemetryRecorder<M>?
+    ) -> ObservationWiring {
         let broadcaster = EventBroadcaster<ModalEvent<M>>(
             bufferingPolicy: configuration.eventBufferingPolicy
         )
         let observationTelemetrySink = Self.defaultTelemetrySink(for: configuration)
         let onEvent = configuration.onEvent
         let eventDispatcher = SerializedEventDispatcher<ModalObservationDelivery<M>> { delivery in
-            guard let event = delivery.event else { return }
-            onEvent?(event)
-            observationTelemetrySink?.record(event)
-            broadcaster.broadcast(event)
+            if let event = delivery.event {
+                onEvent?(event)
+            }
+            telemetryRecorder?(delivery.telemetryEvent)
+            if let event = delivery.event {
+                observationTelemetrySink?.record(event)
+                broadcaster.broadcast(event)
+            }
         }
         let telemetrySink = ModalStoreTelemetrySink<M>(
             logger: nil,
@@ -123,68 +184,12 @@ public final class ModalStore<M: Route> {
             registrations: configuration.middlewares,
             telemetrySink: telemetrySink
         )
-        self.currentPresentation = normalizedState.current
-        self.queuedPresentations = normalizedState.queue
-        self.queueCancellationPolicy = configuration.queueCancellationPolicy
-        self.eventDispatcher = eventDispatcher
-        self.telemetrySink = telemetrySink
-        self.middlewareRegistry = middlewareRegistry
-        self.broadcaster = broadcaster
-        self.traceLogger = configuration.logger
-        self.traceRecorder = nil
-        updateEffectiveTraceRecorder()
-    }
-
-    init(
-        currentPresentation: ModalPresentation<M>? = nil,
-        queuedPresentations: [ModalPresentation<M>] = [],
-        configuration: ModalStoreConfiguration<M> = .init(),
-        telemetryRecorder: ModalStoreTelemetryRecorder<M>? = nil
-    ) {
-        let normalizedState = Self.normalize(
-            currentPresentation: currentPresentation,
-            queuedPresentations: queuedPresentations
+        return ObservationWiring(
+            eventDispatcher: eventDispatcher,
+            telemetrySink: telemetrySink,
+            middlewareRegistry: middlewareRegistry,
+            broadcaster: broadcaster
         )
-        let broadcaster = EventBroadcaster<ModalEvent<M>>(
-            bufferingPolicy: configuration.eventBufferingPolicy
-        )
-        let observationTelemetrySink = Self.defaultTelemetrySink(for: configuration)
-        let onEvent = configuration.onEvent
-        let eventDispatcher = SerializedEventDispatcher<ModalObservationDelivery<M>> { delivery in
-            if let event = delivery.event {
-                onEvent?(event)
-            }
-            telemetryRecorder?(delivery.telemetryEvent)
-            if let event = delivery.event {
-                observationTelemetrySink?.record(event)
-                broadcaster.broadcast(event)
-            }
-        }
-        let telemetrySink = ModalStoreTelemetrySink(
-            logger: nil,
-            recorder: { telemetryEvent in
-                eventDispatcher.emit(
-                    ModalObservationDelivery(
-                        event: Self.publicEvent(for: telemetryEvent),
-                        telemetryEvent: telemetryEvent
-                    )
-                )
-            }
-        )
-        let middlewareRegistry = ModalMiddlewareRegistry(
-            registrations: configuration.middlewares,
-            telemetrySink: telemetrySink
-        )
-        self.currentPresentation = normalizedState.current
-        self.queuedPresentations = normalizedState.queue
-        self.queueCancellationPolicy = configuration.queueCancellationPolicy
-        self.eventDispatcher = eventDispatcher
-        self.telemetrySink = telemetrySink
-        self.middlewareRegistry = middlewareRegistry
-        self.broadcaster = broadcaster
-        self.traceLogger = configuration.logger
-        self.traceRecorder = nil
-        updateEffectiveTraceRecorder()
     }
 
     // Telemetry adapter helpers live in
@@ -219,37 +224,7 @@ public final class ModalStore<M: Route> {
     }
 
     private func logTraceRecord(_ record: InternalExecutionTraceRecord) {
-        guard let traceLogger else { return }
-
-        switch record {
-        case .start(let context, let operation, let metadata):
-            let metadataSummary = metadata
-                .sorted { $0.key < $1.key }
-                .map { "\($0.key)=\($0.value)" }
-                .joined(separator: ",")
-            traceLogger.debug(
-                """
-                modal trace start \
-                root=\(context.rootID, privacy: .public) \
-                span=\(context.spanID, privacy: .public) \
-                parent=\(context.parentSpanID ?? "nil", privacy: .public) \
-                operation=\(operation, privacy: .public) \
-                metadata=\(metadataSummary, privacy: .private)
-                """
-            )
-
-        case .finish(let context, let operation, let outcome):
-            traceLogger.debug(
-                """
-                modal trace finish \
-                root=\(context.rootID, privacy: .public) \
-                span=\(context.spanID, privacy: .public) \
-                parent=\(context.parentSpanID ?? "nil", privacy: .public) \
-                operation=\(operation, privacy: .public) \
-                outcome=\(outcome, privacy: .private)
-                """
-            )
-        }
+        traceLogger?.logExecutionTrace(record, label: "modal")
     }
 
     // MARK: - Public middleware API

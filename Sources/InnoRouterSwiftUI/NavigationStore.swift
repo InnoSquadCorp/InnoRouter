@@ -76,39 +76,18 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         initial: RouteStack<R> = .init(),
         configuration: NavigationStoreConfiguration<R> = .init()
     ) {
-        let broadcaster = EventBroadcaster<NavigationEvent<R>>(
-            bufferingPolicy: configuration.eventBufferingPolicy
-        )
-        let observationTelemetrySink = Self.defaultTelemetrySink(for: configuration)
-        let onEvent = configuration.onEvent
-        let eventDispatcher = SerializedEventDispatcher<NavigationObservationDelivery<R>> { delivery in
-            onEvent?(delivery.event)
-            observationTelemetrySink?.record(delivery.event)
-            broadcaster.broadcast(delivery.event)
-        }
-        let telemetrySink = NavigationStoreTelemetrySink<R>(
-            logger: nil,
-            recorder: { telemetryEvent in
-                eventDispatcher.emit(
-                    NavigationObservationDelivery(
-                        event: Self.publicEvent(for: telemetryEvent),
-                        telemetryEvent: telemetryEvent
-                    )
-                )
-            }
-        )
-        let middlewareRegistry = NavigationMiddlewareRegistry(
-            registrations: configuration.middlewares,
-            telemetrySink: telemetrySink
+        let wiring = Self.makeObservationWiring(
+            configuration: configuration,
+            telemetryRecorder: nil
         )
         self.state = initial
         self.engine = .init()
-        self.eventDispatcher = eventDispatcher
+        self.eventDispatcher = wiring.eventDispatcher
         self.pathMismatchPolicy = configuration.pathMismatchPolicy
         self.pathMismatchAssertionHandler = Self.defaultPathMismatchAssertionHandler
-        self.telemetrySink = telemetrySink
-        self.middlewareRegistry = middlewareRegistry
-        self.broadcaster = broadcaster
+        self.telemetrySink = wiring.telemetrySink
+        self.middlewareRegistry = wiring.middlewareRegistry
+        self.broadcaster = wiring.broadcaster
         self.traceLogger = configuration.logger
         self.traceRecorder = nil
         self.cachedEffectiveTraceRecorder = nil
@@ -129,6 +108,39 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         nonPrefixAssertionHandler: @escaping @MainActor @Sendable ([R], [R]) -> Void,
         telemetryRecorder: NavigationStoreTelemetryRecorder<R>? = nil
     ) {
+        let wiring = Self.makeObservationWiring(
+            configuration: configuration,
+            telemetryRecorder: telemetryRecorder
+        )
+        self.state = initial
+        self.engine = .init()
+        self.eventDispatcher = wiring.eventDispatcher
+        self.pathMismatchPolicy = configuration.pathMismatchPolicy
+        self.pathMismatchAssertionHandler = nonPrefixAssertionHandler
+        self.telemetrySink = wiring.telemetrySink
+        self.middlewareRegistry = wiring.middlewareRegistry
+        self.broadcaster = wiring.broadcaster
+        self.traceLogger = configuration.logger
+        self.traceRecorder = nil
+        self.cachedEffectiveTraceRecorder = nil
+        updateEffectiveTraceRecorder()
+    }
+
+    /// Shared observation plumbing for both initializers: broadcaster,
+    /// serialized dispatcher, telemetry sink, and middleware registry.
+    /// The test-only `telemetryRecorder` hook is a no-op when `nil`, so
+    /// the public initializer funnels through the identical wiring.
+    private struct ObservationWiring {
+        let eventDispatcher: SerializedEventDispatcher<NavigationObservationDelivery<R>>
+        let telemetrySink: NavigationStoreTelemetrySink<R>
+        let middlewareRegistry: NavigationMiddlewareRegistry<R>
+        let broadcaster: EventBroadcaster<NavigationEvent<R>>
+    }
+
+    private static func makeObservationWiring(
+        configuration: NavigationStoreConfiguration<R>,
+        telemetryRecorder: NavigationStoreTelemetryRecorder<R>?
+    ) -> ObservationWiring {
         let broadcaster = EventBroadcaster<NavigationEvent<R>>(
             bufferingPolicy: configuration.eventBufferingPolicy
         )
@@ -142,7 +154,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             observationTelemetrySink?.record(delivery.event)
             broadcaster.broadcast(delivery.event)
         }
-        let telemetrySink = NavigationStoreTelemetrySink(
+        let telemetrySink = NavigationStoreTelemetrySink<R>(
             logger: nil,
             recorder: { telemetryEvent in
                 eventDispatcher.emit(
@@ -157,18 +169,12 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             registrations: configuration.middlewares,
             telemetrySink: telemetrySink
         )
-        self.state = initial
-        self.engine = .init()
-        self.eventDispatcher = eventDispatcher
-        self.pathMismatchPolicy = configuration.pathMismatchPolicy
-        self.pathMismatchAssertionHandler = nonPrefixAssertionHandler
-        self.telemetrySink = telemetrySink
-        self.middlewareRegistry = middlewareRegistry
-        self.broadcaster = broadcaster
-        self.traceLogger = configuration.logger
-        self.traceRecorder = nil
-        self.cachedEffectiveTraceRecorder = nil
-        updateEffectiveTraceRecorder()
+        return ObservationWiring(
+            eventDispatcher: eventDispatcher,
+            telemetrySink: telemetrySink,
+            middlewareRegistry: middlewareRegistry,
+            broadcaster: broadcaster
+        )
     }
 
     // Telemetry adapter helpers live in
@@ -203,37 +209,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     }
 
     private func logTraceRecord(_ record: InternalExecutionTraceRecord) {
-        guard let traceLogger else { return }
-
-        switch record {
-        case .start(let context, let operation, let metadata):
-            let metadataSummary = metadata
-                .sorted { $0.key < $1.key }
-                .map { "\($0.key)=\($0.value)" }
-                .joined(separator: ",")
-            traceLogger.debug(
-                """
-                navigation trace start \
-                root=\(context.rootID, privacy: .public) \
-                span=\(context.spanID, privacy: .public) \
-                parent=\(context.parentSpanID ?? "nil", privacy: .public) \
-                operation=\(operation, privacy: .public) \
-                metadata=\(metadataSummary, privacy: .private)
-                """
-            )
-
-        case .finish(let context, let operation, let outcome):
-            traceLogger.debug(
-                """
-                navigation trace finish \
-                root=\(context.rootID, privacy: .public) \
-                span=\(context.spanID, privacy: .public) \
-                parent=\(context.parentSpanID ?? "nil", privacy: .public) \
-                operation=\(operation, privacy: .public) \
-                outcome=\(outcome, privacy: .private)
-                """
-            )
-        }
+        traceLogger?.logExecutionTrace(record, label: "navigation")
     }
 
     // Note: middleware CRUD (add/insert/remove/replace/move) lives
