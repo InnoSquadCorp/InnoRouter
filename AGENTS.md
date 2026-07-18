@@ -59,13 +59,16 @@ swift build --target InnoRouterEffects
 
 ### InnoRouterSwiftUI
 
+- `RouterHost`, `RouterModalHost`, `RouterSplitHost`, `RouterTabHost`, `RouterTab`
 - `NavigationStore`, `NavigationStoreConfiguration`
 - `NavigationHost`, `NavigationSplitHost`
 - `CoordinatorHost`, `CoordinatorSplitHost`
 - `ModalStore`, `ModalStoreConfiguration`, `ModalHost`
-- `NavigationIntent`, `ModalIntent`
+- `FlowStore`, `FlowStoreConfiguration`, `FlowHost`
+- `NavigationIntent`, `ModalIntent`, `FlowIntent`
 - `@EnvironmentRouter`, `RouterActions`
-- `StepCoordinator`, `TabCoordinator`
+- `StepCoordinator`, `TabCoordinator`, `ChildCoordinator`
+- `DebouncingNavigator`, `StateRestorationAdapter`
 
 ### InnoRouterDeepLink
 
@@ -77,8 +80,10 @@ swift build --target InnoRouterEffects
 
 ### InnoRouterSpatial
 
+- `@SceneRouter`, `@Scene` macros
 - `ScenePresentation`, `SceneDeclaration`, `SceneRegistry`
 - `SceneStore`, `SceneIntent`, `SceneEvent`
+- `EnvironmentSceneRouter`, `SceneRouterActions`
 - `innoRouterSceneHost`, `innoRouterSceneAnchor`
 - `OrnamentAnchor`, `innoRouterOrnament`
 - explicit opt-in product; not re-exported by `InnoRouter`
@@ -95,6 +100,9 @@ swift build --target InnoRouterEffects
 
 ### InnoRouterMacros
 
+- `@Router` (route/destination wiring)
+- `@TabItem` (tab metadata on `@Router` cases)
+- `@DeepLink` (fail-closed URL-to-route mapping)
 - `@Routable`
 - `@CasePathable`
 
@@ -112,6 +120,13 @@ swift build --target InnoRouterEffects
 - single current presentation + queued pending presentations
 - `sheet` / `fullScreenCover` only
 - lifecycle observability through `ModalStoreConfiguration`
+
+### FlowStore
+
+- unified push + modal authority over one `[RouteStep]` path
+- `send(_:)`: SwiftUI view `FlowIntent` entry point
+- `apply(_:)`: `FlowPlan` application (deep-link replay path)
+- unified `events` AsyncStream across navigation, modal, and flow mutations
 
 ### Deep links
 
