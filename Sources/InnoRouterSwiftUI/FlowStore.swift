@@ -671,7 +671,6 @@ public final class FlowStore<R: Route> {
             cancellationJournal: ModalExecutionJournal<R>
         )
     }
-
 }
 
 @MainActor
