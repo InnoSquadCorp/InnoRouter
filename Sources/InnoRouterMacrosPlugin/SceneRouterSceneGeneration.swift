@@ -33,7 +33,7 @@ func renderSceneRouterSceneMembers(
         return """
         @SwiftUI.State
         private var _innoRouterImmersionStyle\(index): any SwiftUI.ImmersionStyle =
-            \(renderSwiftUIImmersionStyle(style))
+            \(style.swiftUIExpression)
         """
     }.joined(separator: "\n\n")
     let scenes = specification.items.enumerated().map { index, item in
@@ -194,7 +194,7 @@ private func renderSceneRouterRegistryItem(_ item: SceneRouterItem) -> String {
         )
         """
     case .immersive(let style):
-        return ".immersive(\(route), id: \(id), style: .\(style))"
+        return ".immersive(\(route), id: \(id), style: .\(style.rawValue))"
     }
 }
 
@@ -267,7 +267,7 @@ private func renderSceneRouterImmersive(
     _ item: SceneRouterItem,
     index: Int,
     routeType: String,
-    style: String
+    style: SceneRouterImmersionStyle
 ) -> String {
     return """
     SwiftUI.ImmersiveSpace(id: \(sceneRouterStringLiteral(item.id))) {
@@ -280,18 +280,9 @@ private func renderSceneRouterImmersive(
     }
     .immersionStyle(
         selection: $_innoRouterImmersionStyle\(index),
-        in: \(renderSwiftUIImmersionStyle(style))
+        in: \(style.swiftUIExpression)
     )
     """
-}
-
-private func renderSwiftUIImmersionStyle(_ style: String) -> String {
-    switch style {
-    case "mixed": return "SwiftUI.MixedImmersionStyle()"
-    case "progressive": return "SwiftUI.ProgressiveImmersionStyle()"
-    case "full": return "SwiftUI.FullImmersionStyle()"
-    default: preconditionFailure("SceneRouter style analysis must reject unknown values.")
-    }
 }
 
 private func indentSceneRouterSource(_ source: String, by spaces: Int) -> String {

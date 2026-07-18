@@ -30,7 +30,28 @@ struct SceneRouterItem {
 enum SceneRouterStyle: Equatable {
     case window
     case volumetric(width: Double, height: Double, depth: Double)
-    case immersive(style: String)
+    case immersive(style: SceneRouterImmersionStyle)
+}
+
+/// Immersion styles accepted by `@Scene(.immersive(style:))`.
+///
+/// Parsing into this enum — instead of carrying the raw attribute token as
+/// a `String` — makes an unknown style unrepresentable downstream, so scene
+/// generation needs no trapping default branch that would surface as an
+/// opaque "macro plugin crashed" if analysis and generation ever drifted.
+enum SceneRouterImmersionStyle: String, Equatable {
+    case mixed
+    case progressive
+    case full
+
+    /// The SwiftUI style expression injected into generated scene code.
+    var swiftUIExpression: String {
+        switch self {
+        case .mixed: return "SwiftUI.MixedImmersionStyle()"
+        case .progressive: return "SwiftUI.ProgressiveImmersionStyle()"
+        case .full: return "SwiftUI.FullImmersionStyle()"
+        }
+    }
 }
 
 func parseSceneRouterOptions(
@@ -283,8 +304,8 @@ private func parseImmersiveStyle(
     guard call.arguments.count == 1,
           let argument = call.arguments.first,
           argument.label?.text == "style",
-          let style = sceneStyleName(argument.expression),
-          ["mixed", "progressive", "full"].contains(style) else {
+          let styleName = sceneStyleName(argument.expression),
+          let style = SceneRouterImmersionStyle(rawValue: styleName) else {
         return .failure(.arguments("immersive scenes require `style: .mixed`, `.progressive`, or `.full`"))
     }
     return .success(.immersive(style: style))
