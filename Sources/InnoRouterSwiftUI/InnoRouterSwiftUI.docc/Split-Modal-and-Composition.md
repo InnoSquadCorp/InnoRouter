@@ -107,6 +107,14 @@ there is no active presentation or queue. The resulting command can remain a
 no-op, be cancelled, or be rewritten by middleware; this matches direct
 `ModalStore` execution instead of hiding empty-state attempts in `FlowStore`.
 
+Every convenience mutator reports its effective outcome as a
+`@discardableResult`: `present` returns `ModalPresentResult`, while
+`replaceCurrent`, `dismissCurrent`, and `dismissAll` return the same
+`ModalExecutionResult` that `execute(_:)` produces. Callers can branch on a
+middleware cancellation or an empty-state `.noop` directly at the call site
+instead of subscribing to the event stream; call sites that ignore the
+result compile unchanged.
+
 When middleware cancels a FlowStore modal preview, the captured participants
 still receive `didExecute`, observers receive `.commandIntercepted`, and
 `ModalQueueCancellationPolicy` is applied to the preview state. If that policy
