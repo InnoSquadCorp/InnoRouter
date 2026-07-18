@@ -51,24 +51,15 @@ public final class FlowStore<R: Route> {
     private let link: FlowStoreLink<R>
     private let broadcaster: EventBroadcaster<FlowEvent<R>>
     private let eventDispatcher: SerializedEventDispatcher<FlowEvent<R>>
-    @ObservationIgnored
-    private var bufferedInnerEventFrames: [BufferedInnerEventFrame] = []
+    /// Reentrancy and event-ordering bookkeeping: buffered mutation frames,
+    /// dispatch/mutation depth counters, the inner-observation source stack,
+    /// and the FIFO reentrant-intent queue all live behind this boundary.
+    /// See ``FlowReentrancyCoordinator`` for the protocol they uphold.
+    private let reentrancy = FlowReentrancyCoordinator<R>()
     @ObservationIgnored
     private var pendingDirectModalEvents: [FlowEvent<R>] = []
     @ObservationIgnored
     private var pendingDirectModalOldPath: [RouteStep<R>]?
-    @ObservationIgnored
-    private var flowEventDispatchDepth = 0
-    @ObservationIgnored
-    private var queuedReentrantIntents: [FlowIntent<R>] = []
-    @ObservationIgnored
-    private var nextQueuedReentrantIntentIndex = 0
-    @ObservationIgnored
-    private var isDrainingReentrantIntents = false
-    @ObservationIgnored
-    private var innerObservationSourceStack: [InnerObservationSource] = []
-    @ObservationIgnored
-    private var flowMutationDepth = 0
     // `traceRecorder` is `internal` rather than `private` because
     // the public dispatch wrappers in `FlowStore+Public.swift` need
     // to reach it.
@@ -93,29 +84,6 @@ public final class FlowStore<R: Route> {
     /// mutations within the same observation and middleware boundary.
     @ObservationIgnored
     private var cachedModalIntentDispatcher: ModalIntentHandler<R>?
-
-    // Bookkeeping toggled while FlowStore drives its own inner stores, so
-    // observer callbacks can validate that their events are captured by the
-    // matching Flow mutation frame before public delivery.
-    //
-    // Implemented as a depth counter rather than a Bool so nested
-    // invocations (FlowStore-driven inner-store mutation that itself
-    // re-enters withInternalMutation) account correctly. The
-    // counter is read through ``isApplyingInternalMutation`` to keep
-    // every call site syntactically identical to the previous Bool.
-    // The runtime contract — "any non-zero depth means FlowStore is
-    // driving the inner stores" — is enforced through a release-mode
-    // `precondition` on decrement so an underflow surfaces immediately
-    // instead of silently inverting the guard.
-    @ObservationIgnored
-    private var mutationDepth: Int = 0
-
-    /// `true` while `FlowStore` is itself driving an inner-store mutation.
-    private var isApplyingInternalMutation: Bool { mutationDepth > 0 }
-
-    /// `true` until one complete Flow mutation has emitted its committed
-    /// inner events, applied rejection-side policies, and emitted rejection.
-    private var isApplyingFlowMutation: Bool { flowMutationDepth > 0 }
 
     /// A closure that forwards `FlowIntent` values to this store's
     /// ``send(_:)`` entry point.
@@ -295,6 +263,11 @@ public final class FlowStore<R: Route> {
         self.eventDispatcher = eventDispatcher
         self.traceRecorder = nil
         self.link.owner = self
+        reentrancy.currentPath = { [weak self] in self?.path ?? [] }
+        reentrancy.resend = { [weak self] intent in self?.send(intent) }
+        reentrancy.deliver = { [eventDispatcher] events in
+            eventDispatcher.emit(contentsOf: events)
+        }
     }
 
     /// Creates a new flow store after validating the supplied initial path.
@@ -396,9 +369,9 @@ public final class FlowStore<R: Route> {
     // MARK: - Reverse sync
 
     private func handleNavigationStoreEvent(_ event: NavigationEvent<R>) {
-        if isApplyingInternalMutation {
+        if reentrancy.isApplyingInternalMutation {
             precondition(
-                !bufferedInnerEventFrames.isEmpty,
+                reentrancy.isBuffering,
                 "FlowStore navigation event escaped its mutation buffer."
             )
         }
@@ -415,20 +388,20 @@ public final class FlowStore<R: Route> {
         ).path
 
         var events: [FlowEvent<R>] = [.navigation(event)]
-        if bufferedInnerEventFrames.isEmpty, oldPath != path {
+        if !reentrancy.isBuffering, oldPath != path {
             events.append(.pathChanged(old: oldPath, new: path))
         }
         emitFlowEvents(events)
     }
 
     private func handleModalStoreEvent(_ event: ModalEvent<R>) {
-        if isApplyingInternalMutation {
+        if reentrancy.isApplyingInternalMutation {
             precondition(
-                !bufferedInnerEventFrames.isEmpty,
+                reentrancy.isBuffering,
                 "FlowStore modal event escaped its mutation buffer."
             )
         }
-        if !bufferedInnerEventFrames.isEmpty {
+        if reentrancy.isBuffering {
             syncPathFromStoresWithoutEmitting()
             emitFlowEvent(.modal(event))
             return
@@ -459,17 +432,15 @@ public final class FlowStore<R: Route> {
             }
             pendingDirectModalEvents.removeAll(keepingCapacity: true)
             pendingDirectModalOldPath = nil
-            dispatchFlowEvents(events)
+            reentrancy.dispatch(events)
         }
     }
 
     private func withInnerObservationSource<T>(
-        _ source: InnerObservationSource,
+        _ source: FlowInnerObservationSource,
         operation: () -> T
     ) -> T {
-        innerObservationSourceStack.append(source)
-        defer { innerObservationSourceStack.removeLast() }
-        return operation()
+        reentrancy.withInnerObservationSource(source, operation: operation)
     }
 
     // MARK: - Helpers
@@ -495,24 +466,19 @@ public final class FlowStore<R: Route> {
     }
 
     private func emitFlowEvents(_ events: [FlowEvent<R>]) {
-        guard !events.isEmpty else { return }
-        guard !bufferedInnerEventFrames.isEmpty else {
-            dispatchFlowEvents(events)
-            return
-        }
-        bufferedInnerEventFrames[bufferedInnerEventFrames.count - 1].events.append(contentsOf: events)
+        reentrancy.bufferOrDispatch(events)
     }
 
     /// Defers only fire-and-forget `send(_:)` intents. Public `apply(_:)`
     /// returns the mutation result synchronously, so routing it through this
     /// queue would require fabricating a result before the plan executes.
     internal func deferReentrantIntentIfNeeded(_ intent: FlowIntent<R>) -> Bool {
-        if isApplyingFlowMutation || isApplyingInternalMutation {
-            queuedReentrantIntents.append(intent)
+        if reentrancy.isApplyingFlowMutation || reentrancy.isApplyingInternalMutation {
+            reentrancy.enqueueReentrantIntent(intent)
             return true
         }
 
-        switch innerObservationSourceStack.last {
+        switch reentrancy.innerObservationSource {
         case .navigation:
             navigationStore.performAfterObservationDelivery { [weak self] in
                 self?.send(intent)
@@ -527,8 +493,8 @@ public final class FlowStore<R: Route> {
             break
         }
 
-        guard flowEventDispatchDepth > 0 else { return false }
-        queuedReentrantIntents.append(intent)
+        guard reentrancy.isDispatchingFlowEvents else { return false }
+        reentrancy.enqueueReentrantIntent(intent)
         return true
     }
 
@@ -537,51 +503,13 @@ public final class FlowStore<R: Route> {
     /// inner-store observer is synchronously delivering an event; callers that
     /// need a reentrant reset can use `send(.reset(...))`, which is queued.
     internal func rejectReentrantApplyIfNeeded() -> FlowPlanApplyResult<R>? {
-        guard isApplyingFlowMutation
-            || isApplyingInternalMutation
-            || !innerObservationSourceStack.isEmpty
-            || flowEventDispatchDepth > 0
+        guard reentrancy.isApplyingFlowMutation
+            || reentrancy.isApplyingInternalMutation
+            || reentrancy.isObservingInnerStore
+            || reentrancy.isDispatchingFlowEvents
         else { return nil }
 
         return .rejected(currentPath: path, reason: .reentrantApply)
-    }
-
-    private func dispatchFlowEvents(_ events: [FlowEvent<R>]) {
-        guard !events.isEmpty else { return }
-        flowEventDispatchDepth += 1
-        defer {
-            flowEventDispatchDepth -= 1
-            precondition(
-                flowEventDispatchDepth >= 0,
-                "FlowStore event-dispatch depth counter underflowed — invariant break."
-            )
-            if flowEventDispatchDepth == 0 {
-                drainReentrantIntents()
-            }
-        }
-        eventDispatcher.emit(contentsOf: events)
-    }
-
-    private func drainReentrantIntents() {
-        guard flowMutationDepth == 0 else { return }
-        guard mutationDepth == 0 else { return }
-        guard bufferedInnerEventFrames.isEmpty else { return }
-        guard flowEventDispatchDepth == 0 else { return }
-        guard !isDrainingReentrantIntents else { return }
-        guard nextQueuedReentrantIntentIndex < queuedReentrantIntents.count else { return }
-
-        isDrainingReentrantIntents = true
-        defer {
-            queuedReentrantIntents.removeAll(keepingCapacity: true)
-            nextQueuedReentrantIntentIndex = 0
-            isDrainingReentrantIntents = false
-        }
-
-        while nextQueuedReentrantIntentIndex < queuedReentrantIntents.count {
-            let intent = queuedReentrantIntents[nextQueuedReentrantIntentIndex]
-            nextQueuedReentrantIntentIndex += 1
-            send(intent)
-        }
     }
 
     private func applyQueueCoalescePolicyIfNeeded(
@@ -613,92 +541,26 @@ public final class FlowStore<R: Route> {
         let oldPath = path
         beginBufferingInnerEvents(from: oldPath)
         withInternalMutation {
-            modalStore.dismissAll()
+            _ = modalStore.dismissAll()
         }
         syncPathFromStoresWithoutEmitting()
         finishBufferingInnerEvents()
     }
 
     internal func beginBufferingInnerEvents(from oldPath: [RouteStep<R>]) {
-        checkpointBufferedPathChangeIfNeeded()
-        bufferedInnerEventFrames.append(
-            BufferedInnerEventFrame(
-                pathChangeBaseline: oldPath,
-                events: []
-            )
-        )
-    }
-
-    private func checkpointBufferedPathChangeIfNeeded() {
-        guard !bufferedInnerEventFrames.isEmpty else { return }
-        let index = bufferedInnerEventFrames.count - 1
-        let oldPath = bufferedInnerEventFrames[index].pathChangeBaseline
-        guard oldPath != path else { return }
-        bufferedInnerEventFrames[index].events.append(
-            .pathChanged(old: oldPath, new: path)
-        )
-        bufferedInnerEventFrames[index].pathChangeBaseline = path
+        reentrancy.beginBufferingFrame(from: oldPath)
     }
 
     internal func finishBufferingInnerEvents() {
-        precondition(
-            !bufferedInnerEventFrames.isEmpty,
-            "FlowStore inner-event buffer underflowed — invariant break."
-        )
-        checkpointBufferedPathChangeIfNeeded()
-        let completedFrame = bufferedInnerEventFrames.removeLast()
-
-        guard !bufferedInnerEventFrames.isEmpty else {
-            dispatchFlowEvents(completedFrame.events)
-            drainReentrantIntents()
-            return
-        }
-
-        let parentIndex = bufferedInnerEventFrames.count - 1
-        bufferedInnerEventFrames[parentIndex].events.append(contentsOf: completedFrame.events)
-        bufferedInnerEventFrames[parentIndex].pathChangeBaseline = path
+        reentrancy.finishBufferingFrame()
     }
 
     internal func withInternalMutation<T>(_ body: () -> T) -> T {
-        // The previous Bool flag was not safe under reentrant call
-        // sites — a nested invocation would silently restore
-        // `false` on the inner `defer` while the outer scope still
-        // expected the flag to be set. The depth counter records
-        // *how many* nested mutations are in flight; inner-store event
-        // adapters use ``isApplyingInternalMutation`` (depth > 0) to
-        // verify that every event is captured by a mutation frame.
-        //
-        // The release-mode `precondition` on decrement catches an
-        // imbalance (decrement without matching increment) loudly
-        // instead of letting the counter go negative and quietly
-        // disabling the buffering invariant.
-        mutationDepth += 1
-        defer {
-            mutationDepth -= 1
-            precondition(
-                mutationDepth >= 0,
-                "FlowStore.withInternalMutation depth counter underflowed — invariant break."
-            )
-            if mutationDepth == 0 {
-                drainReentrantIntents()
-            }
-        }
-        return body()
+        reentrancy.withInternalMutation(body)
     }
 
     internal func withFlowMutationBoundary<T>(_ body: () -> T) -> T {
-        flowMutationDepth += 1
-        defer {
-            flowMutationDepth -= 1
-            precondition(
-                flowMutationDepth >= 0,
-                "FlowStore mutation boundary depth counter underflowed — invariant break."
-            )
-            if flowMutationDepth == 0 {
-                drainReentrantIntents()
-            }
-        }
-        return body()
+        reentrancy.withFlowMutationBoundary(body)
     }
 
     internal var currentMutationContext: FlowMutationContext {
@@ -810,15 +672,6 @@ public final class FlowStore<R: Route> {
         )
     }
 
-    private struct BufferedInnerEventFrame {
-        var pathChangeBaseline: [RouteStep<R>]
-        var events: [FlowEvent<R>]
-    }
-
-    private enum InnerObservationSource {
-        case navigation
-        case modal
-    }
 }
 
 @MainActor
