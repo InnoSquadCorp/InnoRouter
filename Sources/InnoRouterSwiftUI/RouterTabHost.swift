@@ -7,7 +7,7 @@ import InnoRouterCore
 @MainActor
 enum UnsupportedTabBadgeDiagnostics {
     private static let logger = Logger(
-        subsystem: "com.innosquad.InnoRouter",
+        subsystem: "io.innosquad.innorouter",
         category: "tab-presentation"
     )
     private static var hasReported = false
