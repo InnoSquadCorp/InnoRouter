@@ -6,7 +6,6 @@ struct DeepLinkParser: Sendable {
         let host: String?
         let path: [String]
         let queryItems: [String: [String]]
-        let fragment: String?
 
         init(url: URL) {
             let components = URLComponents(url: url, resolvingAgainstBaseURL: true)
@@ -30,11 +29,10 @@ struct DeepLinkParser: Sendable {
             }
             self.queryItems = parsedQueryItems
 
-            self.fragment = components?.fragment
-        }
-
-        var firstQueryItems: [String: String] {
-            queryItems.compactMapValues { $0.first }
+            // URL fragments are deliberately not parsed: the route pattern
+            // grammar matches scheme, host, path, and query only, so a
+            // stored fragment would imply matching support that does not
+            // exist.
         }
     }
 

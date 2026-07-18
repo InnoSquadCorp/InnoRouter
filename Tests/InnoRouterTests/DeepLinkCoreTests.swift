@@ -26,21 +26,21 @@ struct DeepLinkTests {
         #expect(parsed.host == "example.com")
         #expect(parsed.path == ["products", "123"])
         #expect(parsed.queryItems["category"] == ["electronics"])
-        #expect(parsed.firstQueryItems["category"] == "electronics")
+        #expect(parsed.queryItems["category"]?.first == "electronics")
     }
 
     @Test("DeepLinkParser keeps duplicate query values without crashing")
     func testParserDuplicateQueries() {
         let parsed = DeepLinkParser.parse("myapp://example.com/products/123?tag=a&tag=b&tag=c")!
         #expect(parsed.queryItems["tag"] == ["a", "b", "c"])
-        #expect(parsed.firstQueryItems["tag"] == "a")
+        #expect(parsed.queryItems["tag"]?.first == "a")
     }
 
     @Test("DeepLinkParser keeps flag-style query items as empty strings")
     func testParserFlagQueryItem() {
         let parsed = DeepLinkParser.parse("myapp://example.com/products/123?debug&tag=a")!
         #expect(parsed.queryItems["debug"] == [""])
-        #expect(parsed.firstQueryItems["debug"] == "")
+        #expect(parsed.queryItems["debug"]?.first == "")
         #expect(parsed.queryItems["tag"] == ["a"])
     }
 

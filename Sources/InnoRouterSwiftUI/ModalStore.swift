@@ -249,59 +249,59 @@ public final class ModalStore<M: Route> {
     public func execute(_ command: ModalCommand<M>) -> ModalExecutionResult<M> {
         eventDispatcher.withExecutionBoundary {
             InternalExecutionTrace.withSpan(
-            domain: .modal,
-            operation: "execute",
-            recorder: effectiveTraceRecorder,
-            metadata: ["command": String(describing: command)]
-        ) {
-            let outcome = middlewareRegistry.intercept(
-                command,
-                currentPresentation: currentPresentation,
-                queuedPresentations: queuedPresentations
-            )
-
-            switch outcome.interception {
-            case .cancel(let reason):
-                let result: ModalExecutionResult<M> = .cancelled(reason)
-
-                // Apply the configured queue cancellation policy
-                // before the post-execute hooks so observers see
-                // the resulting queue state.
-                applyQueueCancellationPolicy(
-                    command: outcome.command,
-                    reason: reason
-                )
-
-                middlewareRegistry.didExecute(
-                    outcome.command,
+                domain: .modal,
+                operation: "execute",
+                recorder: effectiveTraceRecorder,
+                metadata: ["command": String(describing: command)]
+            ) {
+                let outcome = middlewareRegistry.intercept(
+                    command,
                     currentPresentation: currentPresentation,
-                    queuedPresentations: queuedPresentations,
-                    participants: outcome.participants
-                )
-                telemetrySink.recordCommandIntercepted(
-                    command: outcome.command,
-                    outcome: .cancelled,
-                    cancellationReason: reason
-                )
-                return result
-
-            case .proceed(let effectiveCommand):
-                let result = applyCommand(effectiveCommand)
-
-                middlewareRegistry.didExecute(
-                    effectiveCommand,
-                    currentPresentation: currentPresentation,
-                    queuedPresentations: queuedPresentations,
-                    participants: outcome.participants
+                    queuedPresentations: queuedPresentations
                 )
 
-                telemetrySink.recordCommandIntercepted(
-                    command: effectiveCommand,
-                    outcome: Self.outcomeKind(for: result),
-                    cancellationReason: nil
-                )
-                return result
-            }
+                switch outcome.interception {
+                case .cancel(let reason):
+                    let result: ModalExecutionResult<M> = .cancelled(reason)
+
+                    // Apply the configured queue cancellation policy
+                    // before the post-execute hooks so observers see
+                    // the resulting queue state.
+                    applyQueueCancellationPolicy(
+                        command: outcome.command,
+                        reason: reason
+                    )
+
+                    middlewareRegistry.didExecute(
+                        outcome.command,
+                        currentPresentation: currentPresentation,
+                        queuedPresentations: queuedPresentations,
+                        participants: outcome.participants
+                    )
+                    telemetrySink.recordCommandIntercepted(
+                        command: outcome.command,
+                        outcome: .cancelled,
+                        cancellationReason: reason
+                    )
+                    return result
+
+                case .proceed(let effectiveCommand):
+                    let result = applyCommand(effectiveCommand)
+
+                    middlewareRegistry.didExecute(
+                        effectiveCommand,
+                        currentPresentation: currentPresentation,
+                        queuedPresentations: queuedPresentations,
+                        participants: outcome.participants
+                    )
+
+                    telemetrySink.recordCommandIntercepted(
+                        command: effectiveCommand,
+                        outcome: Self.outcomeKind(for: result),
+                        cancellationReason: nil
+                    )
+                    return result
+                }
             } outcome: { result in
                 String(describing: result)
             }

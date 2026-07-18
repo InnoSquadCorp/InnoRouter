@@ -1,5 +1,5 @@
-@MainActor
 /// Reads the current navigation state for a route domain.
+@MainActor
 public protocol NavigationStateReader: AnyObject {
     /// Route type managed by the reader.
     associatedtype RouteType: Route
@@ -7,8 +7,8 @@ public protocol NavigationStateReader: AnyObject {
     var state: RouteStack<RouteType> { get }
 }
 
-@MainActor
 /// Executes individual navigation commands.
+@MainActor
 public protocol NavigationCommandExecutor: AnyObject {
     /// Route type handled by the executor.
     associatedtype RouteType: Route
@@ -18,29 +18,29 @@ public protocol NavigationCommandExecutor: AnyObject {
     func execute(_ command: NavigationCommand<RouteType>) -> NavigationResult<RouteType>
 }
 
-@MainActor
 /// Executes multiple navigation commands as a batch.
+@MainActor
 public protocol NavigationBatchExecutor: AnyObject {
     /// Route type handled by the executor.
     associatedtype RouteType: Route
 
-    @discardableResult
     /// Executes commands in order and optionally stops on the first failure.
+    @discardableResult
     func executeBatch(
         _ commands: [NavigationCommand<RouteType>],
         stopOnFailure: Bool
     ) -> NavigationBatchResult<RouteType>
 }
 
-@MainActor
 /// Executes multiple navigation commands transactionally.
+@MainActor
 public protocol NavigationTransactionExecutor: AnyObject {
     /// Route type handled by the executor.
     associatedtype RouteType: Route
 
-    @discardableResult
     /// Executes a non-empty command list on a shadow stack and commits only
     /// when every step succeeds. An empty list returns an uncommitted result.
+    @discardableResult
     func executeTransaction(
         _ commands: [NavigationCommand<RouteType>]
     ) -> NavigationTransactionResult<RouteType>
