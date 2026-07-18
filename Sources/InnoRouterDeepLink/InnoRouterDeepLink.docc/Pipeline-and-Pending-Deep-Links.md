@@ -30,6 +30,8 @@ matching, use the explicit escape hatch:
 
 ```swift skip doc-fragment
 let pipeline = DeepLinkPipeline<AppRoute>(
+    allowedSchemes: ["myapp"],
+    allowedHosts: ["app.example.com"],
     customResolver: { url in legacyRouter.route(for: url) }
 )
 ```
@@ -37,6 +39,17 @@ let pipeline = DeepLinkPipeline<AppRoute>(
 A custom resolver's `nil` result is `.unhandled`. Pipeline-level input limits
 still apply, but only the `matcher:` path can preserve matcher-specific limit
 violations.
+
+### Always pass allowlists for untrusted URLs
+
+`allowedSchemes` and `allowedHosts` default to `nil`, and `nil` disables
+that admission check entirely. Any pipeline that receives
+attacker-controllable URLs — custom URL schemes, universal links, QR or
+NFC payloads — should pass both allowlists so the decision stays
+fail-closed. The `@DeepLink` macro path enforces an allowlist at compile
+time (`E020`); hand-rolled pipelines are expected to match that posture.
+Omit the allowlists only when every incoming URL is constructed by your
+own process.
 
 ## Pipeline stages
 

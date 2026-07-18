@@ -90,6 +90,16 @@ public struct FlowDeepLinkPipeline<R: Route>: Sendable {
     private let admission: DeepLinkAdmission<FlowPlan<R>>
     private let authenticationPolicy: DeepLinkAuthenticationPolicy<R>
 
+    /// Creates a flow pipeline that admits, gates, and plans one URL.
+    ///
+    /// - Important: `allowedSchemes` and `allowedHosts` default to `nil`,
+    ///   and `nil` disables that admission check entirely. A pipeline that
+    ///   receives attacker-controllable URLs (custom URL schemes, universal
+    ///   links, QR/NFC payloads) should always pass both allowlists so the
+    ///   decision stays fail-closed. The `@DeepLink` macro path enforces an
+    ///   allowlist at compile time (`E020`); a hand-rolled pipeline is
+    ///   expected to match that posture. Omit the allowlists only when every
+    ///   incoming URL is constructed by your own process.
     public init(
         allowedSchemes: Set<String>? = nil,
         allowedHosts: Set<String>? = nil,

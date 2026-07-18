@@ -94,6 +94,15 @@ public struct DeepLinkPipeline<R: Route>: Sendable {
 
     /// Creates a matcher-backed pipeline that preserves matcher-specific input
     /// limit violations as typed rejections.
+    ///
+    /// - Important: `allowedSchemes` and `allowedHosts` default to `nil`,
+    ///   and `nil` disables that admission check entirely. A pipeline that
+    ///   receives attacker-controllable URLs (custom URL schemes, universal
+    ///   links, QR/NFC payloads) should always pass both allowlists so the
+    ///   decision stays fail-closed. The `@DeepLink` macro path enforces an
+    ///   allowlist at compile time (`E020`); a hand-rolled pipeline is
+    ///   expected to match that posture. Omit the allowlists only when every
+    ///   incoming URL is constructed by your own process.
     public init(
         allowedSchemes: Set<String>? = nil,
         allowedHosts: Set<String>? = nil,
@@ -117,6 +126,11 @@ public struct DeepLinkPipeline<R: Route>: Sendable {
     /// A `nil` result is treated as `.unhandled`. Prefer the `matcher:`
     /// initializer when using `DeepLinkMatcher` so matcher-specific input-limit
     /// violations remain distinguishable from an unmatched URL.
+    ///
+    /// - Important: `allowedSchemes` and `allowedHosts` default to `nil`,
+    ///   and `nil` disables that admission check entirely. Pass both
+    ///   allowlists whenever the resolver can see attacker-controllable
+    ///   URLs; see the `matcher:` initializer for the full rationale.
     public init(
         allowedSchemes: Set<String>? = nil,
         allowedHosts: Set<String>? = nil,
