@@ -100,6 +100,15 @@ public final class ModalTestStore<M: Route> {
         underlying.present(route, style: style)
     }
 
+    /// Forwards to `ModalStore.replaceCurrent(_:style:)`.
+    @discardableResult
+    public func replaceCurrent(
+        _ route: M,
+        style: ModalPresentationStyle = .sheet
+    ) -> ModalExecutionResult<M> {
+        underlying.replaceCurrent(route, style: style)
+    }
+
     /// Forwards to `ModalStore.dismissCurrent()`.
     @discardableResult
     public func dismissCurrent() -> ModalExecutionResult<M> {

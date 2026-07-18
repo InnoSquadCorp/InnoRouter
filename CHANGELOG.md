@@ -14,7 +14,8 @@ are bare semver (no leading `v`).
   already offered. Callers can observe middleware cancellations or no-ops
   without subscribing to the event stream; existing call sites compile
   unchanged. `ModalTestStore` forwards the same results (and `present`
-  now forwards `ModalPresentResult`).
+  now forwards `ModalPresentResult`), and gains a `replaceCurrent`
+  forwarder so the test surface mirrors the production store.
 
 ### Changed
 

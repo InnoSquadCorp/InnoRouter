@@ -38,6 +38,7 @@ relationship | memberOf | ModalTestStore.receiveIntercepted(_:fileID:filePath:li
 relationship | memberOf | ModalTestStore.receiveMiddlewareMutation(action:fileID:filePath:line:column:) | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.receivePresented(_:fileID:filePath:line:column:) | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.receiveQueueChanged(_:fileID:filePath:line:column:) | ModalTestStore |  |
+relationship | memberOf | ModalTestStore.replaceCurrent(_:style:) | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.send(_:) | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.skipReceivedEvents() | ModalTestStore |  |
 relationship | memberOf | ModalTestStore.store | ModalTestStore |  |
@@ -105,6 +106,7 @@ symbol | swift.method | ModalTestStore.receiveIntercepted(_:fileID:filePath:line
 symbol | swift.method | ModalTestStore.receiveMiddlewareMutation(action:fileID:filePath:line:column:) | receiveMiddlewareMutation(action:fileID:filePath:line:column:) | @MainActor func receiveMiddlewareMutation(action: ModalMiddlewareMutationEvent<M>.Action, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | ModalTestStore.receivePresented(_:fileID:filePath:line:column:) | receivePresented(_:fileID:filePath:line:column:) | @MainActor func receivePresented(_ route: M, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
 symbol | swift.method | ModalTestStore.receiveQueueChanged(_:fileID:filePath:line:column:) | receiveQueueChanged(_:fileID:filePath:line:column:) | @MainActor func receiveQueueChanged(_ predicate: ([ModalPresentation<M>], [ModalPresentation<M>]) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
+symbol | swift.method | ModalTestStore.replaceCurrent(_:style:) | replaceCurrent(_:style:) | @discardableResult @MainActor func replaceCurrent(_ route: M, style: ModalPresentationStyle = .sheet) -> ModalExecutionResult<M> | []
 symbol | swift.method | ModalTestStore.send(_:) | send(_:) | @MainActor func send(_ intent: ModalIntent<M>) | []
 symbol | swift.method | ModalTestStore.skipReceivedEvents() | skipReceivedEvents() | @MainActor func skipReceivedEvents() | []
 symbol | swift.method | NavigationTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | assertNoPendingEvents(fileID:filePath:line:column:) | @MainActor func assertNoPendingEvents(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
