@@ -303,11 +303,6 @@ public final class FlowStore<R: Route> {
 
     // MARK: - Helpers
 
-    private func emitPathChangedIfNeeded(from oldPath: [RouteStep<R>]) {
-        guard oldPath != path else { return }
-        emitFlowEvent(.pathChanged(old: oldPath, new: path))
-    }
-
     internal func emitIntentRejected(
         _ intent: FlowIntent<R>,
         reason: FlowRejectionReason,
@@ -327,47 +322,8 @@ public final class FlowStore<R: Route> {
         reentrancy.bufferOrDispatch(events)
     }
 
-    /// Defers only fire-and-forget `send(_:)` intents. Public `apply(_:)`
-    /// returns the mutation result synchronously, so routing it through this
-    /// queue would require fabricating a result before the plan executes.
-    internal func deferReentrantIntentIfNeeded(_ intent: FlowIntent<R>) -> Bool {
-        if reentrancy.isApplyingFlowMutation || reentrancy.isApplyingInternalMutation {
-            reentrancy.enqueueReentrantIntent(intent)
-            return true
-        }
-
-        switch reentrancy.innerObservationSource {
-        case .navigation:
-            navigationStore.performAfterObservationDelivery { [weak self] in
-                self?.send(intent)
-            }
-            return true
-        case .modal:
-            modalStore.performAfterObservationDelivery { [weak self] in
-                self?.send(intent)
-            }
-            return true
-        case nil:
-            break
-        }
-
-        guard reentrancy.isDispatchingFlowEvents else { return false }
-        reentrancy.enqueueReentrantIntent(intent)
-        return true
-    }
-
-    /// A result-returning `apply(_:)` cannot be deferred without claiming a
-    /// mutation completed before it actually ran. Reject it while any Flow or
-    /// inner-store observer is synchronously delivering an event; callers that
-    /// need a reentrant reset can use `send(.reset(...))`, which is queued.
-    internal func rejectReentrantApplyIfNeeded() -> FlowPlanApplyResult<R>? {
-        guard reentrancy.isApplyingFlowMutation
-            || reentrancy.isApplyingInternalMutation
-            || reentrancy.isObservingInnerStore
-            || reentrancy.isDispatchingFlowEvents
-        else { return nil }
-
-        return .rejected(currentPath: path, reason: .reentrantApply)
+    internal func assignPath(_ path: [RouteStep<R>]) {
+        self.path = path
     }
 
     private func applyQueueCoalescePolicyIfNeeded(
@@ -405,130 +361,9 @@ public final class FlowStore<R: Route> {
         finishBufferingInnerEvents()
     }
 
-    internal func beginBufferingInnerEvents(from oldPath: [RouteStep<R>]) {
-        reentrancy.beginBufferingFrame(from: oldPath)
-    }
-
-    internal func finishBufferingInnerEvents() {
-        reentrancy.finishBufferingFrame()
-    }
-
-    internal func withInternalMutation<T>(_ body: () -> T) -> T {
-        reentrancy.withInternalMutation(body)
-    }
-
-    internal func withFlowMutationBoundary<T>(_ body: () -> T) -> T {
-        reentrancy.withFlowMutationBoundary(body)
-    }
-
-    internal var currentMutationContext: FlowMutationContext {
-        FlowMutationContext(
-            navigationState: navigationStore.state,
-            modalState: modalStore.flowStateSnapshot
-        )
-    }
-
-    private var currentProjection: FlowProjection {
-        currentMutationContext.projection
-    }
-
-    internal func syncPathFromStores(from oldPath: [RouteStep<R>]) {
-        syncPath(from: oldPath, projection: currentProjection)
-    }
-
-    internal func syncPathFromStoresWithoutEmitting() {
-        path = currentProjection.path
-    }
-
-    private func syncPath(
-        from oldPath: [RouteStep<R>],
-        projection: FlowProjection
-    ) {
-        path = projection.path
-        emitPathChangedIfNeeded(from: oldPath)
-    }
-
-    internal func previewModalReset(
-        to modalTail: RouteStep<R>?,
-        from initialState: ModalExecutionState<R>
-    ) -> ModalPreviewPlan {
-        let targetPresentation = modalTail.map(Self.presentation(for:))
-
-        if Self.matchesPresentationSemantics(initialState.currentPresentation, targetPresentation),
-            initialState.queuedPresentations.isEmpty {
-            return .commit([])
-        }
-
-        var journals: [ModalExecutionJournal<R>] = []
-        var shadow = initialState
-
-        if shadow.currentPresentation != nil || !shadow.queuedPresentations.isEmpty {
-            let dismissJournal = modalStore.previewFlowCommand(.dismissAll, from: shadow)
-            if case .cancelled(let reason) = dismissJournal.result {
-                return .rejected(
-                    reason,
-                    discardedJournals: journals,
-                    cancellationJournal: dismissJournal
-                )
-            }
-            journals.append(dismissJournal)
-            shadow = dismissJournal.stateAfter
-        }
-
-        if let targetPresentation {
-            let presentJournal = modalStore.previewFlowCommand(.present(targetPresentation), from: shadow)
-            if case .cancelled(let reason) = presentJournal.result {
-                return .rejected(
-                    reason,
-                    discardedJournals: journals,
-                    cancellationJournal: presentJournal
-                )
-            }
-            journals.append(presentJournal)
-        }
-
-        return .commit(journals)
-    }
-
     // Path validation, decomposition, and trace helpers live in
     // `FlowStore+PathHelpers.swift` so this file stays focused on
     // the `Observable` projection + intent dispatch surface.
-
-    internal struct FlowProjection {
-        let pushRoutes: [R]
-        let currentPresentation: ModalPresentation<R>?
-        let queuedPresentations: [ModalPresentation<R>]
-
-        var path: [RouteStep<R>] {
-            var projectedPath = pushRoutes.map(RouteStep.push)
-            if let currentPresentation {
-                projectedPath.append(FlowStore.step(for: currentPresentation))
-            }
-            return projectedPath
-        }
-    }
-
-    internal struct FlowMutationContext {
-        let navigationState: RouteStack<R>
-        let modalState: ModalExecutionState<R>
-
-        var projection: FlowProjection {
-            FlowProjection(
-                pushRoutes: navigationState.path,
-                currentPresentation: modalState.currentPresentation,
-                queuedPresentations: modalState.queuedPresentations
-            )
-        }
-    }
-
-    internal enum ModalPreviewPlan {
-        case commit([ModalExecutionJournal<R>])
-        case rejected(
-            ModalCancellationReason<R>,
-            discardedJournals: [ModalExecutionJournal<R>],
-            cancellationJournal: ModalExecutionJournal<R>
-        )
-    }
 }
 
 @MainActor

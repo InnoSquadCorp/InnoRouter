@@ -37,4 +37,59 @@ extension FlowStore {
     public var hasModalTail: Bool {
         currentModalRoute != nil
     }
+
+    internal var currentMutationContext: FlowMutationContext {
+        FlowMutationContext(
+            navigationState: navigationStore.state,
+            modalState: modalStore.flowStateSnapshot
+        )
+    }
+
+    private var currentProjection: FlowProjection {
+        currentMutationContext.projection
+    }
+
+    internal func syncPathFromStores(from oldPath: [RouteStep<R>]) {
+        syncPath(from: oldPath, projection: currentProjection)
+    }
+
+    internal func syncPathFromStoresWithoutEmitting() {
+        assignPath(currentProjection.path)
+    }
+
+    private func syncPath(
+        from oldPath: [RouteStep<R>],
+        projection: FlowProjection
+    ) {
+        assignPath(projection.path)
+        guard oldPath != path else { return }
+        emitFlowEvent(.pathChanged(old: oldPath, new: path))
+    }
+
+    internal struct FlowProjection {
+        let pushRoutes: [R]
+        let currentPresentation: ModalPresentation<R>?
+        let queuedPresentations: [ModalPresentation<R>]
+
+        var path: [RouteStep<R>] {
+            var projectedPath = pushRoutes.map(RouteStep.push)
+            if let currentPresentation {
+                projectedPath.append(FlowStore.step(for: currentPresentation))
+            }
+            return projectedPath
+        }
+    }
+
+    internal struct FlowMutationContext {
+        let navigationState: RouteStack<R>
+        let modalState: ModalExecutionState<R>
+
+        var projection: FlowProjection {
+            FlowProjection(
+                pushRoutes: navigationState.path,
+                currentPresentation: modalState.currentPresentation,
+                queuedPresentations: modalState.queuedPresentations
+            )
+        }
+    }
 }
