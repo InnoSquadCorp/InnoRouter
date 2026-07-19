@@ -38,7 +38,7 @@ struct FlowDeepLinkPipelineTests {
     @Test(".rejected when scheme is not allowed")
     func schemeRejection() {
         let pipeline = FlowDeepLinkPipeline<PipelineRoute>(
-            allowedSchemes: ["myapp"],
+            originPolicy: .allowlisted(schemes: ["myapp"], hosts: ["app"]),
             matcher: makeMatcher()
         )
         let decision = pipeline.decide(for: URL(string: "other://app/home")!)
@@ -52,8 +52,7 @@ struct FlowDeepLinkPipelineTests {
     @Test(".rejected when host is not allowed")
     func hostRejection() {
         let pipeline = FlowDeepLinkPipeline<PipelineRoute>(
-            allowedSchemes: ["myapp"],
-            allowedHosts: ["app"],
+            originPolicy: .allowlisted(schemes: ["myapp"], hosts: ["app"]),
             matcher: makeMatcher()
         )
         let decision = pipeline.decide(for: URL(string: "myapp://other/home")!)

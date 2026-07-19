@@ -449,7 +449,10 @@ struct DeepLinkTests {
     @Test("DeepLinkPipeline rejected reason is schemeNotAllowed")
     func testPipelineRejectsSchemeWithReason() {
         let pipeline = DeepLinkPipeline<TestRoute>(
-            allowedSchemes: ["myapp"],
+            originPolicy: .allowlisted(
+                schemes: ["MYAPP"],
+                hosts: ["MYAPP.COM"]
+            ),
             customResolver: { _ in .home }
         )
         let url = URL(string: "https://myapp.com/home")!
@@ -465,7 +468,10 @@ struct DeepLinkTests {
     @Test("DeepLinkPipeline rejected reason is hostNotAllowed")
     func testPipelineRejectsHostWithReason() {
         let pipeline = DeepLinkPipeline<TestRoute>(
-            allowedHosts: ["myapp.com"],
+            originPolicy: .allowlisted(
+                schemes: ["myapp"],
+                hosts: ["myapp.com"]
+            ),
             customResolver: { _ in .home }
         )
         let url = URL(string: "myapp://other.com/home")!
@@ -476,6 +482,19 @@ struct DeepLinkTests {
             return
         }
         #expect(reason == .hostNotAllowed(actualHost: "other.com"))
+    }
+
+    @Test("DeepLinkPipeline trusted in-process policy explicitly skips origin checks")
+    func testPipelineTrustedInProcessOrigin() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            originPolicy: .trustedInProcess,
+            customResolver: { _ in .home }
+        )
+
+        #expect(
+            pipeline.decide(for: URL(string: "untrusted://outside.example/home")!) ==
+                .plan(NavigationPlan(commands: [.push(.home)]))
+        )
     }
 
     @Test("DeepLinkPipeline rejected reason is inputLimitExceeded")

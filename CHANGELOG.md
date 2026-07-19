@@ -6,6 +6,24 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+### Added
+
+- Hand-rolled push, flow, and effect-handler deep-link pipelines now offer an
+  explicit `DeepLinkOriginPolicy`. Use `.allowlisted(schemes:hosts:)` for
+  external entry points and `.trustedInProcess` only for URLs constructed by
+  the current process. Existing optional-allowlist initializers remain source
+  compatible while examples and DocC use the explicit policy path.
+
+### Fixed
+
+- `StateRestorationAdapter` now reapplies the destination
+  `NavigationStore`'s one-shot `RouteStackValidator` before adopting a decoded
+  stack, preserving the previous state and reporting a restoration failure for
+  invalid rooted or duplicate snapshots.
+- `DeepLinkMatcherConfiguration.default` now supplies the package OSLog logger,
+  so its `.debugWarnings` mode emits structural matcher diagnostics instead of
+  silently requiring callers to inspect the diagnostics array.
+
 ## 5.1.0 - 2026-07-19
 
 ### Added

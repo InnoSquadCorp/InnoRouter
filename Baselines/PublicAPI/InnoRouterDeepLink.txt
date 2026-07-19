@@ -41,6 +41,8 @@ relationship | memberOf | DeepLinkMatcherDiagnostic.wildcardShadowing(pattern:in
 relationship | memberOf | DeepLinkMatcherDiagnosticsMode.debugWarnings | DeepLinkMatcherDiagnosticsMode |  |
 relationship | memberOf | DeepLinkMatcherDiagnosticsMode.disabled | DeepLinkMatcherDiagnosticsMode |  |
 relationship | memberOf | DeepLinkMatcherStrictError.diagnostics | DeepLinkMatcherStrictError |  |
+relationship | memberOf | DeepLinkOriginPolicy.allowlisted(schemes:hosts:) | DeepLinkOriginPolicy |  |
+relationship | memberOf | DeepLinkOriginPolicy.trustedInProcess | DeepLinkOriginPolicy |  |
 relationship | memberOf | DeepLinkParameters.firstValue(forName:) | DeepLinkParameters |  |
 relationship | memberOf | DeepLinkParameters.firstValue(forName:as:) | DeepLinkParameters |  |
 relationship | memberOf | DeepLinkParameters.values(forName:) | DeepLinkParameters |  |
@@ -50,6 +52,8 @@ relationship | memberOf | DeepLinkPipeline.Planner | DeepLinkPipeline |  |
 relationship | memberOf | DeepLinkPipeline.decide(for:) | DeepLinkPipeline |  |
 relationship | memberOf | DeepLinkPipeline.init(allowedSchemes:allowedHosts:customResolver:authenticationPolicy:inputLimits:plan:) | DeepLinkPipeline |  |
 relationship | memberOf | DeepLinkPipeline.init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:inputLimits:plan:) | DeepLinkPipeline |  |
+relationship | memberOf | DeepLinkPipeline.init(originPolicy:customResolver:authenticationPolicy:inputLimits:plan:) | DeepLinkPipeline |  |
+relationship | memberOf | DeepLinkPipeline.init(originPolicy:matcher:authenticationPolicy:inputLimits:plan:) | DeepLinkPipeline |  |
 relationship | memberOf | DeepLinkRejectionReason.hostNotAllowed(actualHost:) | DeepLinkRejectionReason |  |
 relationship | memberOf | DeepLinkRejectionReason.inputLimitExceeded(_:) | DeepLinkRejectionReason |  |
 relationship | memberOf | DeepLinkRejectionReason.localizedDescription | DeepLinkRejectionReason |  |
@@ -60,6 +64,7 @@ relationship | memberOf | FlowDeepLinkDecision.rejected(reason:) | FlowDeepLinkD
 relationship | memberOf | FlowDeepLinkDecision.unhandled(url:) | FlowDeepLinkDecision |  |
 relationship | memberOf | FlowDeepLinkPipeline.decide(for:) | FlowDeepLinkPipeline |  |
 relationship | memberOf | FlowDeepLinkPipeline.init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:inputLimits:) | FlowDeepLinkPipeline |  |
+relationship | memberOf | FlowDeepLinkPipeline.init(originPolicy:matcher:authenticationPolicy:inputLimits:) | FlowDeepLinkPipeline |  |
 relationship | memberOf | FlowPendingDeepLink.gatedRoute | FlowPendingDeepLink |  |
 relationship | memberOf | FlowPendingDeepLink.init(url:gatedRoute:plan:) | FlowPendingDeepLink |  |
 relationship | memberOf | FlowPendingDeepLink.plan | FlowPendingDeepLink |  |
@@ -85,6 +90,7 @@ symbol | swift.enum | DeepLinkDecision | DeepLinkDecision | enum DeepLinkDecisio
 symbol | swift.enum | DeepLinkInputLimitViolation | DeepLinkInputLimitViolation | enum DeepLinkInputLimitViolation | []
 symbol | swift.enum | DeepLinkMatcherDiagnostic | DeepLinkMatcherDiagnostic | enum DeepLinkMatcherDiagnostic | []
 symbol | swift.enum | DeepLinkMatcherDiagnosticsMode | DeepLinkMatcherDiagnosticsMode | enum DeepLinkMatcherDiagnosticsMode | []
+symbol | swift.enum | DeepLinkOriginPolicy | DeepLinkOriginPolicy | enum DeepLinkOriginPolicy | []
 symbol | swift.enum | DeepLinkRejectionReason | DeepLinkRejectionReason | enum DeepLinkRejectionReason | []
 symbol | swift.enum | FlowDeepLinkDecision | FlowDeepLinkDecision | enum FlowDeepLinkDecision<R> where R : Route | []
 symbol | swift.enum.case | DeepLinkAuthenticationPolicy.notRequired | DeepLinkAuthenticationPolicy.notRequired | case notRequired | []
@@ -103,6 +109,8 @@ symbol | swift.enum.case | DeepLinkMatcherDiagnostic.parameterShadowing(pattern:
 symbol | swift.enum.case | DeepLinkMatcherDiagnostic.wildcardShadowing(pattern:index:shadowedPattern:shadowedIndex:) | DeepLinkMatcherDiagnostic.wildcardShadowing(pattern:index:shadowedPattern:shadowedIndex:) | case wildcardShadowing(pattern: String, index: Int, shadowedPattern: String, shadowedIndex: Int) | []
 symbol | swift.enum.case | DeepLinkMatcherDiagnosticsMode.debugWarnings | DeepLinkMatcherDiagnosticsMode.debugWarnings | case debugWarnings | []
 symbol | swift.enum.case | DeepLinkMatcherDiagnosticsMode.disabled | DeepLinkMatcherDiagnosticsMode.disabled | case disabled | []
+symbol | swift.enum.case | DeepLinkOriginPolicy.allowlisted(schemes:hosts:) | DeepLinkOriginPolicy.allowlisted(schemes:hosts:) | case allowlisted(schemes: Set<String>, hosts: Set<String>) | []
+symbol | swift.enum.case | DeepLinkOriginPolicy.trustedInProcess | DeepLinkOriginPolicy.trustedInProcess | case trustedInProcess | []
 symbol | swift.enum.case | DeepLinkRejectionReason.hostNotAllowed(actualHost:) | DeepLinkRejectionReason.hostNotAllowed(actualHost:) | case hostNotAllowed(actualHost: String?) | []
 symbol | swift.enum.case | DeepLinkRejectionReason.inputLimitExceeded(_:) | DeepLinkRejectionReason.inputLimitExceeded(_:) | case inputLimitExceeded(DeepLinkInputLimitViolation) | []
 symbol | swift.enum.case | DeepLinkRejectionReason.schemeNotAllowed(actualScheme:) | DeepLinkRejectionReason.schemeNotAllowed(actualScheme:) | case schemeNotAllowed(actualScheme: String?) | []
@@ -117,7 +125,10 @@ symbol | swift.init | DeepLinkMatcher.init(strict:logger:inputLimits:mappings:) 
 symbol | swift.init | DeepLinkMatcherConfiguration.init(diagnosticsMode:logger:inputLimits:) | init(diagnosticsMode:logger:inputLimits:) | init(diagnosticsMode: DeepLinkMatcherDiagnosticsMode, logger: Logger? = nil, inputLimits: DeepLinkInputLimits = .default) | []
 symbol | swift.init | DeepLinkPipeline.init(allowedSchemes:allowedHosts:customResolver:authenticationPolicy:inputLimits:plan:) | init(allowedSchemes:allowedHosts:customResolver:authenticationPolicy:inputLimits:plan:) | init(allowedSchemes: Set<String>? = nil, allowedHosts: Set<String>? = nil, customResolver: @escaping (URL) -> R?, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, inputLimits: DeepLinkInputLimits = .default, plan: @escaping DeepLinkPipeline<R>.Planner = { route in NavigationPlan(commands: [.push(route)]) }) | []
 symbol | swift.init | DeepLinkPipeline.init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:inputLimits:plan:) | init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:inputLimits:plan:) | init(allowedSchemes: Set<String>? = nil, allowedHosts: Set<String>? = nil, matcher: DeepLinkMatcher<R>, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, inputLimits: DeepLinkInputLimits = .default, plan: @escaping DeepLinkPipeline<R>.Planner = { route in NavigationPlan(commands: [.push(route)]) }) | []
+symbol | swift.init | DeepLinkPipeline.init(originPolicy:customResolver:authenticationPolicy:inputLimits:plan:) | init(originPolicy:customResolver:authenticationPolicy:inputLimits:plan:) | init(originPolicy: DeepLinkOriginPolicy, customResolver: @escaping (URL) -> R?, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, inputLimits: DeepLinkInputLimits = .default, plan: @escaping DeepLinkPipeline<R>.Planner = { route in NavigationPlan(commands: [.push(route)]) }) | []
+symbol | swift.init | DeepLinkPipeline.init(originPolicy:matcher:authenticationPolicy:inputLimits:plan:) | init(originPolicy:matcher:authenticationPolicy:inputLimits:plan:) | init(originPolicy: DeepLinkOriginPolicy, matcher: DeepLinkMatcher<R>, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, inputLimits: DeepLinkInputLimits = .default, plan: @escaping DeepLinkPipeline<R>.Planner = { route in NavigationPlan(commands: [.push(route)]) }) | []
 symbol | swift.init | FlowDeepLinkPipeline.init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:inputLimits:) | init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:inputLimits:) | init(allowedSchemes: Set<String>? = nil, allowedHosts: Set<String>? = nil, matcher: DeepLinkMatcher<FlowPlan<R>>, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, inputLimits: DeepLinkInputLimits = .default) | []
+symbol | swift.init | FlowDeepLinkPipeline.init(originPolicy:matcher:authenticationPolicy:inputLimits:) | init(originPolicy:matcher:authenticationPolicy:inputLimits:) | init(originPolicy: DeepLinkOriginPolicy, matcher: DeepLinkMatcher<FlowPlan<R>>, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, inputLimits: DeepLinkInputLimits = .default) | []
 symbol | swift.init | FlowPendingDeepLink.init(url:gatedRoute:plan:) | init(url:gatedRoute:plan:) | init(url: URL, gatedRoute: R, plan: FlowPlan<R>) | []
 symbol | swift.init | FlowPendingDeepLinkPersistence.init(encoder:decoder:) | init(encoder:decoder:) | init(encoder: JSONEncoder = JSONEncoder(), decoder: JSONDecoder = JSONDecoder()) | []
 symbol | swift.init | NavigationPlan.init(commands:) | init(commands:) | init(commands: [NavigationCommand<R>]) | []

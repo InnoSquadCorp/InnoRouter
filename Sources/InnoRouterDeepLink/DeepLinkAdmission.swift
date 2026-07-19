@@ -23,6 +23,34 @@ struct DeepLinkAdmission<Output: Sendable>: Sendable {
     private let inputLimits: DeepLinkInputLimits
 
     init(
+        originPolicy: DeepLinkOriginPolicy,
+        matcher: DeepLinkMatcher<Output>,
+        inputLimits: DeepLinkInputLimits
+    ) {
+        let allowlists = originPolicy.allowlists
+        self.init(
+            allowedSchemes: allowlists.schemes,
+            allowedHosts: allowlists.hosts,
+            matcher: matcher,
+            inputLimits: inputLimits
+        )
+    }
+
+    init(
+        originPolicy: DeepLinkOriginPolicy,
+        customResolver: @escaping @Sendable (URL) -> Output?,
+        inputLimits: DeepLinkInputLimits
+    ) {
+        let allowlists = originPolicy.allowlists
+        self.init(
+            allowedSchemes: allowlists.schemes,
+            allowedHosts: allowlists.hosts,
+            customResolver: customResolver,
+            inputLimits: inputLimits
+        )
+    }
+
+    init(
         allowedSchemes: Set<String>?,
         allowedHosts: Set<String>?,
         matcher: DeepLinkMatcher<Output>,
@@ -83,6 +111,17 @@ struct DeepLinkAdmission<Output: Sendable>: Sendable {
         case .customResolver(let resolve):
             guard let output = resolve(url) else { return .unhandled }
             return .matched(output)
+        }
+    }
+}
+
+private extension DeepLinkOriginPolicy {
+    var allowlists: (schemes: Set<String>?, hosts: Set<String>?) {
+        switch self {
+        case .allowlisted(let schemes, let hosts):
+            return (schemes, hosts)
+        case .trustedInProcess:
+            return (nil, nil)
         }
     }
 }

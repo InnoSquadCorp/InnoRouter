@@ -157,8 +157,10 @@ private func makePipeline(mappingCount: Int) -> FlowDeepLinkPipeline<SmokeRoute>
     }
 
     return FlowDeepLinkPipeline(
-        allowedSchemes: ["myapp"],
-        allowedHosts: ["app"],
+        originPolicy: .allowlisted(
+            schemes: ["myapp"],
+            hosts: ["app"]
+        ),
         matcher: DeepLinkMatcher {
             mappings
         }

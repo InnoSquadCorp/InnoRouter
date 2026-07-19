@@ -37,6 +37,7 @@ struct DeepLinkEffectHandlerTests {
         }
         let handler = DeepLinkEffectHandler(
             navigator: store,
+            originPolicy: .trustedInProcess,
             matcher: matcher,
             plan: { _ in NavigationPlan(commands: [.replace([.home, .settings])]) }
         )

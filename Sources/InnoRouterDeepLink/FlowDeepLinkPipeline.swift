@@ -90,9 +90,26 @@ public struct FlowDeepLinkPipeline<R: Route>: Sendable {
     private let admission: DeepLinkAdmission<FlowPlan<R>>
     private let authenticationPolicy: DeepLinkAuthenticationPolicy<R>
 
+    /// Creates a flow pipeline with an explicit URL-origin trust boundary.
+    /// Use `.allowlisted` for every external URL entry point.
+    public init(
+        originPolicy: DeepLinkOriginPolicy,
+        matcher: DeepLinkMatcher<FlowPlan<R>>,
+        authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired,
+        inputLimits: DeepLinkInputLimits = .default
+    ) {
+        self.admission = DeepLinkAdmission(
+            originPolicy: originPolicy,
+            matcher: matcher,
+            inputLimits: inputLimits
+        )
+        self.authenticationPolicy = authenticationPolicy
+    }
+
     /// Creates a flow pipeline that admits, gates, and plans one URL.
     ///
-    /// - Important: `allowedSchemes` and `allowedHosts` default to `nil`,
+    /// - Important: This compatibility initializer allows
+    ///   `allowedSchemes` and `allowedHosts` to default to `nil`,
     ///   and `nil` disables that admission check entirely. A pipeline that
     ///   receives attacker-controllable URLs (custom URL schemes, universal
     ///   links, QR/NFC payloads) should always pass both allowlists so the

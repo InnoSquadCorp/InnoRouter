@@ -19,8 +19,10 @@ let matcher = DeepLinkMatcher<AppRoute> {
 }
 
 let pipeline = DeepLinkPipeline(
-    allowedSchemes: ["myapp"],
-    allowedHosts: ["app.example.com"],
+    originPolicy: .allowlisted(
+        schemes: ["myapp"],
+        hosts: ["app.example.com"]
+    ),
     matcher: matcher
 )
 ```
@@ -30,8 +32,10 @@ matching, use the explicit escape hatch:
 
 ```swift skip doc-fragment
 let pipeline = DeepLinkPipeline<AppRoute>(
-    allowedSchemes: ["myapp"],
-    allowedHosts: ["app.example.com"],
+    originPolicy: .allowlisted(
+        schemes: ["myapp"],
+        hosts: ["app.example.com"]
+    ),
     customResolver: { url in legacyRouter.route(for: url) }
 )
 ```
@@ -40,16 +44,15 @@ A custom resolver's `nil` result is `.unhandled`. Pipeline-level input limits
 still apply, but only the `matcher:` path can preserve matcher-specific limit
 violations.
 
-### Always pass allowlists for untrusted URLs
+### Always declare an origin policy
 
-`allowedSchemes` and `allowedHosts` default to `nil`, and `nil` disables
-that admission check entirely. Any pipeline that receives
-attacker-controllable URLs — custom URL schemes, universal links, QR or
-NFC payloads — should pass both allowlists so the decision stays
-fail-closed. The `@DeepLink` macro path enforces an allowlist at compile
-time (`E020`); hand-rolled pipelines are expected to match that posture.
-Omit the allowlists only when every incoming URL is constructed by your
-own process.
+Use `DeepLinkOriginPolicy.allowlisted(schemes:hosts:)` for every pipeline
+that receives attacker-controllable URLs — custom URL schemes, universal
+links, notifications, QR or NFC payloads. Choose `.trustedInProcess` only
+when every incoming URL is constructed by your own process. The older
+optional-allowlist initializer remains source-compatible, but an omitted
+allowlist disables that admission check. The `@DeepLink` macro path enforces
+an allowlist at compile time (`E020`).
 
 ## Pipeline stages
 

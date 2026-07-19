@@ -56,6 +56,28 @@ public final class DeepLinkEffectHandler<R: Route> {
         self.navigationHandler = NavigationEffectHandler(navigator: navigator)
     }
 
+    /// Creates a handler with an explicit URL-origin trust boundary.
+    public init<N: Navigator & NavigationBatchExecutor & NavigationTransactionExecutor>(
+        navigator: N,
+        originPolicy: DeepLinkOriginPolicy,
+        matcher: DeepLinkMatcher<R>,
+        authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired,
+        inputLimits: DeepLinkInputLimits = .default,
+        plan: @escaping DeepLinkPipeline<R>.Planner = { route in
+            NavigationPlan(commands: [.push(route)])
+        }
+    ) where N.RouteType == R {
+        self.pipeline = DeepLinkPipeline(
+            originPolicy: originPolicy,
+            matcher: matcher,
+            authenticationPolicy: authenticationPolicy,
+            inputLimits: inputLimits,
+            plan: plan
+        )
+        self.navigationHandler = NavigationEffectHandler(navigator: navigator)
+    }
+
+    /// Compatibility initializer for separately supplied optional allowlists.
     public init<N: Navigator & NavigationBatchExecutor & NavigationTransactionExecutor>(
         navigator: N,
         matcher: DeepLinkMatcher<R>,

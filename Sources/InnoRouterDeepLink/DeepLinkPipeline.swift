@@ -92,10 +92,47 @@ public struct DeepLinkPipeline<R: Route>: Sendable {
     private let authenticationPolicy: DeepLinkAuthenticationPolicy<R>
     private let plan: Planner
 
+    /// Creates a matcher-backed pipeline with an explicit URL-origin trust
+    /// boundary. Use `.allowlisted` for every external URL entry point.
+    public init(
+        originPolicy: DeepLinkOriginPolicy,
+        matcher: DeepLinkMatcher<R>,
+        authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired,
+        inputLimits: DeepLinkInputLimits = .default,
+        plan: @escaping Planner = { route in NavigationPlan(commands: [.push(route)]) }
+    ) {
+        self.admission = DeepLinkAdmission(
+            originPolicy: originPolicy,
+            matcher: matcher,
+            inputLimits: inputLimits
+        )
+        self.authenticationPolicy = authenticationPolicy
+        self.plan = plan
+    }
+
+    /// Creates a resolver-backed pipeline with an explicit URL-origin trust
+    /// boundary. A `nil` resolver result is treated as `.unhandled`.
+    public init(
+        originPolicy: DeepLinkOriginPolicy,
+        customResolver: @escaping @Sendable (URL) -> R?,
+        authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired,
+        inputLimits: DeepLinkInputLimits = .default,
+        plan: @escaping Planner = { route in NavigationPlan(commands: [.push(route)]) }
+    ) {
+        self.admission = DeepLinkAdmission(
+            originPolicy: originPolicy,
+            customResolver: customResolver,
+            inputLimits: inputLimits
+        )
+        self.authenticationPolicy = authenticationPolicy
+        self.plan = plan
+    }
+
     /// Creates a matcher-backed pipeline that preserves matcher-specific input
     /// limit violations as typed rejections.
     ///
-    /// - Important: `allowedSchemes` and `allowedHosts` default to `nil`,
+    /// - Important: This compatibility initializer allows
+    ///   `allowedSchemes` and `allowedHosts` to default to `nil`,
     ///   and `nil` disables that admission check entirely. A pipeline that
     ///   receives attacker-controllable URLs (custom URL schemes, universal
     ///   links, QR/NFC payloads) should always pass both allowlists so the
@@ -127,7 +164,8 @@ public struct DeepLinkPipeline<R: Route>: Sendable {
     /// initializer when using `DeepLinkMatcher` so matcher-specific input-limit
     /// violations remain distinguishable from an unmatched URL.
     ///
-    /// - Important: `allowedSchemes` and `allowedHosts` default to `nil`,
+    /// - Important: This compatibility initializer allows
+    ///   `allowedSchemes` and `allowedHosts` to default to `nil`,
     ///   and `nil` disables that admission check entirely. Pass both
     ///   allowlists whenever the resolver can see attacker-controllable
     ///   URLs; see the `matcher:` initializer for the full rationale.

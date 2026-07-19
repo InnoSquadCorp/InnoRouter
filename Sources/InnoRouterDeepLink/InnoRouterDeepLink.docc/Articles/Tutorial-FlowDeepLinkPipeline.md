@@ -140,8 +140,10 @@ private final class DeepLinkCoordinator {
             }
         }
         let pipeline = FlowDeepLinkPipeline(
-            allowedSchemes: ["myapp"],
-            allowedHosts: ["app"],
+            originPolicy: .allowlisted(
+                schemes: ["myapp"],
+                hosts: ["app"]
+            ),
             matcher: matcher,
             authenticationPolicy: .required(
                 shouldRequireAuthentication: { route in

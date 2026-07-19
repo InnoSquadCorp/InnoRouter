@@ -859,8 +859,10 @@ let matcher = DeepLinkMatcher<FlowPlan<AppRoute>> {
 }
 
 let pipeline = FlowDeepLinkPipeline(
-    allowedSchemes: ["myapp"],
-    allowedHosts: ["app"],
+    originPolicy: .allowlisted(
+        schemes: ["myapp"],
+        hosts: ["app"]
+    ),
     matcher: matcher,
     authenticationPolicy: .required(
         shouldRequireAuthentication: { _ in true },

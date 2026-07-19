@@ -102,8 +102,10 @@ final class SampleAppAuthority {
         session: AuthSession
     ) -> DeepLinkPipeline<SampleRoute> {
         DeepLinkPipeline(
-            allowedSchemes: ["app"],
-            allowedHosts: ["sample"],
+            originPolicy: .allowlisted(
+                schemes: ["app"],
+                hosts: ["sample"]
+            ),
             customResolver: { url in
                 switch url.path {
                 case "/profile": .profile
