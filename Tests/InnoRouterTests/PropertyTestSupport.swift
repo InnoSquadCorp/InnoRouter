@@ -321,7 +321,9 @@ struct FlowModelState: Equatable {
         case .cancel(let debugName, _):
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
-            let changed = applyNavigationCommand(command)
+            guard let changed = applyNavigationCommand(command) else {
+                return reject(.navigationExecutionFailed)
+            }
             return FlowStepExpectation(
                 outcome: changed ? .pathChangedLast : .none,
                 navigationChanged: changed
@@ -346,7 +348,9 @@ struct FlowModelState: Equatable {
         case .cancel(let debugName, _):
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
-            let changed = applyNavigationCommand(command)
+            guard let changed = applyNavigationCommand(command) else {
+                return reject(.navigationExecutionFailed)
+            }
             return FlowStepExpectation(
                 outcome: changed ? .pathChangedLast : .none,
                 navigationChanged: changed
@@ -385,7 +389,9 @@ struct FlowModelState: Equatable {
         case .cancel(let debugName, _):
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
-            let changed = applyNavigationCommand(command)
+            guard let changed = applyNavigationCommand(command) else {
+                return reject(.navigationExecutionFailed)
+            }
             return FlowStepExpectation(
                 outcome: changed ? .pathChangedLast : .none,
                 navigationChanged: changed
@@ -407,7 +413,9 @@ struct FlowModelState: Equatable {
         case .cancel(let debugName, _):
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
-            let changed = applyNavigationCommand(command)
+            guard let changed = applyNavigationCommand(command) else {
+                return reject(.navigationExecutionFailed)
+            }
             return FlowStepExpectation(
                 outcome: changed ? .pathChangedLast : .none,
                 navigationChanged: changed
@@ -426,7 +434,9 @@ struct FlowModelState: Equatable {
         case .cancel(let debugName, _):
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
-            let changed = applyNavigationCommand(command)
+            guard let changed = applyNavigationCommand(command) else {
+                return reject(.navigationExecutionFailed)
+            }
             return FlowStepExpectation(
                 outcome: changed ? .pathChangedLast : .none,
                 navigationChanged: changed
@@ -444,7 +454,9 @@ struct FlowModelState: Equatable {
         case .cancel(let debugName, _):
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
-            let changed = applyNavigationCommand(command)
+            guard let changed = applyNavigationCommand(command) else {
+                return reject(.navigationExecutionFailed)
+            }
             return FlowStepExpectation(
                 outcome: changed ? .pathChangedLast : .none,
                 navigationChanged: changed
@@ -483,7 +495,9 @@ struct FlowModelState: Equatable {
             case .cancel(let debugName, _):
                 return reject(.middlewareRejected(debugName: debugName))
             case .proceed(let command):
-                let changed = applyNavigationCommand(command)
+                guard let changed = applyNavigationCommand(command) else {
+                    return reject(.navigationExecutionFailed)
+                }
                 return FlowStepExpectation(
                     outcome: changed ? .pathChangedLast : .none,
                     navigationChanged: changed
@@ -559,7 +573,9 @@ struct FlowModelState: Equatable {
         case .cancel(let debugName, _):
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
-            let navigationChanged = shadow.applyNavigationCommand(command)
+            guard let navigationChanged = shadow.applyNavigationCommand(command) else {
+                return reject(.navigationExecutionFailed)
+            }
             let modalResetResult = shadow.previewModalReset(
                 to: modalTail,
                 middlewarePolicy: middlewarePolicy
@@ -639,37 +655,63 @@ struct FlowModelState: Equatable {
 
     private mutating func applyNavigationCommand(
         _ command: NavigationCommand<PropertyRoute>
-    ) -> Bool {
+    ) -> Bool? {
         let before = navigationPath
+        guard applyNavigationCommandPreview(command) else {
+            navigationPath = before
+            return nil
+        }
+        return before != navigationPath
+    }
+
+    private mutating func applyNavigationCommandPreview(
+        _ command: NavigationCommand<PropertyRoute>
+    ) -> Bool {
         switch command {
         case .push(let route):
             navigationPath.append(route)
+            return true
         case .pop:
-            if !navigationPath.isEmpty {
-                _ = navigationPath.removeLast()
-            }
+            guard !navigationPath.isEmpty else { return false }
+            _ = navigationPath.removeLast()
+            return true
         case .popTo(let route):
-            if let index = navigationPath.lastIndex(of: route) {
-                navigationPath = Array(navigationPath.prefix(index + 1))
-            }
+            guard let index = navigationPath.lastIndex(of: route) else { return false }
+            navigationPath = Array(navigationPath.prefix(index + 1))
+            return true
         case .replace(let routes):
             navigationPath = routes
+            return true
         case .popToRoot:
             navigationPath.removeAll()
+            return true
         case .pushAll(let routes):
             navigationPath.append(contentsOf: routes)
+            return true
         case .popCount(let count):
-            if count > 0, count <= navigationPath.count {
-                navigationPath.removeLast(count)
-            }
+            guard count > 0, count <= navigationPath.count else { return false }
+            navigationPath.removeLast(count)
+            return true
         case .sequence(let commands):
+            var allSucceeded = !commands.isEmpty
             for command in commands {
-                _ = applyNavigationCommand(command)
+                if !applyNavigationCommandPreview(command) {
+                    allSucceeded = false
+                }
             }
-        case .whenCancelled(let primary, _):
-            _ = applyNavigationCommand(primary)
+            return allSucceeded
+        case .whenCancelled(let primary, let fallback):
+            let snapshot = navigationPath
+            if applyNavigationCommandPreview(primary) {
+                return true
+            }
+            navigationPath = snapshot
+            guard applyNavigationCommandPreview(fallback) else {
+                navigationPath = snapshot
+                return false
+            }
+            return true
         }
-        return before != navigationPath
     }
 
     private mutating func applyModalCommand(
@@ -880,8 +922,10 @@ enum NormalizedFlowEvent: Equatable, Hashable {
             case .middlewareRejected(let debugName):
                 hasher.combine(2)
                 hasher.combine(debugName)
-            case .reentrantApply:
+            case .navigationExecutionFailed:
                 hasher.combine(3)
+            case .reentrantApply:
+                hasher.combine(4)
             }
         case .pathChanged:
             hasher.combine(5)

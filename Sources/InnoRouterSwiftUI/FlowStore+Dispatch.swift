@@ -129,13 +129,8 @@ extension FlowStore {
         in context: FlowMutationContext
     ) -> FlowMutationPlan<R> {
         let journal = navigationStore.previewFlowCommand(command, from: context.navigationState)
-        if case .cancelled(let reason) = journal.result {
-            return .rejected(
-                oldPath: path,
-                reason: .middlewareRejected(debugName: Self.debugName(from: reason)),
-                queueCoalescePolicyEligible: true,
-                navigationJournal: journal
-            )
+        if !journal.result.isSuccess {
+            return rejectedNavigationPreview(journal, queueCoalescePolicyEligible: true)
         }
 
         return .commit(oldPath: path, navigationJournal: journal)
@@ -188,13 +183,8 @@ extension FlowStore {
             .replace(pushRoutes),
             from: context.navigationState
         )
-        if case .cancelled(let reason) = navJournal.result {
-            return .rejected(
-                oldPath: path,
-                reason: .middlewareRejected(debugName: Self.debugName(from: reason)),
-                queueCoalescePolicyEligible: true,
-                navigationJournal: navJournal
-            )
+        if !navJournal.result.isSuccess {
+            return rejectedNavigationPreview(navJournal, queueCoalescePolicyEligible: true)
         }
 
         let modalPlan = previewModalReset(to: modalTail, from: context.modalState)
@@ -241,17 +231,40 @@ extension FlowStore {
 
         if context.navigationState.path.contains(route) {
             let journal = navigationStore.previewFlowCommand(.popTo(route), from: context.navigationState)
-            if case .cancelled(let reason) = journal.result {
-                return .rejected(
-                    oldPath: path,
-                    reason: .middlewareRejected(debugName: Self.debugName(from: reason)),
-                    queueCoalescePolicyEligible: true,
-                    navigationJournal: journal
-                )
+            if !journal.result.isSuccess {
+                return rejectedNavigationPreview(journal, queueCoalescePolicyEligible: true)
             }
             return .commit(oldPath: path, navigationJournal: journal)
         }
         return dispatchPush(route, in: context)
+    }
+
+    private func rejectedNavigationPreview(
+        _ journal: NavigationExecutionJournal<R>,
+        queueCoalescePolicyEligible: Bool
+    ) -> FlowMutationPlan<R> {
+        let reason: FlowRejectionReason
+        if case .cancelled(let cancellation) = journal.result {
+            reason = .middlewareRejected(debugName: Self.debugName(from: cancellation))
+        } else {
+            reason = .navigationExecutionFailed
+        }
+
+        if journal.stateAfter == journal.stateBefore {
+            return .rejected(
+                oldPath: path,
+                reason: reason,
+                queueCoalescePolicyEligible: queueCoalescePolicyEligible,
+                navigationJournal: journal
+            )
+        }
+
+        return .rejected(
+            oldPath: path,
+            reason: reason,
+            queueCoalescePolicyEligible: queueCoalescePolicyEligible,
+            discardedNavigationJournals: [journal]
+        )
     }
 
     /// Silent no-op when the navigation stack already contains `route`.

@@ -52,6 +52,66 @@ struct FlowStoreMiddlewareRejectionTests {
         }
     }
 
+    @Test("navigation middleware engine failure rejects instead of reporting success")
+    @MainActor
+    func navigationMiddlewareEngineFailureRejects() {
+        let rejections = Mutex<[FlowRejectionReason]>([])
+        let middleware = AnyNavigationMiddleware<FlowMiddlewareRoute>(
+            willExecute: { command, _ in
+                guard case .push = command else { return .proceed(command) }
+                return .proceed(.pop)
+            }
+        )
+        let store = FlowStore<FlowMiddlewareRoute>(
+            configuration: .init(
+                navigation: .init(middlewares: [.init(middleware: middleware)]),
+                onEvent: { event in
+                    guard case .intentRejected(_, let reason) = event else { return }
+                    rejections.withLock { $0.append(reason) }
+                }
+            )
+        )
+
+        store.send(.push(.home))
+
+        #expect(store.path.isEmpty)
+        #expect(store.navigationStore.state.path.isEmpty)
+        #expect(rejections.withLock { $0 } == [.navigationExecutionFailed])
+    }
+
+    @Test("navigation middleware partial engine failure rolls preview back atomically")
+    @MainActor
+    func navigationMiddlewarePartialFailureIsAtomic() {
+        let rejections = Mutex<[FlowRejectionReason]>([])
+        let middleware = AnyNavigationMiddleware<FlowMiddlewareRoute>(
+            willExecute: { command, _ in
+                guard case .push(.detail) = command else { return .proceed(command) }
+                return .proceed(
+                    .sequence([
+                        .push(.detail),
+                        .popCount(3),
+                    ])
+                )
+            }
+        )
+        let store = FlowStore<FlowMiddlewareRoute>(
+            initial: [.push(.home)],
+            configuration: .init(
+                navigation: .init(middlewares: [.init(middleware: middleware)]),
+                onEvent: { event in
+                    guard case .intentRejected(_, let reason) = event else { return }
+                    rejections.withLock { $0.append(reason) }
+                }
+            )
+        )
+
+        store.send(.push(.detail))
+
+        #expect(store.path == [.push(.home)])
+        #expect(store.navigationStore.state.path == [.home])
+        #expect(rejections.withLock { $0 } == [.navigationExecutionFailed])
+    }
+
     @Test("modal middleware cancel rolls back modal tail and emits middlewareRejected")
     @MainActor
     func modalMiddlewareCancelRollsBackPath() {

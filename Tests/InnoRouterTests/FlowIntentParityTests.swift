@@ -336,6 +336,7 @@ struct FlowIntentParityTests {
     func invalidPopParityPreservesState() {
         let commands = Mutex<[NavigationCommand<FlowParityRoute>]>([])
         let pathChanges = Mutex<Int>(0)
+        let rejections = Mutex<[FlowRejectionReason]>([])
         let middleware = AnyNavigationMiddleware<FlowParityRoute>(
             willExecute: { command, _ in
                 commands.withLock { $0.append(command) }
@@ -347,8 +348,14 @@ struct FlowIntentParityTests {
             configuration: .init(
                 navigation: .init(middlewares: [.init(middleware: middleware)]),
                 onEvent: { event in
-                    guard case .pathChanged = event else { return }
-                    pathChanges.withLock { $0 += 1 }
+                    switch event {
+                    case .pathChanged:
+                        pathChanges.withLock { $0 += 1 }
+                    case .intentRejected(_, let reason):
+                        rejections.withLock { $0.append(reason) }
+                    default:
+                        break
+                    }
                 }
             )
         )
@@ -360,6 +367,7 @@ struct FlowIntentParityTests {
 
         #expect(store.path == [.push(.root), .push(.first)])
         #expect(pathChanges.withLock { $0 } == 0)
+        #expect(rejections.withLock { $0 } == Array(repeating: .navigationExecutionFailed, count: 4))
         #expect(commands.withLock { $0 } == [
             .popCount(0),
             .popCount(-1),
