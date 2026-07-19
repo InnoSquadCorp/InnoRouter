@@ -53,7 +53,9 @@ public struct RouterModalHost<R: DestinationRoute, Content: View>: View {
             initialValue: ModalStore(
                 currentPresentation: initial,
                 queuedPresentations: queued,
-                configuration: configuration
+                configuration: configuration.withMacroFirstDiagnostics(
+                    hostName: "RouterModalHost"
+                )
             )
         )
         self.deepLinkStyle = deepLinkStyle

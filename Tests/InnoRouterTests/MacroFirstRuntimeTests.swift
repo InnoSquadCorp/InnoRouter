@@ -30,6 +30,11 @@ struct MacroFirstRuntimeTests {
         var events: [FlowEvent<MacroFirstRuntimeRoute>] = []
     }
 
+    @MainActor
+    private final class ModalEventRecorder {
+        var events: [ModalEvent<MacroFirstRuntimeRoute>] = []
+    }
+
     @Test("RouterActions maps convenience methods to navigation intents")
     @MainActor
     func routerActionsIntentMapping() {
@@ -159,6 +164,36 @@ struct MacroFirstRuntimeTests {
                 .intentRejected(.push(.detail(id: "blocked")), .pushBlockedByModalTail)
             )
         )
+    }
+
+    @Test("Macro-first modal diagnostics preserve the caller's event hook")
+    @MainActor
+    func macroFirstModalDiagnosticsChainUserOnEvent() {
+        let recorder = ModalEventRecorder()
+        let middleware = AnyModalMiddleware<MacroFirstRuntimeRoute>(
+            willExecute: { command, _, _ in
+                .cancel(.middleware(debugName: "modal-gate", command: command))
+            }
+        )
+        let configuration = ModalStoreConfiguration<MacroFirstRuntimeRoute>(
+            middlewares: [.init(middleware: middleware, debugName: "modal-gate")],
+            onEvent: { event in
+                recorder.events.append(event)
+            }
+        ).withMacroFirstDiagnostics(hostName: "RouterModalHost")
+        let store = ModalStore(configuration: configuration)
+
+        store.send(.present(.settings, style: .sheet))
+
+        #expect(recorder.events.contains { event in
+            guard case .commandIntercepted(
+                .present(let presentation),
+                .cancelled(.middleware(debugName: "modal-gate", command: .present))
+            ) = event else {
+                return false
+            }
+            return presentation.route == .settings
+        })
     }
 
     @Test("EnvironmentRouter can be declared without exposing a store")
