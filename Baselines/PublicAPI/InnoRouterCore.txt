@@ -33,6 +33,7 @@ relationship | memberOf | FlowPlanValidationError.tooManyModals | FlowPlanValida
 relationship | memberOf | FlowRejectionReason.invalidResetPath | FlowRejectionReason |  |
 relationship | memberOf | FlowRejectionReason.localizedDescription | FlowRejectionReason |  |
 relationship | memberOf | FlowRejectionReason.middlewareRejected(debugName:) | FlowRejectionReason |  |
+relationship | memberOf | FlowRejectionReason.navigationExecutionFailed | FlowRejectionReason |  |
 relationship | memberOf | FlowRejectionReason.pushBlockedByModalTail | FlowRejectionReason |  |
 relationship | memberOf | FlowRejectionReason.reentrantApply | FlowRejectionReason |  |
 relationship | memberOf | ModalCancellationReason.conditionFailed | ModalCancellationReason |  |
@@ -179,6 +180,7 @@ symbol | swift.enum.case | FlowPlanValidationError.modalNotAtTail | FlowPlanVali
 symbol | swift.enum.case | FlowPlanValidationError.tooManyModals | FlowPlanValidationError.tooManyModals | case tooManyModals | []
 symbol | swift.enum.case | FlowRejectionReason.invalidResetPath | FlowRejectionReason.invalidResetPath | case invalidResetPath | []
 symbol | swift.enum.case | FlowRejectionReason.middlewareRejected(debugName:) | FlowRejectionReason.middlewareRejected(debugName:) | case middlewareRejected(debugName: String?) | []
+symbol | swift.enum.case | FlowRejectionReason.navigationExecutionFailed | FlowRejectionReason.navigationExecutionFailed | case navigationExecutionFailed | []
 symbol | swift.enum.case | FlowRejectionReason.pushBlockedByModalTail | FlowRejectionReason.pushBlockedByModalTail | case pushBlockedByModalTail | []
 symbol | swift.enum.case | FlowRejectionReason.reentrantApply | FlowRejectionReason.reentrantApply | case reentrantApply | []
 symbol | swift.enum.case | ModalCancellationReason.conditionFailed | ModalCancellationReason.conditionFailed | case conditionFailed | []

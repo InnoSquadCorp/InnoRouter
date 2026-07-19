@@ -27,6 +27,20 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Allowlisted deep-link entry points now reject URLs containing user-info or an
+  explicit port before route matching. Generated `@DeepLink` pipelines and
+  hand-built pipelines therefore apply the same canonical-origin policy;
+  `.trustedInProcess` remains the explicit opt-out for app-created URLs.
+- Flow navigation previews now reject commands when any navigation step fails,
+  discard the partial preview, and report
+  `FlowRejectionReason.navigationExecutionFailed` instead of committing a
+  partially applied flow state.
+- Navigation and flow state restoration now validate the complete decoded
+  snapshot before replacing live state. Middleware rewrites, invalid paths,
+  and partial execution failures leave the previous state unchanged.
+- Macro-first modal hosts now emit package diagnostics when generated
+  deep-link presentation is cancelled, while preserving a caller-provided
+  modal event handler and leaving externally owned modal hosts untouched.
 - The source-compatible `FlowStore(initial:)` fallback now emits a typed-reason
   OSLog warning before coercing an invalid initial path to empty. External
   inputs should continue to use the throwing `FlowStore(validating:)` path.
