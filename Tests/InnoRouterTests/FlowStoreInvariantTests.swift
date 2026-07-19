@@ -102,19 +102,19 @@ struct FlowStoreInvariantTests {
         #expect(rejections.withLock { $0 }.isEmpty)
     }
 
-    @Test("pop on empty stack is silent no-op")
+    @Test("pop on empty stack rejects without changing the path")
     @MainActor
     func popNoOp() {
         let changes = Mutex<Int>(0)
-        let rejections = Mutex<Int>(0)
+        let rejections = Mutex<[FlowRejectionReason]>([])
         let store = FlowStore<FlowRoute>(
             configuration: .init(
                 onEvent: { event in
                     switch event {
                     case .pathChanged:
                         changes.withLock { $0 += 1 }
-                    case .intentRejected:
-                        rejections.withLock { $0 += 1 }
+                    case .intentRejected(_, let reason):
+                        rejections.withLock { $0.append(reason) }
                     default:
                         break
                     }
@@ -126,7 +126,7 @@ struct FlowStoreInvariantTests {
 
         #expect(store.path.isEmpty)
         #expect(changes.withLock { $0 } == 0)
-        #expect(rejections.withLock { $0 } == 0)
+        #expect(rejections.withLock { $0 } == [.navigationExecutionFailed])
     }
 
     @Test("dismiss with no modal tail is silent no-op")
