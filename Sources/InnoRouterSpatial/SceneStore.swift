@@ -60,10 +60,10 @@ import InnoRouterCore
 @Observable
 public final class SceneStore<R: Route> {
     @ObservationIgnored
-    private var state: SceneStoreState<R>
+    internal var state: SceneStoreState<R>
 
     @ObservationIgnored
-    private var dispatcherRegistry: SceneDispatcherRegistry
+    internal var dispatcherRegistry: SceneDispatcherRegistry
 
     /// Live SwiftUI scene roots keyed by the stable token owned by their
     /// host or anchor modifier. Inventory lifetime is intentionally separate
@@ -71,7 +71,7 @@ public final class SceneStore<R: Route> {
     /// and overlapping roots for the same scene must detach only after the
     /// final owner disappears.
     @ObservationIgnored
-    private var lifecyclePresentationsByToken: [UUID: ScenePresentation<R>]
+    internal var lifecycleRegistry: SceneLifecycleRegistry<R>
 
     /// Recency-ordered summary of the active scene inventory, or `nil`
     /// if nothing is active.
@@ -93,7 +93,7 @@ public final class SceneStore<R: Route> {
         let state = SceneStoreState<R>()
         self.state = state
         self.dispatcherRegistry = SceneDispatcherRegistry()
-        self.lifecyclePresentationsByToken = [:]
+        self.lifecycleRegistry = SceneLifecycleRegistry()
         self.currentScene = state.currentScene
         self.activeScenes = state.activeScenes
         self.currentPendingRequestID = state.currentPendingRequestID
@@ -166,278 +166,7 @@ public final class SceneStore<R: Route> {
         state.snapshot
     }
 
-    @discardableResult
-    internal func registerSceneLifecycle(
-        route: R,
-        scenes: SceneRegistry<R>,
-        instanceID: UUID?,
-        token: UUID
-    ) -> ScenePresentation<R> {
-        guard let declaration = scenes.declaration(for: route) else {
-            preconditionFailure(
-                "Scene lifecycle registration requires a declared route: \(String(describing: route))"
-            )
-        }
-
-        if let registered = lifecyclePresentationsByToken[token],
-           declaration.matches(registered),
-           instanceID == nil || registered.id == instanceID {
-            return registered
-        }
-
-        let presentation = state.presentationForAttachment(
-            declaration: declaration,
-            instanceID: instanceID
-        )
-        registerSceneLifecycle(presentation, token: token)
-        return presentation
-    }
-
-    internal func registerSceneLifecycle(
-        _ presentation: ScenePresentation<R>,
-        token: UUID
-    ) {
-        let previousPresentation = lifecyclePresentationsByToken[token]
-        guard previousPresentation != presentation else { return }
-
-        let conflictingOwner = lifecyclePresentationsByToken.contains { ownerToken, ownedPresentation in
-            ownerToken != token &&
-                ownedPresentation.id == presentation.id &&
-                ownedPresentation != presentation
-        }
-        let conflictingActivePresentation = state.activeScenes.contains { activePresentation in
-            activePresentation.id == presentation.id &&
-                activePresentation != presentation &&
-                activePresentation != previousPresentation
-        }
-        precondition(
-            conflictingOwner == false && conflictingActivePresentation == false,
-            "Scene lifecycle registrations require one presentation contract per scene UUID."
-        )
-
-        let presentationAlreadyOwned = lifecyclePresentationsByToken.contains { ownerToken, ownedPresentation in
-            ownerToken != token && ownedPresentation == presentation
-        }
-        lifecyclePresentationsByToken[token] = presentation
-
-        if let previousPresentation {
-            let previousStillOwned = lifecyclePresentationsByToken.values.contains(previousPresentation)
-            if previousStillOwned == false {
-                state.detach(previousPresentation)
-            }
-        }
-
-        if presentationAlreadyOwned == false {
-            state.attach(presentation)
-        }
-        syncFromState()
-    }
-
-    internal func unregisterSceneLifecycle(_ token: UUID) {
-        guard let presentation = lifecyclePresentationsByToken.removeValue(forKey: token) else {
-            return
-        }
-        guard lifecyclePresentationsByToken.values.contains(presentation) == false else {
-            return
-        }
-
-        state.detach(presentation)
-        syncFromState()
-    }
-
-    /// Registers `token` as the store's primary dispatcher host.
-    ///
-    /// Returns `true` when the host successfully becomes primary and
-    /// should run its dispatch loop. Returns `false` when another
-    /// ``SceneHost`` is already primary — the losing host should treat
-    /// itself as dormant (no dispatch, no `unregisterDispatcherHost` on
-    /// teardown), and a ``SceneEvent/hostRegistrationRejected(reason:)``
-    /// with ``SceneRejectionReason/duplicateHostRegistration`` is
-    /// broadcast so consumers see the collision.
-    ///
-    /// Previously this crashed via `preconditionFailure`, which made
-    /// SwiftUI scene rehydration / hot-reload transitions unsafe in
-    /// production. The recoverable return lets the two hosts race
-    /// without taking the app down.
-    @discardableResult
-    internal func registerDispatcherHost(_ token: UUID) -> Bool {
-        let previousPendingRequestID = currentPendingRequestID
-        let previousElectedDispatcherToken = dispatcherRegistry.electedDispatcherToken
-
-        guard dispatcherRegistry.registerPrimaryHost(token) else {
-            broadcaster.broadcast(
-                .hostRegistrationRejected(reason: .duplicateHostRegistration)
-            )
-            return false
-        }
-
-        signalDispatchIfNeeded(
-            previousPendingRequestID: previousPendingRequestID,
-            previousElectedDispatcherToken: previousElectedDispatcherToken
-        )
-        signalDispatcherChangeIfNeeded(
-            previousElectedDispatcherToken: previousElectedDispatcherToken
-        )
-        return true
-    }
-
-    internal func unregisterDispatcherHost(_ token: UUID) {
-        let previousPendingRequestID = currentPendingRequestID
-        let previousElectedDispatcherToken = dispatcherRegistry.electedDispatcherToken
-
-        dispatcherRegistry.unregisterPrimaryHost(token)
-
-        signalDispatchIfNeeded(
-            previousPendingRequestID: previousPendingRequestID,
-            previousElectedDispatcherToken: previousElectedDispatcherToken
-        )
-        signalDispatcherChangeIfNeeded(
-            previousElectedDispatcherToken: previousElectedDispatcherToken
-        )
-    }
-
-    internal func registerFallbackDispatcher(_ token: UUID) {
-        let previousPendingRequestID = currentPendingRequestID
-        let previousElectedDispatcherToken = dispatcherRegistry.electedDispatcherToken
-
-        dispatcherRegistry.registerFallbackAnchor(token)
-
-        signalDispatchIfNeeded(
-            previousPendingRequestID: previousPendingRequestID,
-            previousElectedDispatcherToken: previousElectedDispatcherToken
-        )
-        signalDispatcherChangeIfNeeded(
-            previousElectedDispatcherToken: previousElectedDispatcherToken
-        )
-    }
-
-    internal func unregisterFallbackDispatcher(_ token: UUID) {
-        let previousPendingRequestID = currentPendingRequestID
-        let previousElectedDispatcherToken = dispatcherRegistry.electedDispatcherToken
-
-        dispatcherRegistry.unregisterFallbackAnchor(token)
-
-        signalDispatchIfNeeded(
-            previousPendingRequestID: previousPendingRequestID,
-            previousElectedDispatcherToken: previousElectedDispatcherToken
-        )
-        signalDispatcherChangeIfNeeded(
-            previousElectedDispatcherToken: previousElectedDispatcherToken
-        )
-    }
-
-    internal func claimPendingRequest(
-        _ requestID: UUID,
-        dispatcherToken: UUID
-    ) -> SceneIntent<R>? {
-        guard dispatcherRegistry.canClaim(dispatcherToken) else {
-            return nil
-        }
-        guard let intent = state.claimPendingRequest(requestID) else {
-            return nil
-        }
-
-        syncFromState()
-        return intent
-    }
-
-    @discardableResult
-    internal func completeClaimedOpen(
-        _ presentation: ScenePresentation<R>,
-        accepted: Bool,
-        requestID: UUID?
-    ) -> SceneClaimCompletion<R>? {
-        let previousPendingRequestID = currentPendingRequestID
-        let previousElectedDispatcherToken = dispatcherRegistry.electedDispatcherToken
-
-        guard let completion = state.completeOpen(
-            presentation,
-            accepted: accepted,
-            requestID: requestID
-        ) else {
-            return nil
-        }
-
-        syncFromState()
-        broadcast(completion)
-        signalDispatchIfNeeded(
-            previousPendingRequestID: previousPendingRequestID,
-            previousElectedDispatcherToken: previousElectedDispatcherToken
-        )
-        return completion
-    }
-
-    @discardableResult
-    internal func completeClaimedDismissal(
-        of presentation: ScenePresentation<R>,
-        requestID: UUID?
-    ) -> SceneClaimCompletion<R>? {
-        let previousPendingRequestID = currentPendingRequestID
-        let previousElectedDispatcherToken = dispatcherRegistry.electedDispatcherToken
-
-        guard let completion = state.completeDismissal(
-            of: presentation,
-            requestID: requestID
-        ) else {
-            return nil
-        }
-
-        syncFromState()
-        broadcast(completion)
-        signalDispatchIfNeeded(
-            previousPendingRequestID: previousPendingRequestID,
-            previousElectedDispatcherToken: previousElectedDispatcherToken
-        )
-        return completion
-    }
-
-    @discardableResult
-    internal func completeClaimedRejection(
-        for intent: SceneIntent<R>,
-        reason: SceneRejectionReason,
-        requestID: UUID?
-    ) -> SceneClaimCompletion<R>? {
-        let previousPendingRequestID = currentPendingRequestID
-        let previousElectedDispatcherToken = dispatcherRegistry.electedDispatcherToken
-
-        guard let completion = state.completeRejection(
-            for: intent,
-            reason: reason,
-            requestID: requestID
-        ) else {
-            return nil
-        }
-
-        syncFromState()
-        broadcast(completion)
-        signalDispatchIfNeeded(
-            previousPendingRequestID: previousPendingRequestID,
-            previousElectedDispatcherToken: previousElectedDispatcherToken
-        )
-        return completion
-    }
-
-    @discardableResult
-    internal func finishSupersededImmersiveOpenCleanup(
-        requestID: UUID?
-    ) -> SceneClaimCompletion<R>? {
-        let previousPendingRequestID = currentPendingRequestID
-        let previousElectedDispatcherToken = dispatcherRegistry.electedDispatcherToken
-
-        guard let completion = state.finishSupersededImmersiveOpenCleanup(requestID: requestID) else {
-            return nil
-        }
-
-        syncFromState()
-        broadcast(completion)
-        signalDispatchIfNeeded(
-            previousPendingRequestID: previousPendingRequestID,
-            previousElectedDispatcherToken: previousElectedDispatcherToken
-        )
-        return completion
-    }
-
-    private func syncFromState() {
+    internal func syncFromState() {
         currentScene = state.currentScene
         activeScenes = state.activeScenes
         currentPendingRequestID = state.currentPendingRequestID
@@ -459,19 +188,19 @@ public final class SceneStore<R: Route> {
         )
     }
 
-    private func broadcast(_ events: [SceneEvent<R>]) {
+    internal func broadcast(_ events: [SceneEvent<R>]) {
         for event in events {
             broadcaster.broadcast(event)
         }
     }
 
-    private func broadcast(_ completion: SceneClaimCompletion<R>) {
+    internal func broadcast(_ completion: SceneClaimCompletion<R>) {
         if case .broadcast(let event) = completion {
             broadcaster.broadcast(event)
         }
     }
 
-    private func signalDispatchIfNeeded(
+    internal func signalDispatchIfNeeded(
         previousPendingRequestID: UUID?,
         previousElectedDispatcherToken: UUID?
     ) {
@@ -494,7 +223,7 @@ public final class SceneStore<R: Route> {
         dispatchSignal &+= 1
     }
 
-    private func signalDispatcherChangeIfNeeded(
+    internal func signalDispatcherChangeIfNeeded(
         previousElectedDispatcherToken: UUID?
     ) {
         guard previousElectedDispatcherToken != dispatcherRegistry.electedDispatcherToken else {

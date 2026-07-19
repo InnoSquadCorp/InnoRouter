@@ -90,6 +90,59 @@ struct SceneDispatcherRegistryTests {
     }
 }
 
+@Suite("SceneLifecycleRegistry Tests", .tags(.unit))
+struct SceneLifecycleRegistryTests {
+    @Test("only the first owner attaches and the final owner detaches a presentation")
+    func overlappingOwnersPreservePresentationLifetime() throws {
+        var registry = SceneLifecycleRegistry<SceneTestRoute>()
+        let presentation = mainWindowPresentation()
+        let firstToken = UUID()
+        let secondToken = UUID()
+
+        let firstRegistration = registry.register(
+            presentation,
+            token: firstToken,
+            activeScenes: []
+        )
+        #expect(firstRegistration.presentationToAttach == presentation)
+        #expect(firstRegistration.presentationToDetach == nil)
+
+        let secondRegistration = registry.register(
+            presentation,
+            token: secondToken,
+            activeScenes: [presentation]
+        )
+        #expect(secondRegistration.presentationToAttach == nil)
+        #expect(secondRegistration.presentationToDetach == nil)
+
+        #expect(registry.unregister(firstToken) == nil)
+        #expect(registry.unregister(secondToken) == presentation)
+    }
+
+    @Test("reassigning a token detaches its previous presentation before attaching the replacement")
+    func tokenReassignmentProducesInventoryChange() {
+        var registry = SceneLifecycleRegistry<SceneTestRoute>()
+        let previousPresentation = mainWindowPresentation()
+        let replacementPresentation = volumePresentation()
+        let token = UUID()
+
+        _ = registry.register(
+            previousPresentation,
+            token: token,
+            activeScenes: []
+        )
+        let change = registry.register(
+            replacementPresentation,
+            token: token,
+            activeScenes: [previousPresentation]
+        )
+
+        #expect(change.presentationToDetach == previousPresentation)
+        #expect(change.presentationToAttach == replacementPresentation)
+        #expect(registry.presentation(for: token) == replacementPresentation)
+    }
+}
+
 @Suite("SceneStoreState Tests", .tags(.unit))
 struct SceneStoreStateTests {
     @Test("dismissImmersive rejects when nothing is active")
