@@ -81,6 +81,7 @@ modal equivalent.
 | `.pushBlockedByModalTail` | `.push(_)` requested while the flow tail is a `.sheet` / `.cover` step | Dismiss first, or use `.reset(_:)` |
 | `.invalidResetPath` | A `.reset([_])` path violates FlowStore invariants (e.g. multiple modal steps, or a modal not at the tail) | Fix the path before sending |
 | `.middlewareRejected(debugName:)` | A navigation or modal middleware inside the flow cancelled the underlying command; `FlowStore.path` was rolled back | Observe which middleware; surface telemetry |
+| `.navigationExecutionFailed` | The navigation engine rejected a command during atomic flow preview; any partially previewed state was discarded | Inspect the requested intent and current path; retry only after fixing the invalid transition |
 | `.reentrantApply` | `FlowStore.apply(_:)` was called synchronously while the store was already delivering a mutation event | Schedule `send(.reset(_))` from the callback so the mutation is deferred |
 
 ## Scene (visionOS)
@@ -122,6 +123,7 @@ generated host with a manual host or anchor.
 |---|---|---|
 | `.schemeNotAllowed(actualScheme:)` | URL scheme not in `allowedSchemes` | Log, drop the URL silently, or surface a diagnostic |
 | `.hostNotAllowed(actualHost:)` | URL host not in `allowedHosts` | Same |
+| `.nonCanonicalOrigin` | An allowlisted external URL contains user-info or an explicit port | Reject the URL; remove those authority components at the producer rather than weakening the allowlist |
 | `.inputLimitExceeded(violation)` | Raw URL length, path segment count, query item count, or decoded component size exceeds `DeepLinkInputLimits` | Reject the input without retrying; adjust limits only when the app intentionally accepts a larger contract |
 
 ### Deep-link effect results
@@ -135,7 +137,7 @@ The typed outcome from `DeepLinkEffectHandler` / `FlowDeepLinkEffectHandler`:
 | `.applicationRejected(plan:failure:)` | The push-only handler's preflight rejected the plan before batch execution, so navigation state is unchanged |
 | `.applicationRejected(plan:path:reason:)` | The flow authority rejected an atomic plan; `path` is its snapshot at the rejection point and `reason` preserves the exact `FlowRejectionReason` |
 | `.pending(_)` | Authorisation deferred; plan stored as `pendingDeepLink` for later replay |
-| `.rejected(reason:)` | URL rejected by scheme, host, or input-limit policy — see `DeepLinkRejectionReason` above |
+| `.rejected(reason:)` | URL rejected by scheme, host, canonical-origin, or input-limit policy — see `DeepLinkRejectionReason` above |
 | `.unhandled(url:)` | URL did not resolve to any route |
 | `.invalidURL(input:)` | A string input could not be parsed as a URL |
 | `.missingDeepLinkURL` | A `DeepLinkEffect` carried no URL |
