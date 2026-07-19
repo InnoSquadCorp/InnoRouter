@@ -66,50 +66,28 @@ internal struct SceneDispatcherRegistry: Equatable {
     }
 }
 
-internal struct SceneStoreSnapshot<R: Route>: Equatable {
-    internal let currentScene: ScenePresentation<R>?
-    internal let activeScenes: [ScenePresentation<R>]
-    internal let openWindowsByID: [UUID: ScenePresentation<R>]
-    internal let activeImmersive: ScenePresentation<R>?
-
-    internal var hasActiveScenes: Bool {
-        !activeScenes.isEmpty
-    }
-
-    internal func windowPresentation(id: UUID) -> ScenePresentation<R>? {
-        openWindowsByID[id]
-    }
-
-    internal func windowPresentations(for route: R) -> [ScenePresentation<R>] {
-        activeScenes.filter { $0.route == route && $0.isWindowLike }
-    }
-}
-
 internal struct SceneStoreState<R: Route>: Equatable {
-    internal private(set) var currentScene: ScenePresentation<R>?
-    internal private(set) var queuedRequests: [ScenePendingRequest<R>]
-    internal private(set) var claimedRequest: SceneClaimedRequest<R>?
-
-    private var openWindowsByID: [UUID: ScenePresentation<R>]
-    private var activeImmersive: ScenePresentation<R>?
-    private var activeScenesInRecencyOrder: [ScenePresentation<R>]
+    internal var queuedRequests: [ScenePendingRequest<R>]
+    internal var claimedRequest: SceneClaimedRequest<R>?
+    private var inventory: SceneInventory<R>
 
     internal init(
         currentScene: ScenePresentation<R>? = nil,
         pendingIntent: SceneIntent<R>? = nil
     ) {
-        self.currentScene = nil
         self.queuedRequests = pendingIntent.map {
             [ScenePendingRequest(id: UUID(), intent: $0)]
         } ?? []
         self.claimedRequest = nil
-        self.openWindowsByID = [:]
-        self.activeImmersive = nil
-        self.activeScenesInRecencyOrder = []
+        self.inventory = SceneInventory()
 
         if let currentScene {
-            activate(currentScene)
+            inventory.activate(currentScene)
         }
+    }
+
+    internal var currentScene: ScenePresentation<R>? {
+        inventory.currentScene
     }
 
     private var claimableHeadRequest: ScenePendingRequest<R>? {
@@ -137,16 +115,11 @@ internal struct SceneStoreState<R: Route>: Equatable {
     }
 
     internal var activeScenes: [ScenePresentation<R>] {
-        activeScenesInRecencyOrder.filter { isActive($0) }
+        inventory.activeScenes
     }
 
     internal var snapshot: SceneStoreSnapshot<R> {
-        SceneStoreSnapshot(
-            currentScene: currentScene,
-            activeScenes: activeScenes,
-            openWindowsByID: openWindowsByID,
-            activeImmersive: activeImmersive
-        )
+        inventory.snapshot
     }
 
     internal mutating func requestOpen(_ presentation: ScenePresentation<R>) -> [SceneEvent<R>] {
@@ -155,7 +128,7 @@ internal struct SceneStoreState<R: Route>: Equatable {
 
     internal mutating func requestDismissImmersive() -> [SceneEvent<R>] {
         let intent = SceneIntent<R>.dismissImmersive
-        if activeImmersive == nil, hasClaimedImmersiveRequest == false {
+        if inventory.activeImmersive == nil, hasClaimedImmersiveRequest == false {
             if let cancellationEvent = consumeQueuedOpenCanceled(by: intent) {
                 return [cancellationEvent]
             }
@@ -184,7 +157,7 @@ internal struct SceneStoreState<R: Route>: Equatable {
             return []
         }
 
-        guard openWindowsByID[presentation.id] == presentation else {
+        guard inventory.contains(presentation) else {
             if let cancellationEvent = consumeQueuedOpenCanceled(by: intent) {
                 return [cancellationEvent]
             }
@@ -214,11 +187,11 @@ internal struct SceneStoreState<R: Route>: Equatable {
     }
 
     internal mutating func attach(_ presentation: ScenePresentation<R>) {
-        activate(presentation)
+        inventory.activate(presentation)
     }
 
     internal mutating func detach(_ presentation: ScenePresentation<R>) {
-        deactivate(presentation)
+        inventory.deactivate(presentation)
     }
 
     internal func presentationForAttachment(
@@ -229,7 +202,8 @@ internal struct SceneStoreState<R: Route>: Equatable {
             return declaration.presentation(id: instanceID)
         }
 
-        if let activeImmersive, declaration.matches(activeImmersive) {
+        if let activeImmersive = inventory.activeImmersive,
+           declaration.matches(activeImmersive) {
             return activeImmersive
         }
 
@@ -265,7 +239,7 @@ internal struct SceneStoreState<R: Route>: Equatable {
         style: ImmersiveStyle
     ) -> ScenePresentation<R> {
         let candidates = [
-            activeImmersive,
+            inventory.activeImmersive,
             claimedRequest?.request.intent.openedPresentation
         ] + queuedRequests.map(\.intent.openedPresentation)
 
@@ -306,7 +280,7 @@ internal struct SceneStoreState<R: Route>: Equatable {
 
             let event: SceneEvent<R>
             if accepted {
-                activate(presentation)
+                inventory.activate(presentation)
                 event = .presented(presentation)
             } else {
                 event = .rejected(.open(presentation), reason: .environmentReturnedFailure)
@@ -343,7 +317,7 @@ internal struct SceneStoreState<R: Route>: Equatable {
 
         let cleanedUpPresentation = claimedRequest.request.intent.openedPresentation
         self.claimedRequest = nil
-        clearCommittedImmersiveState()
+        inventory.clearImmersive()
 
         if let cleanedUpPresentation, consumeQueuedDismissImmersiveIfPresent() {
             return .broadcast(.dismissed(cleanedUpPresentation))
@@ -370,7 +344,7 @@ internal struct SceneStoreState<R: Route>: Equatable {
         self.claimedRequest = nil
 
         if status == .active {
-            deactivate(presentation)
+            inventory.deactivate(presentation)
             return .broadcast(.dismissed(presentation))
         }
 
@@ -403,122 +377,6 @@ internal struct SceneStoreState<R: Route>: Equatable {
         return SceneClaimCompletion.none
     }
 
-    private func makePendingRequest(for intent: SceneIntent<R>) -> ScenePendingRequest<R> {
-        ScenePendingRequest(id: UUID(), intent: intent)
-    }
-
-    private var hasClaimedImmersiveRequest: Bool {
-        claimedRequest?.request.intent.isImmersiveOperation == true
-    }
-
-    private mutating func enqueueIntent(_ newIntent: SceneIntent<R>) -> [SceneEvent<R>] {
-        let claimedPreparation = prepareClaimedImmersiveForNewIntent(newIntent)
-        var events = claimedPreparation.events
-        guard claimedPreparation.shouldEnqueue else {
-            return events
-        }
-
-        let queuedPreparation = prepareQueuedRequests(for: newIntent)
-        events.append(contentsOf: queuedPreparation.events)
-        guard let insertionIndex = queuedPreparation.insertionIndex else {
-            return events
-        }
-
-        queuedRequests.insert(makePendingRequest(for: newIntent), at: insertionIndex)
-        return events
-    }
-
-    private mutating func prepareClaimedImmersiveForNewIntent(
-        _ newIntent: SceneIntent<R>
-    ) -> (events: [SceneEvent<R>], shouldEnqueue: Bool) {
-        guard var claimedRequest else {
-            return ([], true)
-        }
-        guard claimedRequest.request.intent.isImmersiveOperation else {
-            return ([], true)
-        }
-
-        if claimedRequest.status == .active, claimedRequest.request.intent == newIntent {
-            return ([], false)
-        }
-
-        if claimedRequest.status == .active {
-            claimedRequest.status = .superseded
-            self.claimedRequest = claimedRequest
-            return (
-                [
-                    .rejected(
-                        claimedRequest.request.intent,
-                        reason: .supersededByNewerIntent
-                    )
-                ],
-                true
-            )
-        }
-
-        return ([], true)
-    }
-
-    private mutating func prepareQueuedRequests(
-        for newIntent: SceneIntent<R>
-    ) -> (events: [SceneEvent<R>], insertionIndex: Int?) {
-        if queuedRequests.contains(where: { $0.intent == newIntent }) {
-            return ([], nil)
-        }
-
-        guard newIntent.isImmersiveOperation else {
-            return ([], queuedRequests.endIndex)
-        }
-
-        guard let existingIndex = queuedRequests.firstIndex(where: { $0.intent.isImmersiveOperation }) else {
-            return ([], queuedRequests.endIndex)
-        }
-
-        let replacedRequest = queuedRequests.remove(at: existingIndex)
-        let supersededEvent = SceneEvent<R>.rejected(
-            replacedRequest.intent,
-            reason: .supersededByNewerIntent
-        )
-
-        if canDropFollowUpDismissAfterSupersedingPendingOpen(
-            pendingIntent: replacedRequest.intent,
-            with: newIntent
-        ) {
-            return ([supersededEvent], nil)
-        }
-
-        return ([supersededEvent], existingIndex)
-    }
-
-    private mutating func consumeQueuedOpenCanceled(
-        by dismissIntent: SceneIntent<R>
-    ) -> SceneEvent<R>? {
-        guard let index = queuedRequests.firstIndex(where: { request in
-            guard let pendingPresentation = request.intent.openedPresentation else {
-                return false
-            }
-
-            return dismissIntent.dismissesSameScene(as: pendingPresentation)
-        }) else {
-            return nil
-        }
-
-        let removedRequest = queuedRequests.remove(at: index)
-        return .rejected(
-            removedRequest.intent,
-            reason: .supersededByNewerIntent
-        )
-    }
-
-    private mutating func consumeQueuedDismissImmersiveIfPresent() -> Bool {
-        guard let index = queuedRequests.firstIndex(where: { $0.intent == .dismissImmersive }) else {
-            return false
-        }
-
-        queuedRequests.remove(at: index)
-        return true
-    }
-
     private func needsImmersiveCleanupAfterSupersededOpen(
         of presentation: ScenePresentation<R>
     ) -> Bool {
@@ -526,10 +384,10 @@ internal struct SceneStoreState<R: Route>: Equatable {
             return false
         }
 
-        return activeImmersive?.id != presentation.id
+        return inventory.activeImmersive?.id != presentation.id
     }
 
-    private func canDropFollowUpDismissAfterSupersedingPendingOpen(
+    internal func canDropFollowUpDismissAfterSupersedingPendingOpen(
         pendingIntent: SceneIntent<R>,
         with newIntent: SceneIntent<R>
     ) -> Bool {
@@ -544,9 +402,9 @@ internal struct SceneStoreState<R: Route>: Equatable {
         case .open:
             return false
         case .dismissImmersive:
-            return activeImmersive == nil
+            return inventory.activeImmersive == nil
         case .dismissWindow(let presentation):
-            return openWindowsByID[presentation.id] == nil
+            return inventory.hasWindow(id: presentation.id) == false
         }
     }
 
@@ -561,71 +419,7 @@ internal struct SceneStoreState<R: Route>: Equatable {
             return
         }
 
-        clearCommittedImmersiveState()
-    }
-
-    private mutating func activate(_ presentation: ScenePresentation<R>) {
-        switch presentation {
-        case .window, .volumetric:
-            openWindowsByID[presentation.id] = presentation
-        case .immersive:
-            if let activeImmersive, activeImmersive.id != presentation.id {
-                activeScenesInRecencyOrder.removeAll { $0.id == activeImmersive.id }
-            }
-            self.activeImmersive = presentation
-        }
-
-        touch(presentation)
-        syncCurrentScene()
-    }
-
-    private mutating func clearCommittedImmersiveState() {
-        activeImmersive = nil
-        activeScenesInRecencyOrder.removeAll { $0.isImmersive }
-        syncCurrentScene()
-    }
-
-    private mutating func deactivate(_ presentation: ScenePresentation<R>) {
-        let didDeactivate: Bool
-        switch presentation {
-        case .window, .volumetric:
-            if openWindowsByID[presentation.id] == presentation {
-                openWindowsByID.removeValue(forKey: presentation.id)
-                didDeactivate = true
-            } else {
-                didDeactivate = false
-            }
-        case .immersive:
-            if activeImmersive == presentation {
-                activeImmersive = nil
-                didDeactivate = true
-            } else {
-                didDeactivate = false
-            }
-        }
-
-        guard didDeactivate else { return }
-        activeScenesInRecencyOrder.removeAll { $0.id == presentation.id }
-        syncCurrentScene()
-    }
-
-    private mutating func touch(_ presentation: ScenePresentation<R>) {
-        activeScenesInRecencyOrder.removeAll { $0.id == presentation.id }
-        activeScenesInRecencyOrder.append(presentation)
-    }
-
-    private mutating func syncCurrentScene() {
-        activeScenesInRecencyOrder = activeScenes
-        currentScene = activeScenesInRecencyOrder.last
-    }
-
-    private func isActive(_ presentation: ScenePresentation<R>) -> Bool {
-        switch presentation {
-        case .window, .volumetric:
-            return openWindowsByID[presentation.id] == presentation
-        case .immersive:
-            return activeImmersive == presentation
-        }
+        inventory.clearImmersive()
     }
 
     private func dismissalIntent(
