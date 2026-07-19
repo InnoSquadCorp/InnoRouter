@@ -46,13 +46,6 @@ extension FlowStore {
         }
     }
 
-    static func isValidPath(_ steps: [RouteStep<R>]) -> Bool {
-        let modalIndices = steps.enumerated().filter { $0.element.isModal }.map(\.offset)
-        if modalIndices.isEmpty { return true }
-        if modalIndices.count > 1 { return false }
-        return modalIndices.first == steps.count - 1
-    }
-
     static func decompose(
         _ steps: [RouteStep<R>]
     ) -> (pushRoutes: [R], modalTail: RouteStep<R>?) {

@@ -173,7 +173,9 @@ extension FlowStore {
         _ steps: [RouteStep<R>],
         in context: FlowMutationContext
     ) -> FlowMutationPlan<R> {
-        guard Self.isValidPath(steps) else {
+        do {
+            try FlowPlan<R>.validate(steps)
+        } catch {
             return .rejected(oldPath: path, reason: .invalidResetPath)
         }
 
