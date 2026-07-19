@@ -53,9 +53,10 @@ public final class StateRestorationAdapter<R: Route & Codable> {
     ) -> Bool {
         do {
             let stack = try persistence.decodeStack(data)
-            try store.validateRestoredPath(stack.path)
-            let result = store.execute(.replace(stack.path))
-            guard result.isSuccess else {
+            switch try store.restorePathAtomically(stack.path) {
+            case .restored:
+                return true
+            case .rejected(let result):
                 onRestorationFailure(
                     StateRestorationFailure(
                         target: .navigationStack,
@@ -63,8 +64,15 @@ public final class StateRestorationAdapter<R: Route & Codable> {
                     )
                 )
                 return false
+            case .stateMismatch(let actualPath):
+                onRestorationFailure(
+                    StateRestorationFailure(
+                        target: .navigationStack,
+                        message: "Middleware rewrote the restored RouteStack to \(actualPath)."
+                    )
+                )
+                return false
             }
-            return true
         } catch {
             reportFailure(target: .navigationStack, error: error)
             return false
@@ -87,14 +95,22 @@ public final class StateRestorationAdapter<R: Route & Codable> {
     ) -> Bool {
         do {
             let plan = try persistence.decode(data)
-            switch store.apply(plan) {
-            case .applied:
+            switch store.restorePlanAtomically(plan) {
+            case .restored:
                 return true
             case .rejected:
                 onRestorationFailure(
                     StateRestorationFailure(
                         target: .flowPlan,
                         message: "Decoded FlowPlan was rejected by the store."
+                    )
+                )
+                return false
+            case .stateMismatch(let actualPath):
+                onRestorationFailure(
+                    StateRestorationFailure(
+                        target: .flowPlan,
+                        message: "Middleware rewrote the restored FlowPlan to \(actualPath)."
                     )
                 )
                 return false

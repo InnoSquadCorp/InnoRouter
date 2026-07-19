@@ -195,6 +195,75 @@ struct StatePersistenceTests {
         #expect(failures.withLock { $0.map(\.target) } == [.navigationStack])
     }
 
+    @Test("StateRestorationAdapter rolls back a rewritten navigation snapshot")
+    @MainActor
+    func adapterRejectsRewrittenNavigationSnapshot() throws {
+        let failures = Mutex<[StateRestorationFailure]>([])
+        let adapter = StateRestorationAdapter<PersistRoute> { failure in
+            failures.withLock { $0.append(failure) }
+        }
+        let source = try NavigationStore<PersistRoute>(initialPath: [.root, .profile])
+        let target = try NavigationStore<PersistRoute>(
+            initialPath: [.onboarding],
+            configuration: .init(
+                middlewares: [
+                    .init(
+                        middleware: AnyNavigationMiddleware(
+                            willExecute: { command, _ in
+                                guard case .replace = command else { return .proceed(command) }
+                                return .proceed(.replace([.settings]))
+                            }
+                        )
+                    )
+                ]
+            )
+        )
+
+        let data = try adapter.snapshotNavigationStack(from: source)
+        let restored = adapter.restoreNavigationStack(from: data, into: target)
+
+        #expect(!restored)
+        #expect(target.state.path == [.onboarding])
+        #expect(failures.withLock { $0.map(\.target) } == [.navigationStack])
+    }
+
+    @Test("StateRestorationAdapter rolls back a partial navigation failure")
+    @MainActor
+    func adapterRollsBackPartialNavigationFailure() throws {
+        let failures = Mutex<[StateRestorationFailure]>([])
+        let adapter = StateRestorationAdapter<PersistRoute> { failure in
+            failures.withLock { $0.append(failure) }
+        }
+        let source = try NavigationStore<PersistRoute>(initialPath: [.root, .profile])
+        let target = try NavigationStore<PersistRoute>(
+            initialPath: [.onboarding],
+            configuration: .init(
+                middlewares: [
+                    .init(
+                        middleware: AnyNavigationMiddleware(
+                            willExecute: { command, _ in
+                                guard case .replace = command else { return .proceed(command) }
+                                return .proceed(
+                                    .sequence([
+                                        .replace([.root]),
+                                        .popCount(2),
+                                    ])
+                                )
+                            }
+                        )
+                    )
+                ]
+            )
+        )
+
+        let data = try adapter.snapshotNavigationStack(from: source)
+        let restored = adapter.restoreNavigationStack(from: data, into: target)
+
+        #expect(!restored)
+        #expect(target.state.path == [.onboarding])
+        #expect(failures.withLock { $0.map(\.target) } == [.navigationStack])
+    }
+
     @Test("StateRestorationAdapter restores a FlowPlan snapshot")
     @MainActor
     func adapterRestoresFlowPlan() throws {
@@ -246,6 +315,41 @@ struct StatePersistenceTests {
 
         #expect(!restored)
         #expect(rejectingStore.path.isEmpty)
+        #expect(failures.withLock { $0.map(\.target) } == [.flowPlan])
+    }
+
+    @Test("StateRestorationAdapter rolls back a rewritten FlowPlan")
+    @MainActor
+    func adapterRejectsRewrittenFlowPlan() throws {
+        let failures = Mutex<[StateRestorationFailure]>([])
+        let adapter = StateRestorationAdapter<PersistRoute> { failure in
+            failures.withLock { $0.append(failure) }
+        }
+        let source = FlowStore<PersistRoute>(initial: [.push(.root), .push(.profile)])
+        let target = FlowStore<PersistRoute>(
+            initial: [.push(.onboarding)],
+            configuration: .init(
+                navigation: .init(
+                    middlewares: [
+                        .init(
+                            middleware: AnyNavigationMiddleware(
+                                willExecute: { command, _ in
+                                    guard case .replace = command else { return .proceed(command) }
+                                    return .proceed(.replace([.settings]))
+                                }
+                            )
+                        )
+                    ]
+                )
+            )
+        )
+
+        let data = try adapter.snapshotFlowPlan(from: source)
+        let restored = adapter.restoreFlowPlan(from: data, into: target)
+
+        #expect(!restored)
+        #expect(target.path == [.push(.onboarding)])
+        #expect(target.navigationStore.state.path == [.onboarding])
         #expect(failures.withLock { $0.map(\.target) } == [.flowPlan])
     }
 }

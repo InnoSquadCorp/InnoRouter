@@ -17,7 +17,7 @@ extension FlowStore {
         }
     }
 
-    private func applyWithinFlowMutationBoundary(
+    internal func applyWithinFlowMutationBoundary(
         _ plan: FlowMutationPlan<R>,
         intent: FlowIntent<R>
     ) -> FlowPlanApplyResult<R> {
