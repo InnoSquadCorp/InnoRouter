@@ -742,7 +742,8 @@ RouterHost(AppRoute.self) { HomeView() }
 ```
 
 `RouterHost` 和 `RouterSplitHost` 会 push 解析后的 route；
-`RouterTabHost` 会选择它。Macros 会在编译期诊断错误的 patterns、
+`RouterModalHost` 默认以 sheet 展示它；`RouterTabHost` 会选择它。
+Macros 会在编译期诊断错误的 patterns、
 缺失的 origin allowlists、不支持的 payloads、冲突的生成成员，以及无法到达
 或受声明顺序影响的 mappings。
 

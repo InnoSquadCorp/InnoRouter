@@ -808,7 +808,8 @@ RouterHost(AppRoute.self) { HomeView() }
 ```
 
 `RouterHost` und `RouterSplitHost` pushen die aufgelöste Route;
-`RouterTabHost` wählt sie aus. Die Macros diagnostizieren fehlerhafte Patterns,
+`RouterModalHost` präsentiert sie standardmäßig als Sheet, und `RouterTabHost`
+wählt sie aus. Die Macros diagnostizieren fehlerhafte Patterns,
 fehlende Origin-Allowlists, nicht unterstützte Payloads, Konflikte mit
 generierten Membern sowie unerreichbare oder reihenfolgeabhängige Mappings beim
 Kompilieren.

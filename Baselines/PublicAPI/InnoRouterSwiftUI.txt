@@ -233,6 +233,7 @@ relationship | memberOf | RouterActions.sheet(_:) | RouterActions |  |
 relationship | memberOf | RouterHost.body | RouterHost |  |
 relationship | memberOf | RouterHost.init(_:initial:configuration:root:) | RouterHost |  |
 relationship | memberOf | RouterModalHost.body | RouterModalHost |  |
+relationship | memberOf | RouterModalHost.init(_:deepLinkStyle:initial:queued:configuration:content:) | RouterModalHost |  |
 relationship | memberOf | RouterModalHost.init(_:initial:queued:configuration:content:) | RouterModalHost |  |
 relationship | memberOf | RouterSplitHost.body | RouterSplitHost |  |
 relationship | memberOf | RouterSplitHost.init(_:initial:configuration:sidebar:root:) | RouterSplitHost |  |
@@ -442,6 +443,7 @@ symbol | swift.init | NavigationStore.init(initial:configuration:) | init(initia
 symbol | swift.init | NavigationStore.init(initialPath:configuration:) | init(initialPath:configuration:) | @MainActor convenience init(initialPath: [R], configuration: NavigationStoreConfiguration<R> = .init()) throws | []
 symbol | swift.init | NavigationStoreConfiguration.init(middlewares:routeStackValidator:pathMismatchPolicy:logger:onEvent:eventBufferingPolicy:) | init(middlewares:routeStackValidator:pathMismatchPolicy:logger:onEvent:eventBufferingPolicy:) | init(middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, onEvent: (@MainActor (NavigationEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default) | []
 symbol | swift.init | RouterHost.init(_:initial:configuration:root:) | init(_:initial:configuration:root:) | @MainActor init(_ routeType: R.Type, initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init(), @ViewBuilder root: @escaping () -> Root) | []
+symbol | swift.init | RouterModalHost.init(_:deepLinkStyle:initial:queued:configuration:content:) | init(_:deepLinkStyle:initial:queued:configuration:content:) | @MainActor init(_ routeType: R.Type, deepLinkStyle: ModalPresentationStyle, initial: ModalPresentation<R>? = nil, queued: [ModalPresentation<R>] = [], configuration: ModalStoreConfiguration<R> = .init(), @ViewBuilder content: @escaping () -> Content) | []
 symbol | swift.init | RouterModalHost.init(_:initial:queued:configuration:content:) | init(_:initial:queued:configuration:content:) | @MainActor init(_ routeType: R.Type, initial: ModalPresentation<R>? = nil, queued: [ModalPresentation<R>] = [], configuration: ModalStoreConfiguration<R> = .init(), @ViewBuilder content: @escaping () -> Content) | []
 symbol | swift.init | RouterSplitHost.init(_:initial:configuration:sidebar:root:) | init(_:initial:configuration:sidebar:root:) | @MainActor init(_ routeType: R.Type, initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init(), @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | RouterTabHost.init(_:initial:badges:) | init(_:initial:badges:) | @MainActor init(_ routeType: R.Type, initial: R, badges: [R : Int] = [:]) | []

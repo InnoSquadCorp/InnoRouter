@@ -122,9 +122,10 @@ public macro TabItem(
 /// matches and returns one typed route. Generated mappings prefer literal
 /// paths, then typed parameters, then terminal wildcards, independent of case
 /// declaration order. `RouterHost` and `RouterSplitHost` automatically push
-/// the result, while `RouterTabHost` selects it. Authentication, pending
-/// replay, modal presentation style, multi-step plans, and heterogeneous
-/// multi-window scene selection remain application-boundary concerns.
+/// the result, `RouterModalHost` presents it with its configured style, and
+/// `RouterTabHost` selects it. Authentication, pending replay, per-route
+/// presentation policy, multi-step plans, and heterogeneous multi-window scene
+/// selection remain application-boundary concerns.
 ///
 /// ```swift
 /// @Router(

@@ -803,7 +803,8 @@ enum AppRoute {
 RouterHost(AppRoute.self) { HomeView() }
 ```
 
-`RouterHost` и `RouterSplitHost` делают push найденного route; `RouterTabHost`
+`RouterHost` и `RouterSplitHost` делают push найденного route;
+`RouterModalHost` по умолчанию показывает его как sheet, а `RouterTabHost`
 выбирает его. Macros выявляют при компиляции неверные patterns,
 отсутствующие origin allowlists, неподдерживаемые payloads, конфликты members,
 недостижимые и зависящие от порядка mappings.

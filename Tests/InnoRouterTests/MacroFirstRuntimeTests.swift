@@ -128,6 +128,7 @@ struct MacroFirstRuntimeTests {
         )
         let host = RouterModalHost(
             MacroFirstRuntimeRoute.self,
+            deepLinkStyle: .fullScreenCover,
             initial: current,
             queued: [queued]
         ) {

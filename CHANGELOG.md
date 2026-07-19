@@ -8,6 +8,10 @@ are bare semver (no leading `v`).
 
 ### Added
 
+- `RouterModalHost` now handles generated `@DeepLink` routes automatically,
+  presenting them as `.sheet` by default. A source-compatible
+  `deepLinkStyle:` initializer selects one host-wide sheet or cover policy
+  without requiring an app-owned `onOpenURL` bridge.
 - Hand-rolled push, flow, and effect-handler deep-link pipelines now offer an
   explicit `DeepLinkOriginPolicy`. Use `.allowlisted(schemes:hosts:)` for
   external entry points and `.trustedInProcess` only for URLs constructed by

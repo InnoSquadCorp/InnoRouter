@@ -815,7 +815,8 @@ RouterHost(AppRoute.self) { HomeView() }
 ```
 
 `RouterHost` and `RouterSplitHost` push the resolved route;
-`RouterTabHost` selects it. The macros diagnose malformed patterns, missing
+`RouterModalHost` presents it as a sheet by default, and `RouterTabHost`
+selects it. The macros diagnose malformed patterns, missing
 origin allowlists, unsupported payloads, conflicting generated members, and
 unreachable or order-sensitive mappings during compilation.
 

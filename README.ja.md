@@ -787,8 +787,9 @@ enum AppRoute {
 RouterHost(AppRoute.self) { HomeView() }
 ```
 
-`RouterHost` と `RouterSplitHost` は解決した route を push し、`RouterTabHost` は
-その tab を select します。Macro は不正な pattern、欠落した origin allowlist、
+`RouterHost` と `RouterSplitHost` は解決した route を push し、
+`RouterModalHost` はデフォルトで sheet として表示し、`RouterTabHost` はその tab を
+select します。Macro は不正な pattern、欠落した origin allowlist、
 非対応 payload、生成 member の衝突、到達不能または宣言順に依存する mapping を
 コンパイル時に診断します。
 

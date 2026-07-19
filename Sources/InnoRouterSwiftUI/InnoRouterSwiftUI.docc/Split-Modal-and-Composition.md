@@ -57,6 +57,16 @@ RouterModalHost(AppRoute.self) {
 }
 ```
 
+When `AppRoute` has generated `@DeepLink` mappings, the modal host presents a
+resolved incoming URL as a sheet automatically. Configure a different
+host-wide style when needed:
+
+```swift skip doc-fragment
+RouterModalHost(AppRoute.self, deepLinkStyle: .fullScreenCover) {
+    ModalLauncher()
+}
+```
+
 Descendants use the same typed environment router as every other macro-first
 surface:
 
@@ -154,10 +164,10 @@ let configuration = ModalStoreConfiguration<AppRoute>(
 When migrating to 5.0, merge the former modal lifecycle closures into
 this switch. `ModalStore.events` emits the same cases asynchronously.
 
-`@DeepLink` does not choose a modal presentation style. Automatic URL handling
-pushes through `RouterHost` / `RouterSplitHost` or selects through
-`RouterTabHost`; an application that needs a URL to open a sheet or cover must
-apply that policy at its flow boundary.
+Automatic URL handling pushes through `RouterHost` / `RouterSplitHost`,
+presents through `RouterModalHost`, or selects through `RouterTabHost`.
+`RouterModalHost` applies one host-wide deep-link style; per-route presentation
+policy still belongs at an application-owned flow boundary.
 
 ## Composition
 

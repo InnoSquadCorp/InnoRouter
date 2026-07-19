@@ -107,6 +107,28 @@ struct RouterDeepLinkHostTests {
         #expect(store.path == [.push(.detail(id: "42"))])
     }
 
+    @Test("A modal deep-link candidate presents with its host style")
+    func presentsResolvedModalRoute() throws {
+        let url = try #require(URL(string: "innorouter://app.example.com/settings"))
+        let arbiter = RouterDeepLinkArbiter()
+        let store = ModalStore<HostDeepLinkRoute>()
+
+        #expect(
+            submitRouterDeepLink(
+                HostDeepLinkRoute.self,
+                url: url,
+                context: RouterDeepLinkContext(arbiter: arbiter, depth: 0),
+                source: RouterDeepLinkSource()
+            ) { route in
+                store.send(.present(route, style: .fullScreenCover))
+            }
+        )
+        arbiter.flush(url)
+
+        #expect(store.currentPresentation?.route == .settings)
+        #expect(store.currentPresentation?.style == .fullScreenCover)
+    }
+
     @Test("A route without DeepLinkRoute capability is a no-op")
     func ignoresPlainRoute() throws {
         let url = try #require(URL(string: "innorouter://app.example.com/settings"))

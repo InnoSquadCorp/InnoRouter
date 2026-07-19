@@ -127,6 +127,10 @@ RouterModalHost(LibraryRoute.self) {
 }
 ```
 
+Generated `@DeepLink` routes present as sheets automatically in this host. Pass
+`deepLinkStyle: .fullScreenCover` when the entire modal-only feature uses cover
+presentation for incoming URLs.
+
 Calling an action unsupported by the nearest host, such as `go` below a
 modal-only host, follows `EnvironmentMissingPolicy` and fails loudly by
 default.
@@ -235,13 +239,14 @@ No `onOpenURL` or parser is needed for this single-route path:
 
 - `RouterHost` pushes the resolved route.
 - `RouterSplitHost` pushes it into the detail stack.
+- `RouterModalHost` presents it with its configured style (`.sheet` by default).
 - `RouterTabHost` selects the resolved tab.
 
 Origin allowlists fail closed. Generated matching prefers literal paths, then
 typed parameters, then terminal wildcards. Authentication, pending replay,
-multi-step plans, modal presentation style, and multi-window scene selection
-remain application-boundary concerns; use the deep-link pipeline and an
-externally owned store for those advanced policies.
+multi-step plans, per-route presentation policy, and multi-window scene
+selection remain application-boundary concerns; use the deep-link pipeline and
+an externally owned store for those advanced policies.
 
 ## Diagnostics
 

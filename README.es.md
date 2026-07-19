@@ -814,8 +814,9 @@ enum AppRoute {
 RouterHost(AppRoute.self) { HomeView() }
 ```
 
-`RouterHost` y `RouterSplitHost` empujan la ruta resuelta; `RouterTabHost` la
-selecciona. Las macros diagnostican al compilar patrones mal formados,
+`RouterHost` y `RouterSplitHost` empujan la ruta resuelta; `RouterModalHost` la
+presenta como sheet por defecto y `RouterTabHost` la selecciona. Las macros
+diagnostican al compilar patrones mal formados,
 allowlists de origen ausentes, payloads no soportados, conflictos con miembros
 generados y mappings inalcanzables o sensibles al orden.
 

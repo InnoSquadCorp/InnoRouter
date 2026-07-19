@@ -760,7 +760,8 @@ RouterHost(AppRoute.self) { HomeView() }
 ```
 
 `RouterHost`와 `RouterSplitHost`는 resolve된 route를 push하고,
-`RouterTabHost`는 해당 tab을 선택합니다. Macro는 잘못된 pattern, 빠진 origin
+`RouterModalHost`는 기본 sheet로 표시하며, `RouterTabHost`는 해당 tab을
+선택합니다. Macro는 잘못된 pattern, 빠진 origin
 allowlist, 지원하지 않는 payload, 생성 member 충돌, 도달 불가능하거나 순서에 민감한
 매핑을 컴파일 시점에 진단합니다.
 
