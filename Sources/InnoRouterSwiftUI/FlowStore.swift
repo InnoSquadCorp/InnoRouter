@@ -55,11 +55,11 @@ public final class FlowStore<R: Route> {
     /// dispatch/mutation depth counters, the inner-observation source stack,
     /// and the FIFO reentrant-intent queue all live behind this boundary.
     /// See ``FlowReentrancyCoordinator`` for the protocol they uphold.
-    private let reentrancy = FlowReentrancyCoordinator<R>()
+    internal let reentrancy = FlowReentrancyCoordinator<R>()
     @ObservationIgnored
-    private var pendingDirectModalEvents: [FlowEvent<R>] = []
+    internal var pendingDirectModalEvents: [FlowEvent<R>] = []
     @ObservationIgnored
-    private var pendingDirectModalOldPath: [RouteStep<R>]?
+    internal var pendingDirectModalOldPath: [RouteStep<R>]?
     // `traceRecorder` is `internal` rather than `private` because
     // the public dispatch wrappers in `FlowStore+Public.swift` need
     // to reach it.
@@ -301,148 +301,6 @@ public final class FlowStore<R: Route> {
         modalStore.installTraceRecorder(recorder)
     }
 
-    /// Plans and commits one intent inside the same mutation boundary.
-    ///
-    /// Middleware runs while `mutationPlan(for:)` is built. Keeping planning
-    /// inside this boundary ensures a middleware that synchronously calls
-    /// `send(_:)` cannot commit against the same pre-mutation snapshot and be
-    /// overwritten by the outer preview. Those nested sends are queued by
-    /// `deferReentrantIntentIfNeeded(_:)` and drain FIFO after this complete
-    /// plan has committed and delivered its events.
-    @discardableResult
-    internal func dispatch(_ intent: FlowIntent<R>) -> FlowPlanApplyResult<R> {
-        withFlowMutationBoundary {
-            applyWithinFlowMutationBoundary(mutationPlan(for: intent), intent: intent)
-        }
-    }
-
-    private func applyWithinFlowMutationBoundary(
-        _ plan: FlowMutationPlan<R>,
-        intent: FlowIntent<R>
-    ) -> FlowPlanApplyResult<R> {
-        let handlesInnerLifecycle = plan.navigationJournal != nil
-            || !plan.discardedNavigationJournals.isEmpty
-            || !plan.modalJournals.isEmpty
-            || !plan.discardedModalJournals.isEmpty
-            || !plan.modalCancellationJournals.isEmpty
-        if handlesInnerLifecycle {
-            beginBufferingInnerEvents(from: plan.oldPath)
-        }
-
-        if handlesInnerLifecycle {
-            withInternalMutation {
-                for journal in plan.discardedNavigationJournals {
-                    navigationStore.discardFlowPreview(journal)
-                }
-                if let navigationJournal = plan.navigationJournal {
-                    _ = navigationStore.commitFlowPreview(navigationJournal)
-                }
-                for journal in plan.discardedModalJournals {
-                    modalStore.discardFlowPreview(journal)
-                }
-                modalStore.commitFlowPreviews(plan.modalJournals)
-                for journal in plan.modalCancellationJournals {
-                    _ = modalStore.commitFlowCancellation(journal)
-                }
-            }
-        }
-
-        if handlesInnerLifecycle {
-            syncPathFromStoresWithoutEmitting()
-            finishBufferingInnerEvents()
-        } else {
-            syncPathFromStores(from: plan.oldPath)
-        }
-
-        if let rejectionReason = plan.rejectionReason {
-            emitIntentRejected(
-                intent,
-                reason: rejectionReason,
-                applyQueueCoalescePolicy: plan.queueCoalescePolicyEligible
-            )
-            return .rejected(currentPath: path, reason: rejectionReason)
-        }
-
-        return .applied(path: path)
-    }
-
-    // MARK: - Reverse sync
-
-    private func handleNavigationStoreEvent(_ event: NavigationEvent<R>) {
-        if reentrancy.isApplyingInternalMutation {
-            precondition(
-                reentrancy.isBuffering,
-                "FlowStore navigation event escaped its mutation buffer."
-            )
-        }
-        guard case .changed(_, let newStack) = event else {
-            emitFlowEvent(.navigation(event))
-            return
-        }
-
-        let oldPath = path
-        path = FlowProjection(
-            pushRoutes: newStack.path,
-            currentPresentation: modalStore.currentPresentation,
-            queuedPresentations: modalStore.queuedPresentations
-        ).path
-
-        var events: [FlowEvent<R>] = [.navigation(event)]
-        if !reentrancy.isBuffering, oldPath != path {
-            events.append(.pathChanged(old: oldPath, new: path))
-        }
-        emitFlowEvents(events)
-    }
-
-    private func handleModalStoreEvent(_ event: ModalEvent<R>) {
-        if reentrancy.isApplyingInternalMutation {
-            precondition(
-                reentrancy.isBuffering,
-                "FlowStore modal event escaped its mutation buffer."
-            )
-        }
-        if reentrancy.isBuffering {
-            syncPathFromStoresWithoutEmitting()
-            emitFlowEvent(.modal(event))
-            return
-        }
-
-        switch event {
-        case .middlewareMutation:
-            emitFlowEvent(.modal(event))
-
-        case .presented, .dismissed, .replaced, .queueChanged:
-            if pendingDirectModalOldPath == nil {
-                pendingDirectModalOldPath = path
-            }
-            syncPathFromStoresWithoutEmitting()
-            pendingDirectModalEvents.append(.modal(event))
-
-        case .commandIntercepted:
-            let oldPath = pendingDirectModalOldPath ?? path
-            if pendingDirectModalOldPath == nil {
-                pendingDirectModalOldPath = oldPath
-            }
-            syncPathFromStoresWithoutEmitting()
-            pendingDirectModalEvents.append(.modal(event))
-
-            var events = pendingDirectModalEvents
-            if oldPath != path {
-                events.append(.pathChanged(old: oldPath, new: path))
-            }
-            pendingDirectModalEvents.removeAll(keepingCapacity: true)
-            pendingDirectModalOldPath = nil
-            reentrancy.dispatch(events)
-        }
-    }
-
-    private func withInnerObservationSource<T>(
-        _ source: FlowInnerObservationSource,
-        operation: () -> T
-    ) -> T {
-        reentrancy.withInnerObservationSource(source, operation: operation)
-    }
-
     // MARK: - Helpers
 
     private func emitPathChangedIfNeeded(from oldPath: [RouteStep<R>]) {
@@ -461,11 +319,11 @@ public final class FlowStore<R: Route> {
         emitFlowEvent(.intentRejected(intent, reason))
     }
 
-    private func emitFlowEvent(_ event: FlowEvent<R>) {
+    internal func emitFlowEvent(_ event: FlowEvent<R>) {
         emitFlowEvents([event])
     }
 
-    private func emitFlowEvents(_ events: [FlowEvent<R>]) {
+    internal func emitFlowEvents(_ events: [FlowEvent<R>]) {
         reentrancy.bufferOrDispatch(events)
     }
 

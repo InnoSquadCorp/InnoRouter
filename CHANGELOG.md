@@ -6,6 +6,13 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+### Changed
+
+- Large store implementations are now split by responsibility: navigation
+  path reconciliation, modal flow journals, and flow observation/commit logic
+  live in focused internal extensions. The public API and runtime behavior are
+  unchanged.
+
 ### Added
 
 - `RouterModalHost` now handles generated `@DeepLink` routes automatically,

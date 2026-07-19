@@ -3,7 +3,7 @@ import InnoRouterCore
 import Observation
 import SwiftUI
 
-private struct NavigationObservationDelivery<R: Route> {
+struct NavigationObservationDelivery<R: Route> {
     let event: NavigationEvent<R>
     let telemetryEvent: NavigationStoreTelemetryEvent<R>?
 }
@@ -16,15 +16,15 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     public private(set) var state: RouteStack<R>
 
     private let engine: NavigationEngine<R>
-    private let eventDispatcher: SerializedEventDispatcher<NavigationObservationDelivery<R>>
-    private let telemetrySink: NavigationStoreTelemetrySink<R>
+    internal let eventDispatcher: SerializedEventDispatcher<NavigationObservationDelivery<R>>
+    internal let telemetrySink: NavigationStoreTelemetrySink<R>
     // `middlewareRegistry` is `internal` rather than `private`
     // because middleware management methods live in
     // `NavigationStore+Middleware.swift`.
     internal let middlewareRegistry: NavigationMiddlewareRegistry<R>
     private let routeStackValidator: RouteStackValidator<R>
-    private let pathMismatchPolicy: NavigationPathMismatchPolicy<R>
-    private let pathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void
+    internal let pathMismatchPolicy: NavigationPathMismatchPolicy<R>
+    internal let pathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void
     private let broadcaster: EventBroadcaster<NavigationEvent<R>>
     private let traceLogger: Logger?
     private var traceRecorder: InternalExecutionTraceRecorder?
@@ -423,38 +423,6 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             .discardExecuted(using: middlewareRegistry)
     }
 
-    // `reconcileNavigationPath` is `internal` rather than `private`
-    // because the binding helpers live in
-    // `NavigationStore+Binding.swift`. Access stays within the
-    // InnoRouterSwiftUI module.
-    internal func reconcileNavigationPath(
-        with newPath: [R],
-        policyOverride: NavigationPathMismatchPolicy<R>? = nil
-    ) {
-        eventDispatcher.withExecutionBoundary {
-            NavigationPathReconciler<R>().reconcile(
-                from: state.path,
-                to: newPath,
-                resolveMismatch: { [weak self] oldPath, newPath in
-                    guard let self else { return .single(.replace(newPath)) }
-                    return self.resolvePathMismatch(
-                        from: oldPath,
-                        to: newPath,
-                        policyOverride: policyOverride
-                    )
-                },
-                execute: { [weak self] command in
-                    guard let self else { return }
-                    _ = self.execute(command)
-                },
-                executeBatch: { [weak self] commands in
-                    guard let self else { return }
-                    _ = self.executeBatch(commands, stopOnFailure: false)
-                }
-            )
-        }
-    }
-
     private func executeSingle(
         _ command: NavigationCommand<R>,
         shouldNotifyOnChange: Bool
@@ -591,43 +559,6 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 shouldNotify: shouldNotifyOnChange
             )
         )
-    }
-
-    private func resolvePathMismatch(
-        from oldPath: [R],
-        to newPath: [R],
-        policyOverride: NavigationPathMismatchPolicy<R>? = nil
-    ) -> NavigationPathMismatchResolution<R> {
-        let policy: NavigationStoreTelemetryEvent<R>.PathMismatchPolicy
-        let resolution: NavigationPathMismatchResolution<R>
-
-        let effectivePolicy = policyOverride ?? pathMismatchPolicy
-        switch effectivePolicy {
-        case .replace:
-            policy = .replace
-            resolution = .single(.replace(newPath))
-
-        case .assertAndReplace:
-            policy = .assertAndReplace
-            pathMismatchAssertionHandler(oldPath, newPath)
-            resolution = .single(.replace(newPath))
-
-        case .ignore:
-            policy = .ignore
-            resolution = .ignore
-
-        case .custom(let transform):
-            policy = .custom
-            resolution = transform(oldPath, newPath)
-        }
-
-        telemetrySink.recordPathMismatch(
-            policy: policy,
-            resolution: resolution,
-            oldPath: oldPath,
-            newPath: newPath
-        )
-        return resolution
     }
 
     private static func changeEvents(
