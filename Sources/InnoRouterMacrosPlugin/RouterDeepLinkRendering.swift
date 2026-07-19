@@ -1,5 +1,39 @@
 import Foundation
 
+func renderRouterDeepLinkMembers(
+    from specification: RouterDeepLinkSpecification,
+    access: String
+) -> String {
+    let mappings = specification.items
+        .map { indentContinuationLines(renderDeepLinkMapping($0), by: 8) }
+        .joined(separator: "\n        ")
+    let schemes = specification.schemes.map(swiftStringLiteral).joined(separator: ", ")
+    let hosts = specification.hosts.map(swiftStringLiteral).joined(separator: ", ")
+
+    return """
+    \(access) static func resolveDeepLink(_ url: Foundation.URL) -> Self? {
+        let matcher = InnoRouterDeepLink.DeepLinkMatcher<Self>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            \(mappings)
+        }
+        let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
+            originPolicy: .allowlisted(
+                schemes: [\(schemes)],
+                hosts: [\(hosts)]
+            ),
+            matcher: matcher
+        )
+        guard case .plan(let plan) = pipeline.decide(for: url),
+              plan.commands.count == 1,
+              case .push(let route) = plan.commands[0] else {
+            return nil
+        }
+        return route
+    }
+    """
+}
+
 func renderDeepLinkMapping(_ item: RouterDeepLinkItem) -> String {
     var statements = item.parameters.enumerated().map { index, parameter in
         renderDeepLinkBinding(index: index, parameter: parameter)
