@@ -15,13 +15,13 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
     public private(set) var state: RouteStack<R>
 
-    private let engine: NavigationEngine<R>
     internal let eventDispatcher: SerializedEventDispatcher<NavigationObservationDelivery<R>>
     internal let telemetrySink: NavigationStoreTelemetrySink<R>
     // `middlewareRegistry` is `internal` rather than `private`
     // because middleware management methods live in
     // `NavigationStore+Middleware.swift`.
     internal let middlewareRegistry: NavigationMiddlewareRegistry<R>
+    internal let executionCoordinator: NavigationExecutionCoordinator<R>
     private let routeStackValidator: RouteStackValidator<R>
     internal let pathMismatchPolicy: NavigationPathMismatchPolicy<R>
     internal let pathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void
@@ -82,13 +82,15 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             telemetryRecorder: nil
         )
         self.state = initial
-        self.engine = .init()
         self.eventDispatcher = wiring.eventDispatcher
         self.routeStackValidator = configuration.routeStackValidator
         self.pathMismatchPolicy = configuration.pathMismatchPolicy
         self.pathMismatchAssertionHandler = Self.defaultPathMismatchAssertionHandler
         self.telemetrySink = wiring.telemetrySink
         self.middlewareRegistry = wiring.middlewareRegistry
+        self.executionCoordinator = NavigationExecutionCoordinator(
+            middlewareRegistry: wiring.middlewareRegistry
+        )
         self.broadcaster = wiring.broadcaster
         self.traceLogger = configuration.logger
         self.traceRecorder = nil
@@ -115,13 +117,15 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             telemetryRecorder: telemetryRecorder
         )
         self.state = initial
-        self.engine = .init()
         self.eventDispatcher = wiring.eventDispatcher
         self.routeStackValidator = configuration.routeStackValidator
         self.pathMismatchPolicy = configuration.pathMismatchPolicy
         self.pathMismatchAssertionHandler = nonPrefixAssertionHandler
         self.telemetrySink = wiring.telemetrySink
         self.middlewareRegistry = wiring.middlewareRegistry
+        self.executionCoordinator = NavigationExecutionCoordinator(
+            middlewareRegistry: wiring.middlewareRegistry
+        )
         self.broadcaster = wiring.broadcaster
         self.traceLogger = configuration.logger
         self.traceRecorder = nil
@@ -195,12 +199,6 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         try routeStackValidator.validate(path)
     }
 
-    func performAfterObservationDelivery(
-        _ action: @escaping @MainActor @Sendable () -> Void
-    ) {
-        eventDispatcher.performAfterDelivery(action)
-    }
-
     private func updateEffectiveTraceRecorder() {
         if traceRecorder == nil && traceLogger == nil {
             cachedEffectiveTraceRecorder = nil
@@ -213,7 +211,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         }
     }
 
-    private var effectiveTraceRecorder: InternalExecutionTraceRecorder? {
+    var effectiveTraceRecorder: InternalExecutionTraceRecorder? {
         cachedEffectiveTraceRecorder
     }
 
@@ -221,393 +219,8 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         traceLogger?.logExecutionTrace(record, label: "navigation")
     }
 
-    // Note: middleware CRUD (add/insert/remove/replace/move) lives
-    // in `NavigationStore+Middleware.swift`.
-
-    @discardableResult
-    public func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> {
-        if let rejection = reentrantMiddlewareRejection(operation: "execute") {
-            return rejection
-        }
-
-        return eventDispatcher.withExecutionBoundary {
-            InternalExecutionTrace.withSpan(
-                domain: .navigation,
-                operation: "execute",
-                recorder: effectiveTraceRecorder,
-                metadata: ["command": String(describing: command)]
-            ) {
-                executeSingle(command, shouldNotifyOnChange: true).result
-            } outcome: { result in
-                String(describing: result)
-            }
-        }
-    }
-
-    @discardableResult
-    public func executeBatch(
-        _ commands: [NavigationCommand<R>],
-        stopOnFailure: Bool = false
-    ) -> NavigationBatchResult<R> {
-        if let rejection = reentrantMiddlewareRejection(operation: "executeBatch") {
-            let snapshot = state
-            return NavigationBatchResult(
-                requestedCommands: commands,
-                executedCommands: [],
-                results: commands.map { _ in rejection },
-                stateBefore: snapshot,
-                stateAfter: snapshot,
-                hasStoppedOnFailure: false
-            )
-        }
-
-        return eventDispatcher.withExecutionBoundary {
-            InternalExecutionTrace.withSpan(
-                domain: .navigation,
-                operation: "executeBatch",
-                recorder: effectiveTraceRecorder,
-                metadata: [
-                    "count": String(commands.count),
-                    "stopOnFailure": String(stopOnFailure),
-                ]
-            ) {
-                let stateBefore = state
-                var executedCommands: [NavigationCommand<R>] = []
-                executedCommands.reserveCapacity(commands.count)
-                var results: [NavigationResult<R>] = []
-                results.reserveCapacity(commands.count)
-                var hasStoppedOnFailure = false
-
-                for command in commands {
-                    let outcome = executeSingle(command, shouldNotifyOnChange: false)
-                    executedCommands.append(contentsOf: outcome.executedCommands)
-                    results.append(outcome.result)
-
-                    if stopOnFailure && !outcome.result.isSuccess {
-                        hasStoppedOnFailure = true
-                        break
-                    }
-                }
-
-                let stateAfter = state
-                if stateAfter != stateBefore {
-                    emitObservationEvent(.changed(from: stateBefore, to: stateAfter))
-                }
-
-                let batch = NavigationBatchResult(
-                    requestedCommands: commands,
-                    executedCommands: executedCommands,
-                    results: results,
-                    stateBefore: stateBefore,
-                    stateAfter: stateAfter,
-                    hasStoppedOnFailure: hasStoppedOnFailure
-                )
-                emitObservationEvent(.batchExecuted(batch))
-                return batch
-            } outcome: { batch in
-                batch.isSuccess ? "success" : "failure"
-            }
-        }
-    }
-
-    @discardableResult
-    public func executeTransaction(
-        _ commands: [NavigationCommand<R>]
-    ) -> NavigationTransactionResult<R> {
-        if let rejection = reentrantMiddlewareRejection(operation: "executeTransaction") {
-            let snapshot = state
-            return NavigationTransactionResult(
-                requestedCommands: commands,
-                executedCommands: [],
-                results: commands.isEmpty ? [] : [rejection],
-                stateBefore: snapshot,
-                stateAfter: snapshot,
-                failureIndex: commands.isEmpty ? nil : 0,
-                isCommitted: false
-            )
-        }
-
-        return eventDispatcher.withExecutionBoundary {
-            InternalExecutionTrace.withSpan(
-                domain: .navigation,
-                operation: "executeTransaction",
-                recorder: effectiveTraceRecorder,
-                metadata: ["count": String(commands.count)]
-            ) {
-                let stateBefore = state
-                var shadowState = state
-                var journals: [NavigationExecutionJournal<R>] = []
-                journals.reserveCapacity(commands.count)
-                var failureIndex: Int?
-
-                for (index, command) in commands.enumerated() {
-                    let journal = NavigationExecutionJournal.planTransaction(
-                        command,
-                        state: &shadowState,
-                        middlewareRegistry: middlewareRegistry,
-                        engine: engine
-                    )
-                    journals.append(journal)
-
-                    if journal.result.isSuccess {
-                        continue
-                    } else {
-                        failureIndex = index
-                        break
-                    }
-                }
-
-                let isCommitted = !commands.isEmpty && failureIndex == nil
-                let executedCommands = journals.flatMap(\.executedCommands)
-                let results: [NavigationResult<R>]
-                if isCommitted {
-                    state = shadowState
-                    results = journals.map { $0.finalizeCommittedTransaction(using: middlewareRegistry) }
-                    if state != stateBefore {
-                        emitObservationEvent(.changed(from: stateBefore, to: state))
-                    }
-                } else {
-                    journals
-                        .map { $0.forDiscardedTransaction() }
-                        .forEach { $0.discardExecuted(using: middlewareRegistry) }
-                    results = journals.map(\.result)
-                }
-
-                let transaction = NavigationTransactionResult(
-                    requestedCommands: commands,
-                    executedCommands: executedCommands,
-                    results: results,
-                    stateBefore: stateBefore,
-                    stateAfter: isCommitted ? state : stateBefore,
-                    failureIndex: failureIndex,
-                    isCommitted: isCommitted
-                )
-                emitObservationEvent(.transactionExecuted(transaction))
-                return transaction
-            } outcome: { transaction in
-                if commands.isEmpty {
-                    "empty"
-                } else {
-                    transaction.isCommitted ? "committed" : "rolledBack"
-                }
-            }
-        }
-    }
-
-    // Note: send(_:) and commands(for:) live in
-    // `NavigationStore+Intent.swift`.
-
-    // Note: pathBinding, pathBinding(policy:), and binding(case:)
-    // live in `NavigationStore+Binding.swift`.
-
-    func previewFlowCommand(_ command: NavigationCommand<R>) -> NavigationExecutionJournal<R> {
-        previewFlowCommand(command, from: state)
-    }
-
-    func previewFlowCommand(
-        _ command: NavigationCommand<R>,
-        from stateBefore: RouteStack<R>
-    ) -> NavigationExecutionJournal<R> {
-        NavigationExecutionJournal.preview(
-            command,
-            from: stateBefore,
-            middlewareRegistry: middlewareRegistry,
-            engine: engine
-        )
-    }
-
-    @discardableResult
-    func commitFlowPreview(_ preview: NavigationExecutionJournal<R>) -> NavigationResult<R> {
-        eventDispatcher.withExecutionBoundary {
-            InternalExecutionTrace.withSpan(
-                domain: .navigation,
-                operation: "commitFlowPreview",
-                recorder: effectiveTraceRecorder,
-                metadata: ["command": String(describing: preview.requestedCommand)]
-            ) {
-                let committedStateBefore = state
-                state = preview.stateAfter
-
-                let finalResult = preview.finalizePreview(using: middlewareRegistry)
-
-                if state != committedStateBefore {
-                    emitObservationEvent(.changed(from: committedStateBefore, to: state))
-                }
-
-                return finalResult
-            } outcome: { result in
-                String(describing: result)
-            }
-        }
-    }
-
-    /// Balances middleware lifecycle for a preview that an enclosing
-    /// `FlowStore` transaction ultimately rolls back.
-    ///
-    /// The live navigation state was never changed by the preview, so this
-    /// only runs the middleware discard hook captured by the journal.
-    func discardFlowPreview(_ preview: NavigationExecutionJournal<R>) {
-        preview
-            .forDiscardedTransaction()
-            .discardExecuted(using: middlewareRegistry)
-    }
-
-    private func executeSingle(
-        _ command: NavigationCommand<R>,
-        shouldNotifyOnChange: Bool
-    ) -> ExecutionOutcome {
-        if shouldNotifyOnChange, case .sequence(let commands) = command {
-            let outcomes = commands.map {
-                executeSingle($0, shouldNotifyOnChange: true)
-            }
-            return ExecutionOutcome(
-                executedCommands: outcomes.flatMap(\.executedCommands),
-                result: .multiple(outcomes.map(\.result)),
-                observationEvents: []
-            )
-        }
-
-        var workingState = state
-        let outcome = executeSingle(
-            command,
-            state: &workingState,
-            shouldNotifyOnChange: shouldNotifyOnChange
-        )
-        state = workingState
-        for event in outcome.observationEvents {
-            emitObservationEvent(event)
-        }
-        return outcome
-    }
-
-    private func executeSingle(
-        _ command: NavigationCommand<R>,
-        state currentState: inout RouteStack<R>,
-        shouldNotifyOnChange: Bool
-    ) -> ExecutionOutcome {
-        switch command {
-        case .sequence(let commands):
-            let outcomes = commands.map {
-                executeSingle($0, state: &currentState, shouldNotifyOnChange: shouldNotifyOnChange)
-            }
-            return ExecutionOutcome(
-                executedCommands: outcomes.flatMap(\.executedCommands),
-                result: .multiple(outcomes.map(\.result)),
-                observationEvents: outcomes.flatMap(\.observationEvents)
-            )
-
-        case .whenCancelled(let primary, let fallback):
-            let snapshot = currentState
-            var primaryState = snapshot
-            let primaryOutcome = executeSingle(
-                primary,
-                state: &primaryState,
-                shouldNotifyOnChange: false
-            )
-            if primaryOutcome.result.isSuccess {
-                currentState = primaryState
-                return ExecutionOutcome(
-                    executedCommands: primaryOutcome.executedCommands,
-                    result: primaryOutcome.result,
-                    observationEvents: Self.changeEvents(
-                        from: snapshot,
-                        to: currentState,
-                        shouldNotify: shouldNotifyOnChange
-                    )
-                )
-            }
-
-            var fallbackState = snapshot
-            let fallbackOutcome = executeSingle(
-                fallback,
-                state: &fallbackState,
-                shouldNotifyOnChange: false
-            )
-            currentState = fallbackOutcome.result.isSuccess ? fallbackState : snapshot
-            return ExecutionOutcome(
-                executedCommands: primaryOutcome.executedCommands + fallbackOutcome.executedCommands,
-                result: fallbackOutcome.result,
-                observationEvents: Self.changeEvents(
-                    from: snapshot,
-                    to: currentState,
-                    shouldNotify: shouldNotifyOnChange
-                )
-            )
-
-        default:
-            let stateBefore = currentState
-            let interceptionOutcome = middlewareRegistry.intercept(command, state: stateBefore)
-            switch interceptionOutcome.interception {
-            case .cancel(let reason):
-                let result: NavigationResult<R> = .cancelled(reason)
-                return finishExecution(
-                    command: interceptionOutcome.command,
-                    executedCommands: [],
-                    result: result,
-                    participants: interceptionOutcome.participants,
-                    stateBefore: stateBefore,
-                    currentState: &currentState,
-                    shouldNotifyOnChange: shouldNotifyOnChange
-                )
-
-            case .proceed(let commandToExecute):
-                let result = engine.apply(commandToExecute, to: &currentState)
-                return finishExecution(
-                    command: commandToExecute,
-                    executedCommands: [commandToExecute],
-                    result: result,
-                    participants: interceptionOutcome.participants,
-                    stateBefore: stateBefore,
-                    currentState: &currentState,
-                    shouldNotifyOnChange: shouldNotifyOnChange
-                )
-            }
-        }
-    }
-
-    private func finishExecution(
-        command: NavigationCommand<R>,
-        executedCommands: [NavigationCommand<R>],
-        result: NavigationResult<R>,
-        participants: [AnyNavigationMiddleware<R>],
-        stateBefore: RouteStack<R>,
-        currentState: inout RouteStack<R>,
-        shouldNotifyOnChange: Bool
-    ) -> ExecutionOutcome {
-        let finalResult = middlewareRegistry.didExecute(
-            command,
-            result: result,
-            state: currentState,
-            participants: participants
-        )
-
-        return ExecutionOutcome(
-            executedCommands: executedCommands,
-            result: finalResult,
-            observationEvents: Self.changeEvents(
-                from: stateBefore,
-                to: currentState,
-                shouldNotify: shouldNotifyOnChange
-            )
-        )
-    }
-
-    private static func changeEvents(
-        from oldState: RouteStack<R>,
-        to newState: RouteStack<R>,
-        shouldNotify: Bool
-    ) -> [NavigationEvent<R>] {
-        guard shouldNotify, newState != oldState else { return [] }
-        return [.changed(from: oldState, to: newState)]
-    }
-
-    private func emitObservationEvent(_ event: NavigationEvent<R>) {
-        eventDispatcher.emit(
-            NavigationObservationDelivery(
-                event: event,
-                telemetryEvent: nil
-            )
-        )
+    func assignState(_ newState: RouteStack<R>) {
+        state = newState
     }
 
     private static var defaultPathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void {
@@ -621,11 +234,5 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 """
             )
         }
-    }
-
-    private struct ExecutionOutcome {
-        let executedCommands: [NavigationCommand<R>]
-        let result: NavigationResult<R>
-        let observationEvents: [NavigationEvent<R>]
     }
 }
