@@ -22,6 +22,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     // because middleware management methods live in
     // `NavigationStore+Middleware.swift`.
     internal let middlewareRegistry: NavigationMiddlewareRegistry<R>
+    private let routeStackValidator: RouteStackValidator<R>
     private let pathMismatchPolicy: NavigationPathMismatchPolicy<R>
     private let pathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void
     private let broadcaster: EventBroadcaster<NavigationEvent<R>>
@@ -83,6 +84,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.state = initial
         self.engine = .init()
         self.eventDispatcher = wiring.eventDispatcher
+        self.routeStackValidator = configuration.routeStackValidator
         self.pathMismatchPolicy = configuration.pathMismatchPolicy
         self.pathMismatchAssertionHandler = Self.defaultPathMismatchAssertionHandler
         self.telemetrySink = wiring.telemetrySink
@@ -115,6 +117,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.state = initial
         self.engine = .init()
         self.eventDispatcher = wiring.eventDispatcher
+        self.routeStackValidator = configuration.routeStackValidator
         self.pathMismatchPolicy = configuration.pathMismatchPolicy
         self.pathMismatchAssertionHandler = nonPrefixAssertionHandler
         self.telemetrySink = wiring.telemetrySink
@@ -184,6 +187,12 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     func installTraceRecorder(_ recorder: InternalExecutionTraceRecorder?) {
         self.traceRecorder = recorder
         updateEffectiveTraceRecorder()
+    }
+
+    /// Re-applies the store's one-shot route-stack policy at restoration
+    /// boundaries without changing normal command execution semantics.
+    func validateRestoredPath(_ path: [R]) throws {
+        try routeStackValidator.validate(path)
     }
 
     func performAfterObservationDelivery(

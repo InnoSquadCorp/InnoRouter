@@ -131,6 +131,38 @@ struct StatePersistenceTests {
         #expect(failures.withLock { $0.map(\.target) } == [.navigationStack])
     }
 
+    @Test("StateRestorationAdapter applies the store route stack validator")
+    @MainActor
+    func adapterAppliesNavigationStackValidator() throws {
+        let failures = Mutex<[StateRestorationFailure]>([])
+        let validator = RouteStackValidator<PersistRoute>
+            .rooted(at: .root)
+            .combined(with: .uniqueRoutes)
+        let store = try NavigationStore<PersistRoute>(
+            initialPath: [.root],
+            configuration: NavigationStoreConfiguration(routeStackValidator: validator)
+        )
+        let persistence = StatePersistence<PersistRoute>()
+        let adapter = StateRestorationAdapter<PersistRoute> { failure in
+            failures.withLock { $0.append(failure) }
+        }
+
+        for invalidPath in [
+            [PersistRoute.settings],
+            [.root, .profile, .profile],
+        ] {
+            let data = try persistence.encode(RouteStack(path: invalidPath))
+
+            #expect(!adapter.restoreNavigationStack(from: data, into: store))
+            #expect(store.state.path == [.root])
+        }
+
+        #expect(failures.withLock { $0.map(\.target) } == [
+            .navigationStack,
+            .navigationStack,
+        ])
+    }
+
     @Test("StateRestorationAdapter reports navigation apply rejection")
     @MainActor
     func adapterReportsNavigationApplyRejection() throws {

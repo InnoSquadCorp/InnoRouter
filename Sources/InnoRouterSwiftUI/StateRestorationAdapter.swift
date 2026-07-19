@@ -53,6 +53,7 @@ public final class StateRestorationAdapter<R: Route & Codable> {
     ) -> Bool {
         do {
             let stack = try persistence.decodeStack(data)
+            try store.validateRestoredPath(stack.path)
             let result = store.execute(.replace(stack.path))
             guard result.isSuccess else {
                 onRestorationFailure(
