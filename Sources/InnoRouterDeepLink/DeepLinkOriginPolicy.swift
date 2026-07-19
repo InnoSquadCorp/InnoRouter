@@ -8,8 +8,9 @@
 /// ``trustedInProcess`` is an explicit escape hatch for URLs that cannot be
 /// influenced outside the current process.
 public enum DeepLinkOriginPolicy: Sendable, Equatable {
-    /// Admits only exact, case-insensitive scheme and host matches.
-    /// Empty allowlists reject every URL and therefore remain fail-closed.
+    /// Admits only exact, case-insensitive scheme and host matches and rejects
+    /// user information or explicit ports. Empty allowlists reject every URL
+    /// and therefore remain fail-closed.
     case allowlisted(schemes: Set<String>, hosts: Set<String>)
 
     /// Skips scheme and host checks for URLs constructed exclusively by the

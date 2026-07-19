@@ -133,17 +133,16 @@ func renderRouterDeepLinkMembers(
 
     return """
     \(access) static func resolveDeepLink(_ url: Foundation.URL) -> Self? {
-        guard url.user == nil, url.password == nil, url.port == nil else {
-            return nil
-        }
         let matcher = InnoRouterDeepLink.DeepLinkMatcher<Self>(
             configuration: .init(diagnosticsMode: .disabled)
         ) {
             \(mappings)
         }
         let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
-            allowedSchemes: [\(schemes)],
-            allowedHosts: [\(hosts)],
+            originPolicy: .allowlisted(
+                schemes: [\(schemes)],
+                hosts: [\(hosts)]
+            ),
             matcher: matcher
         )
         guard case .plan(let plan) = pipeline.decide(for: url),

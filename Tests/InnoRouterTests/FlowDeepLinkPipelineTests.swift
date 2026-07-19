@@ -63,6 +63,17 @@ struct FlowDeepLinkPipelineTests {
         }
     }
 
+    @Test(".rejected when an allowlisted origin contains an explicit port")
+    func nonCanonicalOriginRejection() {
+        let pipeline = FlowDeepLinkPipeline<PipelineRoute>(
+            originPolicy: .allowlisted(schemes: ["myapp"], hosts: ["app"]),
+            matcher: makeMatcher()
+        )
+        let decision = pipeline.decide(for: URL(string: "myapp://app:443/home")!)
+
+        #expect(decision == .rejected(reason: .nonCanonicalOrigin))
+    }
+
     @Test(".rejected when input limits are exceeded")
     func inputLimitRejection() {
         let pipeline = FlowDeepLinkPipeline<PipelineRoute>(

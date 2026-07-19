@@ -43,9 +43,6 @@ struct RouterDeepLinkExpansionMacroTests {
                 }
 
                 public static func resolveDeepLink(_ url: Foundation.URL) -> Self? {
-                    guard url.user == nil, url.password == nil, url.port == nil else {
-                        return nil
-                    }
                     let matcher = InnoRouterDeepLink.DeepLinkMatcher<Self>(
                         configuration: .init(diagnosticsMode: .disabled)
                     ) {
@@ -78,8 +75,10 @@ struct RouterDeepLinkExpansionMacroTests {
                         }
                     }
                     let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
-                        allowedSchemes: ["innorouter", "https"],
-                        allowedHosts: ["app.example.com"],
+                        originPolicy: .allowlisted(
+                            schemes: ["innorouter", "https"],
+                            hosts: ["app.example.com"]
+                        ),
                         matcher: matcher
                     )
                     guard case .plan(let plan) = pipeline.decide(for: url),
@@ -130,9 +129,6 @@ struct RouterDeepLinkExpansionMacroTests {
                 }
 
                 internal static func resolveDeepLink(_ url: Foundation.URL) -> Self? {
-                    guard url.user == nil, url.password == nil, url.port == nil else {
-                        return nil
-                    }
                     let matcher = InnoRouterDeepLink.DeepLinkMatcher<Self>(
                         configuration: .init(diagnosticsMode: .disabled)
                     ) {
@@ -177,8 +173,10 @@ struct RouterDeepLinkExpansionMacroTests {
                         }
                     }
                     let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
-                        allowedSchemes: ["innorouter"],
-                        allowedHosts: ["app.example.com"],
+                        originPolicy: .allowlisted(
+                            schemes: ["innorouter"],
+                            hosts: ["app.example.com"]
+                        ),
                         matcher: matcher
                     )
                     guard case .plan(let plan) = pipeline.decide(for: url),
@@ -256,9 +254,6 @@ struct RouterDeepLinkExpansionMacroTests {
                 }
 
                 internal static func resolveDeepLink(_ url: Foundation.URL) -> Self? {
-                    guard url.user == nil, url.password == nil, url.port == nil else {
-                        return nil
-                    }
                     let matcher = InnoRouterDeepLink.DeepLinkMatcher<Self>(
                         configuration: .init(diagnosticsMode: .disabled)
                     ) {
@@ -273,8 +268,10 @@ struct RouterDeepLinkExpansionMacroTests {
                         }
                     }
                     let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
-                        allowedSchemes: ["innorouter"],
-                        allowedHosts: ["app.example.com"],
+                        originPolicy: .allowlisted(
+                            schemes: ["innorouter"],
+                            hosts: ["app.example.com"]
+                        ),
                         matcher: matcher
                     )
                     guard case .plan(let plan) = pipeline.decide(for: url),
@@ -348,9 +345,6 @@ struct RouterDeepLinkExpansionMacroTests {
                 }
 
                 internal static func resolveDeepLink(_ url: Foundation.URL) -> Self? {
-                    guard url.user == nil, url.password == nil, url.port == nil else {
-                        return nil
-                    }
                     let matcher = InnoRouterDeepLink.DeepLinkMatcher<Self>(
                         configuration: .init(diagnosticsMode: .disabled)
                     ) {
@@ -359,8 +353,10 @@ struct RouterDeepLinkExpansionMacroTests {
                         }
                     }
                     let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
-                        allowedSchemes: ["innorouter"],
-                        allowedHosts: ["app.example.com"],
+                        originPolicy: .allowlisted(
+                            schemes: ["innorouter"],
+                            hosts: ["app.example.com"]
+                        ),
                         matcher: matcher
                     )
                     guard case .plan(let plan) = pipeline.decide(for: url),
@@ -1040,9 +1036,6 @@ struct RouterDeepLinkDiagnosticMacroTests {
                 }
 
                 internal static func resolveDeepLink(_ url: Foundation.URL) -> Self? {
-                    guard url.user == nil, url.password == nil, url.port == nil else {
-                        return nil
-                    }
                     let matcher = InnoRouterDeepLink.DeepLinkMatcher<Self>(
                         configuration: .init(diagnosticsMode: .disabled)
                     ) {
@@ -1051,8 +1044,10 @@ struct RouterDeepLinkDiagnosticMacroTests {
                         }
                     }
                     let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
-                        allowedSchemes: ["innorouter"],
-                        allowedHosts: ["app.example.com"],
+                        originPolicy: .allowlisted(
+                            schemes: ["innorouter"],
+                            hosts: ["app.example.com"]
+                        ),
                         matcher: matcher
                     )
                     guard case .plan(let plan) = pipeline.decide(for: url),

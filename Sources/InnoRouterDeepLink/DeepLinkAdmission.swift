@@ -19,6 +19,7 @@ private enum DeepLinkAdmissionSource<Output: Sendable>: Sendable {
 struct DeepLinkAdmission<Output: Sendable>: Sendable {
     private let allowedSchemes: Set<String>?
     private let allowedHosts: Set<String>?
+    private let rejectsNonCanonicalAuthority: Bool
     private let source: DeepLinkAdmissionSource<Output>
     private let inputLimits: DeepLinkInputLimits
 
@@ -58,6 +59,7 @@ struct DeepLinkAdmission<Output: Sendable>: Sendable {
     ) {
         self.allowedSchemes = allowedSchemes?.lowercased
         self.allowedHosts = allowedHosts?.lowercased
+        self.rejectsNonCanonicalAuthority = allowedSchemes != nil || allowedHosts != nil
         self.source = .matcher(matcher)
         self.inputLimits = inputLimits
     }
@@ -70,6 +72,7 @@ struct DeepLinkAdmission<Output: Sendable>: Sendable {
     ) {
         self.allowedSchemes = allowedSchemes?.lowercased
         self.allowedHosts = allowedHosts?.lowercased
+        self.rejectsNonCanonicalAuthority = allowedSchemes != nil || allowedHosts != nil
         self.source = .customResolver(customResolver)
         self.inputLimits = inputLimits
     }
@@ -83,6 +86,11 @@ struct DeepLinkAdmission<Output: Sendable>: Sendable {
 
         if let violation = inputLimits.parsedContentViolation(for: parsed) {
             return .rejected(.inputLimitExceeded(violation))
+        }
+
+        if rejectsNonCanonicalAuthority,
+           url.user != nil || url.password != nil || url.port != nil {
+            return .rejected(.nonCanonicalOrigin)
         }
 
         if let allowedSchemes {

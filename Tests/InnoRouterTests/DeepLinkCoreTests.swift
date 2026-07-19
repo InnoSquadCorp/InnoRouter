@@ -484,6 +484,28 @@ struct DeepLinkTests {
         #expect(reason == .hostNotAllowed(actualHost: "other.com"))
     }
 
+    @Test(
+        "DeepLinkPipeline allowlisted origin rejects user information and ports",
+        arguments: [
+            "myapp://user@myapp.com/home",
+            "myapp://user:password@myapp.com/home",
+            "myapp://myapp.com:443/home",
+        ]
+    )
+    func testPipelineRejectsNonCanonicalOrigin(urlString: String) {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            originPolicy: .allowlisted(
+                schemes: ["myapp"],
+                hosts: ["myapp.com"]
+            ),
+            customResolver: { _ in .home }
+        )
+
+        let decision = pipeline.decide(for: URL(string: urlString)!)
+
+        #expect(decision == .rejected(reason: .nonCanonicalOrigin))
+    }
+
     @Test("DeepLinkPipeline trusted in-process policy explicitly skips origin checks")
     func testPipelineTrustedInProcessOrigin() {
         let pipeline = DeepLinkPipeline<TestRoute>(
@@ -492,7 +514,7 @@ struct DeepLinkTests {
         )
 
         #expect(
-            pipeline.decide(for: URL(string: "untrusted://outside.example/home")!) ==
+            pipeline.decide(for: URL(string: "untrusted://user@outside.example:8080/home")!) ==
                 .plan(NavigationPlan(commands: [.push(.home)]))
         )
     }
