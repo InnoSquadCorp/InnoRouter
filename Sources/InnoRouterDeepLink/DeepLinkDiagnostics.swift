@@ -1,6 +1,11 @@
 import Foundation
 import OSLog
 
+private let defaultDeepLinkMatcherLogger = Logger(
+    subsystem: "io.innosquad.innorouter",
+    category: "deep-link-matcher"
+)
+
 /// Controls how `DeepLinkMatcher` surfaces structural diagnostics.
 ///
 /// Strict-mode diagnostic promotion is intentionally not a case on this
@@ -183,7 +188,8 @@ public enum DeepLinkInputLimitViolation: Sendable, Equatable {
 public struct DeepLinkMatcherConfiguration: Sendable {
     /// Diagnostic emission mode used during matcher construction.
     public var diagnosticsMode: DeepLinkMatcherDiagnosticsMode
-    /// Optional logger for diagnostic output.
+    /// Optional logger for diagnostic output. Pass `nil` to keep diagnostics
+    /// available through the matcher without emitting them to OSLog.
     public var logger: Logger?
     /// Optional input-size limits enforced by matcher `match` calls.
     public var inputLimits: DeepLinkInputLimits
@@ -199,5 +205,11 @@ public struct DeepLinkMatcherConfiguration: Sendable {
         self.inputLimits = inputLimits
     }
 
-    public static var `default`: Self { .init(diagnosticsMode: .debugWarnings) }
+    /// Emits structural authoring warnings through the package OSLog category.
+    public static var `default`: Self {
+        .init(
+            diagnosticsMode: .debugWarnings,
+            logger: defaultDeepLinkMatcherLogger
+        )
+    }
 }

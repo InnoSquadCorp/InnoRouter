@@ -408,6 +408,14 @@ struct DeepLinkTests {
         )
     }
 
+    @Test("DeepLinkMatcher default configuration emits debug warnings")
+    func testMatcherDefaultConfigurationIncludesLogger() {
+        let configuration = DeepLinkMatcherConfiguration.default
+
+        #expect(configuration.diagnosticsMode == .debugWarnings)
+        #expect(configuration.logger != nil)
+    }
+
     @Test("DeepLinkMatcher debug warnings remain non-fatal")
     func testMatcherDebugWarningsDoNotAssert() {
         let matcher = DeepLinkMatcher<TestRoute>(
