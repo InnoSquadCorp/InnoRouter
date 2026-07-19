@@ -367,7 +367,10 @@ struct FlowIntentParityTests {
 
         #expect(store.path == [.push(.root), .push(.first)])
         #expect(pathChanges.withLock { $0 } == 0)
-        #expect(rejections.withLock { $0 } == Array(repeating: .navigationExecutionFailed, count: 4))
+        #expect(
+            rejections.withLock { $0 } ==
+                Array(repeating: .middlewareRejected(debugName: nil), count: 4)
+        )
         #expect(commands.withLock { $0 } == [
             .popCount(0),
             .popCount(-1),

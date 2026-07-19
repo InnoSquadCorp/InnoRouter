@@ -126,7 +126,7 @@ struct FlowStoreInvariantTests {
 
         #expect(store.path.isEmpty)
         #expect(changes.withLock { $0 } == 0)
-        #expect(rejections.withLock { $0 } == [.navigationExecutionFailed])
+        #expect(rejections.withLock { $0 } == [.middlewareRejected(debugName: nil)])
     }
 
     @Test("dismiss with no modal tail is silent no-op")

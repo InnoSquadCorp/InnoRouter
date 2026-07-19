@@ -71,7 +71,7 @@ struct FlowDeepLinkPipelineTests {
         )
         let decision = pipeline.decide(for: URL(string: "myapp://app:443/home")!)
 
-        #expect(decision == .rejected(reason: .nonCanonicalOrigin))
+        #expect(decision == .rejected(reason: .hostNotAllowed(actualHost: "app")))
     }
 
     @Test(".rejected when input limits are exceeded")

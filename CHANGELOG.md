@@ -32,9 +32,9 @@ are bare semver (no leading `v`).
   hand-built pipelines therefore apply the same canonical-origin policy;
   `.trustedInProcess` remains the explicit opt-out for app-created URLs.
 - Flow navigation previews now reject commands when any navigation step fails,
-  discard the partial preview, and report
-  `FlowRejectionReason.navigationExecutionFailed` instead of committing a
-  partially applied flow state.
+  discard the partial preview, and report the refusal through the existing
+  `FlowRejectionReason.middlewareRejected(debugName:)` surface instead of
+  committing a partially applied flow state.
 - Navigation and flow state restoration now validate the complete decoded
   snapshot before replacing live state. Middleware rewrites, invalid paths,
   and partial execution failures leave the previous state unchanged.

@@ -27,10 +27,6 @@ public enum FlowRejectionReason: Sendable, Equatable {
     /// so `FlowStore.path` was rolled back.
     case middlewareRejected(debugName: String?)
 
-    /// The underlying navigation command failed engine validation. Any
-    /// partially previewed state was rolled back.
-    case navigationExecutionFailed
-
     /// `FlowStore.apply(_:)` was called synchronously while the store or one
     /// of its inner authorities was already delivering a mutation event.
     case reentrantApply
@@ -47,9 +43,7 @@ public extension FlowRejectionReason {
             if let debugName {
                 return "Flow intent was rejected by middleware '\(debugName)'."
             }
-            return "Flow intent was rejected by middleware."
-        case .navigationExecutionFailed:
-            return "Flow intent was rejected because navigation execution failed."
+            return "Flow intent was rejected during navigation or middleware execution."
         case .reentrantApply:
             return "Flow plan application was rejected because reentrant apply is not supported."
         }

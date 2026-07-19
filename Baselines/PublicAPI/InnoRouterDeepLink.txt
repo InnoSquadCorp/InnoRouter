@@ -57,7 +57,6 @@ relationship | memberOf | DeepLinkPipeline.init(originPolicy:matcher:authenticat
 relationship | memberOf | DeepLinkRejectionReason.hostNotAllowed(actualHost:) | DeepLinkRejectionReason |  |
 relationship | memberOf | DeepLinkRejectionReason.inputLimitExceeded(_:) | DeepLinkRejectionReason |  |
 relationship | memberOf | DeepLinkRejectionReason.localizedDescription | DeepLinkRejectionReason |  |
-relationship | memberOf | DeepLinkRejectionReason.nonCanonicalOrigin | DeepLinkRejectionReason |  |
 relationship | memberOf | DeepLinkRejectionReason.schemeNotAllowed(actualScheme:) | DeepLinkRejectionReason |  |
 relationship | memberOf | FlowDeepLinkDecision.flowPlan(_:) | FlowDeepLinkDecision |  |
 relationship | memberOf | FlowDeepLinkDecision.pending(_:) | FlowDeepLinkDecision |  |
@@ -114,7 +113,6 @@ symbol | swift.enum.case | DeepLinkOriginPolicy.allowlisted(schemes:hosts:) | De
 symbol | swift.enum.case | DeepLinkOriginPolicy.trustedInProcess | DeepLinkOriginPolicy.trustedInProcess | case trustedInProcess | []
 symbol | swift.enum.case | DeepLinkRejectionReason.hostNotAllowed(actualHost:) | DeepLinkRejectionReason.hostNotAllowed(actualHost:) | case hostNotAllowed(actualHost: String?) | []
 symbol | swift.enum.case | DeepLinkRejectionReason.inputLimitExceeded(_:) | DeepLinkRejectionReason.inputLimitExceeded(_:) | case inputLimitExceeded(DeepLinkInputLimitViolation) | []
-symbol | swift.enum.case | DeepLinkRejectionReason.nonCanonicalOrigin | DeepLinkRejectionReason.nonCanonicalOrigin | case nonCanonicalOrigin | []
 symbol | swift.enum.case | DeepLinkRejectionReason.schemeNotAllowed(actualScheme:) | DeepLinkRejectionReason.schemeNotAllowed(actualScheme:) | case schemeNotAllowed(actualScheme: String?) | []
 symbol | swift.enum.case | FlowDeepLinkDecision.flowPlan(_:) | FlowDeepLinkDecision.flowPlan(_:) | case flowPlan(FlowPlan<R>) | []
 symbol | swift.enum.case | FlowDeepLinkDecision.pending(_:) | FlowDeepLinkDecision.pending(_:) | case pending(FlowPendingDeepLink<R>) | []

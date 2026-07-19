@@ -503,7 +503,7 @@ struct DeepLinkTests {
 
         let decision = pipeline.decide(for: URL(string: urlString)!)
 
-        #expect(decision == .rejected(reason: .nonCanonicalOrigin))
+        #expect(decision == .rejected(reason: .hostNotAllowed(actualHost: "myapp.com")))
     }
 
     @Test("DeepLinkPipeline trusted in-process policy explicitly skips origin checks")

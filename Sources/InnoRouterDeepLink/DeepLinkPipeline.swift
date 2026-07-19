@@ -64,7 +64,6 @@ public enum DeepLinkAuthenticationPolicy<R: Route>: Sendable {
 public enum DeepLinkRejectionReason: Sendable, Equatable {
     case schemeNotAllowed(actualScheme: String?)
     case hostNotAllowed(actualHost: String?)
-    case nonCanonicalOrigin
     case inputLimitExceeded(DeepLinkInputLimitViolation)
 
     public var localizedDescription: String {
@@ -72,9 +71,7 @@ public enum DeepLinkRejectionReason: Sendable, Equatable {
         case .schemeNotAllowed(let actualScheme):
             return "Deep-link scheme is not allowed: \(actualScheme ?? "nil")."
         case .hostNotAllowed(let actualHost):
-            return "Deep-link host is not allowed: \(actualHost ?? "nil")."
-        case .nonCanonicalOrigin:
-            return "Deep-link origin must not contain user information or an explicit port."
+            return "Deep-link origin is not allowed: \(actualHost ?? "nil")."
         case .inputLimitExceeded(let violation):
             return violation.localizedDescription
         }

@@ -90,7 +90,9 @@ struct DeepLinkAdmission<Output: Sendable>: Sendable {
 
         if rejectsNonCanonicalAuthority,
            url.user != nil || url.password != nil || url.port != nil {
-            return .rejected(.nonCanonicalOrigin)
+            // Reuse the 5.x origin rejection surface so existing exhaustive
+            // switches over DeepLinkRejectionReason keep compiling.
+            return .rejected(.hostNotAllowed(actualHost: url.host))
         }
 
         if let allowedSchemes {

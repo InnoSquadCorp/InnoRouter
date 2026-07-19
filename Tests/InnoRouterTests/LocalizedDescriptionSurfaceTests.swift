@@ -23,7 +23,10 @@ struct LocalizedDescriptionSurfaceTests {
     @Test("flow rejection exposes localizedDescription")
     func flowRejectionDescription() {
         #expect(FlowRejectionReason.pushBlockedByModalTail.localizedDescription.contains("modal"))
-        #expect(FlowRejectionReason.navigationExecutionFailed.localizedDescription.contains("failed"))
+        #expect(
+            FlowRejectionReason.middlewareRejected(debugName: nil)
+                .localizedDescription.contains("execution")
+        )
         #expect(FlowRejectionReason.reentrantApply.localizedDescription.contains("reentrant"))
     }
 

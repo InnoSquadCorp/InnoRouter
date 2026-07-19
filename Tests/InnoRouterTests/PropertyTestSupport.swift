@@ -322,7 +322,7 @@ struct FlowModelState: Equatable {
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
             guard let changed = applyNavigationCommand(command) else {
-                return reject(.navigationExecutionFailed)
+                return reject(.middlewareRejected(debugName: nil))
             }
             return FlowStepExpectation(
                 outcome: changed ? .pathChangedLast : .none,
@@ -349,7 +349,7 @@ struct FlowModelState: Equatable {
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
             guard let changed = applyNavigationCommand(command) else {
-                return reject(.navigationExecutionFailed)
+                return reject(.middlewareRejected(debugName: nil))
             }
             return FlowStepExpectation(
                 outcome: changed ? .pathChangedLast : .none,
@@ -390,7 +390,7 @@ struct FlowModelState: Equatable {
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
             guard let changed = applyNavigationCommand(command) else {
-                return reject(.navigationExecutionFailed)
+                return reject(.middlewareRejected(debugName: nil))
             }
             return FlowStepExpectation(
                 outcome: changed ? .pathChangedLast : .none,
@@ -414,7 +414,7 @@ struct FlowModelState: Equatable {
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
             guard let changed = applyNavigationCommand(command) else {
-                return reject(.navigationExecutionFailed)
+                return reject(.middlewareRejected(debugName: nil))
             }
             return FlowStepExpectation(
                 outcome: changed ? .pathChangedLast : .none,
@@ -435,7 +435,7 @@ struct FlowModelState: Equatable {
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
             guard let changed = applyNavigationCommand(command) else {
-                return reject(.navigationExecutionFailed)
+                return reject(.middlewareRejected(debugName: nil))
             }
             return FlowStepExpectation(
                 outcome: changed ? .pathChangedLast : .none,
@@ -455,7 +455,7 @@ struct FlowModelState: Equatable {
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
             guard let changed = applyNavigationCommand(command) else {
-                return reject(.navigationExecutionFailed)
+                return reject(.middlewareRejected(debugName: nil))
             }
             return FlowStepExpectation(
                 outcome: changed ? .pathChangedLast : .none,
@@ -496,7 +496,7 @@ struct FlowModelState: Equatable {
                 return reject(.middlewareRejected(debugName: debugName))
             case .proceed(let command):
                 guard let changed = applyNavigationCommand(command) else {
-                    return reject(.navigationExecutionFailed)
+                    return reject(.middlewareRejected(debugName: nil))
                 }
                 return FlowStepExpectation(
                     outcome: changed ? .pathChangedLast : .none,
@@ -574,7 +574,7 @@ struct FlowModelState: Equatable {
             return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
             guard let navigationChanged = shadow.applyNavigationCommand(command) else {
-                return reject(.navigationExecutionFailed)
+                return reject(.middlewareRejected(debugName: nil))
             }
             let modalResetResult = shadow.previewModalReset(
                 to: modalTail,
@@ -922,10 +922,8 @@ enum NormalizedFlowEvent: Equatable, Hashable {
             case .middlewareRejected(let debugName):
                 hasher.combine(2)
                 hasher.combine(debugName)
-            case .navigationExecutionFailed:
-                hasher.combine(3)
             case .reentrantApply:
-                hasher.combine(4)
+                hasher.combine(3)
             }
         case .pathChanged:
             hasher.combine(5)

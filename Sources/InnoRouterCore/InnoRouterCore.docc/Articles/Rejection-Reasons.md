@@ -80,8 +80,7 @@ modal equivalent.
 |---|---|---|
 | `.pushBlockedByModalTail` | `.push(_)` requested while the flow tail is a `.sheet` / `.cover` step | Dismiss first, or use `.reset(_:)` |
 | `.invalidResetPath` | A `.reset([_])` path violates FlowStore invariants (e.g. multiple modal steps, or a modal not at the tail) | Fix the path before sending |
-| `.middlewareRejected(debugName:)` | A navigation or modal middleware inside the flow cancelled the underlying command; `FlowStore.path` was rolled back | Observe which middleware; surface telemetry |
-| `.navigationExecutionFailed` | The navigation engine rejected a command during atomic flow preview; any partially previewed state was discarded | Inspect the requested intent and current path; retry only after fixing the invalid transition |
+| `.middlewareRejected(debugName:)` | A navigation or modal middleware cancelled the underlying command, or the navigation engine rejected it during atomic preview. A `nil` name identifies an engine-level refusal; `FlowStore.path` is rolled back | Observe a named middleware when present; otherwise inspect the requested intent and current path |
 | `.reentrantApply` | `FlowStore.apply(_:)` was called synchronously while the store was already delivering a mutation event | Schedule `send(.reset(_))` from the callback so the mutation is deferred |
 
 ## Scene (visionOS)
@@ -122,8 +121,7 @@ generated host with a manual host or anchor.
 | Case | When it fires | Typical handling |
 |---|---|---|
 | `.schemeNotAllowed(actualScheme:)` | URL scheme not in `allowedSchemes` | Log, drop the URL silently, or surface a diagnostic |
-| `.hostNotAllowed(actualHost:)` | URL host not in `allowedHosts` | Same |
-| `.nonCanonicalOrigin` | An allowlisted external URL contains user-info or an explicit port | Reject the URL; remove those authority components at the producer rather than weakening the allowlist |
+| `.hostNotAllowed(actualHost:)` | URL host not in `allowedHosts`, or an allowlisted external URL contains user-info or an explicit port | Reject the URL; for non-canonical authority components, fix the producer rather than weakening the allowlist |
 | `.inputLimitExceeded(violation)` | Raw URL length, path segment count, query item count, or decoded component size exceeds `DeepLinkInputLimits` | Reject the input without retrying; adjust limits only when the app intentionally accepts a larger contract |
 
 ### Deep-link effect results

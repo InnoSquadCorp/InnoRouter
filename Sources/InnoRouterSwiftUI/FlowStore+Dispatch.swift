@@ -249,7 +249,9 @@ extension FlowStore {
         if case .cancelled(let cancellation) = journal.result {
             reason = .middlewareRejected(debugName: Self.debugName(from: cancellation))
         } else {
-            reason = .navigationExecutionFailed
+            // Keep the 5.x public rejection enum source-compatible. A nil
+            // participant identifies an engine-level execution refusal.
+            reason = .middlewareRejected(debugName: nil)
         }
 
         if journal.stateAfter == journal.stateBefore {

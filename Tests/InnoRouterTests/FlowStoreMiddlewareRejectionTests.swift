@@ -76,7 +76,7 @@ struct FlowStoreMiddlewareRejectionTests {
 
         #expect(store.path.isEmpty)
         #expect(store.navigationStore.state.path.isEmpty)
-        #expect(rejections.withLock { $0 } == [.navigationExecutionFailed])
+        #expect(rejections.withLock { $0 } == [.middlewareRejected(debugName: nil)])
     }
 
     @Test("navigation middleware partial engine failure rolls preview back atomically")
@@ -109,7 +109,7 @@ struct FlowStoreMiddlewareRejectionTests {
 
         #expect(store.path == [.push(.home)])
         #expect(store.navigationStore.state.path == [.home])
-        #expect(rejections.withLock { $0 } == [.navigationExecutionFailed])
+        #expect(rejections.withLock { $0 } == [.middlewareRejected(debugName: nil)])
     }
 
     @Test("modal middleware cancel rolls back modal tail and emits middlewareRejected")
