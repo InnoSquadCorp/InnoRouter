@@ -56,6 +56,13 @@ extension FlowStore {
         }
 
         if let rejectionReason = plan.rejectionReason {
+            guard let rejectionDiagnosticContext = plan.rejectionDiagnosticContext else {
+                preconditionFailure("FlowMutationPlan rejection is missing diagnostic context.")
+            }
+            emitRejectionDiagnostic(
+                for: intent,
+                context: rejectionDiagnosticContext
+            )
             emitIntentRejected(
                 intent,
                 reason: rejectionReason,

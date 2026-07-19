@@ -12,7 +12,7 @@ extension FlowStore {
     /// Previews a persisted plan and commits it only when middleware leaves
     /// the requested path unchanged.
     func restorePlanAtomically(_ plan: FlowPlan<R>) -> FlowRestorationApplyResult<R> {
-        if let rejection = rejectReentrantApplyIfNeeded() {
+        if let rejection = rejectReentrantApplyIfNeeded(plan) {
             guard case .rejected(_, let reason) = rejection else {
                 preconditionFailure("A reentrant Flow apply must be rejected.")
             }

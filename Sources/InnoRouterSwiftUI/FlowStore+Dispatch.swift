@@ -51,7 +51,11 @@ extension FlowStore {
 
     private func dispatchPush(_ route: R, in context: FlowMutationContext) -> FlowMutationPlan<R> {
         if context.projection.currentPresentation != nil {
-            return .rejected(oldPath: path, reason: .pushBlockedByModalTail)
+            return .rejected(
+                oldPath: path,
+                reason: .pushBlockedByModalTail,
+                diagnosticContext: Self.flowInvariantDiagnostic("push-blocked-by-modal-tail")
+            )
         }
         return dispatchNavigation(.push(route), in: context)
     }
@@ -70,7 +74,11 @@ extension FlowStore {
             command = .pushAll(routes)
         }
         if context.projection.currentPresentation != nil {
-            return .rejected(oldPath: path, reason: .pushBlockedByModalTail)
+            return .rejected(
+                oldPath: path,
+                reason: .pushBlockedByModalTail,
+                diagnosticContext: Self.flowInvariantDiagnostic("push-blocked-by-modal-tail")
+            )
         }
         return dispatchNavigation(command, in: context)
     }
@@ -88,6 +96,7 @@ extension FlowStore {
             return .rejected(
                 oldPath: path,
                 reason: .middlewareRejected(debugName: Self.debugName(from: reason)),
+                diagnosticContext: Self.rejectionDiagnosticContext(from: reason),
                 modalCancellationJournals: [journal]
             )
         }
@@ -145,6 +154,7 @@ extension FlowStore {
             return .rejected(
                 oldPath: path,
                 reason: .middlewareRejected(debugName: Self.debugName(from: reason)),
+                diagnosticContext: Self.rejectionDiagnosticContext(from: reason),
                 modalCancellationJournals: [journal]
             )
         }
@@ -161,6 +171,7 @@ extension FlowStore {
             return .rejected(
                 oldPath: path,
                 reason: .middlewareRejected(debugName: Self.debugName(from: reason)),
+                diagnosticContext: Self.rejectionDiagnosticContext(from: reason),
                 modalCancellationJournals: [journal]
             )
         }
@@ -176,7 +187,11 @@ extension FlowStore {
         do {
             try FlowPlan<R>.validate(steps)
         } catch {
-            return .rejected(oldPath: path, reason: .invalidResetPath)
+            return .rejected(
+                oldPath: path,
+                reason: .invalidResetPath,
+                diagnosticContext: Self.flowInvariantDiagnostic("invalid-reset-path")
+            )
         }
 
         let (pushRoutes, modalTail) = Self.decompose(steps)
@@ -195,6 +210,7 @@ extension FlowStore {
             return .rejected(
                 oldPath: path,
                 reason: .middlewareRejected(debugName: Self.debugName(from: reason)),
+                diagnosticContext: Self.rejectionDiagnosticContext(from: reason),
                 discardedNavigationJournals: [navJournal],
                 discardedModalJournals: discardedJournals,
                 modalCancellationJournals: [cancellationJournal]
@@ -228,7 +244,11 @@ extension FlowStore {
         in context: FlowMutationContext
     ) -> FlowMutationPlan<R> {
         if context.projection.currentPresentation != nil {
-            return .rejected(oldPath: path, reason: .pushBlockedByModalTail)
+            return .rejected(
+                oldPath: path,
+                reason: .pushBlockedByModalTail,
+                diagnosticContext: Self.flowInvariantDiagnostic("push-blocked-by-modal-tail")
+            )
         }
 
         if context.navigationState.path.contains(route) {
@@ -258,6 +278,7 @@ extension FlowStore {
             return .rejected(
                 oldPath: path,
                 reason: reason,
+                diagnosticContext: Self.rejectionDiagnosticContext(from: journal.result),
                 queueCoalescePolicyEligible: queueCoalescePolicyEligible,
                 navigationJournal: journal
             )
@@ -266,6 +287,7 @@ extension FlowStore {
         return .rejected(
             oldPath: path,
             reason: reason,
+            diagnosticContext: Self.rejectionDiagnosticContext(from: journal.result),
             queueCoalescePolicyEligible: queueCoalescePolicyEligible,
             discardedNavigationJournals: [journal]
         )
@@ -307,6 +329,7 @@ extension FlowStore {
             return FlowMutationPlan(
                 oldPath: path,
                 rejectionReason: .pushBlockedByModalTail,
+                rejectionDiagnosticContext: Self.flowInvariantDiagnostic("push-blocked-by-promoted-modal"),
                 queueCoalescePolicyEligible: false,
                 navigationJournal: nil,
                 discardedNavigationJournals: [],
@@ -324,6 +347,7 @@ extension FlowStore {
         return FlowMutationPlan(
             oldPath: path,
             rejectionReason: innerPlan.rejectionReason,
+            rejectionDiagnosticContext: innerPlan.rejectionDiagnosticContext,
             queueCoalescePolicyEligible: innerPlan.queueCoalescePolicyEligible,
             navigationJournal: innerPlan.navigationJournal,
             discardedNavigationJournals: innerPlan.discardedNavigationJournals,

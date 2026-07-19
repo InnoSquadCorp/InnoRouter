@@ -63,6 +63,9 @@ public enum DeepLinkAuthenticationPolicy<R: Route>: Sendable {
 
 public enum DeepLinkRejectionReason: Sendable, Equatable {
     case schemeNotAllowed(actualScheme: String?)
+    /// The host is not allowlisted, or an allowlisted external URL has a
+    /// non-canonical authority containing user information or an explicit port.
+    /// The shared case preserves exhaustive-switch compatibility in 5.x.
     case hostNotAllowed(actualHost: String?)
     case inputLimitExceeded(DeepLinkInputLimitViolation)
 

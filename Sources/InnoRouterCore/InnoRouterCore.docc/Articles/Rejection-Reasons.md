@@ -80,7 +80,7 @@ modal equivalent.
 |---|---|---|
 | `.pushBlockedByModalTail` | `.push(_)` requested while the flow tail is a `.sheet` / `.cover` step | Dismiss first, or use `.reset(_:)` |
 | `.invalidResetPath` | A `.reset([_])` path violates FlowStore invariants (e.g. multiple modal steps, or a modal not at the tail) | Fix the path before sending |
-| `.middlewareRejected(debugName:)` | A navigation or modal middleware cancelled the underlying command, or the navigation engine rejected it during atomic preview. A `nil` name identifies an engine-level refusal; `FlowStore.path` is rolled back | Observe a named middleware when present; otherwise inspect the requested intent and current path |
+| `.middlewareRejected(debugName:)` | A navigation or modal middleware cancelled the underlying command, or the navigation engine rejected it during atomic preview. A `nil` name can mean an anonymous middleware cancellation or an engine-level refusal; `FlowStore.path` is rolled back | Observe a named middleware when present; macro-first hosts log the internal rejection origin, otherwise inspect the requested intent and current path |
 | `.reentrantApply` | `FlowStore.apply(_:)` was called synchronously while the store was already delivering a mutation event | Schedule `send(.reset(_))` from the callback so the mutation is deferred |
 
 ## Scene (visionOS)

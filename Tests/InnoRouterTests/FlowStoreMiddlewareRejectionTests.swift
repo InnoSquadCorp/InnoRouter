@@ -56,27 +56,62 @@ struct FlowStoreMiddlewareRejectionTests {
     @MainActor
     func navigationMiddlewareEngineFailureRejects() {
         let rejections = Mutex<[FlowRejectionReason]>([])
+        let diagnostics = Mutex<[FlowRejectionDiagnosticContext]>([])
         let middleware = AnyNavigationMiddleware<FlowMiddlewareRoute>(
             willExecute: { command, _ in
                 guard case .push = command else { return .proceed(command) }
                 return .proceed(.pop)
             }
         )
-        let store = FlowStore<FlowMiddlewareRoute>(
-            configuration: .init(
-                navigation: .init(middlewares: [.init(middleware: middleware)]),
-                onEvent: { event in
-                    guard case .intentRejected(_, let reason) = event else { return }
-                    rejections.withLock { $0.append(reason) }
-                }
-            )
+        var configuration = FlowStoreConfiguration<FlowMiddlewareRoute>(
+            navigation: .init(middlewares: [.init(middleware: middleware)]),
+            onEvent: { event in
+                guard case .intentRejected(_, let reason) = event else { return }
+                rejections.withLock { $0.append(reason) }
+            }
         )
+        configuration.rejectionDiagnosticHandler = { _, context in
+            diagnostics.withLock { $0.append(context) }
+        }
+        let store = FlowStore<FlowMiddlewareRoute>(configuration: configuration)
 
         store.send(.push(.home))
 
         #expect(store.path.isEmpty)
         #expect(store.navigationStore.state.path.isEmpty)
         #expect(rejections.withLock { $0 } == [.middlewareRejected(debugName: nil)])
+        let diagnostic = diagnostics.withLock { $0.first }
+        #expect(diagnostic?.origin == .navigationEngine)
+        #expect(diagnostic?.detail.contains("emptyStack") == true)
+    }
+
+    @Test("anonymous middleware cancellation stays distinct from an engine failure in diagnostics")
+    @MainActor
+    func anonymousMiddlewareCancellationRetainsDiagnosticOrigin() {
+        let rejections = Mutex<[FlowRejectionReason]>([])
+        let diagnostics = Mutex<[FlowRejectionDiagnosticContext]>([])
+        let middleware = AnyNavigationMiddleware<FlowMiddlewareRoute>(
+            willExecute: { command, _ in
+                .cancel(.middleware(debugName: nil, command: command))
+            }
+        )
+        var configuration = FlowStoreConfiguration<FlowMiddlewareRoute>(
+            navigation: .init(middlewares: [.init(middleware: middleware)]),
+            onEvent: { event in
+                guard case .intentRejected(_, let reason) = event else { return }
+                rejections.withLock { $0.append(reason) }
+            }
+        )
+        configuration.rejectionDiagnosticHandler = { _, context in
+            diagnostics.withLock { $0.append(context) }
+        }
+        let store = FlowStore<FlowMiddlewareRoute>(configuration: configuration)
+
+        store.send(.push(.home))
+
+        #expect(rejections.withLock { $0 } == [.middlewareRejected(debugName: nil)])
+        #expect(diagnostics.withLock { $0.map(\.origin) } == [.navigationCancellation])
+        #expect(diagnostics.withLock { $0.first?.detail.contains("middleware") } == true)
     }
 
     @Test("navigation middleware partial engine failure rolls preview back atomically")

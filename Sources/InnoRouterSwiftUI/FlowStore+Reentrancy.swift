@@ -38,13 +38,22 @@ extension FlowStore {
     /// mutation completed before it actually ran. Reject it while any Flow or
     /// inner-store observer is synchronously delivering an event; callers that
     /// need a reentrant reset can use `send(.reset(...))`, which is queued.
-    internal func rejectReentrantApplyIfNeeded() -> FlowPlanApplyResult<R>? {
+    internal func rejectReentrantApplyIfNeeded(
+        _ plan: FlowPlan<R>
+    ) -> FlowPlanApplyResult<R>? {
         guard reentrancy.isApplyingFlowMutation
             || reentrancy.isApplyingInternalMutation
             || reentrancy.isObservingInnerStore
             || reentrancy.isDispatchingFlowEvents
         else { return nil }
 
+        emitRejectionDiagnostic(
+            for: .reset(plan.steps),
+            context: .init(
+                origin: .reentrantApply,
+                detail: "FlowStore.apply was invoked during synchronous event delivery."
+            )
+        )
         return .rejected(currentPath: path, reason: .reentrantApply)
     }
 

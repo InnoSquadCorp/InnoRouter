@@ -107,6 +107,35 @@ extension FlowStore {
         return debugName(from: reason)
     }
 
+    static func flowInvariantDiagnostic(_ detail: String) -> FlowRejectionDiagnosticContext {
+        FlowRejectionDiagnosticContext(origin: .flowInvariant, detail: detail)
+    }
+
+    static func rejectionDiagnosticContext(
+        from reason: ModalCancellationReason<R>
+    ) -> FlowRejectionDiagnosticContext {
+        FlowRejectionDiagnosticContext(
+            origin: .modalCancellation,
+            detail: String(describing: reason)
+        )
+    }
+
+    static func rejectionDiagnosticContext(
+        from result: NavigationResult<R>
+    ) -> FlowRejectionDiagnosticContext {
+        let origin: FlowRejectionDiagnosticContext.Origin
+        switch result {
+        case .cancelled:
+            origin = .navigationCancellation
+        default:
+            origin = .navigationEngine
+        }
+        return FlowRejectionDiagnosticContext(
+            origin: origin,
+            detail: String(describing: result)
+        )
+    }
+
     static func traceOutcome(
         for result: FlowPlanApplyResult<R>
     ) -> String {

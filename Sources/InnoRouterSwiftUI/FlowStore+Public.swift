@@ -49,7 +49,7 @@ extension FlowStore {
     /// event sequence has finished delivery.
     @discardableResult
     public func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> {
-        if let rejection = rejectReentrantApplyIfNeeded() {
+        if let rejection = rejectReentrantApplyIfNeeded(plan) {
             return rejection
         }
         return InternalExecutionTrace.withSpan(

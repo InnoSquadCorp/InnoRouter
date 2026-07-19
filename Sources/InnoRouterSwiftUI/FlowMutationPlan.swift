@@ -3,6 +3,7 @@ import InnoRouterCore
 struct FlowMutationPlan<R: Route> {
     let oldPath: [RouteStep<R>]
     let rejectionReason: FlowRejectionReason?
+    let rejectionDiagnosticContext: FlowRejectionDiagnosticContext?
     let queueCoalescePolicyEligible: Bool
     let navigationJournal: NavigationExecutionJournal<R>?
     let discardedNavigationJournals: [NavigationExecutionJournal<R>]
@@ -13,6 +14,7 @@ struct FlowMutationPlan<R: Route> {
     static func rejected(
         oldPath: [RouteStep<R>],
         reason: FlowRejectionReason,
+        diagnosticContext: FlowRejectionDiagnosticContext,
         queueCoalescePolicyEligible: Bool = false,
         navigationJournal: NavigationExecutionJournal<R>? = nil,
         discardedNavigationJournals: [NavigationExecutionJournal<R>] = [],
@@ -23,6 +25,7 @@ struct FlowMutationPlan<R: Route> {
         Self(
             oldPath: oldPath,
             rejectionReason: reason,
+            rejectionDiagnosticContext: diagnosticContext,
             queueCoalescePolicyEligible: queueCoalescePolicyEligible,
             navigationJournal: navigationJournal,
             discardedNavigationJournals: discardedNavigationJournals,
@@ -40,6 +43,7 @@ struct FlowMutationPlan<R: Route> {
         Self(
             oldPath: oldPath,
             rejectionReason: nil,
+            rejectionDiagnosticContext: nil,
             queueCoalescePolicyEligible: false,
             navigationJournal: navigationJournal,
             discardedNavigationJournals: [],

@@ -17,21 +17,18 @@ extension FlowStoreConfiguration {
     @MainActor
     func withMacroFirstDiagnostics(hostName: String) -> Self {
         var result = self
-        let userOnEvent = onEvent
+        let existingDiagnosticHandler = rejectionDiagnosticHandler
 
-        result.onEvent = { event in
-            userOnEvent?(event)
-
-            guard case .intentRejected(let intent, let reason) = event else {
-                return
-            }
+        result.rejectionDiagnosticHandler = { intent, context in
+            existingDiagnosticHandler?(intent, context)
 
             macroFirstFlowLogger.warning(
                 """
                 \(hostName, privacy: .public) rejected a flow intent. \
                 route=\(String(reflecting: R.self), privacy: .private(mask: .hash)) \
                 intent=\(String(describing: intent), privacy: .private(mask: .hash)) \
-                reason=\(reason.localizedDescription, privacy: .private(mask: .hash))
+                origin=\(context.origin.rawValue, privacy: .public) \
+                detail=\(context.detail, privacy: .private(mask: .hash))
                 """
             )
         }

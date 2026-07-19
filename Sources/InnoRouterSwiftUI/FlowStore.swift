@@ -51,6 +51,7 @@ public final class FlowStore<R: Route> {
     private let link: FlowStoreLink<R>
     private let broadcaster: EventBroadcaster<FlowEvent<R>>
     private let eventDispatcher: SerializedEventDispatcher<FlowEvent<R>>
+    private let rejectionDiagnosticHandler: FlowRejectionDiagnosticHandler<R>?
     /// Reentrancy and event-ordering bookkeeping: buffered mutation frames,
     /// dispatch/mutation depth counters, the inner-observation source stack,
     /// and the FIFO reentrant-intent queue all live behind this boundary.
@@ -261,6 +262,7 @@ public final class FlowStore<R: Route> {
         self.link = link
         self.broadcaster = broadcaster
         self.eventDispatcher = eventDispatcher
+        self.rejectionDiagnosticHandler = configuration.rejectionDiagnosticHandler
         self.traceRecorder = nil
         self.link.owner = self
         reentrancy.currentPath = { [weak self] in self?.path ?? [] }
@@ -320,6 +322,13 @@ public final class FlowStore<R: Route> {
 
     internal func emitFlowEvents(_ events: [FlowEvent<R>]) {
         reentrancy.bufferOrDispatch(events)
+    }
+
+    internal func emitRejectionDiagnostic(
+        for intent: FlowIntent<R>,
+        context: FlowRejectionDiagnosticContext
+    ) {
+        rejectionDiagnosticHandler?(intent, context)
     }
 
     internal func assignPath(_ path: [RouteStep<R>]) {

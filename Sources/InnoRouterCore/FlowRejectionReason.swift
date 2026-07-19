@@ -23,8 +23,10 @@ public enum FlowRejectionReason: Sendable, Equatable {
     /// modal step, or a modal step that is not the final element).
     case invalidResetPath
 
-    /// A navigation or modal middleware cancelled the underlying command,
-    /// so `FlowStore.path` was rolled back.
+    /// A navigation or modal middleware cancelled the underlying command, or
+    /// the navigation engine rejected it during atomic preview, so
+    /// `FlowStore.path` was rolled back. A `nil` name can mean either an
+    /// anonymous middleware cancellation or an engine-level refusal.
     case middlewareRejected(debugName: String?)
 
     /// `FlowStore.apply(_:)` was called synchronously while the store or one

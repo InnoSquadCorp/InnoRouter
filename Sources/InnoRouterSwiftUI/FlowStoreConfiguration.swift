@@ -12,6 +12,8 @@ import InnoRouterCore
 /// other parameter — see ``NavigationStoreConfiguration`` for the
 /// same pattern.
 public struct FlowStoreConfiguration<R: Route>: Sendable {
+    var rejectionDiagnosticHandler: FlowRejectionDiagnosticHandler<R>?
+
     /// Configuration applied to the inner `NavigationStore`.
     public var navigation: NavigationStoreConfiguration<R>
     /// Configuration applied to the inner `ModalStore`.
@@ -49,6 +51,7 @@ public struct FlowStoreConfiguration<R: Route>: Sendable {
         eventBufferingPolicy: EventBufferingPolicy = .default,
         queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve
     ) {
+        self.rejectionDiagnosticHandler = nil
         self.navigation = navigation
         self.modal = modal
         self.onEvent = onEvent
