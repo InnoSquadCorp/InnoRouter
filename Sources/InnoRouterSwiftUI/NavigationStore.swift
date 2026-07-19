@@ -226,7 +226,11 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
     @discardableResult
     public func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> {
-        eventDispatcher.withExecutionBoundary {
+        if let rejection = reentrantMiddlewareRejection(operation: "execute") {
+            return rejection
+        }
+
+        return eventDispatcher.withExecutionBoundary {
             InternalExecutionTrace.withSpan(
                 domain: .navigation,
                 operation: "execute",
@@ -245,7 +249,19 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         _ commands: [NavigationCommand<R>],
         stopOnFailure: Bool = false
     ) -> NavigationBatchResult<R> {
-        eventDispatcher.withExecutionBoundary {
+        if let rejection = reentrantMiddlewareRejection(operation: "executeBatch") {
+            let snapshot = state
+            return NavigationBatchResult(
+                requestedCommands: commands,
+                executedCommands: [],
+                results: commands.map { _ in rejection },
+                stateBefore: snapshot,
+                stateAfter: snapshot,
+                hasStoppedOnFailure: false
+            )
+        }
+
+        return eventDispatcher.withExecutionBoundary {
             InternalExecutionTrace.withSpan(
                 domain: .navigation,
                 operation: "executeBatch",
@@ -298,7 +314,20 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     public func executeTransaction(
         _ commands: [NavigationCommand<R>]
     ) -> NavigationTransactionResult<R> {
-        eventDispatcher.withExecutionBoundary {
+        if let rejection = reentrantMiddlewareRejection(operation: "executeTransaction") {
+            let snapshot = state
+            return NavigationTransactionResult(
+                requestedCommands: commands,
+                executedCommands: [],
+                results: commands.isEmpty ? [] : [rejection],
+                stateBefore: snapshot,
+                stateAfter: snapshot,
+                failureIndex: commands.isEmpty ? nil : 0,
+                isCommitted: false
+            )
+        }
+
+        return eventDispatcher.withExecutionBoundary {
             InternalExecutionTrace.withSpan(
                 domain: .navigation,
                 operation: "executeTransaction",
@@ -438,11 +467,13 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             )
         }
 
+        var workingState = state
         let outcome = executeSingle(
             command,
-            state: &state,
+            state: &workingState,
             shouldNotifyOnChange: shouldNotifyOnChange
         )
+        state = workingState
         for event in outcome.observationEvents {
             emitObservationEvent(event)
         }

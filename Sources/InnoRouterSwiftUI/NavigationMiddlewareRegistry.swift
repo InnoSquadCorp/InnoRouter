@@ -52,6 +52,8 @@ final class NavigationMiddlewareRegistry<R: Route> {
 
     private var entries: [Entry]
     private let telemetrySink: NavigationStoreTelemetrySink<R>
+    private var callbackDepth = 0
+    private var callbackState: RouteStack<R>?
 
     init(
         registrations: [NavigationMiddlewareRegistration<R>],
@@ -63,6 +65,14 @@ final class NavigationMiddlewareRegistry<R: Route> {
 
     var metadata: [NavigationMiddlewareMetadata] {
         entries.map(\.metadata)
+    }
+
+    var isInvokingCallback: Bool {
+        callbackDepth > 0
+    }
+
+    var activeCallbackState: RouteStack<R>? {
+        callbackState
     }
 
     @discardableResult
@@ -134,7 +144,9 @@ final class NavigationMiddlewareRegistry<R: Route> {
         participants.reserveCapacity(entries.count)
 
         for entry in entries {
-            let interception = entry.middleware.willExecute(currentCommand, state: state)
+            let interception = withCallbackBoundary(state: state) {
+                entry.middleware.willExecute(currentCommand, state: state)
+            }
             // Append before branching on the interception so a
             // middleware that cancels here is still recorded as a
             // participant and receives its didExecute/discard
@@ -169,7 +181,9 @@ final class NavigationMiddlewareRegistry<R: Route> {
     ) -> NavigationResult<R> {
         var currentResult = result
         for middleware in participants {
-            currentResult = middleware.didExecute(command, result: currentResult, state: state)
+            currentResult = withCallbackBoundary(state: state) {
+                middleware.didExecute(command, result: currentResult, state: state)
+            }
         }
         return currentResult
     }
@@ -181,8 +195,25 @@ final class NavigationMiddlewareRegistry<R: Route> {
         participants: [AnyNavigationMiddleware<R>]
     ) {
         for middleware in participants {
-            middleware.discardExecution(command, result: result, state: state)
+            withCallbackBoundary(state: state) {
+                middleware.discardExecution(command, result: result, state: state)
+            }
         }
+    }
+
+    private func withCallbackBoundary<T>(
+        state: RouteStack<R>,
+        _ operation: () -> T
+    ) -> T {
+        let previousState = callbackState
+        callbackDepth += 1
+        callbackState = state
+        defer {
+            callbackState = previousState
+            callbackDepth -= 1
+            precondition(callbackDepth >= 0, "Navigation middleware callback depth underflowed.")
+        }
+        return operation()
     }
 
     private func resolveCancellationReason(

@@ -18,6 +18,10 @@ extension NavigationStore {
     /// store. The implementation defers to ``commands(for:)``
     /// for the projection so the two surfaces cannot drift.
     public func send(_ intent: NavigationIntent<R>) {
+        guard reentrantMiddlewareRejection(operation: "send") == nil else {
+            return
+        }
+
         let plan = commands(for: intent)
         switch plan.count {
         case 0:
@@ -56,6 +60,8 @@ extension NavigationStore {
     /// implemented in terms of this projection so the two surfaces
     /// cannot drift.
     public func commands(for intent: NavigationIntent<R>) -> [NavigationCommand<R>] {
+        let path = middlewareRegistry.activeCallbackState?.path ?? state.path
+
         switch intent {
         case .go(let route):
             return [.push(route)]
@@ -71,7 +77,7 @@ extension NavigationStore {
         case .back:
             return [.pop]
         case .backBy(let count):
-            if count > 0, count == state.path.count {
+            if count > 0, count == path.count {
                 return [.popToRoot]
             } else {
                 return [.popCount(count)]
@@ -83,13 +89,13 @@ extension NavigationStore {
         case .replaceStack(let routes):
             return [.replace(routes)]
         case .backOrPush(let route):
-            if state.path.contains(route) {
+            if path.contains(route) {
                 return [.popTo(route)]
             } else {
                 return [.push(route)]
             }
         case .pushUniqueRoot(let route):
-            if state.path.contains(route) {
+            if path.contains(route) {
                 return []
             } else {
                 return [.push(route)]
