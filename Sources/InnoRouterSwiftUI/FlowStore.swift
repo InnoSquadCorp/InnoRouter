@@ -273,8 +273,8 @@ public final class FlowStore<R: Route> {
     /// Creates a new flow store after validating the supplied initial path.
     ///
     /// The default ``init(initial:configuration:)`` remains permissive for
-    /// source compatibility and coerces invalid initial paths to an empty
-    /// state. Use this initializer when the path comes from an external
+    /// source compatibility, logs a warning, and coerces invalid initial paths
+    /// to an empty state. Use this initializer when the path comes from an external
     /// source such as state restoration, a deep-link handoff, or a network
     /// payload and invalid input should be reported immediately.
     ///

@@ -1,4 +1,11 @@
+import OSLog
+
 import InnoRouterCore
+
+private let flowStoreInitialPathLogger = Logger(
+    subsystem: "io.innosquad.innorouter",
+    category: "flow-store-initial-path"
+)
 
 // MARK: - Path validation, decomposition, and trace helpers
 //
@@ -11,7 +18,32 @@ import InnoRouterCore
 extension FlowStore {
 
     static func validatedInitial(_ steps: [RouteStep<R>]) -> [RouteStep<R>] {
-        isValidPath(steps) ? steps : []
+        validatedInitial(steps) { error in
+            flowStoreInitialPathLogger.warning(
+                """
+                FlowStore coerced an invalid initial path to empty. \
+                route=\(String(reflecting: R.self), privacy: .private(mask: .hash)) \
+                violation=\(String(describing: error), privacy: .public). \
+                Use FlowStore(validating:configuration:) for external input.
+                """
+            )
+        }
+    }
+
+    static func validatedInitial(
+        _ steps: [RouteStep<R>],
+        onInvalid: (FlowPlanValidationError) -> Void
+    ) -> [RouteStep<R>] {
+        do {
+            try FlowPlan<R>.validate(steps)
+            return steps
+        } catch let error as FlowPlanValidationError {
+            onInvalid(error)
+            return []
+        } catch {
+            assertionFailure("Unexpected FlowPlan validation error: \(error)")
+            return []
+        }
     }
 
     static func isValidPath(_ steps: [RouteStep<R>]) -> Bool {

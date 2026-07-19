@@ -1098,7 +1098,8 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
   `FlowEvent`를 받는 하나의 `onEvent`를 추가합니다. 이 콜백은 flow-level path/rejection뿐 아니라
   `.navigation(...)` / `.modal(...)`로 감싼 inner-store 이벤트도 받습니다.
 - `FlowStore(validating:configuration:)`는 복원된 또는 외부에서 공급된 `[RouteStep]` 값을 위한
-  throwing initializer입니다. 호환용 `initial:` initializer는 여전히 유효하지 않은 입력을 빈 path로 강제합니다.
+  throwing initializer입니다. 호환용 `initial:` initializer는 경고를 기록한 뒤 유효하지 않은
+  입력을 빈 path로 강제합니다.
 - `FlowRejectionReason`은 실행 중 거부 사유를 노출합니다
   (`pushBlockedByModalTail`, `invalidResetPath`, `middlewareRejected(debugName:)`,
   `reentrantApply`).

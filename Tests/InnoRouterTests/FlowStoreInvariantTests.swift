@@ -167,6 +167,25 @@ struct FlowStoreInvariantTests {
         #expect(store.path.isEmpty)
     }
 
+    @Test("invalid initial path emits its typed validation diagnostic")
+    @MainActor
+    func invalidInitialPathEmitsTypedDiagnostic() {
+        var diagnostics: [FlowPlanValidationError] = []
+
+        let modalNotAtTail = FlowStore<FlowRoute>.validatedInitial(
+            [.sheet(.login), .push(.welcome)],
+            onInvalid: { diagnostics.append($0) }
+        )
+        let tooManyModals = FlowStore<FlowRoute>.validatedInitial(
+            [.sheet(.login), .cover(.terms)],
+            onInvalid: { diagnostics.append($0) }
+        )
+
+        #expect(modalNotAtTail.isEmpty)
+        #expect(tooManyModals.isEmpty)
+        #expect(diagnostics == [.modalNotAtTail, .tooManyModals])
+    }
+
     @Test("validating initial path throws instead of silently coercing invalid input")
     @MainActor
     func validatingInitialPathThrowsOnInvalidInput() {

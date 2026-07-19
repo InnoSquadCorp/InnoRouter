@@ -1168,8 +1168,8 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
   `.navigation(...)` / `.modal(...)` inner-store events.
 - `FlowStore(validating:configuration:)` is the throwing initializer
   for restored or externally supplied `[RouteStep]` values; the
-  compatibility `initial:` initializer still coerces invalid input to
-  an empty path.
+  compatibility `initial:` initializer logs a warning and still coerces
+  invalid input to an empty path.
 - `FlowRejectionReason` surfaces runtime rejection reasons
   (`pushBlockedByModalTail`, `invalidResetPath`,
   `middlewareRejected(debugName:)`, `reentrantApply`).

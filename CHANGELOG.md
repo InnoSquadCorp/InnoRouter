@@ -20,6 +20,9 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- The source-compatible `FlowStore(initial:)` fallback now emits a typed-reason
+  OSLog warning before coercing an invalid initial path to empty. External
+  inputs should continue to use the throwing `FlowStore(validating:)` path.
 - `StateRestorationAdapter` now reapplies the destination
   `NavigationStore`'s one-shot `RouteStackValidator` before adopting a decoded
   stack, preserving the previous state and reporting a restoration failure for
