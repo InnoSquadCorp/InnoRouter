@@ -86,12 +86,28 @@ Every gate above runs under one of the workflows in `.github/workflows/`:
 | `principle-gates.yml` | 1–12 plus public-API / `Unreleased` changelog sync (every PR / push to `main` and `develop`) |
 | `platforms.yml` | 13 (all eight public products plus the macro-first consumer on every Apple platform), a visionOS Spatial consumer build, plus tvOS, watchOS, and visionOS runtime tests with minimum executed-test counts |
 | `docs-ci.yml` | 2 (DocC build validation) |
-| `coverage.yml` | 1 (with coverage instrumentation) |
+| `coverage.yml` | 1 with coverage instrumentation, a repository-owned 85% line floor, and Codecov relative project/patch checks |
 | `performance-smoke.yml` | 9 (perf regression detection) |
 | `release.yml` | verifies the exact tag and changelog, reruns 1–12, calls the reusable `platforms` workflow, then serially merges versioned DocC into the required existing Pages site and publishes the GitHub Release; `/latest/` advances monotonically by GA SemVer |
 
 Tag format is bare semver (`5.0.0`) — leading-`v` or prefixed semver tags
 are rejected by the regex in `release.yml`.
+
+### Coverage contract
+
+`coverage.yml` generates an LCOV report for production sources, validates the
+report structure, and fails below **85% line coverage** before any network
+upload. Codecov then applies the relative project and patch rules in
+`.github/codecov.yml`; an upload error also fails the workflow so a missing
+external status cannot silently bypass the repository-owned floor.
+
+After running `swift test --enable-code-coverage --jobs 2` and exporting LCOV
+with the workflow command, reproduce the deterministic checks locally with:
+
+```bash
+./scripts/test-validate-coverage-report.sh
+./scripts/validate-coverage-report.py coverage.lcov --minimum-line-coverage 85
+```
 
 ## When a gate fails
 

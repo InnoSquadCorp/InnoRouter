@@ -74,14 +74,21 @@ jobs:
             "${LLVM_COV_ARGS[@]}" \
             -instr-profile "${PROF_DATA}" \
             -format=lcov \
-            -ignore-filename-regex='Tests|\.build|Examples|ExamplesSmoke' \
+            -ignore-filename-regex='Tests|\.build|Examples|ExamplesSmoke|InternalExecutionTrace\.swift|Sources/[^/]*FailFastProbe/' \
             > coverage.lcov
           wc -l coverage.lcov
+
+      - name: Validate coverage floor
+        run: |
+          ./scripts/test-validate-coverage-report.sh
+          ./scripts/validate-coverage-report.py \
+            coverage.lcov \
+            --minimum-line-coverage 85
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
         with:
           files: ./coverage.lcov
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
           verbose: true
