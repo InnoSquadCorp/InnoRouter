@@ -198,7 +198,8 @@ public struct SceneRouterActions<R: Route>: Sendable {
     ///
     /// Immersive spaces are intentionally dismissed through
     /// ``dismissImmersive()`` because SwiftUI dismisses the active immersive
-    /// space rather than a presentation identity.
+    /// space rather than a presentation identity. Passing an immersive handle
+    /// is rejected through the scene store's event stream.
     @MainActor
     public func dismissWindow(_ presentation: ScenePresentation<R>) {
         guard let authority = authority(action: "dismissWindow(_:)") else {

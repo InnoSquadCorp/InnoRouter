@@ -152,11 +152,11 @@ public final class SceneStore<R: Route> {
     }
 
     /// Requests that the host dismiss the specific window instance.
+    ///
+    /// Passing an immersive presentation is rejected through ``events``
+    /// with ``SceneRejectionReason/sceneDeclarationMismatch``. Use
+    /// ``dismissImmersive()`` for immersive spaces.
     public func dismissWindow(_ presentation: ScenePresentation<R>) {
-        precondition(
-            presentation.isWindowLike,
-            "SceneStore.dismissWindow expects a window or volumetric presentation."
-        )
         applyRequestMutation {
             $0.requestDismissWindow(presentation)
         }

@@ -184,6 +184,19 @@ struct SceneStoreStateTests {
         #expect(state.pendingIntent == nil)
     }
 
+    @Test("dismissWindow rejects an immersive handle without mutating scene state")
+    func dismissWindowRejectsImmersivePresentation() {
+        var state = SceneStoreState<SceneTestRoute>()
+        let immersive = theatrePresentation()
+
+        state.attach(immersive)
+        let events = state.requestDismissWindow(immersive)
+
+        #expect(events == [.rejected(.dismissWindow(immersive), reason: .sceneDeclarationMismatch)])
+        #expect(state.currentScene == immersive)
+        #expect(state.pendingIntent == nil)
+    }
+
     @Test("duplicate window opens queue independently before claim")
     func duplicateWindowOpensQueueIndependently() throws {
         var state = SceneStoreState<SceneTestRoute>()

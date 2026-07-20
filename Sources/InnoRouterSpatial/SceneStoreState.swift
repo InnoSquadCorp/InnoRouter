@@ -109,12 +109,11 @@ internal struct SceneStoreState<R: Route>: Equatable {
     internal mutating func requestDismissWindow(
         _ presentation: ScenePresentation<R>
     ) -> [SceneEvent<R>] {
-        precondition(
-            presentation.isWindowLike,
-            "SceneStoreState.requestDismissWindow expects a window or volumetric presentation."
-        )
-
         let intent = SceneIntent<R>.dismissWindow(presentation)
+        guard presentation.isWindowLike else {
+            return [.rejected(intent, reason: .sceneDeclarationMismatch)]
+        }
+
         if queuedRequests.contains(where: { $0.intent == intent }) {
             return []
         }
