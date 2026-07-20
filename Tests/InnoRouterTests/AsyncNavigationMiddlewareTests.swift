@@ -49,6 +49,50 @@ private struct RewritingAsyncMiddleware: AsyncNavigationMiddleware {
     }
 }
 
+private actor AsyncMiddlewareGate {
+    private var didEnter = false
+    private var entryWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseContinuation: CheckedContinuation<Void, Never>?
+
+    func suspend() async {
+        await withCheckedContinuation { continuation in
+            releaseContinuation = continuation
+            didEnter = true
+
+            let waiters = entryWaiters
+            entryWaiters.removeAll()
+            for waiter in waiters {
+                waiter.resume()
+            }
+        }
+    }
+
+    func waitUntilEntered() async {
+        guard !didEnter else { return }
+        await withCheckedContinuation { continuation in
+            entryWaiters.append(continuation)
+        }
+    }
+
+    func release() {
+        releaseContinuation?.resume()
+        releaseContinuation = nil
+    }
+}
+
+private struct SuspendingAsyncMiddleware: AsyncNavigationMiddleware {
+    typealias RouteType = AsyncRoute
+    let gate: AsyncMiddlewareGate
+
+    func willExecute(
+        _ command: NavigationCommand<AsyncRoute>,
+        state: RouteStack<AsyncRoute>
+    ) async -> NavigationInterception<AsyncRoute> {
+        await gate.suspend()
+        return .proceed(command)
+    }
+}
+
 @Suite("AsyncNavigationMiddlewareExecutor")
 @MainActor
 struct AsyncNavigationMiddlewareTests {
@@ -97,6 +141,28 @@ struct AsyncNavigationMiddlewareTests {
 
         #expect(result.isSuccess)
         #expect(store.state.path == [.detail(42)])
+    }
+
+    @Test("a command invalidated while async middleware is suspended is rejected as stale")
+    func suspendedMiddleware_revalidatesBeforeExecution() async {
+        let store = NavigationStore<AsyncRoute>()
+        _ = store.execute(.push(.home))
+
+        let gate = AsyncMiddlewareGate()
+        let executor = AsyncNavigationMiddlewareExecutor(store: store)
+        executor.add(SuspendingAsyncMiddleware(gate: gate))
+
+        let execution = Task { @MainActor in
+            await executor.execute(.pop)
+        }
+
+        await gate.waitUntilEntered()
+        _ = store.execute(.pop)
+        await gate.release()
+
+        let result = await execution.value
+        #expect(result == .cancelled(.staleAfterPrepare(command: .pop)))
+        #expect(store.state.path.isEmpty)
     }
 
     // MARK: - Synchronous engine path is untouched

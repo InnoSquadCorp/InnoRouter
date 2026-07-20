@@ -19,10 +19,12 @@ import InnoRouterCore
 /// 2. Stops the chain on the first
 ///    ``NavigationInterception/cancel(_:)`` and surfaces the
 ///    typed cancellation as the final result.
-/// 3. Calls `store.execute(_:)` synchronously with the resulting
+/// 3. Revalidates the resulting command against the latest store
+///    state after every async suspension has completed.
+/// 4. Calls `store.execute(_:)` synchronously with the resulting
 ///    command — synchronous middleware on the store still runs
 ///    inside that call.
-/// 4. Runs every registered async `didExecute` in reverse order so
+/// 5. Runs every registered async `didExecute` in reverse order so
 ///    fold rules compose intuitively.
 ///
 /// Adopters use this for policies that genuinely need a
@@ -65,6 +67,10 @@ public final class AsyncNavigationMiddlewareExecutor<R: Route> {
             case .cancel(let reason):
                 return .cancelled(reason)
             }
+        }
+
+        guard current.canExecute(on: store.state) else {
+            return .cancelled(.staleAfterPrepare(command: current))
         }
 
         var result = store.execute(current)
