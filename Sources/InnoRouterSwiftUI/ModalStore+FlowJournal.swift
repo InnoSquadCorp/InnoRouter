@@ -3,7 +3,7 @@ import InnoRouterCore
 @MainActor
 extension ModalStore {
     var flowStateSnapshot: ModalExecutionState<M> {
-        Self.makeSnapshot(
+        ModalStateReducer<M>.makeState(
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
@@ -25,10 +25,11 @@ extension ModalStore {
 
         switch outcome.interception {
         case .cancel(let reason):
-            let stateAfter = cancellationState(
+            let stateAfter = ModalStateReducer<M>.applyingCancellation(
+                policy: queueCancellationPolicy,
                 command: outcome.command,
                 reason: reason,
-                from: stateBefore
+                to: stateBefore
             )
             return ModalExecutionJournal(
                 requestedCommand: command,
@@ -39,7 +40,7 @@ extension ModalStore {
                 stateAfter: stateAfter
             )
         case .proceed(let effectiveCommand):
-            let previewOutcome = previewApplyCommand(effectiveCommand, to: stateBefore)
+            let previewOutcome = ModalStateReducer<M>.apply(effectiveCommand, to: stateBefore)
             return ModalExecutionJournal(
                 requestedCommand: command,
                 effectiveCommand: effectiveCommand,

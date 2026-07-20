@@ -93,7 +93,7 @@ public final class ModalStore<M: Route> {
         queuedPresentations: [ModalPresentation<M>] = [],
         configuration: ModalStoreConfiguration<M> = .init()
     ) {
-        let normalizedState = Self.normalize(
+        let normalizedState = ModalStateReducer<M>.makeState(
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
@@ -101,8 +101,8 @@ public final class ModalStore<M: Route> {
             configuration: configuration,
             telemetryRecorder: nil
         )
-        self.currentPresentation = normalizedState.current
-        self.queuedPresentations = normalizedState.queue
+        self.currentPresentation = normalizedState.currentPresentation
+        self.queuedPresentations = normalizedState.queuedPresentations
         self.queueCancellationPolicy = configuration.queueCancellationPolicy
         self.eventDispatcher = wiring.eventDispatcher
         self.telemetrySink = wiring.telemetrySink
@@ -119,7 +119,7 @@ public final class ModalStore<M: Route> {
         configuration: ModalStoreConfiguration<M> = .init(),
         telemetryRecorder: ModalStoreTelemetryRecorder<M>? = nil
     ) {
-        let normalizedState = Self.normalize(
+        let normalizedState = ModalStateReducer<M>.makeState(
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
@@ -127,8 +127,8 @@ public final class ModalStore<M: Route> {
             configuration: configuration,
             telemetryRecorder: telemetryRecorder
         )
-        self.currentPresentation = normalizedState.current
-        self.queuedPresentations = normalizedState.queue
+        self.currentPresentation = normalizedState.currentPresentation
+        self.queuedPresentations = normalizedState.queuedPresentations
         self.queueCancellationPolicy = configuration.queueCancellationPolicy
         self.eventDispatcher = wiring.eventDispatcher
         self.telemetrySink = wiring.telemetrySink

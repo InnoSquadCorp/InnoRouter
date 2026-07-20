@@ -18,101 +18,6 @@ extension ModalStore {
         }
     }
 
-    func previewApplyCommand(
-        _ command: ModalCommand<M>,
-        to snapshot: ModalExecutionState<M>
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
-        switch command {
-        case .present(let presentation):
-            return previewPresent(presentation, on: snapshot)
-        case .replaceCurrent(let presentation):
-            return previewReplaceCurrent(presentation, on: snapshot)
-        case .dismissCurrent(let reason):
-            return previewDismissCurrent(reason: reason, on: snapshot)
-        case .dismissAll:
-            return previewDismissAll(on: snapshot)
-        }
-    }
-
-    private func previewPresent(
-        _ presentation: ModalPresentation<M>,
-        on snapshot: ModalExecutionState<M>
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
-        if snapshot.currentPresentation == nil {
-            return (
-                .executed(.present(presentation)),
-                Self.makeSnapshot(
-                    currentPresentation: presentation,
-                    queuedPresentations: snapshot.queuedPresentations
-                )
-            )
-        }
-
-        return (
-            .queued(presentation),
-            Self.makeSnapshot(
-                currentPresentation: snapshot.currentPresentation,
-                queuedPresentations: snapshot.queuedPresentations + [presentation]
-            )
-        )
-    }
-
-    private func previewDismissCurrent(
-        reason: ModalDismissalReason,
-        on snapshot: ModalExecutionState<M>
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
-        guard snapshot.currentPresentation != nil else {
-            return (.noop, snapshot)
-        }
-
-        let nextPresentation = snapshot.queuedPresentations.first
-        let remainingQueue = nextPresentation == nil
-            ? snapshot.queuedPresentations
-            : Array(snapshot.queuedPresentations.dropFirst())
-
-        return (
-            .executed(.dismissCurrent(reason: reason)),
-            Self.makeSnapshot(
-                currentPresentation: nextPresentation,
-                queuedPresentations: remainingQueue
-            )
-        )
-    }
-
-    private func previewDismissAll(
-        on snapshot: ModalExecutionState<M>
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
-        guard snapshot.currentPresentation != nil || !snapshot.queuedPresentations.isEmpty else {
-            return (.noop, snapshot)
-        }
-
-        return (
-            .executed(.dismissAll),
-            Self.makeSnapshot(currentPresentation: nil, queuedPresentations: [])
-        )
-    }
-
-    private func previewReplaceCurrent(
-        _ presentation: ModalPresentation<M>,
-        on snapshot: ModalExecutionState<M>
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
-        guard let currentPresentation = snapshot.currentPresentation else {
-            return (.noop, snapshot)
-        }
-
-        guard currentPresentation != presentation else {
-            return (.noop, snapshot)
-        }
-
-        return (
-            .executed(.replaceCurrent(presentation)),
-            Self.makeSnapshot(
-                currentPresentation: presentation,
-                queuedPresentations: snapshot.queuedPresentations
-            )
-        )
-    }
-
     private func applyPresent(_ presentation: ModalPresentation<M>) -> ModalExecutionResult<M> {
         if currentPresentation == nil {
             currentPresentation = presentation
@@ -208,10 +113,11 @@ extension ModalStore {
         reason: ModalCancellationReason<M>
     ) {
         let stateBefore = flowStateSnapshot
-        let stateAfter = cancellationState(
+        let stateAfter = ModalStateReducer<M>.applyingCancellation(
+            policy: queueCancellationPolicy,
             command: command,
             reason: reason,
-            from: stateBefore
+            to: stateBefore
         )
         guard stateAfter != stateBefore else { return }
 
@@ -221,27 +127,6 @@ extension ModalStore {
             oldQueue: stateBefore.queuedPresentations,
             newQueue: stateAfter.queuedPresentations
         )
-    }
-
-    /// Applies cancellation policy to a preview snapshot without mutating the
-    /// live store. FlowStore uses this to keep preview and direct execution
-    /// semantics aligned while preserving atomic reset rollback.
-    func cancellationState(
-        command: ModalCommand<M>,
-        reason: ModalCancellationReason<M>,
-        from snapshot: ModalExecutionState<M>
-    ) -> ModalExecutionState<M> {
-        guard !snapshot.queuedPresentations.isEmpty else { return snapshot }
-
-        switch queueCancellationPolicy.resolve(command: command, reason: reason) {
-        case .preserve:
-            return snapshot
-        case .dropQueued:
-            return Self.makeSnapshot(
-                currentPresentation: snapshot.currentPresentation,
-                queuedPresentations: []
-            )
-        }
     }
 
     func emitCommittedEvents(for preview: ModalExecutionJournal<M>) {
@@ -300,20 +185,6 @@ extension ModalStore {
         }
     }
 
-    static func makeSnapshot(
-        currentPresentation: ModalPresentation<M>?,
-        queuedPresentations: [ModalPresentation<M>]
-    ) -> ModalExecutionState<M> {
-        let normalized = normalize(
-            currentPresentation: currentPresentation,
-            queuedPresentations: queuedPresentations
-        )
-        return ModalExecutionState(
-            currentPresentation: normalized.current,
-            queuedPresentations: normalized.queue
-        )
-    }
-
     static func outcomeKind(
         for result: ModalExecutionResult<M>
     ) -> ModalStoreTelemetryEvent<M>.InterceptionOutcomeKind {
@@ -323,16 +194,5 @@ extension ModalStore {
         case .cancelled: return .cancelled
         case .noop: return .noop
         }
-    }
-
-    static func normalize(
-        currentPresentation: ModalPresentation<M>?,
-        queuedPresentations: [ModalPresentation<M>]
-    ) -> (current: ModalPresentation<M>?, queue: [ModalPresentation<M>]) {
-        guard currentPresentation == nil, let firstQueued = queuedPresentations.first else {
-            return (currentPresentation, queuedPresentations)
-        }
-
-        return (firstQueued, Array(queuedPresentations.dropFirst()))
     }
 }
