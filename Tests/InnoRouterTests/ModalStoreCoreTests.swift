@@ -107,6 +107,18 @@ struct ModalStoreTests {
         #expect(store.currentPresentation == nil)
     }
 
+    @Test("Replace current is a no-op when no modal is active")
+    @MainActor
+    func testReplaceCurrentRequiresActivePresentation() {
+        let store = ModalStore<TestModalRoute>()
+
+        let result = store.replaceCurrent(.onboarding, style: .fullScreenCover)
+
+        #expect(result == .noop)
+        #expect(store.currentPresentation == nil)
+        #expect(store.queuedPresentations.isEmpty)
+    }
+
     @Test("First present emits presented once without queueChanged")
     @MainActor
     func testPresentEmitsPresentedWithoutQueueChanged() {

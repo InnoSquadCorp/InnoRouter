@@ -344,10 +344,11 @@ public final class ModalStore<M: Route> {
         }
     }
 
-    /// Replaces the active presentation (or presents, when nothing is
-    /// active) and reports the effective execution outcome so callers can
-    /// observe middleware cancellations or rewrites without subscribing to
-    /// the event stream — the same parity ``present(_:style:)`` offers.
+    /// Replaces the active presentation and reports the effective execution
+    /// outcome so callers can observe middleware cancellations or rewrites
+    /// without subscribing to the event stream — the same parity
+    /// ``present(_:style:)`` offers. Returns `.noop` when no presentation is
+    /// active; use ``present(_:style:)`` to create one.
     @discardableResult
     public func replaceCurrent(
         _ route: M,
