@@ -6,6 +6,8 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+## 5.2.0 - 2026-07-21
+
 ### Changed
 
 - Large store implementations are now split by responsibility: navigation
