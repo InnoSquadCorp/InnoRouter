@@ -141,6 +141,18 @@ jobs:
             -destination '${{ matrix.platform.destination }}' \
             -quiet
 
+      # Swift optimization has distinct actor-deinitialization paths that a
+      # Debug-only matrix cannot exercise. Keep the Spatial product's shipping
+      # configuration covered on its native platform.
+      - name: Build InnoRouterSpatial Release for visionOS
+        if: matrix.platform.name == 'visionOS'
+        run: |
+          xcodebuild build \
+            -scheme InnoRouterSpatial \
+            -configuration Release \
+            -destination '${{ matrix.platform.destination }}' \
+            -quiet
+
       - name: Build visionOS human-facing Spatial example
         if: matrix.platform.name == 'visionOS'
         run: |

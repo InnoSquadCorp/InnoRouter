@@ -308,6 +308,14 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
       -quiet
 
     if [[ "$name_lc" == "visionos" ]]; then
+      echo "[principle-gates] xcodebuild build -scheme InnoRouterSpatial -configuration Release ($name)"
+      xcodebuild build \
+        -scheme InnoRouterSpatial \
+        -configuration Release \
+        -destination "$dest" \
+        -jobs "$XCODEBUILD_JOBS" \
+        -quiet
+
       echo "[principle-gates] xcodebuild build -scheme InnoRouterVisionOSImmersiveExample ($name)"
       xcodebuild build \
         -workspace .github/platform-tests.xcworkspace \

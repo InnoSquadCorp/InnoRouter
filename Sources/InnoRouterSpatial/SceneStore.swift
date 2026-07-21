@@ -232,11 +232,6 @@ public final class SceneStore<R: Route> {
 
         dispatcherSignal &+= 1
     }
-
-    isolated deinit {
-        // EventBroadcaster's own isolated deinit will finish continuations.
-        _ = broadcaster
-    }
 }
 
 #endif

@@ -6,6 +6,13 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+### Fixed
+
+- `InnoRouterSpatial` now compiles for visionOS Release builds with Swift 6.3.
+  `SceneStore` no longer declares a redundant actor-isolated no-op deinitializer
+  that could crash the optimizer, and both local and hosted platform gates now
+  exercise the optimized Spatial configuration.
+
 ## 5.2.0 - 2026-07-21
 
 ### Changed

@@ -612,6 +612,13 @@ for product in "${public_products[@]}"; do
     "local platform probe does not compile $product"
 done
 
+check_present "$ROOT_DIR/.github/workflows/platforms.yml" \
+  'Build InnoRouterSpatial Release for visionOS' \
+  "platform workflow does not compile the Spatial product in visionOS Release"
+check_present "$ROOT_DIR/scripts/principle-gates.sh" \
+  'InnoRouterSpatial -configuration Release' \
+  "local platform probe does not compile the Spatial product in visionOS Release"
+
 echo "[check-docs-consistency] Checking current major-version contract"
 for readme_path in "$ROOT_DIR"/README*.md; do
   check_present "$readme_path" '5.x' \
