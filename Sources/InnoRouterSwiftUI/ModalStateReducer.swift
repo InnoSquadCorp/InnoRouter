@@ -1,12 +1,12 @@
 // MARK: - ModalStateReducer.swift
-// InnoRouterSwiftUI - pure modal state planning for Flow previews.
+// InnoRouterSwiftUI - pure modal state transitions for live execution and previews.
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import InnoRouterCore
 
 /// Computes modal state transitions without owning observable state or
-/// delivering lifecycle events. `ModalStore` keeps live mutation and event
-/// ordering; Flow previews use this reducer to plan atomic commits.
+/// delivering lifecycle events. `ModalStore` uses the same reducer for live
+/// mutation and Flow previews, while keeping event ordering at the store edge.
 @MainActor
 enum ModalStateReducer<M: Route> {
     static func apply(

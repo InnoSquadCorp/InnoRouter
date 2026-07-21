@@ -6,71 +6,21 @@ import InnoRouterCore
 
 extension ModalStore {
     func applyCommand(_ command: ModalCommand<M>) -> ModalExecutionResult<M> {
-        switch command {
-        case .present(let presentation):
-            return applyPresent(presentation)
-        case .replaceCurrent(let presentation):
-            return applyReplaceCurrent(presentation)
-        case .dismissCurrent(let reason):
-            return applyDismissCurrent(reason: reason)
-        case .dismissAll:
-            return applyDismissAll()
-        }
-    }
+        let stateBefore = flowStateSnapshot
+        let outcome = ModalStateReducer<M>.apply(command, to: stateBefore)
+        let journal = ModalExecutionJournal(
+            requestedCommand: command,
+            effectiveCommand: command,
+            result: outcome.result,
+            participants: [],
+            stateBefore: stateBefore,
+            stateAfter: outcome.stateAfter
+        )
 
-    private func applyPresent(_ presentation: ModalPresentation<M>) -> ModalExecutionResult<M> {
-        if currentPresentation == nil {
-            currentPresentation = presentation
-            telemetrySink.recordPresented(presentation)
-            return .executed(.present(presentation))
-        } else {
-            let oldQueue = queuedPresentations
-            queuedPresentations.append(presentation)
-            telemetrySink.recordQueued(presentation)
-            telemetrySink.recordQueueChanged(oldQueue: oldQueue, newQueue: queuedPresentations)
-            return .queued(presentation)
-        }
-    }
-
-    private func applyReplaceCurrent(_ presentation: ModalPresentation<M>) -> ModalExecutionResult<M> {
-        guard let currentPresentation else {
-            return .noop
-        }
-
-        guard currentPresentation != presentation else {
-            return .noop
-        }
-
-        self.currentPresentation = presentation
-        telemetrySink.recordReplaced(old: currentPresentation, new: presentation)
-        return .executed(.replaceCurrent(presentation))
-    }
-
-    private func applyDismissCurrent(reason: ModalDismissalReason) -> ModalExecutionResult<M> {
-        guard let dismissedPresentation = currentPresentation else {
-            return .noop
-        }
-        currentPresentation = nil
-        telemetrySink.recordDismissed(dismissedPresentation, reason: reason)
-        promoteNextPresentationIfNeeded()
-        return .executed(.dismissCurrent(reason: reason))
-    }
-
-    private func applyDismissAll() -> ModalExecutionResult<M> {
-        let dismissedPresentation = currentPresentation
-        let oldQueue = queuedPresentations
-        if dismissedPresentation == nil && oldQueue.isEmpty {
-            return .noop
-        }
-        currentPresentation = nil
-        queuedPresentations.removeAll()
-        if oldQueue != queuedPresentations {
-            telemetrySink.recordQueueChanged(oldQueue: oldQueue, newQueue: queuedPresentations)
-        }
-        if let dismissedPresentation {
-            telemetrySink.recordDismissed(dismissedPresentation, reason: .dismissAll)
-        }
-        return .executed(.dismissAll)
+        currentPresentation = outcome.stateAfter.currentPresentation
+        queuedPresentations = outcome.stateAfter.queuedPresentations
+        emitCommittedEvents(for: journal)
+        return outcome.result
     }
 
     func binding(for style: ModalPresentationStyle) -> Binding<ModalPresentation<M>?> {
@@ -92,15 +42,6 @@ extension ModalStore {
 
     // Note: binding(case:style:) lives in
     // `ModalStore+Binding.swift`.
-
-    private func promoteNextPresentationIfNeeded() {
-        guard currentPresentation == nil, !queuedPresentations.isEmpty else { return }
-        let oldQueue = queuedPresentations
-        let promotedPresentation = queuedPresentations.removeFirst()
-        currentPresentation = promotedPresentation
-        telemetrySink.recordQueueChanged(oldQueue: oldQueue, newQueue: queuedPresentations)
-        telemetrySink.recordPresented(promotedPresentation)
-    }
 
     /// Applies the configured ``ModalQueueCancellationPolicy`` to
     /// ``queuedPresentations`` after a middleware cancellation. The
