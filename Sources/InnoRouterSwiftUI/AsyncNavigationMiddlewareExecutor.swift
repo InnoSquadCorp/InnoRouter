@@ -25,7 +25,9 @@ import InnoRouterCore
 ///    command — synchronous middleware on the store still runs
 ///    inside that call.
 /// 5. Runs every registered async `didExecute` in reverse order so
-///    fold rules compose intuitively.
+///    fold rules compose intuitively. A single execution keeps the
+///    same middleware participants and post-execution state snapshot
+///    across every suspension boundary.
 ///
 /// Adopters use this for policies that genuinely need a
 /// suspension boundary at the routing layer (token refresh,
@@ -59,8 +61,9 @@ public final class AsyncNavigationMiddlewareExecutor<R: Route> {
             return .cancelled(.custom("AsyncNavigationMiddlewareExecutor lost its store"))
         }
 
+        let participants = middleware
         var current = command
-        for stage in middleware {
+        for stage in participants {
             switch await stage.willExecute(current, state: store.state) {
             case .proceed(let rewritten):
                 current = rewritten
@@ -74,9 +77,10 @@ public final class AsyncNavigationMiddlewareExecutor<R: Route> {
         }
 
         var result = store.execute(current)
+        let stateAfterExecution = store.state
 
-        for stage in middleware.reversed() {
-            result = await stage.didExecute(current, result: result, state: store.state)
+        for stage in participants.reversed() {
+            result = await stage.didExecute(current, result: result, state: stateAfterExecution)
         }
 
         return result
