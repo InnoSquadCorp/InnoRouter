@@ -6,6 +6,8 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+## 5.2.1 - 2026-07-21
+
 ### Fixed
 
 - `InnoRouterSpatial` now compiles for visionOS Release builds with Swift 6.3.
