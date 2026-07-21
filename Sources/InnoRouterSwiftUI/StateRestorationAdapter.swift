@@ -3,6 +3,7 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
+import OSLog
 
 import InnoRouterCore
 
@@ -25,6 +26,8 @@ public struct StateRestorationFailure: Sendable, Equatable {
 /// custom persistence boundary. Decode/apply failures are reported through
 /// `onRestorationFailure` and never coerced into an empty stack or empty flow
 /// path, so corrupted snapshots stay observable.
+/// When no callback is supplied, failures are recorded through OSLog with the
+/// diagnostic message private by default.
 @MainActor
 public final class StateRestorationAdapter<R: Route & Codable> {
     private let persistence: StatePersistence<R>
@@ -32,7 +35,18 @@ public final class StateRestorationAdapter<R: Route & Codable> {
 
     public init(
         persistence: StatePersistence<R> = StatePersistence<R>(),
-        onRestorationFailure: @escaping @MainActor @Sendable (StateRestorationFailure) -> Void = { _ in }
+        onRestorationFailure: @escaping @MainActor @Sendable (StateRestorationFailure) -> Void = { failure in
+            Logger(
+                subsystem: "io.innosquad.innorouter",
+                category: "StateRestoration"
+            ).warning(
+                """
+                State restoration failed. \
+                target=\(failure.target.rawValue, privacy: .public) \
+                message=\(failure.message, privacy: .private(mask: .hash))
+                """
+            )
+        }
     ) {
         self.persistence = persistence
         self.onRestorationFailure = onRestorationFailure

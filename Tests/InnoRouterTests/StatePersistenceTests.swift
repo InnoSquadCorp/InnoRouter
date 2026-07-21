@@ -131,6 +131,18 @@ struct StatePersistenceTests {
         #expect(failures.withLock { $0.map(\.target) } == [.navigationStack])
     }
 
+    @Test("StateRestorationAdapter default diagnostics preserve state on decode failure")
+    @MainActor
+    func adapterDefaultDiagnosticsPreserveNavigationState() throws {
+        let store = try NavigationStore<PersistRoute>(initialPath: [.root])
+        let adapter = StateRestorationAdapter<PersistRoute>()
+
+        let restored = adapter.restoreNavigationStack(from: Data("not json".utf8), into: store)
+
+        #expect(!restored)
+        #expect(store.state.path == [.root])
+    }
+
     @Test("StateRestorationAdapter applies the store route stack validator")
     @MainActor
     func adapterAppliesNavigationStackValidator() throws {

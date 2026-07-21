@@ -27,6 +27,9 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- `StateRestorationAdapter` now emits a privacy-preserving OSLog warning when
+  restoration fails and no custom `onRestorationFailure` callback is supplied.
+  The existing callback remains the override point for app-specific recovery.
 - Allowlisted deep-link entry points now reject URLs containing user-info or an
   explicit port before route matching. Generated `@DeepLink` pipelines and
   hand-built pipelines therefore apply the same canonical-origin policy;
