@@ -1,0 +1,36 @@
+included:
+  - Package.swift
+  - Sources
+
+excluded:
+  - .build
+  - .swiftpm
+
+only_rules:
+  - cyclomatic_complexity
+  - file_length
+  - function_body_length
+  - type_body_length
+
+# Production responsibility budgets sit just above the current measured
+# maxima. `lint-source-gates.sh` runs this configuration with `--strict`, so a
+# warning is the enforced ceiling and an error is reserved for clearer output
+# when a regression substantially exceeds that ceiling.
+file_length:
+  warning: 550
+  error: 700
+  ignore_comment_only_lines: true
+
+type_body_length:
+  warning: 420
+  error: 520
+
+function_body_length:
+  warning: 110
+  error: 150
+
+cyclomatic_complexity:
+  warning: 17
+  error: 25
+
+reporter: "xcode"

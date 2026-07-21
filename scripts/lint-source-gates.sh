@@ -65,6 +65,10 @@ require_tool swiftlint
 require_file .swiftlint.yml "swiftlint configuration"
 swiftlint lint --strict --config .swiftlint.yml
 
+echo "[lint-source-gates] Checking production responsibility budgets"
+require_file .swiftlint.sources.yml "production swiftlint configuration"
+swiftlint lint --strict --config .swiftlint.sources.yml
+
 echo "[lint-source-gates] Checking non-ASCII letters in source comments (Hangul, etc.)"
 # Public-facing comments and docstrings must be English so the
 # library is usable outside the original team's locale. Test
