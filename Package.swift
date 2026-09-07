@@ -16,33 +16,17 @@ import CompilerPluginSupport
 // list from the directory contents declaratively, and keeps the
 // rest of the manifest readable.
 
-/// All human-facing example sources under `Examples/`.
-///
-/// Order is informational only — `exampleTarget` builds an
-/// exclude list out of "everything except the named source". Adding
-/// or removing an entry here is the single edit needed to add or
-/// remove an example target.
+/// Human-facing examples for the canonical 6.0 surface.
 private let exampleSources: [String] = [
-    "StandaloneExample.swift",
-    "CoordinatorExample.swift",
     "MacrosExample.swift",
     "DeepLinkExample.swift",
-    "SplitCoordinatorExample.swift",
-    "AppShellExample.swift",
-    "MultiPlatformExample.swift",
-    "VisionOSImmersiveExample.swift",
-    "SampleAppExample.swift",
 ]
 
-/// Smoke files that live in their own per-file targets because they either
-/// declare colliding top-level symbols or enforce a deliberately narrow
-/// dependency contract. Everything outside this list shares
-/// `InnoRouterExamplesSmoke`.
+/// The umbrella-only macro fixture stays isolated so its dependency boundary
+/// cannot be weakened by another example target.
 private let soloSmokeSources: [String] = [
-    "StandaloneSmoke.swift",
-    "CoordinatorSmoke.swift",
+    "DeveloperToolsSmoke.swift",
     "MacrosSmoke.swift",
-    "VisionOSImmersiveSmoke.swift",
 ]
 
 /// All smoke sources under `ExamplesSmoke/`. Used both to derive
@@ -50,16 +34,9 @@ private let soloSmokeSources: [String] = [
 /// `soloSmokeSources`) and the per-file solo targets' `exclude`
 /// lists.
 private let smokeSources: [String] = [
-    "AppShellSmoke.swift",
-    "CoordinatorSmoke.swift",
     "DeepLinkSmoke.swift",
+    "DeveloperToolsSmoke.swift",
     "MacrosSmoke.swift",
-    "ModalSmoke.swift",
-    "MultiPlatformSmoke.swift",
-    "SampleAppSmoke.swift",
-    "SplitCoordinatorSmoke.swift",
-    "StandaloneSmoke.swift",
-    "VisionOSImmersiveSmoke.swift",
 ]
 
 /// Build a per-file `Examples/` target. The exclude list is
@@ -105,8 +82,13 @@ private let privacyManifestResources: [Resource] = [
     .process("PrivacyInfo.xcprivacy"),
 ]
 
+private let inspectorResources: [Resource] = privacyManifestResources + [
+    .process("Localizable.xcstrings"),
+]
+
 let package = Package(
     name: "InnoRouter",
+    defaultLocalization: "en",
     platforms: [
         .iOS(.v18),
         .macOS(.v15),
@@ -115,49 +97,18 @@ let package = Package(
         .visionOS(.v2)
     ],
     products: [
-        // MARK: - Umbrella
+        // InnoRouter 6 intentionally exposes one macro-first runtime product,
+        // plus opt-in testing and inspector tools. The 5.x granular runtime,
+        // effect, scene, spatial, and macro products are no longer separate
+        // dependency choices.
         .library(
             name: "InnoRouter",
             targets: ["InnoRouter"]
         ),
-
-        // MARK: - Core Runtime
         .library(
-            name: "InnoRouterCore",
-            targets: ["InnoRouterCore"]
+            name: "InnoRouterInspector",
+            targets: ["InnoRouterInspector"]
         ),
-
-        // MARK: - SwiftUI Integration
-        .library(
-            name: "InnoRouterSwiftUI",
-            targets: ["InnoRouterSwiftUI"]
-        ),
-
-        // MARK: - Spatial Scene Integration
-        .library(
-            name: "InnoRouterSpatial",
-            targets: ["InnoRouterSpatial"]
-        ),
-
-        // MARK: - DeepLink
-        .library(
-            name: "InnoRouterDeepLink",
-            targets: ["InnoRouterDeepLink"]
-        ),
-
-        // MARK: - App-Boundary Effects
-        .library(
-            name: "InnoRouterEffects",
-            targets: ["InnoRouterEffects"]
-        ),
-
-        // MARK: - Macros
-        .library(
-            name: "InnoRouterMacros",
-            targets: ["InnoRouterMacros"]
-        ),
-
-        // MARK: - Test Harness
         .library(
             name: "InnoRouterTesting",
             targets: ["InnoRouterTesting"]
@@ -212,114 +163,90 @@ let package = Package(
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
-        // MARK: - Spatial Scene Target
+        // MARK: - Apple System Surfaces
         .target(
-            name: "InnoRouterSpatial",
+            name: "InnoRouterSystem",
             dependencies: [
                 "InnoRouterCore",
+                "InnoRouterDeepLink",
                 "InnoRouterSwiftUI",
-                "InnoRouterMacrosPlugin",
             ],
             resources: privacyManifestResources,
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+
+        // MARK: - Developer Inspector Target
+        .target(
+            name: "InnoRouterInspector",
+            dependencies: [
+                "InnoRouterCore",
+                "InnoRouterDeepLink",
+                "InnoRouterSwiftUI",
+            ],
+            resources: inspectorResources,
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
         // MARK: - Umbrella Target
         .target(
             name: "InnoRouter",
-            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterDeepLink", "InnoRouterMacros"],
+            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterDeepLink", "InnoRouterMacros", "InnoRouterSystem"],
             path: "Sources/InnoRouterUmbrella",
             resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
-        // MARK: - Effects Target
-        .target(
-            name: "InnoRouterEffects",
+        // Release-mode runtime baselines for the canonical v6 engine. This is
+        // an executable gate, never a selectable library product.
+        .executableTarget(
+            name: "InnoRouterPerformanceSmoke",
             dependencies: [
                 "InnoRouterCore",
                 "InnoRouterDeepLink",
+                "InnoRouterInspector",
+                "InnoRouterSwiftUI",
+                "InnoRouterTesting",
             ],
-            path: "Sources/InnoRouterEffects",
-            resources: privacyManifestResources,
+            path: "Sources/InnoRouterPerformanceSmoke",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
-        // MARK: - Executable Target
+        // MARK: - Contract Probe
+        //
+        // This executable intentionally crashes when `EnvironmentRouter` is
+        // used without a matching host. `principle-gates.sh` asserts both the
+        // non-zero exit and the actionable authority diagnostic.
         .executableTarget(
             name: "RouterEnvironmentFailFastProbe",
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
             path: "Sources/RouterEnvironmentFailFastProbe",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
-        .executableTarget(
-            name: "ChildCoordinatorFailFastProbe",
-            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
-            path: "Sources/ChildCoordinatorFailFastProbe",
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .executableTarget(
-            name: "InnoRouterPerformanceSmoke",
-            dependencies: ["InnoRouter", "InnoRouterEffects"],
-            path: "Sources/InnoRouterPerformanceSmoke",
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
 
         // MARK: - Example Build Gates (human-facing Examples/*.swift)
         //
-        // Per-file targets so that every example — the same source the README points
-        // at — participates in `swift build`. Without this, macro-generated code in
-        // `Examples/` is never exercised by a consumer site, so latent generator bugs
-        // stay invisible until end-users hit them. The per-file split mirrors
-        // `ExamplesSmoke/` because several examples reuse names like `HomeRoute`.
-        // `exampleTarget(name:source:)` derives the exclude list from
-        // `exampleSources` so adding a new example is a one-line append + one-line
-        // call rather than nine sibling-list edits.
-        exampleTarget(name: "InnoRouterStandaloneExample",       source: "StandaloneExample.swift"),
-        exampleTarget(name: "InnoRouterCoordinatorExample",      source: "CoordinatorExample.swift"),
-        exampleTarget(name: "InnoRouterMacrosExample",           source: "MacrosExample.swift"),
-        exampleTarget(name: "InnoRouterDeepLinkExample",         source: "DeepLinkExample.swift"),
-        exampleTarget(name: "InnoRouterSplitCoordinatorExample", source: "SplitCoordinatorExample.swift"),
-        exampleTarget(name: "InnoRouterAppShellExample",         source: "AppShellExample.swift"),
-        exampleTarget(name: "InnoRouterMultiPlatformExample",    source: "MultiPlatformExample.swift"),
-        exampleTarget(
-            name: "InnoRouterVisionOSImmersiveExample",
-            source: "VisionOSImmersiveExample.swift",
-            dependencies: ["InnoRouterSpatial"]
-        ),
-        exampleTarget(
-            name: "InnoRouterSampleAppExample",
-            source: "SampleAppExample.swift",
-            dependencies: ["InnoRouter", "InnoRouterEffects"]
-        ),
+        // Per-file targets ensure the same source users copy from `Examples/`
+        // compiles against the public umbrella product.
+        exampleTarget(name: "InnoRouterMacrosExample", source: "MacrosExample.swift"),
+        exampleTarget(name: "InnoRouterDeepLinkExample", source: "DeepLinkExample.swift"),
 
         // MARK: - Example Smoke Targets
         //
-        // Most smoke files live in one shared target (`InnoRouterExamplesSmoke`)
-        // because their top-level symbols don't collide. `Standalone` and
-        // `Coordinator` both declare `HomeRoute`, so they stay in their own
-        // targets to avoid a module-level redeclaration. `MacrosSmoke` and
-        // `VisionOSImmersiveSmoke` stay solo to prove one-product consumer
-        // contracts for `InnoRouter` and `InnoRouterSpatial`, respectively.
-        // If a future smoke needs a distinct name, add it to `smokeSources`
-        // and (if it does not collide or enforce a narrower contract) leave it
-        // out of `soloSmokeSources`.
+        // Deep-link and macro fixtures exercise the two canonical entry paths.
         .target(
             name: "InnoRouterExamplesSmoke",
-            dependencies: ["InnoRouter", "InnoRouterEffects"],
+            dependencies: ["InnoRouter"],
             path: "ExamplesSmoke",
             exclude: soloSmokeSources + ["README.md"],
             sources: smokeSources.filter { !soloSmokeSources.contains($0) },
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
-        soloSmokeTarget(name: "InnoRouterStandaloneExampleSmoke",  source: "StandaloneSmoke.swift"),
-        soloSmokeTarget(name: "InnoRouterCoordinatorExampleSmoke", source: "CoordinatorSmoke.swift"),
-        soloSmokeTarget(name: "InnoRouterMacroFirstSmoke",          source: "MacrosSmoke.swift"),
         soloSmokeTarget(
-            name: "InnoRouterSpatialConsumerSmoke",
-            source: "VisionOSImmersiveSmoke.swift",
-            dependencies: ["InnoRouterSpatial"]
+            name: "InnoRouterDeveloperToolsSmoke",
+            source: "DeveloperToolsSmoke.swift",
+            dependencies: ["InnoRouter", "InnoRouterInspector", "InnoRouterTesting"]
         ),
+        soloSmokeTarget(name: "InnoRouterMacroFirstSmoke", source: "MacrosSmoke.swift"),
 
         // MARK: - Macro Declarations (Public API)
         .target(
@@ -336,12 +263,12 @@ let package = Package(
 
         // MARK: - Test Harness Target
         //
-        // Ships `NavigationTestStore`, `ModalTestStore`, and `FlowTestStore` so
-        // consumers can assert navigation/modal/flow events host-lessly without
-        // `@testable import`. Swift-Testing native (`Issue.record`).
+        // Ships `RouterTestStore` so consumers can assert the canonical
+        // reduce/prepare/commit lifecycle host-lessly without `@testable import`.
+        // Swift-Testing native (`Issue.record`).
         .target(
             name: "InnoRouterTesting",
-            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
+            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterInspector"],
             resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -364,12 +291,12 @@ let package = Package(
         // MARK: - Tests
         .testTarget(
             name: "InnoRouterTests",
-            dependencies: ["InnoRouter", "InnoRouterDeepLink", "InnoRouterEffects", "InnoRouterSwiftUI"],
+            dependencies: ["InnoRouter", "InnoRouterDeepLink", "InnoRouterSwiftUI", "InnoRouterSystem"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
-            name: "InnoRouterSpatialTests",
-            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterSpatial"],
+            name: "InnoRouterInspectorTests",
+            dependencies: ["InnoRouter", "InnoRouterInspector"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         // This target is intentionally macro-free. Xcode flattens a root
@@ -409,7 +336,6 @@ let package = Package(
                 // is empty on non-macOS platforms.
                 .target(name: "InnoRouterMacros", condition: .when(platforms: [.macOS])),
                 "InnoRouterCore",
-                .target(name: "InnoRouterSpatial", condition: .when(platforms: [.macOS])),
             ],
             // README.md documents the macOS-only constraint of this
             // target; it is human-facing only and must not be packaged
@@ -421,6 +347,7 @@ let package = Package(
             name: "InnoRouterTestingTests",
             dependencies: [
                 "InnoRouterTesting",
+                "InnoRouterInspector",
                 "InnoRouter",
                 "InnoRouterSwiftUI",
             ],

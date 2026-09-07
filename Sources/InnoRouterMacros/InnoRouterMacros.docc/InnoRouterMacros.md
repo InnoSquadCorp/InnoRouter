@@ -5,7 +5,7 @@ available for advanced composition.
 
 ## Overview
 
-InnoRouter 5 makes macros part of the canonical `InnoRouter` product. Most
+InnoRouter 6 makes macros part of the canonical `InnoRouter` product. Most
 applications add that one product and use one import:
 
 ```swift compile
@@ -13,7 +13,7 @@ import SwiftUI
 import InnoRouter
 ```
 
-The module exposes five macros with separate responsibilities:
+The module exposes eight macros with separate responsibilities:
 
 - `@Router` is the default macro-first path. It turns route cases and an
   instance `destination` view into a `DestinationRoute` that works with
@@ -25,19 +25,20 @@ The module exposes five macros with separate responsibilities:
   literal scheme and host allowlists and generates the `DeepLinkRoute`
   resolver. Generated matching prefers literal paths, then typed parameters,
   then terminal wildcards, regardless of case declaration order.
+- `@Scene` marks parameterless routes that can be opened through the generated
+  scene catalog and `RouterSceneDriver`.
+- `@FeatureRoute` generates one bidirectional child-route mapping while the
+  parent `RouterStore` remains the only mutable authority.
+- `@PresentationResult` generates typed presentation requests so presentation
+  completion values are checked at compile time.
 - `@Routable` adds `Route` conformance plus typed `Cases`, `is(_:)`, and
   `subscript(case:)` helpers. It does not build destination views.
 - `@CasePathable` adds the same case-path helpers without adding `Route`
   conformance.
 
 Every generated conformance has a plain Swift equivalent. Applications that
-need externally owned stores, coordinators, restoration, or custom dependency
-construction can continue to use the runtime APIs directly.
-
-The opt-in `InnoRouterSpatial` product adds `@SceneRouter` and `@Scene` for
-visionOS app scenes. Those macros generate the scene tree installed in
-`App.body`; they are intentionally not part of the default `InnoRouter`
-umbrella.
+need externally owned stores, restoration, or custom dependency construction
+can continue to use the runtime APIs directly.
 
 ## Macro-first quick start
 
@@ -83,26 +84,17 @@ struct HomeView: View {
 conformance to `AppRoute`. The `switch` remains ordinary Swift and receives the
 compiler's exhaustive-case checking.
 
-## Advanced granular imports
+## Products
 
-`import InnoRouter` is the default application entry point. It re-exports the
-Core, SwiftUI, deep-link, and macro declarations together.
-
-Use granular products only when a target intentionally needs a narrower graph:
+`import InnoRouter` is the application entry point. Core, SwiftUI, deep-link,
+system-surface, and macro implementation modules are package internals rather
+than alternate product choices.
 
 | Product and import | Advanced use case |
 |---|---|
-| `InnoRouterCore` | Typed route state and command execution without SwiftUI or a compiler-plugin target in this target's build graph. |
-| `InnoRouterSwiftUI` | Manually conformed routes, externally owned stores, hosts, and coordinators without a compiler-plugin target in this target's build graph. |
-| `InnoRouterDeepLink` | Deep-link matching and planning without the SwiftUI authority layer. |
-| `InnoRouterMacros` | A feature target that wants macro declarations plus their Core, SwiftUI, and deep-link runtime requirements without the full umbrella target. |
-| `InnoRouterSpatial` | visionOS windows, volumes, immersive spaces, and ornaments. This remains opt-in. |
-
-Keeping the compiler-plugin target out of a consumer target's build graph
-requires depending on granular runtime products instead of the `InnoRouter`
-umbrella. SwiftPM still resolves this package's package-level `swift-syntax`
-dependency. Merely omitting a macro attribute from a file does not remove the
-umbrella target's macro dependency.
+| `InnoRouter` | Macro-first runtime, hosts, deep links, scenes, App Intents, Handoff, and platform bridges. |
+| `InnoRouterInspector` | Opt-in debug inspector, redacted state tree, diffs, export, and safe replay preview. |
+| `InnoRouterTesting` | Host-less `RouterTestStore` assertions for route state transitions. |
 
 ## Topics
 

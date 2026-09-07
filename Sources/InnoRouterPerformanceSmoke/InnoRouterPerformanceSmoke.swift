@@ -1,525 +1,302 @@
 import Foundation
-import Darwin.Mach
-import InnoRouter
-import InnoRouterEffects
 
-private struct SmokeRoute: Route, Codable {
-    let id: Int
+import InnoRouterCore
+import InnoRouterDeepLink
+import InnoRouterInspector
+import InnoRouterSwiftUI
+import InnoRouterTesting
+
+private struct PerformanceRoute: Route, Codable {
+    let value: Int
 }
 
-private struct SmokeSample: Codable {
+private struct PerformanceSample: Codable {
     let name: String
-    let smallInput: Int
-    let largeInput: Int
-    let smallMilliseconds: Double
-    let largeMilliseconds: Double
-    let ratio: Double
-    let threshold: Double
-    /// Generous wall-clock cap on the large-input run, in
-    /// milliseconds. Catches catastrophic absolute-time
-    /// regressions that the relative `ratio <= threshold` check
-    /// misses when both small and large slow down proportionally
-    /// (for example, an unrelated CI runner saturation event).
-    /// `nil` opts out of the absolute check for samples whose
-    /// timing varies too widely across host machines.
-    let largeMaxMilliseconds: Double?
+    let iterations: Int
+    let medianMilliseconds: Double
+    let maximumMilliseconds: Double
+    let operationsPerSecond: Double
     let passed: Bool
 }
 
-private struct SmokeReport: Codable {
+private struct PerformanceReport: Codable {
+    let schemaVersion: Int
     let generatedAt: String
+    let configuration: String
     let aggregation: String
-    let measurementPairs: Int
+    let measurementCount: Int
     let passed: Bool
-    let memoryFootprint: SmokeMemoryFootprint
-    let samples: [SmokeSample]
+    let samples: [PerformanceSample]
 }
 
-private struct SmokeMemoryFootprint: Codable {
-    let residentBytes: UInt64?
-}
-
-private let clock = ContinuousClock()
-private let measurementPairCount = 5
 private let expectedSampleNames = [
-    "navigation_replace_reset_scaling",
-    "modal_queue_promote_scaling",
-    "middleware_chain_scaling",
-    "deep_link_pipeline_scaling",
+    "reducer_transition_throughput",
+    "snapshot_roundtrip_throughput",
+    "deep_link_match_throughput",
+    "inspector_record_export_throughput",
+    "scenario_capture_off_on_throughput",
+    "history_capacity_scaling",
+    "catalog_size_scaling",
 ]
-
-private func median(_ values: [Double]) -> Double? {
-    guard !values.isEmpty,
-          values.allSatisfy({ $0.isFinite && $0 > 0 })
-    else {
-        return nil
-    }
-
-    let sortedValues = values.sorted()
-    let middle = sortedValues.count / 2
-    if sortedValues.count.isMultiple(of: 2) {
-        return (sortedValues[middle - 1] + sortedValues[middle]) / 2
-    }
-    return sortedValues[middle]
-}
-
-@MainActor
-private func measureMilliseconds(
-    warmup: Int = 1,
-    samples: Int = 3,
-    _ body: () -> Void
-) -> Double {
-    for _ in 0..<warmup {
-        body()
-    }
-
-    var durations: [Double] = []
-    durations.reserveCapacity(samples)
-    for _ in 0..<samples {
-        let duration = clock.measure {
-            body()
-        }
-        var milliseconds = Double(duration.components.seconds) * 1_000
-        milliseconds += Double(duration.components.attoseconds) / 1_000_000_000_000_000
-        durations.append(milliseconds)
-    }
-
-    return median(durations) ?? 0
-}
-
-private func makeRoutes(_ count: Int) -> [SmokeRoute] {
-    (0..<count).map { SmokeRoute(id: $0) }
-}
-
-@MainActor
-private func measureNavigationReplace(routeCount: Int) -> Double {
-    let routes = makeRoutes(routeCount)
-    let store = NavigationStore<SmokeRoute>()
-    return measureMilliseconds {
-        _ = store.execute(.replace(routes))
-        _ = store.execute(.popToRoot)
-        _ = store.execute(.replace([]))
-    }
-}
-
-@MainActor
-private func measureModalQueue(queueCount: Int) -> Double {
-    let routes = makeRoutes(queueCount)
-    let store = ModalStore<SmokeRoute>()
-    return measureMilliseconds {
-        for route in routes {
-            store.present(route, style: .sheet)
-        }
-        for _ in routes {
-            store.dismissCurrent()
-        }
-    }
-}
-
-@MainActor
-private func makeNavigationMiddlewares(_ count: Int) -> [NavigationMiddlewareRegistration<SmokeRoute>] {
-    (0..<count).map { index in
-        .init(
-            middleware: AnyNavigationMiddleware(
-                willExecute: { command, _ in
-                    if case .push(let route) = command, route.id % max(index + 2, 2) == 0 {
-                        return .proceed(.push(SmokeRoute(id: route.id + 1)))
-                    }
-                    return .proceed(command)
-                }
-            ),
-            debugName: "perf-nav-\(index)"
-        )
-    }
-}
-
-@MainActor
-private func measureMiddlewareChain(chainCount: Int) -> Double {
-    let store = NavigationStore<SmokeRoute>(
-        configuration: NavigationStoreConfiguration(
-            middlewares: makeNavigationMiddlewares(chainCount)
-        )
-    )
-    return measureMilliseconds {
-        for index in 0..<200 {
-            _ = store.execute(.replace([]))
-            _ = store.execute(.push(SmokeRoute(id: index)))
-        }
-        _ = store.execute(.replace([]))
-    }
-}
-
-private func makePipeline(mappingCount: Int) -> FlowDeepLinkPipeline<SmokeRoute> {
-    let mappings = (0..<mappingCount).map { index in
-        DeepLinkMapping<FlowPlan<SmokeRoute>>("/perf/\(index)") { _ in
-            FlowPlan(steps: [.push(SmokeRoute(id: index))])
-        }
-    }
-
-    return FlowDeepLinkPipeline(
-        originPolicy: .allowlisted(
-            schemes: ["myapp"],
-            hosts: ["app"]
-        ),
-        matcher: DeepLinkMatcher {
-            mappings
-        }
-    )
-}
-
-@MainActor
-private func measureDeepLinkPipeline(mappingCount: Int) -> Double {
-    let pipeline = makePipeline(mappingCount: mappingCount)
-    let store = FlowStore<SmokeRoute>()
-    let handler = FlowDeepLinkEffectHandler(
-        pipeline: pipeline,
-        applier: store
-    )
-    let url = URL(string: "myapp://app/perf/\(mappingCount - 1)")!
-
-    // Keep setup out of the timed block so this measurement reflects repeated
-    // deep-link handling hot-path cost, matching the other smoke scenarios.
-    return measureMilliseconds {
-        for _ in 0..<200 {
-            _ = handler.handle(url)
-        }
-    }
-}
-
-private struct PairedMeasurementSummary {
-    let smallMilliseconds: Double
-    let largeMilliseconds: Double
-    let medianPairRatio: Double
-}
-
-private func pairedMedianMeasurement(
-    smallInput: Int,
-    largeInput: Int,
-    pairCount: Int = measurementPairCount,
-    measure: (Int) -> Double
-) -> PairedMeasurementSummary? {
-    guard pairCount > 0 else { return nil }
-
-    var smallMeasurements: [Double] = []
-    var largeMeasurements: [Double] = []
-    var pairRatios: [Double] = []
-    smallMeasurements.reserveCapacity(pairCount)
-    largeMeasurements.reserveCapacity(pairCount)
-    pairRatios.reserveCapacity(pairCount)
-
-    for pairIndex in 0..<pairCount {
-        let small: Double
-        let large: Double
-        if pairIndex.isMultiple(of: 2) {
-            small = measure(smallInput)
-            large = measure(largeInput)
-        } else {
-            large = measure(largeInput)
-            small = measure(smallInput)
-        }
-
-        let pairRatio = large / small
-        guard small.isFinite, small > 0,
-              large.isFinite, large > 0,
-              pairRatio.isFinite, pairRatio > 0
-        else {
-            return nil
-        }
-        smallMeasurements.append(small)
-        largeMeasurements.append(large)
-        pairRatios.append(pairRatio)
-    }
-
-    guard smallMeasurements.count == pairCount,
-          largeMeasurements.count == pairCount,
-          pairRatios.count == pairCount,
-          let smallMedian = median(smallMeasurements),
-          let largeMedian = median(largeMeasurements),
-          let medianPairRatio = median(pairRatios)
-    else {
-        return nil
-    }
-
-    return PairedMeasurementSummary(
-        smallMilliseconds: smallMedian,
-        largeMilliseconds: largeMedian,
-        medianPairRatio: medianPairRatio
-    )
-}
-
-private func runAggregationSelfTest() -> Bool {
-    func deterministicSample(
-        name: String,
-        smallValues: [Double],
-        largeValues: [Double],
-        threshold: Double,
-        largeMaxMilliseconds: Double? = nil
-    ) -> SmokeSample {
-        var smallIndex = 0
-        var largeIndex = 0
-        return makeSample(
-            name: name,
-            smallInput: 1,
-            largeInput: 2,
-            threshold: threshold,
-            largeMaxMilliseconds: largeMaxMilliseconds
-        ) { input in
-            if input == 1 {
-                defer { smallIndex += 1 }
-                return smallValues[smallIndex]
-            }
-            defer { largeIndex += 1 }
-            return largeValues[largeIndex]
-        }
-    }
-
-    let smallValues = [1.0, 100.0, 1.0, 100.0, 1.0]
-    let largeValues = [2.0, 200.0, 2.0, 200.0, 2.0]
-    var smallIndex = 0
-    var largeIndex = 0
-    var callOrder: [Int] = []
-
-    let summary = pairedMedianMeasurement(smallInput: 1, largeInput: 2) { input in
-        callOrder.append(input)
-        if input == 1 {
-            defer { smallIndex += 1 }
-            return smallValues[smallIndex]
-        }
-        defer { largeIndex += 1 }
-        return largeValues[largeIndex]
-    }
-
-    let expectedOrder = [1, 2, 2, 1, 1, 2, 2, 1, 1, 2]
-    guard summary?.smallMilliseconds == 1,
-          summary?.largeMilliseconds == 2,
-          summary?.medianPairRatio == 2,
-          callOrder == expectedOrder,
-          median([2, 2, 100, 100, 100]) == 100,
-          median([1, 0, 1]) == nil,
-          median([1, .nan, 1]) == nil,
-          median([1, .infinity, 1]) == nil
-    else {
-        return false
-    }
-
-    let asymmetricSample = deterministicSample(
-        name: "asymmetric_pair_regression_self_test",
-        smallValues: [1_000, 1_000, 1, 1_000, 1_000],
-        largeValues: [4_000, 4_000, 4, 1, 1],
-        threshold: 3.8
-    )
-
-    guard asymmetricSample.smallMilliseconds == 1_000,
-          asymmetricSample.largeMilliseconds == 4,
-          asymmetricSample.ratio == 4,
-          asymmetricSample.passed == false
-    else {
-        return false
-    }
-
-    let toleratedOutliers = deterministicSample(
-        name: "two_pair_outlier_self_test",
-        smallValues: [1, 1, 1, 1, 1],
-        largeValues: [4, 4, 1, 1, 1],
-        threshold: 3.8
-    )
-    let boundarySample = deterministicSample(
-        name: "threshold_and_cap_boundary_self_test",
-        smallValues: [1, 1, 1, 1, 1],
-        largeValues: [3.8, 3.8, 3.8, 3.8, 3.8],
-        threshold: 3.8,
-        largeMaxMilliseconds: 3.8
-    )
-    let capExceeded = deterministicSample(
-        name: "absolute_cap_self_test",
-        smallValues: [1, 1, 1, 1, 1],
-        largeValues: [2, 2, 2, 2, 2],
-        threshold: 3,
-        largeMaxMilliseconds: 1.99
-    )
-    guard toleratedOutliers.ratio == 1,
-          toleratedOutliers.passed,
-          boundarySample.ratio == 3.8,
-          boundarySample.largeMilliseconds == 3.8,
-          boundarySample.passed,
-          capExceeded.ratio == 2,
-          capExceeded.passed == false
-    else {
-        return false
-    }
-
-    var invalidCallCount = 0
-    let invalidSummary = pairedMedianMeasurement(smallInput: 1, largeInput: 2) { input in
-        defer { invalidCallCount += 1 }
-        return invalidCallCount == 4 ? .nan : Double(input)
-    }
-    return invalidSummary == nil
-}
-
-private func makeSample(
-    name: String,
-    smallInput: Int,
-    largeInput: Int,
-    threshold: Double,
-    largeMaxMilliseconds: Double? = nil,
-    measure: (Int) -> Double
-) -> SmokeSample {
-    let measurement = pairedMedianMeasurement(
-        smallInput: smallInput,
-        largeInput: largeInput,
-        measure: measure
-    )
-    let small = measurement?.smallMilliseconds ?? 0
-    let large = measurement?.largeMilliseconds ?? 0
-    let ratio = measurement?.medianPairRatio ?? .infinity
-    let absolutePassed: Bool
-    if let cap = largeMaxMilliseconds {
-        absolutePassed = large <= cap
-    } else {
-        absolutePassed = true
-    }
-    return SmokeSample(
-        name: name,
-        smallInput: smallInput,
-        largeInput: largeInput,
-        smallMilliseconds: small,
-        largeMilliseconds: large,
-        ratio: ratio,
-        threshold: threshold,
-        largeMaxMilliseconds: largeMaxMilliseconds,
-        passed: measurement != nil && ratio <= threshold && absolutePassed
-    )
-}
-
-private func outputPath() -> String? {
-    let arguments = CommandLine.arguments.dropFirst()
-    var iterator = arguments.makeIterator()
-
-    while let argument = iterator.next() {
-        if argument == "--output" {
-            return iterator.next()
-        }
-    }
-
-    return nil
-}
-
-private func writeReport(_ report: SmokeReport, to path: String?) throws {
-    guard let path else {
-        let data = try JSONEncoder.prettyPrinted.encode(report)
-        FileHandle.standardOutput.write(data)
-        FileHandle.standardOutput.write(Data("\n".utf8))
-        return
-    }
-
-    let outputURL = URL(fileURLWithPath: path)
-    try FileManager.default.createDirectory(
-        at: outputURL.deletingLastPathComponent(),
-        withIntermediateDirectories: true,
-        attributes: nil
-    )
-    let data = try JSONEncoder.prettyPrinted.encode(report)
-    try data.write(to: outputURL)
-}
-
-private func fail(_ message: String) -> Never {
-    FileHandle.standardError.write(Data((message + "\n").utf8))
-    exit(1)
-}
-
-private func currentResidentMemoryBytes() -> UInt64? {
-    var info = mach_task_basic_info()
-    var count = mach_msg_type_number_t(
-        MemoryLayout<mach_task_basic_info>.stride / MemoryLayout<natural_t>.stride
-    )
-    let result = withUnsafeMutablePointer(to: &info) { pointer in
-        pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { rebound in
-            task_info(
-                mach_task_self_,
-                task_flavor_t(MACH_TASK_BASIC_INFO),
-                rebound,
-                &count
-            )
-        }
-    }
-    guard result == KERN_SUCCESS else { return nil }
-    return UInt64(info.resident_size)
-}
-
-private extension JSONEncoder {
-    static var prettyPrinted: JSONEncoder {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return encoder
-    }
-}
+private let clock = ContinuousClock()
+private let measurementCount = 5
 
 @main
-@MainActor
-enum InnoRouterPerformanceSmokeMain {
-    static func main() {
-        if CommandLine.arguments.contains("--self-test") {
-            guard runAggregationSelfTest() else {
-                fail("Performance aggregation self-test failed.")
+private enum InnoRouterPerformanceSmoke {
+    @MainActor
+    static func main() async throws {
+        let arguments = CommandLine.arguments.dropFirst()
+        if arguments == ["--self-test"] {
+            guard median([100, 1, 3, 2, 4]) == 3,
+                  median([]) == nil,
+                  expectedSampleNames.count == 7 else {
+                throw PerformanceFailure.selfTest
             }
-            print("Performance aggregation self-test passed.")
+            print("[performance-smoke] Aggregation self-test passed")
             return
         }
 
-        let samples = [
-            makeSample(
-                name: "navigation_replace_reset_scaling",
-                smallInput: 120,
-                largeInput: 240,
-                threshold: 3.6,
-                largeMaxMilliseconds: 200,
-                measure: measureNavigationReplace
+        guard arguments.count == 2,
+              arguments.first == "--output",
+              let output = arguments.last else {
+            throw PerformanceFailure.usage
+        }
+
+        let samples = try await [
+            measure(
+                name: expectedSampleNames[0],
+                iterations: 20_000,
+                maximumMilliseconds: 2_500,
+                workload: reducerWorkload
             ),
-            makeSample(
-                name: "modal_queue_promote_scaling",
-                smallInput: 60,
-                largeInput: 120,
-                threshold: 3.8,
-                largeMaxMilliseconds: 150,
-                measure: measureModalQueue
+            measure(
+                name: expectedSampleNames[1],
+                iterations: 200,
+                maximumMilliseconds: 5_000,
+                workload: snapshotWorkload
             ),
-            makeSample(
-                name: "middleware_chain_scaling",
-                smallInput: 4,
-                largeInput: 8,
-                threshold: 2.6,
-                largeMaxMilliseconds: 50,
-                measure: measureMiddlewareChain
+            measure(
+                name: expectedSampleNames[2],
+                iterations: 10_000,
+                maximumMilliseconds: 3_000,
+                workload: deepLinkWorkload
             ),
-            makeSample(
-                name: "deep_link_pipeline_scaling",
-                smallInput: 50,
-                largeInput: 100,
-                threshold: 3.8,
-                largeMaxMilliseconds: 150,
-                measure: measureDeepLinkPipeline
+            measure(
+                name: expectedSampleNames[3],
+                iterations: 10_000,
+                maximumMilliseconds: 10_000,
+                workload: inspectorWorkload
+            ),
+            measure(
+                name: expectedSampleNames[4],
+                iterations: 1_000,
+                maximumMilliseconds: 4_000,
+                workload: scenarioCaptureWorkload
+            ),
+            measure(
+                name: expectedSampleNames[5],
+                iterations: 512,
+                maximumMilliseconds: 4_000,
+                workload: historyCapacityWorkload
+            ),
+            measure(
+                name: expectedSampleNames[6],
+                iterations: 3_000,
+                maximumMilliseconds: 3_000,
+                workload: catalogSizeWorkload
             ),
         ]
-
-        let hasExpectedSamples = samples.map(\.name) == expectedSampleNames
-        let report = SmokeReport(
+        let report = PerformanceReport(
+            schemaVersion: 1,
             generatedAt: ISO8601DateFormatter().string(from: Date()),
+            configuration: "release",
             aggregation: "median",
-            measurementPairs: measurementPairCount,
-            passed: hasExpectedSamples && samples.allSatisfy(\.passed),
-            memoryFootprint: SmokeMemoryFootprint(
-                residentBytes: currentResidentMemoryBytes()
-            ),
+            measurementCount: measurementCount,
+            passed: samples.allSatisfy(\.passed),
             samples: samples
         )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(report)
+        try data.write(to: URL(fileURLWithPath: output), options: .atomic)
 
-        do {
-            try writeReport(report, to: outputPath())
-            if !report.passed {
-                fail("Performance smoke detected a gross regression.")
+        guard report.passed else { throw PerformanceFailure.thresholdExceeded }
+    }
+
+    @MainActor
+    private static func measure(
+        name: String,
+        iterations: Int,
+        maximumMilliseconds: Double,
+        workload: () async throws -> Void
+    ) async throws -> PerformanceSample {
+        try await workload()
+        var measurements: [Double] = []
+        measurements.reserveCapacity(measurementCount)
+        for _ in 0..<measurementCount {
+            let elapsed = try await clock.measure { try await workload() }
+            measurements.append(milliseconds(elapsed))
+        }
+        guard let medianMilliseconds = median(measurements), medianMilliseconds > 0 else {
+            throw PerformanceFailure.invalidMeasurement(name)
+        }
+        return PerformanceSample(
+            name: name,
+            iterations: iterations,
+            medianMilliseconds: medianMilliseconds,
+            maximumMilliseconds: maximumMilliseconds,
+            operationsPerSecond: Double(iterations) / (medianMilliseconds / 1_000),
+            passed: medianMilliseconds <= maximumMilliseconds
+        )
+    }
+
+    private static func reducerWorkload() throws {
+        var state = RouterState<PerformanceRoute>.rootStack
+        for index in 0..<10_000 {
+            state = try RouterReducer.reduce(.push(.init(value: index)), from: state)
+            state = try RouterReducer.reduce(.pop(count: 1), from: state)
+        }
+        precondition(state == .rootStack)
+    }
+
+    private static func snapshotWorkload() throws {
+        let codec = try RouterSnapshotCodec<PerformanceRoute>(currentVersion: 1)
+        let state = RouterState<PerformanceRoute>.rootStack(
+            path: (0..<500).map(PerformanceRoute.init(value:))
+        )
+        var checksum = 0
+        for _ in 0..<200 {
+            let data = try codec.encode(state)
+            checksum += try codec.decode(data).root == state.root ? data.count : 0
+        }
+        precondition(checksum > 0)
+    }
+
+    private static func deepLinkWorkload() {
+        let mappings = (0..<256).map { (index: Int) -> DeepLinkMapping<Int> in
+            let pattern = "/perf/" + String(index)
+            return DeepLinkMapping<Int>(pattern) { _ -> Int? in index }
+        }
+        let matcher = DeepLinkMatcher<Int>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            mappings
+        }
+        var checksum = 0
+        for _ in 0..<10_000 {
+            checksum += matcher.match("innorouter://host/perf/255") ?? 0
+        }
+        precondition(checksum == 2_550_000)
+    }
+
+    @MainActor
+    private static func inspectorWorkload() throws {
+        let recorder = RouterInspectorRecorder(capacity: 5_000)
+        let timestamp = Date(timeIntervalSince1970: 1_000)
+        for index in 0..<10_000 {
+            recorder.record(
+                domain: .router,
+                description: .init(
+                    name: "transition.committed",
+                    outcome: .accepted,
+                    metadata: ["sequence": String(index)]
+                ),
+                timestamp: timestamp
+            )
+        }
+        let data = try recorder.encodedSnapshot(generatedAt: timestamp)
+        precondition(recorder.entries.count == 5_000 && !data.isEmpty)
+    }
+
+    @MainActor
+    private static func scenarioCaptureWorkload() async {
+        let withoutCapture = RouterStore<PerformanceRoute>()
+        for index in 0..<500 {
+            _ = await withoutCapture.perform(.push(.init(value: index)))
+            _ = await withoutCapture.perform(.pop(count: 1))
+        }
+        let withCapture = RouterStore<PerformanceRoute>()
+        let recorder = RouterScenarioRecorder(store: withCapture, capacity: 1_000)
+        for index in 0..<500 {
+            _ = await withCapture.perform(.push(.init(value: index)))
+            _ = await withCapture.perform(.pop(count: 1))
+        }
+        let fixture = recorder.stop()
+        precondition(fixture.steps.count == 1_000)
+    }
+
+    @MainActor
+    private static func historyCapacityWorkload() async {
+        var checksum = 0
+        for capacity in [2, 64, 256, 1_024] {
+            let store = RouterStore<PerformanceRoute>()
+            let history = RouterHistory(
+                store: store,
+                configuration: .init(capacity: capacity)
+            )
+            for index in 0..<128 {
+                _ = await store.perform(.push(.init(value: index)))
             }
-        } catch {
-            fail("Failed to write performance smoke report: \(error)")
+            checksum += history.entries.count
+            history.stop()
+        }
+        precondition(checksum > 0)
+    }
+
+    private static func catalogSizeWorkload() {
+        var checksum = 0
+        for size in [10, 100, 1_000] {
+            let entries = (0..<size).map { index in
+                DeepLinkRouteCatalogEntry(
+                    declarationNamespace: "PerformanceRoute",
+                    routeCase: "route\(index)",
+                    pattern: "/perf/\(index)"
+                )
+            }
+            let catalog = DeepLinkRouteCatalog(
+                schemes: ["innorouter"],
+                hosts: ["host"],
+                entries: entries
+            )
+            let url = URL(string: "innorouter://host/perf/\(size - 1)")!
+            for _ in 0..<1_000 {
+                checksum += catalog.supportsPureResolution(of: url) ? 1 : 0
+            }
+        }
+        precondition(checksum == 3_000)
+    }
+
+    private static func milliseconds(_ duration: Duration) -> Double {
+        let components = duration.components
+        return Double(components.seconds) * 1_000
+            + Double(components.attoseconds) / 1_000_000_000_000_000
+    }
+
+    private static func median(_ values: [Double]) -> Double? {
+        guard !values.isEmpty, values.allSatisfy({ $0.isFinite && $0 >= 0 }) else {
+            return nil
+        }
+        let sorted = values.sorted()
+        let middle = sorted.count / 2
+        if sorted.count.isMultiple(of: 2) {
+            return (sorted[middle - 1] + sorted[middle]) / 2
+        }
+        return sorted[middle]
+    }
+}
+
+private enum PerformanceFailure: Error, CustomStringConvertible {
+    case invalidMeasurement(String)
+    case selfTest
+    case thresholdExceeded
+    case usage
+
+    var description: String {
+        switch self {
+        case .invalidMeasurement(let name): "invalid measurement for \(name)"
+        case .selfTest: "aggregation self-test failed"
+        case .thresholdExceeded: "one or more performance thresholds were exceeded"
+        case .usage: "usage: InnoRouterPerformanceSmoke --output <report.json>"
         }
     }
 }

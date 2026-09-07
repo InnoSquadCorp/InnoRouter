@@ -1,0 +1,382 @@
+# Public API baseline for InnoRouterInspector
+relationship | memberOf | RouterInspectorComparison.finalStates(in:and:) | RouterInspectorComparison |  |
+relationship | memberOf | RouterInspectorComparison.states(at:and:in:) | RouterInspectorComparison |  |
+relationship | memberOf | RouterInspectorDeepLinkAnalysis.attempts | RouterInspectorDeepLinkAnalysis |  |
+relationship | memberOf | RouterInspectorDeepLinkAnalysis.catalog | RouterInspectorDeepLinkAnalysis |  |
+relationship | memberOf | RouterInspectorDeepLinkAnalysis.decision | RouterInspectorDeepLinkAnalysis |  |
+relationship | memberOf | RouterInspectorDeepLinkAnalysis.diff | RouterInspectorDeepLinkAnalysis |  |
+relationship | memberOf | RouterInspectorDeepLinkAnalysis.init(decision:attempts:catalog:proposedState:diff:) | RouterInspectorDeepLinkAnalysis |  |
+relationship | memberOf | RouterInspectorDeepLinkAnalysis.proposedState | RouterInspectorDeepLinkAnalysis |  |
+relationship | memberOf | RouterInspectorDeepLinkAnalyzer.analyze(_:as:inputLimits:) | RouterInspectorDeepLinkAnalyzer |  |
+relationship | memberOf | RouterInspectorDeepLinkAnalyzer.execute(_:on:action:) | RouterInspectorDeepLinkAnalyzer |  |
+relationship | memberOf | RouterInspectorDeepLinkAnalyzer.preview(_:as:from:action:) | RouterInspectorDeepLinkAnalyzer |  |
+relationship | memberOf | RouterInspectorDeepLinkAnalyzer.shareSummary(_:) | RouterInspectorDeepLinkAnalyzer |  |
+relationship | memberOf | RouterInspectorDeepLinkView.body | RouterInspectorDeepLinkView |  |
+relationship | memberOf | RouterInspectorDeepLinkView.init(_:initialURL:) | RouterInspectorDeepLinkView |  |
+relationship | memberOf | RouterInspectorDeepLinkView.init(store:initialURL:action:) | RouterInspectorDeepLinkView |  |
+relationship | memberOf | RouterInspectorDiagnosticBundle.formatVersion | RouterInspectorDiagnosticBundle |  |
+relationship | memberOf | RouterInspectorDiagnosticBundle.frameworkVersion | RouterInspectorDiagnosticBundle |  |
+relationship | memberOf | RouterInspectorDiagnosticBundle.init(frameworkVersion:platform:snapshot:) | RouterInspectorDiagnosticBundle |  |
+relationship | memberOf | RouterInspectorDiagnosticBundle.init(from:) | RouterInspectorDiagnosticBundle |  |
+relationship | memberOf | RouterInspectorDiagnosticBundle.platform | RouterInspectorDiagnosticBundle |  |
+relationship | memberOf | RouterInspectorDiagnosticBundle.snapshot | RouterInspectorDiagnosticBundle |  |
+relationship | memberOf | RouterInspectorDomain.application | RouterInspectorDomain |  |
+relationship | memberOf | RouterInspectorDomain.id | RouterInspectorDomain |  |
+relationship | memberOf | RouterInspectorDomain.router | RouterInspectorDomain |  |
+relationship | memberOf | RouterInspectorEntry.diff | RouterInspectorEntry |  |
+relationship | memberOf | RouterInspectorEntry.domain | RouterInspectorEntry |  |
+relationship | memberOf | RouterInspectorEntry.id | RouterInspectorEntry |  |
+relationship | memberOf | RouterInspectorEntry.init(id:timestamp:domain:name:outcome:metadata:state:diff:replay:) | RouterInspectorEntry |  |
+relationship | memberOf | RouterInspectorEntry.metadata | RouterInspectorEntry |  |
+relationship | memberOf | RouterInspectorEntry.name | RouterInspectorEntry |  |
+relationship | memberOf | RouterInspectorEntry.outcome | RouterInspectorEntry |  |
+relationship | memberOf | RouterInspectorEntry.replay | RouterInspectorEntry |  |
+relationship | memberOf | RouterInspectorEntry.state | RouterInspectorEntry |  |
+relationship | memberOf | RouterInspectorEntry.timestamp | RouterInspectorEntry |  |
+relationship | memberOf | RouterInspectorEventDescription.diff | RouterInspectorEventDescription |  |
+relationship | memberOf | RouterInspectorEventDescription.init(name:outcome:metadata:state:diff:replay:) | RouterInspectorEventDescription |  |
+relationship | memberOf | RouterInspectorEventDescription.metadata | RouterInspectorEventDescription |  |
+relationship | memberOf | RouterInspectorEventDescription.name | RouterInspectorEventDescription |  |
+relationship | memberOf | RouterInspectorEventDescription.outcome | RouterInspectorEventDescription |  |
+relationship | memberOf | RouterInspectorEventDescription.replay | RouterInspectorEventDescription |  |
+relationship | memberOf | RouterInspectorEventDescription.state | RouterInspectorEventDescription |  |
+relationship | memberOf | RouterInspectorExecutionStatus.applied | RouterInspectorExecutionStatus |  |
+relationship | memberOf | RouterInspectorExecutionStatus.cancelled | RouterInspectorExecutionStatus |  |
+relationship | memberOf | RouterInspectorExecutionStatus.deferred | RouterInspectorExecutionStatus |  |
+relationship | memberOf | RouterInspectorExecutionStatus.rejected | RouterInspectorExecutionStatus |  |
+relationship | memberOf | RouterInspectorExecutionStatus.unchanged | RouterInspectorExecutionStatus |  |
+relationship | memberOf | RouterInspectorExecutionStatus.unresolved | RouterInspectorExecutionStatus |  |
+relationship | memberOf | RouterInspectorFlatNode.depth | RouterInspectorFlatNode |  |
+relationship | memberOf | RouterInspectorFlatNode.id | RouterInspectorFlatNode |  |
+relationship | memberOf | RouterInspectorFlatNode.node | RouterInspectorFlatNode |  |
+relationship | memberOf | RouterInspectorFormatter.callAsFunction(_:) | RouterInspectorFormatter |  |
+relationship | memberOf | RouterInspectorFormatter.init(_:) | RouterInspectorFormatter |  |
+relationship | memberOf | RouterInspectorImportError.duplicateEntryID(_:) | RouterInspectorImportError |  |
+relationship | memberOf | RouterInspectorImportError.encodedDataTooLarge(actualByteCount:maximumByteCount:) | RouterInspectorImportError |  |
+relationship | memberOf | RouterInspectorImportError.malformedSnapshotEnvelope | RouterInspectorImportError |  |
+relationship | memberOf | RouterInspectorImportError.tooManyEntries(actualCount:maximumCount:) | RouterInspectorImportError |  |
+relationship | memberOf | RouterInspectorImportLimits.default | RouterInspectorImportLimits |  |
+relationship | memberOf | RouterInspectorImportLimits.init(maximumEncodedByteCount:maximumEntryCount:) | RouterInspectorImportLimits |  |
+relationship | memberOf | RouterInspectorImportLimits.maximumEncodedByteCount | RouterInspectorImportLimits |  |
+relationship | memberOf | RouterInspectorImportLimits.maximumEntryCount | RouterInspectorImportLimits |  |
+relationship | memberOf | RouterInspectorImportPolicy.append | RouterInspectorImportPolicy |  |
+relationship | memberOf | RouterInspectorImportPolicy.replace | RouterInspectorImportPolicy |  |
+relationship | memberOf | RouterInspectorNodeKind.custom | RouterInspectorNodeKind |  |
+relationship | memberOf | RouterInspectorNodeKind.immersiveSpace | RouterInspectorNodeKind |  |
+relationship | memberOf | RouterInspectorNodeKind.split | RouterInspectorNodeKind |  |
+relationship | memberOf | RouterInspectorNodeKind.stack | RouterInspectorNodeKind |  |
+relationship | memberOf | RouterInspectorNodeKind.tabs | RouterInspectorNodeKind |  |
+relationship | memberOf | RouterInspectorNodeKind.window | RouterInspectorNodeKind |  |
+relationship | memberOf | RouterInspectorOutcome.accepted | RouterInspectorOutcome |  |
+relationship | memberOf | RouterInspectorOutcome.informational | RouterInspectorOutcome |  |
+relationship | memberOf | RouterInspectorOutcome.rejected | RouterInspectorOutcome |  |
+relationship | memberOf | RouterInspectorPlayback.canStepBackward | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorPlayback.canStepForward | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorPlayback.comparisonEntryID | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorPlayback.comparisonToPreviousState | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorPlayback.comparisonToSelectedState | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorPlayback.currentEntry | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorPlayback.init(snapshot:startsAtEnd:) | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorPlayback.jump(to:) | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorPlayback.position | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorPlayback.setComparisonEntry(_:) | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorPlayback.snapshot | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorPlayback.stepBackward() | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorPlayback.stepForward() | RouterInspectorPlayback |  |
+relationship | memberOf | RouterInspectorProjection.diff(from:to:) | RouterInspectorProjection |  |
+relationship | memberOf | RouterInspectorProjection.tree(from:) | RouterInspectorProjection |  |
+relationship | memberOf | RouterInspectorRecorder.attach(to:domain:formatter:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.attach(to:formatter:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.bookmarkedEntryIDs | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.capacity | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.clear() | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.comparison(from:to:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.diagnosticBundle(platform:frameworkVersion:generatedAt:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.encodedDiagnosticBundle(platform:frameworkVersion:generatedAt:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.encodedSnapshot(generatedAt:encoder:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.entries | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.importDiagnosticBundle(from:policy:decoder:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.importLimits | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.importSnapshot(_:policy:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.importSnapshot(from:policy:decoder:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.init(capacity:importLimits:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.isBookmarked(_:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.isPaused | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.pause() | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.pauseOnRejection | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.record(domain:description:timestamp:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.resume() | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.setPauseOnRejection(_:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.snapshot(generatedAt:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.toggleBookmark(_:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorReplay.preview(_:) | RouterInspectorReplay |  |
+relationship | memberOf | RouterInspectorReplayPreview.Status | RouterInspectorReplayPreview |  |
+relationship | memberOf | RouterInspectorReplayPreview.Status.matchedProposal | RouterInspectorReplayPreview.Status |  |
+relationship | memberOf | RouterInspectorReplayPreview.Status.proposalMismatch | RouterInspectorReplayPreview.Status |  |
+relationship | memberOf | RouterInspectorReplayPreview.Status.rejected | RouterInspectorReplayPreview.Status |  |
+relationship | memberOf | RouterInspectorReplayPreview.error | RouterInspectorReplayPreview |  |
+relationship | memberOf | RouterInspectorReplayPreview.init(status:state:error:) | RouterInspectorReplayPreview |  |
+relationship | memberOf | RouterInspectorReplayPreview.state | RouterInspectorReplayPreview |  |
+relationship | memberOf | RouterInspectorReplayPreview.status | RouterInspectorReplayPreview |  |
+relationship | memberOf | RouterInspectorScenarioController.canImportRawFixture | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioController.cancel() | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioController.capacity | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioController.capturedStepCount | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioController.failure | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioController.importRawFixture(_:) | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioController.init(capacity:start:stop:currentStepCount:importFixture:) | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioController.rawExportData() | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioController.refreshProgress() | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioController.start() | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioController.status | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioController.stop() | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioController.summary | RouterInspectorScenarioController |  |
+relationship | memberOf | RouterInspectorScenarioFailure.importFailed | RouterInspectorScenarioFailure |  |
+relationship | memberOf | RouterInspectorScenarioFailure.startFailed | RouterInspectorScenarioFailure |  |
+relationship | memberOf | RouterInspectorScenarioFailure.stopFailed | RouterInspectorScenarioFailure |  |
+relationship | memberOf | RouterInspectorScenarioStatus.cancelled | RouterInspectorScenarioStatus |  |
+relationship | memberOf | RouterInspectorScenarioStatus.complete | RouterInspectorScenarioStatus |  |
+relationship | memberOf | RouterInspectorScenarioStatus.failed | RouterInspectorScenarioStatus |  |
+relationship | memberOf | RouterInspectorScenarioStatus.idle | RouterInspectorScenarioStatus |  |
+relationship | memberOf | RouterInspectorScenarioStatus.incomplete | RouterInspectorScenarioStatus |  |
+relationship | memberOf | RouterInspectorScenarioStatus.recording | RouterInspectorScenarioStatus |  |
+relationship | memberOf | RouterInspectorScenarioStopResult.capturedStepCount | RouterInspectorScenarioStopResult |  |
+relationship | memberOf | RouterInspectorScenarioStopResult.init(status:capturedStepCount:summary:rawFixtureData:) | RouterInspectorScenarioStopResult |  |
+relationship | memberOf | RouterInspectorScenarioStopResult.rawFixtureData | RouterInspectorScenarioStopResult |  |
+relationship | memberOf | RouterInspectorScenarioStopResult.status | RouterInspectorScenarioStopResult |  |
+relationship | memberOf | RouterInspectorScenarioStopResult.summary | RouterInspectorScenarioStopResult |  |
+relationship | memberOf | RouterInspectorSnapshot.bookmarkedEntryIDs | RouterInspectorSnapshot |  |
+relationship | memberOf | RouterInspectorSnapshot.encode(to:) | RouterInspectorSnapshot |  |
+relationship | memberOf | RouterInspectorSnapshot.entries | RouterInspectorSnapshot |  |
+relationship | memberOf | RouterInspectorSnapshot.generatedAt | RouterInspectorSnapshot |  |
+relationship | memberOf | RouterInspectorSnapshot.init(from:) | RouterInspectorSnapshot |  |
+relationship | memberOf | RouterInspectorSnapshot.init(generatedAt:entries:bookmarkedEntryIDs:) | RouterInspectorSnapshot |  |
+relationship | memberOf | RouterInspectorStateChange.after | RouterInspectorStateChange |  |
+relationship | memberOf | RouterInspectorStateChange.before | RouterInspectorStateChange |  |
+relationship | memberOf | RouterInspectorStateChange.field | RouterInspectorStateChange |  |
+relationship | memberOf | RouterInspectorStateChange.id | RouterInspectorStateChange |  |
+relationship | memberOf | RouterInspectorStateChange.init(path:field:before:after:) | RouterInspectorStateChange |  |
+relationship | memberOf | RouterInspectorStateChange.path | RouterInspectorStateChange |  |
+relationship | memberOf | RouterInspectorStateDiff.changes | RouterInspectorStateDiff |  |
+relationship | memberOf | RouterInspectorStateDiff.init(changes:) | RouterInspectorStateDiff |  |
+relationship | memberOf | RouterInspectorStateNode.children | RouterInspectorStateNode |  |
+relationship | memberOf | RouterInspectorStateNode.details | RouterInspectorStateNode |  |
+relationship | memberOf | RouterInspectorStateNode.id | RouterInspectorStateNode |  |
+relationship | memberOf | RouterInspectorStateNode.init(id:label:kind:details:children:) | RouterInspectorStateNode |  |
+relationship | memberOf | RouterInspectorStateNode.kind | RouterInspectorStateNode |  |
+relationship | memberOf | RouterInspectorStateNode.label | RouterInspectorStateNode |  |
+relationship | memberOf | RouterInspectorStateTree.flattenedNodes | RouterInspectorStateTree |  |
+relationship | memberOf | RouterInspectorStateTree.immersiveSpace | RouterInspectorStateTree |  |
+relationship | memberOf | RouterInspectorStateTree.init(root:windows:immersiveSpace:) | RouterInspectorStateTree |  |
+relationship | memberOf | RouterInspectorStateTree.root | RouterInspectorStateTree |  |
+relationship | memberOf | RouterInspectorStateTree.windows | RouterInspectorStateTree |  |
+relationship | memberOf | RouterInspectorSubscription.cancel() | RouterInspectorSubscription |  |
+relationship | memberOf | RouterInspectorView.body | RouterInspectorView |  |
+relationship | memberOf | RouterInspectorView.init(recorder:scenario:) | RouterInspectorView |  |
+symbol | swift.class | RouterInspectorPlayback | RouterInspectorPlayback | @MainActor final class RouterInspectorPlayback | []
+symbol | swift.class | RouterInspectorRecorder | RouterInspectorRecorder | @MainActor final class RouterInspectorRecorder | []
+symbol | swift.class | RouterInspectorScenarioController | RouterInspectorScenarioController | @MainActor final class RouterInspectorScenarioController | []
+symbol | swift.class | RouterInspectorSubscription | RouterInspectorSubscription | final class RouterInspectorSubscription | []
+symbol | swift.enum | RouterInspectorComparison | RouterInspectorComparison | enum RouterInspectorComparison | []
+symbol | swift.enum | RouterInspectorDeepLinkAnalyzer | RouterInspectorDeepLinkAnalyzer | enum RouterInspectorDeepLinkAnalyzer | []
+symbol | swift.enum | RouterInspectorDomain | RouterInspectorDomain | enum RouterInspectorDomain | []
+symbol | swift.enum | RouterInspectorExecutionStatus | RouterInspectorExecutionStatus | enum RouterInspectorExecutionStatus | []
+symbol | swift.enum | RouterInspectorImportError | RouterInspectorImportError | enum RouterInspectorImportError | []
+symbol | swift.enum | RouterInspectorImportPolicy | RouterInspectorImportPolicy | enum RouterInspectorImportPolicy | []
+symbol | swift.enum | RouterInspectorNodeKind | RouterInspectorNodeKind | enum RouterInspectorNodeKind | []
+symbol | swift.enum | RouterInspectorOutcome | RouterInspectorOutcome | enum RouterInspectorOutcome | []
+symbol | swift.enum | RouterInspectorProjection | RouterInspectorProjection | enum RouterInspectorProjection | []
+symbol | swift.enum | RouterInspectorReplay | RouterInspectorReplay | enum RouterInspectorReplay | []
+symbol | swift.enum | RouterInspectorReplayPreview.Status | RouterInspectorReplayPreview.Status | enum Status | []
+symbol | swift.enum | RouterInspectorScenarioFailure | RouterInspectorScenarioFailure | enum RouterInspectorScenarioFailure | []
+symbol | swift.enum | RouterInspectorScenarioStatus | RouterInspectorScenarioStatus | enum RouterInspectorScenarioStatus | []
+symbol | swift.enum.case | RouterInspectorDomain.application | RouterInspectorDomain.application | case application | []
+symbol | swift.enum.case | RouterInspectorDomain.router | RouterInspectorDomain.router | case router | []
+symbol | swift.enum.case | RouterInspectorExecutionStatus.applied | RouterInspectorExecutionStatus.applied | case applied | []
+symbol | swift.enum.case | RouterInspectorExecutionStatus.cancelled | RouterInspectorExecutionStatus.cancelled | case cancelled | []
+symbol | swift.enum.case | RouterInspectorExecutionStatus.deferred | RouterInspectorExecutionStatus.deferred | case deferred | []
+symbol | swift.enum.case | RouterInspectorExecutionStatus.rejected | RouterInspectorExecutionStatus.rejected | case rejected | []
+symbol | swift.enum.case | RouterInspectorExecutionStatus.unchanged | RouterInspectorExecutionStatus.unchanged | case unchanged | []
+symbol | swift.enum.case | RouterInspectorExecutionStatus.unresolved | RouterInspectorExecutionStatus.unresolved | case unresolved | []
+symbol | swift.enum.case | RouterInspectorImportError.duplicateEntryID(_:) | RouterInspectorImportError.duplicateEntryID(_:) | case duplicateEntryID(UUID) | []
+symbol | swift.enum.case | RouterInspectorImportError.encodedDataTooLarge(actualByteCount:maximumByteCount:) | RouterInspectorImportError.encodedDataTooLarge(actualByteCount:maximumByteCount:) | case encodedDataTooLarge(actualByteCount: Int, maximumByteCount: Int) | []
+symbol | swift.enum.case | RouterInspectorImportError.malformedSnapshotEnvelope | RouterInspectorImportError.malformedSnapshotEnvelope | case malformedSnapshotEnvelope | []
+symbol | swift.enum.case | RouterInspectorImportError.tooManyEntries(actualCount:maximumCount:) | RouterInspectorImportError.tooManyEntries(actualCount:maximumCount:) | case tooManyEntries(actualCount: Int, maximumCount: Int) | []
+symbol | swift.enum.case | RouterInspectorImportPolicy.append | RouterInspectorImportPolicy.append | case append | []
+symbol | swift.enum.case | RouterInspectorImportPolicy.replace | RouterInspectorImportPolicy.replace | case replace | []
+symbol | swift.enum.case | RouterInspectorNodeKind.custom | RouterInspectorNodeKind.custom | case custom | []
+symbol | swift.enum.case | RouterInspectorNodeKind.immersiveSpace | RouterInspectorNodeKind.immersiveSpace | case immersiveSpace | []
+symbol | swift.enum.case | RouterInspectorNodeKind.split | RouterInspectorNodeKind.split | case split | []
+symbol | swift.enum.case | RouterInspectorNodeKind.stack | RouterInspectorNodeKind.stack | case stack | []
+symbol | swift.enum.case | RouterInspectorNodeKind.tabs | RouterInspectorNodeKind.tabs | case tabs | []
+symbol | swift.enum.case | RouterInspectorNodeKind.window | RouterInspectorNodeKind.window | case window | []
+symbol | swift.enum.case | RouterInspectorOutcome.accepted | RouterInspectorOutcome.accepted | case accepted | []
+symbol | swift.enum.case | RouterInspectorOutcome.informational | RouterInspectorOutcome.informational | case informational | []
+symbol | swift.enum.case | RouterInspectorOutcome.rejected | RouterInspectorOutcome.rejected | case rejected | []
+symbol | swift.enum.case | RouterInspectorReplayPreview.Status.matchedProposal | RouterInspectorReplayPreview.Status.matchedProposal | case matchedProposal | []
+symbol | swift.enum.case | RouterInspectorReplayPreview.Status.proposalMismatch | RouterInspectorReplayPreview.Status.proposalMismatch | case proposalMismatch | []
+symbol | swift.enum.case | RouterInspectorReplayPreview.Status.rejected | RouterInspectorReplayPreview.Status.rejected | case rejected | []
+symbol | swift.enum.case | RouterInspectorScenarioFailure.importFailed | RouterInspectorScenarioFailure.importFailed | case importFailed | []
+symbol | swift.enum.case | RouterInspectorScenarioFailure.startFailed | RouterInspectorScenarioFailure.startFailed | case startFailed | []
+symbol | swift.enum.case | RouterInspectorScenarioFailure.stopFailed | RouterInspectorScenarioFailure.stopFailed | case stopFailed | []
+symbol | swift.enum.case | RouterInspectorScenarioStatus.cancelled | RouterInspectorScenarioStatus.cancelled | case cancelled | []
+symbol | swift.enum.case | RouterInspectorScenarioStatus.complete | RouterInspectorScenarioStatus.complete | case complete | []
+symbol | swift.enum.case | RouterInspectorScenarioStatus.failed | RouterInspectorScenarioStatus.failed | case failed | []
+symbol | swift.enum.case | RouterInspectorScenarioStatus.idle | RouterInspectorScenarioStatus.idle | case idle | []
+symbol | swift.enum.case | RouterInspectorScenarioStatus.incomplete | RouterInspectorScenarioStatus.incomplete | case incomplete | []
+symbol | swift.enum.case | RouterInspectorScenarioStatus.recording | RouterInspectorScenarioStatus.recording | case recording | []
+symbol | swift.init | RouterInspectorDeepLinkAnalysis.init(decision:attempts:catalog:proposedState:diff:) | init(decision:attempts:catalog:proposedState:diff:) | init(decision: String, attempts: [DeepLinkRouteAttempt], catalog: DeepLinkRouteCatalog, proposedState: RouterInspectorStateTree? = nil, diff: RouterInspectorStateDiff? = nil) | []
+symbol | swift.init | RouterInspectorDeepLinkView.init(_:initialURL:) | init(_:initialURL:) | @MainActor init(_ routeType: R.Type, initialURL: String = "") | []
+symbol | swift.init | RouterInspectorDeepLinkView.init(store:initialURL:action:) | init(store:initialURL:action:) | @MainActor init(store: RouterStore<R>, initialURL: String = "", action: @escaping @MainActor (R) -> RouterAction<R> = RouterAction.push) | []
+symbol | swift.init | RouterInspectorDiagnosticBundle.init(frameworkVersion:platform:snapshot:) | init(frameworkVersion:platform:snapshot:) | init(frameworkVersion: String = InnoRouterVersion.current, platform: RouterPlatform, snapshot: RouterInspectorSnapshot) | []
+symbol | swift.init | RouterInspectorDiagnosticBundle.init(from:) | init(from:) | init(from decoder: any Decoder) throws | []
+symbol | swift.init | RouterInspectorEntry.init(id:timestamp:domain:name:outcome:metadata:state:diff:replay:) | init(id:timestamp:domain:name:outcome:metadata:state:diff:replay:) | init(id: UUID = UUID(), timestamp: Date = Date(), domain: RouterInspectorDomain, name: String, outcome: RouterInspectorOutcome, metadata: [String : String] = [:], state: RouterInspectorStateTree? = nil, diff: RouterInspectorStateDiff? = nil, replay: RouterInspectorReplayPreview? = nil) | []
+symbol | swift.init | RouterInspectorEventDescription.init(name:outcome:metadata:state:diff:replay:) | init(name:outcome:metadata:state:diff:replay:) | init(name: String, outcome: RouterInspectorOutcome = .informational, metadata: [String : String] = [:], state: RouterInspectorStateTree? = nil, diff: RouterInspectorStateDiff? = nil, replay: RouterInspectorReplayPreview? = nil) | []
+symbol | swift.init | RouterInspectorFormatter.init(_:) | init(_:) | init(_ format: @escaping (Event) -> RouterInspectorEventDescription) | []
+symbol | swift.init | RouterInspectorImportLimits.init(maximumEncodedByteCount:maximumEntryCount:) | init(maximumEncodedByteCount:maximumEntryCount:) | init(maximumEncodedByteCount: Int = 8 * 1_024 * 1_024, maximumEntryCount: Int = 5_000) | []
+symbol | swift.init | RouterInspectorPlayback.init(snapshot:startsAtEnd:) | init(snapshot:startsAtEnd:) | @MainActor init(snapshot: RouterInspectorSnapshot, startsAtEnd: Bool = false) | []
+symbol | swift.init | RouterInspectorRecorder.init(capacity:importLimits:) | init(capacity:importLimits:) | @MainActor init(capacity: Int = 500, importLimits: RouterInspectorImportLimits = .default) | []
+symbol | swift.init | RouterInspectorReplayPreview.init(status:state:error:) | init(status:state:error:) | init(status: RouterInspectorReplayPreview.Status, state: RouterInspectorStateTree?, error: String? = nil) | []
+symbol | swift.init | RouterInspectorScenarioController.init(capacity:start:stop:currentStepCount:importFixture:) | init(capacity:start:stop:currentStepCount:importFixture:) | @MainActor init(capacity: Int, start: @escaping @MainActor () throws -> Void, stop: @escaping @MainActor () throws -> RouterInspectorScenarioStopResult, currentStepCount: @escaping @MainActor () -> Int, importFixture: (@MainActor (Data) throws -> RouterInspectorScenarioStopResult)? = nil) | []
+symbol | swift.init | RouterInspectorScenarioStopResult.init(status:capturedStepCount:summary:rawFixtureData:) | init(status:capturedStepCount:summary:rawFixtureData:) | init(status: RouterInspectorScenarioStatus, capturedStepCount: Int, summary: String, rawFixtureData: Data? = nil) | []
+symbol | swift.init | RouterInspectorSnapshot.init(from:) | init(from:) | init(from decoder: any Decoder) throws | []
+symbol | swift.init | RouterInspectorSnapshot.init(generatedAt:entries:bookmarkedEntryIDs:) | init(generatedAt:entries:bookmarkedEntryIDs:) | init(generatedAt: Date = Date(), entries: [RouterInspectorEntry], bookmarkedEntryIDs: Set<RouterInspectorEntry.ID> = []) | []
+symbol | swift.init | RouterInspectorStateChange.init(path:field:before:after:) | init(path:field:before:after:) | init(path: String, field: String, before: String, after: String) | []
+symbol | swift.init | RouterInspectorStateDiff.init(changes:) | init(changes:) | init(changes: [RouterInspectorStateChange]) | []
+symbol | swift.init | RouterInspectorStateNode.init(id:label:kind:details:children:) | init(id:label:kind:details:children:) | init(id: String, label: String, kind: RouterInspectorNodeKind, details: [String : String] = [:], children: [RouterInspectorStateNode] = []) | []
+symbol | swift.init | RouterInspectorStateTree.init(root:windows:immersiveSpace:) | init(root:windows:immersiveSpace:) | init(root: RouterInspectorStateNode, windows: [RouterInspectorStateNode] = [], immersiveSpace: RouterInspectorStateNode? = nil) | []
+symbol | swift.init | RouterInspectorView.init(recorder:scenario:) | init(recorder:scenario:) | @MainActor init(recorder: RouterInspectorRecorder, scenario: RouterInspectorScenarioController? = nil) | []
+symbol | swift.method | RouterInspectorFormatter.callAsFunction(_:) | callAsFunction(_:) | func callAsFunction(_ event: Event) -> RouterInspectorEventDescription | []
+symbol | swift.method | RouterInspectorPlayback.jump(to:) | jump(to:) | @MainActor func jump(to entryID: RouterInspectorEntry.ID) | []
+symbol | swift.method | RouterInspectorPlayback.setComparisonEntry(_:) | setComparisonEntry(_:) | @MainActor func setComparisonEntry(_ entryID: RouterInspectorEntry.ID?) | []
+symbol | swift.method | RouterInspectorPlayback.stepBackward() | stepBackward() | @MainActor func stepBackward() | []
+symbol | swift.method | RouterInspectorPlayback.stepForward() | stepForward() | @MainActor func stepForward() | []
+symbol | swift.method | RouterInspectorRecorder.attach(to:domain:formatter:) | attach(to:domain:formatter:) | @discardableResult @MainActor func attach<Event>(to stream: AsyncStream<Event>, domain: RouterInspectorDomain, formatter: RouterInspectorFormatter<Event>) -> RouterInspectorSubscription where Event : Sendable | []
+symbol | swift.method | RouterInspectorRecorder.attach(to:formatter:) | attach(to:formatter:) | @discardableResult @MainActor func attach<R>(to store: RouterStore<R>, formatter: RouterInspectorFormatter<RouterEvent<R>>? = nil) -> RouterInspectorSubscription where R : Route | []
+symbol | swift.method | RouterInspectorRecorder.clear() | clear() | @MainActor func clear() | []
+symbol | swift.method | RouterInspectorRecorder.comparison(from:to:) | comparison(from:to:) | @MainActor func comparison(from beforeID: RouterInspectorEntry.ID, to afterID: RouterInspectorEntry.ID) -> RouterInspectorStateDiff? | []
+symbol | swift.method | RouterInspectorRecorder.diagnosticBundle(platform:frameworkVersion:generatedAt:) | diagnosticBundle(platform:frameworkVersion:generatedAt:) | @MainActor func diagnosticBundle(platform: RouterPlatform = RouterPlatformCapabilities.current.platform, frameworkVersion: String = InnoRouterVersion.current, generatedAt: Date = Date()) -> RouterInspectorDiagnosticBundle | []
+symbol | swift.method | RouterInspectorRecorder.encodedDiagnosticBundle(platform:frameworkVersion:generatedAt:) | encodedDiagnosticBundle(platform:frameworkVersion:generatedAt:) | @MainActor func encodedDiagnosticBundle(platform: RouterPlatform = RouterPlatformCapabilities.current.platform, frameworkVersion: String = InnoRouterVersion.current, generatedAt: Date = Date()) throws -> Data | []
+symbol | swift.method | RouterInspectorRecorder.encodedSnapshot(generatedAt:encoder:) | encodedSnapshot(generatedAt:encoder:) | @MainActor func encodedSnapshot(generatedAt: Date = Date(), encoder: JSONEncoder = JSONEncoder()) throws -> Data | []
+symbol | swift.method | RouterInspectorRecorder.importDiagnosticBundle(from:policy:decoder:) | importDiagnosticBundle(from:policy:decoder:) | @discardableResult @MainActor func importDiagnosticBundle(from data: Data, policy: RouterInspectorImportPolicy = .replace, decoder: JSONDecoder = JSONDecoder()) throws -> RouterInspectorDiagnosticBundle | []
+symbol | swift.method | RouterInspectorRecorder.importSnapshot(_:policy:) | importSnapshot(_:policy:) | @MainActor func importSnapshot(_ snapshot: RouterInspectorSnapshot, policy: RouterInspectorImportPolicy = .replace) throws | []
+symbol | swift.method | RouterInspectorRecorder.importSnapshot(from:policy:decoder:) | importSnapshot(from:policy:decoder:) | @discardableResult @MainActor func importSnapshot(from data: Data, policy: RouterInspectorImportPolicy = .replace, decoder: JSONDecoder = JSONDecoder()) throws -> RouterInspectorSnapshot | []
+symbol | swift.method | RouterInspectorRecorder.isBookmarked(_:) | isBookmarked(_:) | @MainActor func isBookmarked(_ entryID: RouterInspectorEntry.ID) -> Bool | []
+symbol | swift.method | RouterInspectorRecorder.pause() | pause() | @MainActor func pause() | []
+symbol | swift.method | RouterInspectorRecorder.record(domain:description:timestamp:) | record(domain:description:timestamp:) | @MainActor func record(domain: RouterInspectorDomain, description: RouterInspectorEventDescription, timestamp: Date = Date()) | []
+symbol | swift.method | RouterInspectorRecorder.resume() | resume() | @MainActor func resume() | []
+symbol | swift.method | RouterInspectorRecorder.setPauseOnRejection(_:) | setPauseOnRejection(_:) | @MainActor func setPauseOnRejection(_ enabled: Bool) | []
+symbol | swift.method | RouterInspectorRecorder.snapshot(generatedAt:) | snapshot(generatedAt:) | @MainActor func snapshot(generatedAt: Date = Date()) -> RouterInspectorSnapshot | []
+symbol | swift.method | RouterInspectorRecorder.toggleBookmark(_:) | toggleBookmark(_:) | @MainActor func toggleBookmark(_ entryID: RouterInspectorEntry.ID) | []
+symbol | swift.method | RouterInspectorScenarioController.cancel() | cancel() | @MainActor func cancel() | []
+symbol | swift.method | RouterInspectorScenarioController.importRawFixture(_:) | importRawFixture(_:) | @MainActor func importRawFixture(_ data: Data) | []
+symbol | swift.method | RouterInspectorScenarioController.rawExportData() | rawExportData() | @MainActor func rawExportData() -> Data? | []
+symbol | swift.method | RouterInspectorScenarioController.refreshProgress() | refreshProgress() | @MainActor func refreshProgress() | []
+symbol | swift.method | RouterInspectorScenarioController.start() | start() | @MainActor func start() | []
+symbol | swift.method | RouterInspectorScenarioController.stop() | stop() | @MainActor func stop() | []
+symbol | swift.method | RouterInspectorSnapshot.encode(to:) | encode(to:) | func encode(to encoder: any Encoder) throws | []
+symbol | swift.method | RouterInspectorSubscription.cancel() | cancel() | func cancel() | []
+symbol | swift.property | RouterInspectorDeepLinkAnalysis.attempts | attempts | let attempts: [DeepLinkRouteAttempt] | []
+symbol | swift.property | RouterInspectorDeepLinkAnalysis.catalog | catalog | let catalog: DeepLinkRouteCatalog | []
+symbol | swift.property | RouterInspectorDeepLinkAnalysis.decision | decision | let decision: String | []
+symbol | swift.property | RouterInspectorDeepLinkAnalysis.diff | diff | let diff: RouterInspectorStateDiff? | []
+symbol | swift.property | RouterInspectorDeepLinkAnalysis.proposedState | proposedState | let proposedState: RouterInspectorStateTree? | []
+symbol | swift.property | RouterInspectorDeepLinkView.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | RouterInspectorDiagnosticBundle.formatVersion | formatVersion | let formatVersion: Int | []
+symbol | swift.property | RouterInspectorDiagnosticBundle.frameworkVersion | frameworkVersion | let frameworkVersion: String | []
+symbol | swift.property | RouterInspectorDiagnosticBundle.platform | platform | let platform: RouterPlatform | []
+symbol | swift.property | RouterInspectorDiagnosticBundle.snapshot | snapshot | let snapshot: RouterInspectorSnapshot | []
+symbol | swift.property | RouterInspectorDomain.id | id | var id: RouterInspectorDomain { get } | []
+symbol | swift.property | RouterInspectorEntry.diff | diff | let diff: RouterInspectorStateDiff? | []
+symbol | swift.property | RouterInspectorEntry.domain | domain | let domain: RouterInspectorDomain | []
+symbol | swift.property | RouterInspectorEntry.id | id | let id: UUID | []
+symbol | swift.property | RouterInspectorEntry.metadata | metadata | let metadata: [String : String] | []
+symbol | swift.property | RouterInspectorEntry.name | name | let name: String | []
+symbol | swift.property | RouterInspectorEntry.outcome | outcome | let outcome: RouterInspectorOutcome | []
+symbol | swift.property | RouterInspectorEntry.replay | replay | let replay: RouterInspectorReplayPreview? | []
+symbol | swift.property | RouterInspectorEntry.state | state | let state: RouterInspectorStateTree? | []
+symbol | swift.property | RouterInspectorEntry.timestamp | timestamp | let timestamp: Date | []
+symbol | swift.property | RouterInspectorEventDescription.diff | diff | var diff: RouterInspectorStateDiff? | []
+symbol | swift.property | RouterInspectorEventDescription.metadata | metadata | var metadata: [String : String] | []
+symbol | swift.property | RouterInspectorEventDescription.name | name | var name: String | []
+symbol | swift.property | RouterInspectorEventDescription.outcome | outcome | var outcome: RouterInspectorOutcome | []
+symbol | swift.property | RouterInspectorEventDescription.replay | replay | var replay: RouterInspectorReplayPreview? | []
+symbol | swift.property | RouterInspectorEventDescription.state | state | var state: RouterInspectorStateTree? | []
+symbol | swift.property | RouterInspectorFlatNode.depth | depth | let depth: Int | []
+symbol | swift.property | RouterInspectorFlatNode.id | id | var id: String { get } | []
+symbol | swift.property | RouterInspectorFlatNode.node | node | let node: RouterInspectorStateNode | []
+symbol | swift.property | RouterInspectorImportLimits.maximumEncodedByteCount | maximumEncodedByteCount | var maximumEncodedByteCount: Int | []
+symbol | swift.property | RouterInspectorImportLimits.maximumEntryCount | maximumEntryCount | var maximumEntryCount: Int | []
+symbol | swift.property | RouterInspectorPlayback.canStepBackward | canStepBackward | @MainActor var canStepBackward: Bool { get } | []
+symbol | swift.property | RouterInspectorPlayback.canStepForward | canStepForward | @MainActor var canStepForward: Bool { get } | []
+symbol | swift.property | RouterInspectorPlayback.comparisonEntryID | comparisonEntryID | @MainActor var comparisonEntryID: RouterInspectorEntry.ID? { get set } | []
+symbol | swift.property | RouterInspectorPlayback.comparisonToPreviousState | comparisonToPreviousState | @MainActor var comparisonToPreviousState: RouterInspectorStateDiff? { get } | []
+symbol | swift.property | RouterInspectorPlayback.comparisonToSelectedState | comparisonToSelectedState | @MainActor var comparisonToSelectedState: RouterInspectorStateDiff? { get } | []
+symbol | swift.property | RouterInspectorPlayback.currentEntry | currentEntry | @MainActor var currentEntry: RouterInspectorEntry? { get } | []
+symbol | swift.property | RouterInspectorPlayback.position | position | @MainActor var position: Int? { get set } | []
+symbol | swift.property | RouterInspectorPlayback.snapshot | snapshot | @MainActor var snapshot: RouterInspectorSnapshot { get set } | []
+symbol | swift.property | RouterInspectorRecorder.bookmarkedEntryIDs | bookmarkedEntryIDs | @MainActor var bookmarkedEntryIDs: Set<RouterInspectorEntry.ID> { get set } | []
+symbol | swift.property | RouterInspectorRecorder.capacity | capacity | @MainActor let capacity: Int | []
+symbol | swift.property | RouterInspectorRecorder.entries | entries | @MainActor var entries: [RouterInspectorEntry] { get set } | []
+symbol | swift.property | RouterInspectorRecorder.importLimits | importLimits | @MainActor let importLimits: RouterInspectorImportLimits | []
+symbol | swift.property | RouterInspectorRecorder.isPaused | isPaused | @MainActor var isPaused: Bool { get set } | []
+symbol | swift.property | RouterInspectorRecorder.pauseOnRejection | pauseOnRejection | @MainActor var pauseOnRejection: Bool { get set } | []
+symbol | swift.property | RouterInspectorReplayPreview.error | error | let error: String? | []
+symbol | swift.property | RouterInspectorReplayPreview.state | state | let state: RouterInspectorStateTree? | []
+symbol | swift.property | RouterInspectorReplayPreview.status | status | let status: RouterInspectorReplayPreview.Status | []
+symbol | swift.property | RouterInspectorScenarioController.canImportRawFixture | canImportRawFixture | @MainActor var canImportRawFixture: Bool { get } | []
+symbol | swift.property | RouterInspectorScenarioController.capacity | capacity | @MainActor let capacity: Int | []
+symbol | swift.property | RouterInspectorScenarioController.capturedStepCount | capturedStepCount | @MainActor var capturedStepCount: Int { get set } | []
+symbol | swift.property | RouterInspectorScenarioController.failure | failure | @MainActor var failure: RouterInspectorScenarioFailure? { get set } | []
+symbol | swift.property | RouterInspectorScenarioController.status | status | @MainActor var status: RouterInspectorScenarioStatus { get set } | []
+symbol | swift.property | RouterInspectorScenarioController.summary | summary | @MainActor var summary: String { get set } | []
+symbol | swift.property | RouterInspectorScenarioStopResult.capturedStepCount | capturedStepCount | let capturedStepCount: Int | []
+symbol | swift.property | RouterInspectorScenarioStopResult.rawFixtureData | rawFixtureData | let rawFixtureData: Data? | []
+symbol | swift.property | RouterInspectorScenarioStopResult.status | status | let status: RouterInspectorScenarioStatus | []
+symbol | swift.property | RouterInspectorScenarioStopResult.summary | summary | let summary: String | []
+symbol | swift.property | RouterInspectorSnapshot.bookmarkedEntryIDs | bookmarkedEntryIDs | let bookmarkedEntryIDs: Set<RouterInspectorEntry.ID> | []
+symbol | swift.property | RouterInspectorSnapshot.entries | entries | let entries: [RouterInspectorEntry] | []
+symbol | swift.property | RouterInspectorSnapshot.generatedAt | generatedAt | let generatedAt: Date | []
+symbol | swift.property | RouterInspectorStateChange.after | after | let after: String | []
+symbol | swift.property | RouterInspectorStateChange.before | before | let before: String | []
+symbol | swift.property | RouterInspectorStateChange.field | field | let field: String | []
+symbol | swift.property | RouterInspectorStateChange.id | id | let id: String | []
+symbol | swift.property | RouterInspectorStateChange.path | path | let path: String | []
+symbol | swift.property | RouterInspectorStateDiff.changes | changes | let changes: [RouterInspectorStateChange] | []
+symbol | swift.property | RouterInspectorStateNode.children | children | let children: [RouterInspectorStateNode] | []
+symbol | swift.property | RouterInspectorStateNode.details | details | let details: [String : String] | []
+symbol | swift.property | RouterInspectorStateNode.id | id | let id: String | []
+symbol | swift.property | RouterInspectorStateNode.kind | kind | let kind: RouterInspectorNodeKind | []
+symbol | swift.property | RouterInspectorStateNode.label | label | let label: String | []
+symbol | swift.property | RouterInspectorStateTree.flattenedNodes | flattenedNodes | var flattenedNodes: [RouterInspectorFlatNode] { get } | []
+symbol | swift.property | RouterInspectorStateTree.immersiveSpace | immersiveSpace | let immersiveSpace: RouterInspectorStateNode? | []
+symbol | swift.property | RouterInspectorStateTree.root | root | let root: RouterInspectorStateNode | []
+symbol | swift.property | RouterInspectorStateTree.windows | windows | let windows: [RouterInspectorStateNode] | []
+symbol | swift.property | RouterInspectorView.body | body | @MainActor var body: some View { get } | []
+symbol | swift.struct | RouterInspectorDeepLinkAnalysis | RouterInspectorDeepLinkAnalysis | struct RouterInspectorDeepLinkAnalysis | []
+symbol | swift.struct | RouterInspectorDeepLinkView | RouterInspectorDeepLinkView | @MainActor struct RouterInspectorDeepLinkView<R> where R : DeepLinkRoute | []
+symbol | swift.struct | RouterInspectorDiagnosticBundle | RouterInspectorDiagnosticBundle | struct RouterInspectorDiagnosticBundle | []
+symbol | swift.struct | RouterInspectorEntry | RouterInspectorEntry | struct RouterInspectorEntry | []
+symbol | swift.struct | RouterInspectorEventDescription | RouterInspectorEventDescription | struct RouterInspectorEventDescription | []
+symbol | swift.struct | RouterInspectorFlatNode | RouterInspectorFlatNode | struct RouterInspectorFlatNode | []
+symbol | swift.struct | RouterInspectorFormatter | RouterInspectorFormatter | struct RouterInspectorFormatter<Event> where Event : Sendable | []
+symbol | swift.struct | RouterInspectorImportLimits | RouterInspectorImportLimits | struct RouterInspectorImportLimits | []
+symbol | swift.struct | RouterInspectorReplayPreview | RouterInspectorReplayPreview | struct RouterInspectorReplayPreview | []
+symbol | swift.struct | RouterInspectorScenarioStopResult | RouterInspectorScenarioStopResult | struct RouterInspectorScenarioStopResult | []
+symbol | swift.struct | RouterInspectorSnapshot | RouterInspectorSnapshot | struct RouterInspectorSnapshot | []
+symbol | swift.struct | RouterInspectorStateChange | RouterInspectorStateChange | struct RouterInspectorStateChange | []
+symbol | swift.struct | RouterInspectorStateDiff | RouterInspectorStateDiff | struct RouterInspectorStateDiff | []
+symbol | swift.struct | RouterInspectorStateNode | RouterInspectorStateNode | struct RouterInspectorStateNode | []
+symbol | swift.struct | RouterInspectorStateTree | RouterInspectorStateTree | struct RouterInspectorStateTree | []
+symbol | swift.struct | RouterInspectorView | RouterInspectorView | @MainActor struct RouterInspectorView | []
+symbol | swift.type.method | RouterInspectorComparison.finalStates(in:and:) | finalStates(in:and:) | static func finalStates(in before: RouterInspectorSnapshot, and after: RouterInspectorSnapshot) -> RouterInspectorStateDiff? | []
+symbol | swift.type.method | RouterInspectorComparison.states(at:and:in:) | states(at:and:in:) | static func states(at beforeID: RouterInspectorEntry.ID, and afterID: RouterInspectorEntry.ID, in snapshot: RouterInspectorSnapshot) -> RouterInspectorStateDiff? | []
+symbol | swift.type.method | RouterInspectorDeepLinkAnalyzer.analyze(_:as:inputLimits:) | analyze(_:as:inputLimits:) | static func analyze<R>(_ url: URL, as routeType: R.Type, inputLimits: DeepLinkInputLimits = .default) -> RouterInspectorDeepLinkAnalysis where R : DeepLinkRoute | []
+symbol | swift.type.method | RouterInspectorDeepLinkAnalyzer.execute(_:on:action:) | execute(_:on:action:) | @MainActor static func execute<R>(_ url: URL, on store: RouterStore<R>, action: (R) -> RouterAction<R> = RouterAction.push) async -> RouterOutcome<R>? where R : DeepLinkRoute | []
+symbol | swift.type.method | RouterInspectorDeepLinkAnalyzer.preview(_:as:from:action:) | preview(_:as:from:action:) | static func preview<R>(_ url: URL, as routeType: R.Type, from state: RouterState<R>, action: (R) -> RouterAction<R> = RouterAction.push) -> RouterInspectorDeepLinkAnalysis where R : DeepLinkRoute | []
+symbol | swift.type.method | RouterInspectorDeepLinkAnalyzer.shareSummary(_:) | shareSummary(_:) | static func shareSummary(_ analysis: RouterInspectorDeepLinkAnalysis) -> String | []
+symbol | swift.type.method | RouterInspectorProjection.diff(from:to:) | diff(from:to:) | static func diff(from before: RouterInspectorStateTree, to after: RouterInspectorStateTree) -> RouterInspectorStateDiff | []
+symbol | swift.type.method | RouterInspectorProjection.diff(from:to:) | diff(from:to:) | static func diff<R>(from before: RouterState<R>, to after: RouterState<R>) -> RouterInspectorStateDiff where R : Route | []
+symbol | swift.type.method | RouterInspectorProjection.tree(from:) | tree(from:) | static func tree<R>(from state: RouterState<R>) -> RouterInspectorStateTree where R : Route | []
+symbol | swift.type.method | RouterInspectorReplay.preview(_:) | preview(_:) | static func preview<R>(_ transition: RouterTransition<R>) -> RouterInspectorReplayPreview where R : Route | []
+symbol | swift.type.property | RouterInspectorImportLimits.default | default | static let `default`: RouterInspectorImportLimits | []

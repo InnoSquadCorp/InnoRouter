@@ -19,7 +19,9 @@ import Foundation
 /// - adds `@MainActor` and `@ViewBuilder` to that property when needed
 /// - synthesises `DestinationRoute` (and therefore `Route`) conformance
 /// - generates the access-level-matched `static destination(for:)` witness
-/// - synthesises `RouterTab` metadata when every case has `@TabItem`
+/// - synthesises a nested `RouterTab` identity and `RouterTabRoute` catalog
+///   for `@TabItem` cases while leaving
+///   unmarked cases available as ordinary destinations
 /// - synthesises a fail-closed `DeepLinkRoute` resolver when cases have
 ///   `@DeepLink` and literal origin allowlists are supplied
 ///
@@ -62,30 +64,65 @@ import Foundation
 /// unreachable URL patterns, and generated-member conflicts at compile time.
 /// It warns for ordered typed deep-link fallbacks, root-only enums, unused
 /// deep-link allowlists, and redundant explicit `Route`, `DestinationRoute`,
-/// `RouterTab`, `CaseIterable`, or `DeepLinkRoute` conformance.
+/// `RouterTabRoute` or `DeepLinkRoute` conformance.
 @attached(memberAttribute)
 @attached(
     extension,
-    conformances: DeepLinkRoute, DestinationRoute, RouterTab,
-    names: named(destination), named(allCases), named(title), named(systemImage), named(resolveDeepLink)
+    conformances: DeepLinkRoute, DestinationRoute, RouterTabRoute, RouterSceneRoute,
+    names: named(destination), named(Tab), named(Scene), named(Feature), named(Presentation), named(routerTabs), named(routerScenes), named(supportsPureDeepLinkExplanation), named(deepLinkCatalog), named(deepLinkCatalogCaseName), named(resolveDeepLink), named(deepLinkURL)
 )
 public macro Router(
     deepLinkSchemes: [String] = [],
-    deepLinkHosts: [String] = []
+    deepLinkHosts: [String] = [],
+    inspectorCatalog: Bool = false
 ) = #externalMacro(
     module: "InnoRouterMacrosPlugin",
     type: "RouterMacro"
+)
+
+// MARK: - @FeatureRoute
+
+/// Marks a parent `@Router` case as the composition point for an independent
+/// feature route type.
+///
+/// The case must carry exactly one associated value. `@Router` generates a
+/// typed mapping under `Parent.Feature.<caseName>`, which can be installed with
+/// `RouterFeatureHost` while the parent `RouterStore` remains the sole mutable
+/// authority.
+///
+/// ```swift
+/// @Router
+/// enum AppRoute {
+///     @FeatureRoute("account")
+///     case account(AccountRoute)
+///
+///     var destination: some View {
+///         switch self {
+///         case .account:
+///             RouterFeatureHost(AppRoute.Feature.account) { AccountRoot() }
+///         }
+///     }
+/// }
+/// ```
+@attached(peer)
+public macro FeatureRoute(_ id: String? = nil) = #externalMacro(
+    module: "InnoRouterMacrosPlugin",
+    type: "FeatureRouteMacro"
 )
 
 // MARK: - @TabItem
 
 /// Marks a parameterless `@Router` enum case as a tab destination.
 ///
-/// When any case carries `@TabItem`, every case in that router must carry one.
-/// `@Router` then synthesises `RouterTab`, `CaseIterable`, and the tab metadata
-/// witnesses used by `RouterTabHost`. Title literals become
+/// When at least one case carries `@TabItem`, `@Router` synthesises a nested
+/// `Tab` identity conforming to `RouterTab` and the `RouterTabRoute` catalog
+/// used by `RouterTabHost`.
+/// Only marked, parameterless cases become tab roots; unmarked cases remain
+/// push or presentation destinations. Title literals become
 /// `LocalizedStringResource` values, so the app's string catalog can localize
-/// generated native tab labels without a manual `RouterTab` conformance.
+/// generated native tab labels without a manual conformance. Optional selected
+/// images and native search roles are presentation metadata; the case name
+/// remains the stable tab identity.
 ///
 /// ```swift
 /// @Router
@@ -107,10 +144,57 @@ public macro Router(
 @attached(peer)
 public macro TabItem(
     _ title: LocalizedStringResource,
-    systemImage: String
+    systemImage: String,
+    selectedSystemImage: String? = nil,
+    role: RouterTabRole = .standard
 ) = #externalMacro(
     module: "InnoRouterMacrosPlugin",
     type: "TabItemMacro"
+)
+
+// MARK: - @Scene
+
+/// Marks a parameterless `@Router` case as a regular window or immersive scene.
+///
+/// The route macro generates one stable ``RouterSceneRoute`` catalog consumed
+/// by ``RouterSceneDriver`` plus a nested typed `Scene` request catalog. The
+/// application remains responsible for declaring matching
+/// `WindowGroup(id:for: UUID.self)` or `ImmersiveSpace(id:)` values in
+/// `App.body`; the UUID value identifies one exact regular-window instance.
+/// Render the matching scene-local node with ``RouterWindowHost`` or
+/// ``RouterImmersiveSpaceHost``.
+@attached(peer)
+public macro Scene(
+    _ style: RouterSceneStyle,
+    id: String? = nil
+) = #externalMacro(
+    module: "InnoRouterMacrosPlugin",
+    type: "SceneMacro"
+)
+
+// MARK: - @PresentationResult
+
+/// Gives a presentation route one compile-time result contract.
+///
+/// `@Router` generates a request under `Route.Presentation`. Pass that same
+/// request to `router.present(_:)` and
+/// `router.finishPresentation(_:returning:)`; Swift then checks the terminal
+/// value type at both call sites.
+///
+/// ```swift
+/// @PresentationResult(LoginResult.self)
+/// case login
+///
+/// let request = AppRoute.Presentation.login
+/// let outcome = await router.present(request)
+/// try await router.finishPresentation(request, returning: .authenticated)
+/// ```
+@attached(peer)
+public macro PresentationResult<Value: Sendable>(
+    _ resultType: Value.Type
+) = #externalMacro(
+    module: "InnoRouterMacrosPlugin",
+    type: "PresentationResultMacro"
 )
 
 // MARK: - @DeepLink
@@ -121,11 +205,10 @@ public macro TabItem(
 /// `DeepLinkRoute` resolver accepts only exact, case-insensitive origin
 /// matches and returns one typed route. Generated mappings prefer literal
 /// paths, then typed parameters, then terminal wildcards, independent of case
-/// declaration order. `RouterHost` and `RouterSplitHost` automatically push
-/// the result, `RouterModalHost` presents it with its configured style, and
-/// `RouterTabHost` selects it. Authentication, pending replay, per-route
-/// presentation policy, multi-step plans, and heterogeneous multi-window scene
-/// selection remain application-boundary concerns.
+/// declaration order. Macro-first hosts project the resolved route into their
+/// canonical `RouterStore`. Use `RouterLinkPipeline` at the application
+/// boundary when a URL must produce a complete multi-branch, presentation,
+/// window, or immersive `RouterPlan`, or when authentication can defer it.
 ///
 /// ```swift
 /// @Router(

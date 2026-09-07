@@ -19,10 +19,12 @@ import Testing
 func makeTestMacros() -> [String: Macro.Type] {
     [
         "Router": RouterMacro.self,
-        "SceneRouter": SceneRouterMacro.self,
+        "FeatureRoute": FeatureRouteMacro.self,
         "Scene": SceneMacro.self,
+        "InnoRouterMacros.Scene": SceneMacro.self,
         "DeepLink": DeepLinkMacro.self,
         "TabItem": TabItemMacro.self,
+        "PresentationResult": PresentationResultMacro.self,
         "Routable": RoutableMacro.self,
         "CasePathable": CasePathableMacro.self,
     ]

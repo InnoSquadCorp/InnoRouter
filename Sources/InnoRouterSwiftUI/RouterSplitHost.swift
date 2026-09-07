@@ -2,149 +2,468 @@ import SwiftUI
 
 import InnoRouterCore
 
-#if !os(watchOS)
-/// Environment-backed split rendering surface shared by the macro-first host
-/// and focused integration tests.
-///
-/// The detail stack and modal presentation both render the inner stores, but
-/// every published handler remains an adapter to the owning `FlowStore`.
-/// Descendants therefore cannot push past a modal tail through
-/// ``EnvironmentRouter`` or its explicit intent escape hatches.
-struct RouterSplitFlowSurface<R: Route, Sidebar: View, Destination: View, Root: View>: View {
-    @Bindable private var store: FlowStore<R>
-    private let sidebar: () -> Sidebar
-    private let destination: (R) -> Destination
-    private let root: () -> Root
+/// Validated scope topology and initial native state for a two-column host.
+public struct RouterTwoColumnSplitLayout: Hashable, Sendable {
+    package let splitState: RouterSplitState
 
-    init(
-        store: FlowStore<R>,
-        @ViewBuilder sidebar: @escaping () -> Sidebar,
-        @ViewBuilder destination: @escaping (R) -> Destination,
-        @ViewBuilder root: @escaping () -> Root
-    ) {
-        self.store = store
-        self.sidebar = sidebar
-        self.destination = destination
-        self.root = root
+    public var sidebarScopeID: RouterScopeID { splitState.sidebar }
+    public var detailScopeID: RouterScopeID { splitState.detail }
+    public var visibility: RouterSplitVisibility { splitState.visibility }
+    public var preferredCompactColumn: RouterSplitColumn {
+        splitState.preferredCompactColumn
     }
 
-    var body: some View {
-        let flowStore = store
-        let navigationDispatcher = flowStore.navigationIntentDispatcher
-        let modalDispatcher = flowStore.modalIntentDispatcher
-        let flowDispatcher = flowStore.intentDispatcher
-
-        ModalPresentationSurface(store: flowStore.modalStore, destination: destination) {
-            NavigationSplitView {
-                sidebar()
-            } detail: {
-                NavigationStackSurface(
-                    store: flowStore.navigationStore,
-                    destination: destination,
-                    root: root
-                )
-            }
-        }
-        .routerAuthority(
-            for: R.self,
-            navigation: navigationDispatcher,
-            modal: modalDispatcher,
-            flow: flowDispatcher
+    public init(
+        sidebarScopeID: RouterScopeID = "sidebar",
+        detailScopeID: RouterScopeID = "detail",
+        visibility: RouterSplitVisibility = .automatic,
+        preferredCompactColumn: RouterSplitColumn = .detail
+    ) throws {
+        self.splitState = try RouterSplitState(
+            sidebar: sidebarScopeID,
+            detail: detailScopeID,
+            visibility: visibility,
+            preferredCompactColumn: preferredCompactColumn
         )
+    }
+
+    public static let standard = Self(splitState: .standardTwoColumn)
+
+    private init(splitState: RouterSplitState) {
+        self.splitState = splitState
     }
 }
 
-/// A macro-first split-view router that owns one local ``FlowStore``.
-///
-/// `RouterSplitHost` is the split-layout counterpart to ``RouterHost``. The
-/// application supplies sidebar and root content, while the host owns the
-/// detail navigation stack and modal presentation authority. SwiftUI retains
-/// its native column visibility and compact-adaptation behavior. Descendants
-/// use ``EnvironmentRouter`` for both kinds of transition. A `DeepLinkRoute`
-/// automatically pushes its resolved incoming URLs into the detail stack;
-/// multi-window scene selection remains a Scene-level policy.
-///
-/// ```swift
-/// RouterSplitHost(AppRoute.self) {
-///     SidebarView()
-/// } root: {
-///     ContentUnavailableView("Select an item", systemImage: "sidebar.left")
-/// }
-/// ```
-///
-/// Use ``NavigationSplitHost`` instead when an application boundary must own
-/// and observe a stack-only `NavigationStore` directly.
-@MainActor
-public struct RouterSplitHost<R: DestinationRoute, Sidebar: View, Root: View>: View {
-    @State private var store: FlowStore<R>
-    private let sidebar: () -> Sidebar
-    private let root: () -> Root
+/// Validated scope topology and initial native state for a three-column host.
+public struct RouterThreeColumnSplitLayout: Hashable, Sendable {
+    package let splitState: RouterSplitState
 
-    /// Creates a locally owned split router for `routeType`.
-    ///
-    /// `initial` and `configuration` are captured when SwiftUI creates this
-    /// host's state for the first time. Later input changes do not replace the
-    /// existing store.
+    public var sidebarScopeID: RouterScopeID { splitState.sidebar }
+    public let contentScopeID: RouterScopeID
+    public var detailScopeID: RouterScopeID { splitState.detail }
+    public var visibility: RouterSplitVisibility { splitState.visibility }
+    public var preferredCompactColumn: RouterSplitColumn {
+        splitState.preferredCompactColumn
+    }
+
+    public init(
+        sidebarScopeID: RouterScopeID = "sidebar",
+        contentScopeID: RouterScopeID = "content",
+        detailScopeID: RouterScopeID = "detail",
+        visibility: RouterSplitVisibility = .automatic,
+        preferredCompactColumn: RouterSplitColumn = .detail
+    ) throws {
+        self.splitState = try RouterSplitState(
+            sidebar: sidebarScopeID,
+            content: contentScopeID,
+            detail: detailScopeID,
+            visibility: visibility,
+            preferredCompactColumn: preferredCompactColumn
+        )
+        self.contentScopeID = contentScopeID
+    }
+
+    public static let standard = Self(
+        splitState: .standardThreeColumn,
+        contentScopeID: "content"
+    )
+
+    private init(
+        splitState: RouterSplitState,
+        contentScopeID: RouterScopeID
+    ) {
+        self.splitState = splitState
+        self.contentScopeID = contentScopeID
+    }
+}
+
+#if !os(watchOS)
+/// A two-column native split host with independent sidebar and detail scopes.
+@MainActor
+public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot: View>: View {
+    public static var defaultSidebarScopeID: RouterScopeID { "sidebar" }
+    public static var defaultDetailScopeID: RouterScopeID { "detail" }
+
+    @State private var store: RouterStore<R>
+    private let sidebarScopeID: RouterScopeID
+    private let detailScopeID: RouterScopeID
+    private let linkHandling: RouterLinkHandling<R>?
+    private let sidebarRoot: () -> SidebarRoot
+    private let detailRoot: () -> DetailRoot
+
     public init(
         _ routeType: R.Type,
-        initial: [RouteStep<R>] = [],
-        configuration: FlowStoreConfiguration<R> = .init(),
-        @ViewBuilder sidebar: @escaping () -> Sidebar,
-        @ViewBuilder root: @escaping () -> Root
+        initialSidebarPath: [R] = [],
+        initialPath: [R] = [],
+        layout: RouterTwoColumnSplitLayout = .standard,
+        configuration: RouterStoreConfiguration<R> = .init(),
+        linkHandling: RouterLinkHandling<R>? = nil,
+        @ViewBuilder sidebar: @escaping () -> SidebarRoot,
+        @ViewBuilder root: @escaping () -> DetailRoot
     ) {
         _ = routeType
+        let splitState = layout.splitState
+        let initialState = Self.makeInitialState(
+            split: splitState,
+            branches: [
+                RouterBranch(id: layout.sidebarScopeID, node: .stack(path: initialSidebarPath)),
+                RouterBranch(id: layout.detailScopeID, node: .stack(path: initialPath)),
+            ]
+        )
         self._store = State(
-            initialValue: FlowStore(
-                initial: initial,
-                configuration: configuration.withMacroFirstDiagnostics(
-                    hostName: "RouterSplitHost"
-                )
+            initialValue: R.makeRouterStore(
+                initialState: initialState,
+                configuration: configuration
             )
         )
-        self.sidebar = sidebar
-        self.root = root
+        self.sidebarScopeID = layout.sidebarScopeID
+        self.detailScopeID = layout.detailScopeID
+        self.linkHandling = linkHandling
+        self.sidebarRoot = sidebar
+        self.detailRoot = root
+    }
+
+    public init(
+        store: RouterStore<R>,
+        linkHandling: RouterLinkHandling<R>? = nil,
+        @ViewBuilder sidebar: @escaping () -> SidebarRoot,
+        @ViewBuilder root: @escaping () -> DetailRoot
+    ) {
+        let split = Self.requireSplitState(in: store)
+        precondition(split.content == nil, "RouterSplitHost requires a two-column split state")
+        self._store = State(initialValue: store)
+        self.sidebarScopeID = split.sidebar
+        self.detailScopeID = split.detail
+        self.linkHandling = linkHandling
+        self.sidebarRoot = sidebar
+        self.detailRoot = root
     }
 
     public var body: some View {
-        let flowStore = store
-        RouterSplitFlowSurface(
-            store: flowStore,
-            sidebar: sidebar,
-            destination: R.destination(for:),
-            root: root
+        let rootScope = store.scope()
+        content(
+            rootScope: rootScope,
+            reconciliationRevision: rootScope.reconciliationRevision
         )
-        .handleRouterDeepLinks(for: R.self) { route in
-            flowStore.send(.push(route))
+    }
+
+    private func content(
+        rootScope: RouterScope<R>,
+        reconciliationRevision _: UInt64
+    ) -> some View {
+        let sidebarScope = store.scope(at: [sidebarScopeID])
+        let detailScope = store.scope(at: [detailScopeID])
+
+        return NavigationSplitView(
+            columnVisibility: splitVisibilityBinding(rootScope),
+            preferredCompactColumn: preferredCompactColumnBinding(rootScope)
+        ) {
+            RouterStoreStackSurface(
+                scope: sidebarScope,
+                destination: R.destination(for:),
+                root: sidebarRoot
+            )
+            .routerAuthority(sidebarScope, for: R.self)
+        } detail: {
+            RouterStoreStackSurface(
+                scope: detailScope,
+                destination: R.destination(for:),
+                root: detailRoot
+            )
+            .routerAuthority(detailScope, for: R.self)
+        }
+        .routerAuthority(rootScope, for: R.self)
+        .handleRouterPlans(
+            for: R.self,
+            scope: rootScope,
+            handling: linkHandling
+        ) { route, state in
+            let action = RouterAction<R>.push(route).inScope(detailScopeID)
+            return RouterPlan(state: try RouterReducer.reduce(action, from: state))
+        }
+    }
+
+    private static func requireSplitState(in store: RouterStore<R>) -> RouterSplitState {
+        guard case .container(let container) = store.state.root,
+              container.style == .split,
+              let split = container.split else {
+            preconditionFailure("RouterSplitHost requires a root split container")
+        }
+        return split
+    }
+
+    private static func makeInitialState(
+        split: RouterSplitState,
+        branches: [RouterBranch<R>]
+    ) -> RouterState<R> {
+        do {
+            let container = try RouterContainerState<R>(
+                style: .split,
+                selection: split.detail,
+                branches: branches,
+                split: split
+            )
+            return try RouterState(root: .container(container))
+        } catch {
+            preconditionFailure("Validated two-column layout produced invalid state: \(error)")
+        }
+    }
+}
+
+/// A three-column native split host with independent sidebar, content, and
+/// detail navigation histories in one canonical store.
+@MainActor
+public struct RouterThreeColumnSplitHost<
+    R: DestinationRoute,
+    SidebarRoot: View,
+    ContentRoot: View,
+    DetailRoot: View
+>: View {
+    @State private var store: RouterStore<R>
+    private let sidebarScopeID: RouterScopeID
+    private let contentScopeID: RouterScopeID
+    private let detailScopeID: RouterScopeID
+    private let linkHandling: RouterLinkHandling<R>?
+    private let sidebarRoot: () -> SidebarRoot
+    private let contentRoot: () -> ContentRoot
+    private let detailRoot: () -> DetailRoot
+
+    public init(
+        _ routeType: R.Type,
+        initialSidebarPath: [R] = [],
+        initialContentPath: [R] = [],
+        initialDetailPath: [R] = [],
+        layout: RouterThreeColumnSplitLayout = .standard,
+        configuration: RouterStoreConfiguration<R> = .init(),
+        linkHandling: RouterLinkHandling<R>? = nil,
+        @ViewBuilder sidebar: @escaping () -> SidebarRoot,
+        @ViewBuilder content: @escaping () -> ContentRoot,
+        @ViewBuilder detail: @escaping () -> DetailRoot
+    ) {
+        _ = routeType
+        let split = layout.splitState
+        let initialState = Self.makeInitialState(
+            split: split,
+            branches: [
+                RouterBranch(id: layout.sidebarScopeID, node: .stack(path: initialSidebarPath)),
+                RouterBranch(id: layout.contentScopeID, node: .stack(path: initialContentPath)),
+                RouterBranch(id: layout.detailScopeID, node: .stack(path: initialDetailPath)),
+            ]
+        )
+        self._store = State(
+            initialValue: R.makeRouterStore(
+                initialState: initialState,
+                configuration: configuration
+            )
+        )
+        self.sidebarScopeID = layout.sidebarScopeID
+        self.contentScopeID = layout.contentScopeID
+        self.detailScopeID = layout.detailScopeID
+        self.linkHandling = linkHandling
+        self.sidebarRoot = sidebar
+        self.contentRoot = content
+        self.detailRoot = detail
+    }
+
+    public init(
+        store: RouterStore<R>,
+        linkHandling: RouterLinkHandling<R>? = nil,
+        @ViewBuilder sidebar: @escaping () -> SidebarRoot,
+        @ViewBuilder content: @escaping () -> ContentRoot,
+        @ViewBuilder detail: @escaping () -> DetailRoot
+    ) {
+        guard case .container(let container) = store.state.root,
+              container.style == .split,
+              let split = container.split,
+              let contentScopeID = split.content else {
+            preconditionFailure(
+                "RouterThreeColumnSplitHost requires a root three-column split container"
+            )
+        }
+        self._store = State(initialValue: store)
+        self.sidebarScopeID = split.sidebar
+        self.contentScopeID = contentScopeID
+        self.detailScopeID = split.detail
+        self.linkHandling = linkHandling
+        self.sidebarRoot = sidebar
+        self.contentRoot = content
+        self.detailRoot = detail
+    }
+
+    public var body: some View {
+        let rootScope = store.scope()
+        contentView(
+            rootScope: rootScope,
+            reconciliationRevision: rootScope.reconciliationRevision
+        )
+    }
+
+    private func contentView(
+        rootScope: RouterScope<R>,
+        reconciliationRevision _: UInt64
+    ) -> some View {
+        let sidebarScope = store.scope(at: [sidebarScopeID])
+        let contentScope = store.scope(at: [contentScopeID])
+        let detailScope = store.scope(at: [detailScopeID])
+
+        return NavigationSplitView(
+            columnVisibility: splitVisibilityBinding(rootScope),
+            preferredCompactColumn: preferredCompactColumnBinding(rootScope)
+        ) {
+            RouterStoreStackSurface(
+                scope: sidebarScope,
+                destination: R.destination(for:),
+                root: sidebarRoot
+            )
+            .routerAuthority(sidebarScope, for: R.self)
+        } content: {
+            RouterStoreStackSurface(
+                scope: contentScope,
+                destination: R.destination(for:),
+                root: contentRoot
+            )
+            .routerAuthority(contentScope, for: R.self)
+        } detail: {
+            RouterStoreStackSurface(
+                scope: detailScope,
+                destination: R.destination(for:),
+                root: detailRoot
+            )
+            .routerAuthority(detailScope, for: R.self)
+        }
+        .routerAuthority(rootScope, for: R.self)
+        .handleRouterPlans(
+            for: R.self,
+            scope: rootScope,
+            handling: linkHandling
+        ) { route, state in
+            let action = RouterAction<R>.push(route).inScope(detailScopeID)
+            return RouterPlan(state: try RouterReducer.reduce(action, from: state))
+        }
+    }
+
+    private static func makeInitialState(
+        split: RouterSplitState,
+        branches: [RouterBranch<R>]
+    ) -> RouterState<R> {
+        do {
+            let container = try RouterContainerState<R>(
+                style: .split,
+                selection: split.detail,
+                branches: branches,
+                split: split
+            )
+            return try RouterState(root: .container(container))
+        } catch {
+            preconditionFailure("Validated three-column layout produced invalid state: \(error)")
+        }
+    }
+}
+
+@MainActor
+private func splitVisibilityBinding<R: Route>(
+    _ rootScope: RouterScope<R>
+) -> Binding<NavigationSplitViewVisibility> {
+    Binding(
+        get: {
+            rootScope.observedSplitState?.visibility.swiftUIValue ?? .automatic
+        },
+        set: { visibility in
+            rootScope.dispatchRoot(
+                .setSplitVisibility(.init(visibility)),
+                context: .init(source: .system)
+            )
+        }
+    )
+}
+
+@MainActor
+private func preferredCompactColumnBinding<R: Route>(
+    _ rootScope: RouterScope<R>
+) -> Binding<NavigationSplitViewColumn> {
+    Binding(
+        get: {
+            rootScope.observedSplitState?.preferredCompactColumn.swiftUIValue ?? .detail
+        },
+        set: { column in
+            rootScope.dispatchRoot(
+                .setPreferredCompactColumn(.init(column)),
+                context: .init(source: .system)
+            )
+        }
+    )
+}
+
+private extension RouterSplitVisibility {
+    var swiftUIValue: NavigationSplitViewVisibility {
+        switch self {
+        case .automatic: .automatic
+        case .all: .all
+        case .doubleColumn: .doubleColumn
+        case .detailOnly: .detailOnly
+        }
+    }
+
+    init(_ value: NavigationSplitViewVisibility) {
+        if value == .all {
+            self = .all
+        } else if value == .doubleColumn {
+            self = .doubleColumn
+        } else if value == .detailOnly {
+            self = .detailOnly
+        } else {
+            self = .automatic
+        }
+    }
+}
+
+private extension RouterSplitColumn {
+    var swiftUIValue: NavigationSplitViewColumn {
+        switch self {
+        case .sidebar: .sidebar
+        case .content: .content
+        case .detail: .detail
+        }
+    }
+
+    init(_ value: NavigationSplitViewColumn) {
+        if value == .sidebar {
+            self = .sidebar
+        } else if value == .content {
+            self = .content
+        } else {
+            self = .detail
         }
     }
 }
 #else
-/// Split navigation is unavailable on watchOS because SwiftUI does not expose
-/// `NavigationSplitView` there. Use ``RouterHost`` for a stack-plus-modal
-/// authority on watchOS.
 @available(
     watchOS,
     unavailable,
     message: "RouterSplitHost requires NavigationSplitView; use RouterHost on watchOS."
 )
 @MainActor
-public struct RouterSplitHost<R: DestinationRoute, Sidebar: View, Root: View>: View {
+public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot: View>: View {
     public init(
         _ routeType: R.Type,
-        initial: [RouteStep<R>] = [],
-        configuration: FlowStoreConfiguration<R> = .init(),
-        @ViewBuilder sidebar: @escaping () -> Sidebar,
-        @ViewBuilder root: @escaping () -> Root
+        initialSidebarPath: [R] = [],
+        initialPath: [R] = [],
+        layout: RouterTwoColumnSplitLayout = .standard,
+        configuration: RouterStoreConfiguration<R> = .init(),
+        linkHandling: RouterLinkHandling<R>? = nil,
+        @ViewBuilder sidebar: @escaping () -> SidebarRoot,
+        @ViewBuilder root: @escaping () -> DetailRoot
     ) {
         _ = routeType
-        _ = initial
+        _ = initialSidebarPath
+        _ = initialPath
+        _ = layout
         _ = configuration
+        _ = linkHandling
         _ = sidebar
         _ = root
     }
 
-    public var body: some View {
-        EmptyView()
-    }
+    public var body: some View { EmptyView() }
 }
 #endif

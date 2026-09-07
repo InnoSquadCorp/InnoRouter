@@ -21,6 +21,7 @@ enum RouterDeepLinkDiagnostic: DiagnosticMessage {
     case unreachablePattern(reason: String)
     case typedFallbackPattern(reason: String)
     case conflictingResolver
+    case conflictingURLRenderer
     case unusedAllowlist
     case redundantConformance
 
@@ -48,6 +49,7 @@ enum RouterDeepLinkDiagnostic: DiagnosticMessage {
         case .patternPayloadMismatch: return "InnoRouterMacro.E027"
         case .unreachablePattern: return "InnoRouterMacro.E028"
         case .conflictingResolver: return "InnoRouterMacro.E029"
+        case .conflictingURLRenderer: return "InnoRouterMacro.E050"
         case .unusedAllowlist: return "InnoRouterMacro.W006"
         case .redundantConformance: return "InnoRouterMacro.W007"
         case .typedFallbackPattern: return "InnoRouterMacro.W012"
@@ -85,6 +87,8 @@ enum RouterDeepLinkDiagnostic: DiagnosticMessage {
             return prefix + "@DeepLink mappings overlap: \(reason)"
         case .conflictingResolver:
             return prefix + "@Router with @DeepLink generates `resolveDeepLink(_:)`; remove the manual static resolver"
+        case .conflictingURLRenderer:
+            return prefix + "@Router with @DeepLink generates `deepLinkURL(origin:)`; remove the manual instance method"
         case .unusedAllowlist:
             return prefix + "deep-link allowlists have no effect because this @Router has no @DeepLink cases"
         case .redundantConformance:

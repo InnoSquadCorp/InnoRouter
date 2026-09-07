@@ -95,9 +95,30 @@ public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
         if case .invalid = tabExpansion {
             return []
         }
+        let sceneExpansion = analyzeRouterScenes(in: enumDecl, context: context)
+        if case .invalid = sceneExpansion {
+            return []
+        }
+        let presentationResultExpansion = analyzeRouterPresentationResults(
+            in: enumDecl,
+            context: context
+        )
+        if case .invalid = presentationResultExpansion {
+            return []
+        }
+        let featureExpansion = analyzeRouterFeatures(in: enumDecl, context: context)
+        if case .invalid = featureExpansion {
+            return []
+        }
         let deepLinkExpansion = analyzeRouterDeepLinks(
             routerAttribute: node,
             in: enumDecl,
+            featureCaseCount: {
+                if case .valid(let specification) = featureExpansion {
+                    return specification.items.count
+                }
+                return 0
+            }(),
             context: context
         )
         if case .invalid = deepLinkExpansion {
@@ -107,6 +128,9 @@ public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
             for: type,
             enumDecl: enumDecl,
             tabExpansion: tabExpansion,
+            sceneExpansion: sceneExpansion,
+            presentationResultExpansion: presentationResultExpansion,
+            featureExpansion: featureExpansion,
             deepLinkExpansion: deepLinkExpansion,
             node: node,
             context: context
@@ -118,6 +142,9 @@ private func makeRouterExtensions(
     for type: some TypeSyntaxProtocol,
     enumDecl: EnumDeclSyntax,
     tabExpansion: RouterTabExpansion,
+    sceneExpansion: RouterSceneExpansion,
+    presentationResultExpansion: RouterPresentationResultExpansion,
+    featureExpansion: RouterFeatureExpansion,
     deepLinkExpansion: RouterDeepLinkExpansion,
     node: AttributeSyntax,
     context: some MacroExpansionContext
@@ -150,14 +177,19 @@ private func makeRouterExtensions(
     let access = inferAccessLevel(from: enumDecl).keyword
     let tabMembers: String
     if case .valid(let specification) = tabExpansion {
-        if !specification.directlyConformsToRouterTab {
-            conformances.append("InnoRouterSwiftUI.RouterTab")
+        if !specification.directlyConformsToRouterTabRoute {
+            conformances.append("InnoRouterSwiftUI.RouterTabRoute")
         }
         tabMembers = "\n\n" + renderRouterTabMembers(from: specification, access: access)
     } else {
         tabMembers = ""
     }
 
+    let featureSpecification: RouterFeatureSpecification? = if case .valid(let specification) = featureExpansion {
+        specification
+    } else {
+        nil
+    }
     let deepLinkMembers: String
     if case .valid(let specification) = deepLinkExpansion {
         if !specification.directlyConformsToDeepLinkRoute {
@@ -165,10 +197,48 @@ private func makeRouterExtensions(
         }
         deepLinkMembers = "\n\n" + renderRouterDeepLinkMembers(
             from: specification,
-            access: access
+            access: access,
+            declarationNamespace: type.trimmedDescription,
+            features: featureSpecification
         )
     } else {
         deepLinkMembers = ""
+    }
+
+    let sceneMembers: String
+    if case .valid(let specification) = sceneExpansion {
+        if !specification.directlyConformsToRouterSceneRoute {
+            conformances.append("InnoRouterSwiftUI.RouterSceneRoute")
+        }
+        sceneMembers = "\n\n" + renderRouterSceneMembers(
+            from: specification,
+            routeType: type.trimmedDescription,
+            access: access
+        )
+    } else {
+        sceneMembers = ""
+    }
+
+    let presentationResultMembers: String
+    if case .valid(let items) = presentationResultExpansion {
+        presentationResultMembers = "\n\n" + renderRouterPresentationResultMembers(
+            from: items,
+            routeType: type.trimmedDescription,
+            access: access
+        )
+    } else {
+        presentationResultMembers = ""
+    }
+
+    let featureMembers: String
+    if case .valid(let specification) = featureExpansion {
+        featureMembers = "\n\n" + renderRouterFeatureMembers(
+            from: specification,
+            parentType: type.trimmedDescription,
+            access: access
+        )
+    } else {
+        featureMembers = ""
     }
 
     let conformanceClause = conformances.isEmpty
@@ -181,7 +251,7 @@ private func makeRouterExtensions(
             @SwiftUI.ViewBuilder
             \(raw: access) static func destination(for route: Self) -> some SwiftUI.View {
                 route.destination
-            }\(raw: tabMembers)\(raw: deepLinkMembers)
+            }\(raw: tabMembers)\(raw: sceneMembers)\(raw: featureMembers)\(raw: presentationResultMembers)\(raw: deepLinkMembers)
         }
         """
     )

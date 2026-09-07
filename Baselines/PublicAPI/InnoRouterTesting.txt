@@ -1,135 +1,439 @@
 # Public API baseline for InnoRouterTesting
-relationship | memberOf | FlowTestStore.apply(_:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.finish(fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.init(initial:configuration:exhaustivity:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.path | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receive(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveIntentRejected(intent:reason:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveModal(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveModalCommandIntercepted(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveModalDismissed(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveModalMiddlewareMutation(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveModalPresented(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveModalQueueChanged(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveNavigation(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveNavigationBatch(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveNavigationChanged(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveNavigationMiddlewareMutation(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveNavigationPathMismatch(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receiveNavigationTransaction(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.receivePathChanged(_:fileID:filePath:line:column:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.send(_:) | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.skipReceivedEvents() | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.store | FlowTestStore |  |
-relationship | memberOf | FlowTestStore.unassertedEvents | FlowTestStore |  |
-relationship | memberOf | ModalTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.currentPresentation | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.dismissAll() | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.dismissCurrent() | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.execute(_:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.finish(fileID:filePath:line:column:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.init(currentPresentation:queuedPresentations:configuration:exhaustivity:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.present(_:style:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.queuedPresentations | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.receive(_:fileID:filePath:line:column:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.receiveDismissed(_:fileID:filePath:line:column:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.receiveIntercepted(_:fileID:filePath:line:column:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.receiveMiddlewareMutation(action:fileID:filePath:line:column:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.receivePresented(_:fileID:filePath:line:column:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.receiveQueueChanged(_:fileID:filePath:line:column:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.replaceCurrent(_:style:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.send(_:) | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.skipReceivedEvents() | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.store | ModalTestStore |  |
-relationship | memberOf | ModalTestStore.unassertedEvents | ModalTestStore |  |
-relationship | memberOf | NavigationTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.execute(_:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.executeBatch(_:stopOnFailure:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.executeTransaction(_:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.finish(fileID:filePath:line:column:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.init(initial:configuration:exhaustivity:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.init(initialPath:configuration:exhaustivity:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.receive(_:failureMessage:fileID:filePath:line:column:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.receive(_:fileID:filePath:line:column:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.receiveBatch(_:fileID:filePath:line:column:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.receiveChange(_:fileID:filePath:line:column:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.receiveMiddlewareMutation(action:fileID:filePath:line:column:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.receivePathMismatch(_:fileID:filePath:line:column:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.receiveTransaction(_:fileID:filePath:line:column:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.send(_:) | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.skipReceivedEvents() | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.state | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.store | NavigationTestStore |  |
-relationship | memberOf | NavigationTestStore.unassertedEvents | NavigationTestStore |  |
+relationship | memberOf | RouterActionSequence.actions | RouterActionSequence |  |
+relationship | memberOf | RouterActionSequence.decode(_:) | RouterActionSequence |  |
+relationship | memberOf | RouterActionSequence.encoded() | RouterActionSequence |  |
+relationship | memberOf | RouterActionSequence.init(actions:context:) | RouterActionSequence |  |
+relationship | memberOf | RouterActionSequence.init(from:) | RouterActionSequence |  |
+relationship | memberOf | RouterActionSequence.init(steps:) | RouterActionSequence |  |
+relationship | memberOf | RouterActionSequence.replay(on:) | RouterActionSequence |  |
+relationship | memberOf | RouterActionSequence.schemaVersion | RouterActionSequence |  |
+relationship | memberOf | RouterActionSequence.steps | RouterActionSequence |  |
+relationship | memberOf | RouterActionStep.action | RouterActionStep |  |
+relationship | memberOf | RouterActionStep.context | RouterActionStep |  |
+relationship | memberOf | RouterActionStep.init(action:context:) | RouterActionStep |  |
+relationship | memberOf | RouterScenarioCancellationOrigin.deferralDecision | RouterScenarioCancellationOrigin |  |
+relationship | memberOf | RouterScenarioCancellationOrigin.none | RouterScenarioCancellationOrigin |  |
+relationship | memberOf | RouterScenarioCancellationOrigin.request | RouterScenarioCancellationOrigin |  |
+relationship | memberOf | RouterScenarioCompleteness.droppedStepCount | RouterScenarioCompleteness |  |
+relationship | memberOf | RouterScenarioCompleteness.init(unpairedRequestCount:droppedStepCount:missingExpectationCount:missingControlCount:) | RouterScenarioCompleteness |  |
+relationship | memberOf | RouterScenarioCompleteness.isComplete | RouterScenarioCompleteness |  |
+relationship | memberOf | RouterScenarioCompleteness.missingControlCount | RouterScenarioCompleteness |  |
+relationship | memberOf | RouterScenarioCompleteness.missingExpectationCount | RouterScenarioCompleteness |  |
+relationship | memberOf | RouterScenarioCompleteness.unpairedRequestCount | RouterScenarioCompleteness |  |
+relationship | memberOf | RouterScenarioControl.advanceTime(nanoseconds:eventIndex:) | RouterScenarioControl |  |
+relationship | memberOf | RouterScenarioControl.awaitTerminal(requestID:eventIndex:) | RouterScenarioControl |  |
+relationship | memberOf | RouterScenarioControl.cancel(requestID:eventIndex:) | RouterScenarioControl |  |
+relationship | memberOf | RouterScenarioControl.eventIndex | RouterScenarioControl |  |
+relationship | memberOf | RouterScenarioControl.resolveDeferral(requestID:deferralID:resolution:resumeStrategy:eventIndex:) | RouterScenarioControl |  |
+relationship | memberOf | RouterScenarioControl.submit(requestID:eventIndex:) | RouterScenarioControl |  |
+relationship | memberOf | RouterScenarioControl.waitUntilStarted(requestID:eventIndex:) | RouterScenarioControl |  |
+relationship | memberOf | RouterScenarioDependency.capabilities | RouterScenarioDependency |  |
+relationship | memberOf | RouterScenarioDependency.id | RouterScenarioDependency |  |
+relationship | memberOf | RouterScenarioDependency.init(id:version:capabilities:) | RouterScenarioDependency |  |
+relationship | memberOf | RouterScenarioDependency.version | RouterScenarioDependency |  |
+relationship | memberOf | RouterScenarioExpectation.init(state:revision:terminal:rejection:) | RouterScenarioExpectation |  |
+relationship | memberOf | RouterScenarioExpectation.rejection | RouterScenarioExpectation |  |
+relationship | memberOf | RouterScenarioExpectation.revision | RouterScenarioExpectation |  |
+relationship | memberOf | RouterScenarioExpectation.state | RouterScenarioExpectation |  |
+relationship | memberOf | RouterScenarioExpectation.terminal | RouterScenarioExpectation |  |
+relationship | memberOf | RouterScenarioFixture.completeness | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixture.controls | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixture.decode(from:maximumByteCount:maximumStepCount:) | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixture.encode(to:) | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixture.formatVersion | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixture.init(from:) | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixture.init(initialState:initialRevision:metadata:steps:controls:completeness:) | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixture.initialRevision | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixture.initialState | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixture.metadata | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixture.settingExpectations(_:) | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixture.steps | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixtureError.encodedDataTooLarge(actual:maximum:) | RouterScenarioFixtureError |  |
+relationship | memberOf | RouterScenarioFixtureError.expectationCountMismatch(expected:actual:) | RouterScenarioFixtureError |  |
+relationship | memberOf | RouterScenarioFixtureError.tooManySteps(actual:maximum:) | RouterScenarioFixtureError |  |
+relationship | memberOf | RouterScenarioFixtureError.unsupportedFormatVersion(_:) | RouterScenarioFixtureError |  |
+relationship | memberOf | RouterScenarioGeneratedFiles.fixtureData | RouterScenarioGeneratedFiles |  |
+relationship | memberOf | RouterScenarioGeneratedFiles.fixtureFileName | RouterScenarioGeneratedFiles |  |
+relationship | memberOf | RouterScenarioGeneratedFiles.init(source:fixtureData:fixtureFileName:) | RouterScenarioGeneratedFiles |  |
+relationship | memberOf | RouterScenarioGeneratedFiles.source | RouterScenarioGeneratedFiles |  |
+relationship | memberOf | RouterScenarioMetadata.dependencies | RouterScenarioMetadata |  |
+relationship | memberOf | RouterScenarioMetadata.environmentID | RouterScenarioMetadata |  |
+relationship | memberOf | RouterScenarioMetadata.environmentVersion | RouterScenarioMetadata |  |
+relationship | memberOf | RouterScenarioMetadata.externalEffectIDs | RouterScenarioMetadata |  |
+relationship | memberOf | RouterScenarioMetadata.init(routeSchemaID:environmentID:environmentVersion:dependencies:requiredCapabilities:externalEffectIDs:) | RouterScenarioMetadata |  |
+relationship | memberOf | RouterScenarioMetadata.requiredCapabilities | RouterScenarioMetadata |  |
+relationship | memberOf | RouterScenarioMetadata.routeSchemaID | RouterScenarioMetadata |  |
+relationship | memberOf | RouterScenarioRecorder.advanceTime(byNanoseconds:on:) | RouterScenarioRecorder |  |
+relationship | memberOf | RouterScenarioRecorder.capacity | RouterScenarioRecorder |  |
+relationship | memberOf | RouterScenarioRecorder.controls | RouterScenarioRecorder |  |
+relationship | memberOf | RouterScenarioRecorder.fixture() | RouterScenarioRecorder |  |
+relationship | memberOf | RouterScenarioRecorder.init(store:capacity:metadata:) | RouterScenarioRecorder |  |
+relationship | memberOf | RouterScenarioRecorder.initialRevision | RouterScenarioRecorder |  |
+relationship | memberOf | RouterScenarioRecorder.initialState | RouterScenarioRecorder |  |
+relationship | memberOf | RouterScenarioRecorder.resolveDeferred(_:with:resumeStrategy:) | RouterScenarioRecorder |  |
+relationship | memberOf | RouterScenarioRecorder.steps | RouterScenarioRecorder |  |
+relationship | memberOf | RouterScenarioRecorder.stop() | RouterScenarioRecorder |  |
+relationship | memberOf | RouterScenarioRecorder.waitUntilCaptured(_:) | RouterScenarioRecorder |  |
+relationship | memberOf | RouterScenarioRecorder.waitUntilObserved(_:) | RouterScenarioRecorder |  |
+relationship | memberOf | RouterScenarioRejectionKind.busy | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.cancelled | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.coalesced | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.deferralCapacityExceeded | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.deferralConflict | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.deferralEvicted | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.deferralExpired | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.deferralNotFound | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.featureProjection | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.init(_:) | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.missingAuthority | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.mutation | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.policy | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.policyTimedOut | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.queueOverflow | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.staleState | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioRejectionKind.superseded | RouterScenarioRejectionKind |  |
+relationship | memberOf | RouterScenarioReplayCapability.applicationEffects | RouterScenarioReplayCapability |  |
+relationship | memberOf | RouterScenarioReplayCapability.deterministicClock | RouterScenarioReplayCapability |  |
+relationship | memberOf | RouterScenarioReplayCapability.deterministicTransitionIDs | RouterScenarioReplayCapability |  |
+relationship | memberOf | RouterScenarioReplayEnvironment.capabilities | RouterScenarioReplayEnvironment |  |
+relationship | memberOf | RouterScenarioReplayEnvironment.dependencies | RouterScenarioReplayEnvironment |  |
+relationship | memberOf | RouterScenarioReplayEnvironment.environmentID | RouterScenarioReplayEnvironment |  |
+relationship | memberOf | RouterScenarioReplayEnvironment.environmentVersion | RouterScenarioReplayEnvironment |  |
+relationship | memberOf | RouterScenarioReplayEnvironment.externalEffectIDs | RouterScenarioReplayEnvironment |  |
+relationship | memberOf | RouterScenarioReplayEnvironment.init(routeSchemaID:environmentID:environmentVersion:dependencies:capabilities:externalEffectIDs:) | RouterScenarioReplayEnvironment |  |
+relationship | memberOf | RouterScenarioReplayEnvironment.routeSchemaID | RouterScenarioReplayEnvironment |  |
+relationship | memberOf | RouterScenarioReplayError.environmentMismatch(expectedID:expectedVersion:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.incomplete(_:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.initialStateMismatch | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.invalidEventOrdering | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.invalidExpectedRevision(step:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.missingCancellationProvenance(step:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.missingDependency(id:version:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.missingDependencyCapability(dependencyID:capability:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.missingExpectation(step:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.missingReplayCapability(_:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.rejectionMismatch(step:expected:actual:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.revisionBeforeCaptureBaseline(step:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.revisionMismatch(step:expectedDelta:actualDelta:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.routeSchemaMismatch(expected:actual:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.stateMismatch(step:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.terminalMismatch(step:expected:actual:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.unsupportedExternalEffect(_:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.unsupportedHistoryLifetime(step:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioRequestSemantics.action | RouterScenarioRequestSemantics |  |
+relationship | memberOf | RouterScenarioRequestSemantics.historyNavigation(_:) | RouterScenarioRequestSemantics |  |
+relationship | memberOf | RouterScenarioRunner.replay(_:on:environment:) | RouterScenarioRunner |  |
+relationship | memberOf | RouterScenarioSourceGenerationError.encodingFailed | RouterScenarioSourceGenerationError |  |
+relationship | memberOf | RouterScenarioSourceGenerationError.incomplete(_:) | RouterScenarioSourceGenerationError |  |
+relationship | memberOf | RouterScenarioSourceGenerationError.invalidEventOrdering | RouterScenarioSourceGenerationError |  |
+relationship | memberOf | RouterScenarioSourceGenerationError.invalidExpectedRevision(step:) | RouterScenarioSourceGenerationError |  |
+relationship | memberOf | RouterScenarioSourceGenerationError.invalidFixtureFileName(_:) | RouterScenarioSourceGenerationError |  |
+relationship | memberOf | RouterScenarioSourceGenerationError.invalidSwiftIdentifier(_:) | RouterScenarioSourceGenerationError |  |
+relationship | memberOf | RouterScenarioSourceGenerationError.missingCancellationProvenance(step:) | RouterScenarioSourceGenerationError |  |
+relationship | memberOf | RouterScenarioSourceGenerationError.unsupportedHistoryLifetime(step:) | RouterScenarioSourceGenerationError |  |
+relationship | memberOf | RouterScenarioSourceGenerator.generate(_:routeTypeName:testName:storeFactory:) | RouterScenarioSourceGenerator |  |
+relationship | memberOf | RouterScenarioSourceGenerator.generateFiles(_:routeTypeName:fixtureFileName:testName:storeFactory:environmentFactory:) | RouterScenarioSourceGenerator |  |
+relationship | memberOf | RouterScenarioStep.action | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.cancellationOrigin | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.context | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.encode(to:) | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.expectation | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.expectedRevision | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.init(from:) | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.init(requestID:submissionIndex:submissionEventIndex:terminalEventIndex:action:context:requestSemantics:expectedRevision:cancellationOrigin:observedState:observedRevision:observedTerminal:observedRejection:observedDeferralID:expectation:) | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.observedDeferralID | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.observedRejection | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.observedRevision | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.observedState | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.observedTerminal | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.requestID | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.requestSemantics | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.submissionEventIndex | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.submissionIndex | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioStep.terminalEventIndex | RouterScenarioStep |  |
+relationship | memberOf | RouterScenarioTerminal.applied | RouterScenarioTerminal |  |
+relationship | memberOf | RouterScenarioTerminal.deferred | RouterScenarioTerminal |  |
+relationship | memberOf | RouterScenarioTerminal.init(_:) | RouterScenarioTerminal |  |
+relationship | memberOf | RouterScenarioTerminal.rejected | RouterScenarioTerminal |  |
+relationship | memberOf | RouterScenarioTerminal.unchanged | RouterScenarioTerminal |  |
+relationship | memberOf | RouterTestClock.advance(by:) | RouterTestClock |  |
+relationship | memberOf | RouterTestClock.cancelAll() | RouterTestClock |  |
+relationship | memberOf | RouterTestClock.init(now:) | RouterTestClock |  |
+relationship | memberOf | RouterTestClock.now | RouterTestClock |  |
+relationship | memberOf | RouterTestClock.pendingSleepCount | RouterTestClock |  |
+relationship | memberOf | RouterTestClock.waitUntilScheduled(_:) | RouterTestClock |  |
+relationship | memberOf | RouterTestPendingWork.deferrals | RouterTestPendingWork |  |
+relationship | memberOf | RouterTestPendingWork.init(requests:deferrals:timers:waiters:) | RouterTestPendingWork |  |
+relationship | memberOf | RouterTestPendingWork.isEmpty | RouterTestPendingWork |  |
+relationship | memberOf | RouterTestPendingWork.requests | RouterTestPendingWork |  |
+relationship | memberOf | RouterTestPendingWork.timers | RouterTestPendingWork |  |
+relationship | memberOf | RouterTestPendingWork.waiters | RouterTestPendingWork |  |
+relationship | memberOf | RouterTestRequest.cancel() | RouterTestRequest |  |
+relationship | memberOf | RouterTestRequest.id | RouterTestRequest |  |
+relationship | memberOf | RouterTestRequest.result | RouterTestRequest |  |
+relationship | memberOf | RouterTestRequest.waitUntilQueued() | RouterTestRequest |  |
+relationship | memberOf | RouterTestRequest.waitUntilStarted() | RouterTestRequest |  |
+relationship | memberOf | RouterTestRuntime.clock | RouterTestRuntime |  |
+relationship | memberOf | RouterTestRuntime.init(clock:transitionIDSeed:) | RouterTestRuntime |  |
+relationship | memberOf | RouterTestStore.advanceTime(by:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.assertState(_:fileID:filePath:line:column:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.finish(fileID:filePath:line:column:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.init(initialPath:configuration:exhaustivity:runtime:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.init(initialState:configuration:exhaustivity:runtime:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.pendingWork | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.receive(_:failureMessage:fileID:filePath:line:column:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.receive(_:fileID:filePath:line:column:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.receiveCommitted(_:fileID:filePath:line:column:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.receiveRejected(_:fileID:filePath:line:column:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.receiveStarted(_:fileID:filePath:line:column:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.receiveUnchanged(_:fileID:filePath:line:column:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.resolveDeferred(_:with:resumeStrategy:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.restore(from:using:recovery:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.restorePartially(from:using:validator:validationTimeout:expectedRevision:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.revision | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.send(_:context:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.skipReceivedEvents() | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.snapshot(using:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.start(_:context:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.state | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.store | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.unassertedEvents | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.waitForEvent(where:) | RouterTestStore |  |
+relationship | memberOf | RouterTestStore.waitUntilTimeIsScheduled(_:) | RouterTestStore |  |
 relationship | memberOf | TestExhaustivity.off | TestExhaustivity |  |
 relationship | memberOf | TestExhaustivity.strict | TestExhaustivity |  |
-symbol | swift.class | FlowTestStore | FlowTestStore | @MainActor final class FlowTestStore<R> where R : Route | []
-symbol | swift.class | ModalTestStore | ModalTestStore | @MainActor final class ModalTestStore<M> where M : Route | []
-symbol | swift.class | NavigationTestStore | NavigationTestStore | @MainActor final class NavigationTestStore<R> where R : Route | []
+symbol | swift.class | RouterScenarioRecorder | RouterScenarioRecorder | @MainActor final class RouterScenarioRecorder<R> where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.class | RouterTestClock | RouterTestClock | final class RouterTestClock | []
+symbol | swift.class | RouterTestRequest | RouterTestRequest | @MainActor final class RouterTestRequest<R> where R : Route | []
+symbol | swift.class | RouterTestRuntime | RouterTestRuntime | final class RouterTestRuntime | []
+symbol | swift.class | RouterTestStore | RouterTestStore | @MainActor final class RouterTestStore<R> where R : Route | []
+symbol | swift.enum | RouterScenarioCancellationOrigin | RouterScenarioCancellationOrigin | enum RouterScenarioCancellationOrigin | []
+symbol | swift.enum | RouterScenarioControl | RouterScenarioControl | enum RouterScenarioControl | []
+symbol | swift.enum | RouterScenarioFixtureError | RouterScenarioFixtureError | enum RouterScenarioFixtureError | []
+symbol | swift.enum | RouterScenarioRejectionKind | RouterScenarioRejectionKind | enum RouterScenarioRejectionKind | []
+symbol | swift.enum | RouterScenarioReplayCapability | RouterScenarioReplayCapability | enum RouterScenarioReplayCapability | []
+symbol | swift.enum | RouterScenarioReplayError | RouterScenarioReplayError | enum RouterScenarioReplayError | []
+symbol | swift.enum | RouterScenarioRequestSemantics | RouterScenarioRequestSemantics | enum RouterScenarioRequestSemantics<R> where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.enum | RouterScenarioRunner | RouterScenarioRunner | enum RouterScenarioRunner | []
+symbol | swift.enum | RouterScenarioSourceGenerationError | RouterScenarioSourceGenerationError | enum RouterScenarioSourceGenerationError | []
+symbol | swift.enum | RouterScenarioSourceGenerator | RouterScenarioSourceGenerator | enum RouterScenarioSourceGenerator | []
+symbol | swift.enum | RouterScenarioTerminal | RouterScenarioTerminal | enum RouterScenarioTerminal | []
 symbol | swift.enum | TestExhaustivity | TestExhaustivity | enum TestExhaustivity | []
+symbol | swift.enum.case | RouterScenarioCancellationOrigin.deferralDecision | RouterScenarioCancellationOrigin.deferralDecision | case deferralDecision | []
+symbol | swift.enum.case | RouterScenarioCancellationOrigin.none | RouterScenarioCancellationOrigin.none | case none | []
+symbol | swift.enum.case | RouterScenarioCancellationOrigin.request | RouterScenarioCancellationOrigin.request | case request | []
+symbol | swift.enum.case | RouterScenarioControl.advanceTime(nanoseconds:eventIndex:) | RouterScenarioControl.advanceTime(nanoseconds:eventIndex:) | case advanceTime(nanoseconds: Int64, eventIndex: Int) | []
+symbol | swift.enum.case | RouterScenarioControl.awaitTerminal(requestID:eventIndex:) | RouterScenarioControl.awaitTerminal(requestID:eventIndex:) | case awaitTerminal(requestID: RouterTransitionID, eventIndex: Int) | []
+symbol | swift.enum.case | RouterScenarioControl.cancel(requestID:eventIndex:) | RouterScenarioControl.cancel(requestID:eventIndex:) | case cancel(requestID: RouterTransitionID, eventIndex: Int) | []
+symbol | swift.enum.case | RouterScenarioControl.resolveDeferral(requestID:deferralID:resolution:resumeStrategy:eventIndex:) | RouterScenarioControl.resolveDeferral(requestID:deferralID:resolution:resumeStrategy:eventIndex:) | case resolveDeferral(requestID: RouterTransitionID, deferralID: RouterDeferralID, resolution: RouterDeferralResolution, resumeStrategy: RouterDeferralResumeStrategy, eventIndex: Int) | []
+symbol | swift.enum.case | RouterScenarioControl.submit(requestID:eventIndex:) | RouterScenarioControl.submit(requestID:eventIndex:) | case submit(requestID: RouterTransitionID, eventIndex: Int) | []
+symbol | swift.enum.case | RouterScenarioControl.waitUntilStarted(requestID:eventIndex:) | RouterScenarioControl.waitUntilStarted(requestID:eventIndex:) | case waitUntilStarted(requestID: RouterTransitionID, eventIndex: Int) | []
+symbol | swift.enum.case | RouterScenarioFixtureError.encodedDataTooLarge(actual:maximum:) | RouterScenarioFixtureError.encodedDataTooLarge(actual:maximum:) | case encodedDataTooLarge(actual: Int, maximum: Int) | []
+symbol | swift.enum.case | RouterScenarioFixtureError.expectationCountMismatch(expected:actual:) | RouterScenarioFixtureError.expectationCountMismatch(expected:actual:) | case expectationCountMismatch(expected: Int, actual: Int) | []
+symbol | swift.enum.case | RouterScenarioFixtureError.tooManySteps(actual:maximum:) | RouterScenarioFixtureError.tooManySteps(actual:maximum:) | case tooManySteps(actual: Int, maximum: Int) | []
+symbol | swift.enum.case | RouterScenarioFixtureError.unsupportedFormatVersion(_:) | RouterScenarioFixtureError.unsupportedFormatVersion(_:) | case unsupportedFormatVersion(Int) | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.busy | RouterScenarioRejectionKind.busy | case busy | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.cancelled | RouterScenarioRejectionKind.cancelled | case cancelled | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.coalesced | RouterScenarioRejectionKind.coalesced | case coalesced | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.deferralCapacityExceeded | RouterScenarioRejectionKind.deferralCapacityExceeded | case deferralCapacityExceeded | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.deferralConflict | RouterScenarioRejectionKind.deferralConflict | case deferralConflict | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.deferralEvicted | RouterScenarioRejectionKind.deferralEvicted | case deferralEvicted | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.deferralExpired | RouterScenarioRejectionKind.deferralExpired | case deferralExpired | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.deferralNotFound | RouterScenarioRejectionKind.deferralNotFound | case deferralNotFound | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.featureProjection | RouterScenarioRejectionKind.featureProjection | case featureProjection | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.missingAuthority | RouterScenarioRejectionKind.missingAuthority | case missingAuthority | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.mutation | RouterScenarioRejectionKind.mutation | case mutation | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.policy | RouterScenarioRejectionKind.policy | case policy | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.policyTimedOut | RouterScenarioRejectionKind.policyTimedOut | case policyTimedOut | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.queueOverflow | RouterScenarioRejectionKind.queueOverflow | case queueOverflow | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.staleState | RouterScenarioRejectionKind.staleState | case staleState | []
+symbol | swift.enum.case | RouterScenarioRejectionKind.superseded | RouterScenarioRejectionKind.superseded | case superseded | []
+symbol | swift.enum.case | RouterScenarioReplayCapability.applicationEffects | RouterScenarioReplayCapability.applicationEffects | case applicationEffects | []
+symbol | swift.enum.case | RouterScenarioReplayCapability.deterministicClock | RouterScenarioReplayCapability.deterministicClock | case deterministicClock | []
+symbol | swift.enum.case | RouterScenarioReplayCapability.deterministicTransitionIDs | RouterScenarioReplayCapability.deterministicTransitionIDs | case deterministicTransitionIDs | []
+symbol | swift.enum.case | RouterScenarioReplayError.environmentMismatch(expectedID:expectedVersion:) | RouterScenarioReplayError.environmentMismatch(expectedID:expectedVersion:) | case environmentMismatch(expectedID: String, expectedVersion: String) | []
+symbol | swift.enum.case | RouterScenarioReplayError.incomplete(_:) | RouterScenarioReplayError.incomplete(_:) | case incomplete(RouterScenarioCompleteness) | []
+symbol | swift.enum.case | RouterScenarioReplayError.initialStateMismatch | RouterScenarioReplayError.initialStateMismatch | case initialStateMismatch | []
+symbol | swift.enum.case | RouterScenarioReplayError.invalidEventOrdering | RouterScenarioReplayError.invalidEventOrdering | case invalidEventOrdering | []
+symbol | swift.enum.case | RouterScenarioReplayError.invalidExpectedRevision(step:) | RouterScenarioReplayError.invalidExpectedRevision(step:) | case invalidExpectedRevision(step: Int) | []
+symbol | swift.enum.case | RouterScenarioReplayError.missingCancellationProvenance(step:) | RouterScenarioReplayError.missingCancellationProvenance(step:) | case missingCancellationProvenance(step: Int) | []
+symbol | swift.enum.case | RouterScenarioReplayError.missingDependency(id:version:) | RouterScenarioReplayError.missingDependency(id:version:) | case missingDependency(id: String, version: String) | []
+symbol | swift.enum.case | RouterScenarioReplayError.missingDependencyCapability(dependencyID:capability:) | RouterScenarioReplayError.missingDependencyCapability(dependencyID:capability:) | case missingDependencyCapability(dependencyID: String, capability: String) | []
+symbol | swift.enum.case | RouterScenarioReplayError.missingExpectation(step:) | RouterScenarioReplayError.missingExpectation(step:) | case missingExpectation(step: Int) | []
+symbol | swift.enum.case | RouterScenarioReplayError.missingReplayCapability(_:) | RouterScenarioReplayError.missingReplayCapability(_:) | case missingReplayCapability(RouterScenarioReplayCapability) | []
+symbol | swift.enum.case | RouterScenarioReplayError.rejectionMismatch(step:expected:actual:) | RouterScenarioReplayError.rejectionMismatch(step:expected:actual:) | case rejectionMismatch(step: Int, expected: RouterScenarioRejectionKind, actual: RouterScenarioRejectionKind?) | []
+symbol | swift.enum.case | RouterScenarioReplayError.revisionBeforeCaptureBaseline(step:) | RouterScenarioReplayError.revisionBeforeCaptureBaseline(step:) | case revisionBeforeCaptureBaseline(step: Int) | []
+symbol | swift.enum.case | RouterScenarioReplayError.revisionMismatch(step:expectedDelta:actualDelta:) | RouterScenarioReplayError.revisionMismatch(step:expectedDelta:actualDelta:) | case revisionMismatch(step: Int, expectedDelta: UInt64, actualDelta: UInt64) | []
+symbol | swift.enum.case | RouterScenarioReplayError.routeSchemaMismatch(expected:actual:) | RouterScenarioReplayError.routeSchemaMismatch(expected:actual:) | case routeSchemaMismatch(expected: String, actual: String) | []
+symbol | swift.enum.case | RouterScenarioReplayError.stateMismatch(step:) | RouterScenarioReplayError.stateMismatch(step:) | case stateMismatch(step: Int) | []
+symbol | swift.enum.case | RouterScenarioReplayError.terminalMismatch(step:expected:actual:) | RouterScenarioReplayError.terminalMismatch(step:expected:actual:) | case terminalMismatch(step: Int, expected: RouterScenarioTerminal, actual: RouterScenarioTerminal) | []
+symbol | swift.enum.case | RouterScenarioReplayError.unsupportedExternalEffect(_:) | RouterScenarioReplayError.unsupportedExternalEffect(_:) | case unsupportedExternalEffect(String) | []
+symbol | swift.enum.case | RouterScenarioReplayError.unsupportedHistoryLifetime(step:) | RouterScenarioReplayError.unsupportedHistoryLifetime(step:) | case unsupportedHistoryLifetime(step: Int) | []
+symbol | swift.enum.case | RouterScenarioRequestSemantics.action | RouterScenarioRequestSemantics.action | case action | []
+symbol | swift.enum.case | RouterScenarioRequestSemantics.historyNavigation(_:) | RouterScenarioRequestSemantics.historyNavigation(_:) | case historyNavigation(RouterState<R>) | []
+symbol | swift.enum.case | RouterScenarioSourceGenerationError.encodingFailed | RouterScenarioSourceGenerationError.encodingFailed | case encodingFailed | []
+symbol | swift.enum.case | RouterScenarioSourceGenerationError.incomplete(_:) | RouterScenarioSourceGenerationError.incomplete(_:) | case incomplete(RouterScenarioCompleteness) | []
+symbol | swift.enum.case | RouterScenarioSourceGenerationError.invalidEventOrdering | RouterScenarioSourceGenerationError.invalidEventOrdering | case invalidEventOrdering | []
+symbol | swift.enum.case | RouterScenarioSourceGenerationError.invalidExpectedRevision(step:) | RouterScenarioSourceGenerationError.invalidExpectedRevision(step:) | case invalidExpectedRevision(step: Int) | []
+symbol | swift.enum.case | RouterScenarioSourceGenerationError.invalidFixtureFileName(_:) | RouterScenarioSourceGenerationError.invalidFixtureFileName(_:) | case invalidFixtureFileName(String) | []
+symbol | swift.enum.case | RouterScenarioSourceGenerationError.invalidSwiftIdentifier(_:) | RouterScenarioSourceGenerationError.invalidSwiftIdentifier(_:) | case invalidSwiftIdentifier(String) | []
+symbol | swift.enum.case | RouterScenarioSourceGenerationError.missingCancellationProvenance(step:) | RouterScenarioSourceGenerationError.missingCancellationProvenance(step:) | case missingCancellationProvenance(step: Int) | []
+symbol | swift.enum.case | RouterScenarioSourceGenerationError.unsupportedHistoryLifetime(step:) | RouterScenarioSourceGenerationError.unsupportedHistoryLifetime(step:) | case unsupportedHistoryLifetime(step: Int) | []
+symbol | swift.enum.case | RouterScenarioTerminal.applied | RouterScenarioTerminal.applied | case applied | []
+symbol | swift.enum.case | RouterScenarioTerminal.deferred | RouterScenarioTerminal.deferred | case deferred | []
+symbol | swift.enum.case | RouterScenarioTerminal.rejected | RouterScenarioTerminal.rejected | case rejected | []
+symbol | swift.enum.case | RouterScenarioTerminal.unchanged | RouterScenarioTerminal.unchanged | case unchanged | []
 symbol | swift.enum.case | TestExhaustivity.off | TestExhaustivity.off | case off | []
 symbol | swift.enum.case | TestExhaustivity.strict | TestExhaustivity.strict | case strict | []
-symbol | swift.init | FlowTestStore.init(initial:configuration:exhaustivity:) | init(initial:configuration:exhaustivity:) | @MainActor init(initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init(), exhaustivity: TestExhaustivity = .strict) | []
-symbol | swift.init | ModalTestStore.init(currentPresentation:queuedPresentations:configuration:exhaustivity:) | init(currentPresentation:queuedPresentations:configuration:exhaustivity:) | @MainActor init(currentPresentation: ModalPresentation<M>? = nil, queuedPresentations: [ModalPresentation<M>] = [], configuration: ModalStoreConfiguration<M> = .init(), exhaustivity: TestExhaustivity = .strict) | []
-symbol | swift.init | NavigationTestStore.init(initial:configuration:exhaustivity:) | init(initial:configuration:exhaustivity:) | @MainActor init(initial: RouteStack<R> = .init(), configuration: NavigationStoreConfiguration<R> = .init(), exhaustivity: TestExhaustivity = .strict) | []
-symbol | swift.init | NavigationTestStore.init(initialPath:configuration:exhaustivity:) | init(initialPath:configuration:exhaustivity:) | @MainActor convenience init(initialPath: [R], configuration: NavigationStoreConfiguration<R> = .init(), exhaustivity: TestExhaustivity = .strict) throws | []
-symbol | swift.method | FlowTestStore.apply(_:) | apply(_:) | @discardableResult @MainActor func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> | []
-symbol | swift.method | FlowTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | assertNoPendingEvents(fileID:filePath:line:column:) | @MainActor func assertNoPendingEvents(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.finish(fileID:filePath:line:column:) | finish(fileID:filePath:line:column:) | @MainActor func finish(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receive(_:fileID:filePath:line:column:) | receive(_:fileID:filePath:line:column:) | @MainActor func receive(_ expected: FlowEvent<R>, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveIntentRejected(intent:reason:fileID:filePath:line:column:) | receiveIntentRejected(intent:reason:fileID:filePath:line:column:) | @MainActor func receiveIntentRejected(intent: FlowIntent<R>, reason: FlowRejectionReason, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveModal(_:fileID:filePath:line:column:) | receiveModal(_:fileID:filePath:line:column:) | @MainActor func receiveModal(_ predicate: (ModalEvent<R>) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveModalCommandIntercepted(_:fileID:filePath:line:column:) | receiveModalCommandIntercepted(_:fileID:filePath:line:column:) | @MainActor func receiveModalCommandIntercepted(_ predicate: (ModalCommand<R>, ModalExecutionResult<R>) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveModalDismissed(_:fileID:filePath:line:column:) | receiveModalDismissed(_:fileID:filePath:line:column:) | @MainActor func receiveModalDismissed(_ predicate: (ModalPresentation<R>, ModalDismissalReason) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveModalMiddlewareMutation(_:fileID:filePath:line:column:) | receiveModalMiddlewareMutation(_:fileID:filePath:line:column:) | @MainActor func receiveModalMiddlewareMutation(_ predicate: (ModalMiddlewareMutationEvent<R>) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveModalPresented(_:fileID:filePath:line:column:) | receiveModalPresented(_:fileID:filePath:line:column:) | @MainActor func receiveModalPresented(_ predicate: (ModalPresentation<R>) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveModalQueueChanged(_:fileID:filePath:line:column:) | receiveModalQueueChanged(_:fileID:filePath:line:column:) | @MainActor func receiveModalQueueChanged(_ predicate: ([ModalPresentation<R>], [ModalPresentation<R>]) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveNavigation(_:fileID:filePath:line:column:) | receiveNavigation(_:fileID:filePath:line:column:) | @MainActor func receiveNavigation(_ predicate: (NavigationEvent<R>) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveNavigationBatch(_:fileID:filePath:line:column:) | receiveNavigationBatch(_:fileID:filePath:line:column:) | @MainActor func receiveNavigationBatch(_ predicate: (NavigationBatchResult<R>) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveNavigationChanged(_:fileID:filePath:line:column:) | receiveNavigationChanged(_:fileID:filePath:line:column:) | @MainActor func receiveNavigationChanged(_ predicate: (RouteStack<R>, RouteStack<R>) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveNavigationMiddlewareMutation(_:fileID:filePath:line:column:) | receiveNavigationMiddlewareMutation(_:fileID:filePath:line:column:) | @MainActor func receiveNavigationMiddlewareMutation(_ predicate: (MiddlewareMutationEvent<R>) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveNavigationPathMismatch(_:fileID:filePath:line:column:) | receiveNavigationPathMismatch(_:fileID:filePath:line:column:) | @MainActor func receiveNavigationPathMismatch(_ predicate: (NavigationPathMismatchEvent<R>) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receiveNavigationTransaction(_:fileID:filePath:line:column:) | receiveNavigationTransaction(_:fileID:filePath:line:column:) | @MainActor func receiveNavigationTransaction(_ predicate: (NavigationTransactionResult<R>) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.receivePathChanged(_:fileID:filePath:line:column:) | receivePathChanged(_:fileID:filePath:line:column:) | @MainActor func receivePathChanged(_ predicate: ([RouteStep<R>], [RouteStep<R>]) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | FlowTestStore.send(_:) | send(_:) | @MainActor func send(_ intent: FlowIntent<R>) | []
-symbol | swift.method | FlowTestStore.skipReceivedEvents() | skipReceivedEvents() | @MainActor func skipReceivedEvents() | []
-symbol | swift.method | ModalTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | assertNoPendingEvents(fileID:filePath:line:column:) | @MainActor func assertNoPendingEvents(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | ModalTestStore.dismissAll() | dismissAll() | @discardableResult @MainActor func dismissAll() -> ModalExecutionResult<M> | []
-symbol | swift.method | ModalTestStore.dismissCurrent() | dismissCurrent() | @discardableResult @MainActor func dismissCurrent() -> ModalExecutionResult<M> | []
-symbol | swift.method | ModalTestStore.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: ModalCommand<M>) -> ModalExecutionResult<M> | []
-symbol | swift.method | ModalTestStore.finish(fileID:filePath:line:column:) | finish(fileID:filePath:line:column:) | @MainActor func finish(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | ModalTestStore.present(_:style:) | present(_:style:) | @discardableResult @MainActor func present(_ route: M, style: ModalPresentationStyle = .sheet) -> ModalPresentResult<M> | []
-symbol | swift.method | ModalTestStore.receive(_:fileID:filePath:line:column:) | receive(_:fileID:filePath:line:column:) | @MainActor func receive(_ expected: ModalEvent<M>, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | ModalTestStore.receiveDismissed(_:fileID:filePath:line:column:) | receiveDismissed(_:fileID:filePath:line:column:) | @MainActor func receiveDismissed(_ predicate: (ModalPresentation<M>, ModalDismissalReason) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | ModalTestStore.receiveIntercepted(_:fileID:filePath:line:column:) | receiveIntercepted(_:fileID:filePath:line:column:) | @MainActor func receiveIntercepted(_ predicate: (ModalCommand<M>, ModalExecutionResult<M>) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | ModalTestStore.receiveMiddlewareMutation(action:fileID:filePath:line:column:) | receiveMiddlewareMutation(action:fileID:filePath:line:column:) | @MainActor func receiveMiddlewareMutation(action: ModalMiddlewareMutationEvent<M>.Action, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | ModalTestStore.receivePresented(_:fileID:filePath:line:column:) | receivePresented(_:fileID:filePath:line:column:) | @MainActor func receivePresented(_ route: M, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | ModalTestStore.receiveQueueChanged(_:fileID:filePath:line:column:) | receiveQueueChanged(_:fileID:filePath:line:column:) | @MainActor func receiveQueueChanged(_ predicate: ([ModalPresentation<M>], [ModalPresentation<M>]) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | ModalTestStore.replaceCurrent(_:style:) | replaceCurrent(_:style:) | @discardableResult @MainActor func replaceCurrent(_ route: M, style: ModalPresentationStyle = .sheet) -> ModalExecutionResult<M> | []
-symbol | swift.method | ModalTestStore.send(_:) | send(_:) | @MainActor func send(_ intent: ModalIntent<M>) | []
-symbol | swift.method | ModalTestStore.skipReceivedEvents() | skipReceivedEvents() | @MainActor func skipReceivedEvents() | []
-symbol | swift.method | NavigationTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | assertNoPendingEvents(fileID:filePath:line:column:) | @MainActor func assertNoPendingEvents(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | NavigationTestStore.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> | []
-symbol | swift.method | NavigationTestStore.executeBatch(_:stopOnFailure:) | executeBatch(_:stopOnFailure:) | @discardableResult @MainActor func executeBatch(_ commands: [NavigationCommand<R>], stopOnFailure: Bool = false) -> NavigationBatchResult<R> | []
-symbol | swift.method | NavigationTestStore.executeTransaction(_:) | executeTransaction(_:) | @discardableResult @MainActor func executeTransaction(_ commands: [NavigationCommand<R>]) -> NavigationTransactionResult<R> | []
-symbol | swift.method | NavigationTestStore.finish(fileID:filePath:line:column:) | finish(fileID:filePath:line:column:) | @MainActor func finish(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | NavigationTestStore.receive(_:failureMessage:fileID:filePath:line:column:) | receive(_:failureMessage:fileID:filePath:line:column:) | @discardableResult @MainActor func receive(_ predicate: (NavigationEvent<R>) -> Bool, failureMessage: @autoclosure () -> String = "predicate returned false", fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) -> NavigationEvent<R>? | []
-symbol | swift.method | NavigationTestStore.receive(_:fileID:filePath:line:column:) | receive(_:fileID:filePath:line:column:) | @MainActor func receive(_ expected: NavigationEvent<R>, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | NavigationTestStore.receiveBatch(_:fileID:filePath:line:column:) | receiveBatch(_:fileID:filePath:line:column:) | @MainActor func receiveBatch(_ predicate: (NavigationBatchResult<R>) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | NavigationTestStore.receiveChange(_:fileID:filePath:line:column:) | receiveChange(_:fileID:filePath:line:column:) | @MainActor func receiveChange(_ predicate: (RouteStack<R>, RouteStack<R>) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | NavigationTestStore.receiveMiddlewareMutation(action:fileID:filePath:line:column:) | receiveMiddlewareMutation(action:fileID:filePath:line:column:) | @MainActor func receiveMiddlewareMutation(action: MiddlewareMutationEvent<R>.Action, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | NavigationTestStore.receivePathMismatch(_:fileID:filePath:line:column:) | receivePathMismatch(_:fileID:filePath:line:column:) | @MainActor func receivePathMismatch(_ predicate: (NavigationPathMismatchEvent<R>) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | NavigationTestStore.receiveTransaction(_:fileID:filePath:line:column:) | receiveTransaction(_:fileID:filePath:line:column:) | @MainActor func receiveTransaction(_ predicate: (NavigationTransactionResult<R>) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
-symbol | swift.method | NavigationTestStore.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<R>) | []
-symbol | swift.method | NavigationTestStore.skipReceivedEvents() | skipReceivedEvents() | @MainActor func skipReceivedEvents() | []
-symbol | swift.property | FlowTestStore.path | path | @MainActor var path: [RouteStep<R>] { get } | []
-symbol | swift.property | FlowTestStore.store | store | @MainActor var store: FlowStore<R> { get } | []
-symbol | swift.property | FlowTestStore.unassertedEvents | unassertedEvents | @MainActor var unassertedEvents: [FlowEvent<R>] { get } | []
-symbol | swift.property | ModalTestStore.currentPresentation | currentPresentation | @MainActor var currentPresentation: ModalPresentation<M>? { get } | []
-symbol | swift.property | ModalTestStore.queuedPresentations | queuedPresentations | @MainActor var queuedPresentations: [ModalPresentation<M>] { get } | []
-symbol | swift.property | ModalTestStore.store | store | @MainActor var store: ModalStore<M> { get } | []
-symbol | swift.property | ModalTestStore.unassertedEvents | unassertedEvents | @MainActor var unassertedEvents: [ModalEvent<M>] { get } | []
-symbol | swift.property | NavigationTestStore.state | state | @MainActor var state: RouteStack<R> { get } | []
-symbol | swift.property | NavigationTestStore.store | store | @MainActor var store: NavigationStore<R> { get } | []
-symbol | swift.property | NavigationTestStore.unassertedEvents | unassertedEvents | @MainActor var unassertedEvents: [NavigationEvent<R>] { get } | []
+symbol | swift.init | RouterActionSequence.init(actions:context:) | init(actions:context:) | init(actions: [RouterAction<R>], context: RouterTransitionContext = .init()) | []
+symbol | swift.init | RouterActionSequence.init(from:) | init(from:) | init(from decoder: any Decoder) throws | []
+symbol | swift.init | RouterActionSequence.init(steps:) | init(steps:) | init(steps: [RouterActionStep<R>]) | []
+symbol | swift.init | RouterActionStep.init(action:context:) | init(action:context:) | init(action: RouterAction<R>, context: RouterTransitionContext = .init()) | []
+symbol | swift.init | RouterScenarioCompleteness.init(unpairedRequestCount:droppedStepCount:missingExpectationCount:missingControlCount:) | init(unpairedRequestCount:droppedStepCount:missingExpectationCount:missingControlCount:) | init(unpairedRequestCount: Int = 0, droppedStepCount: Int = 0, missingExpectationCount: Int = 0, missingControlCount: Int = 0) | []
+symbol | swift.init | RouterScenarioDependency.init(id:version:capabilities:) | init(id:version:capabilities:) | init(id: String, version: String, capabilities: Set<String> = []) | []
+symbol | swift.init | RouterScenarioExpectation.init(state:revision:terminal:rejection:) | init(state:revision:terminal:rejection:) | init(state: RouterState<R>, revision: UInt64, terminal: RouterScenarioTerminal, rejection: RouterScenarioRejectionKind? = nil) | []
+symbol | swift.init | RouterScenarioFixture.init(from:) | init(from:) | init(from decoder: any Decoder) throws | []
+symbol | swift.init | RouterScenarioFixture.init(initialState:initialRevision:metadata:steps:controls:completeness:) | init(initialState:initialRevision:metadata:steps:controls:completeness:) | init(initialState: RouterState<R>, initialRevision: UInt64 = 0, metadata: RouterScenarioMetadata? = nil, steps: [RouterScenarioStep<R>], controls: [RouterScenarioControl]? = nil, completeness: RouterScenarioCompleteness = .init()) | []
+symbol | swift.init | RouterScenarioGeneratedFiles.init(source:fixtureData:fixtureFileName:) | init(source:fixtureData:fixtureFileName:) | init(source: String, fixtureData: Data, fixtureFileName: String) | []
+symbol | swift.init | RouterScenarioMetadata.init(routeSchemaID:environmentID:environmentVersion:dependencies:requiredCapabilities:externalEffectIDs:) | init(routeSchemaID:environmentID:environmentVersion:dependencies:requiredCapabilities:externalEffectIDs:) | init(routeSchemaID: String, environmentID: String = "portable", environmentVersion: String = "1", dependencies: [RouterScenarioDependency] = [], requiredCapabilities: Set<RouterScenarioReplayCapability> = [], externalEffectIDs: Set<String> = []) | []
+symbol | swift.init | RouterScenarioRecorder.init(store:capacity:metadata:) | init(store:capacity:metadata:) | @MainActor init(store: RouterStore<R>, capacity: Int = 256, metadata: RouterScenarioMetadata? = nil) | []
+symbol | swift.init | RouterScenarioRejectionKind.init(_:) | init(_:) | init(_ reason: RouterRejectionReason) | []
+symbol | swift.init | RouterScenarioReplayEnvironment.init(routeSchemaID:environmentID:environmentVersion:dependencies:capabilities:externalEffectIDs:) | init(routeSchemaID:environmentID:environmentVersion:dependencies:capabilities:externalEffectIDs:) | init(routeSchemaID: String, environmentID: String = "portable", environmentVersion: String = "1", dependencies: [RouterScenarioDependency] = [], capabilities: Set<RouterScenarioReplayCapability> = [], externalEffectIDs: Set<String> = []) | []
+symbol | swift.init | RouterScenarioStep.init(from:) | init(from:) | init(from decoder: any Decoder) throws | []
+symbol | swift.init | RouterScenarioStep.init(requestID:submissionIndex:submissionEventIndex:terminalEventIndex:action:context:requestSemantics:expectedRevision:cancellationOrigin:observedState:observedRevision:observedTerminal:observedRejection:observedDeferralID:expectation:) | init(requestID:submissionIndex:submissionEventIndex:terminalEventIndex:action:context:requestSemantics:expectedRevision:cancellationOrigin:observedState:observedRevision:observedTerminal:observedRejection:observedDeferralID:expectation:) | init(requestID: RouterTransitionID = .init(rawValue: UUID()), submissionIndex: Int = 0, submissionEventIndex: Int = 0, terminalEventIndex: Int = 1, action: RouterAction<R>, context: RouterTransitionContext, requestSemantics: RouterScenarioRequestSemantics<R>? = nil, expectedRevision: UInt64? = nil, cancellationOrigin: RouterScenarioCancellationOrigin = .none, observedState: RouterState<R>, observedRevision: UInt64, observedTerminal: RouterScenarioTerminal, observedRejection: RouterScenarioRejectionKind? = nil, observedDeferralID: RouterDeferralID? = nil, expectation: RouterScenarioExpectation<R>? = nil) | []
+symbol | swift.init | RouterScenarioTerminal.init(_:) | init(_:) | init<R>(_ outcome: RouterOutcome<R>) where R : Route | []
+symbol | swift.init | RouterTestClock.init(now:) | init(now:) | init(now: Date = Date(timeIntervalSince1970: 0)) | []
+symbol | swift.init | RouterTestPendingWork.init(requests:deferrals:timers:waiters:) | init(requests:deferrals:timers:waiters:) | init(requests: Int, deferrals: Int, timers: Int, waiters: Int = 0) | []
+symbol | swift.init | RouterTestRuntime.init(clock:transitionIDSeed:) | init(clock:transitionIDSeed:) | init(clock: RouterTestClock = RouterTestClock(), transitionIDSeed: UInt64 = 1) | []
+symbol | swift.init | RouterTestStore.init(initialPath:configuration:exhaustivity:runtime:) | init(initialPath:configuration:exhaustivity:runtime:) | @MainActor convenience init(initialPath: [R], configuration: RouterStoreConfiguration<R> = .init(), exhaustivity: TestExhaustivity = .strict, runtime: RouterTestRuntime? = nil) | []
+symbol | swift.init | RouterTestStore.init(initialState:configuration:exhaustivity:runtime:) | init(initialState:configuration:exhaustivity:runtime:) | @MainActor init(initialState: RouterState<R> = .rootStack, configuration: RouterStoreConfiguration<R> = .init(), exhaustivity: TestExhaustivity = .strict, runtime: RouterTestRuntime? = nil) | []
+symbol | swift.method | RouterActionSequence.encoded() | encoded() | func encoded() throws -> Data | []
+symbol | swift.method | RouterActionSequence.replay(on:) | replay(on:) | @discardableResult @MainActor func replay(on store: RouterTestStore<R>) async -> [RouterOutcome<R>] | []
+symbol | swift.method | RouterScenarioFixture.encode(to:) | encode(to:) | func encode(to encoder: any Encoder) throws | []
+symbol | swift.method | RouterScenarioFixture.settingExpectations(_:) | settingExpectations(_:) | func settingExpectations(_ expectations: [RouterScenarioExpectation<R>]) throws -> RouterScenarioFixture<R> | []
+symbol | swift.method | RouterScenarioRecorder.advanceTime(byNanoseconds:on:) | advanceTime(byNanoseconds:on:) | @MainActor func advanceTime(byNanoseconds nanoseconds: Int64, on clock: RouterTestClock) | []
+symbol | swift.method | RouterScenarioRecorder.fixture() | fixture() | @MainActor func fixture() -> RouterScenarioFixture<R> | []
+symbol | swift.method | RouterScenarioRecorder.resolveDeferred(_:with:resumeStrategy:) | resolveDeferred(_:with:resumeStrategy:) | @discardableResult @MainActor func resolveDeferred(_ id: RouterDeferralID, with resolution: RouterDeferralResolution, resumeStrategy: RouterDeferralResumeStrategy = .requireUnchangedState) async -> RouterOutcome<R> | []
+symbol | swift.method | RouterScenarioRecorder.stop() | stop() | @MainActor func stop() -> RouterScenarioFixture<R> | []
+symbol | swift.method | RouterScenarioRecorder.waitUntilCaptured(_:) | waitUntilCaptured(_:) | @MainActor func waitUntilCaptured(_ count: Int) async -> Bool | []
+symbol | swift.method | RouterScenarioRecorder.waitUntilObserved(_:) | waitUntilObserved(_:) | @MainActor func waitUntilObserved(_ count: Int) async -> Bool | []
+symbol | swift.method | RouterScenarioStep.encode(to:) | encode(to:) | func encode(to encoder: any Encoder) throws | []
+symbol | swift.method | RouterTestClock.advance(by:) | advance(by:) | func advance(by duration: Duration) | []
+symbol | swift.method | RouterTestClock.cancelAll() | cancelAll() | func cancelAll() | []
+symbol | swift.method | RouterTestClock.waitUntilScheduled(_:) | waitUntilScheduled(_:) | func waitUntilScheduled(_ count: Int = 1) async | []
+symbol | swift.method | RouterTestRequest.cancel() | cancel() | @MainActor func cancel() | []
+symbol | swift.method | RouterTestRequest.waitUntilQueued() | waitUntilQueued() | @MainActor func waitUntilQueued() async -> Bool | []
+symbol | swift.method | RouterTestRequest.waitUntilStarted() | waitUntilStarted() | @MainActor func waitUntilStarted() async -> Bool | []
+symbol | swift.method | RouterTestStore.advanceTime(by:) | advanceTime(by:) | @MainActor func advanceTime(by duration: Duration) | []
+symbol | swift.method | RouterTestStore.assertNoPendingEvents(fileID:filePath:line:column:) | assertNoPendingEvents(fileID:filePath:line:column:) | @MainActor func assertNoPendingEvents(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
+symbol | swift.method | RouterTestStore.assertState(_:fileID:filePath:line:column:) | assertState(_:fileID:filePath:line:column:) | @MainActor func assertState(_ expected: RouterState<R>, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
+symbol | swift.method | RouterTestStore.finish(fileID:filePath:line:column:) | finish(fileID:filePath:line:column:) | @MainActor func finish(fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) async | []
+symbol | swift.method | RouterTestStore.receive(_:failureMessage:fileID:filePath:line:column:) | receive(_:failureMessage:fileID:filePath:line:column:) | @discardableResult @MainActor func receive(_ predicate: (RouterEvent<R>) -> Bool, failureMessage: @autoclosure () -> String = "predicate returned false", fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) -> RouterEvent<R>? | []
+symbol | swift.method | RouterTestStore.receive(_:fileID:filePath:line:column:) | receive(_:fileID:filePath:line:column:) | @MainActor func receive(_ expected: RouterEvent<R>, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
+symbol | swift.method | RouterTestStore.receiveCommitted(_:fileID:filePath:line:column:) | receiveCommitted(_:fileID:filePath:line:column:) | @MainActor func receiveCommitted(_ predicate: (RouterState<R>, UInt64) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
+symbol | swift.method | RouterTestStore.receiveRejected(_:fileID:filePath:line:column:) | receiveRejected(_:fileID:filePath:line:column:) | @MainActor func receiveRejected(_ predicate: (RouterRejectionReason) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
+symbol | swift.method | RouterTestStore.receiveStarted(_:fileID:filePath:line:column:) | receiveStarted(_:fileID:filePath:line:column:) | @MainActor func receiveStarted(_ predicate: (RouterTransition<R>) -> Bool = { _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
+symbol | swift.method | RouterTestStore.receiveUnchanged(_:fileID:filePath:line:column:) | receiveUnchanged(_:fileID:filePath:line:column:) | @MainActor func receiveUnchanged(_ predicate: (RouterState<R>, UInt64) -> Bool = { _, _ in true }, fileID: String = #fileID, filePath: String = #filePath, line: Int = #line, column: Int = #column) | []
+symbol | swift.method | RouterTestStore.resolveDeferred(_:with:resumeStrategy:) | resolveDeferred(_:with:resumeStrategy:) | @MainActor func resolveDeferred(_ deferralID: RouterDeferralID, with resolution: RouterDeferralResolution, resumeStrategy: RouterDeferralResumeStrategy = .requireUnchangedState) -> RouterTestRequest<R> | []
+symbol | swift.method | RouterTestStore.restore(from:using:recovery:) | restore(from:using:recovery:) | @discardableResult @MainActor func restore(from data: Data, using codec: RouterSnapshotCodec<R>, recovery: RouterSnapshotRecoveryPolicy<R> = .fail) async throws -> RouterRestorationOutcome<R> | []
+symbol | swift.method | RouterTestStore.restorePartially(from:using:validator:validationTimeout:expectedRevision:) | restorePartially(from:using:validator:validationTimeout:expectedRevision:) | @discardableResult @MainActor func restorePartially(from data: Data, using codec: RouterSnapshotCodec<R>, validator: RouterPartialRestorationValidator<R>, validationTimeout: Duration? = nil, expectedRevision: UInt64? = nil) async throws -> RouterPartialRestorationOutcome<R> | []
+symbol | swift.method | RouterTestStore.send(_:context:) | send(_:context:) | @discardableResult @MainActor func send(_ action: RouterAction<R>, context: RouterTransitionContext = .init()) async -> RouterOutcome<R> | []
+symbol | swift.method | RouterTestStore.send(_:context:) | send(_:context:) | @discardableResult @MainActor func send(_ plan: RouterPlan<R>, context: RouterTransitionContext = .init()) async -> RouterOutcome<R> | []
+symbol | swift.method | RouterTestStore.skipReceivedEvents() | skipReceivedEvents() | @MainActor func skipReceivedEvents() | []
+symbol | swift.method | RouterTestStore.snapshot(using:) | snapshot(using:) | @MainActor func snapshot(using codec: RouterSnapshotCodec<R>) async throws -> Data | []
+symbol | swift.method | RouterTestStore.start(_:context:) | start(_:context:) | @MainActor func start(_ action: RouterAction<R>, context: RouterTransitionContext = .init()) -> RouterTestRequest<R> | []
+symbol | swift.method | RouterTestStore.waitForEvent(where:) | waitForEvent(where:) | @discardableResult @MainActor func waitForEvent(where predicate: @escaping (RouterEvent<R>) -> Bool) async -> RouterEvent<R>? | []
+symbol | swift.method | RouterTestStore.waitUntilTimeIsScheduled(_:) | waitUntilTimeIsScheduled(_:) | @MainActor func waitUntilTimeIsScheduled(_ count: Int = 1) async -> Bool | []
+symbol | swift.property | RouterActionSequence.actions | actions | var actions: [RouterAction<R>] { get } | []
+symbol | swift.property | RouterActionSequence.schemaVersion | schemaVersion | let schemaVersion: Int | []
+symbol | swift.property | RouterActionSequence.steps | steps | let steps: [RouterActionStep<R>] | []
+symbol | swift.property | RouterActionStep.action | action | let action: RouterAction<R> | []
+symbol | swift.property | RouterActionStep.context | context | let context: RouterTransitionContext | []
+symbol | swift.property | RouterScenarioCompleteness.droppedStepCount | droppedStepCount | let droppedStepCount: Int | []
+symbol | swift.property | RouterScenarioCompleteness.isComplete | isComplete | var isComplete: Bool { get } | []
+symbol | swift.property | RouterScenarioCompleteness.missingControlCount | missingControlCount | let missingControlCount: Int | []
+symbol | swift.property | RouterScenarioCompleteness.missingExpectationCount | missingExpectationCount | let missingExpectationCount: Int | []
+symbol | swift.property | RouterScenarioCompleteness.unpairedRequestCount | unpairedRequestCount | let unpairedRequestCount: Int | []
+symbol | swift.property | RouterScenarioControl.eventIndex | eventIndex | var eventIndex: Int { get } | []
+symbol | swift.property | RouterScenarioDependency.capabilities | capabilities | let capabilities: Set<String> | []
+symbol | swift.property | RouterScenarioDependency.id | id | let id: String | []
+symbol | swift.property | RouterScenarioDependency.version | version | let version: String | []
+symbol | swift.property | RouterScenarioExpectation.rejection | rejection | let rejection: RouterScenarioRejectionKind? | []
+symbol | swift.property | RouterScenarioExpectation.revision | revision | let revision: UInt64 | []
+symbol | swift.property | RouterScenarioExpectation.state | state | let state: RouterState<R> | []
+symbol | swift.property | RouterScenarioExpectation.terminal | terminal | let terminal: RouterScenarioTerminal | []
+symbol | swift.property | RouterScenarioFixture.completeness | completeness | let completeness: RouterScenarioCompleteness | []
+symbol | swift.property | RouterScenarioFixture.controls | controls | let controls: [RouterScenarioControl] | []
+symbol | swift.property | RouterScenarioFixture.formatVersion | formatVersion | let formatVersion: Int | []
+symbol | swift.property | RouterScenarioFixture.initialRevision | initialRevision | let initialRevision: UInt64 | []
+symbol | swift.property | RouterScenarioFixture.initialState | initialState | let initialState: RouterState<R> | []
+symbol | swift.property | RouterScenarioFixture.metadata | metadata | let metadata: RouterScenarioMetadata | []
+symbol | swift.property | RouterScenarioFixture.steps | steps | let steps: [RouterScenarioStep<R>] | []
+symbol | swift.property | RouterScenarioGeneratedFiles.fixtureData | fixtureData | let fixtureData: Data | []
+symbol | swift.property | RouterScenarioGeneratedFiles.fixtureFileName | fixtureFileName | let fixtureFileName: String | []
+symbol | swift.property | RouterScenarioGeneratedFiles.source | source | let source: String | []
+symbol | swift.property | RouterScenarioMetadata.dependencies | dependencies | let dependencies: [RouterScenarioDependency] | []
+symbol | swift.property | RouterScenarioMetadata.environmentID | environmentID | let environmentID: String | []
+symbol | swift.property | RouterScenarioMetadata.environmentVersion | environmentVersion | let environmentVersion: String | []
+symbol | swift.property | RouterScenarioMetadata.externalEffectIDs | externalEffectIDs | let externalEffectIDs: Set<String> | []
+symbol | swift.property | RouterScenarioMetadata.requiredCapabilities | requiredCapabilities | let requiredCapabilities: Set<RouterScenarioReplayCapability> | []
+symbol | swift.property | RouterScenarioMetadata.routeSchemaID | routeSchemaID | let routeSchemaID: String | []
+symbol | swift.property | RouterScenarioRecorder.capacity | capacity | @MainActor let capacity: Int | []
+symbol | swift.property | RouterScenarioRecorder.controls | controls | @MainActor var controls: [RouterScenarioControl] { get } | []
+symbol | swift.property | RouterScenarioRecorder.initialRevision | initialRevision | @MainActor let initialRevision: UInt64 | []
+symbol | swift.property | RouterScenarioRecorder.initialState | initialState | @MainActor let initialState: RouterState<R> | []
+symbol | swift.property | RouterScenarioRecorder.steps | steps | @MainActor var steps: [RouterScenarioStep<R>] { get } | []
+symbol | swift.property | RouterScenarioReplayEnvironment.capabilities | capabilities | let capabilities: Set<RouterScenarioReplayCapability> | []
+symbol | swift.property | RouterScenarioReplayEnvironment.dependencies | dependencies | let dependencies: [RouterScenarioDependency] | []
+symbol | swift.property | RouterScenarioReplayEnvironment.environmentID | environmentID | let environmentID: String | []
+symbol | swift.property | RouterScenarioReplayEnvironment.environmentVersion | environmentVersion | let environmentVersion: String | []
+symbol | swift.property | RouterScenarioReplayEnvironment.externalEffectIDs | externalEffectIDs | let externalEffectIDs: Set<String> | []
+symbol | swift.property | RouterScenarioReplayEnvironment.routeSchemaID | routeSchemaID | let routeSchemaID: String | []
+symbol | swift.property | RouterScenarioStep.action | action | let action: RouterAction<R> | []
+symbol | swift.property | RouterScenarioStep.cancellationOrigin | cancellationOrigin | let cancellationOrigin: RouterScenarioCancellationOrigin | []
+symbol | swift.property | RouterScenarioStep.context | context | let context: RouterTransitionContext | []
+symbol | swift.property | RouterScenarioStep.expectation | expectation | let expectation: RouterScenarioExpectation<R>? | []
+symbol | swift.property | RouterScenarioStep.expectedRevision | expectedRevision | let expectedRevision: UInt64? | []
+symbol | swift.property | RouterScenarioStep.observedDeferralID | observedDeferralID | let observedDeferralID: RouterDeferralID? | []
+symbol | swift.property | RouterScenarioStep.observedRejection | observedRejection | let observedRejection: RouterScenarioRejectionKind? | []
+symbol | swift.property | RouterScenarioStep.observedRevision | observedRevision | let observedRevision: UInt64 | []
+symbol | swift.property | RouterScenarioStep.observedState | observedState | let observedState: RouterState<R> | []
+symbol | swift.property | RouterScenarioStep.observedTerminal | observedTerminal | let observedTerminal: RouterScenarioTerminal | []
+symbol | swift.property | RouterScenarioStep.requestID | requestID | let requestID: RouterTransitionID | []
+symbol | swift.property | RouterScenarioStep.requestSemantics | requestSemantics | let requestSemantics: RouterScenarioRequestSemantics<R> | []
+symbol | swift.property | RouterScenarioStep.submissionEventIndex | submissionEventIndex | let submissionEventIndex: Int | []
+symbol | swift.property | RouterScenarioStep.submissionIndex | submissionIndex | let submissionIndex: Int | []
+symbol | swift.property | RouterScenarioStep.terminalEventIndex | terminalEventIndex | let terminalEventIndex: Int | []
+symbol | swift.property | RouterTestClock.now | now | var now: Date { get } | []
+symbol | swift.property | RouterTestClock.pendingSleepCount | pendingSleepCount | var pendingSleepCount: Int { get } | []
+symbol | swift.property | RouterTestPendingWork.deferrals | deferrals | let deferrals: Int | []
+symbol | swift.property | RouterTestPendingWork.isEmpty | isEmpty | var isEmpty: Bool { get } | []
+symbol | swift.property | RouterTestPendingWork.requests | requests | let requests: Int | []
+symbol | swift.property | RouterTestPendingWork.timers | timers | let timers: Int | []
+symbol | swift.property | RouterTestPendingWork.waiters | waiters | let waiters: Int | []
+symbol | swift.property | RouterTestRequest.id | id | @MainActor let id: RouterTransitionID | []
+symbol | swift.property | RouterTestRequest.result | result | @MainActor var result: RouterOutcome<R> { get async } | []
+symbol | swift.property | RouterTestRuntime.clock | clock | let clock: RouterTestClock | []
+symbol | swift.property | RouterTestStore.pendingWork | pendingWork | @MainActor var pendingWork: RouterTestPendingWork { get } | []
+symbol | swift.property | RouterTestStore.revision | revision | @MainActor var revision: UInt64 { get } | []
+symbol | swift.property | RouterTestStore.state | state | @MainActor var state: RouterState<R> { get } | []
+symbol | swift.property | RouterTestStore.store | store | @MainActor var store: RouterStore<R> { get } | []
+symbol | swift.property | RouterTestStore.unassertedEvents | unassertedEvents | @MainActor var unassertedEvents: [RouterEvent<R>] { get } | []
+symbol | swift.struct | RouterActionSequence | RouterActionSequence | struct RouterActionSequence<R> where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.struct | RouterActionStep | RouterActionStep | struct RouterActionStep<R> where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.struct | RouterScenarioCompleteness | RouterScenarioCompleteness | struct RouterScenarioCompleteness | []
+symbol | swift.struct | RouterScenarioDependency | RouterScenarioDependency | struct RouterScenarioDependency | []
+symbol | swift.struct | RouterScenarioExpectation | RouterScenarioExpectation | struct RouterScenarioExpectation<R> where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.struct | RouterScenarioFixture | RouterScenarioFixture | struct RouterScenarioFixture<R> where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.struct | RouterScenarioGeneratedFiles | RouterScenarioGeneratedFiles | struct RouterScenarioGeneratedFiles | []
+symbol | swift.struct | RouterScenarioMetadata | RouterScenarioMetadata | struct RouterScenarioMetadata | []
+symbol | swift.struct | RouterScenarioReplayEnvironment | RouterScenarioReplayEnvironment | struct RouterScenarioReplayEnvironment | []
+symbol | swift.struct | RouterScenarioStep | RouterScenarioStep | struct RouterScenarioStep<R> where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.struct | RouterTestPendingWork | RouterTestPendingWork | struct RouterTestPendingWork | []
+symbol | swift.type.method | RouterActionSequence.decode(_:) | decode(_:) | static func decode(_ data: Data) throws -> RouterActionSequence<R> | []
+symbol | swift.type.method | RouterInspectorScenarioController.routerScenario(store:capacity:metadata:) | routerScenario(store:capacity:metadata:) | @MainActor static func routerScenario<R>(store: RouterStore<R>, capacity: Int = 256, metadata: RouterScenarioMetadata? = nil) -> RouterInspectorScenarioController where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.type.method | RouterScenarioFixture.decode(from:maximumByteCount:maximumStepCount:) | decode(from:maximumByteCount:maximumStepCount:) | static func decode(from data: Data, maximumByteCount: Int = 2 * 1_024 * 1_024, maximumStepCount: Int = 2_000) throws -> RouterScenarioFixture<R> | []
+symbol | swift.type.method | RouterScenarioRunner.replay(_:on:environment:) | replay(_:on:environment:) | @discardableResult @MainActor static func replay<R>(_ fixture: RouterScenarioFixture<R>, on store: RouterTestStore<R>, environment: RouterScenarioReplayEnvironment? = nil) async throws -> [RouterOutcome<R>] where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.type.method | RouterScenarioSourceGenerator.generate(_:routeTypeName:testName:storeFactory:) | generate(_:routeTypeName:testName:storeFactory:) | static func generate<R>(_ fixture: RouterScenarioFixture<R>, routeTypeName: String, testName: String = "capturedRouterScenario", storeFactory: String = "makeRouterTestStore") throws -> String where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.type.method | RouterScenarioSourceGenerator.generateFiles(_:routeTypeName:fixtureFileName:testName:storeFactory:environmentFactory:) | generateFiles(_:routeTypeName:fixtureFileName:testName:storeFactory:environmentFactory:) | static func generateFiles<R>(_ fixture: RouterScenarioFixture<R>, routeTypeName: String, fixtureFileName: String = "router-scenario.json", testName: String = "capturedRouterScenario", storeFactory: String = "makeRouterTestStore", environmentFactory: String = "makeRouterScenarioEnvironment") throws -> RouterScenarioGeneratedFiles where R : Route, R : Decodable, R : Encodable | []

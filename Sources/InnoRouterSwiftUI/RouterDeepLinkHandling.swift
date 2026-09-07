@@ -3,6 +3,7 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
+import Observation
 import OSLog
 import SwiftUI
 
@@ -171,6 +172,323 @@ extension View {
             RouterDeepLinkHandlingModifier(
                 routeType: routeType,
                 action: action
+            )
+        )
+    }
+}
+
+/// Observable result of executing an external URL through one router store.
+///
+/// The same value is returned by explicit store handling and emitted by a
+/// macro-first host, so applications only need one link-result vocabulary.
+public enum RouterLinkExecution<R: Route>: Sendable, Equatable {
+    case rejected(url: URL, reason: DeepLinkRejectionReason)
+    case unhandled(url: URL)
+    case pending(PendingRouterLink<R>)
+    case completed(plan: RouterPlan<R>, outcome: RouterOutcome<R>)
+}
+
+/// Determines how a new deferred link interacts with an occupied slot.
+public enum RouterPendingLinkReplacementPolicy: Sendable, Hashable {
+    /// Keep the first pending intent until it is resumed or cancelled.
+    case keepExisting
+    /// Replace the previous intent with the most recent external request.
+    case replaceExisting
+}
+
+/// Result of offering a deferred link to ``RouterPendingLinkSlot``.
+public enum RouterPendingLinkSubmission<R: Route>: Sendable, Equatable {
+    case stored(PendingRouterLink<R>)
+    case keptExisting(PendingRouterLink<R>)
+    case replaced(previous: PendingRouterLink<R>, current: PendingRouterLink<R>)
+}
+
+/// Determines when an attempted pending-link continuation leaves its slot.
+public enum RouterPendingLinkConsumptionPolicy: Sendable, Hashable {
+    /// Consume only when the canonical plan was applied or already current.
+    case onAcceptance
+    /// Consume after any terminal store outcome, including policy rejection.
+    case always
+}
+
+/// One explicit, observable continuation slot for authentication-gated links.
+///
+/// The slot owns no navigation state and never bypasses ``RouterStore``
+/// policies. Applications may retain it beside session state, submit values
+/// received from ``RouterLinkExecution/pending(_:)``, then resume after login.
+@MainActor
+@Observable
+public final class RouterPendingLinkSlot<R: Route> {
+    public private(set) var pending: PendingRouterLink<R>?
+    @ObservationIgnored private var generation: UInt64
+
+    package var mutationGeneration: UInt64 { generation }
+
+    public init(_ pending: PendingRouterLink<R>? = nil) {
+        self.pending = pending
+        generation = pending == nil ? 0 : 1
+    }
+
+    @discardableResult
+    public func submit(
+        _ link: PendingRouterLink<R>,
+        replacing policy: RouterPendingLinkReplacementPolicy = .replaceExisting
+    ) -> RouterPendingLinkSubmission<R> {
+        guard let current = pending else {
+            pending = link
+            generation &+= 1
+            return .stored(link)
+        }
+        switch policy {
+        case .keepExisting:
+            return .keptExisting(current)
+        case .replaceExisting:
+            pending = link
+            generation &+= 1
+            return .replaced(previous: current, current: link)
+        }
+    }
+
+    /// Cancels and returns the currently retained continuation.
+    @discardableResult
+    public func cancel() -> PendingRouterLink<R>? {
+        guard let pending else { return nil }
+        clearPending()
+        return pending
+    }
+
+    /// Replays the exact retained plan through the canonical store pipeline.
+    ///
+    /// A rejected plan remains pending by default so the application can
+    /// resolve another prerequisite or cancel it explicitly. If a newer link
+    /// replaces this one while policies suspend, the newer value is preserved.
+    public func resume(
+        on store: RouterStore<R>,
+        source: RouterTransitionSource = .deepLink,
+        consuming policy: RouterPendingLinkConsumptionPolicy = .onAcceptance
+    ) async -> RouterLinkExecution<R>? {
+        guard let link = pending else { return nil }
+        let resumedGeneration = generation
+        let execution = await store.resume(link, source: source)
+        guard generation == resumedGeneration else { return execution }
+
+        switch policy {
+        case .always:
+            clearPending()
+        case .onAcceptance:
+            if execution.wasAccepted {
+                clearPending()
+            }
+        }
+        return execution
+    }
+
+    private func clearPending() {
+        pending = nil
+        generation &+= 1
+    }
+}
+
+public extension RouterStore {
+    /// Resolves and executes a deep link, App Intent, or Handoff URL through
+    /// the same exact-plan policy pipeline used by the SwiftUI host.
+    func handle(
+        _ url: URL,
+        using pipeline: RouterLinkPipeline<R>,
+        source: RouterTransitionSource = .deepLink
+    ) async -> RouterLinkExecution<R> {
+        switch await pipeline.decide(for: url) {
+        case .rejected(let reason):
+            return .rejected(url: url, reason: reason)
+        case .unhandled:
+            return .unhandled(url: url)
+        case .pending(let pending):
+            return .pending(pending)
+        case .plan(let plan):
+            let outcome = await perform(
+                .apply(plan),
+                context: .init(source: source)
+            )
+            return .completed(plan: plan, outcome: outcome)
+        }
+    }
+
+    /// Resumes an authentication-gated link without resolving its URL again.
+    ///
+    /// The exact retained plan enters the same reduce, policy, and atomic
+    /// commit path as an initially accepted link.
+    func resume(
+        _ pending: PendingRouterLink<R>,
+        source: RouterTransitionSource = .deepLink
+    ) async -> RouterLinkExecution<R> {
+        let outcome = await perform(
+            .apply(pending.plan),
+            context: .init(source: source)
+        )
+        return .completed(plan: pending.plan, outcome: outcome)
+    }
+}
+
+public extension PendingRouterLink {
+    /// Convenience continuation when an application does not need a slot.
+    @MainActor
+    func resume(
+        on store: RouterStore<R>,
+        source: RouterTransitionSource = .deepLink
+    ) async -> RouterLinkExecution<R> {
+        await store.resume(self, source: source)
+    }
+}
+
+private extension RouterLinkExecution {
+    var wasAccepted: Bool {
+        guard case .completed(_, let outcome) = self else { return false }
+        switch outcome {
+        case .applied, .unchanged:
+            return true
+        case .deferred, .rejected:
+            return false
+        }
+    }
+}
+
+/// Connects a ``RouterLinkPipeline`` to a macro-first host.
+///
+/// Authentication deferral and admission failures are surfaced through
+/// `onEvent`; accepted plans are applied atomically by the host's one store.
+public struct RouterLinkHandling<R: Route>: Sendable {
+    private let admit: @Sendable (URL) -> RouterLinkDecision<R>
+    private let authenticate: @Sendable (URL, RouterPlan<R>) async -> RouterLinkDecision<R>
+    fileprivate let onEvent: @MainActor @Sendable (RouterLinkExecution<R>) -> Void
+
+    public init(
+        pipeline: RouterLinkPipeline<R>,
+        onEvent: @escaping @MainActor @Sendable (RouterLinkExecution<R>) -> Void = { _ in }
+    ) {
+        self.admit = pipeline.admittedDecision(for:)
+        self.authenticate = { url, plan in
+            await pipeline.authenticatedDecision(for: url, plan: plan)
+        }
+        self.onEvent = onEvent
+    }
+
+    fileprivate func admittedDecision(for url: URL) -> RouterLinkDecision<R> {
+        admit(url)
+    }
+
+    fileprivate func authenticatedDecision(
+        for url: URL,
+        plan: RouterPlan<R>
+    ) async -> RouterLinkDecision<R> {
+        await authenticate(url, plan)
+    }
+}
+
+@MainActor
+private struct RouterPlanLinkHandlingModifier<R: Route>: ViewModifier {
+    @Environment(\.routerDeepLinkContext) private var inheritedContext
+    @SceneStorage("io.innosquad.innorouter.plan-deep-link-scene")
+    private var sceneIdentifier = UUID().uuidString
+    @State private var source = RouterDeepLinkSource()
+
+    let routeType: R.Type
+    let scope: RouterScope<R>
+    let handling: RouterLinkHandling<R>?
+    let fallbackPlan: @MainActor @Sendable (R, RouterState<R>) throws -> RouterPlan<R>
+
+    func body(content: Content) -> some View {
+        let context = RouterDeepLinkContext(
+            arbiter: inheritedContext?.arbiter ??
+                RouterDeepLinkSceneArbiterRegistry.arbiter(for: sceneIdentifier),
+            depth: inheritedContext.map { $0.depth + 1 } ?? 0
+        )
+        content
+            .environment(\.routerDeepLinkContext, context)
+            .onOpenURL { url in
+                submit(url, context: context)
+            }
+    }
+
+    private func submit(_ url: URL, context: RouterDeepLinkContext) {
+        let admittedDecision: RouterLinkDecision<R>
+        if let handling {
+            admittedDecision = handling.admittedDecision(for: url)
+        } else {
+            guard let resolver = routeType as? any DeepLinkRoute.Type,
+                  let route = resolver.resolveDeepLink(url) as? R,
+                  let state = scope.state,
+                  let plan = try? fallbackPlan(route, state) else {
+                return
+            }
+            admittedDecision = .plan(plan)
+        }
+
+        if case .unhandled = admittedDecision {
+            handling?.onEvent(.unhandled(url: url))
+            return
+        }
+
+        context.arbiter.submit(
+            url: url,
+            source: source,
+            depth: context.depth
+        ) {
+            switch admittedDecision {
+            case .rejected(let reason):
+                handling?.onEvent(.rejected(url: url, reason: reason))
+            case .unhandled:
+                handling?.onEvent(.unhandled(url: url))
+            case .pending(let pending):
+                handling?.onEvent(.pending(pending))
+            case .plan(let plan):
+                Task { @MainActor in
+                    let decision = if let handling {
+                        await handling.authenticatedDecision(for: url, plan: plan)
+                    } else {
+                        RouterLinkDecision<R>.plan(plan)
+                    }
+                    await execute(decision, for: url)
+                }
+            }
+        }
+    }
+
+    private func execute(
+        _ decision: RouterLinkDecision<R>,
+        for url: URL
+    ) async {
+        switch decision {
+        case .rejected(let reason):
+            handling?.onEvent(.rejected(url: url, reason: reason))
+        case .unhandled:
+            handling?.onEvent(.unhandled(url: url))
+        case .pending(let pending):
+            handling?.onEvent(.pending(pending))
+        case .plan(let plan):
+            let outcome = await scope.performRoot(
+                .apply(plan),
+                context: .init(source: .deepLink)
+            )
+            handling?.onEvent(.completed(plan: plan, outcome: outcome))
+        }
+    }
+}
+
+extension View {
+    /// Applies accepted deep links as complete plans through one router store.
+    @MainActor
+    func handleRouterPlans<R: Route>(
+        for routeType: R.Type,
+        scope: RouterScope<R>,
+        handling: RouterLinkHandling<R>?,
+        fallbackPlan: @escaping @MainActor @Sendable (R, RouterState<R>) throws -> RouterPlan<R>
+    ) -> some View {
+        modifier(
+            RouterPlanLinkHandlingModifier(
+                routeType: routeType,
+                scope: scope,
+                handling: handling,
+                fallbackPlan: fallbackPlan
             )
         )
     }

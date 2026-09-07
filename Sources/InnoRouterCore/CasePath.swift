@@ -9,9 +9,8 @@ import Foundation
 /// A KeyPath-like accessor for a single enum case, paired with its
 /// associated-value payload.
 ///
-/// `CasePath` powers the SwiftUI typed-binding surface
-/// (`ModalStore.binding(case:style:)`, `NavigationStore.path(for:)`)
-/// and serves as the substrate for deep-link plan synthesis. Each
+/// `CasePath` powers macro-generated route metadata and typed presentation
+/// requests, and serves as the substrate for deep-link plan synthesis. Each
 /// instance bundles two closures — `embed` (value → enum) and
 /// `extract` (enum → optional value) — so the framework can both
 /// observe and rewrite specific cases without exhaustively pattern

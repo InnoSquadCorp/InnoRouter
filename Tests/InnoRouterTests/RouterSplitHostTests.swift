@@ -1,11 +1,11 @@
 #if canImport(AppKit)
 import AppKit
 #endif
+import Observation
 import SwiftUI
 import Testing
 
 import InnoRouter
-@testable import InnoRouterSwiftUI
 
 #if !os(watchOS)
 private enum RouterSplitHostRoute: DestinationRoute {
@@ -14,10 +14,8 @@ private enum RouterSplitHostRoute: DestinationRoute {
 
     static func destination(for route: Self) -> some View {
         switch route {
-        case .detail(let id):
-            Text("Detail \(id)")
-        case .modal:
-            Text("Modal")
+        case .detail(let id): Text("Detail \(id)")
+        case .modal: Text("Modal")
         }
     }
 }
@@ -36,7 +34,6 @@ private final class RouterSplitHostInvocationGate {
 @MainActor
 private struct RouterSplitHostProbe: View {
     @EnvironmentRouter(RouterSplitHostRoute.self) private var router
-
     let gate: RouterSplitHostInvocationGate
 
     var body: some View {
@@ -51,29 +48,19 @@ private struct RouterSplitHostProbe: View {
 }
 
 @MainActor
-private struct ExplicitRouterSplitHostProbe: View {
-    @EnvironmentRouter(RouterSplitHostRoute.self) private var router
-
-    let gate: RouterSplitHostInvocationGate
-
-    var body: some View {
-        Color.clear.onAppear {
-            gate.run {
-                router.send(ModalIntent.present(.modal, style: .sheet))
-                router.send(NavigationIntent.go(.detail(id: "blocked")))
-            }
-        }
-    }
+@Observable
+private final class RouterSplitEventRecorder {
+    var events: [RouterEvent<RouterSplitHostRoute>] = []
 }
 
 @Suite("RouterSplitHost", .tags(.unit))
 @MainActor
 struct RouterSplitHostTests {
-    @Test("macro-first split host can be constructed with generated destinations")
+    @Test("Macro-first split host owns a split container and detail scope")
     func construction() {
         let host = RouterSplitHost(
             RouterSplitHostRoute.self,
-            initial: [.push(.detail(id: "initial"))]
+            initialPath: [.detail(id: "initial")]
         ) {
             Text("Sidebar")
         } root: {
@@ -83,61 +70,90 @@ struct RouterSplitHostTests {
         _ = host.body
     }
 
-    @Test("split router authority preserves the FlowStore modal-tail invariant")
-    func unifiedAuthority() throws {
-        var events: [FlowEvent<RouterSplitHostRoute>] = []
-        let store = FlowStore<RouterSplitHostRoute>(
-            configuration: FlowStoreConfiguration { events.append($0) }
+    @Test("Typed split layouts reject invalid scope topology before host construction")
+    func validatedLayout() {
+        #expect(throws: RouterStateValidationError.duplicateSplitColumnScope) {
+            try RouterTwoColumnSplitLayout(
+                sidebarScopeID: "duplicate",
+                detailScopeID: "duplicate"
+            )
+        }
+        #expect(throws: RouterStateValidationError.unavailableSplitColumn(.content)) {
+            try RouterTwoColumnSplitLayout(preferredCompactColumn: .content)
+        }
+        #expect(throws: RouterStateValidationError.duplicateSplitColumnScope) {
+            try RouterThreeColumnSplitLayout(
+                sidebarScopeID: "sidebar",
+                contentScopeID: "detail",
+                detailScopeID: "detail"
+            )
+        }
+    }
+
+    @Test("Split descendants share the canonical stack and presentation invariant")
+    func unifiedAuthority() async throws {
+        let recorder = RouterSplitEventRecorder()
+        let splitState = try RouterSplitState(
+            sidebar: "sidebar",
+            detail: "detail"
+        )
+        let split = try RouterContainerState<RouterSplitHostRoute>(
+            style: .split,
+            selection: "detail",
+            branches: [
+                RouterBranch(id: "sidebar"),
+                RouterBranch(id: "detail"),
+            ],
+            split: splitState
+        )
+        let store = RouterStore<RouterSplitHostRoute>(
+            initialState: try RouterState(root: .container(split)),
+            configuration: .init { recorder.events.append($0) }
         )
         let gate = RouterSplitHostInvocationGate()
-        let surface = RouterSplitFlowSurface(
+        let host = RouterSplitHost(
             store: store,
             sidebar: { Text("Sidebar") },
-            destination: RouterSplitHostRoute.destination(for:),
             root: { RouterSplitHostProbe(gate: gate) }
         )
 
-        _ = try renderRouterSplitHost(surface)
+        _ = try renderRouterSplitHost(host)
+        for _ in 0..<6 { await Task.yield() }
 
-        #expect(store.path == [
-            .push(.detail(id: "visible")),
-            .sheet(.modal),
-        ])
-        #expect(
-            events.contains(
-                .intentRejected(
-                    .push(.detail(id: "blocked")),
-                    .pushBlockedByModalTail
-                )
-            )
-        )
+        guard case .container(let container) = store.state.root,
+              container.style == .split,
+              let detail = container.branches.first(where: { $0.id == "detail" }),
+              case .stack(let stack) = detail.node else {
+            Issue.record("Expected a split root with an independent detail stack")
+            return
+        }
+        #expect(stack.path == [.detail(id: "visible")])
+        #expect(stack.presentation?.route == .modal)
+        #expect(recorder.events.contains { event in
+            guard case .rejected(_, _, _, let reason, _) = event,
+                  case .mutation(.blockedByPresentation(["detail"])) = reason else {
+                return false
+            }
+            return true
+        })
     }
 
-    @Test("explicit router sends cannot bypass the FlowStore modal-tail invariant")
-    func explicitIntentAuthority() throws {
-        var events: [FlowEvent<RouterSplitHostRoute>] = []
-        let store = FlowStore<RouterSplitHostRoute>(
-            configuration: FlowStoreConfiguration { events.append($0) }
-        )
-        let gate = RouterSplitHostInvocationGate()
-        let surface = RouterSplitFlowSurface(
-            store: store,
-            sidebar: { Text("Sidebar") },
-            destination: RouterSplitHostRoute.destination(for:),
-            root: { ExplicitRouterSplitHostProbe(gate: gate) }
-        )
+    @Test("Three-column split host constructs independent column scopes")
+    func threeColumnConstruction() {
+        let host = RouterThreeColumnSplitHost(
+            RouterSplitHostRoute.self,
+            initialSidebarPath: [.detail(id: "sidebar")],
+            initialContentPath: [.detail(id: "content")],
+            initialDetailPath: [.detail(id: "detail")]
+        ) {
+            Text("Sidebar")
+        } content: {
+            Text("Content")
+        } detail: {
+            Text("Detail")
+        }
 
-        _ = try renderRouterSplitHost(surface)
-
-        #expect(store.path == [.sheet(.modal)])
-        #expect(
-            events.contains(
-                .intentRejected(
-                    .push(.detail(id: "blocked")),
-                    .pushBlockedByModalTail
-                )
-            )
-        )
+        _ = host.body
     }
 }
 

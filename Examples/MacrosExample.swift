@@ -12,7 +12,11 @@ enum MacroFirstRoute {
     @DeepLink("/products/:id")
     case product(id: String)
 
+    @PresentationResult(Bool.self)
     case settings
+
+    @Scene(.window, id: "editor")
+    case editor
 
     var destination: some View {
         switch self {
@@ -20,11 +24,13 @@ enum MacroFirstRoute {
             Text("Product \(id)")
         case .settings:
             MacroFirstSettingsDestination()
+        case .editor:
+            Text("Editor")
         }
     }
 }
 
-// MARK: - Stack plus modal
+// MARK: - Stack and presentation
 
 struct MacroFirstStackExample: View {
     var body: some View {
@@ -44,30 +50,12 @@ private struct MacroFirstStackActions: View {
                 router.go(.product(id: "42"))
             }
             Button("Present settings") {
-                router.sheet(.settings)
+                Task {
+                    _ = await router.present(MacroFirstRoute.Presentation.settings)
+                }
             }
         }
         .navigationTitle("Products")
-    }
-}
-
-// MARK: - Modal only
-
-struct MacroFirstModalExample: View {
-    var body: some View {
-        RouterModalHost(MacroFirstRoute.self) {
-            MacroFirstModalActions()
-        }
-    }
-}
-
-private struct MacroFirstModalActions: View {
-    @EnvironmentRouter(MacroFirstRoute.self) private var router
-
-    var body: some View {
-        Button("Present settings") {
-            router.sheet(.settings)
-        }
     }
 }
 
@@ -78,7 +66,12 @@ private struct MacroFirstSettingsDestination: View {
         VStack {
             Text("Settings")
             Button("Dismiss") {
-                router.dismiss()
+                Task {
+                    try? await router.finishPresentation(
+                        MacroFirstRoute.Presentation.settings,
+                        returning: true
+                    )
+                }
             }
         }
     }

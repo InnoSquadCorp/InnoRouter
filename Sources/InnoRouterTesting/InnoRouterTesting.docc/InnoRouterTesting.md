@@ -1,79 +1,141 @@
 # InnoRouterTesting
 
-Host-less, Swift-Testing native assertion harness for InnoRouter's navigation, modal, and flow authorities.
+A host-less assertion harness for the canonical InnoRouter 6 transition
+pipeline.
 
 ## Overview
 
-`InnoRouterTesting` ships three test stores that mirror the production stores' public API and transparently compose with each configuration's typed `onEvent` callback:
-
-- `NavigationTestStore` — asserts `NavigationStore` events (push/pop/batch/transaction/middleware mutation/path mismatch).
-- `ModalTestStore` — asserts `ModalStore` events (present/dismiss/queue/intercept/middleware mutation).
-- `FlowTestStore` — asserts `FlowStore` intents end-to-end, including the inner navigation and modal emissions.
-
-No `@testable import` is required. The harness itself avoids app-side access
-to FlowStore internals; configure inner navigation / modal behavior through
-`FlowStoreConfiguration`.
-
-### Event queue model
-
-Each test store owns a FIFO queue. Every time the underlying store emits an event, the corresponding value is appended. Tests consume events in order via `receive(...)` or its typed helpers (`receiveChange`, `receivePresented`, `receiveIntentRejected`, and so on). A strict-mode test store fails via Swift Testing `Issue.record` if any events are left unasserted at `finish()` or deinit.
+`RouterTestStore<Route>` wraps the production `RouterStore`, reducer, and
+policies. It buffers events synchronously, allowing a test to assert the exact
+`started → policyPrepared → committed/rejected` lifecycle without sleeps.
 
 ```swift skip doc-fragment
-import Testing
+import InnoRouter
 import InnoRouterTesting
+import Testing
 
-@Test
-@MainActor
-func pushHomeLogsChangeEvent() {
-    let store = NavigationTestStore<AppRoute>()
-    store.send(.push(.home))
-    store.receiveChange { old, new in
-        old.path.isEmpty && new.path == [.home]
+@Test @MainActor
+func opensDetail() async {
+    let store = RouterTestStore<AppRoute>()
+
+    await store.send(.push(.detail(id: "42")))
+    store.receiveStarted()
+    store.receiveCommitted { state, revision in
+        state == .rootStack(path: [.detail(id: "42")]) && revision == 1
     }
     store.finish()
 }
 ```
 
-### Exhaustivity
+The default `TestExhaustivity.strict` mode records a Swift Testing issue when
+events remain at `finish()` or deinitialization. Use `.off` only while
+incrementally migrating a large suite. Production `onEvent` callbacks are
+preserved and run before an event enters the assertion queue.
 
-The default mode is `TestExhaustivity.strict`: unasserted events at store deinit (or at an explicit `finish()`) are reported as test issues. `TestExhaustivity.off` preserves explicit assertions but silences the final pending-event check — useful when incrementally migrating large legacy suites.
+Use predicates when a transition identifier is generated at runtime, or compare
+an exact `RouterEvent` when the fixture owns every value.
 
-`assertNoPendingEvents()` is a non-terminal checkpoint. If events are pending, it reports and consumes that snapshot so the same failure is not repeated at deinit; later operations continue to enqueue normally. `finish()` consumes the final snapshot and closes observation. The first event emitted after `finish()` is always an issue, even in `.off`, and later events are discarded to avoid failure storms.
+`send(_:context:)` accepts production transition provenance and animation;
+passing a `RouterPlan` applies one exact target. Codable routes can use
+`snapshot(using:)` and `restore(from:using:recovery:)` to verify the same codec,
+migration, policy, and provenance path used by an application. `assertState`
+and `receiveUnchanged` complete the value-level assertion surface.
 
-> Note: Swift Testing currently attributes issues recorded inside an isolated `deinit` to an *unknown test*, so a deinit-time leftover-event failure can be hard to trace back to the test that owned the store. Await all work and end each test with an explicit `finish()`, as the examples on this page do. It runs the strict check with the caller's source location and disarms the deinit-time fallback.
-
-### User `onEvent` callbacks are preserved
-
-When you pass a production `NavigationStoreConfiguration`, `ModalStoreConfiguration`, or `FlowStoreConfiguration` into a test store, its `onEvent` callback still receives every matching enum case. The test store appends the same value after the user callback runs, so production middleware and analytics pipelines behave under test exactly as they would in the app. A flow callback receives `.navigation(...)` and `.modal(...)` wrappers in addition to `.pathChanged` and `.intentRejected`.
-
-### End-to-end flow assertions
-
-`FlowTestStore` wraps `FlowStoreConfiguration.onEvent`, whose unified surface already includes the inner `NavigationStore` and `ModalStore` emissions as `.navigation(...)` / `.modal(...)`, and appends those events to one test queue. This lets a test assert the complete chain triggered by one `FlowIntent` — for instance, that a sheet-blocking middleware prevents the inner navigation store from seeing any command:
+For timeout, expiry, cancellation, and overlapping-request tests, install a
+`RouterTestRuntime` and start requests without awaiting them:
 
 ```swift skip doc-fragment
-let store = FlowTestStore<AppRoute>(
-    configuration: FlowStoreConfiguration(
-        modal: ModalStoreConfiguration(
-            middlewares: [
-                ModalMiddlewareRegistration(
-                    middleware: BlockSheetMiddleware(),
-                    debugName: "BlockSheet"
-                )
-            ]
-        )
-    )
+let runtime = RouterTestRuntime(transitionIDSeed: 1)
+let store = RouterTestStore<AppRoute>(
+    configuration: .init(policyTimeout: .seconds(30)),
+    runtime: runtime
 )
+let request = store.start(.push(.checkout))
 
-store.send(.presentSheet(.onboarding))
-store.receiveIntentRejected(
-    intent: .presentSheet(.onboarding),
-    reason: .middlewareRejected(debugName: "BlockSheet")
-)
-store.finish()
+await request.waitUntilStarted()
+await runtime.clock.waitUntilScheduled()
+runtime.clock.advance(by: .seconds(30))
+let outcome = await request.result
 ```
+
+The start and timer-registration barriers are production lifecycle signals,
+not scheduler guesses. `RouterTestRequest.cancel()` targets one request, while
+`waitForEvent(where:)` waits for an exact later lifecycle condition. Strict
+`finish()` reports outstanding requests, policy deferrals, and virtual timers,
+then cancels only work created by this test harness. Existing test-store
+initializers retain live time unless a runtime is explicitly supplied.
+
+`RouterActionSequence<Route>` stores Codable production actions and each step's
+`RouterTransitionContext` as a versioned, deterministically encoded fixture.
+Construct `RouterActionStep` values when provenance, animation, request keys,
+coalescing, or resumed-deferral metadata differ between steps. The convenience
+`init(actions:context:)` applies one context to every action. `replay(on:)` sends
+each step through `RouterTestStore`, including production policy rejection.
+
+Supply the original initial state, policies, and runtime dependencies when
+constructing the test store. Replay is sequential and does not reproduce
+concurrent request timing. Fixtures contain route payloads and request keys;
+review them before sharing. Use Inspector bundles for redacted support exports.
+
+`RouterScenarioRecorder` is the explicit bridge from a reproduced bug to a
+regression fixture. It observes request, start, cancellation, and terminal
+boundaries synchronously, bounds retained route payloads, and reports
+unfinished, dropped, or control-incomplete requests. Format v5 records
+route-schema, environment, dependency/effect capabilities, the initial
+revision, every request's relative `expectedRevision`, its
+``RouterScenarioCancellationOrigin``, serializable
+``RouterScenarioRequestSemantics``, and logical submit, wait, cancel,
+virtual-time, deferral-resolution, and terminal controls. This preserves
+history navigation-only rebasing and stale-state checks through queued and
+repeatedly deferred requests. Format v4 and unknown versions are rejected
+instead of guessing execution conditions. Use the recorder's `resolveDeferred` and
+`advanceTime` operations when
+capturing those decisions so replay never invents unavailable scheduling data.
+Preflight validates the exact action provenance stored by each deferral while
+allowing a history target to differ from the merged state that preserves
+already-open scenes, badges, and non-conflicting presentations. A resumed
+history request with an explicit request-cancellation control is portable. A
+request cancelled by an unrecorded history stop or reset is rejected as
+``RouterScenarioReplayError/unsupportedHistoryLifetime(step:)`` (and by the
+matching source-generation error) before replay mutates a store; reproduce and
+record that lifecycle explicitly before generating a portable fixture.
+A raw recording is intentionally incomplete:
+`RouterScenarioFixture.settingExpectations(_:)` must provide a developer-owned
+`RouterScenarioExpectation` for every observation before
+`RouterScenarioSourceGenerator` emits Swift Testing source. Generated tests use
+``RouterScenarioRunner`` to preserve overlaps, cancellation, timeout, and
+approval controls, map fresh deferral identities, and compare each request's
+own terminal snapshot and revision delta on the production test store. Replay
+preflights a caller-declared ``RouterScenarioReplayEnvironment`` before the
+first request and requires the test store's complete state to equal the
+fixture's initial state. If replay fails or its task is cancelled, it cancels
+and drains its own request and deferral handles before returning while leaving
+unrelated store work untouched.
+``RouterScenarioSourceGenerator/generateFiles(_:routeTypeName:fixtureFileName:testName:storeFactory:environmentFactory:)``
+returns separate Swift Testing and JSON fixture artifacts. Use
+`RouterScenarioFixture.decode(from:maximumByteCount:maximumStepCount:)` at an
+import boundary.
 
 ## Topics
 
-### Tutorials
+### Harness
 
-- <doc:Tutorial-TestingFlows>
+- ``RouterTestStore``
+- ``TestExhaustivity``
+- ``RouterActionSequence``
+- ``RouterActionStep``
+- ``RouterTestRuntime``
+- ``RouterTestClock``
+- ``RouterTestRequest``
+- ``RouterTestPendingWork``
+- ``RouterScenarioRecorder``
+- ``RouterScenarioFixture``
+- ``RouterScenarioControl``
+- ``RouterScenarioRequestSemantics``
+- ``RouterScenarioCancellationOrigin``
+- ``RouterScenarioExpectation``
+- ``RouterScenarioMetadata``
+- ``RouterScenarioReplayEnvironment``
+- ``RouterScenarioGeneratedFiles``
+- ``RouterScenarioSourceGenerator``
+- ``RouterScenarioRunner``

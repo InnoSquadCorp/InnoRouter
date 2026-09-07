@@ -2,8 +2,8 @@ import OSLog
 import SwiftUI
 
 /// Controls how ``EnvironmentRouter`` actions respond when the
-/// matching `NavigationHost` / `CoordinatorHost` / `ModalHost` /
-/// `FlowHost` environment is not in scope.
+/// matching `RouterHost`, `RouterTabHost`, or `RouterSplitHost` authority is
+/// not in scope.
 ///
 /// The default is ``crash`` so production builds catch missing
 /// environment wiring on the first attempted router action.

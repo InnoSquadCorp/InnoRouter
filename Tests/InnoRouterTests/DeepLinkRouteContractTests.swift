@@ -39,6 +39,19 @@ struct DeepLinkRouteContractTests {
 
         #expect(ResolvableRoute.resolveDeepLink(matched) == .product(id: "42"))
         #expect(ResolvableRoute.resolveDeepLink(rejected) == nil)
+        #expect(ResolvableRoute.deepLinkCatalog.entries.isEmpty)
+        #expect(!ResolvableRoute.supportsPureDeepLinkExplanation)
+        #expect(ResolvableRoute.deepLinkCatalogCaseName(for: .product(id: "42")) == nil)
+        #expect(ResolvableRoute.product(id: "42").deepLinkCatalogCaseNameValue() == nil)
+        let origin = try #require(
+            DeepLinkOrigin(scheme: "innorouter", host: "app.example.com")
+        )
+        #expect(ResolvableRoute.product(id: "42").deepLinkURL(origin: origin) == nil)
+        #expect(DeepLinkFeatureRuntime.catalog(for: PlainRoute.self).entries.isEmpty)
+        #expect(!DeepLinkFeatureRuntime.supportsPureExplanation(for: PlainRoute.self))
+        #expect(DeepLinkFeatureRuntime.resolve(PlainRoute.self, url: matched) == nil)
+        #expect(DeepLinkFeatureRuntime.caseName(for: PlainRoute.home) == nil)
+        #expect(DeepLinkFeatureRuntime.url(for: PlainRoute.home, origin: origin) == nil)
     }
 
     @Test("The protocol supports type-erased capability discovery")

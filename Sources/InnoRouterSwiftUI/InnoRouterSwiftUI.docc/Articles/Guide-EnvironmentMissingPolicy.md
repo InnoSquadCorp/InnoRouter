@@ -1,10 +1,10 @@
 # Choosing an `EnvironmentMissingPolicy`
 
-`@EnvironmentRouter` resolves typed navigation, modal, flow, and tab authority
-through the SwiftUI environment. Focused methods cover common actions;
-`router.send(_:)` and `router.send(flow:)` cover explicit intent values. When
-the matching host is missing, `EnvironmentMissingPolicy` decides whether to
-crash, log, or both.
+`@EnvironmentRouter` resolves the nearest typed `RouterScope` through the
+SwiftUI environment. Focused helpers such as `go`, `back`, `sheet`, and
+`cover` project into `RouterAction`; `perform(_:)` and `dispatch(_:)` accept
+that canonical request vocabulary directly. When the matching host is missing,
+`EnvironmentMissingPolicy` decides whether to crash, log, or both.
 
 ## The three policies
 
@@ -59,12 +59,11 @@ struct AppEntry: App {
 ```
 
 The setting flows through the environment, so a single modifier covers every
-nested `@EnvironmentRouter` it contains, including navigation, modal, flow,
-and tab actions.
+nested `@EnvironmentRouter` it contains, including stack, presentation, and
+container actions.
 
 ## Why `.assertAndLog` is not the new default
 
-Switching the default to `.assertAndLog` would silently soften
-production behaviour for every existing adopter. `.crash` stays
-the default to preserve the loud-by-default contract; opt in to
-the gentler policies at the boundary where they actually fit.
+`.crash` is the 6.0 default because a missing canonical store is a programming
+error. Opt in to a gentler policy only at preview or test boundaries where a
+host is intentionally absent.

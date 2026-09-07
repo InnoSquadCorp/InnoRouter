@@ -9,10 +9,40 @@ import Testing
 import InnoRouter
 @testable import InnoRouterSwiftUI
 
-private enum RouterTabHostRoute: String, DestinationRoute, RouterTab {
+private enum RouterTabHostRoute: String, DestinationRoute, RouterTabRoute {
     case home
     case inbox
     case settings
+
+    enum Tab: String, RouterTab {
+        case home
+        case inbox
+        case settings
+
+        var title: LocalizedStringResource {
+            switch self {
+            case .home: "Home"
+            case .inbox: "Inbox"
+            case .settings: "Settings"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .home: "house"
+            case .inbox: "tray"
+            case .settings: "gearshape"
+            }
+        }
+
+        var routerScopeID: RouterScopeID { RouterScopeID(rawValue) }
+    }
+
+    static let routerTabs: [RouterTabDescriptor<Self, Tab>] = [
+        .init(tab: .home, root: .home),
+        .init(tab: .inbox, root: .inbox),
+        .init(tab: .settings, root: .settings),
+    ]
 
     var title: LocalizedStringResource {
         switch self {
@@ -64,122 +94,120 @@ private struct RouterTabDestination: View {
 @Suite("RouterTabHost", .tags(.unit))
 @MainActor
 struct RouterTabHostTests {
-    @Test("RouterTabState owns selection and normalized badge state")
-    func stateOwnership() {
-        let state = RouterTabState(
-            initial: RouterTabHostRoute.home,
+    @Test("Manual tab catalogs fail with typed validation errors")
+    func manualCatalogValidation() throws {
+        #expect(throws: RouterTabCatalogError.empty) {
+            try RouterTabCatalog<RouterTabHostRoute>([])
+        }
+        #expect(throws: RouterTabCatalogError.duplicateTabIdentity) {
+            try RouterTabCatalog<RouterTabHostRoute>([
+                .init(tab: .home, root: .home),
+                .init(tab: .home, root: .inbox),
+            ])
+        }
+        #expect(throws: RouterTabCatalogError.duplicateRootRoute) {
+            try RouterTabCatalog<RouterTabHostRoute>([
+                .init(tab: .home, root: .home),
+                .init(tab: .inbox, root: .home),
+            ])
+        }
+
+        let catalog = try RouterTabCatalog(RouterTabHostRoute.routerTabs)
+        _ = try RouterTabHost(
+            RouterTabHostRoute.self,
+            catalog: catalog,
+            initial: .home
+        )
+    }
+
+    @Test("RouterStore owns selection and normalized badge state")
+    func stateOwnership() async throws {
+        let store = try makeTabStore(
+            initial: .home,
             badges: [.inbox: 2, .settings: 0]
         )
 
-        #expect(state.selection == .home)
-        #expect(state.badges == [.inbox: 2])
+        _ = await store.perform(.select("settings"))
+        _ = await store.perform(.setBadge(5, for: "home"))
+        _ = await store.perform(.setBadge(0, for: "inbox"))
 
-        state.send(.select(.settings))
-        state.send(.setBadge(5, for: .home))
-        state.send(.setBadge(0, for: .inbox))
+        let container = try #require(tabContainer(in: store))
+        #expect(container.selection == "settings")
+        #expect(container.badges == ["home": 5])
 
-        #expect(state.selection == .settings)
-        #expect(state.badges == [.home: 5])
-
-        state.send(.clearAllBadges)
-        #expect(state.badges.isEmpty)
+        _ = await store.perform(.clearAllBadges)
+        #expect(tabContainer(in: store)?.badges.isEmpty == true)
     }
 
-    @Test("RouterActions maps tab methods to the internal host state")
-    func routerActionMapping() {
-        let state = RouterTabState(initial: RouterTabHostRoute.home)
+    @Test("RouterActions maps tab methods to the canonical root scope")
+    func routerActionMapping() async throws {
+        let store = try makeTabStore(initial: .home)
         let router = RouterActions(
-            authority: RouterAuthority(tab: state.actionHandler)
+            authority: RouterAuthority(scope: store.scope())
         )
 
         router.select(.inbox)
         router.setBadge(3, for: .inbox)
         router.setBadge(-1, for: .settings)
+        await drainMainActorTasks()
 
-        #expect(state.selection == .inbox)
-        #expect(state.badges == [.inbox: 3])
+        var container = try #require(tabContainer(in: store))
+        #expect(container.selection == "inbox")
+        #expect(container.badges == ["inbox": 3])
 
         router.clearBadge(for: .inbox)
-        #expect(state.badges.isEmpty)
-
-        router.setBadge(1, for: .home)
-        router.setBadge(2, for: .settings)
-        router.clearAllBadges()
-        #expect(state.badges.isEmpty)
+        await drainMainActorTasks()
+        container = try #require(tabContainer(in: store))
+        #expect(container.badges.isEmpty)
     }
 
-    @Test("Nearest same-route authority does not inherit an outer tab capability")
-    func nearestAuthorityReplacement() {
-        var outerSelections: [RouterTabHostRoute] = []
-        var environment = RouterEnvironment()
-        environment.register(
-            RouterAuthority(
-                tab: { action in
-                    guard case .select(let tab) = action else { return }
-                    outerSelections.append(tab)
-                }
-            ),
-            for: RouterTabHostRoute.self
-        )
-        environment.register(
-            RouterAuthority(
-                navigation: { _ in }
-            ),
-            for: RouterTabHostRoute.self
-        )
-        let snapshot = environment
-        let router = RouterActions(
-            routeType: RouterTabHostRoute.self,
-            environmentMissingPolicy: .logAndDegrade,
-            resolveEnvironment: { snapshot }
-        )
-
-        router.select(.settings)
-
-        #expect(outerSelections.isEmpty)
-    }
-
-    @Test("Missing tab capability degrades without dispatching another capability")
-    func missingTabCapability() {
-        var navigationIntents: [NavigationIntent<RouterTabHostRoute>] = []
-        let router = RouterActions(
-            authority: RouterAuthority(
-                navigation: { navigationIntents.append($0) }
-            ),
-            environmentMissingPolicy: .logAndDegrade
-        )
-
-        router.select(.settings)
-
-        #expect(navigationIntents.isEmpty)
-    }
-
-    @Test("RouterTabHost constructs local state and publishes tab actions")
-    func hostConstructionAndAuthority() throws {
-        let state = RouterTabState(initial: RouterTabHostRoute.home)
+    @Test("RouterTabHost renders and publishes one store authority")
+    func hostConstructionAndAuthority() async throws {
+        let store = try makeTabStore(initial: .home)
         let recorder = RouterTabHostRecorder()
-        let host = RouterTabHost(state: state)
+        let catalog = try RouterTabCatalog(RouterTabHostRoute.routerTabs)
+        let host = try RouterTabHost(store: store, catalog: catalog)
             .environment(recorder)
 
         _ = try renderRouterTabHost(host)
+        await drainMainActorTasks()
 
         #expect(recorder.didDispatch)
         #expect(recorder.appearances.contains(.home))
-        #expect(state.selection == .inbox)
-        #expect(state.badges == [.settings: 4])
+        #expect(tabContainer(in: store)?.selection == "inbox")
+        #expect(tabContainer(in: store)?.badges == ["settings": 4])
     }
+}
 
-    @Test("Tab action handlers are Sendable and main-actor isolated")
-    func actionHandlerIsolation() {
-        let state = RouterTabState(initial: RouterTabHostRoute.home)
-
-        requireSendable(state.actionHandler)
-        state.actionHandler(.select(.settings))
-
-        #expect(state.selection == .settings)
+@MainActor
+private func makeTabStore(
+    initial: RouterTabHostRoute.Tab,
+    badges: [RouterTabHostRoute.Tab: Int] = [:]
+) throws -> RouterStore<RouterTabHostRoute> {
+    let tabs = RouterTabHostRoute.routerTabs
+    let pairs: [(RouterScopeID, Int)] = badges.compactMap { tab, count in
+        count > 0 ? (tab.routerScopeID, count) : nil
     }
+    let container = try RouterContainerState<RouterTabHostRoute>(
+        style: .tabs,
+        selection: initial.routerScopeID,
+        branches: tabs.map { RouterBranch(id: $0.tab.routerScopeID) },
+        badges: Dictionary(uniqueKeysWithValues: pairs)
+    )
+    return RouterStore(initialState: try RouterState(root: .container(container)))
+}
 
-    private func requireSendable<T: Sendable>(_: T) {}
+@MainActor
+private func tabContainer(
+    in store: RouterStore<RouterTabHostRoute>
+) -> RouterContainerState<RouterTabHostRoute>? {
+    guard case .container(let container) = store.state.root else { return nil }
+    return container
+}
+
+@MainActor
+private func drainMainActorTasks() async {
+    for _ in 0..<4 { await Task.yield() }
 }
 
 #if canImport(AppKit)

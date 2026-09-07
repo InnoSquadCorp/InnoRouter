@@ -2,53 +2,106 @@ import SwiftUI
 
 import InnoRouterCore
 
-typealias NavigationIntentHandler<R: Route> = @MainActor @Sendable (NavigationIntent<R>) -> Void
-typealias ModalIntentHandler<R: Route> = @MainActor @Sendable (ModalIntent<R>) -> Void
-typealias FlowIntentHandler<R: Route> = @MainActor @Sendable (FlowIntent<R>) -> Void
+package typealias RouterRequestPrecondition<R: Route> = @MainActor @Sendable (
+    RouterState<R>
+) -> RouterRejectionReason?
 
-enum RouterTabAction<R: Route>: Sendable {
-    case select(R)
-    case setBadge(Int?, for: R)
-    case clearAllBadges
+package enum RouterDeferredResumePreparation<R: Route>: Sendable {
+    case action(RouterAction<R>)
+    case rejected(RouterRejectionReason)
 }
 
-typealias RouterTabActionHandler<R: Route> = @MainActor @Sendable (RouterTabAction<R>) -> Void
+package typealias RouterDeferredResumePreparationBuilder<R: Route> = @MainActor @Sendable (
+    RouterState<R>,
+    RouterDeferralResumeStrategy
+) -> RouterDeferredResumePreparation<R>
 
-/// The route-typed capabilities published by an InnoRouter host.
-///
-/// This is intentionally internal. Consumers interact with the stable
-/// ``RouterActions`` facade while hosts compose whichever low-level
-/// navigation, modal, flow, and tab handlers they actually own.
+package typealias RouterRequestPreparationBuilder<R: Route> = @MainActor @Sendable (
+    RouterState<R>
+) -> RouterDeferredResumePreparation<R>
+
+/// Internal behavior shared by a direct store scope and a typed feature
+/// projection. Both paths ultimately execute on one canonical `RouterStore`.
+@MainActor
+protocol RouterAuthorityProtocol<R>: AnyObject, Sendable {
+    associatedtype R: Route
+
+    var path: RouterScopePath { get }
+    var node: RouterNode<R>? { get }
+    var state: RouterState<R>? { get }
+    var observedPath: [R] { get }
+    var observedSceneRootRoute: R? { get }
+    var observedPresentation: RouterPresentation<R>? { get }
+    var observedSelection: RouterScopeID? { get }
+    var observedBadges: [RouterScopeID: Int] { get }
+    var observedSplitState: RouterSplitState? { get }
+    var observedWindows: [RouterWindow<R>] { get }
+    var observedImmersiveSpace: RouterImmersiveSpace<R>? { get }
+    var reconciliationRevision: UInt64 { get }
+    var authorityRevision: UInt64 { get }
+    /// Location of this authority's node inside states returned by its outcome.
+    var outcomeScopePath: RouterScopePath { get }
+
+    func perform(
+        _ action: RouterAction<R>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?
+    ) async -> RouterOutcome<R>
+    func perform(
+        _ action: RouterAction<R>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?,
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async -> RouterOutcome<R>
+    func performRoot(
+        _ action: RouterAction<R>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?
+    ) async -> RouterOutcome<R>
+    func present<Value: Sendable>(
+        _ route: R,
+        style: RouterPresentationStyle,
+        options: RouterPresentationOptions,
+        expecting: Value.Type
+    ) async -> RouterPresentationOutcome<Value>
+    func present<Value: Sendable>(
+        _ route: R,
+        style: RouterPresentationStyle,
+        options: RouterPresentationOptions,
+        expecting: Value.Type,
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async -> RouterPresentationOutcome<Value>
+    func present<Value: Sendable>(
+        _ request: RouterPresentationRequest<R, Value>
+    ) async -> RouterPresentationOutcome<Value>
+    func finishPresentation<Value: Sendable>(returning value: Value) async throws
+    func finishPresentation<Value: Sendable>(
+        _ request: RouterPresentationRequest<R, Value>,
+        returning value: Value
+    ) async throws
+    func reject(_ reason: RouterRejectionReason) -> RouterOutcome<R>
+    func reportPlatformAdaptation(_ adaptation: RouterPlatformAdaptation)
+}
+
+/// The one canonical authority published for a route type.
 struct RouterAuthority<R: Route>: Sendable {
-    let navigation: NavigationIntentHandler<R>?
-    let modal: ModalIntentHandler<R>?
-    let flow: FlowIntentHandler<R>?
-    let tab: RouterTabActionHandler<R>?
+    let base: any RouterAuthorityProtocol<R>
 
-    init(
-        navigation: NavigationIntentHandler<R>? = nil,
-        modal: ModalIntentHandler<R>? = nil,
-        flow: FlowIntentHandler<R>? = nil,
-        tab: RouterTabActionHandler<R>? = nil
-    ) {
-        self.navigation = navigation
-        self.modal = modal
-        self.flow = flow
-        self.tab = tab
+    init(scope: RouterScope<R>) {
+        self.base = scope
+    }
+
+    init(base: some RouterAuthorityProtocol<R>) {
+        self.base = base
     }
 }
 
-/// Main-actor-isolated erasure used only inside ``RouterEnvironment``.
-///
-/// Values enter through the generic subscript and are read back using the
-/// same route metatype key. Isolating the erased payload keeps the environment
-/// sendable without an unchecked conformance.
 @MainActor
 private final class ErasedRouterAuthority: Sendable {
     private let value: Any
 
     init<R: Route>(_ authority: RouterAuthority<R>) {
-        self.value = authority
+        value = authority
     }
 
     func authority<R: Route>(for routeType: R.Type) -> RouterAuthority<R>? {
@@ -57,10 +110,7 @@ private final class ErasedRouterAuthority: Sendable {
     }
 }
 
-/// Value-semantic SwiftUI environment payload containing route-typed router
-/// authorities. Value semantics are important here: a nested host receives a
-/// snapshot of its parent's registrations and can override the matching route
-/// type without mutating a sibling subtree.
+/// Value-semantic route-type registry inherited through the SwiftUI tree.
 struct RouterEnvironment: Sendable {
     private var authorities: [ObjectIdentifier: ErasedRouterAuthority] = [:]
 
@@ -84,9 +134,6 @@ struct RouterEnvironment: Sendable {
         _ authority: RouterAuthority<R>,
         for routeType: R.Type
     ) {
-        // One host is one source of truth. Replacing the complete authority
-        // prevents a nested stack-only host from accidentally combining its
-        // navigation store with an outer host's modal, flow, or tab state.
         self[routeType] = authority
     }
 }
@@ -96,38 +143,16 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Publishes host-owned router capabilities without exposing their
-    /// dispatcher types as public API.
+    /// Publishes one stable read-only scope from the canonical store.
     @MainActor
     func routerAuthority<R: Route>(
-        _ authority: RouterAuthority<R>,
+        _ scope: RouterScope<R>,
         for routeType: R.Type
     ) -> some View {
         transformEnvironment(\.routerEnvironment) { environment in
             var resolved = environment ?? RouterEnvironment()
-            resolved.register(authority, for: routeType)
+            resolved.register(RouterAuthority(scope: scope), for: routeType)
             environment = resolved
         }
-    }
-
-    /// Convenience registration used by hosts that do not need to construct
-    /// a ``RouterAuthority`` explicitly.
-    @MainActor
-    func routerAuthority<R: Route>(
-        for routeType: R.Type,
-        navigation: NavigationIntentHandler<R>? = nil,
-        modal: ModalIntentHandler<R>? = nil,
-        flow: FlowIntentHandler<R>? = nil,
-        tab: RouterTabActionHandler<R>? = nil
-    ) -> some View {
-        routerAuthority(
-            RouterAuthority(
-                navigation: navigation,
-                modal: modal,
-                flow: flow,
-                tab: tab
-            ),
-            for: routeType
-        )
     }
 }

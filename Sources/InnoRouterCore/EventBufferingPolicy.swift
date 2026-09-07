@@ -4,8 +4,8 @@
 
 import Foundation
 
-/// Backpressure policy applied to each subscriber's `AsyncStream` continuation
-/// owned by `NavigationStore`, `ModalStore`, `FlowStore`, and `SceneStore`.
+/// Backpressure policy applied to each `RouterStore` event subscriber's
+/// `AsyncStream` continuation.
 ///
 /// Stores fan a single observation event out to every subscriber. A slow or
 /// cancelled subscriber can retain an arbitrary number of events if no policy
@@ -47,9 +47,7 @@ public enum EventBufferingPolicy: Sendable, Equatable {
 
 public extension EventBufferingPolicy {
     /// The store default applied when callers don't override via
-    /// ``NavigationStoreConfiguration/eventBufferingPolicy`` /
-    /// ``ModalStoreConfiguration/eventBufferingPolicy`` /
-    /// ``FlowStoreConfiguration/eventBufferingPolicy``: buffer the most recent
-    /// 1024 events per subscriber.
+    /// ``RouterStoreConfiguration/eventBufferingPolicy``: buffer the most
+    /// recent 1024 events per subscriber.
     static let `default`: EventBufferingPolicy = .bufferingNewest(1024)
 }

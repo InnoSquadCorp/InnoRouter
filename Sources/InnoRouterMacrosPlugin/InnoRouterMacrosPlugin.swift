@@ -9,10 +9,11 @@ import SwiftSyntaxMacros
 struct InnoRouterMacrosPlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
         RouterMacro.self,
-        SceneRouterMacro.self,
+        FeatureRouteMacro.self,
         SceneMacro.self,
         DeepLinkMacro.self,
         TabItemMacro.self,
+        PresentationResultMacro.self,
         RoutableMacro.self,
         CasePathableMacro.self,
     ]

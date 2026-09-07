@@ -6,7 +6,7 @@ import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
 
-/// Empty peer marker consumed by ``SceneRouterMacro`` after validating the
+/// Empty peer marker consumed by ``RouterMacro`` after validating the
 /// complete enum inventory.
 public struct SceneMacro: PeerMacro {
     public static func expansion(
@@ -22,12 +22,19 @@ public struct SceneMacro: PeerMacro {
         guard let nearestEnum = context.lexicalContext.lazy.compactMap({
             $0.as(EnumDeclSyntax.self)
         }).first,
-            hasSceneRouterAttribute(nearestEnum) else {
-            diagnoseSceneRouter(.sceneRequiresSceneRouter, at: node, context: context)
+            hasRouterAttribute(nearestEnum) else {
+            diagnoseSceneRouter(.sceneRequiresRouter, at: node, context: context)
             return []
         }
 
         return []
+    }
+}
+
+private func hasRouterAttribute(_ enumDecl: EnumDeclSyntax) -> Bool {
+    enumDecl.attributes.contains { element in
+        guard let attribute = element.as(AttributeSyntax.self) else { return false }
+        return attributeBaseName(attribute) == "Router"
     }
 }
 
