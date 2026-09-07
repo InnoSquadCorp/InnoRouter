@@ -1,178 +1,99 @@
-# AGENTS.md
+# Maintainer guide
 
-Quick repository guidance for maintainers and coding agents working in InnoRouter.
+InnoRouter 6 is a macro-first typed navigation framework for SwiftUI.
 
-## Project snapshot
+## Public contract
 
-InnoRouter is a SwiftUI-native navigation framework with:
+A normal app imports the single `InnoRouter` runtime product, declares one
+`@Router` enum, and renders it with `RouterHost`, `RouterTabHost`, or
+`RouterSplitHost`.
 
-- typed stack state in `InnoRouterCore`
-- SwiftUI authority in `InnoRouterSwiftUI`
-- opt-in spatial scene authority in `InnoRouterSpatial`
-- deep-link parsing and planning in `InnoRouterDeepLink`
-- app-boundary execution helpers in `InnoRouterEffects`
-- optional route/case-path macros in `InnoRouterMacros`
+- `RouterState<Route>` is the complete navigation value.
+- `RouterAction<Route>` is the only incremental request language.
+- `RouterPlan<Route>` is the exact-state value shared by links and restore.
+- `RouterStore<Route>` is the only mutable authority at a host boundary.
+- `RouterScope<Route>` is a read-only subtree projection and action forwarder.
 
-Requirements:
+The only selectable public library products are:
 
-- iOS 18+
-- macOS 15+
-- tvOS 18+
-- watchOS 11+
-- visionOS 2+
+- `InnoRouter`
+- `InnoRouterTesting`
+- `InnoRouterInspector`
+
+The 5.x stores, intents, effects, scenes, and regression sources remain
+available in Git history only. They are absent from the working source tree and
+package build graph. Do not restore them to active targets or use them in new
+examples, public docs, or API.
+
+## Requirements
+
 - Swift 6.3+
+- iOS/iPadOS 18+, macOS 15+, tvOS 18+, watchOS 11+, visionOS 2+
 
 ## Common commands
 
-### Runtime and package checks
-
 ```bash
-swift test
+swift test --jobs 2
 ./scripts/principle-gates.sh
+./scripts/principle-gates.sh --platforms=all
+./scripts/build-docc-site.sh --version preview --skip-latest
+./scripts/external-consumer-smoke.sh
 ```
 
-### DocC
+## Architecture rules
 
-```bash
-./scripts/build-docc-site.sh --version preview
-```
+1. Add navigation state to the recursive `RouterState` tree instead of creating
+   another store type.
+2. Add incremental behavior as `RouterAction` plus a pure `RouterReducer`
+   transition.
+3. Policies inspect immutable candidates. They do not mutate router or business
+   state across `await`.
+4. An accepted transition performs one complete state assignment and one
+   revision increment. A rejected transition performs neither.
+5. Deep links, restoration, and transactions converge on `RouterPlan`.
+6. Hosts render native SwiftUI containers over one store. A child scope never
+   owns parallel mutable navigation state.
+7. Inspector output is structurally useful and payload-redacted by default.
 
-### Selected build targets
+## Macro rules
 
-```bash
-swift build --target InnoRouter
-swift build --target InnoRouterCore
-swift build --target InnoRouterSwiftUI
-swift build --target InnoRouterSpatial
-swift build --target InnoRouterEffects
-```
+- `@Router` is the default declaration path and requires expansion plus runtime
+  behavior coverage.
+- `@TabItem` marks parameterless tab roots; unmarked cases remain destinations.
+- `@Scene` marks parameterless window or immersive routes on the same router.
+- `@PresentationResult` generates a typed request shared by present and finish.
+- `@DeepLink` must remain fail closed for origins and malformed input.
+- `@Routable` and `@CasePathable` are advanced supporting macros, not a second
+  router architecture.
 
-## Module map
+Macro changes require tests in both `Tests/InnoRouterMacrosTests/` and
+`Tests/InnoRouterMacrosBehaviorTests/`.
 
-### InnoRouterCore
+## Documentation and examples
 
-- `Route`, `RouteStack`, `RouteStackValidator`
-- `NavigationCommand`, `NavigationEngine`
-- `NavigationResult`, `NavigationBatchResult`, `NavigationTransactionResult`
-- `Navigator`, `NavigationBatchExecutor`, `NavigationTransactionExecutor`
-- `NavigationMiddleware`, `NavigationInterception`, `NavigationCancellationReason`
+- `README.md` and `README.ko.md` are the canonical quick starts.
+- `Sources/InnoRouterUmbrella/InnoRouter.docc/` is the public runtime catalog.
+- `Docs/v6-functional-strategy.md` states product decisions.
+- `Docs/functional-expansion-spec.md` states requirements and acceptance.
+- `Examples/` contains copyable macro-first examples.
+- `ExamplesSmoke/` and `ConsumerSmoke/` verify compiler and downstream product
+  boundaries.
+- `Docs/Archive/5.x/` is historical evidence only and must not define current
+  behavior.
 
-### InnoRouterSwiftUI
+## Release rules
 
-- `RouterHost`, `RouterModalHost`, `RouterSplitHost`, `RouterTabHost`, `RouterTab`
-- `NavigationStore`, `NavigationStoreConfiguration`
-- `NavigationHost`, `NavigationSplitHost`
-- `CoordinatorHost`, `CoordinatorSplitHost`
-- `ModalStore`, `ModalStoreConfiguration`, `ModalHost`
-- `FlowStore`, `FlowStoreConfiguration`, `FlowHost`
-- `NavigationIntent`, `ModalIntent`, `FlowIntent`
-- `@EnvironmentRouter`, `RouterActions`
-- `StepCoordinator`, `TabCoordinator`, `ChildCoordinator`
-- `DebouncingNavigator`, `StateRestorationAdapter`
-
-### InnoRouterDeepLink
-
-- `DeepLinkMatcher`, `DeepLinkMatcherConfiguration`, diagnostics
-- `DeepLinkPipeline`
-- `DeepLinkDecision`
-- `PendingDeepLink`
-- `NavigationPlan`
-
-### InnoRouterSpatial
-
-- `@SceneRouter`, `@Scene` macros
-- `ScenePresentation`, `SceneDeclaration`, `SceneRegistry`
-- `SceneStore`, `SceneIntent`, `SceneEvent`
-- `EnvironmentSceneRouter`, `SceneRouterActions`
-- `innoRouterSceneHost`, `innoRouterSceneAnchor`
-- `OrnamentAnchor`, `innoRouterOrnament`
-- explicit opt-in product; not re-exported by `InnoRouter`
-
-### InnoRouterEffects
-
-- `NavigationEffectHandler`
-- sync `@MainActor` single/batch/transaction helpers
-- async boundary helper `executeGuarded`
-- `DeepLinkEffectHandler`
-- `FlowDeepLinkEffectHandler`
-- typed deep-link outcomes
-- pending replay helper `resumePendingDeepLinkIfAllowed`
-
-### InnoRouterMacros
-
-- `@Router` (route/destination wiring)
-- `@TabItem` (tab metadata on `@Router` cases)
-- `@DeepLink` (fail-closed URL-to-route mapping)
-- `@Routable`
-- `@CasePathable`
-
-## Execution model
-
-### NavigationStore
-
-- `execute(_:)`: single command
-- `executeBatch(_:stopOnFailure:)`: per-step execution + one coalesced observer event
-- `executeTransaction(_:)`: atomic preview/commit semantics
-- `send(_:)`: SwiftUI view intent entry point
-
-### ModalStore
-
-- single current presentation + queued pending presentations
-- `sheet` / `fullScreenCover` only
-- lifecycle observability through `ModalStoreConfiguration`
-
-### FlowStore
-
-- unified push + modal authority over one `[RouteStep]` path
-- `send(_:)`: SwiftUI view `FlowIntent` entry point
-- `apply(_:)`: `FlowPlan` application (deep-link replay path)
-- unified `events` AsyncStream across navigation, modal, and flow mutations
-
-### Deep links
-
-- match first
-- validate scheme/host
-- apply authentication policy
-- produce a `NavigationPlan` or a typed non-plan outcome
-
-## Documentation strategy
-
-The repository uses `README + DocC` together.
-
-- `README.md`: repository overview and quick start
-- `.docc` catalogs under `Sources/*`: detailed module guides
-- `RELEASING.md`: semver release and Pages publishing rules
-- `Docs/v2-principle-scorecard.md`: principle and architecture mapping
-
-## Examples policy
-
-- `Examples/`: human-facing examples, macro-first where appropriate
-- `ExamplesSmoke/`: compiler-stable smoke fixtures for CI
-
-Both must stay aligned with the same public feature surface.
-
-## Release and Pages policy
-
-- release tags are bare semver only, such as `5.0.0`
-- never use a leading `v` in release tags
-- a release tag publishes both GitHub Release and versioned DocC
-- latest docs live under `/latest/`
-- released docs remain available under `/<version>/`
-
-## Documentation gates
-
-`principle-gates.sh` now checks:
-
-- runtime tests
-- smoke builds
-- DocC preview build
-- fail-fast environment probe
-- legacy API references in docs
-- semver tag formatting in docs
-- renamed symbol drift in docs
+- Tags are bare SemVer, such as `6.0.0`; never prefix them with `v`.
+- Update only the three public API baselines intentionally.
+- The untagged 6.0 candidate may absorb planned 6.1–6.3 work. After the first 6.0
+  tag, breaking changes target the next major release.
+- A release requires package, macro, DocC, public API, lint, platform, and exact
+  downstream revision gates.
 
 ## Links
 
-- README: [README.md](README.md)
-- Release guide: [RELEASING.md](RELEASING.md)
-- Scorecard: [Docs/v2-principle-scorecard.md](Docs/v2-principle-scorecard.md)
+- [README](README.md)
+- [6.0 strategy](Docs/v6-functional-strategy.md)
+- [6.0 specification](Docs/functional-expansion-spec.md)
+- [6.0 delivery plan](Docs/functional-expansion-technical-plan.md)
+- [Release guide](RELEASING.md)

@@ -6,12 +6,12 @@ This repository ships a Swift Package, versioned DocC documentation, and GitHub 
 
 Allowed tag format:
 
-- `5.0.0`
+- `6.0.0`
 
 Disallowed tag format:
 
 - any tag with a leading `v`
-- `release-5.0.0`
+- `release-6.0.0`
 
 The release preflight accepts only numeric identifiers without leading zeroes,
 resolves `refs/tags/<version>` exactly, and requires the tagged commit to be
@@ -23,8 +23,8 @@ commit SHA rather than a caller-provided ref name.
 Release-candidate and beta channels use the
 `<major>.<minor>.<patch>-<channel>.<n>` form:
 
-- `5.0.0-rc.1` (release candidate)
-- `5.1.0-beta.2` (beta)
+- `6.0.0-rc.1` (release candidate)
+- `6.1.0-beta.2` (beta)
 
 Pre-release tags do **not** match the GA regex above. Publish them
 from the same `release.yml` workflow by first creating and pushing
@@ -32,8 +32,8 @@ the tag, then manually dispatching the workflow with
 `tag=<pre-release-tag>` and `prerelease=true`:
 
 ```bash
-git tag 5.0.0-rc.1
-git push origin 5.0.0-rc.1
+git tag 6.0.0-rc.1
+git push origin 6.0.0-rc.1
 ```
 
 A pre-release tag push starts the lightweight preflight because the tag glob is
@@ -49,14 +49,14 @@ while other non-release labels fall back to `main`.
 
 ## SemVer commitment
 
-InnoRouter 5.x follows [Semantic Versioning](https://semver.org/)
+InnoRouter 6.x follows [Semantic Versioning](https://semver.org/)
 strictly. The public commitment lives in
 [`README.md`](README.md#oss-release-and-semver-contract); this section documents
 the maintainer-side rules.
 
 ### What counts as a breaking change
 
-Within the 5.x line, treating any of the following as in-scope for
+Within the 6.x line, treating any of the following as in-scope for
 a *minor* release is a release-process bug:
 
 - Removing or renaming a public symbol.
@@ -67,7 +67,7 @@ a *minor* release is a release-process bug:
   that flips the observable outcome for an existing correct caller.
 - Raising the minimum supported Swift toolchain or platform floor.
 
-Anything in that list goes to a `6.0.0` cycle. The
+Anything in that list goes to a `7.0.0` cycle. The
 `Baselines/PublicAPI` symbol-graph baseline gate is the
 machine-checked half of this contract; reviewer judgment is the
 other half (behavior changes that don't show up in the symbol
@@ -88,16 +88,17 @@ graph still count).
 `xcode-version` in `.github/workflows/principle-gates.yml`,
 `.github/workflows/platforms.yml`, `.github/workflows/release.yml`,
 `.github/workflows/docs-ci.yml`, `.github/workflows/coverage.yml`, and
-`.github/workflows/performance-smoke.yml` is pinned to a specific
+`.github/workflows/performance-smoke.yml`, and `.github/workflows/sanitizers.yml`
+is pinned to a specific
 Xcode release rather than a floating Xcode channel so CI, release tags, DocC
 publishing, and performance smoke validation all exercise the same
 toolchain family. **When cutting a new release, audit and optionally
 bump that pin everywhere** — see the release checklist below.
 
 `swift-tools-version: 6.3` is the package floor. The macro target pins
-`swift-syntax` with `.upToNextMinor(from: "603.0.1")`, and every release
+`swift-syntax` with `.upToNextMinor(from: "603.0.2")`, and every release
 workflow runs on `macos-26` with Xcode 26.6, whose host compiler reports
-Swift 6.3.3. These four levers are intentionally aligned for 5.0. Raising
+Swift 6.3.3. These four levers are intentionally aligned for 6.0. Raising
 the Swift floor again belongs in a major release note.
 
 #### Toolchain pin matrix
@@ -108,7 +109,7 @@ the Swift floor again belongs in a major release note.
 | Minimum Xcode for releasing | **26.6** | `xcode-version` in every workflow under `.github/workflows/` | Bumping requires updating every workflow file in the same commit. |
 | Bundled Swift host compiler | Swift 6.3.3 (with Xcode 26.6) | `swift --version` on the pinned Xcode | Must match the package's supported Swift line. |
 | Package supported Swift floor | **Swift 6.3** | `swift-tools-version` line in `Package.swift` | Raising belongs in a major release. |
-| `swift-syntax` constraint | `.upToNextMinor(from: "603.0.1")` (i.e. `603.0.x`) | `Package.swift` macro plugin dependency | Allows patch bumps; minor / major bumps require a deliberate audit. |
+| `swift-syntax` constraint | `.upToNextMinor(from: "603.0.2")` (i.e. `603.0.x`) | `Package.swift` macro plugin dependency | Allows patch bumps; minor / major bumps require a deliberate audit. |
 | Apple platform floor | iOS 18 / iPadOS 18 / macOS 15 / tvOS 18 / watchOS 11 / visionOS 2 | `platforms` block in `Package.swift` | Raising belongs in a major release. |
 | Macro host availability | macOS only (SwiftSyntax host plugin) | `Tests/InnoRouterMacrosTests`, `Tests/InnoRouterMacrosBehaviorTests` | Macro expansion is exercised by the macOS test jobs. |
 
@@ -195,11 +196,10 @@ that same reusable gate again before it publishes anything.
 
 `platforms.yml`
 
-- compiles `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterSpatial`,
-  `InnoRouterDeepLink`, `InnoRouterEffects`, and `InnoRouterTesting` explicitly
-  across all supported Apple platforms
-- compiles the visionOS example and smoke consumers that import
-  `InnoRouterSpatial` explicitly
+- compiles the three published products: `InnoRouter`,
+  `InnoRouterInspector`, and `InnoRouterTesting` across all supported Apple
+  platforms
+- compiles the one-product macro-first consumer fixture on every platform
 - executes tvOS, watchOS, and visionOS Simulator tests
 - rejects zero-test and partial-discovery runs with minimum pass counts
 
@@ -228,10 +228,11 @@ that same reusable gate again before it publishes anything.
 
 The repository uses `README + DocC` together.
 
-- `README.md`: overview, quick start, module map, release and CI entry points
-- DocC: detailed module guides and API-oriented documentation
-- `CLAUDE.md`: maintainer/agent quick reference
-- `Docs/v2-principle-scorecard.md`: architecture and quality mapping
+- `README.md`: overview, quick start, release and CI entry points
+- umbrella DocC: canonical API documentation and the major migration guide
+- `AGENTS.md` / `CLAUDE.md`: maintainer and agent quick reference
+- `Docs/v6-functional-strategy.md`: product and architecture decisions
+- `Docs/functional-expansion-spec.md`: requirements and acceptance evidence
 
 Patch and minor releases do not require a separate migration guide. Every
 major release must publish one task-oriented migration guide, link it from all
@@ -253,11 +254,11 @@ versioned changelog.
 - All `.docc` catalogs build locally.
 - GitHub `platforms` workflow is green for the release commit. The local
   `./scripts/principle-gates.sh --platforms=all` probe is compile-only.
-- `NavigationStore`, `ModalStore`, deep-link, effect, and macro docs reflect current symbols.
+- Macro, canonical store, deep-link, testing, and inspector docs reflect current symbols.
 - Release notes links point to the current README, RELEASING guide, and DocC portal.
 - `xcode-version` in `principle-gates.yml`, `platforms.yml`,
   `release.yml`, `docs-ci.yml`, `coverage.yml`, and `performance-smoke.yml` is
-  current — bump to the current release Xcode at release time
+  current, and `sanitizers.yml` uses the same pin — bump to the current release Xcode at release time
   if it has drifted, and re-run `principle-gates.sh` locally with
   the same toolchain.
 - Macro tests (`Tests/InnoRouterMacrosTests`,

@@ -14,10 +14,10 @@ maintainers to apply to your contribution.
 - **Propose a behaviour change.** Open a GitHub Discussion under
   *Ideas*, describe the call site you want to enable, and list any
   alternatives you considered. Behaviour changes that touch the
-  public surface (`Route`, `NavigationCommand`, `NavigationStore`,
-  `ModalStore`, `FlowStore`, the deep-link pipeline) need a
-  short rationale that ties the change to one of the principle
-  axes in [`Docs/v2-principle-scorecard.md`](Docs/v2-principle-scorecard.md).
+  public surface (`@Router`, `RouterState`, `RouterAction`, `RouterPlan`,
+  `RouterStore`, native hosts, or the link pipeline) need a short rationale
+  tied to the 6.0 product contract in
+  [`Docs/v6-functional-strategy.md`](Docs/v6-functional-strategy.md).
 - **Fix documentation.** README, DocC catalogs (`Sources/*/*.docc`),
   and the in-repo guides under `Docs/` are all open to PRs. Doc-only
   PRs do not require a CHANGELOG entry.
@@ -63,13 +63,15 @@ every PR.
 
 A change is **breaking** if it would fail to compile for an existing
 caller, narrow a generic constraint, or change documented runtime
-behaviour. Breaking changes target a 6.0 cycle, not a 5.x minor.
+behaviour. Breaking changes after 6.0 target the next major release, not a
+6.x minor.
 
 If your PR touches the public surface:
 
-1. Update the matching `Baselines/PublicAPI/<Module>.txt` in the same
-   commit. The principle-gates baseline diff is intentional.
-2. Add the user-visible impact to `CHANGELOG.md` under `## Unreleased`
+1. Update the affected `InnoRouter`, `InnoRouterTesting`, or
+   `InnoRouterInspector` baseline in `Baselines/PublicAPI/` in the same commit.
+2. Add the user-visible impact to `CHANGELOG.md` under the current
+   `<version> - Unreleased` heading
    in the matching `Breaking`, `Added`, `Changed`, `Fixed`, `Deprecated`,
    `Removed`, or `Security` section. Breaking entries include the required
    call-site migration.
@@ -93,7 +95,8 @@ to an older release section do not satisfy it.
 
 ## Macros
 
-Macro changes (`@Routable`, `@CasePathable`) require coverage in both
+Macro changes (`@Router`, `@TabItem`, `@DeepLink`, `@Routable`, or
+`@CasePathable`) require coverage in both
 `Tests/InnoRouterMacrosTests/` (expansion fixtures) and
 `Tests/InnoRouterMacrosBehaviorTests/` (runtime round-trip). The
 behaviour test target is macOS-only — see the README in that
