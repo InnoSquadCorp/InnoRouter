@@ -8,7 +8,7 @@ JOBS="${SWIFTPM_JOBS:-2}"
 
 if [[ "$VERSION" != "local" ]]; then
   if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "[external-consumer-smoke] Failed: expected a bare GA semantic version, got '$VERSION'" >&2
+    echo "[external-consumer-smoke] Failed: expected bare GA semver, got '$VERSION'" >&2
     exit 1
   fi
   export INNOROUTER_CONSUMER_VERSION="$VERSION"
@@ -28,18 +28,10 @@ swift build \
   --jobs "$JOBS" \
   --target InnoRouterMacroFirstExternalConsumer
 
-(
-  cd "$PACKAGE_DIR"
-  # This non-interactive smoke resolves either the current checkout or the
-  # exact GA tag validated above. Avoid a local Xcode trust prompt masking the
-  # actual downstream build result in a fresh DerivedData directory.
-  xcodebuild build \
-    -scheme InnoRouterConsumerSmoke-Package \
-    -destination 'generic/platform=visionOS Simulator' \
-    -derivedDataPath "$SCRATCH_DIR/xcode" \
-    -jobs "${XCODEBUILD_JOBS:-2}" \
-    -skipMacroValidation \
-    -quiet
-)
+swift test \
+  --package-path "$PACKAGE_DIR" \
+  --scratch-path "$SCRATCH_DIR/swiftpm" \
+  --jobs "$JOBS" \
+  --filter InnoRouterDeveloperToolsExternalConsumerTests
 
-echo "[external-consumer-smoke] Macro-first and Spatial consumer contracts passed ($VERSION)"
+echo "[external-consumer-smoke] 6.0 runtime and developer-product contracts passed ($VERSION)"

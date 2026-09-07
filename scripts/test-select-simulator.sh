@@ -59,6 +59,29 @@ if [[ "$selected" != "BOOTED" ]]; then
 fi
 echo "[test-select-simulator] booted tie-break within newest runtime: passed"
 
+cat >"$TEMP_DIR/ios-devices.json" <<'JSON'
+{
+  "devices": {
+    "com.apple.CoreSimulator.SimRuntime.iOS-27-0": [
+      {"name": "iPhone 17 Pro", "udid": "IPHONE", "isAvailable": true, "state": "Booted"},
+      {"name": "iPad Pro 13-inch", "udid": "IPAD", "isAvailable": true, "state": "Shutdown"}
+    ]
+  }
+}
+JSON
+
+selected="$(
+  python3 "$SUBJECT" \
+    "$TEMP_DIR/ios-devices.json" \
+    com.apple.CoreSimulator.SimRuntime.iOS \
+    iPad
+)"
+if [[ "$selected" != "IPAD" ]]; then
+  echo "[test-select-simulator] expected the requested iPad device family, got $selected" >&2
+  exit 1
+fi
+echo "[test-select-simulator] optional device-name filter: passed"
+
 if python3 "$SUBJECT" \
   "$TEMP_DIR/devices.json" \
   com.apple.CoreSimulator.SimRuntime.xrOS >/dev/null 2>&1; then

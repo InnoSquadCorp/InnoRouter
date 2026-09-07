@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to publish, for example 5.0.0-rc.1"
+        description: "Release tag to publish, for example 6.0.0-rc.1"
         required: true
         type: string
       prerelease:
@@ -115,6 +115,47 @@ jobs:
     permissions:
       contents: read
 
+  coverage-gate:
+    name: Coverage gate
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
+    uses: ./.github/workflows/coverage.yml
+    with:
+      ref: ${{ needs.preflight.outputs.commit_sha }}
+    permissions:
+      contents: read
+      id-token: write
+
+  sanitizer-gates:
+    name: Sanitizer gates
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
+    uses: ./.github/workflows/sanitizers.yml
+    with:
+      ref: ${{ needs.preflight.outputs.commit_sha }}
+    permissions:
+      contents: read
+
+  performance-gate:
+    name: Performance gate
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
+    uses: ./.github/workflows/performance-smoke.yml
+    with:
+      ref: ${{ needs.preflight.outputs.commit_sha }}
+    permissions:
+      contents: read
+
+  migration-gate:
+    name: Migration gate
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
+    uses: ./.github/workflows/migration-smoke.yml
+    with:
+      ref: ${{ needs.preflight.outputs.commit_sha }}
+    permissions:
+      contents: read
+
   build:
     needs: preflight
     if: needs.preflight.outputs.publish == 'true'
@@ -197,7 +238,11 @@ jobs:
   publish-gh-pages:
     needs:
       - build
+      - coverage-gate
+      - migration-gate
+      - performance-gate
       - platform-gates
+      - sanitizer-gates
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -226,8 +271,12 @@ jobs:
   create-release:
     needs:
       - build
+      - coverage-gate
+      - migration-gate
+      - performance-gate
       - platform-gates
       - publish-gh-pages
+      - sanitizer-gates
     runs-on: ubuntu-latest
     permissions:
       contents: write

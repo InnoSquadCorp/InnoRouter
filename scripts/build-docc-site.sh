@@ -157,23 +157,14 @@ fi
 SOURCE_REF="$(bash "$ROOT_DIR/scripts/resolve-docc-source-ref.sh" "$VERSION" "$PREVIEW_SOURCE_REF")"
 
 DOCC_MODULES=(
-  "InnoRouterCore|Sources/InnoRouterCore/InnoRouterCore.docc|core|InnoRouterCore|com.innosquad.innorouter.docs.core"
-  "InnoRouterSwiftUI|Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc|swiftui|InnoRouterSwiftUI|com.innosquad.innorouter.docs.swiftui"
-  "InnoRouterSpatial|Sources/InnoRouterSpatial/InnoRouterSpatial.docc|spatial|InnoRouterSpatial|com.innosquad.innorouter.docs.spatial"
-  "InnoRouterDeepLink|Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc|deeplink|InnoRouterDeepLink|com.innosquad.innorouter.docs.deeplink"
-  "InnoRouterEffects|Sources/InnoRouterEffects/InnoRouterEffects.docc|effects|InnoRouterEffects|com.innosquad.innorouter.docs.effects"
-  "InnoRouterMacros|Sources/InnoRouterMacros/InnoRouterMacros.docc|macros|InnoRouterMacros|com.innosquad.innorouter.docs.macros"
+  "InnoRouter|Sources/InnoRouterUmbrella/InnoRouter.docc|runtime|InnoRouter|com.innosquad.innorouter.docs.runtime"
+  "InnoRouterInspector|Sources/InnoRouterInspector/InnoRouterInspector.docc|inspector|InnoRouterInspector|com.innosquad.innorouter.docs.inspector"
   "InnoRouterTesting|Sources/InnoRouterTesting/InnoRouterTesting.docc|testing|InnoRouterTesting|com.innosquad.innorouter.docs.testing"
 )
 
 SYMBOL_GRAPH_MODULES=(
   "InnoRouter"
-  "InnoRouterCore"
-  "InnoRouterSwiftUI"
-  "InnoRouterSpatial"
-  "InnoRouterDeepLink"
-  "InnoRouterEffects"
-  "InnoRouterMacros"
+  "InnoRouterInspector"
   "InnoRouterTesting"
 )
 
@@ -250,16 +241,17 @@ fi
 echo "[build-docc-site] Generating symbol graphs"
 swift build >/dev/null
 
-echo "[build-docc-site] Building InnoRouterSpatial for visionOS symbols"
-xcodebuild build \
-  -scheme InnoRouterSpatial \
-  -destination 'generic/platform=visionOS Simulator' \
-  -derivedDataPath "$xr_derived_data_dir" \
-  -quiet
-
 build_bin_dir="$(swift build --show-bin-path)"
 modules_dir="$build_bin_dir/Modules"
 module_cache_dir="$build_bin_dir/ModuleCache"
+if [[ ! -d "$modules_dir" ]] \
+  && find "$build_bin_dir" -maxdepth 1 -type d -name '*.swiftmodule' -print -quit \
+    | grep -q .; then
+  # Xcode 27's native SwiftPM build layout places module directories directly
+  # in Products/Debug and the module cache beside Products.
+  modules_dir="$build_bin_dir"
+  module_cache_dir="$(cd "$build_bin_dir/../.." && pwd -P)/ModuleCache.noindex"
+fi
 sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
 sdk_platform_path="$(xcrun --sdk macosx --show-sdk-platform-path 2>/dev/null || true)"
 # Platform frameworks directory holds Testing.framework + its subpackages,
@@ -279,41 +271,15 @@ if [[ -n "$platform_frameworks_dir" ]]; then
   framework_search_args=(-F "$platform_frameworks_dir")
 fi
 
-xr_modules_dir="$xr_derived_data_dir/Build/Products/Debug-xrsimulator"
-xr_module_cache_dir="$xr_derived_data_dir/ModuleCache.noindex"
-xr_sdk_path="$(xcrun --sdk xrsimulator --show-sdk-path)"
-xr_sdk_platform_path="$(xcrun --sdk xrsimulator --show-sdk-platform-path 2>/dev/null || true)"
-xr_platform_frameworks_dir=""
-if [[ -n "$xr_sdk_platform_path" ]]; then
-  candidate_xr_platform_frameworks_dir="$xr_sdk_platform_path/Developer/Library/Frameworks"
-  if [[ -d "$candidate_xr_platform_frameworks_dir" ]]; then
-    xr_platform_frameworks_dir="$candidate_xr_platform_frameworks_dir"
-  fi
-fi
-
-xros_framework_search_args=()
-xr_package_frameworks_dir="$xr_modules_dir/PackageFrameworks"
-if [[ -d "$xr_package_frameworks_dir" ]]; then
-  xros_framework_search_args+=(-F "$xr_package_frameworks_dir")
-fi
-if [[ -n "$xr_platform_frameworks_dir" ]]; then
-  xros_framework_search_args+=(-F "$xr_platform_frameworks_dir")
-fi
-
 [[ -d "$modules_dir" ]] || die "failed to locate build modules directory"
 [[ -d "$module_cache_dir" ]] || die "failed to locate module cache directory"
 [[ -n "$sdk_path" ]] || die "failed to locate SDK path"
-[[ -d "$xr_modules_dir" ]] || die "failed to locate xros build products directory"
-[[ -d "$xr_module_cache_dir" ]] || die "failed to locate xros module cache directory"
-[[ -n "$xr_sdk_path" ]] || die "failed to locate xrsimulator SDK path"
 
 target_triple="$(swift -print-target-info | python3 -c 'import json, sys; print(json.load(sys.stdin)["target"]["triple"])')"
 resource_dir="$(swift -print-target-info | python3 -c 'import json, sys; print(json.load(sys.stdin)["paths"]["runtimeResourcePath"])')"
-xr_resource_dir="$(swift -print-target-info -target "$xr_target_triple" | python3 -c 'import json, sys; print(json.load(sys.stdin)["paths"]["runtimeResourcePath"])')"
 
 [[ -n "$target_triple" ]] || die "failed to determine target triple"
 [[ -n "$resource_dir" ]] || die "failed to determine Swift resource directory"
-[[ -n "$xr_resource_dir" ]] || die "failed to determine xros Swift resource directory"
 
 toolchain_bin_dir="$(cd "$(dirname "$(dirname "$resource_dir")")/bin" && pwd -P)"
 swift_symbolgraph_extract_bin="$toolchain_bin_dir/swift-symbolgraph-extract"
@@ -369,12 +335,7 @@ extract_xros_module_symbols() {
 extract_module_symbols() {
   local target="$1"
   local output="$2"
-
-  if [[ "$target" == "InnoRouterSpatial" ]]; then
-    extract_xros_module_symbols "$target" "$output"
-  else
-    extract_host_module_symbols "$target" "$output"
-  fi
+  extract_host_module_symbols "$target" "$output"
 }
 
 build_module_archive() {
@@ -386,32 +347,48 @@ build_module_archive() {
   local hosting_base_path="$6"
   local module_symbols_dir="$7"
   local additional_symbol_graph_args=()
+  local docc_arguments=()
   local duplicate_path="$temp_root/symbol-graphs/$target"
   local index=0
 
   rm -rf "$output"
 
-  for ((index = 0; index < ${#all_symbol_graph_args[@]}; index += 2)); do
-    local flag="${all_symbol_graph_args[index]}"
-    local path="${all_symbol_graph_args[index + 1]}"
-    if [[ "$path" == "$duplicate_path" ]]; then
-      continue
-    fi
-    additional_symbol_graph_args+=("$flag" "$path")
-  done
+  # DocC 27 can misidentify the primary module when a new opt-in module and a
+  # module that publicly references it are converted in one symbol-graph set.
+  # These two catalogs intentionally contain no cross-module symbol links, so
+  # keep their conversion scoped to the current module. Existing catalogs keep
+  # the full cross-module link graph.
+  if [[ "$target" != "InnoRouterInspector" \
+    && "$target" != "InnoRouterTesting" ]]; then
+    for ((index = 0; index < ${#all_symbol_graph_args[@]}; index += 2)); do
+      local flag="${all_symbol_graph_args[index]}"
+      local path="${all_symbol_graph_args[index + 1]}"
+      if [[ "$path" == "$duplicate_path" ]]; then
+        continue
+      fi
+      additional_symbol_graph_args+=("$flag" "$path")
+    done
+  fi
 
-  "$docc_bin" convert "$ROOT_DIR/$catalog" \
-    --additional-symbol-graph-dir "$module_symbols_dir" \
-    "${additional_symbol_graph_args[@]}" \
-    --output-dir "$output" \
-    --fallback-display-name "$display_name" \
-    --fallback-bundle-identifier "$bundle_id" \
-    --fallback-default-module-kind Framework \
-    --checkout-path "$ROOT_DIR" \
-    --source-service github \
-    --source-service-base-url "$REPO_URL/blob/$SOURCE_REF" \
-    --hosting-base-path "$hosting_base_path" \
+  docc_arguments=(
+    convert "$ROOT_DIR/$catalog"
+    --additional-symbol-graph-dir "$module_symbols_dir"
+  )
+  if [[ ${#additional_symbol_graph_args[@]} -gt 0 ]]; then
+    docc_arguments+=("${additional_symbol_graph_args[@]}")
+  fi
+  docc_arguments+=(
+    --output-dir "$output"
+    --fallback-display-name "$display_name"
+    --fallback-bundle-identifier "$bundle_id"
+    --fallback-default-module-kind Framework
+    --checkout-path "$ROOT_DIR"
+    --source-service github
+    --source-service-base-url "$REPO_URL/blob/$SOURCE_REF"
+    --hosting-base-path "$hosting_base_path"
     --transform-for-static-hosting
+  )
+  "$docc_bin" "${docc_arguments[@]}"
 }
 
 render_module_entry_redirect() {
@@ -494,13 +471,9 @@ render_version_portal() {
     <h1>${page_title}</h1>
     <p>Module-level reference and guides for the current InnoRouter release line.</p>
     <div class="grid">
-      <a class="card" href="./core/"><strong>InnoRouterCore</strong><p>Route stack, commands, validators, middleware, batch, and transaction execution.</p></a>
-      <a class="card" href="./swiftui/"><strong>InnoRouterSwiftUI</strong><p>Stores, hosts, split layouts, modal routing, coordinators, and environment intent.</p></a>
-      <a class="card" href="./spatial/"><strong>InnoRouterSpatial</strong><p>Opt-in visionOS windows, volumes, immersive spaces, scene lifecycle, and ornaments.</p></a>
-      <a class="card" href="./deeplink/"><strong>InnoRouterDeepLink</strong><p>Pattern matching, diagnostics, pipelines, and pending deep-link replay.</p></a>
-      <a class="card" href="./effects/"><strong>InnoRouterEffects</strong><p>App-boundary navigation and deep-link execution helpers with typed outcomes.</p></a>
-      <a class="card" href="./macros/"><strong>InnoRouterMacros</strong><p>@Router for macro-first SwiftUI routing, plus @Routable and @CasePathable for typed extraction.</p></a>
-      <a class="card" href="./testing/"><strong>InnoRouterTesting</strong><p>Host-less assertion test stores for NavigationStore, ModalStore, and FlowStore.</p></a>
+      <a class="card" href="./runtime/"><strong>InnoRouter</strong><p>Macro-first routes, one typed state/store, native hosts, complete-plan links, and restoration.</p></a>
+      <a class="card" href="./inspector/"><strong>InnoRouterInspector</strong><p>Opt-in bounded, payload-redacted routing timeline and native inspector UI.</p></a>
+      <a class="card" href="./testing/"><strong>InnoRouterTesting</strong><p>Host-less assertions against the production RouterStore transition lifecycle.</p></a>
     </div>
     <a class="back" href="../">Back to documentation portal</a>
   </main>

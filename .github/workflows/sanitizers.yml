@@ -1,0 +1,50 @@
+name: sanitizers
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or tag to check out
+        required: false
+        type: string
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: sanitizers-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sanitizer:
+    name: ${{ matrix.kind }} sanitizer
+    runs-on: macos-26
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        kind:
+          - thread
+          - address
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Select Xcode 26.6
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        with:
+          xcode-version: "26.6"
+
+      - name: Show toolchain
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          swift --version
+
+      - name: Run ${{ matrix.kind }} sanitizer smoke
+        run: ./scripts/sanitizer-smoke.sh "${{ matrix.kind }}"

@@ -67,6 +67,21 @@ write_fixture inconsistent \
   'LH:3' \
   'end_of_record'
 
+write_fixture missing-da-entry \
+  'SF:/repo/Sources/Feature.swift' \
+  'DA:1,1' \
+  'LF:2' \
+  'LH:1' \
+  'end_of_record'
+
+write_fixture inflated-hit-summary \
+  'SF:/repo/Sources/Feature.swift' \
+  'DA:1,1' \
+  'DA:2,0' \
+  'LF:2' \
+  'LH:2' \
+  'end_of_record'
+
 write_fixture malformed \
   'SF:/repo/Sources/Feature.swift' \
   'DA:not-a-line,1' \
@@ -85,6 +100,8 @@ write_fixture missing-end \
 expect_pass valid 75
 expect_fail below-floor 75 'below the required 75.00% minimum'
 expect_fail inconsistent 0 'summary is inconsistent'
+expect_pass missing-da-entry 50
+expect_fail inflated-hit-summary 0 'summary is inconsistent'
 expect_fail malformed 0 'DA line number must be a non-negative integer'
 expect_fail missing-end 0 'missing end_of_record'
 expect_fail empty 0 'report is empty'

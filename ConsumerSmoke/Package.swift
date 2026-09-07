@@ -9,7 +9,6 @@ if let version = ProcessInfo.processInfo.environment["INNOROUTER_CONSUMER_VERSIO
     guard let exactVersion = Version(version) else {
         fatalError("INNOROUTER_CONSUMER_VERSION must be a valid semantic version")
     }
-
     innoRouterDependency = .package(
         url: "https://github.com/InnoSquadCorp/InnoRouter.git",
         exact: exactVersion
@@ -30,26 +29,43 @@ let package = Package(
     dependencies: [innoRouterDependency],
     targets: [
         .target(
-            name: "InnoRouterMacroFirstExternalConsumer",
+            name: "AccountFeature",
             dependencies: [
                 .product(name: "InnoRouter", package: "InnoRouter"),
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .target(
-            name: "InnoRouterSpatialExternalConsumer",
+            name: "SearchFeature",
             dependencies: [
-                .product(name: "InnoRouterSpatial", package: "InnoRouter"),
+                .product(name: "InnoRouter", package: "InnoRouter"),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "FeatureCompositionConsumer",
+            dependencies: [
+                "AccountFeature",
+                "SearchFeature",
+                .product(name: "InnoRouter", package: "InnoRouter"),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterMacroFirstExternalConsumer",
+            dependencies: [
+                .product(name: "InnoRouter", package: "InnoRouter"),
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
-            name: "InnoRouterSpatialExternalConsumerTests",
+            name: "InnoRouterDeveloperToolsExternalConsumerTests",
             dependencies: [
-                "InnoRouterSpatialExternalConsumer",
-                .product(name: "InnoRouterCore", package: "InnoRouter"),
-                .product(name: "InnoRouterSpatial", package: "InnoRouter"),
-                .product(name: "InnoRouterSwiftUI", package: "InnoRouter"),
+                "InnoRouterMacroFirstExternalConsumer",
+                "FeatureCompositionConsumer",
+                .product(name: "InnoRouter", package: "InnoRouter"),
+                .product(name: "InnoRouterInspector", package: "InnoRouter"),
+                .product(name: "InnoRouterTesting", package: "InnoRouter"),
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

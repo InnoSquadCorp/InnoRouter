@@ -75,7 +75,7 @@ echo "[lint-source-gates] Checking non-ASCII letters in source comments (Hangul,
 # fixtures still legitimately exercise non-ASCII payloads (see
 # `DeepLinkPercentEncodingTests`); restrict the check to Sources/
 # and the user-facing example trees.
-if rg -nP '[\p{Hangul}]' Sources Examples ExamplesSmoke; then
+if rg -nP '[\p{Hangul}]' Sources Examples ExamplesSmoke --glob '*.swift'; then
   echo "[lint-source-gates] Failed: non-ASCII (Hangul) characters found in source comments"
   exit 1
 fi
@@ -143,15 +143,6 @@ then
   exit 1
 fi
 
-echo "[lint-source-gates] Checking single Effects product boundary"
-for legacy_effects_module in InnoRouterNavigationEffects InnoRouterDeepLinkEffects; do
-  if [[ -e "Sources/$legacy_effects_module" ]] \
-    || rg -q "name: \"$legacy_effects_module\"" Package.swift; then
-    echo "[lint-source-gates] Failed: $legacy_effects_module must be folded into InnoRouterEffects for 5.0"
-    exit 1
-  fi
-done
-
 echo "[lint-source-gates] Checking legacy SwiftUI navigator surface"
 if rg -n "@EnvironmentNavigator|public func navigator\\(" Sources Examples ExamplesSmoke README.md; then
   echo "[lint-source-gates] Failed: legacy navigator API found"
@@ -206,12 +197,6 @@ if rg -n "\\.deepLink\\(|case \\.deepLink" Sources/InnoRouterSwiftUI Sources/Inn
   exit 1
 fi
 
-echo "[lint-source-gates] Checking deep-link fallback removal"
-if rg -n "about:blank|schemeNotAllowed\\(actualScheme: nil\\)" Sources/InnoRouterEffects; then
-  echo "[lint-source-gates] Failed: legacy fallback found"
-  exit 1
-fi
-
 echo "[lint-source-gates] Checking duplicate coordinator deep-link removal"
 if rg -n "DeepLinkCoordinating|DeepLinkCoordinationOutcome|resumePendingDeepLinkIfPossible" \
   Sources Tests Examples ExamplesSmoke README*.md Docs .cursor \
@@ -227,13 +212,6 @@ if rg -n "@unchecked Sendable" Sources Tests; then
   exit 1
 fi
 
-echo "[lint-source-gates] Checking modal trace privacy"
-if rg -n -F 'metadata=\(metadataSummary, privacy: .public)' Sources/InnoRouterSwiftUI/ModalStore.swift \
-  || rg -n -F 'outcome=\(outcome, privacy: .public)' Sources/InnoRouterSwiftUI/ModalStore.swift; then
-  echo "[lint-source-gates] Failed: modal trace metadata/outcome must stay private"
-  exit 1
-fi
-
 echo "[lint-source-gates] Checking route and command telemetry privacy"
 if rg -ni '(summary|route|command|intent|path|reason|debugname|cancellation|payload|metadata)=.*privacy: \.public' \
   Sources/InnoRouterSwiftUI --glob '*.swift'; then
@@ -241,16 +219,31 @@ if rg -ni '(summary|route|command|intent|path|reason|debugname|cancellation|payl
   exit 1
 fi
 
-echo "[lint-source-gates] Checking arbitrary runtime error privacy"
-if rg -n -F '\(description, privacy: .public)' Sources/InnoRouterSwiftUI/DebouncingNavigator.swift; then
-  echo "[lint-source-gates] Failed: arbitrary runtime error descriptions must stay private"
+echo "[lint-source-gates] Checking Inspector UI error privacy"
+if rg -n 'String\(describing:[[:space:]]*error\)|error\.localizedDescription' \
+  Sources/InnoRouterInspector --glob '*.swift'; then
+  echo "[lint-source-gates] Failed: Inspector UI must not expose arbitrary error descriptions"
   exit 1
 fi
 
-echo "[lint-source-gates] Checking README SwiftUI philosophy section uniqueness"
-SWIFTUI_ALIGNMENT_SECTION_COUNT="$(rg -n "^### SwiftUI Philosophy Alignment$" README.md | wc -l | tr -d ' ' || true)"
-if [[ "$SWIFTUI_ALIGNMENT_SECTION_COUNT" != "1" ]]; then
-  echo "[lint-source-gates] Failed: expected 1 SwiftUI Philosophy Alignment section, got $SWIFTUI_ALIGNMENT_SECTION_COUNT"
+echo "[lint-source-gates] Checking README macro-first model section uniqueness"
+MACRO_FIRST_MODEL_SECTION_COUNT="$(rg -n "^## One runtime model$" README.md | wc -l | tr -d ' ' || true)"
+if [[ "$MACRO_FIRST_MODEL_SECTION_COUNT" != "1" ]]; then
+  echo "[lint-source-gates] Failed: expected 1 One runtime model section, got $MACRO_FIRST_MODEL_SECTION_COUNT"
+  exit 1
+fi
+
+echo "[lint-source-gates] Checking active public docs for retired 5.x surfaces"
+if rg -n '\b(NavigationStore|ModalStore|FlowStore|AppShellStore|AdaptiveSplitStore|SceneStore|NavigationIntent|ModalIntent|FlowIntent|NavigationPlan|FlowPlan|AsyncNavigationMiddlewareExecutor|ChildCoordinator|RouterModalHost)\b' \
+  README.md README.ko.md \
+  AGENTS.md CLAUDE.md CONTRIBUTING.md \
+  Examples ExamplesSmoke \
+  Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc \
+  Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc \
+  Sources/InnoRouterTesting/InnoRouterTesting.docc \
+  Sources/InnoRouterMacros/InnoRouterMacros.docc \
+  --glob '*.md'; then
+  echo "[lint-source-gates] Failed: active public documentation references a retired 5.x surface"
   exit 1
 fi
 

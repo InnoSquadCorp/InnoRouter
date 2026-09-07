@@ -15,9 +15,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "InnoRouterSpatialConsumerSmoke"
-               BuildableName = "InnoRouterSpatialConsumerSmoke"
-               BlueprintName = "InnoRouterSpatialConsumerSmoke"
+               BlueprintIdentifier = "InnoRouterDeveloperToolsSmoke"
+               BuildableName = "InnoRouterDeveloperToolsSmoke"
+               BlueprintName = "InnoRouterDeveloperToolsSmoke"
                ReferencedContainer = "container:..">
             </BuildableReference>
          </BuildActionEntry>
@@ -38,9 +38,7 @@
       launchStyle = "0"
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
-      debugDocumentVersioning = "YES"
-      debugServiceExtension = "internal"
-      allowLocationSimulation = "YES">
+      debugDocumentVersioning = "YES">
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

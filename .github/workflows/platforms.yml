@@ -30,6 +30,8 @@ jobs:
             destination: "generic/platform=iOS Simulator"
           - name: iPadOS
             destination: "generic/platform=iOS Simulator"
+          - name: Mac-Catalyst
+            destination: "generic/platform=macOS,variant=Mac Catalyst"
           - name: macOS
             destination: "platform=macOS"
           - name: tvOS
@@ -67,109 +69,37 @@ jobs:
           xcodebuild -version
           swift --version
 
-      # Build every shipped implementation surface explicitly. This keeps an
-      # Effects- or Testing-only availability/import regression from hiding
-      # behind the dependency graph of SwiftUI and Spatial consumers.
-      # Generic simulator destinations are intentional so the compile-only
-      # gate does not depend on runner-specific device names or installed
-      # runtime image names. The scheme names match `xcodebuild -list`
-      # output from the Swift package.
-      - name: Build InnoRouter for ${{ matrix.platform.name }}
-        run: |
-          xcodebuild build \
-            -scheme InnoRouter \
-            -destination '${{ matrix.platform.destination }}' \
-            -quiet
-
-      - name: Build InnoRouterSwiftUI for ${{ matrix.platform.name }}
-        run: |
-          xcodebuild build \
-            -scheme InnoRouterSwiftUI \
-            -destination '${{ matrix.platform.destination }}' \
-            -quiet
-
-      - name: Build InnoRouterSpatial for ${{ matrix.platform.name }}
-        run: |
-          xcodebuild build \
-            -scheme InnoRouterSpatial \
-            -destination '${{ matrix.platform.destination }}' \
-            -quiet
-
-      - name: Build InnoRouterCore for ${{ matrix.platform.name }}
-        run: |
-          xcodebuild build \
-            -scheme InnoRouterCore \
-            -destination '${{ matrix.platform.destination }}' \
-            -quiet
-
-      - name: Build InnoRouterDeepLink for ${{ matrix.platform.name }}
-        run: |
-          xcodebuild build \
-            -scheme InnoRouterDeepLink \
-            -destination '${{ matrix.platform.destination }}' \
-            -quiet
-
-      - name: Build InnoRouterEffects for ${{ matrix.platform.name }}
-        run: |
-          xcodebuild build \
-            -scheme InnoRouterEffects \
-            -destination '${{ matrix.platform.destination }}' \
-            -quiet
-
-      - name: Build InnoRouterMacros for ${{ matrix.platform.name }}
-        run: |
-          xcodebuild build \
-            -scheme InnoRouterMacros \
-            -destination '${{ matrix.platform.destination }}' \
-            -quiet
-
-      - name: Build InnoRouterTesting for ${{ matrix.platform.name }}
-        run: |
-          xcodebuild build \
-            -scheme InnoRouterTesting \
-            -destination '${{ matrix.platform.destination }}' \
-            -quiet
-
-      # Building the declaration product is not enough to prove that a client
-      # can expand @Router after importing only the default umbrella. This
-      # target contains the downstream macro-first smoke fixture.
+      # The explicit workspace prevents a neighboring or generated xcodeproj
+      # from changing package resolution. The two consumers jointly compile
+      # all three public products; the first also expands @Router after only
+      # importing the default umbrella.
       - name: Build macro-first consumer for ${{ matrix.platform.name }}
         run: |
           xcodebuild build \
             -workspace .github/platform-tests.xcworkspace \
             -scheme InnoRouterMacroFirstSmoke \
             -destination '${{ matrix.platform.destination }}' \
-            -quiet
-
-      # Swift optimization has distinct actor-deinitialization paths that a
-      # Debug-only matrix cannot exercise. Keep the Spatial product's shipping
-      # configuration covered on its native platform.
-      - name: Build InnoRouterSpatial Release for visionOS
-        if: matrix.platform.name == 'visionOS'
-        run: |
-          xcodebuild build \
-            -scheme InnoRouterSpatial \
+            -derivedDataPath "$RUNNER_TEMP/InnoRouter-${{ matrix.platform.name }}" \
             -configuration Release \
-            -destination '${{ matrix.platform.destination }}' \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             -quiet
 
-      - name: Build visionOS human-facing Spatial example
-        if: matrix.platform.name == 'visionOS'
+      - name: Build developer tools consumer for ${{ matrix.platform.name }}
         run: |
           xcodebuild build \
             -workspace .github/platform-tests.xcworkspace \
-            -scheme InnoRouterVisionOSImmersiveExample \
+            -scheme InnoRouterDeveloperToolsSmoke \
             -destination '${{ matrix.platform.destination }}' \
+            -derivedDataPath "$RUNNER_TEMP/InnoRouter-${{ matrix.platform.name }}" \
+            -configuration Release \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             -quiet
 
-      - name: Build visionOS spatial consumer smoke
-        if: matrix.platform.name == 'visionOS'
+      - name: Validate public interfaces for ${{ matrix.platform.name }}
         run: |
-          xcodebuild build \
-            -workspace .github/platform-tests.xcworkspace \
-            -scheme InnoRouterSpatialConsumerSmoke \
-            -destination '${{ matrix.platform.destination }}' \
-            -quiet
+          ./scripts/check-platform-interface.sh \
+            "$RUNNER_TEMP/InnoRouter-${{ matrix.platform.name }}" \
+            '${{ matrix.platform.name }}'
 
   platform-tests:
     name: test ${{ matrix.platform.name }}
@@ -179,23 +109,42 @@ jobs:
       fail-fast: false
       matrix:
         platform:
+          - name: iOS
+            destination: "iOS Simulator"
+            runtimePrefix: "com.apple.CoreSimulator.SimRuntime.iOS"
+            deviceNameContains: "iPhone"
+            usesSimulator: true
+            minimumPassedTests: 6
+          - name: iPadOS
+            destination: "iOS Simulator"
+            runtimePrefix: "com.apple.CoreSimulator.SimRuntime.iOS"
+            deviceNameContains: "iPad"
+            usesSimulator: true
+            minimumPassedTests: 6
+          - name: Mac-Catalyst
+            destination: "macOS,variant=Mac Catalyst"
+            runtimePrefix: ""
+            deviceNameContains: ""
+            usesSimulator: false
+            minimumPassedTests: 6
           - name: tvOS
             destination: "tvOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.tvOS"
-            minimumPassedTests: 5
-            testPackage: root
+            deviceNameContains: ""
+            usesSimulator: true
+            minimumPassedTests: 8
           - name: watchOS
             destination: "watchOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.watchOS"
-            minimumPassedTests: 3
-            testPackage: root
+            deviceNameContains: ""
+            usesSimulator: true
+            minimumPassedTests: 6
           - name: visionOS
             destination: "visionOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.xrOS"
-            # xcresult summary counts a parameterized @Test function once;
-            # its argument iterations are validated by the test result itself.
-            minimumPassedTests: 25
-            testPackage: consumer
+            deviceNameContains: ""
+            usesSimulator: true
+            minimumPassedTests: 6
 
     steps:
       - name: Checkout
@@ -215,6 +164,7 @@ jobs:
           swift --version
 
       - name: Select ${{ matrix.platform.name }} simulator
+        if: matrix.platform.usesSimulator
         id: simulator
         shell: bash
         run: |
@@ -225,7 +175,8 @@ jobs:
           if ! simulator_udid="$(
             python3 ./scripts/select-simulator.py \
               "$devices_json" \
-              '${{ matrix.platform.runtimePrefix }}'
+              '${{ matrix.platform.runtimePrefix }}' \
+              '${{ matrix.platform.deviceNameContains }}'
           )"; then
             echo "No available ${{ matrix.platform.name }} simulator found."
             cat "$devices_json"
@@ -235,6 +186,7 @@ jobs:
           echo "udid=$simulator_udid" >> "$GITHUB_OUTPUT"
 
       - name: Boot ${{ matrix.platform.name }} simulator
+        if: matrix.platform.usesSimulator
         shell: bash
         run: |
           set -euo pipefail
@@ -262,40 +214,28 @@ jobs:
           )
           PY
 
-      # Root-package Xcode test bundles flatten macro implementation targets
-      # into the destination linker inputs. That is invalid for Spatial because
-      # its compiler plugin is a host macOS executable. The visionOS suite runs
-      # through ConsumerSmoke instead, which is also the stronger downstream
-      # product/import/macro contract. tvOS and watchOS remain macro-free root
-      # package runtime tests.
+      # This target is deliberately macro-free so its runtime checks link on
+      # tvOS, watchOS, and visionOS without a host plugin object in the bundle.
       - name: Test platform consumer for ${{ matrix.platform.name }}
         shell: bash
         run: |
           set -euo pipefail
           result_bundle="$RUNNER_TEMP/InnoRouterPlatformConsumer-${{ matrix.platform.name }}.xcresult"
           summary_json="$RUNNER_TEMP/InnoRouterPlatformConsumer-${{ matrix.platform.name }}-summary.json"
+          test_destination='platform=${{ matrix.platform.destination }}'
+          if [[ '${{ matrix.platform.usesSimulator }}' == 'true' ]]; then
+            test_destination="${test_destination},id=${{ steps.simulator.outputs.udid }}"
+          fi
           rm -rf "$result_bundle"
 
-          if [[ '${{ matrix.platform.testPackage }}' == 'consumer' ]]; then
-            pushd ConsumerSmoke >/dev/null
-            xcodebuild test \
-              -scheme InnoRouterConsumerSmoke-Package \
-              -destination 'platform=${{ matrix.platform.destination }},id=${{ steps.simulator.outputs.udid }}' \
-              -destination-timeout 120 \
-              -parallel-testing-enabled NO \
-              -resultBundlePath "$result_bundle" \
-              -quiet
-            popd >/dev/null
-          else
-            xcodebuild test \
-              -workspace .github/platform-tests.xcworkspace \
-              -scheme InnoRouterPlatformTests \
-              -destination 'platform=${{ matrix.platform.destination }},id=${{ steps.simulator.outputs.udid }}' \
-              -destination-timeout 120 \
-              -parallel-testing-enabled NO \
-              -resultBundlePath "$result_bundle" \
-              -quiet
-          fi
+          xcodebuild test \
+            -workspace .github/platform-tests.xcworkspace \
+            -scheme InnoRouterPlatformTests \
+            -destination "$test_destination" \
+            -destination-timeout 120 \
+            -parallel-testing-enabled NO \
+            -resultBundlePath "$result_bundle" \
+            -quiet
 
           xcrun xcresulttool get test-results summary \
             --path "$result_bundle" \

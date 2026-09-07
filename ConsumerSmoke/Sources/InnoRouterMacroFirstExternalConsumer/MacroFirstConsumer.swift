@@ -3,34 +3,39 @@ import SwiftUI
 
 import InnoRouter
 
-@Router(
-    deepLinkSchemes: ["innorouter", "https"],
-    deepLinkHosts: ["app.example.com"]
-)
-enum ExternalRoute {
-    @DeepLink("/details/:id")
-    case detail(id: String)
+public struct ExternalShadowedID: Hashable, Sendable, Codable, DeepLinkParameterValue {
+    public let rawValue: String
 
-    @DeepLink("/settings")
-    case settings
+    public init(rawValue: String) {
+        self.rawValue = rawValue
+    }
 
-    var destination: some View {
-        switch self {
-        case .detail(let id):
-            Text("Detail \(id)")
-        case .settings:
-            Text("Settings")
-        }
+    public var deepLinkParameterString: String { rawValue }
+
+    public static func parseDeepLinkParameter(_ value: String) -> Self? {
+        Self(rawValue: value)
     }
 }
 
-@Router
-enum ExternalTab {
+@Router(
+    deepLinkSchemes: ["innorouter", "https"],
+    deepLinkHosts: ["app.example.com"],
+    inspectorCatalog: true
+)
+public enum ExternalRoute: Codable {
+    public typealias UUID = ExternalShadowedID
+
     @TabItem("Home", systemImage: "house")
     case home
 
     @TabItem("Settings", systemImage: "gear")
     case settings
+
+    @DeepLink("/details/:id")
+    case detail(id: String)
+
+    @DeepLink("/shadow/:id")
+    case shadowed(id: UUID)
 
     var destination: some View {
         switch self {
@@ -38,6 +43,29 @@ enum ExternalTab {
             Text("Home")
         case .settings:
             Text("Settings")
+        case .detail(let id):
+            Text("Detail \(id)")
+        case .shadowed(let id):
+            Text("Shadowed \(id.rawValue)")
+        }
+    }
+}
+
+@Router(
+    deepLinkSchemes: ["innorouter"],
+    deepLinkHosts: ["shadow-string.example.com"],
+    inspectorCatalog: true
+)
+public enum ExternalStringShadowRoute {
+    public typealias String = ExternalShadowedID
+
+    @DeepLink("/items/:id")
+    case item(id: String)
+
+    var destination: some View {
+        switch self {
+        case .item(let id):
+            Text("Shadowed string \(id.rawValue)")
         }
     }
 }
@@ -56,13 +84,14 @@ private struct ExternalActions: View {
 }
 
 @MainActor
-public enum MacroFirstConsumerProbe {
-    public static func exercise() {
-        _ = RouterHost(ExternalRoute.self) {
-            ExternalActions()
-        }.body
+private final class ExternalSession {
+    var isAuthenticated = false
+}
 
-        _ = RouterModalHost(ExternalRoute.self) {
+@MainActor
+public enum MacroFirstConsumerProbe {
+    public static func exercise() async throws {
+        _ = RouterHost(ExternalRoute.self) {
             ExternalActions()
         }.body
 
@@ -74,10 +103,38 @@ public enum MacroFirstConsumerProbe {
         }.body
 #endif
 
-        _ = RouterTabHost(ExternalTab.self, initial: .home).body
+        _ = RouterTabHost(ExternalRoute.self, initial: .home).body
+
+        let store = ExternalRoute.makeRouterStore()
+        _ = await store.perform(.push(.detail(id: "42")))
+        _ = await store.perform(.present(.init(route: .settings, style: .sheet)))
+        _ = await store.perform(.dismissPresentation)
+
+        let codec = try RouterSnapshotCodec<ExternalRoute>(currentVersion: 1)
+        let data = try await store.snapshot(using: codec)
+        _ = try await store.restore(from: data, using: codec)
 
         if let url = URL(string: "innorouter://app.example.com/details/42") {
             let _: ExternalRoute? = ExternalRoute.resolveDeepLink(url)
+
+            let session = ExternalSession()
+            let authenticatedPipeline = RouterLinkPipeline<ExternalRoute>(
+                originPolicy: .allowlisted(
+                    schemes: ["innorouter"],
+                    hosts: ["app.example.com"]
+                ),
+                customResolver: { _ in
+                    RouterPlan(state: .rootStack(path: [.detail(id: "42")]))
+                },
+                authenticationPolicy: .required(
+                    shouldRequireAuthentication: { route in
+                        if case .detail = route { return true }
+                        return false
+                    },
+                    isAuthenticated: { await session.isAuthenticated }
+                )
+            )
+            _ = await authenticatedPipeline.decide(for: url)
         }
     }
 }

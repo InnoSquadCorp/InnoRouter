@@ -107,3 +107,10 @@ iOSInjectionProject/
 # DocC Documentation Build
 docs-build/
 
+# Local coverage reports
+coverage*.lcov
+coverage-summary.json
+
+# Python script caches
+__pycache__/
+*.py[cod]

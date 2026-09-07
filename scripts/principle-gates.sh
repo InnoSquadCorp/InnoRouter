@@ -16,7 +16,7 @@ fi
 # macOS-only CI runners can pass it to gate the Apple platform matrix
 # locally without spinning up the full GitHub Actions workflow.
 # Individual platforms are space- or comma-separated and must be one of:
-# ios, ipados, macos, tvos, watchos, visionos.
+# ios, ipados, maccatalyst, macos, tvos, watchos, visionos.
 PLATFORMS_ARG=""
 for arg in "$@"; do
   case "$arg" in
@@ -34,7 +34,7 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
     exit 1
   fi
 
-  VALID_PLATFORM_TOKENS="all ios ipados macos tvos watchos visionos"
+  VALID_PLATFORM_TOKENS="all ios ipados maccatalyst macos tvos watchos visionos"
   for token in $NORMALIZED_PLATFORMS_ARG; do
     if [[ ! " $VALID_PLATFORM_TOKENS " =~ " $token " ]]; then
       echo "[principle-gates] Failed: unsupported platform token '$token'"
@@ -93,68 +93,35 @@ echo "[principle-gates] Checking maintainer docs consistency"
 echo "[principle-gates] Checking documentation Swift code blocks"
 ./scripts/check-docs-code-blocks.sh
 
-# Gate 6 — Examples/ ↔ ExamplesSmoke/ 1:1 alignment. See
-# Examples/README.md for the contributor rules on which side to edit.
-# Failure signal: a file present on one side missing on the other.
-# Local repro: python3 ./scripts/test_validate_example_consumer_contracts.py &&
-#              ./scripts/check-examples-parity.sh
-echo "[principle-gates] Checking Examples↔ExamplesSmoke parity"
-python3 ./scripts/test_validate_example_consumer_contracts.py
-./scripts/check-examples-parity.sh
-
-# Gate 7 — compiler-stable smoke fixtures. The dedicated macro-first target
+# Gate 6 — compiler-stable macro fixture. The dedicated macro-first target
 # contains a downstream `import InnoRouter` + `@Router` fixture, so the default
 # umbrella must expose both the macro declaration and generated runtime surface.
 # Failure signal: smoke build error.
 # Local repro: swift build --target <name>
 echo "[principle-gates] Building example smoke targets"
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterExamplesSmoke
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterStandaloneExampleSmoke
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterCoordinatorExampleSmoke
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterMacroFirstSmoke
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterEffects
 
-# Gate 7b — independent SwiftPM consumer boundary. Unlike the root smoke
+# Gate 7 — independent SwiftPM consumer boundary. Unlike the root smoke
 # targets, this nested package resolves InnoRouter as a package dependency and
 # therefore catches product discovery, umbrella re-export, and plugin wiring
 # regressions. The same fixture accepts an exact remote version after release.
 echo "[principle-gates] Building independent package consumer smoke"
 ./scripts/external-consumer-smoke.sh
+./scripts/generated-scenario-smoke.sh
 
-# Gate 8 — human-facing examples must build. These exercise the
-# macro-driven, idiomatic surface that Examples/ documents.
-# Failure signal: example build error.
-echo "[principle-gates] Building human-facing example targets"
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterStandaloneExample
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterCoordinatorExample
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterMacrosExample
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterDeepLinkExample
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterSplitCoordinatorExample
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterAppShellExample
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterMultiPlatformExample
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterVisionOSImmersiveExample
-swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterSampleAppExample
-
-# Gate 9 — performance smoke. Catches gross regressions in command
-# execution / engine dispatch.
-# Failure signal: timing budget exceeded.
-# Local repro: ./scripts/performance-smoke.sh
-echo "[principle-gates] Running performance smoke"
-./scripts/performance-smoke.sh
-
-# Gate 10 — source-level lint gates (e.g. forbidden patterns,
+# Gate 8 — source-level lint gates (e.g. forbidden patterns,
 # nonisolated(unsafe), @unchecked Sendable, debug-only fences).
 # Failure signal: forbidden pattern detected.
 # Local repro: ./scripts/lint-source-gates.sh
 echo "[principle-gates] Running source-level lint gates"
 ./scripts/lint-source-gates.sh
 
-# Gate 11 — fail-fast probe verifies that a missing RouterEnvironment
+# Gate 9 — fail-fast probe verifies that a missing router authority
 # wiring crashes deterministically with an explanatory message instead
 # of producing silent fallback behavior.
 # Failure signal: probe succeeded (regression — fallback re-introduced)
 #                 or message missing the expected substring.
-echo "[principle-gates] Checking fail-fast probe (missing RouterEnvironment)"
+echo "[principle-gates] Checking fail-fast probe (missing router authority)"
 PROBE_OUTPUT_FILE="$(mktemp)"
 set +e
 swift run --jobs "$SWIFTPM_JOBS" RouterEnvironmentFailFastProbe >"$PROBE_OUTPUT_FILE" 2>&1
@@ -168,7 +135,7 @@ if [[ "$PROBE_EXIT_CODE" -eq 0 ]]; then
   exit 1
 fi
 
-if ! rg -q "Router environment is missing" "$PROBE_OUTPUT_FILE"; then
+if ! rg -q "Router authority is missing" "$PROBE_OUTPUT_FILE"; then
   echo "[principle-gates] Failed: fail-fast probe did not report expected message"
   cat "$PROBE_OUTPUT_FILE"
   rm -f "$PROBE_OUTPUT_FILE"
@@ -177,7 +144,7 @@ fi
 
 rm -f "$PROBE_OUTPUT_FILE"
 
-# Gate 12 — public Bool naming. Public properties of type Bool must
+# Gate 10 — public Bool naming. Public properties of type Bool must
 # start with is/has/can/should so that boolean call sites read as
 # predicates. Catches accidental drift on additive minor releases.
 # Failure signal: a public Bool name violating the prefix rule.
@@ -194,7 +161,7 @@ if [[ -n "$PUBLIC_BOOL_NAMES" ]]; then
   fi
 fi
 
-# Gate 13 (optional) — per-platform build probe. Only runs when the
+# Gate 11 (optional) — per-platform build probe. Only runs when the
 # caller passes --platforms=…; macOS-only CI runners use this to gate
 # the Apple platform matrix locally without spinning up the full
 # GitHub Actions workflow. Compile-only via xcodebuild against
@@ -206,6 +173,8 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
     echo "[principle-gates] Failed: xcodebuild is required for per-platform probe"
     exit 1
   fi
+  PLATFORM_DERIVED_DATA="$(mktemp -d "${TMPDIR:-/tmp}/innorouter-platforms.XXXXXX")"
+  trap 'rm -rf "$PLATFORM_DERIVED_DATA"' EXIT
 
   # Map shorthand platform names to compile-only xcodebuild destinations.
   # Generic simulator destinations avoid local / runner drift when
@@ -214,6 +183,7 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
   PLATFORM_ENTRIES=(
     "iOS|generic/platform=iOS Simulator"
     "iPadOS|generic/platform=iOS Simulator"
+    "Mac-Catalyst|generic/platform=macOS,variant=Mac Catalyst"
     "macOS|platform=macOS"
     "tvOS|generic/platform=tvOS Simulator"
     "watchOS|generic/platform=watchOS Simulator"
@@ -230,8 +200,9 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
     name="${entry%%|*}"
     dest="${entry#*|}"
     name_lc="$(echo "$name" | tr '[:upper:]' '[:lower:]')"
+    name_token="${name_lc//-/}"
 
-    if [[ "$REQUESTED" != "all" && ! " $REQUESTED " =~ " $name_lc " ]]; then
+    if [[ "$REQUESTED" != "all" && ! " $REQUESTED " =~ " $name_token " ]]; then
       continue
     fi
 
@@ -243,95 +214,31 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
     BUILT_DESTINATIONS+="$dest|"
 
     MATCHED_PLATFORM_COUNT=$((MATCHED_PLATFORM_COUNT + 1))
-    echo "[principle-gates] xcodebuild build -scheme InnoRouter ($name)"
-    xcodebuild build \
-      -scheme InnoRouter \
-      -destination "$dest" \
-      -jobs "$XCODEBUILD_JOBS" \
-      -quiet
-
-    echo "[principle-gates] xcodebuild build -scheme InnoRouterCore ($name)"
-    xcodebuild build \
-      -scheme InnoRouterCore \
-      -destination "$dest" \
-      -jobs "$XCODEBUILD_JOBS" \
-      -quiet
-
-    echo "[principle-gates] xcodebuild build -scheme InnoRouterSwiftUI ($name)"
-    xcodebuild build \
-      -scheme InnoRouterSwiftUI \
-      -destination "$dest" \
-      -jobs "$XCODEBUILD_JOBS" \
-      -quiet
-
-    echo "[principle-gates] xcodebuild build -scheme InnoRouterSpatial ($name)"
-    xcodebuild build \
-      -scheme InnoRouterSpatial \
-      -destination "$dest" \
-      -jobs "$XCODEBUILD_JOBS" \
-      -quiet
-
-    echo "[principle-gates] xcodebuild build -scheme InnoRouterDeepLink ($name)"
-    xcodebuild build \
-      -scheme InnoRouterDeepLink \
-      -destination "$dest" \
-      -jobs "$XCODEBUILD_JOBS" \
-      -quiet
-
-    echo "[principle-gates] xcodebuild build -scheme InnoRouterEffects ($name)"
-    xcodebuild build \
-      -scheme InnoRouterEffects \
-      -destination "$dest" \
-      -jobs "$XCODEBUILD_JOBS" \
-      -quiet
-
-    echo "[principle-gates] xcodebuild build -scheme InnoRouterMacros ($name)"
-    xcodebuild build \
-      -scheme InnoRouterMacros \
-      -destination "$dest" \
-      -jobs "$XCODEBUILD_JOBS" \
-      -quiet
-
-    echo "[principle-gates] xcodebuild build -scheme InnoRouterTesting ($name)"
-    xcodebuild build \
-      -scheme InnoRouterTesting \
-      -destination "$dest" \
-      -jobs "$XCODEBUILD_JOBS" \
-      -quiet
-
     echo "[principle-gates] xcodebuild build -scheme InnoRouterMacroFirstSmoke ($name)"
     xcodebuild build \
       -workspace .github/platform-tests.xcworkspace \
       -scheme InnoRouterMacroFirstSmoke \
       -destination "$dest" \
+      -derivedDataPath "$PLATFORM_DERIVED_DATA/$name_token" \
+      -configuration Release \
+      BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
       -jobs "$XCODEBUILD_JOBS" \
       -quiet
 
-    if [[ "$name_lc" == "visionos" ]]; then
-      echo "[principle-gates] xcodebuild build -scheme InnoRouterSpatial -configuration Release ($name)"
-      xcodebuild build \
-        -scheme InnoRouterSpatial \
-        -configuration Release \
-        -destination "$dest" \
-        -jobs "$XCODEBUILD_JOBS" \
-        -quiet
+    echo "[principle-gates] xcodebuild build -scheme InnoRouterDeveloperToolsSmoke ($name)"
+    xcodebuild build \
+      -workspace .github/platform-tests.xcworkspace \
+      -scheme InnoRouterDeveloperToolsSmoke \
+      -destination "$dest" \
+      -derivedDataPath "$PLATFORM_DERIVED_DATA/$name_token" \
+      -configuration Release \
+      BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+      -jobs "$XCODEBUILD_JOBS" \
+      -quiet
 
-      echo "[principle-gates] xcodebuild build -scheme InnoRouterVisionOSImmersiveExample ($name)"
-      xcodebuild build \
-        -workspace .github/platform-tests.xcworkspace \
-        -scheme InnoRouterVisionOSImmersiveExample \
-        -destination "$dest" \
-        -jobs "$XCODEBUILD_JOBS" \
-        -quiet
+    echo "[principle-gates] Validating public interfaces ($name)"
+    ./scripts/check-platform-interface.sh "$PLATFORM_DERIVED_DATA/$name_token" "$name"
 
-      echo "[principle-gates] xcodebuild build -scheme InnoRouterSpatialConsumerSmoke ($name)"
-      xcodebuild build \
-        -workspace .github/platform-tests.xcworkspace \
-        -scheme InnoRouterSpatialConsumerSmoke \
-        -destination "$dest" \
-        -jobs "$XCODEBUILD_JOBS" \
-        -quiet
-    fi
   done
 
   if [[ "$MATCHED_PLATFORM_COUNT" -eq 0 ]]; then
