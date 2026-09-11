@@ -161,8 +161,14 @@ public final class RouterHistory<R: Route> {
         if let eventObserverID {
             store.removeSynchronousEventObserver(eventObserverID)
         }
-        recordWaiters.values.forEach { $0.continuation.resume(returning: false) }
-        revisionWaiters.values.forEach { $0.continuation.resume(returning: false) }
+        while let id = recordWaiters.keys.first,
+              let waiter = recordWaiters.removeValue(forKey: id) {
+            waiter.continuation.resume(returning: false)
+        }
+        while let id = revisionWaiters.keys.first,
+              let waiter = revisionWaiters.removeValue(forKey: id) {
+            waiter.continuation.resume(returning: false)
+        }
     }
 
     public var canGoBack: Bool { cursor > entries.startIndex }

@@ -87,7 +87,15 @@ revision, every request's relative `expectedRevision`, its
 ``RouterScenarioRequestSemantics``, and logical submit, wait, cancel,
 virtual-time, deferral-resolution, and terminal controls. This preserves
 history navigation-only rebasing and stale-state checks through queued and
-repeatedly deferred requests. Format v4 and unknown versions are rejected
+repeatedly deferred requests. Format v7 records the complete feature mapping
+path for ordinary feature actions, presentation mutations, completions, and
+feature plans. Scene-local requests bind ownership to the logical Scene
+lifetime created by the replay sequence rather than serializing process-local
+UUID tokens. Replay requires a
+``RouterScenarioFeatureResolver`` built from the same macro-generated mapping;
+use ``RouterScenarioFeatureProjection`` to compose nested mappings. Missing,
+duplicate, or tampered resolver paths fail before the first production request.
+Format v6 and earlier, plus unknown future versions, are rejected
 instead of guessing execution conditions. Use the recorder's `resolveDeferred` and
 `advanceTime` operations when
 capturing those decisions so replay never invents unavailable scheduling data.
@@ -111,7 +119,7 @@ first request and requires the test store's complete state to equal the
 fixture's initial state. If replay fails or its task is cancelled, it cancels
 and drains its own request and deferral handles before returning while leaving
 unrelated store work untouched.
-``RouterScenarioSourceGenerator/generateFiles(_:routeTypeName:fixtureFileName:testName:storeFactory:environmentFactory:)``
+``RouterScenarioSourceGenerator/generateFiles(_:routeTypeName:fixtureFileName:testName:storeFactory:environmentFactory:featureResolversFactory:)``
 returns separate Swift Testing and JSON fixture artifacts. Use
 `RouterScenarioFixture.decode(from:maximumByteCount:maximumStepCount:)` at an
 import boundary.
@@ -132,10 +140,13 @@ import boundary.
 - ``RouterScenarioFixture``
 - ``RouterScenarioControl``
 - ``RouterScenarioRequestSemantics``
+- ``RouterScenarioSceneLifetime``
 - ``RouterScenarioCancellationOrigin``
 - ``RouterScenarioExpectation``
 - ``RouterScenarioMetadata``
 - ``RouterScenarioReplayEnvironment``
+- ``RouterScenarioFeatureProjection``
+- ``RouterScenarioFeatureResolver``
 - ``RouterScenarioGeneratedFiles``
 - ``RouterScenarioSourceGenerator``
 - ``RouterScenarioRunner``

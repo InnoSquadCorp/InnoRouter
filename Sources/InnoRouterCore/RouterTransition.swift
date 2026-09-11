@@ -151,9 +151,27 @@ public struct RouterTransition<R: Route>: Hashable, Sendable {
 ///
 /// This separate stream lets opt-in tooling capture unchanged and malformed
 /// requests without adding diagnostic traffic to the ordinary event stream.
+package enum RouterSceneRequestLifetime: Hashable, Sendable {
+    case window(id: UUID, token: UUID)
+    case immersiveSpace(id: String, token: UUID)
+    case missingWindow(id: UUID)
+    case missingImmersiveSpace(id: String)
+}
+
 package enum RouterRequestSemantics<R: Route>: Hashable, Sendable {
     case action
     case historyNavigation(RouterState<R>)
+    case featureAction(
+        scope: RouterScopePath,
+        lifetime: RouterSceneRequestLifetime?,
+        features: [RouterFeatureCatalogEntry]
+    )
+    case featurePlan(
+        scope: RouterScopePath,
+        lifetime: RouterSceneRequestLifetime?,
+        node: RouterNode<R>,
+        features: [RouterFeatureCatalogEntry]
+    )
 }
 
 public struct RouterRequestObservation<R: Route>: Hashable, Sendable {

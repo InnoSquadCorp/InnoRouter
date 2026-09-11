@@ -14,9 +14,9 @@ import InnoRouterSwiftUI
 /// `started → policyPrepared → committed/rejected` order without sleeps.
 @MainActor
 public final class RouterTestStore<R: Route> {
-    private let underlying: RouterStore<R>
+    let underlying: RouterStore<R>
     private let queue: TestEventQueue<RouterEvent<R>>
-    private let lifecycle: RouterTestRequestLifecycle<R>
+    let lifecycle: RouterTestRequestLifecycle<R>
     private let runtime: RouterTestRuntime?
     private let runtimeOwnerID: UUID?
 

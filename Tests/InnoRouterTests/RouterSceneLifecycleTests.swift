@@ -440,11 +440,265 @@ struct RouterSceneLifecycleTests {
             store: store
         )
 
-        guard case .rejected = outcome else {
+        guard let outcome, case .rejected = outcome else {
             Issue.record("Expected the policy to reject native closure")
             return
         }
+        #expect(shouldRestoreRouterScene(after: outcome))
         #expect(store.state.windows.map(\.id) == [windowID])
+    }
+
+    @Test("A deferred native closure requests immediate scene restoration")
+    func deferredClosureRestorationDecision() async throws {
+        let windowID = UUID()
+        let deferralID = RouterDeferralID()
+        let state = try RouterState(
+            windows: [RouterWindow(id: windowID, route: SceneLifecycleRoute.editor)]
+        )
+        let store = RouterStore(
+            initialState: state,
+            configuration: .init(policies: [
+                RouterPolicy(name: "confirm-close") { transition in
+                    if case .dismissWindow = transition.action {
+                        return .deferRequest(deferralID)
+                    }
+                    return .allow
+                },
+            ])
+        )
+
+        let outcome = try #require(
+            await synchronizeRouterWindowDisappearance(id: windowID, store: store)
+        )
+        #expect(shouldRestoreRouterScene(after: outcome))
+        #expect(store.state.windows.map(\.id) == [windowID])
+
+        _ = await store.cancelDeferred(deferralID)
+        #expect(store.state.windows.map(\.id) == [windowID])
+        #expect(store.revision == 0)
+    }
+
+    @Test("Scene restoration is reserved once until the restored scene appears")
+    func sceneRestorationReservationDeduplicatesNativeOpen() {
+        let registry = RouterSceneRestorationRegistry()
+        let windowID = UUID()
+        let firstImmersiveLifetime = UUID()
+        let secondImmersiveLifetime = UUID()
+
+        let firstWindowTicket = registry.beginWindowRestoration(id: windowID)
+        #expect(firstWindowTicket != nil)
+        #expect(registry.beginWindowRestoration(id: windowID) == nil)
+        registry.finishWindowRestoration(id: windowID)
+        let secondWindowTicket = registry.beginWindowRestoration(id: windowID)
+        #expect(secondWindowTicket != nil)
+        if let firstWindowTicket, let secondWindowTicket {
+            #expect(
+                !registry.isCurrentWindowRestoration(
+                    id: windowID,
+                    ticket: firstWindowTicket
+                )
+            )
+            #expect(
+                registry.isCurrentWindowRestoration(
+                    id: windowID,
+                    ticket: secondWindowTicket
+                )
+            )
+        }
+
+        #expect(
+            registry.beginImmersiveSpaceRestoration(
+                id: "theater",
+                lifecycleToken: firstImmersiveLifetime
+            ) != nil
+        )
+        #expect(
+            registry.beginImmersiveSpaceRestoration(
+                id: "theater",
+                lifecycleToken: firstImmersiveLifetime
+            ) == nil
+        )
+        #expect(
+            registry.beginImmersiveSpaceRestoration(
+                id: "theater",
+                lifecycleToken: secondImmersiveLifetime
+            ) != nil
+        )
+        registry.finishImmersiveSpaceRestoration(
+            id: "theater",
+            lifecycleToken: firstImmersiveLifetime
+        )
+        #expect(
+            registry.beginImmersiveSpaceRestoration(
+                id: "theater",
+                lifecycleToken: firstImmersiveLifetime
+            ) != nil
+        )
+    }
+
+    @Test(
+        "Failed immersive restoration releases its reservation and repairs canonical state",
+        arguments: [RouterImmersiveSpaceOpenResult.userCancelled, .error]
+    )
+    func failedImmersiveRestorationRepairsCanonicalState(
+        result: RouterImmersiveSpaceOpenResult
+    ) async throws {
+        let state = try RouterState<PlainSceneLifecycleRoute>(
+            immersiveSpace: .init(id: "shared", route: .old)
+        )
+        let store = RouterStore(
+            initialState: state,
+            configuration: .init(policies: [
+                RouterPolicy(name: "application-policy") { _ in .reject("keep") },
+            ])
+        )
+        let token = try #require(store.immersiveSpaceLifecycleToken)
+        let ticket = try #require(
+            store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
+                id: "shared",
+                lifecycleToken: token
+            )
+        )
+
+        let keepsReservation = await restoreRouterImmersiveSpaceAfterDeferredClosure(
+            id: "shared",
+            lifecycleToken: token,
+            ticket: ticket,
+            store: store
+        ) { result }
+
+        #expect(!keepsReservation)
+        #expect(store.state.immersiveSpace == nil)
+        #expect(store.revision == 1)
+        #expect(!store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+            id: "shared",
+            lifecycleToken: token,
+            ticket: ticket
+        ))
+    }
+
+    @Test("Successful immersive restoration keeps its reservation until appearance")
+    func successfulImmersiveRestorationKeepsReservation() async throws {
+        let state = try RouterState<PlainSceneLifecycleRoute>(
+            immersiveSpace: .init(id: "shared", route: .old)
+        )
+        let store = RouterStore(initialState: state)
+        let token = try #require(store.immersiveSpaceLifecycleToken)
+        let ticket = try #require(
+            store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
+                id: "shared",
+                lifecycleToken: token
+            )
+        )
+
+        let keepsReservation = await restoreRouterImmersiveSpaceAfterDeferredClosure(
+            id: "shared",
+            lifecycleToken: token,
+            ticket: ticket,
+            store: store
+        ) { .opened }
+
+        #expect(keepsReservation)
+        #expect(store.state == state)
+        #expect(store.revision == 0)
+        #expect(store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+            id: "shared",
+            lifecycleToken: token,
+            ticket: ticket
+        ))
+    }
+
+    @Test(
+        "Late immersive restoration results cannot alter a replacement lifetime",
+        arguments: [RouterImmersiveSpaceOpenResult.opened, .error]
+    )
+    func staleImmersiveRestorationCannotAlterReplacement(
+        result: RouterImmersiveSpaceOpenResult
+    ) async throws {
+        let initial = try RouterState<PlainSceneLifecycleRoute>(
+            immersiveSpace: .init(id: "shared", route: .old)
+        )
+        let store = RouterStore(initialState: initial)
+        let oldToken = try #require(store.immersiveSpaceLifecycleToken)
+        let ticket = try #require(
+            store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
+                id: "shared",
+                lifecycleToken: oldToken
+            )
+        )
+
+        let keepsReservation = await restoreRouterImmersiveSpaceAfterDeferredClosure(
+            id: "shared",
+            lifecycleToken: oldToken,
+            ticket: ticket,
+            store: store
+        ) {
+            _ = await store.perform(.dismissImmersiveSpace)
+            _ = await store.perform(
+                .enterImmersiveSpace(.init(id: "shared", route: .replacement))
+            )
+            return result
+        }
+
+        #expect(!keepsReservation)
+        #expect(store.state.immersiveSpace?.route == .replacement)
+        #expect(store.revision == 2)
+        #expect(store.immersiveSpaceLifecycleToken != oldToken)
+        #expect(!store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+            id: "shared",
+            lifecycleToken: oldToken,
+            ticket: ticket
+        ))
+    }
+
+    @Test("Immersive open failure repair preserves an unrelated queued commit")
+    func immersiveFailureRepairRebasesAcrossUnrelatedCommit() async throws {
+        let initial = try RouterState<PlainSceneLifecycleRoute>(
+            immersiveSpace: .init(id: "shared", route: .old)
+        )
+        let gate = SceneLifecyclePolicyGate()
+        let store = RouterStore(
+            initialState: initial,
+            configuration: .init(policies: [
+                RouterPolicy(name: "unrelated-update") { transition in
+                    if transition.action == .push(.old) {
+                        await gate.wait()
+                    }
+                    return .allow
+                },
+            ])
+        )
+        let token = try #require(store.immersiveSpaceLifecycleToken)
+        let ticket = try #require(
+            store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
+                id: "shared",
+                lifecycleToken: token
+            )
+        )
+        var requests = store.requestObservations.makeAsyncIterator()
+        let unrelated = Task { @MainActor in await store.perform(.push(.old)) }
+        _ = await requests.next()
+        await gate.waitUntilEntered()
+        let restoration = Task { @MainActor in
+            await restoreRouterImmersiveSpaceAfterDeferredClosure(
+                id: "shared",
+                lifecycleToken: token,
+                ticket: ticket,
+                store: store
+            ) { .error }
+        }
+        _ = await requests.next()
+
+        gate.release()
+        guard case .applied = await unrelated.value else {
+            Issue.record("Expected unrelated navigation to commit")
+            return
+        }
+        #expect(await restoration.value == false)
+
+        #expect(store.state.root == .stack(path: [.old]))
+        #expect(store.state.immersiveSpace == nil)
+        #expect(store.revision == 2)
     }
 
     @Test("A failed native open repair cannot be rejected by application policy")

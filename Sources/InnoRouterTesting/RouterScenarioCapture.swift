@@ -41,11 +41,31 @@ public struct RouterScenarioExpectation<R: Route & Codable>: Hashable, Sendable,
 
 /// Serializable meaning needed to reproduce a request through the same
 /// production preparation path that originally submitted it.
+public enum RouterScenarioSceneLifetime: String, Hashable, Sendable, Codable {
+    case application
+    case currentScene
+    case expiredScene
+}
+
 public enum RouterScenarioRequestSemantics<R: Route & Codable>: Hashable, Sendable, Codable {
     /// Replays ``RouterScenarioStep/action`` as an exact ordinary request.
     case action
     /// Rebuilds a history navigation-only target when a deferred request is resumed.
     case historyNavigation(RouterState<R>)
+    /// Replays an ordinary feature request only while the recorded feature
+    /// projection still owns its parent subtree.
+    case featureAction(
+        scope: RouterScopePath,
+        lifetime: RouterScenarioSceneLifetime,
+        features: [RouterFeatureCatalogEntry]
+    )
+    /// Rebuilds one feature subtree against the current parent state.
+    case featurePlan(
+        scope: RouterScopePath,
+        lifetime: RouterScenarioSceneLifetime,
+        node: RouterNode<R>,
+        features: [RouterFeatureCatalogEntry]
+    )
 }
 
 /// Recorded cause for a cancelled request terminal.
@@ -205,6 +225,7 @@ public final class RouterScenarioRecorder<R: Route & Codable> {
 
     private struct SubmittedRequest {
         let observation: RouterRequestObservation<R>
+        let semantics: RouterScenarioRequestSemantics<R>
         let submissionIndex: Int
         let eventIndex: Int
         let cancellationOrigin: RouterScenarioCancellationOrigin
@@ -405,6 +426,7 @@ public final class RouterScenarioRecorder<R: Route & Codable> {
         }
         requests[request.id] = SubmittedRequest(
             observation: request,
+            semantics: scenarioSemantics(for: request.semantics),
             submissionIndex: nextSubmissionIndex,
             eventIndex: requestEventIndex,
             cancellationOrigin: cancellationOrigin
@@ -511,11 +533,6 @@ public final class RouterScenarioRecorder<R: Route & Codable> {
             droppedStepCount += 1
             return
         }
-        let requestSemantics: RouterScenarioRequestSemantics<R> =
-            switch submitted.observation.semantics {
-            case .action: .action
-            case .historyNavigation(let target): .historyNavigation(target)
-            }
         steps.append(.init(
             requestID: id,
             submissionIndex: submitted.submissionIndex,
@@ -523,7 +540,7 @@ public final class RouterScenarioRecorder<R: Route & Codable> {
             terminalEventIndex: terminal.eventIndex,
             action: submitted.observation.action,
             context: submitted.observation.context,
-            requestSemantics: requestSemantics,
+            requestSemantics: submitted.semantics,
             expectedRevision: submitted.observation.expectedRevision,
             cancellationOrigin: cancellationOrigin,
             observedState: terminal.state,
@@ -535,6 +552,37 @@ public final class RouterScenarioRecorder<R: Route & Codable> {
         let ready = captureWaiters.filter { steps.count >= $0.value.count }
         for id in ready.keys { captureWaiters.removeValue(forKey: id) }
         ready.values.forEach { $0.continuation.resume(returning: true) }
+    }
+
+    private func scenarioSemantics(
+        for semantics: RouterRequestSemantics<R>
+    ) -> RouterScenarioRequestSemantics<R> {
+        switch semantics {
+        case .action:
+            return .action
+        case .historyNavigation(let target):
+            return .historyNavigation(target)
+        case .featureAction(let scope, let lifetime, let features):
+            return .featureAction(
+                scope: scope,
+                lifetime: scenarioLifetime(lifetime),
+                features: features
+            )
+        case .featurePlan(let scope, let lifetime, let node, let features):
+            return .featurePlan(
+                scope: scope,
+                lifetime: scenarioLifetime(lifetime),
+                node: node,
+                features: features
+            )
+        }
+    }
+
+    private func scenarioLifetime(
+        _ lifetime: RouterSceneRequestLifetime?
+    ) -> RouterScenarioSceneLifetime {
+        guard let lifetime else { return .application }
+        return store.matchesSceneRequestLifetime(lifetime) ? .currentScene : .expiredScene
     }
 
     private func cancelCaptureWaiter(_ id: UUID) {

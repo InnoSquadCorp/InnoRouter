@@ -115,6 +115,7 @@ public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
     @ObservationIgnored private let storage: RouterPendingLinkStorageExecutor
     @ObservationIgnored private let codec = RouterPendingLinkCodec<R>()
     @ObservationIgnored private var operationGeneration: UInt64 = 0
+    @ObservationIgnored private var cancellationOperation: UInt64?
 
     public init(
         slot: RouterPendingLinkSlot<R>,
@@ -186,6 +187,7 @@ public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
     @discardableResult
     public func cancel() async throws -> PendingRouterLink<R>? {
         let operation = beginOperation(status: .saving)
+        cancellationOperation = operation
         let cancelled = slot.cancel()
         do {
             try await persist(operation: operation)
@@ -207,11 +209,21 @@ public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
         source: RouterTransitionSource = .deepLink,
         consuming policy: RouterPendingLinkConsumptionPolicy = .onAcceptance
     ) async throws -> RouterLinkExecution<R>? {
+        let operationBeforeResume = operationGeneration
         let execution = await slot.resume(
             on: store,
             source: source,
             consuming: policy
         )
+        // A driver cancellation both invalidates the Store request and owns
+        // durable removal. Do not let the cancelled resume supersede that
+        // newer operation when it returns from the Store pipeline.
+        if operationGeneration != operationBeforeResume,
+           cancellationOperation == operationGeneration,
+           slot.pending == nil,
+           execution?.wasCancelled == true {
+            return execution
+        }
         // A lifecycle save that runs while policy evaluation is suspended must
         // not invalidate the durability work required by a later consumption.
         // Acquire persistence ownership only after the Store has produced the
@@ -232,6 +244,7 @@ public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
 
     private func beginOperation(status: RouterPendingLinkPersistenceStatus) -> UInt64 {
         operationGeneration &+= 1
+        cancellationOperation = nil
         self.status = status
         return operationGeneration
     }
@@ -286,5 +299,14 @@ public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
             )
             guard slot.mutationGeneration != generation else { return }
         }
+    }
+}
+
+private extension RouterLinkExecution {
+    var wasCancelled: Bool {
+        guard case .completed(_, .rejected(_, _, _, .cancelled)) = self else {
+            return false
+        }
+        return true
     }
 }

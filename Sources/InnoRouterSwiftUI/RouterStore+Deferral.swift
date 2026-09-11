@@ -69,6 +69,7 @@ public extension RouterStore {
                 bypassesPolicies: false,
                 startingPolicyIndex: request.nextPolicyIndex,
                 transitionID: transitionID,
+                requestRootID: request.rootID,
                 requestSemantics: request.semantics,
                 executionPrecondition: request.executionPrecondition,
                 executionPreparation: executionPreparation,
@@ -110,25 +111,7 @@ public extension RouterStore {
                 action: request.action
             )
         case .cancel:
-            finishDeferredPresentation(
-                for: request.action,
-                owner: .deferral(id),
-                reason: .cancelled
-            )
-            var context = request.context
-            context.resumedDeferral = id
-            observeRequest(
-                id: transitionID,
-                action: request.action,
-                context: context,
-                semantics: request.semantics
-            )
-            return reject(
-                transitionID,
-                reason: .cancelled,
-                context: context,
-                action: request.action
-            )
+            return cancelDeferredRequest(id, request: request, transitionID: transitionID)
         }
     }
 
@@ -142,12 +125,52 @@ public extension RouterStore {
 
     /// Cancels and removes one deferred request.
     func cancelDeferred(_ id: RouterDeferralID) async -> RouterOutcome<R> {
-        await resolveDeferred(id, with: .cancel)
+        cancelDeferredRequest(id)
     }
 }
 
 @MainActor
 extension RouterStore {
+    package func cancelDeferredRequest(
+        _ id: RouterDeferralID
+    ) -> RouterOutcome<R> {
+        let transitionID = reserveTransitionID()
+        guard let request = takeDeferredRequest(id) else {
+            return reject(
+                transitionID,
+                reason: .deferralNotFound(id),
+                context: .init()
+            )
+        }
+        return cancelDeferredRequest(id, request: request, transitionID: transitionID)
+    }
+
+    private func cancelDeferredRequest(
+        _ id: RouterDeferralID,
+        request: DeferredRouterRequest<R>,
+        transitionID: RouterTransitionID
+    ) -> RouterOutcome<R> {
+        finishDeferredPresentation(
+            for: request.action,
+            owner: .deferral(id),
+            reason: .cancelled
+        )
+        var context = request.context
+        context.resumedDeferral = id
+        observeRequest(
+            id: transitionID,
+            action: request.action,
+            context: context,
+            semantics: request.semantics
+        )
+        return reject(
+            transitionID,
+            reason: .cancelled,
+            context: context,
+            action: request.action
+        )
+    }
+
     func registerDeferredRequest(
         _ request: DeferredRouterRequest<R>
     ) -> RouterRejectionReason? {

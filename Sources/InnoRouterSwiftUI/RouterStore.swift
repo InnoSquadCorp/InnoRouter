@@ -54,13 +54,19 @@ public final class RouterStore<R: Route> {
     @ObservationIgnored
     var activeTransitionID: RouterTransitionID?
     @ObservationIgnored
+    var activeRequestRootID: RouterTransitionID?
+    @ObservationIgnored
     var activeRequestKey: RouterRequestKey?
+    @ObservationIgnored
+    var activeSystemRepairIdentity: RouterSystemRepairIdentity?
     @ObservationIgnored
     var activeQueuedExecutionTask: Task<Void, Never>?
     @ObservationIgnored
     var activePolicyRaces: [RouterTransitionID: RouterPolicyTimeoutRace] = [:]
     @ObservationIgnored
     var queuedRequests: [QueuedRouterRequest<R>] = []
+    @ObservationIgnored
+    var queuedSystemRepairs: [QueuedRouterRequest<R>] = []
     @ObservationIgnored
     var cancelledRequestIDs: Set<RouterTransitionID> = []
     @ObservationIgnored
@@ -72,7 +78,7 @@ public final class RouterStore<R: Route> {
     @ObservationIgnored
     var deferralExpirationTasks: [RouterDeferralID: Task<Void, Never>] = [:]
     @ObservationIgnored
-    var scopes: [RouterScopePath: RouterScope<R>] = [:]
+    var scopes: [RouterScopePath: WeakRouterScope<R>] = [:]
     @ObservationIgnored
     var presentationWaiters: [UUID: AnyRouterPresentationWaiter] = [:]
     @ObservationIgnored
@@ -81,6 +87,10 @@ public final class RouterStore<R: Route> {
     package var platformAdaptationHistory = RouterPlatformAdaptationHistory()
     @ObservationIgnored
     var immersiveSpaceLifecycleToken: UUID?
+    @ObservationIgnored
+    var windowLifecycleTokens: [UUID: UUID]
+    @ObservationIgnored
+    let sceneRestorationRegistry = RouterSceneRestorationRegistry()
 
     /// A multicast stream of correlated transition events.
     public var events: AsyncStream<RouterEvent<R>> {
@@ -122,6 +132,9 @@ public final class RouterStore<R: Route> {
             bufferingPolicy: configuration.eventBufferingPolicy
         )
         self.onEvent = configuration.onEvent
+        self.windowLifecycleTokens = Dictionary(
+            uniqueKeysWithValues: initialState.windows.map { ($0.id, UUID()) }
+        )
         self.immersiveSpaceLifecycleToken = initialState.immersiveSpace.map { _ in UUID() }
     }
 
@@ -137,7 +150,8 @@ public final class RouterStore<R: Route> {
 
     /// Returns the stable read-only projection for `path`.
     public func scope(at path: RouterScopePath = .root) -> RouterScope<R> {
-        if let scope = scopes[path] {
+        compactDeadScopes()
+        if let scope = scopes[path]?.value, scope.matchesCurrentSceneLifetime {
             return scope
         }
         let scope = RouterScope(
@@ -145,7 +159,7 @@ public final class RouterStore<R: Route> {
             node: state.node(at: path),
             store: self
         )
-        scopes[path] = scope
+        scopes[path] = WeakRouterScope(scope)
         return scope
     }
 
@@ -175,12 +189,15 @@ public final class RouterStore<R: Route> {
         bypassesPolicies: Bool,
         startingPolicyIndex: Int = 0,
         transitionID: RouterTransitionID? = nil,
+        requestRootID: RouterTransitionID? = nil,
         requestSemantics: RouterRequestSemantics<R> = .action,
         executionPrecondition: RouterRequestPrecondition<R>? = nil,
         executionPreparation: RouterRequestPreparationBuilder<R>? = nil,
-        deferredResumePreparation: RouterDeferredResumePreparationBuilder<R>? = nil
+        deferredResumePreparation: RouterDeferredResumePreparationBuilder<R>? = nil,
+        systemRepairIdentity: RouterSystemRepairIdentity? = nil
     ) async -> RouterOutcome<R> {
         let transitionID = transitionID ?? runtimeDependencies.makeTransitionID()
+        let requestRootID = requestRootID ?? transitionID
         observeRequest(
             id: transitionID,
             action: action,
@@ -224,11 +241,13 @@ public final class RouterStore<R: Route> {
                             enqueue(
                                 QueuedRouterRequest(
                                     id: transitionID,
+                                    rootID: requestRootID,
                                     action: action,
                                     context: context,
                                     semantics: requestSemantics,
                                     expectedRevision: expectedRevision,
                                     bypassesPolicies: bypassesPolicies,
+                                    systemRepairIdentity: systemRepairIdentity,
                                     startingPolicyIndex: startingPolicyIndex,
                                     executionPrecondition: executionPrecondition,
                                     executionPreparation: executionPreparation,
@@ -242,7 +261,9 @@ public final class RouterStore<R: Route> {
             }
 
             activeTransitionID = transitionID
+            activeRequestRootID = requestRootID
             activeRequestKey = context.requestKey
+            activeSystemRepairIdentity = systemRepairIdentity
             return await execute(
                 action,
                 context: context,
@@ -250,6 +271,7 @@ public final class RouterStore<R: Route> {
                 bypassesPolicies: bypassesPolicies,
                 startingPolicyIndex: startingPolicyIndex,
                 transitionID: transitionID,
+                requestRootID: requestRootID,
                 requestSemantics: requestSemantics,
                 executionPrecondition: executionPrecondition,
                 executionPreparation: executionPreparation,
@@ -350,7 +372,7 @@ public final class RouterStore<R: Route> {
         action: RouterAction<R>,
         context: RouterTransitionContext
     ) -> RouterOutcome<R> {
-        updateImmersiveSpaceLifecycleToken(before: before, after: after)
+        updateSceneLifecycleTokens(before: before, after: after)
         commit(after, animation: context.animation)
         revision &+= 1
         refreshScopes(after: action, context: context)
@@ -400,7 +422,7 @@ public final class RouterStore<R: Route> {
     }
 }
 
-private enum RouterExecutionAdmission<R: Route> {
+enum RouterExecutionAdmission<R: Route> {
     case action(RouterAction<R>)
     case terminal(RouterOutcome<R>)
 }
@@ -413,6 +435,7 @@ extension RouterStore {
         bypassesPolicies: Bool,
         startingPolicyIndex: Int,
         transitionID: RouterTransitionID,
+        requestRootID: RouterTransitionID,
         requestSemantics: RouterRequestSemantics<R>,
         executionPrecondition: RouterRequestPrecondition<R>?,
         executionPreparation: RouterRequestPreparationBuilder<R>?,
@@ -475,6 +498,7 @@ extension RouterStore {
             bypassesPolicies: bypassesPolicies,
             startingAt: startingPolicyIndex,
             requestSemantics: requestSemantics,
+            requestRootID: requestRootID,
             executionPrecondition: executionPrecondition,
             deferredResumePreparation: deferredResumePreparation
         )
@@ -509,77 +533,5 @@ extension RouterStore {
                 deferral: deferral
             )
         }
-    }
-
-    private func admitExecution(
-        _ action: RouterAction<R>,
-        context: RouterTransitionContext,
-        expectedRevision: UInt64?,
-        transitionID: RouterTransitionID,
-        executionPrecondition: RouterRequestPrecondition<R>?,
-        executionPreparation: RouterRequestPreparationBuilder<R>?
-    ) -> RouterExecutionAdmission<R> {
-        if requestCancellationIsPending(transitionID) {
-            return .terminal(reject(
-                transitionID,
-                reason: .cancelled,
-                context: context,
-                action: action
-            ))
-        }
-
-        let preparedAction: RouterAction<R>
-        if let executionPreparation {
-            switch executionPreparation(state) {
-            case .action(let action):
-                preparedAction = action
-            case .rejected(let reason):
-                return .terminal(reject(
-                    transitionID,
-                    reason: reason,
-                    context: context,
-                    action: action
-                ))
-            }
-        } else {
-            preparedAction = action
-        }
-
-        if requestCancellationIsPending(transitionID) {
-            return .terminal(reject(
-                transitionID,
-                reason: .cancelled,
-                context: context,
-                action: preparedAction
-            ))
-        }
-        if let rejection = executionPrecondition?(state) {
-            return .terminal(reject(
-                transitionID,
-                reason: rejection,
-                context: context,
-                action: preparedAction
-            ))
-        }
-        if requestCancellationIsPending(transitionID) {
-            return .terminal(reject(
-                transitionID,
-                reason: .cancelled,
-                context: context,
-                action: preparedAction
-            ))
-        }
-        if let expectedRevision, revision != expectedRevision {
-            return .terminal(reject(
-                transitionID,
-                reason: .staleState(
-                    expectedRevision: expectedRevision,
-                    actualRevision: revision
-                ),
-                context: context,
-                action: preparedAction
-            ))
-        }
-        return .action(preparedAction)
     }
 }

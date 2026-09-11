@@ -58,6 +58,20 @@ protocol RouterAuthorityProtocol<R>: AnyObject, Sendable {
         context: RouterTransitionContext,
         expectedRevision: UInt64?
     ) async -> RouterOutcome<R>
+    func performFeatureAction(
+        _ action: RouterAction<R>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?,
+        features: [RouterFeatureCatalogEntry],
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async -> RouterOutcome<R>
+    func performFeaturePlan(
+        _ node: RouterNode<R>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?,
+        features: [RouterFeatureCatalogEntry],
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async -> RouterOutcome<R>
     func present<Value: Sendable>(
         _ route: R,
         style: RouterPresentationStyle,
@@ -74,13 +88,56 @@ protocol RouterAuthorityProtocol<R>: AnyObject, Sendable {
     func present<Value: Sendable>(
         _ request: RouterPresentationRequest<R, Value>
     ) async -> RouterPresentationOutcome<Value>
+    func presentFeature<Value: Sendable>(
+        _ route: R,
+        style: RouterPresentationStyle,
+        options: RouterPresentationOptions,
+        expecting: Value.Type,
+        features: [RouterFeatureCatalogEntry],
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async -> RouterPresentationOutcome<Value>
     func finishPresentation<Value: Sendable>(returning value: Value) async throws
+    func finishPresentation<Value: Sendable>(
+        returning value: Value,
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async throws
     func finishPresentation<Value: Sendable>(
         _ request: RouterPresentationRequest<R, Value>,
         returning value: Value
     ) async throws
+    func finishPresentation<Value: Sendable>(
+        _ request: RouterPresentationRequest<R, Value>,
+        returning value: Value,
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async throws
+    func finishFeaturePresentation<Value: Sendable>(
+        returning value: Value,
+        features: [RouterFeatureCatalogEntry],
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async throws
+    func finishFeaturePresentation<Value: Sendable>(
+        _ request: RouterPresentationRequest<R, Value>,
+        returning value: Value,
+        features: [RouterFeatureCatalogEntry],
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async throws
     func reject(_ reason: RouterRejectionReason) -> RouterOutcome<R>
     func reportPlatformAdaptation(_ adaptation: RouterPlatformAdaptation)
+}
+
+package func prepareRouterFeaturePlan<R: Route>(
+    node: RouterNode<R>,
+    at path: RouterScopePath,
+    in state: RouterState<R>
+) -> RouterDeferredResumePreparation<R> {
+    do {
+        let target = try state.replacingNode(node, at: path)
+        return .action(.apply(RouterPlan(state: target)))
+    } catch let error as RouterMutationError {
+        return .rejected(.mutation(error))
+    } catch {
+        return .rejected(.mutation(.incompatibleNavigationTopology(path)))
+    }
 }
 
 /// The one canonical authority published for a route type.

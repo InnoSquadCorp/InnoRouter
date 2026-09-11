@@ -11,6 +11,7 @@ public enum RouterScenarioSourceGenerationError: Error, Hashable, Sendable {
     case invalidSwiftIdentifier(String)
     case encodingFailed
     case invalidFixtureFileName(String)
+    case missingFeatureResolversFactory
 }
 
 public struct RouterScenarioGeneratedFiles: Hashable, Sendable {
@@ -34,16 +35,24 @@ public enum RouterScenarioSourceGenerator {
         fixtureFileName: String = "router-scenario.json",
         testName: String = "capturedRouterScenario",
         storeFactory: String = "makeRouterTestStore",
-        environmentFactory: String = "makeRouterScenarioEnvironment"
+        environmentFactory: String = "makeRouterScenarioEnvironment",
+        featureResolversFactory: String? = nil
     ) throws -> RouterScenarioGeneratedFiles {
         try validate(
             fixture,
             routeTypeName: routeTypeName,
             testName: testName,
-            storeFactory: storeFactory
+            storeFactory: storeFactory,
+            featureResolversFactory: featureResolversFactory
         )
         guard isQualifiedSwiftName(environmentFactory) else {
             throw RouterScenarioSourceGenerationError.invalidSwiftIdentifier(environmentFactory)
+        }
+        if let featureResolversFactory,
+           isQualifiedSwiftName(featureResolversFactory) == false {
+            throw RouterScenarioSourceGenerationError.invalidSwiftIdentifier(
+                featureResolversFactory
+            )
         }
         guard isSafeFixtureFileName(fixtureFileName) else {
             throw RouterScenarioSourceGenerationError.invalidFixtureFileName(fixtureFileName)
@@ -70,11 +79,12 @@ public enum RouterScenarioSourceGenerator {
             )
             let store = \(storeFactory)(fixture.initialState)
             let environment = \(environmentFactory)()
+            \(featureResolversDeclaration(factory: featureResolversFactory))
             do {
                 _ = try await RouterScenarioRunner.replay(
                     fixture,
                     on: store,
-                    environment: environment
+                    environment: environment\(featureResolversArgument(factory: featureResolversFactory))
                 )
                 store.skipReceivedEvents()
                 await store.finish()
@@ -98,13 +108,15 @@ public enum RouterScenarioSourceGenerator {
         _ fixture: RouterScenarioFixture<R>,
         routeTypeName: String,
         testName: String = "capturedRouterScenario",
-        storeFactory: String = "makeRouterTestStore"
+        storeFactory: String = "makeRouterTestStore",
+        featureResolversFactory: String? = nil
     ) throws -> String {
         try validate(
             fixture,
             routeTypeName: routeTypeName,
             testName: testName,
-            storeFactory: storeFactory
+            storeFactory: storeFactory,
+            featureResolversFactory: featureResolversFactory
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
@@ -124,8 +136,12 @@ public enum RouterScenarioSourceGenerator {
             let data = try #require(Data(base64Encoded: "\(encoded)"))
             let fixture = try RouterScenarioFixture<\(routeTypeName)>.decode(from: data)
             let store = \(storeFactory)(fixture.initialState)
+            \(featureResolversDeclaration(factory: featureResolversFactory))
             do {
-                _ = try await RouterScenarioRunner.replay(fixture, on: store)
+                _ = try await RouterScenarioRunner.replay(
+                    fixture,
+                    on: store\(featureResolversArgument(factory: featureResolversFactory))
+                )
                 store.skipReceivedEvents()
                 await store.finish()
             } catch {
@@ -141,7 +157,8 @@ public enum RouterScenarioSourceGenerator {
         _ fixture: RouterScenarioFixture<R>,
         routeTypeName: String,
         testName: String,
-        storeFactory: String
+        storeFactory: String,
+        featureResolversFactory: String?
     ) throws {
         guard fixture.completeness.isComplete else {
             throw RouterScenarioSourceGenerationError.incomplete(fixture.completeness)
@@ -165,6 +182,24 @@ public enum RouterScenarioSourceGenerator {
                 throw RouterScenarioSourceGenerationError.invalidSwiftIdentifier(identifier)
             }
         }
+        let containsFeaturePlan = fixture.steps.contains { step in
+            switch step.requestSemantics {
+            case .featureAction, .featurePlan: return true
+            case .action, .historyNavigation: return false
+            }
+        }
+        if containsFeaturePlan, featureResolversFactory == nil {
+            throw RouterScenarioSourceGenerationError.missingFeatureResolversFactory
+        }
+    }
+
+    private static func featureResolversDeclaration(factory: String?) -> String {
+        guard let factory else { return "" }
+        return "let featureResolvers = \(factory)()"
+    }
+
+    private static func featureResolversArgument(factory: String?) -> String {
+        factory == nil ? "" : ",\n                featureResolvers: featureResolvers"
     }
 
     private static func isSafeFixtureFileName(_ value: String) -> Bool {

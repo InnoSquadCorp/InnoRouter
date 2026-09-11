@@ -27,6 +27,8 @@ public enum RouterScenarioReplayError: Error, Hashable, Sendable {
     case missingDependencyCapability(dependencyID: String, capability: String)
     case missingReplayCapability(RouterScenarioReplayCapability)
     case unsupportedExternalEffect(String)
+    case missingFeatureResolver(namespaces: [String])
+    case duplicateFeatureResolver(namespaces: [String])
 }
 
 public extension RouterScenarioTerminal {

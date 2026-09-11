@@ -120,10 +120,15 @@ extension RouterStore {
         after action: RouterAction<R>?,
         context: RouterTransitionContext
     ) {
-        let reconciliationTarget = context.source == .system
-            ? action?.systemReconciliationTarget()
-            : .some(nil)
-        for scope in scopes.values {
+        compactDeadScopes()
+        let liveScopes = scopes.values.compactMap(\.value)
+        let reconciliationTarget: RouterScopePath??
+        if context.source == .system {
+            reconciliationTarget = .some(action?.systemReconciliationTarget())
+        } else {
+            reconciliationTarget = .none
+        }
+        for scope in liveScopes {
             let shouldReconcile: Bool
             switch reconciliationTarget {
             case .none:

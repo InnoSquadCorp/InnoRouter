@@ -12,6 +12,15 @@ private enum HistoryRoute: String, Route, Codable {
     case window
 }
 
+@MainActor
+private final class WeakHistoryReference {
+    weak var value: RouterHistory<HistoryRoute>?
+
+    init(_ value: RouterHistory<HistoryRoute>) {
+        self.value = value
+    }
+}
+
 @Suite("RouterHistory")
 @MainActor
 struct RouterHistoryTests {
@@ -134,6 +143,19 @@ struct RouterHistoryTests {
         #expect(await count.value == false)
         #expect(await revision.value == false)
         history.stop()
+    }
+
+    @Test("History deinitialization removes only its Store observation")
+    func historyDeinitRemovesObservation() {
+        let store = RouterStore<HistoryRoute>()
+        var history: RouterHistory<HistoryRoute>? = RouterHistory(store: store)
+        let released = WeakHistoryReference(history!)
+
+        #expect(store.eventObservationCount == 1)
+        history = nil
+
+        #expect(released.value == nil)
+        #expect(store.eventObservationCount == 0)
     }
 
     @Test("Back, forward, checkpoint, capacity, and branching keep one store authoritative")

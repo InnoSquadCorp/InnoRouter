@@ -114,4 +114,47 @@ struct EnvironmentRouterStateTests {
         #expect(first.node == .stack(path: [.detail]))
         #expect(second.node == .stack())
     }
+
+    @Test("Programmatic requests never force unrelated native binding reconciliation")
+    func programmaticReconciliationIsLocal() async throws {
+        let container = try RouterContainerState<EnvironmentStateRoute>(
+            style: .tabs,
+            selection: "first",
+            branches: [RouterBranch(id: "first"), RouterBranch(id: "second")]
+        )
+        let store = RouterStore(initialState: try RouterState(root: .container(container)))
+        let first = store.scope(at: ["first"])
+        let second = store.scope(at: ["second"])
+
+        _ = await store.perform(.push(.detail).inScope(["first"]))
+        _ = await store.perform(.pushIfNeeded(.detail).inScope(["first"]))
+
+        #expect(first.node == .stack(path: [.detail]))
+        #expect(first.reconciliationRevision == 0)
+        #expect(second.reconciliationRevision == 0)
+    }
+
+    @Test("Weak scope cache preserves retained identity and bounds dead keys")
+    func weakScopeCacheLifecycle() async {
+        let store = RouterStore<EnvironmentStateRoute>()
+        let retained = store.scope(at: ["retained"])
+        #expect(store.scope(at: ["retained"]) === retained)
+
+        for index in 0..<500 {
+            weak var released: RouterScope<EnvironmentStateRoute>?
+            do {
+                let scope = store.scope(at: [RouterScopeID("temporary-\(index)")])
+                released = scope
+            }
+            #expect(released == nil)
+        }
+        #expect(store.cachedScopeCount == 1)
+
+        let task = store.scope().dispatch(.push(.detail))
+        guard case .applied = await task.value else {
+            Issue.record("Expected a temporary scope to survive through dispatch")
+            return
+        }
+        #expect(store.state == .rootStack(path: [.detail]))
+    }
 }

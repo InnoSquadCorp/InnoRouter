@@ -7,6 +7,130 @@ import SwiftUI
 
 import InnoRouterCore
 
+@MainActor
+package final class RouterSceneRestorationRegistry {
+    private struct ImmersiveSpaceLifetime: Hashable {
+        let id: String
+        let token: UUID
+    }
+
+    private var restoringWindows: [UUID: UUID] = [:]
+    private var restoringImmersiveSpaces: [ImmersiveSpaceLifetime: UUID] = [:]
+
+    package init() {}
+
+    package func beginWindowRestoration(id: UUID) -> UUID? {
+        guard restoringWindows[id] == nil else { return nil }
+        let ticket = UUID()
+        restoringWindows[id] = ticket
+        return ticket
+    }
+
+    package func isCurrentWindowRestoration(id: UUID, ticket: UUID) -> Bool {
+        restoringWindows[id] == ticket
+    }
+
+    package func finishWindowRestoration(id: UUID, ticket: UUID? = nil) {
+        guard ticket == nil || restoringWindows[id] == ticket else { return }
+        restoringWindows[id] = nil
+    }
+
+    package func beginImmersiveSpaceRestoration(
+        id: String,
+        lifecycleToken: UUID
+    ) -> UUID? {
+        let lifetime = ImmersiveSpaceLifetime(id: id, token: lifecycleToken)
+        guard restoringImmersiveSpaces[lifetime] == nil else { return nil }
+        let ticket = UUID()
+        restoringImmersiveSpaces[lifetime] = ticket
+        return ticket
+    }
+
+    package func isCurrentImmersiveSpaceRestoration(
+        id: String,
+        lifecycleToken: UUID,
+        ticket: UUID
+    ) -> Bool {
+        restoringImmersiveSpaces[
+            ImmersiveSpaceLifetime(id: id, token: lifecycleToken)
+        ] == ticket
+    }
+
+    package func finishImmersiveSpaceRestoration(
+        id: String,
+        lifecycleToken: UUID,
+        ticket: UUID? = nil
+    ) {
+        let lifetime = ImmersiveSpaceLifetime(id: id, token: lifecycleToken)
+        guard ticket == nil || restoringImmersiveSpaces[lifetime] == ticket else { return }
+        restoringImmersiveSpaces[lifetime] = nil
+    }
+}
+
+package enum RouterImmersiveSpaceOpenResult: Sendable, Equatable {
+    case opened
+    case userCancelled
+    case error
+}
+
+@MainActor
+package func restoreRouterImmersiveSpaceAfterDeferredClosure<R: Route>(
+    id: String,
+    lifecycleToken: UUID,
+    ticket: UUID,
+    store: RouterStore<R>,
+    open: @MainActor @Sendable () async -> RouterImmersiveSpaceOpenResult
+) async -> Bool {
+    var keepsReservation = false
+    defer {
+        if !keepsReservation {
+            store.sceneRestorationRegistry.finishImmersiveSpaceRestoration(
+                id: id,
+                lifecycleToken: lifecycleToken,
+                ticket: ticket
+            )
+        }
+    }
+
+    guard store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+        id: id,
+        lifecycleToken: lifecycleToken,
+        ticket: ticket
+    ), store.state.immersiveSpace?.id == id,
+       store.immersiveSpaceLifecycleToken == lifecycleToken else {
+        return false
+    }
+
+    let result = await open()
+    guard store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+        id: id,
+        lifecycleToken: lifecycleToken,
+        ticket: ticket
+    ), store.state.immersiveSpace?.id == id,
+       store.immersiveSpaceLifecycleToken == lifecycleToken else {
+        return false
+    }
+
+    switch result {
+    case .opened:
+        keepsReservation = true
+        return true
+    case .userCancelled, .error:
+        _ = await store.reconcileSceneSystemFailure(
+            .dismissImmersiveSpace,
+            executionPrecondition: { [weak store] state in
+                guard let store,
+                      state.immersiveSpace?.id == id,
+                      store.immersiveSpaceLifecycleToken == lifecycleToken else {
+                    return .cancelled
+                }
+                return nil
+            }
+        )
+        return false
+    }
+}
+
 public extension View {
     /// Reconciles an interactively closed value-based window with its store.
     ///
@@ -52,22 +176,45 @@ private struct RouterWindowLifecycleModifier<R: RouterSceneRoute>: ViewModifier 
 #endif
 
     func body(content: Content) -> some View {
-        content.onDisappear {
-            Task { @MainActor in
-                guard let outcome = await synchronizeRouterWindowDisappearance(
-                    id: id,
-                    store: store
-                ) else { return }
+        content
+            .onAppear {
+                store.sceneRestorationRegistry.finishWindowRestoration(id: id)
+            }
+            .onDisappear {
+                guard let restorationTicket = store.sceneRestorationRegistry
+                    .beginWindowRestoration(id: id) else {
+                    return
+                }
+                Task { @MainActor in
+                    var keepsRestorationReservation = false
+                    defer {
+                        if !keepsRestorationReservation {
+                            store.sceneRestorationRegistry.finishWindowRestoration(
+                                id: id,
+                                ticket: restorationTicket
+                            )
+                        }
+                    }
+
+                    guard let outcome = await synchronizeRouterWindowDisappearance(
+                        id: id,
+                        store: store
+                    ) else { return }
 
 #if !os(tvOS) && !os(watchOS)
-                guard case .rejected = outcome,
-                      let window = store.state.windows.first(where: { $0.id == id }),
-                      let scene = R.routerScene(for: window.route),
-                      scene.style == .window else { return }
-                openWindow(id: scene.id, value: id)
+                    guard shouldRestoreRouterScene(after: outcome),
+                          store.sceneRestorationRegistry.isCurrentWindowRestoration(
+                              id: id,
+                              ticket: restorationTicket
+                          ),
+                          let window = store.state.windows.first(where: { $0.id == id }),
+                          let scene = R.routerScene(for: window.route),
+                          scene.style == .window else { return }
+                    keepsRestorationReservation = true
+                    openWindow(id: scene.id, value: id)
 #endif
+                }
             }
-        }
     }
 }
 
@@ -82,23 +229,70 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
 #endif
 
     func body(content: Content) -> some View {
-        content.onDisappear {
-            Task { @MainActor in
+        content
+            .onAppear {
                 guard let lifecycleToken else { return }
-                guard let outcome = await synchronizeRouterImmersiveSpaceDisappearance(
+                store.sceneRestorationRegistry.finishImmersiveSpaceRestoration(
                     id: id,
-                    lifecycleToken: lifecycleToken,
-                    store: store
-                ) else { return }
+                    lifecycleToken: lifecycleToken
+                )
+            }
+            .onDisappear {
+                guard let lifecycleToken,
+                      let restorationTicket = store.sceneRestorationRegistry
+                      .beginImmersiveSpaceRestoration(
+                          id: id,
+                          lifecycleToken: lifecycleToken
+                      ) else { return }
+                Task { @MainActor in
+                    var keepsRestorationReservation = false
+                    defer {
+                        if !keepsRestorationReservation {
+                            store.sceneRestorationRegistry.finishImmersiveSpaceRestoration(
+                                id: id,
+                                lifecycleToken: lifecycleToken,
+                                ticket: restorationTicket
+                            )
+                        }
+                    }
+
+                    guard let outcome = await synchronizeRouterImmersiveSpaceDisappearance(
+                        id: id,
+                        lifecycleToken: lifecycleToken,
+                        store: store
+                    ) else { return }
 
 #if os(visionOS)
-                guard case .rejected = outcome,
-                      store.state.immersiveSpace?.id == id,
-                      store.immersiveSpaceLifecycleToken == lifecycleToken else { return }
-                _ = await openImmersiveSpace(id: id)
+                    guard shouldRestoreRouterScene(after: outcome) else { return }
+                    keepsRestorationReservation = await
+                        restoreRouterImmersiveSpaceAfterDeferredClosure(
+                            id: id,
+                            lifecycleToken: lifecycleToken,
+                            ticket: restorationTicket,
+                            store: store
+                        ) {
+                            switch await openImmersiveSpace(id: id) {
+                            case .opened: .opened
+                            case .userCancelled: .userCancelled
+                            case .error: .error
+                            @unknown default: .error
+                            }
+                        }
 #endif
+                }
             }
-        }
+    }
+}
+
+@MainActor
+package func shouldRestoreRouterScene<R: Route>(
+    after outcome: RouterOutcome<R>
+) -> Bool {
+    switch outcome {
+    case .deferred, .rejected:
+        true
+    case .applied, .unchanged:
+        false
     }
 }
 

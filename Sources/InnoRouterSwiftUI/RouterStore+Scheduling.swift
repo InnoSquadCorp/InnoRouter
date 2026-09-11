@@ -15,11 +15,15 @@ extension RouterStore {
             activeQueuedExecutionTask?.cancel()
             return
         }
-        guard let index = queuedRequests.firstIndex(where: { $0.id == id }) else {
+        let request: QueuedRouterRequest<R>
+        if let index = queuedSystemRepairs.firstIndex(where: { $0.id == id }) {
+            request = queuedSystemRepairs.remove(at: index)
+        } else if let index = queuedRequests.firstIndex(where: { $0.id == id }) {
+            request = queuedRequests.remove(at: index)
+        } else {
             return
         }
         observeCancellation(id)
-        let request = queuedRequests.remove(at: index)
         cancelledRequestIDs.remove(id)
         request.continuation.resume(
             returning: reject(
@@ -30,6 +34,28 @@ extension RouterStore {
             )
         )
         resumeRequestCompletionWaiters(for: id)
+    }
+
+    func cancelRequestFamily(_ rootID: RouterTransitionID) {
+        if activeRequestRootID == rootID, let activeTransitionID {
+            cancelRequest(activeTransitionID)
+        }
+        let queuedIDs = queuedRequests.filter { $0.rootID == rootID }.map(\.id)
+            + queuedSystemRepairs.filter { $0.rootID == rootID }.map(\.id)
+        queuedIDs.forEach(cancelRequest)
+        let deferredIDs = deferredRequests.values
+            .filter { $0.rootID == rootID }
+            .map { $0.metadata.id }
+        for deferredID in deferredIDs {
+            _ = cancelDeferredRequest(deferredID)
+        }
+    }
+
+    func hasRequestFamily(_ rootID: RouterTransitionID) -> Bool {
+        activeRequestRootID == rootID
+            || queuedRequests.contains { $0.rootID == rootID }
+            || queuedSystemRepairs.contains { $0.rootID == rootID }
+            || deferredRequests.values.contains { $0.rootID == rootID }
     }
 
     /// Consumes cancellation from the currently executing Task at synchronous
@@ -45,6 +71,10 @@ extension RouterStore {
     }
 
     func enqueue(_ request: QueuedRouterRequest<R>) {
+        if let repairIdentity = request.systemRepairIdentity {
+            enqueueSystemRepair(request, identity: repairIdentity)
+            return
+        }
         guard let key = request.context.requestKey else {
             appendPendingRequest(request)
             return
@@ -136,7 +166,9 @@ extension RouterStore {
     func finishExecution(_ id: RouterTransitionID) {
         guard activeTransitionID == id else { return }
         activeTransitionID = nil
+        activeRequestRootID = nil
         activeRequestKey = nil
+        activeSystemRepairIdentity = nil
         activeQueuedExecutionTask = nil
         activePolicyRaces.removeValue(forKey: id)
         cancelledRequestIDs.remove(id)
@@ -145,7 +177,9 @@ extension RouterStore {
     }
 
     func waitUntilRequestFinishes(_ id: RouterTransitionID) async {
-        guard activeTransitionID == id || queuedRequests.contains(where: { $0.id == id }) else {
+        guard activeTransitionID == id
+                || queuedRequests.contains(where: { $0.id == id })
+                || queuedSystemRepairs.contains(where: { $0.id == id }) else {
             return
         }
         await withCheckedContinuation { continuation in
@@ -160,8 +194,12 @@ extension RouterStore {
 
     private func startNextRequestIfNeeded() {
         guard activeTransitionID == nil else { return }
-        while !queuedRequests.isEmpty {
-            let request = queuedRequests.removeFirst()
+        while !queuedSystemRepairs.isEmpty || !queuedRequests.isEmpty {
+            // Repair takes the next lane after the active request. It never
+            // interrupts active work or displaces ordinary pending requests.
+            let request = queuedSystemRepairs.isEmpty
+                ? queuedRequests.removeFirst()
+                : queuedSystemRepairs.removeFirst()
             if cancelledRequestIDs.remove(request.id) != nil {
                 request.continuation.resume(
                     returning: reject(
@@ -174,7 +212,9 @@ extension RouterStore {
                 continue
             }
             activeTransitionID = request.id
+            activeRequestRootID = request.rootID
             activeRequestKey = request.context.requestKey
+            activeSystemRepairIdentity = request.systemRepairIdentity
             let task = Task { @MainActor [weak self] in
                 guard let self else { return }
                 let outcome = await self.execute(
@@ -184,6 +224,7 @@ extension RouterStore {
                     bypassesPolicies: request.bypassesPolicies,
                     startingPolicyIndex: request.startingPolicyIndex,
                     transitionID: request.id,
+                    requestRootID: request.rootID,
                     requestSemantics: request.semantics,
                     executionPrecondition: request.executionPrecondition,
                     executionPreparation: request.executionPreparation,
@@ -197,5 +238,29 @@ extension RouterStore {
             }
             return
         }
+    }
+
+    private func enqueueSystemRepair(
+        _ request: QueuedRouterRequest<R>,
+        identity: RouterSystemRepairIdentity
+    ) {
+        let existingID = activeSystemRepairIdentity == identity
+            ? activeTransitionID
+            : queuedSystemRepairs.first(where: {
+                $0.systemRepairIdentity == identity
+            })?.id
+        if let existingID {
+            request.continuation.resume(
+                returning: reject(
+                    request.id,
+                    reason: .coalesced(existingTransition: existingID),
+                    context: request.context,
+                    action: request.action
+                )
+            )
+            return
+        }
+        queuedSystemRepairs.append(request)
+        runtimeDependencies.didQueueRequest(request.id)
     }
 }

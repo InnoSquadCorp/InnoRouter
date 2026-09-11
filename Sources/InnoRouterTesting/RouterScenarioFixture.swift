@@ -3,6 +3,9 @@ import Foundation
 import InnoRouterCore
 
 public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Codable {
+    /// The only fixture format this build can encode and decode.
+    public static var currentFormatVersion: Int { 7 }
+
     public let formatVersion: Int
     public let initialState: RouterState<R>
     public let initialRevision: UInt64
@@ -19,7 +22,7 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
         controls: [RouterScenarioControl]? = nil,
         completeness: RouterScenarioCompleteness = .init()
     ) {
-        self.formatVersion = 5
+        self.formatVersion = Self.currentFormatVersion
         self.initialState = initialState
         self.initialRevision = initialRevision
         self.metadata = metadata ?? RouterScenarioMetadata(
@@ -123,7 +126,7 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let formatVersion = try container.decode(Int.self, forKey: .formatVersion)
-        guard formatVersion == 5 else {
+        guard formatVersion == Self.currentFormatVersion else {
             throw RouterScenarioFixtureError.unsupportedFormatVersion(formatVersion)
         }
         let initialState = try container.decode(RouterState<R>.self, forKey: .initialState)

@@ -79,6 +79,7 @@ extension RouterStore {
         bypassesPolicies: Bool,
         startingAt startingPolicyIndex: Int,
         requestSemantics: RouterRequestSemantics<R>,
+        requestRootID: RouterTransitionID,
         executionPrecondition: RouterRequestPrecondition<R>?,
         deferredResumePreparation: RouterDeferredResumePreparationBuilder<R>?
     ) async -> RouterPolicyPreparation {
@@ -124,6 +125,7 @@ extension RouterStore {
                         policy: policy,
                         policyIndex: index,
                         requestSemantics: requestSemantics,
+                        requestRootID: requestRootID,
                         executionPrecondition: executionPrecondition,
                         resumePreparation: deferredResumePreparation
                     )
@@ -161,6 +163,7 @@ extension RouterStore {
         policy: RouterPolicy<R>,
         policyIndex: Int,
         requestSemantics: RouterRequestSemantics<R>,
+        requestRootID: RouterTransitionID,
         executionPrecondition: RouterRequestPrecondition<R>?,
         resumePreparation: RouterDeferredResumePreparationBuilder<R>?
     ) -> RouterPolicyPreparation {
@@ -181,6 +184,7 @@ extension RouterStore {
             expiresAt: expiresAt
         )
         let request = DeferredRouterRequest(
+            rootID: requestRootID,
             action: transition.action,
             context: transition.context,
             semantics: requestSemantics,

@@ -219,8 +219,25 @@ public enum RouterPendingLinkConsumptionPolicy: Sendable, Hashable {
 @MainActor
 @Observable
 public final class RouterPendingLinkSlot<R: Route> {
+    private final class OwnedResume {
+        let generation: UInt64
+        weak var store: RouterStore<R>?
+        let transitionID: RouterTransitionID
+
+        init(
+            generation: UInt64,
+            store: RouterStore<R>,
+            transitionID: RouterTransitionID
+        ) {
+            self.generation = generation
+            self.store = store
+            self.transitionID = transitionID
+        }
+    }
+
     public private(set) var pending: PendingRouterLink<R>?
     @ObservationIgnored private var generation: UInt64
+    @ObservationIgnored private var ownedResumes: [UUID: OwnedResume] = [:]
 
     package var mutationGeneration: UInt64 { generation }
 
@@ -234,6 +251,7 @@ public final class RouterPendingLinkSlot<R: Route> {
         _ link: PendingRouterLink<R>,
         replacing policy: RouterPendingLinkReplacementPolicy = .replaceExisting
     ) -> RouterPendingLinkSubmission<R> {
+        compactOwnedResumes()
         guard let current = pending else {
             pending = link
             generation &+= 1
@@ -252,7 +270,9 @@ public final class RouterPendingLinkSlot<R: Route> {
     /// Cancels and returns the currently retained continuation.
     @discardableResult
     public func cancel() -> PendingRouterLink<R>? {
+        compactOwnedResumes()
         guard let pending else { return nil }
+        cancelOwnedResumes(for: generation)
         clearPending()
         return pending
     }
@@ -267,9 +287,33 @@ public final class RouterPendingLinkSlot<R: Route> {
         source: RouterTransitionSource = .deepLink,
         consuming policy: RouterPendingLinkConsumptionPolicy = .onAcceptance
     ) async -> RouterLinkExecution<R>? {
+        compactOwnedResumes()
         guard let link = pending else { return nil }
         let resumedGeneration = generation
-        let execution = await store.resume(link, source: source)
+        let operationID = UUID()
+        let transitionID = store.reserveTransitionID()
+        ownedResumes[operationID] = OwnedResume(
+            generation: resumedGeneration,
+            store: store,
+            transitionID: transitionID
+        )
+        let execution = await store.resume(
+            link,
+            source: source,
+            transitionID: transitionID,
+            executionPrecondition: { [weak self] _ in
+                guard self?.ownedResumes[operationID] != nil else {
+                    return .cancelled
+                }
+                return nil
+            }
+        )
+        if case .completed(_, .deferred) = execution {
+            // The Store owns the complete request family, including future
+            // deferrals created while this logical resume continues.
+        } else {
+            ownedResumes.removeValue(forKey: operationID)
+        }
         guard generation == resumedGeneration else { return execution }
 
         switch policy {
@@ -286,6 +330,24 @@ public final class RouterPendingLinkSlot<R: Route> {
     private func clearPending() {
         pending = nil
         generation &+= 1
+    }
+
+    private func cancelOwnedResumes(for generation: UInt64) {
+        let cancelled = ownedResumes.filter { $0.value.generation == generation }
+        for operationID in cancelled.keys {
+            ownedResumes.removeValue(forKey: operationID)
+        }
+        for resume in cancelled.values {
+            guard let store = resume.store else { continue }
+            store.cancelRequestFamily(resume.transitionID)
+        }
+    }
+
+    private func compactOwnedResumes() {
+        ownedResumes = ownedResumes.filter { _, resume in
+            guard let store = resume.store else { return false }
+            return store.hasRequestFamily(resume.transitionID)
+        }
     }
 }
 
@@ -321,9 +383,27 @@ public extension RouterStore {
         _ pending: PendingRouterLink<R>,
         source: RouterTransitionSource = .deepLink
     ) async -> RouterLinkExecution<R> {
+        await resume(
+            pending,
+            source: source,
+            transitionID: reserveTransitionID(),
+            executionPrecondition: nil
+        )
+    }
+
+    package func resume(
+        _ pending: PendingRouterLink<R>,
+        source: RouterTransitionSource,
+        transitionID: RouterTransitionID,
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async -> RouterLinkExecution<R> {
         let outcome = await perform(
             .apply(pending.plan),
-            context: .init(source: source)
+            context: .init(source: source),
+            expectedRevision: nil,
+            bypassesPolicies: false,
+            transitionID: transitionID,
+            executionPrecondition: executionPrecondition
         )
         return .completed(plan: pending.plan, outcome: outcome)
     }

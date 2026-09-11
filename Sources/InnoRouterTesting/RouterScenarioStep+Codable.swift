@@ -28,7 +28,7 @@ extension RouterScenarioStep {
                 CodingKeys.expectedRevision,
                 .init(
                     codingPath: decoder.codingPath,
-                    debugDescription: "Scenario format 5 requires expectedRevision, including null."
+                    debugDescription: "Scenario format 7 requires expectedRevision, including null."
                 )
             )
         }

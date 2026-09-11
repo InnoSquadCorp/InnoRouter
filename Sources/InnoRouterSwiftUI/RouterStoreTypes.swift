@@ -194,14 +194,22 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
     }
 }
 
+package enum RouterSystemRepairIdentity: Hashable, Sendable {
+    case window(id: UUID, lifecycleToken: UUID)
+    case immersiveSpace(id: String, lifecycleToken: UUID)
+}
+
 @MainActor
 struct QueuedRouterRequest<R: Route> {
     let id: RouterTransitionID
+    let rootID: RouterTransitionID
     let action: RouterAction<R>
     let context: RouterTransitionContext
     let semantics: RouterRequestSemantics<R>
     let expectedRevision: UInt64?
     let bypassesPolicies: Bool
+    /// Non-nil only for Store-owned native-scene reconciliation.
+    let systemRepairIdentity: RouterSystemRepairIdentity?
     let startingPolicyIndex: Int
     let executionPrecondition: RouterRequestPrecondition<R>?
     let executionPreparation: RouterRequestPreparationBuilder<R>?
@@ -211,6 +219,7 @@ struct QueuedRouterRequest<R: Route> {
 
 @MainActor
 struct DeferredRouterRequest<R: Route> {
+    let rootID: RouterTransitionID
     let action: RouterAction<R>
     let context: RouterTransitionContext
     let semantics: RouterRequestSemantics<R>

@@ -19,11 +19,19 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
     public let mapping: RouterFeatureMapping<Parent, Child>
 
     @ObservationIgnored
-    private let parent: any RouterAuthorityProtocol<Parent>
+    let parent: any RouterAuthorityProtocol<Parent>
 
     /// Creates an explicit feature projection from a retained parent scope.
     public convenience init(
         parent: RouterScope<Parent>,
+        mapping: RouterFeatureMapping<Parent, Child>
+    ) {
+        self.init(parent: parent as any RouterAuthorityProtocol<Parent>, mapping: mapping)
+    }
+
+    /// Creates a nested feature projection without introducing another store.
+    public convenience init<Grandparent: Route>(
+        parent: RouterFeatureScope<Grandparent, Parent>,
         mapping: RouterFeatureMapping<Parent, Child>
     ) {
         self.init(parent: parent as any RouterAuthorityProtocol<Parent>, mapping: mapping)
@@ -135,10 +143,11 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
                 return childPrecondition?(projected)
             }
             return map(
-                await parent.perform(
+                await parent.performFeatureAction(
                     embedded,
                     context: context,
                     expectedRevision: expectedRevision,
+                    features: [featureCatalogEntry],
                     executionPrecondition: parentPrecondition
                 )
             )
@@ -155,6 +164,72 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
         expectedRevision: UInt64?
     ) async -> RouterOutcome<Child> {
         await perform(action, context: context, expectedRevision: expectedRevision)
+    }
+
+    func performFeatureAction(
+        _ action: RouterAction<Child>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?,
+        features childFeatures: [RouterFeatureCatalogEntry],
+        executionPrecondition childPrecondition: RouterRequestPrecondition<Child>?
+    ) async -> RouterOutcome<Child> {
+        guard node != nil else {
+            return projectionRejection(.routeMismatch(namespace: mapping.namespace))
+        }
+        do {
+            let embedded = try mapping.embed(action)
+            return map(
+                await parent.performFeatureAction(
+                    embedded,
+                    context: context,
+                    expectedRevision: expectedRevision,
+                    features: [featureCatalogEntry] + childFeatures,
+                    executionPrecondition: parentPrecondition(childPrecondition)
+                )
+            )
+        } catch let error as RouterFeatureProjectionError {
+            return projectionRejection(error)
+        } catch {
+            return projectionRejection(.routeMismatch(namespace: mapping.namespace))
+        }
+    }
+
+    func performFeaturePlan(
+        _ node: RouterNode<Child>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?,
+        features childFeatures: [RouterFeatureCatalogEntry],
+        executionPrecondition childPrecondition: RouterRequestPrecondition<Child>?
+    ) async -> RouterOutcome<Child> {
+        guard self.node != nil else {
+            return projectionRejection(.routeMismatch(namespace: mapping.namespace))
+        }
+        do {
+            let state = try RouterState(root: node)
+            let embedded = try mapping.embedPlanRoot(RouterPlan(state: state))
+            let path = parent.outcomeScopePath
+            let mapping = self.mapping
+            let parentPrecondition: RouterRequestPrecondition<Parent> = { state in
+                guard let node = state.node(at: path),
+                      let projected = try? mapping.projectState(from: node) else {
+                    return .featureProjection(.routeMismatch(namespace: mapping.namespace))
+                }
+                return childPrecondition?(projected)
+            }
+            return map(
+                await parent.performFeaturePlan(
+                    embedded,
+                    context: context,
+                    expectedRevision: expectedRevision,
+                    features: [featureCatalogEntry] + childFeatures,
+                    executionPrecondition: parentPrecondition
+                )
+            )
+        } catch let error as RouterFeatureProjectionError {
+            return projectionRejection(error)
+        } catch {
+            return projectionRejection(.invalidFeatureState(namespace: mapping.namespace))
+        }
     }
 
     public func present<Value: Sendable>(
@@ -193,11 +268,12 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
             }
             return childPrecondition?(projected)
         }
-        return await parent.present(
+        return await parent.presentFeature(
             mapping.route.embed(route),
             style: style,
             options: options,
             expecting: expecting,
+            features: [featureCatalogEntry],
             executionPrecondition: parentPrecondition
         )
     }
@@ -214,19 +290,49 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
     }
 
     public func finishPresentation<Value: Sendable>(returning value: Value) async throws {
-        try await parent.finishPresentation(returning: value)
+        try await finishPresentation(returning: value, executionPrecondition: nil)
+    }
+
+    func finishPresentation<Value: Sendable>(
+        returning value: Value,
+        executionPrecondition childPrecondition: RouterRequestPrecondition<Child>?
+    ) async throws {
+        guard node != nil else { throw projectionCompletionError() }
+        try await parent.finishFeaturePresentation(
+            returning: value,
+            features: [featureCatalogEntry],
+            executionPrecondition: parentPrecondition(childPrecondition)
+        )
     }
 
     public func finishPresentation<Value: Sendable>(
         _ request: RouterPresentationRequest<Child, Value>,
         returning value: Value
     ) async throws {
+        try await finishPresentation(
+            request,
+            returning: value,
+            executionPrecondition: nil
+        )
+    }
+
+    func finishPresentation<Value: Sendable>(
+        _ request: RouterPresentationRequest<Child, Value>,
+        returning value: Value,
+        executionPrecondition childPrecondition: RouterRequestPrecondition<Child>?
+    ) async throws {
+        guard node != nil else { throw projectionCompletionError() }
         let parentRequest = RouterPresentationRequest<Parent, Value>(
             route: mapping.route.embed(request.route),
             style: request.style,
             options: request.options
         )
-        try await parent.finishPresentation(parentRequest, returning: value)
+        try await parent.finishFeaturePresentation(
+            parentRequest,
+            returning: value,
+            features: [featureCatalogEntry],
+            executionPrecondition: parentPrecondition(childPrecondition)
+        )
     }
 
     func reject(_ reason: RouterRejectionReason) -> RouterOutcome<Child> {
@@ -242,26 +348,44 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
         context: RouterTransitionContext,
         expectedRevision: UInt64
     ) async -> RouterOutcome<Child> {
-        do {
-            guard let parentState = parent.state else {
-                return projectionRejection(.routeMismatch(namespace: mapping.namespace))
-            }
-            let embeddedRoot = try mapping.embedPlanRoot(plan)
-            let target = try parentState.replacingNode(embeddedRoot, at: parent.outcomeScopePath)
-            return map(
-                await parent.performRoot(
-                    .apply(RouterPlan(state: target)),
-                    context: context,
-                    expectedRevision: expectedRevision
-                )
-            )
-        } catch let error as RouterFeatureProjectionError {
-            return projectionRejection(error)
-        } catch let error as RouterMutationError {
-            return map(parent.reject(.mutation(error)))
-        } catch {
-            return projectionRejection(.invalidFeatureState(namespace: mapping.namespace))
+        guard plan.state.windows.isEmpty, plan.state.immersiveSpace == nil else {
+            return projectionRejection(.globalStateNotAllowed(namespace: mapping.namespace))
         }
+        return await performFeaturePlan(
+            plan.state.root,
+            context: context,
+            expectedRevision: expectedRevision,
+            features: [],
+            executionPrecondition: nil
+        )
+    }
+
+    var featureCatalogEntry: RouterFeatureCatalogEntry {
+        .init(
+            id: mapping.id,
+            namespace: mapping.namespace,
+            childRouteTypeName: String(describing: Child.self)
+        )
+    }
+
+    func parentPrecondition(
+        _ childPrecondition: RouterRequestPrecondition<Child>?
+    ) -> RouterRequestPrecondition<Parent> {
+        let path = parent.outcomeScopePath
+        let mapping = self.mapping
+        return { state in
+            guard let node = state.node(at: path),
+                  let projected = try? mapping.projectState(from: node) else {
+                return .featureProjection(.routeMismatch(namespace: mapping.namespace))
+            }
+            return childPrecondition?(projected)
+        }
+    }
+
+    func projectionCompletionError() -> RouterPresentationCompletionError {
+        .dismissalRejected(.featureProjection(
+            .routeMismatch(namespace: mapping.namespace)
+        ))
     }
 
     private func map(_ outcome: RouterOutcome<Parent>) -> RouterOutcome<Child> {

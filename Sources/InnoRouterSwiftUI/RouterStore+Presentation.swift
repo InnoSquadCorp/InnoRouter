@@ -32,7 +32,8 @@ public extension RouterStore {
         options: RouterPresentationOptions,
         at path: RouterScopePath,
         expecting: Value.Type,
-        executionPrecondition: RouterRequestPrecondition<R>?
+        executionPrecondition: RouterRequestPrecondition<R>?,
+        requestSemantics: RouterRequestSemantics<R> = .action
     ) async -> RouterPresentationOutcome<Value> {
         let presentation = RouterPresentation(
             route: route,
@@ -74,6 +75,7 @@ public extension RouterStore {
                 expectedRevision: nil,
                 bypassesPolicies: false,
                 transitionID: transitionID,
+                requestSemantics: requestSemantics,
                 executionPrecondition: presentationIsPending
             )
             unregisterPresentationRequest(presentation.id, transitionID: transitionID)
@@ -125,6 +127,19 @@ public extension RouterStore {
         at path: RouterScopePath = .root,
         returning value: Value
     ) async throws {
+        try await finishPresentation(
+            at: path,
+            returning: value,
+            executionPrecondition: nil
+        )
+    }
+
+    package func finishPresentation<Value: Sendable>(
+        at path: RouterScopePath,
+        returning value: Value,
+        executionPrecondition: RouterRequestPrecondition<R>?,
+        requestSemantics: RouterRequestSemantics<R> = .action
+    ) async throws {
         guard let presentationID = presentationID(at: path) else {
             throw RouterPresentationCompletionError.noActivePresentation(scope: path)
         }
@@ -148,9 +163,10 @@ public extension RouterStore {
             expectedRevision: nil,
             bypassesPolicies: false,
             transitionID: transitionID,
-            executionPrecondition: Self.presentationIdentityPrecondition(
-                id: presentationID,
-                at: path
+            requestSemantics: requestSemantics,
+            executionPrecondition: Self.combinePresentationPreconditions(
+                Self.presentationIdentityPrecondition(id: presentationID, at: path),
+                executionPrecondition
             )
         )
         if case .deferred(_, _, _, let deferral) = outcome {
@@ -178,6 +194,21 @@ public extension RouterStore {
         at path: RouterScopePath = .root,
         returning value: Value
     ) async throws {
+        try await finishPresentation(
+            request,
+            at: path,
+            returning: value,
+            executionPrecondition: nil
+        )
+    }
+
+    package func finishPresentation<Value: Sendable>(
+        _ request: RouterPresentationRequest<R, Value>,
+        at path: RouterScopePath,
+        returning value: Value,
+        executionPrecondition: RouterRequestPrecondition<R>?,
+        requestSemantics: RouterRequestSemantics<R> = .action
+    ) async throws {
         guard case .stack(let stack) = state.node(at: path),
               let presentation = stack.presentation else {
             throw RouterPresentationCompletionError.noActivePresentation(scope: path)
@@ -185,7 +216,12 @@ public extension RouterStore {
         guard presentation.route == request.route else {
             throw RouterPresentationCompletionError.presentationRouteMismatch(presentation.id)
         }
-        try await finishPresentation(at: path, returning: value)
+        try await finishPresentation(
+            at: path,
+            returning: value,
+            executionPrecondition: executionPrecondition,
+            requestSemantics: requestSemantics
+        )
     }
 }
 
@@ -341,6 +377,13 @@ extension RouterStore {
             }
             return nil
         }
+    }
+
+    private static func combinePresentationPreconditions(
+        _ first: @escaping RouterRequestPrecondition<R>,
+        _ second: RouterRequestPrecondition<R>?
+    ) -> RouterRequestPrecondition<R> {
+        { state in first(state) ?? second?(state) }
     }
 
     func deferredPresentationTarget(
