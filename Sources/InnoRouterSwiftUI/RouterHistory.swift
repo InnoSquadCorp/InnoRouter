@@ -161,12 +161,8 @@ public final class RouterHistory<R: Route> {
         if let eventObserverID {
             store.removeSynchronousEventObserver(eventObserverID)
         }
-        let pendingRecordContinuations = recordWaiters.values.map(\.continuation)
-        recordWaiters.removeAll()
-        pendingRecordContinuations.forEach { $0.resume(returning: false) }
-        let pendingRevisionContinuations = revisionWaiters.values.map(\.continuation)
-        revisionWaiters.removeAll()
-        pendingRevisionContinuations.forEach { $0.resume(returning: false) }
+        // Suspended waiter calls retain this history; stop and cancellation
+        // resume them before deinitialization can become reachable.
     }
 
     public var canGoBack: Bool { cursor > entries.startIndex }

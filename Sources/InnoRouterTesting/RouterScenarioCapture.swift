@@ -290,8 +290,8 @@ public final class RouterScenarioRecorder<R: Route & Codable> {
             store.removeSynchronousCancellationObserver(cancellationObserverID)
         }
         if let eventObserverID { store.removeSynchronousEventObserver(eventObserverID) }
-        captureWaiters.values.forEach { $0.continuation.resume(returning: false) }
-        observationWaiters.values.forEach { $0.continuation.resume(returning: false) }
+        // Suspended waiter calls retain this recorder; stop and cancellation
+        // resume them before deinitialization can become reachable.
     }
 
     /// Stops capture and returns an honest fixture. Unfinished requests are
