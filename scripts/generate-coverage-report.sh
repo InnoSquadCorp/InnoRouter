@@ -31,7 +31,7 @@ while IFS= read -r xctest_bundle; do
   fi
   if [[ "$test_bin" -nt "$prof_data" ]]; then
     echo "[coverage] Test binary is newer than the coverage profile: $test_bin" >&2
-    echo "[coverage] Re-run 'swift test --enable-code-coverage --jobs 2' before exporting" >&2
+    echo "[coverage] Re-run 'swift test --enable-code-coverage --jobs 2 --no-parallel' before exporting" >&2
     exit 1
   fi
   test_bins+=("$test_bin")

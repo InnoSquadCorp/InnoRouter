@@ -47,7 +47,11 @@ jobs:
           swift --version
 
       - name: Run tests with coverage
-        run: swift test --enable-code-coverage --jobs 2
+        # Swift Testing is concurrent in-process by default even though
+        # SwiftPM's CLI help historically described `--no-parallel` as the
+        # default. Be explicit so actor-heavy coverage runs remain
+        # deterministic on the pinned Swift 6.3.3 toolchain.
+        run: swift test --enable-code-coverage --jobs 2 --no-parallel
 
       - name: Generate lcov report
         run: ./scripts/generate-coverage-report.sh coverage.lcov coverage-full.lcov

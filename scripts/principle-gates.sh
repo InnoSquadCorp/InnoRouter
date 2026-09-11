@@ -57,9 +57,15 @@ fi
 
 # Gate 1 — runtime behavior. The full Swift Testing suite must pass.
 # Failure signal: any @Test failure or build error in Tests/.
-# Local repro: swift test
+# Swift Testing runs tests concurrently in-process unless `--no-parallel` is
+# explicit. Keep this gate deterministic on the pinned Swift 6.3.3 toolchain,
+# where the full actor-heavy suite can otherwise stop making progress.
+# Local repro: swift test --no-parallel
 echo "[principle-gates] Running swift test"
-swift test --jobs "$SWIFTPM_JOBS"
+swift test --jobs "$SWIFTPM_JOBS" --no-parallel
+
+echo "[principle-gates] Testing platform interface flag compatibility"
+./scripts/test-check-platform-interface.sh
 
 # Gate 2 — DocC catalogs build cleanly. Catches symbol drift,
 # broken cross-references, and malformed articles before publishing.

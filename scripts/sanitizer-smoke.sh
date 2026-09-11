@@ -27,5 +27,6 @@ echo "[sanitizer-smoke] Running $KIND sanitizer with filter: $swift_filter"
 swift test \
   --sanitize="$KIND" \
   --jobs "$JOBS" \
+  --no-parallel \
   --scratch-path ".build/sanitizers/$KIND" \
   --filter "$swift_filter"

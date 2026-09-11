@@ -63,7 +63,13 @@ for module in "${public_modules[@]}"; do
       echo "[platform-interface] $module target does not match $platform_name ($minimum_os): $flags" >&2
       exit 1
     fi
-    if [[ "$flags" != *'-enable-library-evolution'* || "$flags" != *'-language-mode 6'* ]]; then
+    if [[ "$flags" != *'-enable-library-evolution'* ]]; then
+      echo "[platform-interface] $module is missing library evolution or Swift 6 mode: $flags" >&2
+      exit 1
+    fi
+    # Xcode 26.6 writes `-swift-version 6`, while Xcode 27 writes
+    # `-language-mode 6` for the same Swift 6 language-mode contract.
+    if [[ "$flags" != *'-language-mode 6'* && "$flags" != *'-swift-version 6'* ]]; then
       echo "[platform-interface] $module is missing library evolution or Swift 6 mode: $flags" >&2
       exit 1
     fi
