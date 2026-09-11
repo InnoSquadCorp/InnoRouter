@@ -37,6 +37,16 @@ public enum ExternalRoute: Codable {
     @DeepLink("/shadow/:id")
     case shadowed(id: UUID)
 
+    @available(macOS 26, *)
+    @PresentationResult(Bool.self)
+    case futureConfirmation
+
+    @PresentationResult(Bool.self)
+#if os(macOS)
+    @available(macOS 26, *)
+#endif
+    case conditionalFutureConfirmation
+
     var destination: some View {
         switch self {
         case .home:
@@ -47,6 +57,10 @@ public enum ExternalRoute: Codable {
             Text("Detail \(id)")
         case .shadowed(let id):
             Text("Shadowed \(id.rawValue)")
+        case .futureConfirmation:
+            Text("Future confirmation")
+        case .conditionalFutureConfirmation:
+            Text("Conditional future confirmation")
         }
     }
 }
@@ -109,6 +123,11 @@ public enum MacroFirstConsumerProbe {
         _ = await store.perform(.push(.detail(id: "42")))
         _ = await store.perform(.present(.init(route: .settings, style: .sheet)))
         _ = await store.perform(.dismissPresentation)
+
+        if #available(macOS 26, *) {
+            _ = ExternalRoute.Presentation.futureConfirmation
+            _ = ExternalRoute.Presentation.conditionalFutureConfirmation
+        }
 
         let codec = try RouterSnapshotCodec<ExternalRoute>(currentVersion: 1)
         let data = try await store.snapshot(using: codec)

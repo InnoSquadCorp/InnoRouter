@@ -16,6 +16,7 @@ struct RouterPresentationResultItem {
     let caseName: String
     let resultType: String
     let parameters: [RouterPresentationResultParameter]
+    let availabilityAttributes: [String]
 }
 
 struct RouterPresentationResultParameter {
@@ -159,7 +160,10 @@ func analyzeRouterPresentationResults(
             RouterPresentationResultItem(
                 caseName: escapedIdentifier(element.name),
                 resultType: resultType,
-                parameters: parameters
+                parameters: parameters,
+                availabilityAttributes: presentationResultAvailabilityAttributes(
+                    on: caseDeclaration
+                )
             )
         )
     }
@@ -174,6 +178,9 @@ func renderRouterPresentationResultMembers(
     var lines = ["\(access) enum Presentation {"]
     for item in items {
         let requestType = "InnoRouterCore.RouterPresentationRequest<\(routeType), \(item.resultType)>"
+        for availability in item.availabilityAttributes {
+            lines.append(contentsOf: availability.split(separator: "\n").map { "    \($0)" })
+        }
         if item.parameters.isEmpty {
             lines.append("    \(access) static var \(item.caseName): \(requestType) {")
             lines.append("        .init(route: .\(item.caseName))")
@@ -186,6 +193,50 @@ func renderRouterPresentationResultMembers(
         lines.append("    }")
     }
     lines.append("}")
+    return lines.joined(separator: "\n")
+}
+
+private func presentationResultAvailabilityAttributes(
+    on declaration: EnumCaseDeclSyntax
+) -> [String] {
+    declaration.attributes.compactMap { element in
+        if let attribute = element.as(AttributeSyntax.self),
+           attributeBaseName(attribute) == "available" {
+            return attribute.trimmedDescription
+        }
+        if let conditional = element.as(IfConfigDeclSyntax.self),
+           let rendered = renderConditionalPresentationAvailability(conditional) {
+            return rendered
+        }
+        return nil
+    }
+}
+
+private func renderConditionalPresentationAvailability(
+    _ conditional: IfConfigDeclSyntax
+) -> String? {
+    guard firstConditionalAttribute(named: "available", inside: conditional) != nil else {
+        return nil
+    }
+    var lines: [String] = []
+    for clause in conditional.clauses {
+        var directive = clause.poundKeyword.text
+        if let condition = clause.condition?.trimmedDescription {
+            directive += " \(condition)"
+        }
+        lines.append(directive)
+        guard case .attributes(let attributes) = clause.elements else { continue }
+        for element in attributes {
+            if let attribute = element.as(AttributeSyntax.self),
+               attributeBaseName(attribute) == "available" {
+                lines.append(attribute.trimmedDescription)
+            } else if let nested = element.as(IfConfigDeclSyntax.self),
+                      let rendered = renderConditionalPresentationAvailability(nested) {
+                lines.append(rendered)
+            }
+        }
+    }
+    lines.append(conditional.poundEndif.text)
     return lines.joined(separator: "\n")
 }
 

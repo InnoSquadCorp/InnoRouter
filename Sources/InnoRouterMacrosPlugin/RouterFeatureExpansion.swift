@@ -25,13 +25,22 @@ func analyzeRouterFeatures(
     let directCases = enumDecl.memberBlock.members.compactMap {
         $0.decl.as(EnumCaseDeclSyntax.self)
     }
-    let conditional = enumDecl.memberBlock.members.compactMap {
-        $0.decl.as(IfConfigDeclSyntax.self)
-    }
-    if let markedConditional = conditional.lazy.compactMap({
-        firstConditionalAttribute(named: "FeatureRoute", inside: $0)
+    if let markedConditional = enumDecl.memberBlock.members.lazy.compactMap({
+        member -> AttributeSyntax? in
+        guard let conditional = member.decl.as(IfConfigDeclSyntax.self) else { return nil }
+        return firstFeatureAttributeInsideConditional(conditional)
     }).first {
         diagnoseFeature(.conditionalCase, at: markedConditional, context: context)
+        return .invalid
+    }
+
+    if let conditionalAttribute = directCases.lazy.compactMap({ declaration in
+        declaration.attributes.lazy.compactMap { element -> AttributeSyntax? in
+            guard let conditional = element.as(IfConfigDeclSyntax.self) else { return nil }
+            return firstConditionalAttribute(named: "FeatureRoute", inside: conditional)
+        }.first
+    }).first {
+        diagnoseFeature(.conditionalCase, at: conditionalAttribute, context: context)
         return .invalid
     }
 
@@ -153,6 +162,33 @@ private func featureAttributes(on declaration: EnumCaseDeclSyntax) -> [Attribute
               attributeBaseName(attribute) == "FeatureRoute" else { return nil }
         return attribute
     }
+}
+
+private func firstFeatureAttributeInsideConditional(
+    _ conditional: IfConfigDeclSyntax
+) -> AttributeSyntax? {
+    for clause in conditional.clauses {
+        guard case .decls(let members) = clause.elements else { continue }
+        for member in members {
+            if let caseDeclaration = member.decl.as(EnumCaseDeclSyntax.self) {
+                if let attribute = featureAttributes(on: caseDeclaration).first {
+                    return attribute
+                }
+                if let attribute = caseDeclaration.attributes.lazy.compactMap({
+                    element -> AttributeSyntax? in
+                    guard let conditional = element.as(IfConfigDeclSyntax.self) else { return nil }
+                    return firstConditionalAttribute(named: "FeatureRoute", inside: conditional)
+                }).first {
+                    return attribute
+                }
+            }
+            if let nested = member.decl.as(IfConfigDeclSyntax.self),
+               let attribute = firstFeatureAttributeInsideConditional(nested) {
+                return attribute
+            }
+        }
+    }
+    return nil
 }
 
 private func parseFeatureID(_ attribute: AttributeSyntax, default defaultID: String) -> String? {

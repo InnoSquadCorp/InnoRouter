@@ -6,6 +6,147 @@ import Testing
 
 @Suite("Router composition macro tests")
 struct RouterCompositionMacroTests {
+    @Test("E065 rejects a FeatureRoute declared inside conditional compilation")
+    func conditionalFeatureRoute() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum ConditionalFeatureRoute {
+            #if os(macOS)
+                @FeatureRoute
+                case conditional(ChildRoute)
+            #endif
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum ConditionalFeatureRoute {
+            #if os(macOS)
+                case conditional(ChildRoute)
+            #endif
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E065] @FeatureRoute cases cannot be conditional because the generated composition catalog must be stable",
+                    line: 4,
+                    column: 5
+                ),
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("E065 finds a qualified FeatureRoute inside nested conditionals")
+    func nestedQualifiedConditionalFeatureRoute() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum NestedConditionalFeatureRoute {
+            #if os(macOS)
+            #if DEBUG
+                @InnoRouterMacros.FeatureRoute
+                case conditional(ChildRoute)
+            #endif
+            #endif
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum NestedConditionalFeatureRoute {
+            #if os(macOS)
+            #if DEBUG
+                @InnoRouterMacros.FeatureRoute
+                case conditional(ChildRoute)
+            #endif
+            #endif
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E065] @FeatureRoute cases cannot be conditional because the generated composition catalog must be stable",
+                    line: 5,
+                    column: 5
+                ),
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("E065 rejects a conditionally compiled FeatureRoute attribute")
+    func conditionalFeatureRouteAttribute() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum ConditionalAttributeFeatureRoute {
+            #if DEBUG
+                @FeatureRoute
+            #endif
+                case conditional(ChildRoute)
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum ConditionalAttributeFeatureRoute {
+            #if DEBUG
+                @FeatureRoute
+            #endif
+                case conditional(ChildRoute)
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E065] @FeatureRoute cases cannot be conditional because the generated composition catalog must be stable",
+                    line: 4,
+                    column: 5
+                ),
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("E065 rejects a mixed direct and conditional FeatureRoute catalog")
+    func mixedDirectAndConditionalFeatureRoute() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum MixedConditionalFeatureRoute {
+                @FeatureRoute
+                case account(AccountRoute)
+            #if DEBUG
+                @FeatureRoute
+                case debug(DebugRoute)
+            #endif
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum MixedConditionalFeatureRoute {
+                case account(AccountRoute)
+            #if DEBUG
+                case debug(DebugRoute)
+            #endif
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E065] @FeatureRoute cases cannot be conditional because the generated composition catalog must be stable",
+                    line: 6,
+                    column: 5
+                ),
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Feature marker rejects a route without one child payload")
     func invalidFeaturePayload() {
         assertMacroExpansion(
@@ -228,6 +369,204 @@ struct RouterCompositionMacroTests {
                     }
                     internal static func edit(id: String) -> InnoRouterCore.RouterPresentationRequest<AppRoute, EditorResult> {
                         .init(route: .edit(id: id))
+                    }
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Presentation factories preserve the route case availability")
+    func presentationAvailabilityExpansion() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AvailablePresentationRoute {
+                @available(macOS 26, *)
+                @PresentationResult(Bool.self)
+                case future
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AvailablePresentationRoute {
+                @available(macOS 26, *)
+                case future
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension AvailablePresentationRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Presentation {
+                    @available(macOS 26, *)
+                    internal static var future: InnoRouterCore.RouterPresentationRequest<AvailablePresentationRoute, Bool> {
+                        .init(route: .future)
+                    }
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Presentation functions preserve multiple availability constraints")
+    func presentationFunctionAvailabilityExpansion() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum MultiAvailablePresentationRoute {
+                @available(macOS, introduced: 15, deprecated: 26)
+                @available(iOS, introduced: 18, obsoleted: 27)
+                @available(tvOS, unavailable)
+                @PresentationResult(Bool.self)
+                case future(id: String)
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum MultiAvailablePresentationRoute {
+                @available(macOS, introduced: 15, deprecated: 26)
+                @available(iOS, introduced: 18, obsoleted: 27)
+                @available(tvOS, unavailable)
+                case future(id: String)
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension MultiAvailablePresentationRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Presentation {
+                    @available(macOS, introduced: 15, deprecated: 26)
+                    @available(iOS, introduced: 18, obsoleted: 27)
+                    @available(tvOS, unavailable)
+                    internal static func future(id: String) -> InnoRouterCore.RouterPresentationRequest<MultiAvailablePresentationRoute, Bool> {
+                        .init(route: .future(id: id))
+                    }
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Presentation factories preserve conditional availability attributes")
+    func presentationConditionalAvailabilityExpansion() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum ConditionalPresentationRoute {
+                @PresentationResult(Bool.self)
+            #if os(macOS)
+                @available(macOS 26, *)
+            #endif
+                case future
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum ConditionalPresentationRoute {
+            #if os(macOS)
+                @available(macOS 26, *)
+            #endif
+                case future
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension ConditionalPresentationRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Presentation {
+                    #if os(macOS)
+                    @available(macOS 26, *)
+                    #endif
+                    internal static var future: InnoRouterCore.RouterPresentationRequest<ConditionalPresentationRoute, Bool> {
+                        .init(route: .future)
+                    }
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Presentation functions preserve elseif and nested availability branches")
+    func presentationNestedConditionalAvailabilityExpansion() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum NestedConditionalPresentationRoute {
+                @PresentationResult(Bool.self)
+            #if os(macOS)
+                @available(macOS 26, *)
+            #elseif os(iOS)
+            #if DEBUG
+                @available(iOS 27, *)
+            #else
+                @available(iOS, unavailable)
+            #endif
+            #else
+                @available(tvOS, deprecated: 27)
+            #endif
+                case future(id: String)
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum NestedConditionalPresentationRoute {
+            #if os(macOS)
+                @available(macOS 26, *)
+            #elseif os(iOS)
+            #if DEBUG
+                @available(iOS 27, *)
+            #else
+                @available(iOS, unavailable)
+            #endif
+            #else
+                @available(tvOS, deprecated: 27)
+            #endif
+                case future(id: String)
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension NestedConditionalPresentationRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Presentation {
+                    #if os(macOS)
+                    @available(macOS 26, *)
+                    #elseif os(iOS)
+                    #if DEBUG
+                    @available(iOS 27, *)
+                    #else
+                    @available(iOS, unavailable)
+                    #endif
+                    #else
+                    @available(tvOS, deprecated: 27)
+                    #endif
+                    internal static func future(id: String) -> InnoRouterCore.RouterPresentationRequest<NestedConditionalPresentationRoute, Bool> {
+                        .init(route: .future(id: id))
                     }
                 }
             }

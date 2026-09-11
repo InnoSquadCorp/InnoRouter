@@ -58,6 +58,20 @@ let package = Package(
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        .target(
+            name: "AvailabilityNegativeConsumer",
+            dependencies: [
+                "InnoRouterMacroFirstExternalConsumer",
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "ConditionalFeatureNegativeConsumer",
+            dependencies: [
+                .product(name: "InnoRouter", package: "InnoRouter"),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .testTarget(
             name: "InnoRouterDeveloperToolsExternalConsumerTests",
             dependencies: [

@@ -152,6 +152,15 @@ private enum PresentationBehaviorRouter {
 }
 
 @Router
+private enum AvailablePresentationBehaviorRouter {
+    @available(macOS 26, *)
+    @PresentationResult(Bool.self)
+    case future
+
+    var destination: some View { Text("Destination") }
+}
+
+@Router
 private enum FeatureBehaviorRoute {
     case home
     case detail(id: String)
@@ -174,6 +183,13 @@ private enum FeatureParentRoute {
 
 @Suite("@Router behavior")
 struct RouterBehaviorTests {
+    @Test("Presentation factories retain their route availability")
+    func presentationAvailability() {
+        if #available(macOS 26, *) {
+            #expect(AvailablePresentationBehaviorRouter.Presentation.future.route == .future)
+        }
+    }
+
     @Test("Feature mappings preserve one parent store and sibling state")
     @MainActor
     func featureRouteComposition() async throws {
