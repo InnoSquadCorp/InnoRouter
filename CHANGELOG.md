@@ -6,6 +6,15 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+- Restoration cancellation now removes its complete deferred request family;
+  immersive restoration serializes native effects and compensates obsolete
+  successful opens; partial scene reconciliation preserves each window's
+  completed Store ownership. Multiple `RouterHistory` observers now follow
+  one another's successful navigation without duplicating their own moves.
+  Case-path generation avoids associated-value binding collisions, resolves
+  recursive `Self` payloads in the enclosing enum, and preserves conditional
+  availability. Scenario source generation rejects the discard identifier
+  anywhere a Swift declaration or qualified factory name is required.
 - Macro-first hosts and scene/restoration drivers now follow replacement
   application-owned stores and driver leases without retaining stale SwiftUI
   state. History and restoration stop/reset operations cancel their complete

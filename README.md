@@ -275,7 +275,10 @@ changes beneath an active presentation, and never open or close a scene. Call
 `reset(sessionKey:)` at an app-defined account or document boundary. History
 observes commits synchronously, distinguishes deferred moves from rejection,
 and invalidates suspended or deferred moves when the session resets or history
-stops. An optional partial-restoration validator is shared with snapshot repair.
+stops. Multiple active histories attached to the same Store synchronize their
+cursors from successful history-originated commits while retaining independent
+capacities, checkpoints, and session keys. An optional partial-restoration
+validator is shared with snapshot repair.
 
 ## Result-bearing presentation
 

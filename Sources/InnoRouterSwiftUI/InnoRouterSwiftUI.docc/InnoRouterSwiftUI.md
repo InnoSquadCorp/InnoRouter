@@ -76,6 +76,8 @@ commit and returns a payload-free structural report. A fully removed nonempty
 stack requires an app-provided, revalidated fallback. `RouterHistory` reuses
 the same validator, exact plans, and policies for navigation-only moves. It
 observes commits synchronously, tracks deferred destinations by entry identity,
-invalidates old-session work, and preserves live badges
-and presentations, rejects modal path conflicts, and never changes scene
-inventory. Session boundaries are app-defined through `reset(sessionKey:)`.
+invalidates old-session work, and preserves live badges and presentations,
+rejects modal path conflicts, and never changes scene inventory. Multiple active
+histories on one Store follow successful history-originated navigation while
+retaining independent capacities, checkpoints, and session keys. Session
+boundaries are app-defined through `reset(sessionKey:)`.
