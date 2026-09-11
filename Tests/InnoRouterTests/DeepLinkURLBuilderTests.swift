@@ -71,4 +71,19 @@ struct DeepLinkURLBuilderTests {
             ) == nil
         )
     }
+
+    @Test("Builder rejects an empty path placeholder")
+    func emptyPathValue() throws {
+        let origin = try #require(
+            DeepLinkOrigin(scheme: "https", host: "app.example.com")
+        )
+
+        #expect(
+            DeepLinkURLBuilder.makeURL(
+                origin: origin,
+                pattern: "/products/:id",
+                parameters: [.init(name: "id", value: "")]
+            ) == nil
+        )
+    }
 }

@@ -242,7 +242,13 @@ private func renderFeatureCatalogCaseName(_ item: RouterFeatureItem) -> String {
 private func renderFeatureURLCase(_ item: RouterFeatureItem) -> String {
     """
     case .\(item.caseName)(let child):
-        return InnoRouterDeepLink.DeepLinkFeatureRuntime.url(for: child, origin: origin)
+        guard let url = InnoRouterDeepLink.DeepLinkFeatureRuntime.url(
+            for: child,
+            origin: origin
+        ), Self.resolveDeepLink(url) == self else {
+            return nil
+        }
+        return url
     """
 }
 
@@ -324,10 +330,13 @@ func renderDeepLinkURLCase(
     if item.parameters.isEmpty {
         return """
         \(binding)
-        \(guardedPrefix)    return InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+        \(guardedPrefix)    guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
                 origin: origin,
                 pattern: \(swiftStringLiteral(item.pattern))
-            )
+            ), Self.resolveDeepLink(url) == self else {
+                return nil
+            }
+            return url
         """
     }
 
@@ -337,13 +346,16 @@ func renderDeepLinkURLCase(
 
     return """
     \(binding)
-    \(guardedPrefix)    return InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+    \(guardedPrefix)    guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
             origin: origin,
             pattern: \(swiftStringLiteral(item.pattern)),
             parameters: [
     \(indentEveryLine(renderedParameters, by: 12))
             ]
-        )
+        ), Self.resolveDeepLink(url) == self else {
+            return nil
+        }
+        return url
     """
 }
 

@@ -99,6 +99,20 @@ private enum SpecificityBehaviorDeepLinkRoute {
 
 @Router(
     deepLinkSchemes: ["innorouter"],
+    deepLinkHosts: ["roundtrip.example.com"]
+)
+private enum RoundTripBehaviorDeepLinkRoute {
+    @DeepLink("/:value")
+    case value(value: String)
+
+    @DeepLink("/settings")
+    case settings
+
+    var destination: some View { EmptyView() }
+}
+
+@Router(
+    deepLinkSchemes: ["innorouter"],
     deepLinkHosts: ["app.example.com"]
 )
 private enum GenericBehaviorDeepLinkRoute<Value>
@@ -230,6 +244,37 @@ private enum NestedOriginOuterRoute {
 
 @Suite("@Router deep-link behavior")
 struct RouterDeepLinkBehaviorTests {
+    @Test("Generated URLs are returned only when they resolve to the same route")
+    func generatedURLMustRoundTripToTheSameRoute() throws {
+        let origin = try #require(
+            DeepLinkOrigin(scheme: "innorouter", host: "roundtrip.example.com")
+        )
+
+        #expect(RoundTripBehaviorDeepLinkRoute.value(value: "settings").deepLinkURL(
+            origin: origin
+        ) == nil)
+        let settingsURL = try #require(
+            RoundTripBehaviorDeepLinkRoute.settings.deepLinkURL(origin: origin)
+        )
+        #expect(RoundTripBehaviorDeepLinkRoute.resolveDeepLink(settingsURL) == .settings)
+    }
+
+    @Test("Empty required path values and ambiguous feature URLs fail closed")
+    func generatedURLRejectsNonRoundTrippableRoutes() throws {
+        let appOrigin = try #require(
+            DeepLinkOrigin(scheme: "innorouter", host: "app.example.com")
+        )
+        let featureOrigin = try #require(
+            DeepLinkOrigin(scheme: "innorouter", host: "feature.example.com")
+        )
+
+        #expect(BehaviorDeepLinkRoute.product(id: "").deepLinkURL(origin: appOrigin) == nil)
+        #expect(
+            AmbiguousFeatureParentDeepLinkRoute.primary(.profile(id: "42"))
+                .deepLinkURL(origin: featureOrigin) == nil
+        )
+    }
+
     @Test("Feature URL rendering delegates origin admission to the owning route")
     func featureURLRenderingUsesChildOrigin() throws {
         let parentOrigin = try #require(

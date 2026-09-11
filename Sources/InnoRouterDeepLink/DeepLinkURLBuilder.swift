@@ -114,6 +114,7 @@ public enum DeepLinkURLBuilder {
                 let name = String(value.dropFirst())
                 pathParameterNames.insert(name)
                 guard let parameter = valuesByName[name] ?? nil,
+                      !parameter.isEmpty,
                       let encoded = percentEncodePathSegment(parameter) else {
                     return nil
                 }

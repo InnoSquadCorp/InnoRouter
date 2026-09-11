@@ -140,7 +140,7 @@ struct RouterDeepLinkExpansionMacroTests {
                     }
                     switch self {
                     case let .product(deepLinkValue0, deepLinkValue1, deepLinkValue2):
-                            return InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
                                 origin: origin,
                                 pattern: "/products/:id/:featured",
                                 parameters: [
@@ -148,7 +148,10 @@ struct RouterDeepLinkExpansionMacroTests {
                                     .init(name: "featured", value: deepLinkValue1),
                                     .init(name: "page", value: deepLinkValue2)
                                 ]
-                            )
+                            ), Self.resolveDeepLink(url) == self else {
+                                return nil
+                            }
+                            return url
                     }
                 }
             }
@@ -261,30 +264,39 @@ struct RouterDeepLinkExpansionMacroTests {
                     }
                     switch self {
                     case let .paged(deepLinkValue0, deepLinkValue1):
-                            return InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
                                 origin: origin,
                                 pattern: "/items/:value",
                                 parameters: [
                                     .init(name: "value", value: deepLinkValue0),
                                     .init(name: "page", value: deepLinkValue1)
                                 ]
-                            )
+                            ), Self.resolveDeepLink(url) == self else {
+                                return nil
+                            }
+                            return url
                         case let .identifier(deepLinkValue0):
-                            return InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
                                 origin: origin,
                                 pattern: "/items/:value",
                                 parameters: [
                                     .init(name: "value", value: deepLinkValue0)
                                 ]
-                            )
+                            ), Self.resolveDeepLink(url) == self else {
+                                return nil
+                            }
+                            return url
                         case let .name(deepLinkValue0):
-                            return InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
                                 origin: origin,
                                 pattern: "/items/:value",
                                 parameters: [
                                     .init(name: "value", value: deepLinkValue0)
                                 ]
-                            )
+                            ), Self.resolveDeepLink(url) == self else {
+                                return nil
+                            }
+                            return url
                     }
                 }
             }
@@ -394,13 +406,16 @@ struct RouterDeepLinkExpansionMacroTests {
                     }
                     switch self {
                     case let .value(deepLinkValue0):
-                            return InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
                                 origin: origin,
                                 pattern: "/values/:value",
                                 parameters: [
                                     .init(name: "value", value: deepLinkValue0)
                                 ]
-                            )
+                            ), Self.resolveDeepLink(url) == self else {
+                                return nil
+                            }
+                            return url
                     }
                 }
             }
@@ -509,10 +524,13 @@ struct RouterDeepLinkExpansionMacroTests {
                     }
                     switch self {
                     case .home:
-                            return InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
                                 origin: origin,
                                 pattern: "/home"
-                            )
+                            ), Self.resolveDeepLink(url) == self else {
+                                return nil
+                            }
+                            return url
                         default:
                             return nil
                     }
@@ -1254,10 +1272,13 @@ struct RouterDeepLinkDiagnosticMacroTests {
                     }
                     switch self {
                     case .home:
-                            return InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
                                 origin: origin,
                                 pattern: "/home"
-                            )
+                            ), Self.resolveDeepLink(url) == self else {
+                                return nil
+                            }
+                            return url
                     }
                 }
             }
