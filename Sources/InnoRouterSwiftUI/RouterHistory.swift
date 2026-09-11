@@ -370,38 +370,39 @@ public final class RouterHistory<R: Route> {
         }
         move.continuation.resume(returning: .unavailable(cursor: cursor, reason: reason))
     }
+}
 
+private extension RouterHistory {
     private func observe(_ event: RouterEvent<R>) {
         guard !isStopped else { return }
-        if let context = event.transitionContext,
-           context.source == .history,
-           let deferralID = context.resumedDeferral {
-            switch event {
-            case .committed, .unchanged:
-                if let pending = pendingMoves.removeValue(forKey: deferralID),
-                   pending.generation == generation {
-                    ownedRequestRoots.remove(pending.requestRootID)
-                    completePendingMove(pending)
-                }
-            case .deferred(_, _, _, let deferral, _):
-                if let pending = pendingMoves.removeValue(forKey: deferralID),
-                   pending.generation == generation {
-                    pendingMoves[deferral.id] = pending
-                }
-            case .rejected:
-                if let pending = pendingMoves.removeValue(forKey: deferralID) {
-                    ownedRequestRoots.remove(pending.requestRootID)
-                }
-            default:
-                break
-            }
+        let isOwnedHistoryCommit = Self.ownsHistoryCommit(
+            event,
+            ownedRequestRoots: ownedRequestRoots,
+            pendingMoves: pendingMoves
+        )
+        if let completedMove = Self.updatePendingMoveOwnership(
+            for: event,
+            generation: generation,
+            pendingMoves: &pendingMoves,
+            ownedRequestRoots: &ownedRequestRoots
+        ) {
+            completePendingMove(completedMove)
         }
         guard case .committed(_, _, let after, let revision, let context) = event,
               revision > latestObservedRevision else { return }
         latestObservedRevision = revision
         resumeRevisionWaiters(through: revision)
-        guard context.source != .history else { return }
         let projection = Self.navigationProjection(after)
+        if context.source == .history, !isOwnedHistoryCommit,
+           let destination = Self.nearestEntry(
+               in: entries,
+               from: cursor,
+               matching: projection
+           ) {
+            cursor = destination
+            return
+        }
+        guard !isOwnedHistoryCommit else { return }
         guard !Self.hasSameNavigation(projection, entries[cursor].navigationState) else {
             return
         }
@@ -462,10 +463,6 @@ public final class RouterHistory<R: Route> {
 }
 
 public extension RouterHistory {
-    var canGoBack: Bool { cursor > entries.startIndex }
-    var canGoForward: Bool { cursor + 1 < entries.endIndex }
-    var currentEntry: RouterHistoryEntry<R> { entries[cursor] }
-
     func removeAllCheckpoints() {
         checkpoints.removeAll()
     }
@@ -549,10 +546,13 @@ private extension RouterHistory {
             }
         )
         switch outcome {
-        case .applied, .unchanged:
+        case .applied(_, _, _, let outcomeRevision),
+             .unchanged(_, _, let outcomeRevision):
             ownedRequestRoots.remove(requestRootID)
             if let destinationCursor,
                generation == startingGeneration,
+               store.revision == outcomeRevision,
+               latestObservedRevision == outcomeRevision,
                entries.indices.contains(destinationCursor),
                entries[destinationCursor].id == entry.id {
                 cursor = destinationCursor

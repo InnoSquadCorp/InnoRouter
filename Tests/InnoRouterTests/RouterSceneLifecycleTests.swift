@@ -596,8 +596,10 @@ struct RouterSceneLifecycleTests {
             id: "shared",
             lifecycleToken: token,
             ticket: ticket,
-            store: store
-        ) { result }
+            store: store,
+            open: { result },
+            dismiss: {}
+        )
 
         #expect(!keepsReservation)
         #expect(store.state.immersiveSpace == nil)
@@ -627,8 +629,10 @@ struct RouterSceneLifecycleTests {
             id: "shared",
             lifecycleToken: token,
             ticket: ticket,
-            store: store
-        ) { .opened }
+            store: store,
+            open: { .opened },
+            dismiss: {}
+        )
 
         #expect(keepsReservation)
         #expect(store.state == state)
@@ -663,14 +667,16 @@ struct RouterSceneLifecycleTests {
             id: "shared",
             lifecycleToken: oldToken,
             ticket: ticket,
-            store: store
-        ) {
-            _ = await store.perform(.dismissImmersiveSpace)
-            _ = await store.perform(
-                .enterImmersiveSpace(.init(id: "shared", route: .replacement))
-            )
-            return result
-        }
+            store: store,
+            open: {
+                _ = await store.perform(.dismissImmersiveSpace)
+                _ = await store.perform(
+                    .enterImmersiveSpace(.init(id: "shared", route: .replacement))
+                )
+                return result
+            },
+            dismiss: {}
+        )
 
         #expect(!keepsReservation)
         #expect(store.state.immersiveSpace?.route == .replacement)
@@ -716,8 +722,10 @@ struct RouterSceneLifecycleTests {
                 id: "shared",
                 lifecycleToken: token,
                 ticket: ticket,
-                store: store
-            ) { .error }
+                store: store,
+                open: { .error },
+                dismiss: {}
+            )
         }
         _ = await requests.next()
 

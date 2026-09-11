@@ -1,6 +1,65 @@
 import InnoRouterCore
 
 extension RouterHistory {
+    public var canGoBack: Bool { cursor > entries.startIndex }
+    public var canGoForward: Bool { cursor + 1 < entries.endIndex }
+    public var currentEntry: RouterHistoryEntry<R> { entries[cursor] }
+
+    nonisolated package static func nearestEntry(
+        in entries: [RouterHistoryEntry<R>],
+        from cursor: Int,
+        matching state: RouterState<R>
+    ) -> Int? {
+        entries.indices
+            .filter { hasSameNavigation(entries[$0].navigationState, state) }
+            .min { lhs, rhs in
+                let lhsDistance = abs(lhs - cursor)
+                let rhsDistance = abs(rhs - cursor)
+                return lhsDistance == rhsDistance ? lhs > rhs : lhsDistance < rhsDistance
+            }
+    }
+
+    package static func ownsHistoryCommit(
+        _ event: RouterEvent<R>,
+        ownedRequestRoots: Set<RouterTransitionID>,
+        pendingMoves: [RouterDeferralID: PendingRouterHistoryMove<R>]
+    ) -> Bool {
+        guard case .committed(let transitionID, _, _, _, let context) = event,
+              context.source == .history else { return false }
+        return ownedRequestRoots.contains(transitionID)
+            || context.resumedDeferral.map { pendingMoves[$0] != nil } == true
+    }
+
+    package static func updatePendingMoveOwnership(
+        for event: RouterEvent<R>,
+        generation: UInt64,
+        pendingMoves: inout [RouterDeferralID: PendingRouterHistoryMove<R>],
+        ownedRequestRoots: inout Set<RouterTransitionID>
+    ) -> PendingRouterHistoryMove<R>? {
+        guard let context = event.transitionContext,
+              context.source == .history,
+              let deferralID = context.resumedDeferral else { return nil }
+        switch event {
+        case .committed, .unchanged:
+            guard let pending = pendingMoves.removeValue(forKey: deferralID),
+                  pending.generation == generation else { return nil }
+            ownedRequestRoots.remove(pending.requestRootID)
+            return pending
+        case .deferred(_, _, _, let deferral, _):
+            guard let pending = pendingMoves.removeValue(forKey: deferralID),
+                  pending.generation == generation else { return nil }
+            pendingMoves[deferral.id] = pending
+            return nil
+        case .rejected:
+            if let pending = pendingMoves.removeValue(forKey: deferralID) {
+                ownedRequestRoots.remove(pending.requestRootID)
+            }
+            return nil
+        default:
+            return nil
+        }
+    }
+
     nonisolated package static func navigationProjection(
         _ state: RouterState<R>
     ) -> RouterState<R> {

@@ -240,7 +240,14 @@ struct RouterTwelfthReviewRegressionTests {
             _ = await requests.next()
         }
         let restore = Task { @MainActor in
-            await restoreRouterImmersiveSpaceAfterDeferredClosure(id: "shared", lifecycleToken: token, ticket: ticket, store: store) { .error }
+            await restoreRouterImmersiveSpaceAfterDeferredClosure(
+                id: "shared",
+                lifecycleToken: token,
+                ticket: ticket,
+                store: store,
+                open: { .error },
+                dismiss: {}
+            )
         }
         _ = await requests.next()
         release.finish()

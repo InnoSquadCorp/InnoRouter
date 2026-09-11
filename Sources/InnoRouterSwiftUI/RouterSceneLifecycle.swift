@@ -8,7 +8,37 @@ import SwiftUI
 import InnoRouterCore
 
 @MainActor
+package final class RouterImmersiveSceneEffectQueue {
+    private var generation: UInt64 = 0
+    private var tail: Task<Void, Never>?
+
+    package init() {}
+
+    package func enqueue(
+        _ operation: @escaping @MainActor @Sendable () async -> Bool
+    ) async -> Bool {
+        generation &+= 1
+        let operationGeneration = generation
+        let predecessor = tail
+        let task = Task { @MainActor in
+            await predecessor?.value
+            return await operation()
+        }
+        tail = Task { @MainActor in
+            _ = await task.value
+        }
+        let result = await task.value
+        if generation == operationGeneration {
+            tail = nil
+        }
+        return result
+    }
+}
+
+@MainActor
 package final class RouterSceneRestorationRegistry {
+    package static let immersiveEffectQueue = RouterImmersiveSceneEffectQueue()
+
     private struct WindowLifetime: Hashable {
         let id: UUID
         let token: UUID
@@ -94,55 +124,68 @@ package func restoreRouterImmersiveSpaceAfterDeferredClosure<R: Route>(
     lifecycleToken: UUID,
     ticket: UUID,
     store: RouterStore<R>,
-    open: @MainActor @Sendable () async -> RouterImmersiveSpaceOpenResult
+    open: @escaping @MainActor @Sendable () async -> RouterImmersiveSpaceOpenResult,
+    dismiss: @escaping @MainActor @Sendable () async -> Void
 ) async -> Bool {
-    var keepsReservation = false
-    defer {
-        if !keepsReservation {
-            store.sceneRestorationRegistry.finishImmersiveSpaceRestoration(
-                id: id,
-                lifecycleToken: lifecycleToken,
-                ticket: ticket
-            )
-        }
-    }
-
-    guard store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
-        id: id,
-        lifecycleToken: lifecycleToken,
-        ticket: ticket
-    ), store.state.immersiveSpace?.id == id,
-       store.immersiveSpaceLifecycleToken == lifecycleToken else {
-        return false
-    }
-
-    let result = await open()
-    guard store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
-        id: id,
-        lifecycleToken: lifecycleToken,
-        ticket: ticket
-    ), store.state.immersiveSpace?.id == id,
-       store.immersiveSpaceLifecycleToken == lifecycleToken else {
-        return false
-    }
-
-    switch result {
-    case .opened:
-        keepsReservation = true
-        return true
-    case .userCancelled, .error:
-        _ = await store.reconcileSceneSystemFailure(
-            .dismissImmersiveSpace,
-            executionPrecondition: { [weak store] state in
-                guard let store,
-                      state.immersiveSpace?.id == id,
-                      store.immersiveSpaceLifecycleToken == lifecycleToken else {
-                    return .cancelled
-                }
-                return nil
+    await RouterSceneRestorationRegistry.immersiveEffectQueue.enqueue {
+        [id, lifecycleToken, ticket, store, open, dismiss] in
+        var keepsReservation = false
+        defer {
+            if !keepsReservation {
+                store.sceneRestorationRegistry.finishImmersiveSpaceRestoration(
+                    id: id,
+                    lifecycleToken: lifecycleToken,
+                    ticket: ticket
+                )
             }
-        )
-        return false
+        }
+
+        guard store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+            id: id,
+            lifecycleToken: lifecycleToken,
+            ticket: ticket
+        ), store.state.immersiveSpace?.id == id,
+           store.immersiveSpaceLifecycleToken == lifecycleToken else {
+            return false
+        }
+
+        let result = await open()
+        guard store.state.immersiveSpace?.id == id,
+              store.immersiveSpaceLifecycleToken == lifecycleToken else {
+            if result == .opened {
+                await dismiss()
+            }
+            return false
+        }
+        guard store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+            id: id,
+            lifecycleToken: lifecycleToken,
+            ticket: ticket
+        ) else {
+            // A matching appearance consumes the reservation before
+            // openImmersiveSpace returns. The canonical lifetime is still
+            // current, so that successful open must not be compensated.
+            return result == .opened
+        }
+
+        switch result {
+        case .opened:
+            keepsReservation = true
+            return true
+        case .userCancelled, .error:
+            _ = await store.reconcileSceneSystemFailure(
+                .dismissImmersiveSpace,
+                executionPrecondition: { [weak store] state in
+                    guard let store,
+                          state.immersiveSpace?.id == id,
+                          store.immersiveSpaceLifecycleToken == lifecycleToken else {
+                        return .cancelled
+                    }
+                    return nil
+                }
+            )
+            return false
+        }
     }
 }
 
@@ -260,6 +303,7 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
 
 #if os(visionOS)
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
+    @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
 #endif
 
     func body(content: Content) -> some View {
@@ -303,15 +347,17 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
                             id: id,
                             lifecycleToken: lifecycleToken,
                             ticket: restorationTicket,
-                            store: store
-                        ) {
+                            store: store,
+                            open: {
                             switch await openImmersiveSpace(id: id) {
                             case .opened: .opened
                             case .userCancelled: .userCancelled
                             case .error: .error
                             @unknown default: .error
                             }
-                        }
+                            },
+                            dismiss: { await dismissImmersiveSpace() }
+                        )
 #endif
                 }
             }

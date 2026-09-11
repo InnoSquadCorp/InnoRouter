@@ -240,7 +240,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
                 throw CancellationError()
             }
             didAttemptRestore = false
-            clearActiveRestoreRequest()
+            cancelActiveRestoreRequest()
             stopObservation()
             invalidateScheduledSave()
             status = .inactive
@@ -250,7 +250,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
                 throw CancellationError()
             }
             didAttemptRestore = false
-            clearActiveRestoreRequest()
+            cancelActiveRestoreRequest()
             stopObservation()
             invalidateScheduledSave()
             status = .failed(String(describing: error))
@@ -304,10 +304,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
 
     private func stopOwnedWork() {
         activationGeneration &+= 1
-        if let activeRestoreRequestRootID {
-            store.cancelRequestFamily(activeRestoreRequestRootID)
-        }
-        clearActiveRestoreRequest()
+        cancelActiveRestoreRequest()
         stopObservation()
         invalidateScheduledSave()
         status = .inactive
@@ -370,6 +367,13 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         activeRestoreTransitionID = nil
         activeRestoreRequestRootID = nil
         activeRestoreDeferralID = nil
+    }
+
+    private func cancelActiveRestoreRequest() {
+        if let activeRestoreRequestRootID {
+            store.cancelRequestFamily(activeRestoreRequestRootID)
+        }
+        clearActiveRestoreRequest()
     }
 
     private func stopObservation() {

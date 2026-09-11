@@ -150,6 +150,7 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
 
     @State private var previousWindows: [RouterWindow<R>] = []
     @State private var previousWindowLifetimes: [UUID: UUID] = [:]
+    @State private var previousWindowStoreIdentities: [UUID: ObjectIdentifier] = [:]
     @State private var previousImmersiveSpace: RouterImmersiveSpace<R>?
     @State private var previousImmersiveSpaceLifetime: UUID?
     @State private var previousStoreIdentity: ObjectIdentifier?
@@ -238,6 +239,7 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
             dismiss(window)
             previousWindows.removeAll { $0.id == window.id }
             previousWindowLifetimes[window.id] = nil
+            previousWindowStoreIdentities[window.id] = nil
         }
         for window in state.windows where !sameNativeWindowIdentity(
             previousByID[window.id],
@@ -271,6 +273,9 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
         guard isCurrent(reconciliationID) else { return }
         previousWindows = state.windows
         previousWindowLifetimes = windowLifetimes
+        previousWindowStoreIdentities = Dictionary(
+            uniqueKeysWithValues: state.windows.map { ($0.id, currentStoreIdentity) }
+        )
         previousImmersiveSpace = state.immersiveSpace
         previousImmersiveSpaceLifetime = immersiveSpaceLifetime
         previousStoreIdentity = currentStoreIdentity
@@ -284,7 +289,7 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
         currentStoreIdentity: ObjectIdentifier
     ) -> Bool {
         guard let lhs, let rhs else { return lhs == nil && rhs == nil }
-        return previousStoreIdentity == currentStoreIdentity
+        return previousWindowStoreIdentities[lhs.id] == currentStoreIdentity
             && lhs.id == rhs.id
             && lhs.route == rhs.route
             && previousLifetime != nil
@@ -332,6 +337,7 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
         previousWindows.removeAll { $0.id == window.id }
         previousWindows.append(window)
         previousWindowLifetimes[window.id] = lifecycleToken
+        previousWindowStoreIdentities[window.id] = ObjectIdentifier(store)
         onEvent(.openedWindow(window, sceneID: scene.id))
         return true
 #else
@@ -359,6 +365,22 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
     }
 
     private func reconcileImmersiveSpace(
+        from previous: RouterImmersiveSpace<R>?,
+        to current: RouterImmersiveSpace<R>?,
+        currentLifetime: UUID?,
+        expected reconciliationID: RouterSceneReconciliationID
+    ) async -> Bool {
+        await RouterSceneRestorationRegistry.immersiveEffectQueue.enqueue {
+            await reconcileImmersiveSpaceEffect(
+                from: previous,
+                to: current,
+                currentLifetime: currentLifetime,
+                expected: reconciliationID
+            )
+        }
+    }
+
+    private func reconcileImmersiveSpaceEffect(
         from previous: RouterImmersiveSpace<R>?,
         to current: RouterImmersiveSpace<R>?,
         currentLifetime: UUID?,
