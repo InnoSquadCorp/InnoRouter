@@ -6,6 +6,19 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+- Macro-first hosts and scene/restoration drivers now follow replacement
+  application-owned stores and driver leases without retaining stale SwiftUI
+  state. History and restoration stop/reset operations cancel their complete
+  request families; `RouterHistoryFailure.cancelled` distinguishes a superseded
+  move from a permanently stopped history. Restoration cleanup correlates the
+  exact initial transition or resumed deferral, so an unrelated restoration
+  event cannot release another driver's cancellation ownership.
+- Generated deep links now return a URL only when it resolves to the original
+  route, including static-path collisions and composed Feature ambiguity, and
+  required path values reject empty segments. Conditional `@Routable` and
+  `@CasePathable` cases preserve compiler branches, conditional presentation
+  diagnostics inspect syntax instead of source text, and scenario source
+  factories share strict Swift identifier validation.
 - Feature, window, and immersive scopes now carry Store-owned logical lifetime
   tokens through queueing, policy suspension, and deferral rebasing. Stale
   scopes cannot mutate a same-ID replacement Scene or complete another
