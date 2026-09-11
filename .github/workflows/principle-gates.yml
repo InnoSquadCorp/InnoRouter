@@ -78,6 +78,9 @@ jobs:
       - name: Test release changelog contract
         run: bash ./scripts/test-check-release-changelog.sh
 
+      - name: Test shared changelog phase contract
+        run: bash ./scripts/test-changelog-phase-contract.sh
+
       - name: Test release note rendering
         run: bash ./scripts/test-render-release-notes.sh
 

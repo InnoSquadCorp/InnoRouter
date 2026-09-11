@@ -4,7 +4,46 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
-## 6.0.0 - Unreleased
+## Unreleased
+
+- Feature, window, and immersive scopes now carry Store-owned logical lifetime
+  tokens through queueing, policy suspension, and deferral rebasing. Stale
+  scopes cannot mutate a same-ID replacement Scene or complete another
+  Feature's presentation.
+- Native Scene failure repair now uses a bounded, lifetime-deduplicated Store
+  lane that is not dropped by the application request queue limit and does not
+  evict, interrupt, or bypass serialization for ordinary requests.
+- Scenario fixture format v7 preserves ownership for ordinary Feature actions,
+  presentations, completions, and plans. Older formats fail closed instead of
+  replaying a Feature request as an unscoped root action.
+- Feature plans containing window or immersive inventory are rejected before
+  root extraction, policy admission, or partial mutation.
+- `@PresentationResult` factories preserve conditionally compiled availability
+  clauses, including nested compiler conditions, and downstream consumers now
+  verify both guarded success and unguarded availability diagnostics.
+- Feature plans now revalidate their complete nested macro feature ownership at
+  executor and resumed-commit boundaries. Scenario fixture format v6 records
+  that mapping path; replay and generated tests require resolvers built from
+  the same typed mappings and fail closed on missing or duplicate resolvers.
+- Pending-link cancellation now follows one logical Store request through
+  queueing and arbitrarily repeated policy deferrals, including a resumed
+  non-cooperative policy. Cancelling the slot returns the serialized lane
+  without allowing a late commit.
+- Immersive restoration now distinguishes opened, user-cancelled, failed, and
+  stale native results. Failed opens repair only the current canonical
+  lifetime, release reservations, and bypass application admission policies.
+- `@Router` diagnoses conditional `@FeatureRoute` declarations consistently,
+  including conditional attributes and nested qualified spellings.
+  `@PresentationResult` factories preserve all case availability attributes.
+- Changelog phase checks now share one Bash-only implementation that can run
+  in the Ubuntu release-contract job without Swift or ripgrep.
+- Feature plans now retain scoped intent through queueing, policy deferral,
+  scenario capture, and replay. Rebased plans replace only their owned subtree
+  and preserve current sibling navigation and application scene inventory.
+- Cancelling a pending-link slot now cancels its owned Store request and blocks
+  late commits. Deferred native scene closes restore the authoritative scene,
+  dead scope cache entries are weak and bounded, and programmatic requests no
+  longer force unrelated native binding reconciliation.
 
 - Pending-link persistence now gives every restore/save/submit/cancel/resume
   operation explicit generation ownership. Caller or driver cancellation

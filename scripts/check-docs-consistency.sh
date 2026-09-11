@@ -12,6 +12,7 @@ for required in rg swift python3; do
 done
 
 failures=0
+CHANGELOG_PATH="${CHANGELOG_PATH:-CHANGELOG.md}"
 
 require_file() {
   [[ -f "$1" ]] || {
@@ -73,8 +74,9 @@ done
 
 require_literal README.md "## 30-second quick start" "README.md is missing its quick start"
 require_literal README.ko.md "## 30초 Quick Start" "README.ko.md is missing its quick start"
-require_literal CHANGELOG.md "## 6.0.0 - Unreleased" "6.0 must remain explicitly unreleased before tagging"
-require_literal CHANGELOG.md "### Breaking" "the 6.0 breaking section is missing"
+require_file "$CHANGELOG_PATH"
+bash scripts/check-changelog-phase.sh "$CHANGELOG_PATH" || failures=1
+require_literal "$CHANGELOG_PATH" "### Breaking" "the 6.0 breaking section is missing"
 require_literal Docs/v6-functional-strategy.md "Status: Draft" "strategy must remain Draft pending review"
 require_literal Docs/functional-expansion-spec.md "FR6-012 Breaking public convergence" "spec must own the breaking API gate"
 require_literal Docs/6.0.0-release-checklist.md "Xcode 26.6 / Swift 6.3" "release checklist must retain the pinned toolchain gate"

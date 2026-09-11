@@ -42,6 +42,8 @@ if [[ ! -f "$CHANGELOG_PATH" ]]; then
   exit 1
 fi
 
+bash "$ROOT_DIR/scripts/check-changelog-phase.sh" "$CHANGELOG_PATH" >/dev/null
+
 python3 - "$VERSION" "$CHANNEL" "$CHANGELOG_PATH" <<'PY'
 from __future__ import annotations
 

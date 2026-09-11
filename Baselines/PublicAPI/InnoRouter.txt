@@ -1435,6 +1435,7 @@ symbol | swift.init | RouterFeatureCatalogEntry.init(id:namespace:childRouteType
 symbol | swift.init | RouterFeatureHost.init(_:content:) | init(_:content:) | @MainActor init(_ mapping: RouterFeatureMapping<Parent, Child>, @ViewBuilder content: @escaping () -> Content) | []
 symbol | swift.init | RouterFeatureMapping.init(id:namespace:route:) | init(id:namespace:route:) | init(id: RouterScopeID, namespace: String, route: CasePath<Parent, Child>) | []
 symbol | swift.init | RouterFeatureScope.init(parent:mapping:) | init(parent:mapping:) | @MainActor convenience init(parent: RouterScope<Parent>, mapping: RouterFeatureMapping<Parent, Child>) | []
+symbol | swift.init | RouterFeatureScope.init(parent:mapping:) | init(parent:mapping:) | @MainActor convenience init<Grandparent>(parent: RouterFeatureScope<Grandparent, Parent>, mapping: RouterFeatureMapping<Parent, Child>) where Grandparent : Route | []
 symbol | swift.init | RouterFilePendingLinkStorage.init(fileURL:) | init(fileURL:) | init(fileURL: URL) | []
 symbol | swift.init | RouterFileSnapshotStorage.init(fileURL:) | init(fileURL:) | init(fileURL: URL) | []
 symbol | swift.init | RouterHandoffConfiguration.init(activityType:origin:title:) | init(activityType:origin:title:) | init?(activityType: String, origin: DeepLinkOrigin, title: @escaping (R) -> String) | []

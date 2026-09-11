@@ -36,8 +36,13 @@ relationship | memberOf | RouterScenarioExpectation.rejection | RouterScenarioEx
 relationship | memberOf | RouterScenarioExpectation.revision | RouterScenarioExpectation |  |
 relationship | memberOf | RouterScenarioExpectation.state | RouterScenarioExpectation |  |
 relationship | memberOf | RouterScenarioExpectation.terminal | RouterScenarioExpectation |  |
+relationship | memberOf | RouterScenarioFeatureProjection.appending(_:) | RouterScenarioFeatureProjection |  |
+relationship | memberOf | RouterScenarioFeatureProjection.eraseToResolver() | RouterScenarioFeatureProjection |  |
+relationship | memberOf | RouterScenarioFeatureProjection.init(_:) | RouterScenarioFeatureProjection |  |
+relationship | memberOf | RouterScenarioFeatureResolver.init(_:) | RouterScenarioFeatureResolver |  |
 relationship | memberOf | RouterScenarioFixture.completeness | RouterScenarioFixture |  |
 relationship | memberOf | RouterScenarioFixture.controls | RouterScenarioFixture |  |
+relationship | memberOf | RouterScenarioFixture.currentFormatVersion | RouterScenarioFixture |  |
 relationship | memberOf | RouterScenarioFixture.decode(from:maximumByteCount:maximumStepCount:) | RouterScenarioFixture |  |
 relationship | memberOf | RouterScenarioFixture.encode(to:) | RouterScenarioFixture |  |
 relationship | memberOf | RouterScenarioFixture.formatVersion | RouterScenarioFixture |  |
@@ -102,6 +107,7 @@ relationship | memberOf | RouterScenarioReplayEnvironment.environmentVersion | R
 relationship | memberOf | RouterScenarioReplayEnvironment.externalEffectIDs | RouterScenarioReplayEnvironment |  |
 relationship | memberOf | RouterScenarioReplayEnvironment.init(routeSchemaID:environmentID:environmentVersion:dependencies:capabilities:externalEffectIDs:) | RouterScenarioReplayEnvironment |  |
 relationship | memberOf | RouterScenarioReplayEnvironment.routeSchemaID | RouterScenarioReplayEnvironment |  |
+relationship | memberOf | RouterScenarioReplayError.duplicateFeatureResolver(namespaces:) | RouterScenarioReplayError |  |
 relationship | memberOf | RouterScenarioReplayError.environmentMismatch(expectedID:expectedVersion:) | RouterScenarioReplayError |  |
 relationship | memberOf | RouterScenarioReplayError.incomplete(_:) | RouterScenarioReplayError |  |
 relationship | memberOf | RouterScenarioReplayError.initialStateMismatch | RouterScenarioReplayError |  |
@@ -111,6 +117,7 @@ relationship | memberOf | RouterScenarioReplayError.missingCancellationProvenanc
 relationship | memberOf | RouterScenarioReplayError.missingDependency(id:version:) | RouterScenarioReplayError |  |
 relationship | memberOf | RouterScenarioReplayError.missingDependencyCapability(dependencyID:capability:) | RouterScenarioReplayError |  |
 relationship | memberOf | RouterScenarioReplayError.missingExpectation(step:) | RouterScenarioReplayError |  |
+relationship | memberOf | RouterScenarioReplayError.missingFeatureResolver(namespaces:) | RouterScenarioReplayError |  |
 relationship | memberOf | RouterScenarioReplayError.missingReplayCapability(_:) | RouterScenarioReplayError |  |
 relationship | memberOf | RouterScenarioReplayError.rejectionMismatch(step:expected:actual:) | RouterScenarioReplayError |  |
 relationship | memberOf | RouterScenarioReplayError.revisionBeforeCaptureBaseline(step:) | RouterScenarioReplayError |  |
@@ -121,8 +128,13 @@ relationship | memberOf | RouterScenarioReplayError.terminalMismatch(step:expect
 relationship | memberOf | RouterScenarioReplayError.unsupportedExternalEffect(_:) | RouterScenarioReplayError |  |
 relationship | memberOf | RouterScenarioReplayError.unsupportedHistoryLifetime(step:) | RouterScenarioReplayError |  |
 relationship | memberOf | RouterScenarioRequestSemantics.action | RouterScenarioRequestSemantics |  |
+relationship | memberOf | RouterScenarioRequestSemantics.featureAction(scope:lifetime:features:) | RouterScenarioRequestSemantics |  |
+relationship | memberOf | RouterScenarioRequestSemantics.featurePlan(scope:lifetime:node:features:) | RouterScenarioRequestSemantics |  |
 relationship | memberOf | RouterScenarioRequestSemantics.historyNavigation(_:) | RouterScenarioRequestSemantics |  |
-relationship | memberOf | RouterScenarioRunner.replay(_:on:environment:) | RouterScenarioRunner |  |
+relationship | memberOf | RouterScenarioRunner.replay(_:on:environment:featureResolvers:) | RouterScenarioRunner |  |
+relationship | memberOf | RouterScenarioSceneLifetime.application | RouterScenarioSceneLifetime |  |
+relationship | memberOf | RouterScenarioSceneLifetime.currentScene | RouterScenarioSceneLifetime |  |
+relationship | memberOf | RouterScenarioSceneLifetime.expiredScene | RouterScenarioSceneLifetime |  |
 relationship | memberOf | RouterScenarioSourceGenerationError.encodingFailed | RouterScenarioSourceGenerationError |  |
 relationship | memberOf | RouterScenarioSourceGenerationError.incomplete(_:) | RouterScenarioSourceGenerationError |  |
 relationship | memberOf | RouterScenarioSourceGenerationError.invalidEventOrdering | RouterScenarioSourceGenerationError |  |
@@ -130,9 +142,10 @@ relationship | memberOf | RouterScenarioSourceGenerationError.invalidExpectedRev
 relationship | memberOf | RouterScenarioSourceGenerationError.invalidFixtureFileName(_:) | RouterScenarioSourceGenerationError |  |
 relationship | memberOf | RouterScenarioSourceGenerationError.invalidSwiftIdentifier(_:) | RouterScenarioSourceGenerationError |  |
 relationship | memberOf | RouterScenarioSourceGenerationError.missingCancellationProvenance(step:) | RouterScenarioSourceGenerationError |  |
+relationship | memberOf | RouterScenarioSourceGenerationError.missingFeatureResolversFactory | RouterScenarioSourceGenerationError |  |
 relationship | memberOf | RouterScenarioSourceGenerationError.unsupportedHistoryLifetime(step:) | RouterScenarioSourceGenerationError |  |
-relationship | memberOf | RouterScenarioSourceGenerator.generate(_:routeTypeName:testName:storeFactory:) | RouterScenarioSourceGenerator |  |
-relationship | memberOf | RouterScenarioSourceGenerator.generateFiles(_:routeTypeName:fixtureFileName:testName:storeFactory:environmentFactory:) | RouterScenarioSourceGenerator |  |
+relationship | memberOf | RouterScenarioSourceGenerator.generate(_:routeTypeName:testName:storeFactory:featureResolversFactory:) | RouterScenarioSourceGenerator |  |
+relationship | memberOf | RouterScenarioSourceGenerator.generateFiles(_:routeTypeName:fixtureFileName:testName:storeFactory:environmentFactory:featureResolversFactory:) | RouterScenarioSourceGenerator |  |
 relationship | memberOf | RouterScenarioStep.action | RouterScenarioStep |  |
 relationship | memberOf | RouterScenarioStep.cancellationOrigin | RouterScenarioStep |  |
 relationship | memberOf | RouterScenarioStep.context | RouterScenarioStep |  |
@@ -216,6 +229,7 @@ symbol | swift.enum | RouterScenarioReplayCapability | RouterScenarioReplayCapab
 symbol | swift.enum | RouterScenarioReplayError | RouterScenarioReplayError | enum RouterScenarioReplayError | []
 symbol | swift.enum | RouterScenarioRequestSemantics | RouterScenarioRequestSemantics | enum RouterScenarioRequestSemantics<R> where R : Route, R : Decodable, R : Encodable | []
 symbol | swift.enum | RouterScenarioRunner | RouterScenarioRunner | enum RouterScenarioRunner | []
+symbol | swift.enum | RouterScenarioSceneLifetime | RouterScenarioSceneLifetime | enum RouterScenarioSceneLifetime | []
 symbol | swift.enum | RouterScenarioSourceGenerationError | RouterScenarioSourceGenerationError | enum RouterScenarioSourceGenerationError | []
 symbol | swift.enum | RouterScenarioSourceGenerator | RouterScenarioSourceGenerator | enum RouterScenarioSourceGenerator | []
 symbol | swift.enum | RouterScenarioTerminal | RouterScenarioTerminal | enum RouterScenarioTerminal | []
@@ -252,6 +266,7 @@ symbol | swift.enum.case | RouterScenarioRejectionKind.superseded | RouterScenar
 symbol | swift.enum.case | RouterScenarioReplayCapability.applicationEffects | RouterScenarioReplayCapability.applicationEffects | case applicationEffects | []
 symbol | swift.enum.case | RouterScenarioReplayCapability.deterministicClock | RouterScenarioReplayCapability.deterministicClock | case deterministicClock | []
 symbol | swift.enum.case | RouterScenarioReplayCapability.deterministicTransitionIDs | RouterScenarioReplayCapability.deterministicTransitionIDs | case deterministicTransitionIDs | []
+symbol | swift.enum.case | RouterScenarioReplayError.duplicateFeatureResolver(namespaces:) | RouterScenarioReplayError.duplicateFeatureResolver(namespaces:) | case duplicateFeatureResolver(namespaces: [String]) | []
 symbol | swift.enum.case | RouterScenarioReplayError.environmentMismatch(expectedID:expectedVersion:) | RouterScenarioReplayError.environmentMismatch(expectedID:expectedVersion:) | case environmentMismatch(expectedID: String, expectedVersion: String) | []
 symbol | swift.enum.case | RouterScenarioReplayError.incomplete(_:) | RouterScenarioReplayError.incomplete(_:) | case incomplete(RouterScenarioCompleteness) | []
 symbol | swift.enum.case | RouterScenarioReplayError.initialStateMismatch | RouterScenarioReplayError.initialStateMismatch | case initialStateMismatch | []
@@ -261,6 +276,7 @@ symbol | swift.enum.case | RouterScenarioReplayError.missingCancellationProvenan
 symbol | swift.enum.case | RouterScenarioReplayError.missingDependency(id:version:) | RouterScenarioReplayError.missingDependency(id:version:) | case missingDependency(id: String, version: String) | []
 symbol | swift.enum.case | RouterScenarioReplayError.missingDependencyCapability(dependencyID:capability:) | RouterScenarioReplayError.missingDependencyCapability(dependencyID:capability:) | case missingDependencyCapability(dependencyID: String, capability: String) | []
 symbol | swift.enum.case | RouterScenarioReplayError.missingExpectation(step:) | RouterScenarioReplayError.missingExpectation(step:) | case missingExpectation(step: Int) | []
+symbol | swift.enum.case | RouterScenarioReplayError.missingFeatureResolver(namespaces:) | RouterScenarioReplayError.missingFeatureResolver(namespaces:) | case missingFeatureResolver(namespaces: [String]) | []
 symbol | swift.enum.case | RouterScenarioReplayError.missingReplayCapability(_:) | RouterScenarioReplayError.missingReplayCapability(_:) | case missingReplayCapability(RouterScenarioReplayCapability) | []
 symbol | swift.enum.case | RouterScenarioReplayError.rejectionMismatch(step:expected:actual:) | RouterScenarioReplayError.rejectionMismatch(step:expected:actual:) | case rejectionMismatch(step: Int, expected: RouterScenarioRejectionKind, actual: RouterScenarioRejectionKind?) | []
 symbol | swift.enum.case | RouterScenarioReplayError.revisionBeforeCaptureBaseline(step:) | RouterScenarioReplayError.revisionBeforeCaptureBaseline(step:) | case revisionBeforeCaptureBaseline(step: Int) | []
@@ -271,7 +287,12 @@ symbol | swift.enum.case | RouterScenarioReplayError.terminalMismatch(step:expec
 symbol | swift.enum.case | RouterScenarioReplayError.unsupportedExternalEffect(_:) | RouterScenarioReplayError.unsupportedExternalEffect(_:) | case unsupportedExternalEffect(String) | []
 symbol | swift.enum.case | RouterScenarioReplayError.unsupportedHistoryLifetime(step:) | RouterScenarioReplayError.unsupportedHistoryLifetime(step:) | case unsupportedHistoryLifetime(step: Int) | []
 symbol | swift.enum.case | RouterScenarioRequestSemantics.action | RouterScenarioRequestSemantics.action | case action | []
+symbol | swift.enum.case | RouterScenarioRequestSemantics.featureAction(scope:lifetime:features:) | RouterScenarioRequestSemantics.featureAction(scope:lifetime:features:) | case featureAction(scope: RouterScopePath, lifetime: RouterScenarioSceneLifetime, features: [RouterFeatureCatalogEntry]) | []
+symbol | swift.enum.case | RouterScenarioRequestSemantics.featurePlan(scope:lifetime:node:features:) | RouterScenarioRequestSemantics.featurePlan(scope:lifetime:node:features:) | case featurePlan(scope: RouterScopePath, lifetime: RouterScenarioSceneLifetime, node: RouterNode<R>, features: [RouterFeatureCatalogEntry]) | []
 symbol | swift.enum.case | RouterScenarioRequestSemantics.historyNavigation(_:) | RouterScenarioRequestSemantics.historyNavigation(_:) | case historyNavigation(RouterState<R>) | []
+symbol | swift.enum.case | RouterScenarioSceneLifetime.application | RouterScenarioSceneLifetime.application | case application | []
+symbol | swift.enum.case | RouterScenarioSceneLifetime.currentScene | RouterScenarioSceneLifetime.currentScene | case currentScene | []
+symbol | swift.enum.case | RouterScenarioSceneLifetime.expiredScene | RouterScenarioSceneLifetime.expiredScene | case expiredScene | []
 symbol | swift.enum.case | RouterScenarioSourceGenerationError.encodingFailed | RouterScenarioSourceGenerationError.encodingFailed | case encodingFailed | []
 symbol | swift.enum.case | RouterScenarioSourceGenerationError.incomplete(_:) | RouterScenarioSourceGenerationError.incomplete(_:) | case incomplete(RouterScenarioCompleteness) | []
 symbol | swift.enum.case | RouterScenarioSourceGenerationError.invalidEventOrdering | RouterScenarioSourceGenerationError.invalidEventOrdering | case invalidEventOrdering | []
@@ -279,6 +300,7 @@ symbol | swift.enum.case | RouterScenarioSourceGenerationError.invalidExpectedRe
 symbol | swift.enum.case | RouterScenarioSourceGenerationError.invalidFixtureFileName(_:) | RouterScenarioSourceGenerationError.invalidFixtureFileName(_:) | case invalidFixtureFileName(String) | []
 symbol | swift.enum.case | RouterScenarioSourceGenerationError.invalidSwiftIdentifier(_:) | RouterScenarioSourceGenerationError.invalidSwiftIdentifier(_:) | case invalidSwiftIdentifier(String) | []
 symbol | swift.enum.case | RouterScenarioSourceGenerationError.missingCancellationProvenance(step:) | RouterScenarioSourceGenerationError.missingCancellationProvenance(step:) | case missingCancellationProvenance(step: Int) | []
+symbol | swift.enum.case | RouterScenarioSourceGenerationError.missingFeatureResolversFactory | RouterScenarioSourceGenerationError.missingFeatureResolversFactory | case missingFeatureResolversFactory | []
 symbol | swift.enum.case | RouterScenarioSourceGenerationError.unsupportedHistoryLifetime(step:) | RouterScenarioSourceGenerationError.unsupportedHistoryLifetime(step:) | case unsupportedHistoryLifetime(step: Int) | []
 symbol | swift.enum.case | RouterScenarioTerminal.applied | RouterScenarioTerminal.applied | case applied | []
 symbol | swift.enum.case | RouterScenarioTerminal.deferred | RouterScenarioTerminal.deferred | case deferred | []
@@ -293,6 +315,8 @@ symbol | swift.init | RouterActionStep.init(action:context:) | init(action:conte
 symbol | swift.init | RouterScenarioCompleteness.init(unpairedRequestCount:droppedStepCount:missingExpectationCount:missingControlCount:) | init(unpairedRequestCount:droppedStepCount:missingExpectationCount:missingControlCount:) | init(unpairedRequestCount: Int = 0, droppedStepCount: Int = 0, missingExpectationCount: Int = 0, missingControlCount: Int = 0) | []
 symbol | swift.init | RouterScenarioDependency.init(id:version:capabilities:) | init(id:version:capabilities:) | init(id: String, version: String, capabilities: Set<String> = []) | []
 symbol | swift.init | RouterScenarioExpectation.init(state:revision:terminal:rejection:) | init(state:revision:terminal:rejection:) | init(state: RouterState<R>, revision: UInt64, terminal: RouterScenarioTerminal, rejection: RouterScenarioRejectionKind? = nil) | []
+symbol | swift.init | RouterScenarioFeatureProjection.init(_:) | init(_:) | init(_ mapping: RouterFeatureMapping<Root, Feature>) | []
+symbol | swift.init | RouterScenarioFeatureResolver.init(_:) | init(_:) | init<Feature>(_ mapping: RouterFeatureMapping<Root, Feature>) where Feature : Route | []
 symbol | swift.init | RouterScenarioFixture.init(from:) | init(from:) | init(from decoder: any Decoder) throws | []
 symbol | swift.init | RouterScenarioFixture.init(initialState:initialRevision:metadata:steps:controls:completeness:) | init(initialState:initialRevision:metadata:steps:controls:completeness:) | init(initialState: RouterState<R>, initialRevision: UInt64 = 0, metadata: RouterScenarioMetadata? = nil, steps: [RouterScenarioStep<R>], controls: [RouterScenarioControl]? = nil, completeness: RouterScenarioCompleteness = .init()) | []
 symbol | swift.init | RouterScenarioGeneratedFiles.init(source:fixtureData:fixtureFileName:) | init(source:fixtureData:fixtureFileName:) | init(source: String, fixtureData: Data, fixtureFileName: String) | []
@@ -310,6 +334,8 @@ symbol | swift.init | RouterTestStore.init(initialPath:configuration:exhaustivit
 symbol | swift.init | RouterTestStore.init(initialState:configuration:exhaustivity:runtime:) | init(initialState:configuration:exhaustivity:runtime:) | @MainActor init(initialState: RouterState<R> = .rootStack, configuration: RouterStoreConfiguration<R> = .init(), exhaustivity: TestExhaustivity = .strict, runtime: RouterTestRuntime? = nil) | []
 symbol | swift.method | RouterActionSequence.encoded() | encoded() | func encoded() throws -> Data | []
 symbol | swift.method | RouterActionSequence.replay(on:) | replay(on:) | @discardableResult @MainActor func replay(on store: RouterTestStore<R>) async -> [RouterOutcome<R>] | []
+symbol | swift.method | RouterScenarioFeatureProjection.appending(_:) | appending(_:) | func appending<Child>(_ mapping: RouterFeatureMapping<Feature, Child>) -> RouterScenarioFeatureProjection<Root, Child> where Child : Route | []
+symbol | swift.method | RouterScenarioFeatureProjection.eraseToResolver() | eraseToResolver() | func eraseToResolver() -> RouterScenarioFeatureResolver<Root> | []
 symbol | swift.method | RouterScenarioFixture.encode(to:) | encode(to:) | func encode(to encoder: any Encoder) throws | []
 symbol | swift.method | RouterScenarioFixture.settingExpectations(_:) | settingExpectations(_:) | func settingExpectations(_ expectations: [RouterScenarioExpectation<R>]) throws -> RouterScenarioFixture<R> | []
 symbol | swift.method | RouterScenarioRecorder.advanceTime(byNanoseconds:on:) | advanceTime(byNanoseconds:on:) | @MainActor func advanceTime(byNanoseconds nanoseconds: Int64, on clock: RouterTestClock) | []
@@ -425,6 +451,8 @@ symbol | swift.struct | RouterActionStep | RouterActionStep | struct RouterActio
 symbol | swift.struct | RouterScenarioCompleteness | RouterScenarioCompleteness | struct RouterScenarioCompleteness | []
 symbol | swift.struct | RouterScenarioDependency | RouterScenarioDependency | struct RouterScenarioDependency | []
 symbol | swift.struct | RouterScenarioExpectation | RouterScenarioExpectation | struct RouterScenarioExpectation<R> where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.struct | RouterScenarioFeatureProjection | RouterScenarioFeatureProjection | struct RouterScenarioFeatureProjection<Root, Feature> where Root : Route, Feature : Route | []
+symbol | swift.struct | RouterScenarioFeatureResolver | RouterScenarioFeatureResolver | struct RouterScenarioFeatureResolver<Root> where Root : Route | []
 symbol | swift.struct | RouterScenarioFixture | RouterScenarioFixture | struct RouterScenarioFixture<R> where R : Route, R : Decodable, R : Encodable | []
 symbol | swift.struct | RouterScenarioGeneratedFiles | RouterScenarioGeneratedFiles | struct RouterScenarioGeneratedFiles | []
 symbol | swift.struct | RouterScenarioMetadata | RouterScenarioMetadata | struct RouterScenarioMetadata | []
@@ -434,6 +462,7 @@ symbol | swift.struct | RouterTestPendingWork | RouterTestPendingWork | struct R
 symbol | swift.type.method | RouterActionSequence.decode(_:) | decode(_:) | static func decode(_ data: Data) throws -> RouterActionSequence<R> | []
 symbol | swift.type.method | RouterInspectorScenarioController.routerScenario(store:capacity:metadata:) | routerScenario(store:capacity:metadata:) | @MainActor static func routerScenario<R>(store: RouterStore<R>, capacity: Int = 256, metadata: RouterScenarioMetadata? = nil) -> RouterInspectorScenarioController where R : Route, R : Decodable, R : Encodable | []
 symbol | swift.type.method | RouterScenarioFixture.decode(from:maximumByteCount:maximumStepCount:) | decode(from:maximumByteCount:maximumStepCount:) | static func decode(from data: Data, maximumByteCount: Int = 2 * 1_024 * 1_024, maximumStepCount: Int = 2_000) throws -> RouterScenarioFixture<R> | []
-symbol | swift.type.method | RouterScenarioRunner.replay(_:on:environment:) | replay(_:on:environment:) | @discardableResult @MainActor static func replay<R>(_ fixture: RouterScenarioFixture<R>, on store: RouterTestStore<R>, environment: RouterScenarioReplayEnvironment? = nil) async throws -> [RouterOutcome<R>] where R : Route, R : Decodable, R : Encodable | []
-symbol | swift.type.method | RouterScenarioSourceGenerator.generate(_:routeTypeName:testName:storeFactory:) | generate(_:routeTypeName:testName:storeFactory:) | static func generate<R>(_ fixture: RouterScenarioFixture<R>, routeTypeName: String, testName: String = "capturedRouterScenario", storeFactory: String = "makeRouterTestStore") throws -> String where R : Route, R : Decodable, R : Encodable | []
-symbol | swift.type.method | RouterScenarioSourceGenerator.generateFiles(_:routeTypeName:fixtureFileName:testName:storeFactory:environmentFactory:) | generateFiles(_:routeTypeName:fixtureFileName:testName:storeFactory:environmentFactory:) | static func generateFiles<R>(_ fixture: RouterScenarioFixture<R>, routeTypeName: String, fixtureFileName: String = "router-scenario.json", testName: String = "capturedRouterScenario", storeFactory: String = "makeRouterTestStore", environmentFactory: String = "makeRouterScenarioEnvironment") throws -> RouterScenarioGeneratedFiles where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.type.method | RouterScenarioRunner.replay(_:on:environment:featureResolvers:) | replay(_:on:environment:featureResolvers:) | @discardableResult @MainActor static func replay<R>(_ fixture: RouterScenarioFixture<R>, on store: RouterTestStore<R>, environment: RouterScenarioReplayEnvironment? = nil, featureResolvers: [RouterScenarioFeatureResolver<R>] = []) async throws -> [RouterOutcome<R>] where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.type.method | RouterScenarioSourceGenerator.generate(_:routeTypeName:testName:storeFactory:featureResolversFactory:) | generate(_:routeTypeName:testName:storeFactory:featureResolversFactory:) | static func generate<R>(_ fixture: RouterScenarioFixture<R>, routeTypeName: String, testName: String = "capturedRouterScenario", storeFactory: String = "makeRouterTestStore", featureResolversFactory: String? = nil) throws -> String where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.type.method | RouterScenarioSourceGenerator.generateFiles(_:routeTypeName:fixtureFileName:testName:storeFactory:environmentFactory:featureResolversFactory:) | generateFiles(_:routeTypeName:fixtureFileName:testName:storeFactory:environmentFactory:featureResolversFactory:) | static func generateFiles<R>(_ fixture: RouterScenarioFixture<R>, routeTypeName: String, fixtureFileName: String = "router-scenario.json", testName: String = "capturedRouterScenario", storeFactory: String = "makeRouterTestStore", environmentFactory: String = "makeRouterScenarioEnvironment", featureResolversFactory: String? = nil) throws -> RouterScenarioGeneratedFiles where R : Route, R : Decodable, R : Encodable | []
+symbol | swift.type.property | RouterScenarioFixture.currentFormatVersion | currentFormatVersion | static var currentFormatVersion: Int { get } | []

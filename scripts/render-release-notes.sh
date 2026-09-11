@@ -70,12 +70,12 @@ mkdir -p "$(dirname "$OUTPUT_PATH")"
 
   if [[ "$VERSION" =~ ^([0-9]+)\.0\.0($|-) ]]; then
     MAJOR="${BASH_REMATCH[1]}"
-    MIGRATION_SOURCE="Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Migrating-To-InnoRouter-$MAJOR.md"
+    MIGRATION_SOURCE="Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-$MAJOR.md"
     if [[ ! -f "$ROOT_DIR/$MIGRATION_SOURCE" ]]; then
       echo "[render-release-notes] Failed: major release migration guide not found: $MIGRATION_SOURCE" >&2
       exit 1
     fi
-    echo "- [Migrating to InnoRouter $MAJOR](https://innosquadcorp.github.io/InnoRouter/$VERSION/swiftui/documentation/innorouterswiftui/migrating-to-innorouter-$MAJOR/)"
+    echo "- [Migrating to InnoRouter $MAJOR](https://innosquadcorp.github.io/InnoRouter/$VERSION/documentation/innorouter/migrating-to-innorouter-$MAJOR/)"
   fi
 
   echo

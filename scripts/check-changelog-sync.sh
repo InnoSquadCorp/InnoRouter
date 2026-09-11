@@ -28,6 +28,8 @@ fi
 MERGE_BASE="$(git merge-base "$BASE_REF" HEAD)"
 CHANGED_FILES="$(git diff --name-only "$MERGE_BASE" HEAD)"
 
+bash "$ROOT_DIR/scripts/check-changelog-phase.sh" CHANGELOG.md >/dev/null
+
 extract_unreleased() {
   local changelog_path="$1"
 

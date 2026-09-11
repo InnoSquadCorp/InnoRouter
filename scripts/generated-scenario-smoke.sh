@@ -44,12 +44,30 @@ EOF
 
 cat > "$SMOKE_DIR/Tests/GeneratedScenarioTests/Support.swift" <<'EOF'
 import Foundation
+import SwiftUI
 import InnoRouter
 import InnoRouterTesting
 
 enum ExternalScenarioRoute: String, Route, Codable {
     case home
     case detail
+}
+
+@Router
+enum ExternalFeatureRoute: Codable {
+    case home
+    case detail
+
+    var destination: some View { EmptyView() }
+}
+
+@Router
+enum ExternalFeatureParentRoute: Codable {
+    @FeatureRoute
+    case feature(ExternalFeatureRoute)
+    case replacement
+
+    var destination: some View { EmptyView() }
 }
 
 @MainActor
@@ -102,6 +120,31 @@ func makeRouterTestStore(
 func makeRouterScenarioEnvironment() -> RouterScenarioReplayEnvironment {
     .init(routeSchemaID: String(describing: ExternalScenarioRoute.self))
 }
+
+@MainActor
+func makeFeatureRouterTestStore(
+    _ state: RouterState<ExternalFeatureParentRoute>
+) -> RouterTestStore<ExternalFeatureParentRoute> {
+    RouterTestStore(
+        initialState: state,
+        configuration: .init(policies: [
+            RouterPolicy(name: "feature-approval") { transition in
+                guard transition.context.resumedDeferral == nil,
+                      case .apply = transition.action else { return .allow }
+                return .deferRequest(RouterDeferralID())
+            },
+        ]),
+        exhaustivity: .off
+    )
+}
+
+func makeFeatureRouterScenarioEnvironment() -> RouterScenarioReplayEnvironment {
+    .init(routeSchemaID: String(describing: ExternalFeatureParentRoute.self))
+}
+
+func makeFeatureResolvers() -> [RouterScenarioFeatureResolver<ExternalFeatureParentRoute>] {
+    [.init(ExternalFeatureParentRoute.Feature.feature)]
+}
 EOF
 
 touch "$SMOKE_DIR/Tests/GeneratedScenarioTests/generated-scenario.json"
@@ -109,6 +152,7 @@ touch "$SMOKE_DIR/Tests/GeneratedScenarioTests/generated-scenario.json"
 cat > "$SMOKE_DIR/Tests/FixtureGeneratorTests/FixtureGeneratorTests.swift" <<'EOF'
 import Foundation
 import Testing
+import SwiftUI
 
 import InnoRouter
 import InnoRouterTesting
@@ -118,11 +162,32 @@ enum ExternalScenarioRoute: String, Route, Codable {
     case detail
 }
 
+@Router
+enum ExternalFeatureRoute: Codable {
+    case home
+    case detail
+
+    var destination: some View { EmptyView() }
+}
+
+@Router
+enum ExternalFeatureParentRoute: Codable {
+    @FeatureRoute
+    case feature(ExternalFeatureRoute)
+    case replacement
+
+    var destination: some View { EmptyView() }
+}
+
 @Suite("Fixture source generator")
 struct FixtureGeneratorTests {
     @Test("Writes generated Swift Testing source")
     func fixtureGeneration() throws {
         let variant = ProcessInfo.processInfo.environment["SCENARIO_VARIANT"] ?? "positive"
+        if variant == "feature-owner" {
+            try generateFeatureOwnerFixture()
+            return
+        }
         if variant == "history" || variant == "history-preexisting" {
             try generateHistoryFixture(preexistingWindow: variant == "history-preexisting")
             return
@@ -181,6 +246,119 @@ struct FixtureGeneratorTests {
         try files.fixtureData.write(
             to: URL(fileURLWithPath: fixtureOutput),
             options: .atomic
+        )
+    }
+
+    private func generateFeatureOwnerFixture() throws {
+        let deferralID = RouterDeferralID()
+        let firstID = RouterTransitionID()
+        let replacementID = RouterTransitionID()
+        let resumeID = RouterTransitionID()
+        let initial: RouterState<ExternalFeatureParentRoute> = .rootStack(
+            path: [.feature(.home)]
+        )
+        let replacement: RouterState<ExternalFeatureParentRoute> = .rootStack(
+            path: [.replacement]
+        )
+        let featureTarget = RouterNode<ExternalFeatureParentRoute>.stack(
+            path: [.feature(.detail)]
+        )
+        let featureAction = RouterAction<ExternalFeatureParentRoute>.apply(
+            .init(state: .rootStack(path: [.feature(.detail)]))
+        )
+        let entry = RouterFeatureCatalogEntry(
+            id: ExternalFeatureParentRoute.Feature.feature.id,
+            namespace: ExternalFeatureParentRoute.Feature.feature.namespace,
+            childRouteTypeName: String(describing: ExternalFeatureRoute.self)
+        )
+        let semantics = RouterScenarioRequestSemantics<ExternalFeatureParentRoute>.featurePlan(
+            scope: .root,
+            lifetime: .application,
+            node: featureTarget,
+            features: [entry]
+        )
+        let fixture = RouterScenarioFixture<ExternalFeatureParentRoute>(
+            initialState: initial,
+            steps: [
+                .init(
+                    requestID: firstID,
+                    submissionIndex: 0,
+                    submissionEventIndex: 0,
+                    terminalEventIndex: 1,
+                    action: featureAction,
+                    context: .init(),
+                    requestSemantics: semantics,
+                    observedState: initial,
+                    observedRevision: 0,
+                    observedTerminal: .deferred,
+                    observedDeferralID: deferralID,
+                    expectation: .init(state: initial, revision: 0, terminal: .deferred)
+                ),
+                .init(
+                    requestID: replacementID,
+                    submissionIndex: 1,
+                    submissionEventIndex: 2,
+                    terminalEventIndex: 3,
+                    action: .replaceStack([.replacement]),
+                    context: .init(),
+                    observedState: replacement,
+                    observedRevision: 1,
+                    observedTerminal: .applied,
+                    expectation: .init(state: replacement, revision: 1, terminal: .applied)
+                ),
+                .init(
+                    requestID: resumeID,
+                    submissionIndex: 2,
+                    submissionEventIndex: 5,
+                    terminalEventIndex: 6,
+                    action: featureAction,
+                    context: .init(resumedDeferral: deferralID),
+                    requestSemantics: semantics,
+                    observedState: replacement,
+                    observedRevision: 1,
+                    observedTerminal: .rejected,
+                    observedRejection: .featureProjection,
+                    expectation: .init(
+                        state: replacement,
+                        revision: 1,
+                        terminal: .rejected,
+                        rejection: .featureProjection
+                    )
+                ),
+            ],
+            controls: [
+                .submit(requestID: firstID, eventIndex: 0),
+                .awaitTerminal(requestID: firstID, eventIndex: 1),
+                .submit(requestID: replacementID, eventIndex: 2),
+                .awaitTerminal(requestID: replacementID, eventIndex: 3),
+                .resolveDeferral(
+                    requestID: resumeID,
+                    deferralID: deferralID,
+                    resolution: .allow,
+                    resumeStrategy: .rebaseOnCurrentState,
+                    eventIndex: 4
+                ),
+                .awaitTerminal(requestID: resumeID, eventIndex: 6),
+            ]
+        )
+        let files = try RouterScenarioSourceGenerator.generateFiles(
+            fixture,
+            routeTypeName: "ExternalFeatureParentRoute",
+            fixtureFileName: "generated-scenario.json",
+            testName: "generatedScenario",
+            storeFactory: "makeFeatureRouterTestStore",
+            environmentFactory: "makeFeatureRouterScenarioEnvironment",
+            featureResolversFactory: "makeFeatureResolvers"
+        )
+        guard let sourceOutput = ProcessInfo.processInfo.environment["SCENARIO_SOURCE_OUTPUT"],
+              let fixtureOutput = ProcessInfo.processInfo.environment["SCENARIO_FIXTURE_OUTPUT"] else {
+            return
+        }
+        try Data(files.source.utf8).write(
+            to: URL(fileURLWithPath: sourceOutput), options: .atomic
+        )
+        try files.fixtureData.write(
+            to: URL(fileURLWithPath: fixtureOutput), options: .atomic
         )
     }
 
@@ -657,6 +835,8 @@ generate cancel-action
 run_generated cancel-action
 generate cancel-history
 run_generated cancel-history
+generate feature-owner
+run_generated feature-owner
 
 for variant in state revision terminal; do
   generate "$variant"
@@ -685,4 +865,4 @@ if ! grep -q "initialStateMismatch" "$initial_state_log"; then
   exit 1
 fi
 
-echo "[generated-scenario-smoke] Generated source and format-5 fixture compiled and ran, including stale history, action/history resume cancellation, and history rebase before and after an existing window; malformed generation and initial state/state/revision/terminal negatives failed as expected"
+echo "[generated-scenario-smoke] Generated source and format-7 fixture compiled and ran, including stale history, action/history resume cancellation, history rebase, and macro-generated feature ownership rejection; malformed generation and initial state/state/revision/terminal negatives failed as expected"
