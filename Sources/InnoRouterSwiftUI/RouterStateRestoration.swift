@@ -140,6 +140,10 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         self.saveDebounce = max(saveDebounce, .zero)
     }
 
+    // Work around swiftlang/swift#90625 in Swift 6.3.x release builds.
+    #if compiler(<6.4)
+        @_optimize(none)
+    #endif
     isolated deinit {
         if let observationID {
             store.removeSynchronousEventObserver(observationID)

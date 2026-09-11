@@ -284,6 +284,10 @@ public final class RouterScenarioRecorder<R: Route & Codable> {
         }
     }
 
+    // Work around swiftlang/swift#90625 in Swift 6.3.x release builds.
+    #if compiler(<6.4)
+        @_optimize(none)
+    #endif
     isolated deinit {
         if let requestObserverID { store.removeSynchronousRequestObserver(requestObserverID) }
         if let cancellationObserverID {

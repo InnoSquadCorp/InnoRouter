@@ -24,6 +24,10 @@ final class RouterSignpostTracker<Interval> {
         self.point = point
     }
 
+    // Work around swiftlang/swift#90625 in Swift 6.3.x release builds.
+    #if compiler(<6.4)
+        @_optimize(none)
+    #endif
     isolated deinit {
         for interval in activeIntervals.values {
             end(interval)

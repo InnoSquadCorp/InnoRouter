@@ -157,6 +157,10 @@ public final class RouterHistory<R: Route> {
         }
     }
 
+    // Work around swiftlang/swift#90625 in Swift 6.3.x release builds.
+    #if compiler(<6.4)
+        @_optimize(none)
+    #endif
     isolated deinit {
         if let eventObserverID {
             store.removeSynchronousEventObserver(eventObserverID)

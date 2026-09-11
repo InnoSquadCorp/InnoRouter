@@ -72,6 +72,10 @@ public final class RouterTestStore<R: Route> {
         )
     }
 
+    // Work around swiftlang/swift#90625 in Swift 6.3.x release builds.
+    #if compiler(<6.4)
+        @_optimize(none)
+    #endif
     isolated deinit {
         _ = lifecycle.cancelAll()
         if let runtimeOwnerID { runtime?.clock.cancelAll(ownerID: runtimeOwnerID) }
