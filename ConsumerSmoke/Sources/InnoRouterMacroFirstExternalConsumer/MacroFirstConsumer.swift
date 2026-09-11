@@ -85,7 +85,7 @@ public enum ExternalStringShadowRoute {
 }
 
 @Routable
-public enum ExternalConditionalRoute {
+public indirect enum ExternalConditionalRoute {
 #if INNOROUTER_CUSTOM_CONDITIONAL
     case custom(id: String)
 #elseif os(macOS)
@@ -99,6 +99,14 @@ public enum ExternalConditionalRoute {
     case nativeFoundation
 #endif
 #endif
+
+    case bindingCollision(Int, v0: String)
+    case recursive(Self)
+
+#if os(macOS)
+    @available(macOS 26.0, *)
+#endif
+    case future
 }
 
 private struct ExternalActions: View {
@@ -154,6 +162,21 @@ public enum MacroFirstConsumerProbe {
 
 #if canImport(Foundation) && arch(arm64)
         _ = ExternalConditionalRoute.Cases.nativeFoundation.embed(())
+#endif
+
+        let collision = ExternalConditionalRoute.Cases.bindingCollision.embed((1, "one"))
+        precondition(
+            ExternalConditionalRoute.Cases.bindingCollision.extract(collision)?.1 == "one"
+        )
+        let recursive = ExternalConditionalRoute.Cases.recursive.embed(conditional)
+        precondition(ExternalConditionalRoute.Cases.recursive.extract(recursive) != nil)
+
+#if os(macOS)
+        if #available(macOS 26.0, *) {
+            _ = ExternalConditionalRoute.Cases.future.embed(())
+        }
+#else
+        _ = ExternalConditionalRoute.Cases.future.embed(())
 #endif
 
         if #available(macOS 26, *) {

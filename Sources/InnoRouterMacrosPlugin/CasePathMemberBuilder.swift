@@ -55,7 +55,7 @@ func buildCasePathMembers(
         return []
     }
 
-    let enumName = enumDecl.name.text
+    let enumName = escapedIdentifier(enumDecl.name)
     let access = inferAccessLevel(from: enumDecl).keyword
     let casesMembers = renderCasePathMembers(
         enumDecl.memberBlock.members,
@@ -91,7 +91,7 @@ private func renderCasePathMembers(
 ) -> String {
     members.compactMap { member -> String? in
         if let caseDecl = member.decl.as(EnumCaseDeclSyntax.self) {
-            return extractCasePathEnumCases(from: caseDecl)
+            return extractCasePathEnumCases(from: caseDecl, enumName: enumName)
                 .map { buildCasePathMember($0, enumName: enumName, access: access) }
                 .joined(separator: "\n")
         }
@@ -111,7 +111,7 @@ private func renderConditionalCasePathMembers(
 ) -> String? {
     let containsCase = conditional.clauses.contains { clause in
         guard case .decls(let members) = clause.elements else { return false }
-        return !extractCasePathEnumCases(from: members).isEmpty
+        return !extractCasePathEnumCases(from: members, enumName: enumName).isEmpty
     }
     guard containsCase else { return nil }
 

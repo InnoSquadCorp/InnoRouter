@@ -46,6 +46,57 @@ enum ConditionalRouteEvent {
 #endif
 }
 
+@CasePathable
+enum CollidingBindingEvent {
+    case mixed(Int, v0: String)
+}
+
+struct SelfNamedPayload {
+    let value: Int
+}
+
+@CasePathable
+indirect enum RecursivePayloadEvent {
+    case end
+    case next(Self)
+    case optional(Self?)
+    case many([Self])
+    case tuple(Self, Self?)
+    case generic(Result<Self, Never>)
+    case named(SelfNamedPayload)
+}
+
+enum CasePathNamespace {
+    @CasePathable
+    indirect enum NestedRecursivePayload {
+        case end
+        case next(Self)
+    }
+}
+
+@CasePathable
+enum ConditionalAvailabilityEvent {
+    case regular
+#if os(macOS)
+    @available(macOS 26.0, *)
+#endif
+    case future
+
+#if os(macOS)
+#if arch(arm64)
+    @available(macOS 26.0, *)
+#endif
+#endif
+    case nestedFuture
+
+#if os(macOS)
+    @available(macOS 26.0, *)
+#else
+    @available(iOS 18.0, *)
+#endif
+    case branchFuture
+}
+
 // MARK: - @Suite
 
 @Suite("CasePathableBehaviorTests")
@@ -115,6 +166,60 @@ struct CasePathableBehaviorTests {
         #expect(route is ConditionalRouteEvent)
         #expect(ConditionalRouteEvent.portable.is(ConditionalRouteEvent.Cases.portable))
 #endif
+    }
+
+    @Test("generated extraction bindings remain unique")
+    func collidingBindingsRoundtrip() {
+        let path = CollidingBindingEvent.Cases.mixed
+        let embedded = path.embed((7, "seven"))
+        let extracted = path.extract(embedded)
+        #expect(extracted?.0 == 7)
+        #expect(extracted?.1 == "seven")
+    }
+
+    @Test("Self payloads resolve to the enclosing enum")
+    func recursiveSelfPayloadRoundtrip() {
+        let path = RecursivePayloadEvent.Cases.next
+        let embedded = path.embed(.end)
+        guard let extracted = path.extract(embedded) else {
+            Issue.record("Expected recursive payload extraction")
+            return
+        }
+        if case .end = extracted {
+        } else {
+            Issue.record("Expected the enclosing enum payload")
+        }
+
+        let optional = RecursivePayloadEvent.Cases.optional
+        #expect(optional.extract(optional.embed(nil)) != nil)
+        let many = RecursivePayloadEvent.Cases.many
+        #expect(many.extract(many.embed([.end]))?.count == 1)
+        let tuple = RecursivePayloadEvent.Cases.tuple
+        #expect(tuple.extract(tuple.embed((.end, nil)))?.1 == nil)
+        let generic = RecursivePayloadEvent.Cases.generic
+        guard case .success(.end)? = generic.extract(generic.embed(.success(.end))) else {
+            Issue.record("Expected Self nested in a generic payload")
+            return
+        }
+        let named = RecursivePayloadEvent.Cases.named
+        #expect(named.extract(named.embed(.init(value: 42)))?.value == 42)
+        let nested = CasePathNamespace.NestedRecursivePayload.Cases.next
+        guard case .end? = nested.extract(nested.embed(.end)) else {
+            Issue.record("Expected nested enum Self to resolve to its declaration")
+            return
+        }
+    }
+
+#if os(macOS)
+    @available(macOS 26.0, *)
+#endif
+    @Test("conditional availability reaches generated CasePath members")
+    func conditionalAvailabilityRoundtrip() {
+        let path = ConditionalAvailabilityEvent.Cases.future
+        let extracted: Void? = path.extract(path.embed(()))
+        #expect(extracted != nil)
+        _ = ConditionalAvailabilityEvent.Cases.nestedFuture.embed(())
+        _ = ConditionalAvailabilityEvent.Cases.branchFuture.embed(())
     }
 
     // MARK: - is(_:)

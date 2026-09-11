@@ -79,20 +79,24 @@ internal func inferAccessLevel(from enumDecl: EnumDeclSyntax) -> InferredAccessL
 internal func extractCasePathEnumCases(
     from enumDecl: EnumDeclSyntax
 ) -> [CasePathEnumCase] {
-    extractCasePathEnumCases(from: enumDecl.memberBlock.members)
+    extractCasePathEnumCases(
+        from: enumDecl.memberBlock.members,
+        enumName: escapedIdentifier(enumDecl.name)
+    )
 }
 
 internal func extractCasePathEnumCases(
-    from members: MemberBlockItemListSyntax
+    from members: MemberBlockItemListSyntax,
+    enumName: String
 ) -> [CasePathEnumCase] {
     members.flatMap { member -> [CasePathEnumCase] in
         if let caseDecl = member.decl.as(EnumCaseDeclSyntax.self) {
-            return extractCasePathEnumCases(from: caseDecl)
+            return extractCasePathEnumCases(from: caseDecl, enumName: enumName)
         }
         if let conditional = member.decl.as(IfConfigDeclSyntax.self) {
             return conditional.clauses.flatMap { clause -> [CasePathEnumCase] in
                 guard case .decls(let members) = clause.elements else { return [] }
-                return extractCasePathEnumCases(from: members)
+                return extractCasePathEnumCases(from: members, enumName: enumName)
             }
         }
         return []
@@ -100,7 +104,8 @@ internal func extractCasePathEnumCases(
 }
 
 internal func extractCasePathEnumCases(
-    from caseDecl: EnumCaseDeclSyntax
+    from caseDecl: EnumCaseDeclSyntax,
+    enumName: String
 ) -> [CasePathEnumCase] {
     let availability = availabilityAttributes(from: caseDecl)
     return caseDecl.elements.map { enumCase in
@@ -108,15 +113,64 @@ internal func extractCasePathEnumCases(
             name: enumCase.name.text,
             emittedName: escapedIdentifier(enumCase.name),
             availabilityAttributes: availability,
-            parameters: enumCase.parameterClause?.parameters.enumerated().map { index, param in
-                CasePathAssociatedValueParameter(
-                    type: param.type.trimmedDescription,
-                    bindingName: bindingName(for: param, index: index),
-                    emittedLabel: emittedLabel(for: param)
-                )
-            } ?? []
+            parameters: associatedValueParameters(
+                enumCase.parameterClause?.parameters,
+                enumName: enumName
+            )
         )
     }
+}
+
+private func associatedValueParameters(
+    _ parameters: EnumCaseParameterListSyntax?,
+    enumName: String
+) -> [CasePathAssociatedValueParameter] {
+    guard let parameters else { return [] }
+    var usedNames: Set<String> = []
+    return parameters.enumerated().map { index, parameter in
+        let preferredName = bindingName(for: parameter, index: index)
+        let preferredKey = preferredName.hasPrefix("`") && preferredName.hasSuffix("`")
+            ? String(preferredName.dropFirst().dropLast())
+            : preferredName
+        var uniqueName = preferredName
+        if !usedNames.insert(preferredKey).inserted {
+            var suffix = index
+            repeat {
+                uniqueName = "__innoRouterCaseValue\(suffix)"
+                suffix += 1
+            } while !usedNames.insert(uniqueName).inserted
+        }
+        return CasePathAssociatedValueParameter(
+            type: casePathPayloadType(parameter.type, enumName: enumName),
+            bindingName: uniqueName,
+            emittedLabel: emittedLabel(for: parameter)
+        )
+    }
+}
+
+private final class CasePathSelfTypeRewriter: SyntaxRewriter {
+    private let enumName: String
+
+    init(enumName: String) {
+        self.enumName = enumName
+        super.init(viewMode: .sourceAccurate)
+    }
+
+    override func visit(_ token: TokenSyntax) -> TokenSyntax {
+        guard token.tokenKind == .keyword(.Self) else { return token }
+        return TokenSyntax(
+            .identifier(enumName),
+            leadingTrivia: token.leadingTrivia,
+            trailingTrivia: token.trailingTrivia,
+            presence: token.presence
+        )
+    }
+}
+
+private func casePathPayloadType(_ type: TypeSyntax, enumName: String) -> String {
+    CasePathSelfTypeRewriter(enumName: enumName)
+        .rewrite(Syntax(type))
+        .trimmedDescription
 }
 
 // MARK: - Identifier helpers
@@ -153,10 +207,43 @@ internal func emittedLabel(for param: EnumCaseParameterSyntax) -> String? {
 private func availabilityAttributes(
     from caseDecl: EnumCaseDeclSyntax
 ) -> [String] {
-    caseDecl.attributes.compactMap { attribute -> String? in
-        guard let attr = attribute.as(AttributeSyntax.self) else { return nil }
-        let name = attr.attributeName.trimmedDescription
-        guard name == "available" else { return nil }
-        return attr.trimmedDescription
+    caseDecl.attributes.compactMap { element -> String? in
+        if let attribute = element.as(AttributeSyntax.self),
+           attributeBaseName(attribute) == "available" {
+            return attribute.trimmedDescription
+        }
+        if let conditional = element.as(IfConfigDeclSyntax.self),
+           let rendered = renderConditionalCasePathAvailability(conditional) {
+            return rendered
+        }
+        return nil
     }
+}
+
+private func renderConditionalCasePathAvailability(
+    _ conditional: IfConfigDeclSyntax
+) -> String? {
+    guard firstConditionalAttribute(named: "available", inside: conditional) != nil else {
+        return nil
+    }
+    var lines: [String] = []
+    for clause in conditional.clauses {
+        var directive = clause.poundKeyword.text
+        if let condition = clause.condition?.trimmedDescription {
+            directive += " \(condition)"
+        }
+        lines.append(directive)
+        guard case .attributes(let attributes) = clause.elements else { continue }
+        for element in attributes {
+            if let attribute = element.as(AttributeSyntax.self),
+               attributeBaseName(attribute) == "available" {
+                lines.append(attribute.trimmedDescription)
+            } else if let nested = element.as(IfConfigDeclSyntax.self),
+                      let rendered = renderConditionalCasePathAvailability(nested) {
+                lines.append(rendered)
+            }
+        }
+    }
+    lines.append(conditional.poundEndif.text)
+    return lines.joined(separator: "\n")
 }

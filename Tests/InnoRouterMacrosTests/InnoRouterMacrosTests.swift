@@ -653,6 +653,108 @@ struct RoutableMacroTests {
 
 @Suite("CasePathable Macro Tests")
 struct CasePathableMacroTests {
+    @Test("Associated-value bindings are unique and Self names the enclosing enum")
+    func testCasePathableBindingHygieneAndSelfPayload() {
+        assertMacroExpansion(
+            """
+            @CasePathable
+            indirect enum RecursiveDestination {
+                case mixed(Int, v0: String)
+                case next(Self)
+            }
+            """,
+            expandedSource: """
+            indirect enum RecursiveDestination {
+                case mixed(Int, v0: String)
+                case next(Self)
+
+                internal enum Cases {
+                        internal static let mixed = CasePath<RecursiveDestination, (Int, String)>(
+                            embed: { value in
+                                .mixed(value.0, v0: value.1)
+                            },
+                            extract: {
+                                if case .mixed(let v0, let __innoRouterCaseValue1) = $0 {
+                                    return (v0, __innoRouterCaseValue1)
+                                };
+                                return nil
+                            }
+                        )
+                        internal static let next = CasePath<RecursiveDestination, RecursiveDestination>(
+                            embed: { value in
+                                .next(value)
+                            },
+                            extract: {
+                                if case .next(let v0) = $0 {
+                                    return v0
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Conditional availability is copied to generated members")
+    func testCasePathableConditionalAvailability() {
+        assertMacroExpansion(
+            """
+            @CasePathable
+            enum FutureDestination {
+            #if os(macOS)
+            @available(macOS 26.0, *)
+            #endif
+                case future
+            }
+            """,
+            expandedSource: """
+            enum FutureDestination {
+            #if os(macOS)
+            @available(macOS 26.0, *)
+            #endif
+                case future
+
+                internal enum Cases {
+                        #if os(macOS)
+                        @available(macOS 26.0, *)
+                        #endif
+                        internal static let future = CasePath<FutureDestination, Void>(
+                            embed: { _ in
+                                .future
+                            },
+                            extract: {
+                                if case .future = $0 {
+                                    return ()
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Conditional enum cases preserve their compilation branches")
     func testCasePathableConditionalCases() {
         assertMacroExpansion(

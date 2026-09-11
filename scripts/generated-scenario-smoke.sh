@@ -121,6 +121,19 @@ func makeRouterScenarioEnvironment() -> RouterScenarioReplayEnvironment {
     .init(routeSchemaID: String(describing: ExternalScenarioRoute.self))
 }
 
+enum ScenarioFactories {
+    @MainActor
+    static func _makeRouterTestStore(
+        _ state: RouterState<ExternalScenarioRoute>
+    ) -> RouterTestStore<ExternalScenarioRoute> {
+        makeRouterTestStore(state)
+    }
+
+    static func _makeRouterScenarioEnvironment() -> RouterScenarioReplayEnvironment {
+        makeRouterScenarioEnvironment()
+    }
+}
+
 @MainActor
 func makeFeatureRouterTestStore(
     _ state: RouterState<ExternalFeatureParentRoute>
@@ -231,9 +244,9 @@ struct FixtureGeneratorTests {
             fixture,
             routeTypeName: "ExternalScenarioRoute",
             fixtureFileName: "generated-scenario.json",
-            testName: "generatedScenario",
-            storeFactory: "makeRouterTestStore",
-            environmentFactory: "makeRouterScenarioEnvironment"
+            testName: "_generatedScenario",
+            storeFactory: "ScenarioFactories._makeRouterTestStore",
+            environmentFactory: "ScenarioFactories._makeRouterScenarioEnvironment"
         )
         guard let sourceOutput = ProcessInfo.processInfo.environment["SCENARIO_SOURCE_OUTPUT"],
               let fixtureOutput = ProcessInfo.processInfo.environment["SCENARIO_FIXTURE_OUTPUT"] else {

@@ -207,6 +207,7 @@ public enum RouterScenarioSourceGenerator {
     }
 
     private static func isSwiftIdentifier(_ value: String) -> Bool {
+        guard value != "_" else { return false }
         guard !swiftKeywords.contains(value) else { return false }
         guard let first = value.unicodeScalars.first,
               CharacterSet.letters.union(CharacterSet(charactersIn: "_")).contains(first) else {
