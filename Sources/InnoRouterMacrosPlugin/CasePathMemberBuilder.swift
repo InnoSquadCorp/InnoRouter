@@ -57,11 +57,15 @@ func buildCasePathMembers(
 
     let enumName = enumDecl.name.text
     let access = inferAccessLevel(from: enumDecl).keyword
-    let casesMembers = cases.map { buildCasePathMember($0, enumName: enumName, access: access) }
+    let casesMembers = renderCasePathMembers(
+        enumDecl.memberBlock.members,
+        enumName: enumName,
+        access: access
+    )
 
     let casesEnum: DeclSyntax = """
         \(raw: access) enum Cases {
-        \(raw: casesMembers.joined(separator: "\n"))
+        \(raw: casesMembers)
         }
         """
 
@@ -78,4 +82,50 @@ func buildCasePathMembers(
         """
 
     return [casesEnum, isMethod, subscriptDecl]
+}
+
+private func renderCasePathMembers(
+    _ members: MemberBlockItemListSyntax,
+    enumName: String,
+    access: String
+) -> String {
+    members.compactMap { member -> String? in
+        if let caseDecl = member.decl.as(EnumCaseDeclSyntax.self) {
+            return extractCasePathEnumCases(from: caseDecl)
+                .map { buildCasePathMember($0, enumName: enumName, access: access) }
+                .joined(separator: "\n")
+        }
+        guard let conditional = member.decl.as(IfConfigDeclSyntax.self) else { return nil }
+        return renderConditionalCasePathMembers(
+            conditional,
+            enumName: enumName,
+            access: access
+        )
+    }.filter { !$0.isEmpty }.joined(separator: "\n")
+}
+
+private func renderConditionalCasePathMembers(
+    _ conditional: IfConfigDeclSyntax,
+    enumName: String,
+    access: String
+) -> String? {
+    let containsCase = conditional.clauses.contains { clause in
+        guard case .decls(let members) = clause.elements else { return false }
+        return !extractCasePathEnumCases(from: members).isEmpty
+    }
+    guard containsCase else { return nil }
+
+    var lines: [String] = []
+    for clause in conditional.clauses {
+        var directive = clause.poundKeyword.text
+        if let condition = clause.condition?.trimmedDescription {
+            directive += " \(condition)"
+        }
+        lines.append("    \(directive)")
+        guard case .decls(let members) = clause.elements else { continue }
+        let body = renderCasePathMembers(members, enumName: enumName, access: access)
+        if !body.isEmpty { lines.append(body) }
+    }
+    lines.append("    \(conditional.poundEndif.text)")
+    return lines.joined(separator: "\n")
 }

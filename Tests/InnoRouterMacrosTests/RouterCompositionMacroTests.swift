@@ -575,6 +575,79 @@ struct RouterCompositionMacroTests {
         )
     }
 
+    @Test("Conditional source text mentioning PresentationResult is ignored")
+    func presentationTextInsideConditionalCompilation() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum PresentationTextRoute {
+            #if DEBUG
+                static let marker = "@PresentationResult"
+            #endif
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum PresentationTextRoute {
+            #if DEBUG
+                static let marker = "@PresentationResult"
+            #endif
+                case home
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension PresentationTextRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("E055 finds a qualified presentation marker in nested conditional compilation")
+    func nestedQualifiedConditionalPresentationResult() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum ConditionalPresentationRoute {
+            #if os(macOS)
+            #if DEBUG
+                @InnoRouterMacros.PresentationResult(Bool.self)
+                case approval
+            #endif
+            #endif
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum ConditionalPresentationRoute {
+            #if os(macOS)
+            #if DEBUG
+                @InnoRouterMacros.PresentationResult(Bool.self)
+                case approval
+            #endif
+            #endif
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E055] @PresentationResult cases cannot be declared inside #if",
+                    line: 1,
+                    column: 1
+                ),
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("E035 rejects a scene catalog declared only inside conditional compilation")
     func conditionalOnlyScene() {
         assertMacroExpansion(

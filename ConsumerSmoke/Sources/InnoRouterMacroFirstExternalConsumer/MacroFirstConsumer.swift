@@ -84,6 +84,23 @@ public enum ExternalStringShadowRoute {
     }
 }
 
+@Routable
+public enum ExternalConditionalRoute {
+#if INNOROUTER_CUSTOM_CONDITIONAL
+    case custom(id: String)
+#elseif os(macOS)
+    case desktop(id: String)
+#else
+    case portable(id: String)
+#endif
+
+#if canImport(Foundation)
+#if arch(arm64)
+    case nativeFoundation
+#endif
+#endif
+}
+
 private struct ExternalActions: View {
     @EnvironmentRouter(ExternalRoute.self) private var router
 
@@ -123,6 +140,21 @@ public enum MacroFirstConsumerProbe {
         _ = await store.perform(.push(.detail(id: "42")))
         _ = await store.perform(.present(.init(route: .settings, style: .sheet)))
         _ = await store.perform(.dismissPresentation)
+
+#if INNOROUTER_CUSTOM_CONDITIONAL
+        let conditional = ExternalConditionalRoute.Cases.custom.embed("custom")
+        precondition(ExternalConditionalRoute.Cases.custom.extract(conditional) == "custom")
+#elseif os(macOS)
+        let conditional = ExternalConditionalRoute.Cases.desktop.embed("desktop")
+        precondition(ExternalConditionalRoute.Cases.desktop.extract(conditional) == "desktop")
+#else
+        let conditional = ExternalConditionalRoute.Cases.portable.embed("portable")
+        precondition(ExternalConditionalRoute.Cases.portable.extract(conditional) == "portable")
+#endif
+
+#if canImport(Foundation) && arch(arm64)
+        _ = ExternalConditionalRoute.Cases.nativeFoundation.embed(())
+#endif
 
         if #available(macOS 26, *) {
             _ = ExternalRoute.Presentation.futureConfirmation

@@ -161,6 +161,14 @@ private enum AvailablePresentationBehaviorRouter {
 }
 
 @Router
+private enum QualifiedPresentationBehaviorRouter {
+    @InnoRouterMacros.PresentationResult(Bool.self)
+    case approval
+
+    var destination: some View { Text("Destination") }
+}
+
+@Router
 private enum FeatureBehaviorRoute {
     case home
     case detail(id: String)
@@ -183,6 +191,12 @@ private enum FeatureParentRoute {
 
 @Suite("@Router behavior")
 struct RouterBehaviorTests {
+    @Test("A qualified presentation marker generates a typed request")
+    func qualifiedPresentationResult() {
+        let request = QualifiedPresentationBehaviorRouter.Presentation.approval
+        #expect(request.route == .approval)
+    }
+
     @Test("Presentation factories retain their route availability")
     func presentationAvailability() {
         if #available(macOS 26, *) {

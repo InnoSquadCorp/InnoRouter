@@ -98,7 +98,10 @@ func analyzeRouterPresentationResults(
 ) -> RouterPresentationResultExpansion {
     if enumDecl.memberBlock.members.contains(where: { member in
         guard let conditional = member.decl.as(IfConfigDeclSyntax.self) else { return false }
-        return conditional.trimmedDescription.contains("@PresentationResult")
+        return firstConditionalEnumCaseAttribute(
+            named: "PresentationResult",
+            inside: conditional
+        ) != nil
     }) {
         diagnosePresentationResult(.conditionalCase, at: enumDecl, context: context)
         return .invalid

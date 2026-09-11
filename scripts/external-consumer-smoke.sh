@@ -28,6 +28,13 @@ swift build \
   --jobs "$JOBS" \
   --target InnoRouterMacroFirstExternalConsumer
 
+swift build \
+  --package-path "$PACKAGE_DIR" \
+  --scratch-path "$SCRATCH_DIR/conditional-case-positive" \
+  --jobs "$JOBS" \
+  -Xswiftc -DINNOROUTER_CUSTOM_CONDITIONAL \
+  --target InnoRouterMacroFirstExternalConsumer
+
 swift test \
   --package-path "$PACKAGE_DIR" \
   --scratch-path "$SCRATCH_DIR/swiftpm" \

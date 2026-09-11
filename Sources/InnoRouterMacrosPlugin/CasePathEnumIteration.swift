@@ -79,25 +79,44 @@ internal func inferAccessLevel(from enumDecl: EnumDeclSyntax) -> InferredAccessL
 internal func extractCasePathEnumCases(
     from enumDecl: EnumDeclSyntax
 ) -> [CasePathEnumCase] {
-    enumDecl.memberBlock.members
-        .compactMap { $0.decl.as(EnumCaseDeclSyntax.self) }
-        .flatMap { caseDecl -> [CasePathEnumCase] in
-            let availability = availabilityAttributes(from: caseDecl)
-            return caseDecl.elements.map { enumCase in
-                CasePathEnumCase(
-                    name: enumCase.name.text,
-                    emittedName: escapedIdentifier(enumCase.name),
-                    availabilityAttributes: availability,
-                    parameters: enumCase.parameterClause?.parameters.enumerated().map { index, param in
-                        CasePathAssociatedValueParameter(
-                            type: param.type.trimmedDescription,
-                            bindingName: bindingName(for: param, index: index),
-                            emittedLabel: emittedLabel(for: param)
-                        )
-                    } ?? []
-                )
+    extractCasePathEnumCases(from: enumDecl.memberBlock.members)
+}
+
+internal func extractCasePathEnumCases(
+    from members: MemberBlockItemListSyntax
+) -> [CasePathEnumCase] {
+    members.flatMap { member -> [CasePathEnumCase] in
+        if let caseDecl = member.decl.as(EnumCaseDeclSyntax.self) {
+            return extractCasePathEnumCases(from: caseDecl)
+        }
+        if let conditional = member.decl.as(IfConfigDeclSyntax.self) {
+            return conditional.clauses.flatMap { clause -> [CasePathEnumCase] in
+                guard case .decls(let members) = clause.elements else { return [] }
+                return extractCasePathEnumCases(from: members)
             }
         }
+        return []
+    }
+}
+
+internal func extractCasePathEnumCases(
+    from caseDecl: EnumCaseDeclSyntax
+) -> [CasePathEnumCase] {
+    let availability = availabilityAttributes(from: caseDecl)
+    return caseDecl.elements.map { enumCase in
+        CasePathEnumCase(
+            name: enumCase.name.text,
+            emittedName: escapedIdentifier(enumCase.name),
+            availabilityAttributes: availability,
+            parameters: enumCase.parameterClause?.parameters.enumerated().map { index, param in
+                CasePathAssociatedValueParameter(
+                    type: param.type.trimmedDescription,
+                    bindingName: bindingName(for: param, index: index),
+                    emittedLabel: emittedLabel(for: param)
+                )
+            } ?? []
+        )
+    }
 }
 
 // MARK: - Identifier helpers

@@ -28,6 +28,24 @@ enum EscapedKeywordEvent {
     case `switch`(id: String)
 }
 
+@CasePathable
+enum ConditionalEvent {
+#if os(macOS)
+    case desktop(id: String)
+#else
+    case portable(id: String)
+#endif
+}
+
+@Routable
+enum ConditionalRouteEvent {
+#if os(macOS)
+    case desktop
+#else
+    case portable
+#endif
+}
+
 // MARK: - @Suite
 
 @Suite("CasePathableBehaviorTests")
@@ -73,6 +91,30 @@ struct CasePathableBehaviorTests {
         let switchEmbedded = switchPath.embed("settings")
         #expect(switchPath.extract(switchEmbedded) == "settings")
         #expect(switchPath.extract(.`default`) == nil)
+    }
+
+    @Test("conditional cases expose only the active branch's CasePath")
+    func conditionalCaseRoundtrip() {
+#if os(macOS)
+        let path = ConditionalEvent.Cases.desktop
+        #expect(path.extract(path.embed("mac")) == "mac")
+#else
+        let path = ConditionalEvent.Cases.portable
+        #expect(path.extract(path.embed("portable")) == "portable")
+#endif
+    }
+
+    @Test("Routable conditional cases preserve Route conformance and CasePath")
+    func conditionalRoutableCaseRoundtrip() {
+#if os(macOS)
+        let route: any Route = ConditionalRouteEvent.desktop
+        #expect(route is ConditionalRouteEvent)
+        #expect(ConditionalRouteEvent.desktop.is(ConditionalRouteEvent.Cases.desktop))
+#else
+        let route: any Route = ConditionalRouteEvent.portable
+        #expect(route is ConditionalRouteEvent)
+        #expect(ConditionalRouteEvent.portable.is(ConditionalRouteEvent.Cases.portable))
+#endif
     }
 
     // MARK: - is(_:)

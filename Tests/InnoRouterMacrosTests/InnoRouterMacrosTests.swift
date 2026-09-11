@@ -653,6 +653,68 @@ struct RoutableMacroTests {
 
 @Suite("CasePathable Macro Tests")
 struct CasePathableMacroTests {
+    @Test("Conditional enum cases preserve their compilation branches")
+    func testCasePathableConditionalCases() {
+        assertMacroExpansion(
+            """
+            @CasePathable
+            enum ConditionalDestination {
+            #if os(macOS)
+                case desktop(id: String)
+            #else
+                case portable(id: String)
+            #endif
+            }
+            """,
+            expandedSource: """
+            enum ConditionalDestination {
+            #if os(macOS)
+                case desktop(id: String)
+            #else
+                case portable(id: String)
+            #endif
+
+                internal enum Cases {
+                    #if os(macOS)
+                        internal static let desktop = CasePath<ConditionalDestination, String>(
+                            embed: { value in
+                                .desktop(id: value)
+                            },
+                            extract: {
+                                if case .desktop(let id) = $0 {
+                                    return id
+                                };
+                                return nil
+                            }
+                        )
+                    #else
+                        internal static let portable = CasePath<ConditionalDestination, String>(
+                            embed: { value in
+                                .portable(id: value)
+                            },
+                            extract: {
+                                if case .portable(let id) = $0 {
+                                    return id
+                                };
+                                return nil
+                            }
+                        )
+                    #endif
+                }
+
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Basic enum expansion")
     func testCasePathableBasicEnum() throws {
         assertMacroExpansion(
