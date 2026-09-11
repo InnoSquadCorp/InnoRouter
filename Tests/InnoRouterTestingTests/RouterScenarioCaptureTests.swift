@@ -1819,7 +1819,7 @@ struct RouterScenarioCaptureTests {
         let recorder = RouterScenarioRecorder(store: source)
         _ = await source.perform(.push(.home))
         _ = await source.perform(.push(.detail))
-        guard case .deferred(_, .deferred(_, _, _, let deferral)) = await history.goBack()
+        guard case .deferred = await history.goBack()
         else {
             Issue.record("Expected a deferred history move")
             return
@@ -1829,16 +1829,10 @@ struct RouterScenarioCaptureTests {
         } else {
             history.stop()
         }
-        guard case .rejected(_, _, let revision, .cancelled) = await recorder.resolveDeferred(
-            deferral.id,
-            with: .allow,
-            resumeStrategy: .rebaseOnCurrentState
-        ) else {
-            Issue.record("Expected the stopped history lifetime to cancel its resume")
-            return
-        }
-        #expect(revision == 2)
+        #expect(source.deferredTransitions.isEmpty)
+        #expect(source.revision == 2)
         let recorded = recorder.stop()
+        #expect(recorded.completeness.missingControlCount == 1)
         let fixture = try recorded.settingExpectations(recorded.steps.map {
             .init(
                 state: $0.observedState,
@@ -1855,13 +1849,13 @@ struct RouterScenarioCaptureTests {
             },
         ]), exhaustivity: .off)
 
-        #expect(throws: RouterScenarioSourceGenerationError.unsupportedHistoryLifetime(step: 3)) {
+        #expect(throws: RouterScenarioSourceGenerationError.incomplete(fixture.completeness)) {
             _ = try RouterScenarioSourceGenerator.generate(
                 fixture,
                 routeTypeName: "CapturedRoute"
             )
         }
-        await #expect(throws: RouterScenarioReplayError.unsupportedHistoryLifetime(step: 3)) {
+        await #expect(throws: RouterScenarioReplayError.incomplete(fixture.completeness)) {
             _ = try await RouterScenarioRunner.replay(fixture, on: target)
         }
         #expect(policyCalls == 0)
@@ -2627,6 +2621,40 @@ struct RouterScenarioCaptureTests {
                 complete,
                 routeTypeName: "CapturedRoute",
                 testName: "bad-name"
+            )
+        }
+
+        let complete = RouterScenarioFixture<CapturedRoute>(
+            initialState: .rootStack,
+            steps: [],
+            completeness: .init()
+        )
+        #expect(throws: RouterScenarioSourceGenerationError.invalidSwiftIdentifier("class")) {
+            _ = try RouterScenarioSourceGenerator.generate(
+                complete,
+                routeTypeName: "CapturedRoute",
+                testName: "class"
+            )
+        }
+        #expect(throws: RouterScenarioSourceGenerationError.invalidSwiftIdentifier("Factory.default")) {
+            _ = try RouterScenarioSourceGenerator.generate(
+                complete,
+                routeTypeName: "CapturedRoute",
+                storeFactory: "Factory.default"
+            )
+        }
+        #expect(throws: RouterScenarioSourceGenerationError.invalidSwiftIdentifier("Feature.make-resolvers")) {
+            _ = try RouterScenarioSourceGenerator.generate(
+                complete,
+                routeTypeName: "CapturedRoute",
+                featureResolversFactory: "Feature.make-resolvers"
+            )
+        }
+        #expect(throws: RouterScenarioSourceGenerationError.invalidSwiftIdentifier("Environment.switch")) {
+            _ = try RouterScenarioSourceGenerator.generateFiles(
+                complete,
+                routeTypeName: "CapturedRoute",
+                environmentFactory: "Environment.switch"
             )
         }
     }

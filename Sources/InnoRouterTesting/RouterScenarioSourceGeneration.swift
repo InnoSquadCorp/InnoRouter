@@ -48,12 +48,6 @@ public enum RouterScenarioSourceGenerator {
         guard isQualifiedSwiftName(environmentFactory) else {
             throw RouterScenarioSourceGenerationError.invalidSwiftIdentifier(environmentFactory)
         }
-        if let featureResolversFactory,
-           isQualifiedSwiftName(featureResolversFactory) == false {
-            throw RouterScenarioSourceGenerationError.invalidSwiftIdentifier(
-                featureResolversFactory
-            )
-        }
         guard isSafeFixtureFileName(fixtureFileName) else {
             throw RouterScenarioSourceGenerationError.invalidFixtureFileName(fixtureFileName)
         }
@@ -177,7 +171,10 @@ public enum RouterScenarioSourceGenerator {
         guard isQualifiedSwiftName(routeTypeName) else {
             throw RouterScenarioSourceGenerationError.invalidSwiftIdentifier(routeTypeName)
         }
-        for identifier in [testName, storeFactory] {
+        guard isSwiftIdentifier(testName) else {
+            throw RouterScenarioSourceGenerationError.invalidSwiftIdentifier(testName)
+        }
+        for identifier in [storeFactory, featureResolversFactory].compactMap({ $0 }) {
             guard isQualifiedSwiftName(identifier) else {
                 throw RouterScenarioSourceGenerationError.invalidSwiftIdentifier(identifier)
             }
@@ -210,6 +207,7 @@ public enum RouterScenarioSourceGenerator {
     }
 
     private static func isSwiftIdentifier(_ value: String) -> Bool {
+        guard !swiftKeywords.contains(value) else { return false }
         guard let first = value.unicodeScalars.first,
               CharacterSet.letters.union(CharacterSet(charactersIn: "_")).contains(first) else {
             return false
@@ -223,4 +221,18 @@ public enum RouterScenarioSourceGenerator {
         let components = value.split(separator: ".", omittingEmptySubsequences: false)
         return !components.isEmpty && components.allSatisfy { isSwiftIdentifier(String($0)) }
     }
+
+    private static let swiftKeywords: Set<String> = [
+        "Any", "Self", "Type", "Protocol",
+        "associatedtype", "class", "deinit", "enum", "extension", "fileprivate",
+        "func", "import", "init", "inout", "internal", "let", "open", "operator",
+        "precedencegroup", "private", "protocol", "public", "rethrows", "static",
+        "struct", "subscript", "typealias", "var",
+        "break", "case", "catch", "continue", "default", "defer", "do", "else",
+        "fallthrough", "for", "guard", "if", "in", "repeat", "return", "throw",
+        "switch", "where", "while",
+        "as", "false", "is", "nil", "self", "super", "throws", "true", "try",
+        "await", "borrowing", "consuming", "distributed", "isolated", "nonisolated",
+        "some", "any", "sending", "package", "macro",
+    ]
 }
