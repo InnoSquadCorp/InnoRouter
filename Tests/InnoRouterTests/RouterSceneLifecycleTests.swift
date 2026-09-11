@@ -482,26 +482,58 @@ struct RouterSceneLifecycleTests {
     func sceneRestorationReservationDeduplicatesNativeOpen() {
         let registry = RouterSceneRestorationRegistry()
         let windowID = UUID()
+        let firstWindowLifetime = UUID()
+        let secondWindowLifetime = UUID()
         let firstImmersiveLifetime = UUID()
         let secondImmersiveLifetime = UUID()
 
-        let firstWindowTicket = registry.beginWindowRestoration(id: windowID)
+        let firstWindowTicket = registry.beginWindowRestoration(
+            id: windowID,
+            lifecycleToken: firstWindowLifetime
+        )
         #expect(firstWindowTicket != nil)
-        #expect(registry.beginWindowRestoration(id: windowID) == nil)
-        registry.finishWindowRestoration(id: windowID)
-        let secondWindowTicket = registry.beginWindowRestoration(id: windowID)
+        #expect(
+            registry.beginWindowRestoration(
+                id: windowID,
+                lifecycleToken: firstWindowLifetime
+            ) == nil
+        )
+        let replacementWindowTicket = registry.beginWindowRestoration(
+            id: windowID,
+            lifecycleToken: secondWindowLifetime
+        )
+        #expect(replacementWindowTicket != nil)
+        registry.finishWindowRestoration(
+            id: windowID,
+            lifecycleToken: firstWindowLifetime
+        )
+        let secondWindowTicket = registry.beginWindowRestoration(
+            id: windowID,
+            lifecycleToken: firstWindowLifetime
+        )
         #expect(secondWindowTicket != nil)
         if let firstWindowTicket, let secondWindowTicket {
             #expect(
                 !registry.isCurrentWindowRestoration(
                     id: windowID,
+                    lifecycleToken: firstWindowLifetime,
                     ticket: firstWindowTicket
                 )
             )
             #expect(
                 registry.isCurrentWindowRestoration(
                     id: windowID,
+                    lifecycleToken: firstWindowLifetime,
                     ticket: secondWindowTicket
+                )
+            )
+        }
+        if let replacementWindowTicket {
+            #expect(
+                registry.isCurrentWindowRestoration(
+                    id: windowID,
+                    lifecycleToken: secondWindowLifetime,
+                    ticket: replacementWindowTicket
                 )
             )
         }

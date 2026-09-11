@@ -117,6 +117,14 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     @ObservationIgnored
     private var activeRestoreTransitionID: RouterTransitionID?
     @ObservationIgnored
+    private var activeRestoreRequestRootID: RouterTransitionID?
+    @ObservationIgnored
+    private var activeRestoreDeferralID: RouterDeferralID?
+    @ObservationIgnored
+    private var attachmentIDs: Set<UUID> = []
+    @ObservationIgnored
+    private var retainsManualActivation = false
+    @ObservationIgnored
     private var didAttemptRestore = false
     @ObservationIgnored
     private var activationGeneration: UInt64 = 0
@@ -145,6 +153,9 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         @_optimize(none)
     #endif
     isolated deinit {
+        if let activeRestoreRequestRootID {
+            store.cancelRequestFamily(activeRestoreRequestRootID)
+        }
         if let observationID {
             store.removeSynchronousEventObserver(observationID)
         }
@@ -154,6 +165,16 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     /// Starts commit observation and performs the initial restore once.
     @discardableResult
     public func activate() async throws -> RouterRestorationDriverActivation<R> {
+        retainsManualActivation = true
+        do {
+            return try await activateIfNeeded()
+        } catch {
+            retainsManualActivation = false
+            throw error
+        }
+    }
+
+    private func activateIfNeeded() async throws -> RouterRestorationDriverActivation<R> {
         guard observationID == nil else {
             return .alreadyActive
         }
@@ -182,6 +203,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
             }
             let transitionID = store.reserveTransitionID()
             activeRestoreTransitionID = transitionID
+            activeRestoreRequestRootID = transitionID
             defer {
                 if activeRestoreTransitionID == transitionID {
                     activeRestoreTransitionID = nil
@@ -193,6 +215,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
                 recovery: recovery,
                 expectedRevision: expectedRevision,
                 transitionID: transitionID,
+                requestRootID: transitionID,
                 executionPrecondition: { [weak self] _ in
                     guard let self,
                           self.activationGeneration == activation,
@@ -202,6 +225,11 @@ public final class RouterRestorationDriver<R: Route & Codable> {
                     return nil
                 }
             )
+            if case .deferred(_, _, _, let deferral) = outcome.transition {
+                activeRestoreDeferralID = deferral.id
+            } else {
+                clearActiveRestoreRequest(transitionID)
+            }
             try ensureCurrentActivation(activation)
             status = .active
             let result = RouterRestorationDriverActivation.restored(outcome)
@@ -212,6 +240,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
                 throw CancellationError()
             }
             didAttemptRestore = false
+            clearActiveRestoreRequest()
             stopObservation()
             invalidateScheduledSave()
             status = .inactive
@@ -221,6 +250,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
                 throw CancellationError()
             }
             didAttemptRestore = false
+            clearActiveRestoreRequest()
             stopObservation()
             invalidateScheduledSave()
             status = .failed(String(describing: error))
@@ -256,11 +286,28 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     /// Stops automatic observation. A later activation resumes observation
     /// without replaying the initial snapshot over newer in-memory state.
     public func stop() {
+        retainsManualActivation = false
+        attachmentIDs.removeAll()
+        stopOwnedWork()
+    }
+
+    package func attach(_ id: UUID) async throws -> RouterRestorationDriverActivation<R> {
+        attachmentIDs.insert(id)
+        return try await activateIfNeeded()
+    }
+
+    package func detach(_ id: UUID) {
+        attachmentIDs.remove(id)
+        guard attachmentIDs.isEmpty, !retainsManualActivation else { return }
+        stopOwnedWork()
+    }
+
+    private func stopOwnedWork() {
         activationGeneration &+= 1
-        if let activeRestoreTransitionID {
-            store.cancelRequest(activeRestoreTransitionID)
-            self.activeRestoreTransitionID = nil
+        if let activeRestoreRequestRootID {
+            store.cancelRequestFamily(activeRestoreRequestRootID)
         }
+        clearActiveRestoreRequest()
         stopObservation()
         invalidateScheduledSave()
         status = .inactive
@@ -276,9 +323,53 @@ public final class RouterRestorationDriver<R: Route & Codable> {
 
     private func startObservation() {
         observationID = store.addSynchronousEventObserver { [weak self] event in
-            guard case .committed = event else { return }
-            self?.scheduleSave()
+            self?.observe(event)
         }
+    }
+
+    private func observe(_ event: RouterEvent<R>) {
+        switch event {
+        case .committed(let transitionID, _, _, _, let context):
+            finishRestoreIfNeeded(transitionID: transitionID, context: context)
+            scheduleSave()
+        case .unchanged(let transitionID, _, _, let context),
+             .rejected(let transitionID, _, _, _, let context):
+            finishRestoreIfNeeded(transitionID: transitionID, context: context)
+        case .deferred(let transitionID, _, _, let deferral, let context):
+            guard isActiveRestoreEvent(transitionID: transitionID, context: context) else {
+                return
+            }
+            activeRestoreDeferralID = deferral.id
+        case .started, .policyPrepared, .platformAdapted:
+            break
+        }
+    }
+
+    private func finishRestoreIfNeeded(
+        transitionID: RouterTransitionID,
+        context: RouterTransitionContext
+    ) {
+        guard isActiveRestoreEvent(transitionID: transitionID, context: context) else {
+            return
+        }
+        clearActiveRestoreRequest()
+    }
+
+    private func isActiveRestoreEvent(
+        transitionID: RouterTransitionID,
+        context: RouterTransitionContext
+    ) -> Bool {
+        guard context.source == .restoration else { return false }
+        if transitionID == activeRestoreTransitionID { return true }
+        guard let activeRestoreDeferralID else { return false }
+        return context.resumedDeferral == activeRestoreDeferralID
+    }
+
+    private func clearActiveRestoreRequest(_ matching: RouterTransitionID? = nil) {
+        guard matching == nil || activeRestoreRequestRootID == matching else { return }
+        activeRestoreTransitionID = nil
+        activeRestoreRequestRootID = nil
+        activeRestoreDeferralID = nil
     }
 
     private func stopObservation() {
@@ -380,12 +471,18 @@ public extension View {
 @MainActor
 private struct RouterStateRestorationModifier<R: Route & Codable>: ViewModifier {
     @Environment(\.scenePhase) private var scenePhase
+    @State private var attachmentID = UUID()
+    @State private var attachedDriver: RouterRestorationDriver<R>?
     let driver: RouterRestorationDriver<R>
 
     func body(content: Content) -> some View {
         content
-            .task {
-                _ = try? await driver.activate()
+            .task(id: ObjectIdentifier(driver)) {
+                if let attachedDriver, attachedDriver !== driver {
+                    attachedDriver.detach(attachmentID)
+                }
+                attachedDriver = driver
+                _ = try? await driver.attach(attachmentID)
             }
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase != .active else { return }
@@ -394,7 +491,10 @@ private struct RouterStateRestorationModifier<R: Route & Codable>: ViewModifier 
                 }
             }
             .onDisappear {
-                driver.stop()
+                driver.detach(attachmentID)
+                if attachedDriver === driver {
+                    attachedDriver = nil
+                }
             }
     }
 }

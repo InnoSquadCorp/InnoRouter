@@ -69,18 +69,24 @@ private enum RouterTabHostRoute: String, DestinationRoute, RouterTabRoute {
 @Observable
 private final class RouterTabHostRecorder {
     var appearances: [RouterTabHostRoute] = []
+    @ObservationIgnored
+    var paths: [[RouterTabHostRoute]] = []
     var didDispatch = false
 }
 
 @MainActor
 private struct RouterTabDestination: View {
     @EnvironmentRouter(RouterTabHostRoute.self) private var router
+    @EnvironmentRouterState(RouterTabHostRoute.self) private var routerState
     @Environment(RouterTabHostRecorder.self) private var recorder
 
     let route: RouterTabHostRoute
 
     var body: some View {
         Text(route.title)
+#if canImport(AppKit)
+            .background(RouterTabStateCapture(path: routerState.path, recorder: recorder))
+#endif
             .onAppear {
                 recorder.appearances.append(route)
                 guard route == .home, !recorder.didDispatch else { return }
@@ -90,6 +96,19 @@ private struct RouterTabDestination: View {
             }
     }
 }
+
+#if canImport(AppKit)
+private struct RouterTabStateCapture: NSViewRepresentable {
+    let path: [RouterTabHostRoute]
+    let recorder: RouterTabHostRecorder
+
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        recorder.paths.append(path)
+    }
+}
+#endif
 
 @Suite("RouterTabHost", .tags(.unit))
 @MainActor
@@ -177,6 +196,33 @@ struct RouterTabHostTests {
         #expect(tabContainer(in: store)?.selection == "inbox")
         #expect(tabContainer(in: store)?.badges == ["settings": 4])
     }
+
+    @Test("RouterTabHost follows replacement application-owned stores")
+    func externalStoreReplacement() async throws {
+#if canImport(AppKit)
+        let catalog = try RouterTabCatalog(RouterTabHostRoute.routerTabs)
+        let first = try makeTabStore(initial: .home)
+        let second = try makeTabStore(initial: .home)
+        let firstRecorder = RouterTabHostRecorder()
+        let secondRecorder = RouterTabHostRecorder()
+        let initial = try RouterTabHost(store: first, catalog: catalog)
+            .environment(firstRecorder)
+        let hostingView = try renderRouterTabHost(initial)
+        await drainMainActorTasks()
+        _ = await first.perform(.select("home"))
+        _ = await second.perform(.push(.settings).inScope("home"))
+
+        hostingView.rootView = try RouterTabHost(store: second, catalog: catalog)
+            .environment(secondRecorder)
+        await renderRouterTabHostReplacement(hostingView)
+        await drainMainActorTasks()
+
+        #expect(tabContainer(in: first)?.selection == "home")
+        #expect(secondRecorder.paths.contains([.settings]))
+#else
+        throw Skip("RouterTabHost replacement rendering requires AppKit.")
+#endif
+    }
 }
 
 @MainActor
@@ -219,6 +265,17 @@ private func renderRouterTabHost<V: View>(_ view: V) throws -> NSHostingView<V> 
     hostingView.layoutSubtreeIfNeeded()
     RunLoop.main.run(until: Date().addingTimeInterval(0.05))
     return hostingView
+}
+
+@MainActor
+private func renderRouterTabHostReplacement<V: View>(
+    _ hostingView: NSHostingView<V>
+) async {
+    hostingView.layoutSubtreeIfNeeded()
+    await withCheckedContinuation { continuation in
+        DispatchQueue.main.async { continuation.resume() }
+    }
+    hostingView.layoutSubtreeIfNeeded()
 }
 #else
 @MainActor

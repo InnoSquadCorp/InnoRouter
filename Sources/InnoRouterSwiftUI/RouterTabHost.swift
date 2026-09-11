@@ -9,7 +9,8 @@ import InnoRouterCore
 /// one route type and one store to own the complete tab hierarchy.
 @MainActor
 public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
-    @State private var store: RouterStore<R>
+    @State private var ownedStore: RouterStore<R>?
+    private let suppliedStore: RouterStore<R>?
     private let tabs: [RouterTabDescriptor<R, R.Tab>]
     private let linkHandling: RouterLinkHandling<R>?
 
@@ -50,14 +51,15 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
             badges: badgeState
         )
         let initialState = try! RouterState<R>(root: .container(container))
-        self._store = State(
+        self.tabs = tabs
+        self.linkHandling = linkHandling
+        self.suppliedStore = nil
+        self._ownedStore = State(
             initialValue: R.makeRouterStore(
                 initialState: initialState,
                 configuration: configuration
             )
         )
-        self.tabs = tabs
-        self.linkHandling = linkHandling
     }
 
     /// Creates a host from an explicitly validated manual tab catalog.
@@ -90,14 +92,15 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
             badges: badgeState
         )
         let initialState = try RouterState<R>(root: .container(container))
-        self._store = State(
+        self.tabs = tabs
+        self.linkHandling = linkHandling
+        self.suppliedStore = nil
+        self._ownedStore = State(
             initialValue: R.makeRouterStore(
                 initialState: initialState,
                 configuration: configuration
             )
         )
-        self.tabs = tabs
-        self.linkHandling = linkHandling
     }
 
     /// Hosts a tab-shaped state retained by an application boundary.
@@ -120,9 +123,10 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
             Set(container.branches.map(\.id)) == Set(tabScopeIDs),
             "RouterTabHost store branches must match RouterTabRoute.routerTabs"
         )
-        self._store = State(initialValue: store)
         self.tabs = catalog.descriptors
         self.linkHandling = linkHandling
+        self.suppliedStore = store
+        self._ownedStore = State(initialValue: nil)
     }
 
     /// Hosts application-owned state using a validated manual tab catalog.
@@ -139,9 +143,10 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         guard Set(container.branches.map(\.id)) == Set(tabScopeIDs) else {
             throw RouterTabCatalogError.storeBranchesDoNotMatchCatalog
         }
-        self._store = State(initialValue: store)
         self.tabs = catalog.descriptors
         self.linkHandling = linkHandling
+        self.suppliedStore = store
+        self._ownedStore = State(initialValue: nil)
     }
 
     public var body: some View {
@@ -206,6 +211,14 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
                 )
             }
         )
+    }
+
+    private var store: RouterStore<R> {
+        if let suppliedStore { return suppliedStore }
+        guard let ownedStore else {
+            preconditionFailure("RouterTabHost requires either an owned or supplied store")
+        }
+        return ownedStore
     }
 
     private func selectedScope(in rootScope: RouterScope<R>) -> RouterScopeID? {

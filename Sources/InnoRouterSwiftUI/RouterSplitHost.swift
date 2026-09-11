@@ -84,7 +84,8 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
     public static var defaultSidebarScopeID: RouterScopeID { "sidebar" }
     public static var defaultDetailScopeID: RouterScopeID { "detail" }
 
-    @State private var store: RouterStore<R>
+    @State private var ownedStore: RouterStore<R>?
+    private let suppliedStore: RouterStore<R>?
     private let sidebarScopeID: RouterScopeID
     private let detailScopeID: RouterScopeID
     private let linkHandling: RouterLinkHandling<R>?
@@ -110,17 +111,18 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
                 RouterBranch(id: layout.detailScopeID, node: .stack(path: initialPath)),
             ]
         )
-        self._store = State(
-            initialValue: R.makeRouterStore(
-                initialState: initialState,
-                configuration: configuration
-            )
-        )
         self.sidebarScopeID = layout.sidebarScopeID
         self.detailScopeID = layout.detailScopeID
         self.linkHandling = linkHandling
         self.sidebarRoot = sidebar
         self.detailRoot = root
+        self.suppliedStore = nil
+        self._ownedStore = State(
+            initialValue: R.makeRouterStore(
+                initialState: initialState,
+                configuration: configuration
+            )
+        )
     }
 
     public init(
@@ -131,12 +133,13 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
     ) {
         let split = Self.requireSplitState(in: store)
         precondition(split.content == nil, "RouterSplitHost requires a two-column split state")
-        self._store = State(initialValue: store)
         self.sidebarScopeID = split.sidebar
         self.detailScopeID = split.detail
         self.linkHandling = linkHandling
         self.sidebarRoot = sidebar
         self.detailRoot = root
+        self.suppliedStore = store
+        self._ownedStore = State(initialValue: nil)
     }
 
     public var body: some View {
@@ -192,6 +195,14 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
         return split
     }
 
+    private var store: RouterStore<R> {
+        if let suppliedStore { return suppliedStore }
+        guard let ownedStore else {
+            preconditionFailure("RouterSplitHost requires either an owned or supplied store")
+        }
+        return ownedStore
+    }
+
     private static func makeInitialState(
         split: RouterSplitState,
         branches: [RouterBranch<R>]
@@ -219,7 +230,8 @@ public struct RouterThreeColumnSplitHost<
     ContentRoot: View,
     DetailRoot: View
 >: View {
-    @State private var store: RouterStore<R>
+    @State private var ownedStore: RouterStore<R>?
+    private let suppliedStore: RouterStore<R>?
     private let sidebarScopeID: RouterScopeID
     private let contentScopeID: RouterScopeID
     private let detailScopeID: RouterScopeID
@@ -250,12 +262,6 @@ public struct RouterThreeColumnSplitHost<
                 RouterBranch(id: layout.detailScopeID, node: .stack(path: initialDetailPath)),
             ]
         )
-        self._store = State(
-            initialValue: R.makeRouterStore(
-                initialState: initialState,
-                configuration: configuration
-            )
-        )
         self.sidebarScopeID = layout.sidebarScopeID
         self.contentScopeID = layout.contentScopeID
         self.detailScopeID = layout.detailScopeID
@@ -263,6 +269,13 @@ public struct RouterThreeColumnSplitHost<
         self.sidebarRoot = sidebar
         self.contentRoot = content
         self.detailRoot = detail
+        self.suppliedStore = nil
+        self._ownedStore = State(
+            initialValue: R.makeRouterStore(
+                initialState: initialState,
+                configuration: configuration
+            )
+        )
     }
 
     public init(
@@ -280,7 +293,6 @@ public struct RouterThreeColumnSplitHost<
                 "RouterThreeColumnSplitHost requires a root three-column split container"
             )
         }
-        self._store = State(initialValue: store)
         self.sidebarScopeID = split.sidebar
         self.contentScopeID = contentScopeID
         self.detailScopeID = split.detail
@@ -288,6 +300,8 @@ public struct RouterThreeColumnSplitHost<
         self.sidebarRoot = sidebar
         self.contentRoot = content
         self.detailRoot = detail
+        self.suppliedStore = store
+        self._ownedStore = State(initialValue: nil)
     }
 
     public var body: some View {
@@ -357,6 +371,14 @@ public struct RouterThreeColumnSplitHost<
         } catch {
             preconditionFailure("Validated three-column layout produced invalid state: \(error)")
         }
+    }
+
+    private var store: RouterStore<R> {
+        if let suppliedStore { return suppliedStore }
+        guard let ownedStore else {
+            preconditionFailure("RouterThreeColumnSplitHost requires either an owned or supplied store")
+        }
+        return ownedStore
     }
 }
 

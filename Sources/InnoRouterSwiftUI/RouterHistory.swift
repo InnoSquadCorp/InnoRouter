@@ -3,96 +3,6 @@ import Observation
 
 import InnoRouterCore
 
-public struct RouterHistoryConfiguration: Hashable, Sendable {
-    public var capacity: Int
-    public var checkpointCapacity: Int
-    public var sessionKey: String
-
-    public init(
-        capacity: Int = 50,
-        checkpointCapacity: Int = 20,
-        sessionKey: String = "default"
-    ) {
-        self.capacity = max(2, capacity)
-        self.checkpointCapacity = max(1, checkpointCapacity)
-        self.sessionKey = sessionKey
-    }
-}
-
-public struct RouterHistoryEntry<R: Route>: Identifiable, Hashable, Sendable {
-    public let id: UUID
-    public let navigationState: RouterState<R>
-    public let sourceRevision: UInt64
-
-    public init(
-        id: UUID = UUID(),
-        navigationState: RouterState<R>,
-        sourceRevision: UInt64
-    ) {
-        self.id = id
-        self.navigationState = navigationState
-        self.sourceRevision = sourceRevision
-    }
-}
-
-extension RouterHistoryEntry: Codable where R: Codable {}
-
-public struct RouterHistoryCheckpoint<R: Route>: Identifiable, Hashable, Sendable {
-    public let formatVersion: Int
-    public let id: UUID
-    public let name: String
-    public let sessionKey: String
-    public let entry: RouterHistoryEntry<R>
-
-    public init(
-        id: UUID = UUID(),
-        name: String,
-        sessionKey: String,
-        entry: RouterHistoryEntry<R>
-    ) {
-        self.formatVersion = 1
-        self.id = id
-        self.name = name
-        self.sessionKey = sessionKey
-        self.entry = entry
-    }
-}
-
-extension RouterHistoryCheckpoint: Codable where R: Codable {}
-
-public enum RouterHistoryCheckpointCollisionStrategy: Hashable, Sendable {
-    case reject
-    case replace
-}
-
-public enum RouterHistoryFailure: Error, Hashable, Sendable {
-    case stopped
-    case noPreviousEntry
-    case noNextEntry
-    case checkpointNotFound(String)
-    case checkpointAlreadyExists(String)
-    case checkpointCapacityExceeded(limit: Int)
-    case invalidCheckpointName
-    case unsupportedCheckpointVersion(Int)
-    case sessionMismatch(expected: String, actual: String)
-    case incompatibleTopology(RouterScopePath)
-    case activePresentation(RouterScopePath)
-    case validationFailed(RouterPartialRestorationError)
-}
-
-public enum RouterHistoryMoveResult<R: Route>: Hashable, Sendable {
-    case completed(cursor: Int, transition: RouterOutcome<R>)
-    case deferred(cursor: Int, transition: RouterOutcome<R>)
-    case rejected(cursor: Int, transition: RouterOutcome<R>)
-    case unavailable(cursor: Int, reason: RouterHistoryFailure)
-}
-
-private struct PendingRouterHistoryMove<R: Route> {
-    let generation: UInt64
-    let entry: RouterHistoryEntry<R>
-    let destinationCursor: Int?
-}
-
 /// Opt-in, bounded navigation history backed by one canonical `RouterStore`.
 ///
 /// Entries retain stack paths and container selection/split state. Applying an
@@ -130,6 +40,12 @@ public final class RouterHistory<R: Route> {
     private var generation: UInt64 = 0
     @ObservationIgnored
     private var pendingMoves: [RouterDeferralID: PendingRouterHistoryMove<R>] = [:]
+    @ObservationIgnored
+    private var activeMoves: [UUID: ActiveRouterHistoryMove<R>] = [:]
+    @ObservationIgnored
+    private var activeMoveRequestRoots: [UUID: RouterTransitionID] = [:]
+    @ObservationIgnored
+    private var ownedRequestRoots: Set<RouterTransitionID> = []
 
     public init(
         store: RouterStore<R>,
@@ -162,21 +78,18 @@ public final class RouterHistory<R: Route> {
         @_optimize(none)
     #endif
     isolated deinit {
+        cancelOwnedOperations(reason: .stopped)
+        pendingMoves.removeAll()
         if let eventObserverID {
             store.removeSynchronousEventObserver(eventObserverID)
         }
-        // Suspended waiter calls retain this history; stop and cancellation
-        // resume them before deinitialization can become reachable.
     }
-
-    public var canGoBack: Bool { cursor > entries.startIndex }
-    public var canGoForward: Bool { cursor + 1 < entries.endIndex }
-    public var currentEntry: RouterHistoryEntry<R> { entries[cursor] }
 
     public func stop() {
         guard !isStopped else { return }
         isStopped = true
         generation &+= 1
+        cancelOwnedOperations(reason: .stopped)
         pendingMoves.removeAll()
         if let eventObserverID {
             store.removeSynchronousEventObserver(eventObserverID)
@@ -296,7 +209,7 @@ public final class RouterHistory<R: Route> {
                 reason: .sessionMismatch(expected: sessionKey, actual: checkpoint.sessionKey)
             )
         }
-        let result = await apply(checkpoint.entry, destinationCursor: nil)
+        let result = await runMove(checkpoint.entry, destinationCursor: nil)
         guard case .completed(_, let transition) = result else { return result }
         if let existing = entries.firstIndex(where: { $0.id == checkpoint.entry.id }) {
             entries[existing] = .init(
@@ -364,13 +277,10 @@ public final class RouterHistory<R: Route> {
         return .success(checkpoint)
     }
 
-    public func removeAllCheckpoints() {
-        checkpoints.removeAll()
-    }
-
     /// Starts a new app-owned session boundary and discards every old route.
     public func reset(sessionKey: String) {
         generation &+= 1
+        cancelOwnedOperations(reason: .cancelled)
         pendingMoves.removeAll()
         self.sessionKey = sessionKey
         checkpoints.removeAll()
@@ -386,7 +296,79 @@ public final class RouterHistory<R: Route> {
     }
 
     private func move(to destination: Int) async -> RouterHistoryMoveResult<R> {
-        await apply(entries[destination], destinationCursor: destination)
+        await runMove(entries[destination], destinationCursor: destination)
+    }
+
+    private func runMove(
+        _ entry: RouterHistoryEntry<R>,
+        destinationCursor: Int?
+    ) async -> RouterHistoryMoveResult<R> {
+        let operationID = UUID()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                guard !Task.isCancelled, !isStopped else {
+                    continuation.resume(returning: .unavailable(
+                        cursor: cursor,
+                        reason: Task.isCancelled ? .cancelled : .stopped
+                    ))
+                    return
+                }
+                let task = Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    let result = await self.apply(
+                        entry,
+                        destinationCursor: destinationCursor,
+                        operationID: operationID
+                    )
+                    self.finishMove(operationID, with: result)
+                }
+                activeMoves[operationID] = .init(
+                    task: task,
+                    continuation: continuation
+                )
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.cancelMove(operationID, reason: .cancelled)
+            }
+        }
+    }
+
+    private func cancelOwnedOperations(reason: RouterHistoryFailure) {
+        let moves = activeMoves
+        activeMoves.removeAll()
+        for move in moves.values {
+            move.task.cancel()
+            move.continuation.resume(returning: .unavailable(
+                cursor: cursor,
+                reason: reason
+            ))
+        }
+        let roots = ownedRequestRoots
+        ownedRequestRoots.removeAll()
+        activeMoveRequestRoots.removeAll()
+        roots.forEach(store.cancelRequestFamily)
+    }
+
+    private func finishMove(
+        _ operationID: UUID,
+        with result: RouterHistoryMoveResult<R>
+    ) {
+        activeMoveRequestRoots.removeValue(forKey: operationID)
+        activeMoves.removeValue(forKey: operationID)?.continuation.resume(returning: result)
+    }
+
+    private func cancelMove(
+        _ operationID: UUID,
+        reason: RouterHistoryFailure
+    ) {
+        guard let move = activeMoves.removeValue(forKey: operationID) else { return }
+        move.task.cancel()
+        if let requestRootID = activeMoveRequestRoots.removeValue(forKey: operationID) {
+            ownedRequestRoots.remove(requestRootID)
+            store.cancelRequestFamily(requestRootID)
+        }
+        move.continuation.resume(returning: .unavailable(cursor: cursor, reason: reason))
     }
 
     private func observe(_ event: RouterEvent<R>) {
@@ -398,6 +380,7 @@ public final class RouterHistory<R: Route> {
             case .committed, .unchanged:
                 if let pending = pendingMoves.removeValue(forKey: deferralID),
                    pending.generation == generation {
+                    ownedRequestRoots.remove(pending.requestRootID)
                     completePendingMove(pending)
                 }
             case .deferred(_, _, _, let deferral, _):
@@ -406,7 +389,9 @@ public final class RouterHistory<R: Route> {
                     pendingMoves[deferral.id] = pending
                 }
             case .rejected:
-                pendingMoves.removeValue(forKey: deferralID)
+                if let pending = pendingMoves.removeValue(forKey: deferralID) {
+                    ownedRequestRoots.remove(pending.requestRootID)
+                }
             default:
                 break
             }
@@ -476,14 +461,26 @@ public final class RouterHistory<R: Route> {
     }
 }
 
+public extension RouterHistory {
+    var canGoBack: Bool { cursor > entries.startIndex }
+    var canGoForward: Bool { cursor + 1 < entries.endIndex }
+    var currentEntry: RouterHistoryEntry<R> { entries[cursor] }
+
+    func removeAllCheckpoints() {
+        checkpoints.removeAll()
+    }
+}
+
 private extension RouterHistory {
     func apply(
         _ entry: RouterHistoryEntry<R>,
-        destinationCursor: Int?
+        destinationCursor: Int?,
+        operationID: UUID
     ) async -> RouterHistoryMoveResult<R> {
         let startingGeneration = generation
         let expectedRevision = store.revision
         let restoredState: RouterState<R>
+        let restorationReport: RouterPartialRestorationReport?
         if let validator {
             do {
                 let prepared = try await preparePartialRestoration(
@@ -493,7 +490,7 @@ private extension RouterHistory {
                     sleep: store.runtimeDependencies.sleep
                 )
                 restoredState = prepared.0
-                lastRestorationReport = prepared.1
+                restorationReport = prepared.1
             } catch let error as RouterPartialRestorationError {
                 return .unavailable(cursor: cursor, reason: .validationFailed(error))
             } catch {
@@ -504,8 +501,17 @@ private extension RouterHistory {
             }
         } else {
             restoredState = entry.navigationState
-            lastRestorationReport = nil
+            restorationReport = nil
         }
+        guard !Task.isCancelled,
+              !isStopped,
+              generation == startingGeneration else {
+            return .unavailable(
+                cursor: cursor,
+                reason: isStopped ? .stopped : .cancelled
+            )
+        }
+        lastRestorationReport = restorationReport
         let target: RouterState<R>
         do {
             target = try Self.merge(restoredState, into: store.state)
@@ -514,11 +520,16 @@ private extension RouterHistory {
         } catch {
             return .unavailable(cursor: cursor, reason: .incompatibleTopology(.root))
         }
+        let requestRootID = store.reserveTransitionID()
+        ownedRequestRoots.insert(requestRootID)
+        activeMoveRequestRoots[operationID] = requestRootID
         let outcome = await store.perform(
             .apply(RouterPlan(state: target)),
             context: .init(source: .history),
             expectedRevision: expectedRevision,
             bypassesPolicies: false,
+            transitionID: requestRootID,
+            requestRootID: requestRootID,
             requestSemantics: .historyNavigation(restoredState),
             executionPrecondition: { [weak self] _ in
                 guard let self,
@@ -539,6 +550,7 @@ private extension RouterHistory {
         )
         switch outcome {
         case .applied, .unchanged:
+            ownedRequestRoots.remove(requestRootID)
             if let destinationCursor,
                generation == startingGeneration,
                entries.indices.contains(destinationCursor),
@@ -554,28 +566,14 @@ private extension RouterHistory {
         case .deferred(_, _, _, let deferral):
             pendingMoves[deferral.id] = .init(
                 generation: startingGeneration,
+                requestRootID: requestRootID,
                 entry: entry,
                 destinationCursor: destinationCursor
             )
             return .deferred(cursor: cursor, transition: outcome)
         case .rejected:
+            ownedRequestRoots.remove(requestRootID)
             return .rejected(cursor: cursor, transition: outcome)
-        }
-    }
-}
-
-private extension RouterEvent {
-    var transitionContext: RouterTransitionContext? {
-        switch self {
-        case .started(let transition):
-            transition.context
-        case .committed(_, _, _, _, let context),
-             .unchanged(_, _, _, let context),
-             .deferred(_, _, _, _, let context),
-             .rejected(_, _, _, _, let context):
-            context
-        case .policyPrepared, .platformAdapted:
-            nil
         }
     }
 }

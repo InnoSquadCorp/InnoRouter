@@ -570,7 +570,7 @@ struct RouterHistoryTests {
         history.stop()
     }
 
-    @Test("Reset invalidates a deferred move from the previous session")
+    @Test("Reset cancels and removes a deferred move from the previous session")
     func resetInvalidatesDeferredMove() async {
         let deferralID = RouterDeferralID(
             rawValue: UUID(uuidString: "00000000-0000-0000-0000-000000000072")!
@@ -591,13 +591,7 @@ struct RouterHistoryTests {
         }
 
         history.reset(sessionKey: "account-b")
-        guard case .rejected(_, _, _, .cancelled) = await store.resumeDeferred(
-            deferralID,
-            strategy: .rebaseOnCurrentState
-        ) else {
-            Issue.record("Expected the previous session move to be cancelled")
-            return
-        }
+        #expect(store.deferredTransitions.isEmpty)
         #expect(history.cursor == 0)
         #expect(history.entries.count == 1)
         #expect(store.state.root == .stack(path: [.home]))

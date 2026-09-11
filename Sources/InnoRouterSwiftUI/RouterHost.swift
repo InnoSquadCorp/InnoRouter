@@ -31,7 +31,8 @@ import InnoRouterCore
 /// ```
 @MainActor
 public struct RouterHost<R: DestinationRoute, Root: View>: View {
-    @State private var store: RouterStore<R>
+    @State private var ownedStore: RouterStore<R>?
+    private let suppliedStore: RouterStore<R>?
     private let root: () -> Root
     private let linkHandling: RouterLinkHandling<R>?
 
@@ -48,14 +49,15 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
         @ViewBuilder root: @escaping () -> Root
     ) {
         _ = routeType
-        self._store = State(
+        self.root = root
+        self.linkHandling = linkHandling
+        self.suppliedStore = nil
+        self._ownedStore = State(
             initialValue: R.makeRouterStore(
                 initialState: .rootStack(path: initialPath),
                 configuration: configuration
             )
         )
-        self.root = root
-        self.linkHandling = linkHandling
     }
 
     /// Hosts a store retained by an application boundary.
@@ -64,9 +66,10 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
         linkHandling: RouterLinkHandling<R>? = nil,
         @ViewBuilder root: @escaping () -> Root
     ) {
-        self._store = State(initialValue: store)
         self.root = root
         self.linkHandling = linkHandling
+        self.suppliedStore = store
+        self._ownedStore = State(initialValue: nil)
     }
 
     public var body: some View {
@@ -87,5 +90,13 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
                 try target.validate()
                 return RouterPlan(state: target)
             }
+    }
+
+    private var store: RouterStore<R> {
+        if let suppliedStore { return suppliedStore }
+        guard let ownedStore else {
+            preconditionFailure("RouterHost requires either an owned or supplied store")
+        }
+        return ownedStore
     }
 }

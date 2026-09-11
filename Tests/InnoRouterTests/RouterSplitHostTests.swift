@@ -48,6 +48,44 @@ private struct RouterSplitHostProbe: View {
 }
 
 @MainActor
+private struct RouterSplitReplacementProbe: View {
+    @EnvironmentRouterState(RouterSplitHostRoute.self) private var router
+    let generation: Int
+    let observations: RouterSplitReplacementObservations
+
+    var body: some View {
+#if canImport(AppKit)
+        RouterSplitStateCapture(
+            generation: generation,
+            path: router.path,
+            observations: observations
+        )
+#else
+        Color.clear
+#endif
+    }
+}
+
+@MainActor
+private final class RouterSplitReplacementObservations {
+    var paths: [Int: [RouterSplitHostRoute]] = [:]
+}
+
+#if canImport(AppKit)
+private struct RouterSplitStateCapture: NSViewRepresentable {
+    let generation: Int
+    let path: [RouterSplitHostRoute]
+    let observations: RouterSplitReplacementObservations
+
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        observations.paths[generation] = path
+    }
+}
+#endif
+
+@MainActor
 @Observable
 private final class RouterSplitEventRecorder {
     var events: [RouterEvent<RouterSplitHostRoute>] = []
@@ -155,6 +193,104 @@ struct RouterSplitHostTests {
 
         _ = host.body
     }
+
+    @Test("Two- and three-column hosts follow replacement application-owned stores")
+    func externalStoreReplacement() async throws {
+#if canImport(AppKit)
+        let firstTwo = try makeSplitStore(threeColumn: false)
+        let secondTwo = try makeSplitStore(threeColumn: false)
+        let twoObservations = RouterSplitReplacementObservations()
+        _ = await secondTwo.perform(
+            .push(.detail(id: "second-two")).inScope("detail")
+        )
+        let twoView = RouterSplitHost(
+            store: firstTwo,
+            sidebar: { Text("Sidebar") },
+            root: {
+                RouterSplitReplacementProbe(
+                    generation: 0,
+                    observations: twoObservations
+                )
+            }
+        )
+        let twoHost = try renderRouterSplitHost(twoView)
+        for _ in 0..<8 { await Task.yield() }
+
+        twoHost.rootView = RouterSplitHost(
+            store: secondTwo,
+            sidebar: { Text("Sidebar") },
+            root: {
+                RouterSplitReplacementProbe(
+                    generation: 1,
+                    observations: twoObservations
+                )
+            }
+        )
+        await renderRouterSplitHostReplacement(twoHost)
+        for _ in 0..<8 { await Task.yield() }
+        #expect(firstTwo.state.node(at: ["detail"]) == .stack())
+        #expect(twoObservations.paths[1] == [.detail(id: "second-two")])
+
+        let firstThree = try makeSplitStore(threeColumn: true)
+        let secondThree = try makeSplitStore(threeColumn: true)
+        let threeObservations = RouterSplitReplacementObservations()
+        _ = await secondThree.perform(
+            .push(.detail(id: "second-three")).inScope("detail")
+        )
+        let threeView = RouterThreeColumnSplitHost(
+            store: firstThree,
+            sidebar: { Text("Sidebar") },
+            content: { Text("Content") },
+            detail: {
+                RouterSplitReplacementProbe(
+                    generation: 0,
+                    observations: threeObservations
+                )
+            }
+        )
+        let threeHost = try renderRouterSplitHost(threeView)
+        for _ in 0..<8 { await Task.yield() }
+
+        threeHost.rootView = RouterThreeColumnSplitHost(
+            store: secondThree,
+            sidebar: { Text("Sidebar") },
+            content: { Text("Content") },
+            detail: {
+                RouterSplitReplacementProbe(
+                    generation: 1,
+                    observations: threeObservations
+                )
+            }
+        )
+        await renderRouterSplitHostReplacement(threeHost)
+        for _ in 0..<8 { await Task.yield() }
+        #expect(firstThree.state.node(at: ["detail"]) == .stack())
+        #expect(threeObservations.paths[1] == [.detail(id: "second-three")])
+#else
+        throw Skip("RouterSplitHost replacement rendering requires AppKit.")
+#endif
+    }
+}
+
+@MainActor
+private func makeSplitStore(
+    threeColumn: Bool
+) throws -> RouterStore<RouterSplitHostRoute> {
+    let split = try RouterSplitState(
+        sidebar: "sidebar",
+        content: threeColumn ? "content" : nil,
+        detail: "detail"
+    )
+    var branches = [RouterBranch<RouterSplitHostRoute>(id: "sidebar")]
+    if threeColumn { branches.append(.init(id: "content")) }
+    branches.append(.init(id: "detail"))
+    let container = try RouterContainerState(
+        style: .split,
+        selection: "detail",
+        branches: branches,
+        split: split
+    )
+    return RouterStore(initialState: try RouterState(root: .container(container)))
 }
 
 #if canImport(AppKit)
@@ -166,6 +302,17 @@ private func renderRouterSplitHost<V: View>(_ view: V) throws -> NSHostingView<V
     hostingView.layoutSubtreeIfNeeded()
     RunLoop.main.run(until: Date().addingTimeInterval(0.02))
     return hostingView
+}
+
+@MainActor
+private func renderRouterSplitHostReplacement<V: View>(
+    _ hostingView: NSHostingView<V>
+) async {
+    hostingView.layoutSubtreeIfNeeded()
+    await withCheckedContinuation { continuation in
+        DispatchQueue.main.async { continuation.resume() }
+    }
+    hostingView.layoutSubtreeIfNeeded()
 }
 #else
 @MainActor

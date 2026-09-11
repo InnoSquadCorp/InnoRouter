@@ -366,6 +366,7 @@ relationship | memberOf | RouterHistoryEntry.init(id:navigationState:sourceRevis
 relationship | memberOf | RouterHistoryEntry.navigationState | RouterHistoryEntry |  |
 relationship | memberOf | RouterHistoryEntry.sourceRevision | RouterHistoryEntry |  |
 relationship | memberOf | RouterHistoryFailure.activePresentation(_:) | RouterHistoryFailure |  |
+relationship | memberOf | RouterHistoryFailure.cancelled | RouterHistoryFailure |  |
 relationship | memberOf | RouterHistoryFailure.checkpointAlreadyExists(_:) | RouterHistoryFailure |  |
 relationship | memberOf | RouterHistoryFailure.checkpointCapacityExceeded(limit:) | RouterHistoryFailure |  |
 relationship | memberOf | RouterHistoryFailure.checkpointNotFound(_:) | RouterHistoryFailure |  |
@@ -1156,6 +1157,7 @@ symbol | swift.enum.case | RouterFeatureProjectionError.routeMismatch(namespace:
 symbol | swift.enum.case | RouterHistoryCheckpointCollisionStrategy.reject | RouterHistoryCheckpointCollisionStrategy.reject | case reject | []
 symbol | swift.enum.case | RouterHistoryCheckpointCollisionStrategy.replace | RouterHistoryCheckpointCollisionStrategy.replace | case replace | []
 symbol | swift.enum.case | RouterHistoryFailure.activePresentation(_:) | RouterHistoryFailure.activePresentation(_:) | case activePresentation(RouterScopePath) | []
+symbol | swift.enum.case | RouterHistoryFailure.cancelled | RouterHistoryFailure.cancelled | case cancelled | []
 symbol | swift.enum.case | RouterHistoryFailure.checkpointAlreadyExists(_:) | RouterHistoryFailure.checkpointAlreadyExists(_:) | case checkpointAlreadyExists(String) | []
 symbol | swift.enum.case | RouterHistoryFailure.checkpointCapacityExceeded(limit:) | RouterHistoryFailure.checkpointCapacityExceeded(limit:) | case checkpointCapacityExceeded(limit: Int) | []
 symbol | swift.enum.case | RouterHistoryFailure.checkpointNotFound(_:) | RouterHistoryFailure.checkpointNotFound(_:) | case checkpointNotFound(String) | []

@@ -77,6 +77,7 @@ public extension RouterStore {
         recovery: RouterSnapshotRecoveryPolicy<R>,
         expectedRevision: UInt64?,
         transitionID: RouterTransitionID? = nil,
+        requestRootID: RouterTransitionID? = nil,
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async throws -> RouterRestorationOutcome<R> where R: Codable {
         let decoding = try await RouterSnapshotCodecExecutor(codec: codec).decode(
@@ -89,6 +90,7 @@ public extension RouterStore {
             expectedRevision: expectedRevision,
             bypassesPolicies: false,
             transitionID: transitionID,
+            requestRootID: requestRootID,
             executionPrecondition: executionPrecondition
         )
         return RouterRestorationOutcome(

@@ -113,14 +113,24 @@ private final class RouterSceneReconciliationQueue {
         let predecessor = tail
         let task = Task { @MainActor in
             await predecessor?.value
+            guard !Task.isCancelled else { return }
             await operation()
         }
         tail = task
-        await task.value
+        await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
         if generation == operationGeneration {
             tail = nil
         }
     }
+}
+
+private struct RouterSceneReconciliationID: Hashable {
+    let store: ObjectIdentifier
+    let revision: UInt64
 }
 
 /// Executes the window and immersive-space differences in ``RouterState``.
@@ -139,7 +149,10 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
     private let content: () -> Content
 
     @State private var previousWindows: [RouterWindow<R>] = []
+    @State private var previousWindowLifetimes: [UUID: UUID] = [:]
     @State private var previousImmersiveSpace: RouterImmersiveSpace<R>?
+    @State private var previousImmersiveSpaceLifetime: UUID?
+    @State private var previousStoreIdentity: ObjectIdentifier?
     @State private var reconciliationQueue = RouterSceneReconciliationQueue()
 
 #if !os(tvOS) && !os(watchOS)
@@ -181,54 +194,119 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
 
     public var body: some View {
         content()
-            .task(id: store.revision) {
-                let revision = store.revision
+            .task(id: RouterSceneReconciliationID(
+                store: ObjectIdentifier(store),
+                revision: store.revision
+            )) {
+                let reconciliationID = RouterSceneReconciliationID(
+                    store: ObjectIdentifier(store),
+                    revision: store.revision
+                )
                 let state = store.state
+                let windowLifetimes = store.windowLifecycleTokens
+                let immersiveSpaceLifetime = store.immersiveSpaceLifecycleToken
                 await reconciliationQueue.enqueue {
-                    await reconcile(with: state, expectedRevision: revision)
+                    await reconcile(
+                        with: state,
+                        windowLifetimes: windowLifetimes,
+                        immersiveSpaceLifetime: immersiveSpaceLifetime,
+                        expected: reconciliationID
+                    )
                 }
             }
     }
 
     private func reconcile(
         with state: RouterState<R>,
-        expectedRevision: UInt64
+        windowLifetimes: [UUID: UUID],
+        immersiveSpaceLifetime: UUID?,
+        expected reconciliationID: RouterSceneReconciliationID
     ) async {
-        guard isCurrent(expectedRevision) else { return }
+        guard isCurrent(reconciliationID) else { return }
         let previousByID = Dictionary(uniqueKeysWithValues: previousWindows.map { ($0.id, $0) })
         let currentByID = Dictionary(uniqueKeysWithValues: state.windows.map { ($0.id, $0) })
+        let currentStoreIdentity = ObjectIdentifier(store)
 
-        for window in previousWindows where currentByID[window.id] == nil {
-            guard isCurrent(expectedRevision) else { return }
+        for window in previousWindows where !sameNativeWindowIdentity(
+            window,
+            currentByID[window.id],
+            previousLifetime: previousWindowLifetimes[window.id],
+            currentLifetime: windowLifetimes[window.id],
+            currentStoreIdentity: currentStoreIdentity
+        ) {
+            guard isCurrent(reconciliationID) else { return }
             dismiss(window)
             previousWindows.removeAll { $0.id == window.id }
+            previousWindowLifetimes[window.id] = nil
         }
-        for window in state.windows where previousByID[window.id] == nil {
-            guard await open(window, expectedRevision: expectedRevision) else { return }
-        }
-
-        if !sameNativeIdentity(previousImmersiveSpace, state.immersiveSpace) {
-            guard await reconcileImmersiveSpace(
-                from: previousImmersiveSpace,
-                to: state.immersiveSpace,
-                expectedRevision: expectedRevision
+        for window in state.windows where !sameNativeWindowIdentity(
+            previousByID[window.id],
+            window,
+            previousLifetime: previousWindowLifetimes[window.id],
+            currentLifetime: windowLifetimes[window.id],
+            currentStoreIdentity: currentStoreIdentity
+        ) {
+            guard await open(
+                window,
+                lifecycleToken: windowLifetimes[window.id],
+                expected: reconciliationID
             ) else { return }
         }
 
-        guard isCurrent(expectedRevision) else { return }
+        if !sameNativeIdentity(
+            previousImmersiveSpace,
+            state.immersiveSpace,
+            previousLifetime: previousImmersiveSpaceLifetime,
+            currentLifetime: immersiveSpaceLifetime,
+            currentStoreIdentity: currentStoreIdentity
+        ) {
+            guard await reconcileImmersiveSpace(
+                from: previousImmersiveSpace,
+                to: state.immersiveSpace,
+                currentLifetime: immersiveSpaceLifetime,
+                expected: reconciliationID
+            ) else { return }
+        }
+
+        guard isCurrent(reconciliationID) else { return }
         previousWindows = state.windows
+        previousWindowLifetimes = windowLifetimes
         previousImmersiveSpace = state.immersiveSpace
+        previousImmersiveSpaceLifetime = immersiveSpaceLifetime
+        previousStoreIdentity = currentStoreIdentity
+    }
+
+    private func sameNativeWindowIdentity(
+        _ lhs: RouterWindow<R>?,
+        _ rhs: RouterWindow<R>?,
+        previousLifetime: UUID?,
+        currentLifetime: UUID?,
+        currentStoreIdentity: ObjectIdentifier
+    ) -> Bool {
+        guard let lhs, let rhs else { return lhs == nil && rhs == nil }
+        return previousStoreIdentity == currentStoreIdentity
+            && lhs.id == rhs.id
+            && lhs.route == rhs.route
+            && previousLifetime != nil
+            && previousLifetime == currentLifetime
     }
 
     private func sameNativeIdentity(
         _ lhs: RouterImmersiveSpace<R>?,
-        _ rhs: RouterImmersiveSpace<R>?
+        _ rhs: RouterImmersiveSpace<R>?,
+        previousLifetime: UUID?,
+        currentLifetime: UUID?,
+        currentStoreIdentity: ObjectIdentifier
     ) -> Bool {
         switch (lhs, rhs) {
         case (nil, nil):
             true
         case (.some(let lhs), .some(let rhs)):
-            lhs.id == rhs.id && lhs.route == rhs.route
+            previousStoreIdentity == currentStoreIdentity
+                && lhs.id == rhs.id
+                && lhs.route == rhs.route
+                && previousLifetime != nil
+                && previousLifetime == currentLifetime
         case (.some, nil), (nil, .some):
             false
         }
@@ -236,23 +314,33 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
 
     private func open(
         _ window: RouterWindow<R>,
-        expectedRevision: UInt64
+        lifecycleToken: UUID?,
+        expected reconciliationID: RouterSceneReconciliationID
     ) async -> Bool {
         guard let scene = catalog.descriptor(for: window.route), scene.style == .window else {
             onEvent(.unsupported(route: window.route, style: .window))
-            await rollback(window, expectedRevision: expectedRevision)
+            await rollback(
+                window,
+                lifecycleToken: lifecycleToken,
+                expected: reconciliationID
+            )
             return false
         }
 #if !os(tvOS) && !os(watchOS)
-        guard isCurrent(expectedRevision) else { return false }
+        guard isCurrent(reconciliationID) else { return false }
         openWindow(id: scene.id, value: window.id)
         previousWindows.removeAll { $0.id == window.id }
         previousWindows.append(window)
+        previousWindowLifetimes[window.id] = lifecycleToken
         onEvent(.openedWindow(window, sceneID: scene.id))
         return true
 #else
         onEvent(.unsupported(route: window.route, style: .window))
-        await rollback(window, expectedRevision: expectedRevision)
+        await rollback(
+            window,
+            lifecycleToken: lifecycleToken,
+            expected: reconciliationID
+        )
         return false
 #endif
     }
@@ -273,32 +361,48 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
     private func reconcileImmersiveSpace(
         from previous: RouterImmersiveSpace<R>?,
         to current: RouterImmersiveSpace<R>?,
-        expectedRevision: UInt64
+        currentLifetime: UUID?,
+        expected reconciliationID: RouterSceneReconciliationID
     ) async -> Bool {
 #if os(visionOS)
         if let previous {
             await dismissImmersiveSpace()
             previousImmersiveSpace = nil
             onEvent(.dismissedImmersiveSpace(previous))
-            guard isCurrent(expectedRevision) else { return false }
+            guard isCurrent(reconciliationID) else { return false }
         }
         guard let current else { return true }
         guard let scene = catalog.descriptor(for: current.route),
               scene.style == .immersiveSpace,
               scene.id == current.id else {
             onEvent(.unsupported(route: current.route, style: .immersiveSpace))
-            await rollback(current, expectedRevision: expectedRevision)
+            await rollback(
+                current,
+                lifecycleToken: currentLifetime,
+                expected: reconciliationID
+            )
             return false
         }
         let result = await openImmersiveSpace(id: scene.id)
+        guard isCurrent(reconciliationID) else {
+            if result == .opened {
+                await dismissImmersiveSpace()
+            }
+            return false
+        }
         if result == .opened {
             previousImmersiveSpace = current
+            previousImmersiveSpaceLifetime = currentLifetime
             onEvent(.openedImmersiveSpace(current))
-            return isCurrent(expectedRevision)
+            return true
         } else {
             previousImmersiveSpace = nil
             onEvent(.immersiveOpenFailed(current))
-            await rollback(current, expectedRevision: expectedRevision)
+            await rollback(
+                current,
+                lifecycleToken: currentLifetime,
+                expected: reconciliationID
+            )
             return false
         }
 #else
@@ -307,7 +411,11 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
         }
         if let current {
             onEvent(.unsupported(route: current.route, style: .immersiveSpace))
-            await rollback(current, expectedRevision: expectedRevision)
+            await rollback(
+                current,
+                lifecycleToken: currentLifetime,
+                expected: reconciliationID
+            )
             return false
         }
         return true
@@ -316,29 +424,51 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
 
     private func rollback(
         _ window: RouterWindow<R>,
-        expectedRevision: UInt64
+        lifecycleToken: UUID?,
+        expected reconciliationID: RouterSceneReconciliationID
     ) async {
-        guard isCurrent(expectedRevision),
-              store.state.windows.contains(where: { $0 == window }) else { return }
+        guard isCurrent(reconciliationID),
+              store.state.windows.contains(where: { $0 == window }),
+              let lifecycleToken,
+              store.windowLifecycleTokens[window.id] == lifecycleToken else { return }
         _ = await store.reconcileSceneSystemFailure(
             .dismissWindow(window.id),
-            expectedRevision: expectedRevision
+            expectedRevision: reconciliationID.revision,
+            executionPrecondition: { [weak store] state in
+                guard state.windows.contains(where: { $0 == window }),
+                      store?.windowLifecycleTokens[window.id] == lifecycleToken else {
+                    return .cancelled
+                }
+                return nil
+            }
         )
     }
 
     private func rollback(
         _ space: RouterImmersiveSpace<R>,
-        expectedRevision: UInt64
+        lifecycleToken: UUID?,
+        expected reconciliationID: RouterSceneReconciliationID
     ) async {
-        guard isCurrent(expectedRevision),
-              store.state.immersiveSpace == space else { return }
+        guard isCurrent(reconciliationID),
+              store.state.immersiveSpace == space,
+              let lifecycleToken,
+              store.immersiveSpaceLifecycleToken == lifecycleToken else { return }
         _ = await store.reconcileSceneSystemFailure(
             .dismissImmersiveSpace,
-            expectedRevision: expectedRevision
+            expectedRevision: reconciliationID.revision,
+            executionPrecondition: { [weak store] state in
+                guard state.immersiveSpace == space,
+                      store?.immersiveSpaceLifecycleToken == lifecycleToken else {
+                    return .cancelled
+                }
+                return nil
+            }
         )
     }
 
-    private func isCurrent(_ expectedRevision: UInt64) -> Bool {
-        !Task.isCancelled && store.revision == expectedRevision
+    private func isCurrent(_ expected: RouterSceneReconciliationID) -> Bool {
+        !Task.isCancelled
+            && ObjectIdentifier(store) == expected.store
+            && store.revision == expected.revision
     }
 }

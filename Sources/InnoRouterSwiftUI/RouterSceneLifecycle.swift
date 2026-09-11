@@ -9,30 +9,45 @@ import InnoRouterCore
 
 @MainActor
 package final class RouterSceneRestorationRegistry {
+    private struct WindowLifetime: Hashable {
+        let id: UUID
+        let token: UUID
+    }
+
     private struct ImmersiveSpaceLifetime: Hashable {
         let id: String
         let token: UUID
     }
 
-    private var restoringWindows: [UUID: UUID] = [:]
+    private var restoringWindows: [WindowLifetime: UUID] = [:]
     private var restoringImmersiveSpaces: [ImmersiveSpaceLifetime: UUID] = [:]
 
     package init() {}
 
-    package func beginWindowRestoration(id: UUID) -> UUID? {
-        guard restoringWindows[id] == nil else { return nil }
+    package func beginWindowRestoration(id: UUID, lifecycleToken: UUID) -> UUID? {
+        let lifetime = WindowLifetime(id: id, token: lifecycleToken)
+        guard restoringWindows[lifetime] == nil else { return nil }
         let ticket = UUID()
-        restoringWindows[id] = ticket
+        restoringWindows[lifetime] = ticket
         return ticket
     }
 
-    package func isCurrentWindowRestoration(id: UUID, ticket: UUID) -> Bool {
-        restoringWindows[id] == ticket
+    package func isCurrentWindowRestoration(
+        id: UUID,
+        lifecycleToken: UUID,
+        ticket: UUID
+    ) -> Bool {
+        restoringWindows[WindowLifetime(id: id, token: lifecycleToken)] == ticket
     }
 
-    package func finishWindowRestoration(id: UUID, ticket: UUID? = nil) {
-        guard ticket == nil || restoringWindows[id] == ticket else { return }
-        restoringWindows[id] = nil
+    package func finishWindowRestoration(
+        id: UUID,
+        lifecycleToken: UUID,
+        ticket: UUID? = nil
+    ) {
+        let lifetime = WindowLifetime(id: id, token: lifecycleToken)
+        guard ticket == nil || restoringWindows[lifetime] == ticket else { return }
+        restoringWindows[lifetime] = nil
     }
 
     package func beginImmersiveSpaceRestoration(
@@ -169,7 +184,14 @@ public extension View {
 @MainActor
 private struct RouterWindowLifecycleModifier<R: RouterSceneRoute>: ViewModifier {
     let id: UUID
+    let lifecycleToken: UUID?
     let store: RouterStore<R>
+
+    init(id: UUID, store: RouterStore<R>) {
+        self.id = id
+        self.lifecycleToken = store.windowLifecycleTokens[id]
+        self.store = store
+    }
 
 #if !os(tvOS) && !os(watchOS)
     @Environment(\.openWindow) private var openWindow
@@ -178,11 +200,19 @@ private struct RouterWindowLifecycleModifier<R: RouterSceneRoute>: ViewModifier 
     func body(content: Content) -> some View {
         content
             .onAppear {
-                store.sceneRestorationRegistry.finishWindowRestoration(id: id)
+                guard let lifecycleToken else { return }
+                store.sceneRestorationRegistry.finishWindowRestoration(
+                    id: id,
+                    lifecycleToken: lifecycleToken
+                )
             }
             .onDisappear {
-                guard let restorationTicket = store.sceneRestorationRegistry
-                    .beginWindowRestoration(id: id) else {
+                guard let lifecycleToken,
+                      let restorationTicket = store.sceneRestorationRegistry
+                      .beginWindowRestoration(
+                          id: id,
+                          lifecycleToken: lifecycleToken
+                      ) else {
                     return
                 }
                 Task { @MainActor in
@@ -191,6 +221,7 @@ private struct RouterWindowLifecycleModifier<R: RouterSceneRoute>: ViewModifier 
                         if !keepsRestorationReservation {
                             store.sceneRestorationRegistry.finishWindowRestoration(
                                 id: id,
+                                lifecycleToken: lifecycleToken,
                                 ticket: restorationTicket
                             )
                         }
@@ -198,6 +229,7 @@ private struct RouterWindowLifecycleModifier<R: RouterSceneRoute>: ViewModifier 
 
                     guard let outcome = await synchronizeRouterWindowDisappearance(
                         id: id,
+                        lifecycleToken: lifecycleToken,
                         store: store
                     ) else { return }
 
@@ -205,8 +237,10 @@ private struct RouterWindowLifecycleModifier<R: RouterSceneRoute>: ViewModifier 
                     guard shouldRestoreRouterScene(after: outcome),
                           store.sceneRestorationRegistry.isCurrentWindowRestoration(
                               id: id,
+                              lifecycleToken: lifecycleToken,
                               ticket: restorationTicket
                           ),
+                          store.windowLifecycleTokens[id] == lifecycleToken,
                           let window = store.state.windows.first(where: { $0.id == id }),
                           let scene = R.routerScene(for: window.route),
                           scene.style == .window else { return }
@@ -301,12 +335,38 @@ package func synchronizeRouterWindowDisappearance<R: Route>(
     id: UUID,
     store: RouterStore<R>
 ) async -> RouterOutcome<R>? {
-    guard store.state.windows.contains(where: { $0.id == id }) else {
+    guard let lifecycleToken = store.windowLifecycleTokens[id] else {
         return nil
     }
+    return await synchronizeRouterWindowDisappearance(
+        id: id,
+        lifecycleToken: lifecycleToken,
+        store: store
+    )
+}
+
+@MainActor
+package func synchronizeRouterWindowDisappearance<R: Route>(
+    id: UUID,
+    lifecycleToken: UUID,
+    store: RouterStore<R>
+) async -> RouterOutcome<R>? {
+    guard store.state.windows.contains(where: { $0.id == id }),
+          store.windowLifecycleTokens[id] == lifecycleToken else { return nil }
     return await store.perform(
         .dismissWindow(id),
-        context: .init(source: .system)
+        context: .init(source: .system),
+        expectedRevision: nil,
+        bypassesPolicies: false,
+        executionPrecondition: { [weak store] state in
+            guard state.windows.contains(where: { $0.id == id }) else {
+                return .mutation(.windowNotFound(id))
+            }
+            guard store?.windowLifecycleTokens[id] == lifecycleToken else {
+                return .cancelled
+            }
+            return nil
+        }
     )
 }
 
@@ -342,9 +402,11 @@ package func synchronizeRouterImmersiveSpaceDisappearance<R: Route>(
         expectedRevision: nil,
         bypassesPolicies: false,
         executionPrecondition: { [weak store] state in
-            guard state.immersiveSpace?.id == id,
-                  store?.immersiveSpaceLifecycleToken == lifecycleToken else {
+            guard state.immersiveSpace?.id == id else {
                 return .mutation(.immersiveSpaceNotFound(id))
+            }
+            guard store?.immersiveSpaceLifecycleToken == lifecycleToken else {
+                return .cancelled
             }
             return nil
         }
