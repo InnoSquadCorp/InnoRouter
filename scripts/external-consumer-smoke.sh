@@ -22,6 +22,26 @@ fi
 
 SCRATCH_DIR="$ROOT_DIR/.build/external-consumer/$CACHE_KEY"
 
+verify_conditional_catalog_conflict() {
+  local name="$1"
+  shift
+  local log="$SCRATCH_DIR/$name.log"
+  if swift build \
+    --package-path "$PACKAGE_DIR" \
+    --scratch-path "$SCRATCH_DIR/$name" \
+    --jobs "$JOBS" \
+    "$@" \
+    --target InnoRouterMacroFirstExternalConsumer >"$log" 2>&1; then
+    echo "[external-consumer-smoke] Failed: $name unexpectedly compiled" >&2
+    exit 1
+  fi
+  if ! grep -q "invalid redeclaration of 'routerFeatureCatalog'" "$log"; then
+    echo "[external-consumer-smoke] Failed: $name missed the compiler diagnostic" >&2
+    cat "$log" >&2
+    exit 1
+  fi
+}
+
 swift build \
   --package-path "$PACKAGE_DIR" \
   --scratch-path "$SCRATCH_DIR/swiftpm" \
@@ -76,6 +96,37 @@ if [[ "$VERSION" == "local" ]]; then
   if ! grep -q "InnoRouterMacro.E065" "$CONDITIONAL_FEATURE_LOG"; then
     echo "[external-consumer-smoke] Failed: conditional FeatureRoute probe missed E065" >&2
     cat "$CONDITIONAL_FEATURE_LOG" >&2
+    exit 1
+  fi
+
+  verify_conditional_catalog_conflict \
+    conditional-catalog-conflict \
+    -Xswiftc -DINNOROUTER_CONDITIONAL_FEATURE_CATALOG_CONFLICT
+  verify_conditional_catalog_conflict \
+    nested-catalog-if-conflict \
+    -Xswiftc -DINNOROUTER_NESTED_FEATURE_CATALOG_CONFLICT \
+    -Xswiftc -DINNOROUTER_NESTED_FEATURE_IF
+  verify_conditional_catalog_conflict \
+    nested-catalog-elseif-conflict \
+    -Xswiftc -DINNOROUTER_NESTED_FEATURE_CATALOG_CONFLICT \
+    -Xswiftc -DINNOROUTER_NESTED_FEATURE_ELSEIF
+  verify_conditional_catalog_conflict \
+    nested-catalog-else-conflict \
+    -Xswiftc -DINNOROUTER_NESTED_FEATURE_CATALOG_CONFLICT
+
+  FEATURE_CASE_LOG="$SCRATCH_DIR/feature-case-conflict.log"
+  if swift build \
+    --package-path "$PACKAGE_DIR" \
+    --scratch-path "$SCRATCH_DIR/feature-case-conflict" \
+    --jobs "$JOBS" \
+    -Xswiftc -DINNOROUTER_FEATURE_CASE_CONFLICT \
+    --target InnoRouterMacroFirstExternalConsumer >"$FEATURE_CASE_LOG" 2>&1; then
+    echo "[external-consumer-smoke] Failed: direct feature case conflict unexpectedly compiled" >&2
+    exit 1
+  fi
+  if ! grep -q "InnoRouterMacro.E067" "$FEATURE_CASE_LOG"; then
+    echo "[external-consumer-smoke] Failed: direct feature case conflict missed E067" >&2
+    cat "$FEATURE_CASE_LOG" >&2
     exit 1
   fi
 fi

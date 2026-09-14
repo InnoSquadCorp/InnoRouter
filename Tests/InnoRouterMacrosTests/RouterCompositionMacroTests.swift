@@ -176,6 +176,134 @@ struct RouterCompositionMacroTests {
         )
     }
 
+    @Test("E067 rejects a manual routerFeatureCatalog")
+    func featureCatalogMemberConflict() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute {
+                @FeatureRoute
+                case account(AccountRoute)
+                static var routerFeatureCatalog: [String] { [] }
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+                case account(AccountRoute)
+                static var routerFeatureCatalog: [String] { [] }
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E067] @Router with @FeatureRoute generates `routerFeatureCatalog`; remove the manual declaration or feature annotations",
+                    line: 5,
+                    column: 5
+                ),
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("E067 identifies a direct routerFeatureCatalog case conflict")
+    func featureCatalogCaseConflict() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute {
+                @FeatureRoute
+                case account(AccountRoute)
+                case routerFeatureCatalog
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+                case account(AccountRoute)
+                case routerFeatureCatalog
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E067] @Router with @FeatureRoute generates `routerFeatureCatalog`; remove the manual declaration or feature annotations",
+                    line: 5,
+                    column: 5
+                ),
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("A conditional routerFeatureCatalog conflict is left to the compiler")
+    func conditionalFeatureCatalogMemberIsCompilerOwned() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute {
+                @FeatureRoute
+                case account(AccountRoute)
+            #if DEBUG
+                static var routerFeatureCatalog: [String] { [] }
+            #endif
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+                case account(AccountRoute)
+            #if DEBUG
+                static var routerFeatureCatalog: [String] { [] }
+            #endif
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension AppRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Feature {
+                    internal static var account: InnoRouterCore.RouterFeatureMapping<AppRoute, AccountRoute> {
+                        .init(
+                            id: "account",
+                            namespace: "AppRoute.account",
+                            route: .init(
+                                embed: { value in
+                                    .account(value)
+                                },
+                                extract: { parent in
+                                    guard case .account(let value) = parent else {
+                                        return nil
+                                    }
+                                    return value
+                                }
+                            )
+                        )
+                    }
+                }
+
+                internal static var routerFeatureCatalog: [InnoRouterCore.RouterFeatureCatalogEntry] {
+                    [
+                        .init(
+                            id: "account",
+                            namespace: "AppRoute.account",
+                            childRouteTypeName: "AccountRoute"
+                        )
+                    ]
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Feature markers generate typed cross-module mappings")
     func featureExpansion() {
         assertMacroExpansion(
@@ -205,21 +333,6 @@ struct RouterCompositionMacroTests {
                 }
 
                 internal enum Feature {
-                    internal static var catalog: [InnoRouterCore.RouterFeatureCatalogEntry] {
-                        [
-                            .init(
-                                id: "account.primary",
-                                namespace: "AppRoute.account.primary",
-                                childRouteTypeName: "AccountRoute"
-                            ),
-                            .init(
-                                id: "search",
-                                namespace: "AppRoute.search",
-                                childRouteTypeName: "SearchRoute"
-                            )
-                        ]
-                    }
-
                     internal static var account: InnoRouterCore.RouterFeatureMapping<AppRoute, AccountRoute> {
                         .init(
                             id: "account.primary",
@@ -255,6 +368,21 @@ struct RouterCompositionMacroTests {
                             )
                         )
                     }
+                }
+
+                internal static var routerFeatureCatalog: [InnoRouterCore.RouterFeatureCatalogEntry] {
+                    [
+                        .init(
+                            id: "account.primary",
+                            namespace: "AppRoute.account.primary",
+                            childRouteTypeName: "AccountRoute"
+                        ),
+                        .init(
+                            id: "search",
+                            namespace: "AppRoute.search",
+                            childRouteTypeName: "SearchRoute"
+                        )
+                    ]
                 }
             }
             """,
@@ -833,6 +961,174 @@ struct RouterCompositionMacroTests {
                     column: 5
                 ),
             ],
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Presentation factories preserve Self and allocate unique local names")
+    func presentationSelfAndBindingCollision() {
+        assertMacroExpansion(
+            """
+            @Router
+            indirect enum PresentationEdgeRoute {
+                case leaf
+                @PresentationResult(Bool.self)
+                case edit(value1: Int, Self)
+                @PresentationResult(Self.self)
+                case recursiveResult
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            indirect enum PresentationEdgeRoute {
+                case leaf
+                case edit(value1: Int, Self)
+                case recursiveResult
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension PresentationEdgeRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Presentation {
+                    internal static func edit(value1: Int, _ __innoRouterPresentationValue1: PresentationEdgeRoute) -> InnoRouterCore.RouterPresentationRequest<PresentationEdgeRoute, Bool> {
+                        .init(route: .edit(value1: value1, __innoRouterPresentationValue1))
+                    }
+                    internal static var recursiveResult: InnoRouterCore.RouterPresentationRequest<PresentationEdgeRoute, PresentationEdgeRoute> {
+                        .init(route: .recursiveResult)
+                    }
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Feature and associated-value catalog names remain distinct from route metadata")
+    func featureCatalogNameSeparation() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute {
+                @FeatureRoute
+                case catalog(CatalogRoute)
+                case routerFeatureCatalog(Int)
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+                case catalog(CatalogRoute)
+                case routerFeatureCatalog(Int)
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension AppRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Feature {
+                    internal static var catalog: InnoRouterCore.RouterFeatureMapping<AppRoute, CatalogRoute> {
+                        .init(
+                            id: "catalog",
+                            namespace: "AppRoute.catalog",
+                            route: .init(
+                                embed: { value in
+                                    .catalog(value)
+                                },
+                                extract: { parent in
+                                    guard case .catalog(let value) = parent else {
+                                        return nil
+                                    }
+                                    return value
+                                }
+                            )
+                        )
+                    }
+                }
+
+                internal static var routerFeatureCatalog: [InnoRouterCore.RouterFeatureCatalogEntry] {
+                    [
+                        .init(
+                            id: "catalog",
+                            namespace: "AppRoute.catalog",
+                            childRouteTypeName: "CatalogRoute"
+                        )
+                    ]
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Feature Self payloads keep the enclosing route type")
+    func featureSelfPayloadUsesParentRoute() {
+        assertMacroExpansion(
+            """
+            @Router
+            indirect enum TreeRoute {
+                @FeatureRoute
+                case child(Self)
+                case leaf
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            indirect enum TreeRoute {
+                case child(Self)
+                case leaf
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension TreeRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Feature {
+                    internal static var child: InnoRouterCore.RouterFeatureMapping<TreeRoute, TreeRoute> {
+                        .init(
+                            id: "child",
+                            namespace: "TreeRoute.child",
+                            route: .init(
+                                embed: { value in
+                                    .child(value)
+                                },
+                                extract: { parent in
+                                    guard case .child(let value) = parent else {
+                                        return nil
+                                    }
+                                    return value
+                                }
+                            )
+                        )
+                    }
+                }
+
+                internal static var routerFeatureCatalog: [InnoRouterCore.RouterFeatureCatalogEntry] {
+                    [
+                        .init(
+                            id: "child",
+                            namespace: "TreeRoute.child",
+                            childRouteTypeName: "TreeRoute"
+                        )
+                    ]
+                }
+            }
+            """,
             macros: makeTestMacros()
         )
     }

@@ -129,17 +129,12 @@ private func associatedValueParameters(
     var usedNames: Set<String> = []
     return parameters.enumerated().map { index, parameter in
         let preferredName = bindingName(for: parameter, index: index)
-        let preferredKey = preferredName.hasPrefix("`") && preferredName.hasSuffix("`")
-            ? String(preferredName.dropFirst().dropLast())
-            : preferredName
-        var uniqueName = preferredName
-        if !usedNames.insert(preferredKey).inserted {
-            var suffix = index
-            repeat {
-                uniqueName = "__innoRouterCaseValue\(suffix)"
-                suffix += 1
-            } while !usedNames.insert(uniqueName).inserted
-        }
+        let uniqueName = allocateUniqueBindingName(
+            preferredName,
+            index: index,
+            generatedPrefix: "__innoRouterCaseValue",
+            usedNames: &usedNames
+        )
         return CasePathAssociatedValueParameter(
             type: casePathPayloadType(parameter.type, enumName: enumName),
             bindingName: uniqueName,
@@ -167,7 +162,7 @@ private final class CasePathSelfTypeRewriter: SyntaxRewriter {
     }
 }
 
-private func casePathPayloadType(_ type: TypeSyntax, enumName: String) -> String {
+internal func casePathPayloadType(_ type: TypeSyntax, enumName: String) -> String {
     CasePathSelfTypeRewriter(enumName: enumName)
         .rewrite(Syntax(type))
         .trimmedDescription
@@ -200,6 +195,29 @@ internal func emittedLabel(for param: EnumCaseParameterSyntax) -> String? {
     }
 
     return escapedIdentifier(firstName)
+}
+
+internal func allocateUniqueBindingName(
+    _ preferredName: String,
+    index: Int,
+    generatedPrefix: String,
+    usedNames: inout Set<String>
+) -> String {
+    if usedNames.insert(unescapedIdentifier(preferredName)).inserted {
+        return preferredName
+    }
+    var suffix = index
+    var candidate: String
+    repeat {
+        candidate = "\(generatedPrefix)\(suffix)"
+        suffix += 1
+    } while !usedNames.insert(candidate).inserted
+    return candidate
+}
+
+internal func unescapedIdentifier(_ name: String) -> String {
+    guard name.hasPrefix("`"), name.hasSuffix("`") else { return name }
+    return String(name.dropFirst().dropLast())
 }
 
 // MARK: - Availability passthrough

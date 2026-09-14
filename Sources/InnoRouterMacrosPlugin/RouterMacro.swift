@@ -101,12 +101,21 @@ public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
         }
         let presentationResultExpansion = analyzeRouterPresentationResults(
             in: enumDecl,
+            routeType: type.trimmedDescription,
             context: context
         )
         if case .invalid = presentationResultExpansion {
             return []
         }
-        let featureExpansion = analyzeRouterFeatures(in: enumDecl, context: context)
+        let featureRouteType = specializedRouterType(
+            type.trimmedDescription,
+            for: enumDecl
+        )
+        let featureExpansion = analyzeRouterFeatures(
+            in: enumDecl,
+            routeType: featureRouteType,
+            context: context
+        )
         if case .invalid = featureExpansion {
             return []
         }
@@ -149,6 +158,7 @@ private func makeRouterExtensions(
     node: AttributeSyntax,
     context: some MacroExpansionContext
 ) throws -> [ExtensionDeclSyntax] {
+    let specializedType = specializedRouterType(type.trimmedDescription, for: enumDecl)
     if extractCasePathEnumCases(from: enumDecl).isEmpty {
         diagnose(.emptyRouter, at: node, context: context)
     }
@@ -234,7 +244,7 @@ private func makeRouterExtensions(
     if case .valid(let specification) = featureExpansion {
         featureMembers = "\n\n" + renderRouterFeatureMembers(
             from: specification,
-            parentType: type.trimmedDescription,
+            parentType: specializedType,
             access: access
         )
     } else {
@@ -272,6 +282,25 @@ func qualifiedType(module: String, name: String) -> TypeSyntax {
             name: .identifier(name)
         )
     )
+}
+
+private func specializedRouterType(
+    _ type: String,
+    for enumDecl: EnumDeclSyntax
+) -> String {
+    guard let parameters = enumDecl.genericParameterClause?.parameters,
+          !parameters.isEmpty else {
+        return type
+    }
+    let finalComponent = type.split(separator: ".").last.map(String.init) ?? type
+    guard !finalComponent.contains("<") else { return type }
+    let arguments = parameters.map { parameter in
+        if parameter.specifier?.tokenKind == .keyword(.each) {
+            return "repeat each \(parameter.name.text)"
+        }
+        return parameter.name.text
+    }
+    return "\(type)<\(arguments.joined(separator: ", "))>"
 }
 
 func conflictsWithGeneratedDestination(

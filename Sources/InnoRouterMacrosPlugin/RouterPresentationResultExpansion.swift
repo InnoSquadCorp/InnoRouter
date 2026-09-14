@@ -4,6 +4,7 @@
 
 import SwiftDiagnostics
 import SwiftSyntax
+import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
 enum RouterPresentationResultExpansion {
@@ -94,6 +95,7 @@ public struct PresentationResultMacro: PeerMacro {
 
 func analyzeRouterPresentationResults(
     in enumDecl: EnumDeclSyntax,
+    routeType: String,
     context: some MacroExpansionContext
 ) -> RouterPresentationResultExpansion {
     if enumDecl.memberBlock.members.contains(where: { member in
@@ -150,15 +152,19 @@ func analyzeRouterPresentationResults(
             )
             return .invalid
         }
-        guard let resultType = presentationResultType(from: attribute) else {
+        guard let rawResultType = presentationResultType(from: attribute) else {
             diagnosePresentationResult(.invalidArguments, at: attribute, context: context)
             return .invalid
         }
 
-        let parameters = element.parameterClause?.parameters.enumerated().map {
-            index, parameter in
-            presentationResultParameter(parameter, index: index)
-        } ?? []
+        let resultType = casePathPayloadType(
+            TypeSyntax(stringLiteral: rawResultType),
+            enumName: routeType
+        )
+        let parameters = presentationResultParameters(
+            element.parameterClause?.parameters,
+            routeType: routeType
+        )
         items.append(
             RouterPresentationResultItem(
                 caseName: escapedIdentifier(element.name),
@@ -266,38 +272,49 @@ private func presentationResultType(from attribute: AttributeSyntax) -> String? 
     return type.isEmpty ? nil : type
 }
 
-private func presentationResultParameter(
-    _ parameter: EnumCaseParameterSyntax,
-    index: Int
-) -> RouterPresentationResultParameter {
-    let first = parameter.firstName.map(escapedIdentifier)
-    let second = parameter.secondName.map(escapedIdentifier)
-    let localName: String
-    if let second {
-        localName = second
-    } else if let first, first != "_" {
-        localName = first
-    } else {
-        localName = "value\(index)"
-    }
-
-    let declaration: String
-    let invocation: String
-    if let first, first != "_" {
+private func presentationResultParameters(
+    _ parameters: EnumCaseParameterListSyntax?,
+    routeType: String
+) -> [RouterPresentationResultParameter] {
+    guard let parameters else { return [] }
+    var usedNames: Set<String> = []
+    return parameters.enumerated().map { index, parameter in
+        let first = parameter.firstName.map(escapedIdentifier)
+        let second = parameter.secondName.map(escapedIdentifier)
+        let preferredName: String
         if let second {
-            declaration = "\(first) \(second): \(parameter.type.trimmedDescription)"
+            preferredName = second
+        } else if let first, first != "_" {
+            preferredName = first
         } else {
-            declaration = "\(first): \(parameter.type.trimmedDescription)"
+            preferredName = "value\(index)"
         }
-        invocation = "\(first): \(localName)"
-    } else {
-        declaration = "_ \(localName): \(parameter.type.trimmedDescription)"
-        invocation = localName
+        let localName = allocateUniqueBindingName(
+            preferredName,
+            index: index,
+            generatedPrefix: "__innoRouterPresentationValue",
+            usedNames: &usedNames
+        )
+
+        let type = casePathPayloadType(parameter.type, enumName: routeType)
+        let declaration: String
+        let invocation: String
+        if let first, first != "_" {
+            if second != nil || localName != first {
+                declaration = "\(first) \(localName): \(type)"
+            } else {
+                declaration = "\(first): \(type)"
+            }
+            invocation = "\(first): \(localName)"
+        } else {
+            declaration = "_ \(localName): \(type)"
+            invocation = localName
+        }
+        return RouterPresentationResultParameter(
+            declaration: declaration,
+            invocation: invocation
+        )
     }
-    return RouterPresentationResultParameter(
-        declaration: declaration,
-        invocation: invocation
-    )
 }
 
 private func hasRouterAttributeForPresentationResult(_ enumDecl: EnumDeclSyntax) -> Bool {

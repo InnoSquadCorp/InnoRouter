@@ -152,6 +152,29 @@ private enum PresentationBehaviorRouter {
 }
 
 @Router
+private indirect enum PresentationEdgeBehaviorRouter {
+    case leaf
+
+    @PresentationResult(Bool.self)
+    case edit(value1: Int, Self)
+
+    @PresentationResult(Self.self)
+    case recursiveResult
+
+    var destination: some View { Text("Destination") }
+}
+
+@Router
+private indirect enum GenericPresentationBehaviorRouter<Value: Hashable & Sendable> {
+    case leaf(Value)
+
+    @PresentationResult(Self.self)
+    case recursive(Self?, [Self], Result<Self, Never>)
+
+    var destination: some View { Text("Destination") }
+}
+
+@Router
 private enum AvailablePresentationBehaviorRouter {
     @available(macOS 26, *)
     @PresentationResult(Bool.self)
@@ -184,9 +207,25 @@ private enum FeatureParentRoute {
     @FeatureRoute("account.secondary")
     case secondary(FeatureBehaviorRoute)
 
+    @FeatureRoute
+    case catalog(FeatureBehaviorRoute)
+
     case settings
+    case routerFeatureCatalog(Int)
+
+    var routerFeatureCatalog: String { "instance-catalog" }
 
     var destination: some View { Text("Parent") }
+}
+
+@Router
+private indirect enum RecursiveFeatureParentRoute {
+    @FeatureRoute
+    case child(Self)
+
+    case leaf
+
+    var destination: some View { Text("Recursive feature") }
 }
 
 @Suite("@Router behavior")
@@ -195,6 +234,37 @@ struct RouterBehaviorTests {
     func qualifiedPresentationResult() {
         let request = QualifiedPresentationBehaviorRouter.Presentation.approval
         #expect(request.route == .approval)
+    }
+
+    @Test("Presentation factories avoid local-name collisions and preserve Self")
+    func presentationEdgePayloads() {
+        let request = PresentationEdgeBehaviorRouter.Presentation.edit(
+            value1: 42,
+            .leaf
+        )
+        #expect(request.route == .edit(value1: 42, .leaf))
+
+        let recursiveResult: RouterPresentationRequest<
+            PresentationEdgeBehaviorRouter,
+            PresentationEdgeBehaviorRouter
+        > = PresentationEdgeBehaviorRouter.Presentation.recursiveResult
+        #expect(recursiveResult.route == .recursiveResult)
+
+        typealias GenericRoute = GenericPresentationBehaviorRouter<String>
+        let leaf = GenericRoute.leaf("leaf")
+        let generic: RouterPresentationRequest<GenericRoute, GenericRoute> =
+            GenericRoute.Presentation.recursive(
+                leaf,
+                [leaf],
+                .success(leaf)
+            )
+        guard case .recursive(let optional, let values, let result) = generic.route else {
+            Issue.record("Expected the generic recursive presentation payload")
+            return
+        }
+        #expect(optional == leaf)
+        #expect(values == [leaf])
+        #expect(result == .success(leaf))
     }
 
     @Test("Presentation factories retain their route availability")
@@ -255,7 +325,10 @@ struct RouterBehaviorTests {
         #expect(store.state.node(at: [siblingBranch]) == .stack(path: [.settings]))
         #expect(FeatureParentRoute.Feature.account.id == "account.primary")
         #expect(FeatureParentRoute.Feature.secondary.id == "account.secondary")
-        #expect(FeatureParentRoute.Feature.catalog == [
+        #expect(FeatureParentRoute.Feature.catalog.id == "catalog")
+        #expect(FeatureParentRoute.settings.routerFeatureCatalog == "instance-catalog")
+        #expect(FeatureParentRoute.routerFeatureCatalog(42) == .routerFeatureCatalog(42))
+        #expect(FeatureParentRoute.routerFeatureCatalog == [
             .init(
                 id: "account.primary",
                 namespace: "FeatureParentRoute.account.primary",
@@ -265,6 +338,27 @@ struct RouterBehaviorTests {
                 id: "account.secondary",
                 namespace: "FeatureParentRoute.account.secondary",
                 childRouteTypeName: "FeatureBehaviorRoute"
+            ),
+            .init(
+                id: "catalog",
+                namespace: "FeatureParentRoute.catalog",
+                childRouteTypeName: "FeatureBehaviorRoute"
+            ),
+        ])
+    }
+
+    @Test("Feature Self payloads round-trip through the enclosing route")
+    func recursiveFeaturePayload() {
+        let leaf = RecursiveFeatureParentRoute.leaf
+        let parent = RecursiveFeatureParentRoute.Feature.child.route.embed(leaf)
+
+        #expect(parent == .child(.leaf))
+        #expect(RecursiveFeatureParentRoute.Feature.child.route.extract(parent) == leaf)
+        #expect(RecursiveFeatureParentRoute.routerFeatureCatalog == [
+            .init(
+                id: "child",
+                namespace: "RecursiveFeatureParentRoute.child",
+                childRouteTypeName: "RecursiveFeatureParentRoute"
             ),
         ])
     }

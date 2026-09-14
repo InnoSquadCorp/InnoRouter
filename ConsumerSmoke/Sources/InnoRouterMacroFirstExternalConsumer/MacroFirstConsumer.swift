@@ -22,7 +22,7 @@ public struct ExternalShadowedID: Hashable, Sendable, Codable, DeepLinkParameter
     deepLinkHosts: ["app.example.com"],
     inspectorCatalog: true
 )
-public enum ExternalRoute: Codable {
+public indirect enum ExternalRoute: Codable {
     public typealias UUID = ExternalShadowedID
 
     @TabItem("Home", systemImage: "house")
@@ -47,6 +47,9 @@ public enum ExternalRoute: Codable {
 #endif
     case conditionalFutureConfirmation
 
+    @PresentationResult(Self.self)
+    case edit(value1: Int, Self)
+
     var destination: some View {
         switch self {
         case .home:
@@ -61,9 +64,75 @@ public enum ExternalRoute: Codable {
             Text("Future confirmation")
         case .conditionalFutureConfirmation:
             Text("Conditional future confirmation")
+        case .edit(let value1, let route):
+            Text("Edit \(value1): \(Swift.String(describing: route))")
         }
     }
 }
+
+@Router
+public indirect enum ExternalFeatureRoute {
+    @FeatureRoute
+    case catalog(ExternalRoute)
+
+    case routerFeatureCatalog(Int)
+
+#if INNOROUTER_CONDITIONAL_FEATURE_CATALOG_CONFLICT
+    static var routerFeatureCatalog: [String] { [] }
+#endif
+
+#if INNOROUTER_NESTED_FEATURE_CATALOG_CONFLICT && os(macOS)
+#if INNOROUTER_NESTED_FEATURE_IF
+    static var routerFeatureCatalog: [Int] { [] }
+#elseif INNOROUTER_NESTED_FEATURE_ELSEIF
+    static var routerFeatureCatalog: [Bool] { [] }
+#else
+    static var routerFeatureCatalog: [Double] { [] }
+#endif
+#endif
+
+    var routerFeatureCatalog: String { "instance-catalog" }
+
+    var destination: some View {
+        switch self {
+        case .catalog(let route):
+            route.destination
+        case .routerFeatureCatalog(let value):
+            Text("Catalog overload \(value)")
+        }
+    }
+}
+
+public enum ExternalFeatureNamespace {
+    @Router
+    public indirect enum Tree<Value: Hashable & Sendable> {
+        @FeatureRoute
+        case child(Self)
+
+        case leaf(Value)
+
+        public var destination: some View {
+            switch self {
+            case .child:
+                Text("Recursive child")
+            case .leaf(let value):
+                Text("Leaf \(String(describing: value))")
+            }
+        }
+    }
+}
+
+#if INNOROUTER_FEATURE_CASE_CONFLICT
+@Router
+private enum ExternalFeatureCaseConflictRoute {
+    @FeatureRoute
+    case child(ExternalRoute)
+
+    case routerFeatureCatalog
+
+    var destination: some View { EmptyView() }
+}
+#endif
 
 @Router(
     deepLinkSchemes: ["innorouter"],
@@ -183,6 +252,28 @@ public enum MacroFirstConsumerProbe {
             _ = ExternalRoute.Presentation.futureConfirmation
             _ = ExternalRoute.Presentation.conditionalFutureConfirmation
         }
+
+        let edit: RouterPresentationRequest<ExternalRoute, ExternalRoute> =
+            ExternalRoute.Presentation.edit(value1: 7, .home)
+        precondition(edit.route == .edit(value1: 7, .home))
+
+        precondition(ExternalFeatureRoute.Feature.catalog.id == "catalog")
+        precondition(ExternalFeatureRoute.routerFeatureCatalog.map(\.id) == ["catalog"])
+        precondition(
+            ExternalFeatureRoute.catalog(.home).routerFeatureCatalog == "instance-catalog"
+        )
+        precondition(
+            ExternalFeatureRoute.routerFeatureCatalog(7) == .routerFeatureCatalog(7)
+        )
+
+        typealias RecursiveFeature = ExternalFeatureNamespace.Tree<String>
+        let recursiveLeaf = RecursiveFeature.leaf("leaf")
+        let recursiveParent = RecursiveFeature.Feature.child.route.embed(recursiveLeaf)
+        precondition(recursiveParent == .child(.leaf("leaf")))
+        precondition(
+            RecursiveFeature.Feature.child.route.extract(recursiveParent) == recursiveLeaf
+        )
+        precondition(RecursiveFeature.routerFeatureCatalog.map(\.id) == ["child"])
 
         let codec = try RouterSnapshotCodec<ExternalRoute>(currentVersion: 1)
         let data = try await store.snapshot(using: codec)

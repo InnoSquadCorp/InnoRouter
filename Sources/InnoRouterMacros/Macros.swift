@@ -69,7 +69,7 @@ import Foundation
 @attached(
     extension,
     conformances: DeepLinkRoute, DestinationRoute, RouterTabRoute, RouterSceneRoute,
-    names: named(destination), named(Tab), named(Scene), named(Feature), named(Presentation), named(routerTabs), named(routerScenes), named(supportsPureDeepLinkExplanation), named(deepLinkCatalog), named(deepLinkCatalogCaseName), named(resolveDeepLink), named(deepLinkURL)
+    names: named(destination), named(Tab), named(Scene), named(Feature), named(Presentation), named(routerTabs), named(routerScenes), named(routerFeatureCatalog), named(supportsPureDeepLinkExplanation), named(deepLinkCatalog), named(deepLinkCatalogCaseName), named(resolveDeepLink), named(deepLinkURL)
 )
 public macro Router(
     deepLinkSchemes: [String] = [],

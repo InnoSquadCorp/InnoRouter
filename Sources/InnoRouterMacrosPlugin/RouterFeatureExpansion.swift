@@ -20,6 +20,7 @@ struct RouterFeatureItem {
 
 func analyzeRouterFeatures(
     in enumDecl: EnumDeclSyntax,
+    routeType: String,
     context: some MacroExpansionContext
 ) -> RouterFeatureExpansion {
     let directCases = enumDecl.memberBlock.members.compactMap {
@@ -47,11 +48,12 @@ func analyzeRouterFeatures(
     let marked = directCases.filter { featureAttributes(on: $0).isEmpty == false }
     guard marked.isEmpty == false else { return .none }
 
-    if enumDecl.memberBlock.members.contains(where: { member in
-        guard let nested = member.decl.as(EnumDeclSyntax.self) else { return false }
-        return nested.name.text == "Feature"
-    }) {
-        diagnoseFeature(.conflictingMember("Feature"), at: enumDecl, context: context)
+    if let conflict = firstRouterFeatureMemberConflict(in: enumDecl.memberBlock.members) {
+        diagnoseFeature(
+            .conflictingMember(conflict.name),
+            at: conflict.declaration,
+            context: context
+        )
         return .invalid
     }
 
@@ -92,13 +94,83 @@ func analyzeRouterFeatures(
         items.append(
             RouterFeatureItem(
                 caseName: name,
-                childType: parameter.type.trimmedDescription,
+                childType: routerFeaturePayloadType(
+                    parameter.type,
+                    routeType: routeType
+                ),
                 emittedLabel: emittedLabel(for: parameter),
                 id: id
             )
         )
     }
     return .valid(RouterFeatureSpecification(items: items))
+}
+
+private struct RouterFeatureMemberConflict {
+    let name: String
+    let declaration: DeclSyntax
+}
+
+private func firstRouterFeatureMemberConflict(
+    in members: MemberBlockItemListSyntax
+) -> RouterFeatureMemberConflict? {
+    for member in members {
+        let declaration = member.decl
+        if let nested = declaration.as(EnumDeclSyntax.self), nested.name.text == "Feature" {
+            return .init(name: "Feature", declaration: declaration)
+        }
+        if let nested = declaration.as(StructDeclSyntax.self), nested.name.text == "Feature" {
+            return .init(name: "Feature", declaration: declaration)
+        }
+        if let nested = declaration.as(ClassDeclSyntax.self), nested.name.text == "Feature" {
+            return .init(name: "Feature", declaration: declaration)
+        }
+        if let alias = declaration.as(TypeAliasDeclSyntax.self), alias.name.text == "Feature" {
+            return .init(name: "Feature", declaration: declaration)
+        }
+        if let variable = declaration.as(VariableDeclSyntax.self),
+           variable.modifiers.contains(where: { modifier in
+               modifier.name.tokenKind == .keyword(.static)
+                   || modifier.name.tokenKind == .keyword(.class)
+           }),
+           variable.bindings.contains(where: { binding in
+               binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text
+                   == "routerFeatureCatalog"
+           }) {
+            return .init(name: "routerFeatureCatalog", declaration: declaration)
+        }
+        if let enumCase = declaration.as(EnumCaseDeclSyntax.self) {
+            for element in enumCase.elements
+            where element.name.text == "routerFeatureCatalog"
+                && element.parameterClause == nil {
+                return .init(name: "routerFeatureCatalog", declaration: declaration)
+            }
+        }
+    }
+    return nil
+}
+
+private final class RouterFeatureSelfTypeRewriter: SyntaxRewriter {
+    private let routeType: TypeSyntax
+
+    init(routeType: String) {
+        self.routeType = TypeSyntax(stringLiteral: routeType)
+        super.init(viewMode: .sourceAccurate)
+    }
+
+    override func visit(_ node: IdentifierTypeSyntax) -> TypeSyntax {
+        guard node.name.tokenKind == .keyword(.Self),
+              node.genericArgumentClause == nil else {
+            return super.visit(node)
+        }
+        return routeType
+    }
+}
+
+private func routerFeaturePayloadType(_ type: TypeSyntax, routeType: String) -> String {
+    RouterFeatureSelfTypeRewriter(routeType: routeType)
+        .rewrite(Syntax(type))
+        .trimmedDescription
 }
 
 func renderRouterFeatureMembers(
@@ -140,7 +212,7 @@ func renderRouterFeatureMembers(
         """
     }.joined(separator: ",\n")
     let catalogMember = """
-    \(access) static var catalog: [InnoRouterCore.RouterFeatureCatalogEntry] {
+    \(access) static var routerFeatureCatalog: [InnoRouterCore.RouterFeatureCatalogEntry] {
         [
     \(indentEveryLine(catalogEntries, by: 8))
         ]
@@ -149,10 +221,10 @@ func renderRouterFeatureMembers(
 
     return """
     \(access) enum Feature {
-    \(indentEveryLine(catalogMember, by: 4))
-
     \(indentEveryLine(members, by: 4))
     }
+
+    \(catalogMember)
     """
 }
 
