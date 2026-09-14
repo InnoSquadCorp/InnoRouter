@@ -229,3 +229,8 @@ struct DeferredRouterRequest<R: Route> {
     let resumePreparation: RouterDeferredResumePreparationBuilder<R>?
     let metadata: RouterDeferredTransition
 }
+
+struct RouterDeferralExpiration {
+    let token: UUID
+    let task: Task<Void, Never>
+}

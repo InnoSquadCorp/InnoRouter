@@ -100,6 +100,32 @@ package struct ActiveRouterHistoryMove<R: Route> {
 }
 
 package extension RouterEvent {
+    var transitionID: RouterTransitionID? {
+        switch self {
+        case .started(let transition):
+            transition.id
+        case .committed(let transitionID, _, _, _, _),
+             .unchanged(let transitionID, _, _, _),
+             .deferred(let transitionID, _, _, _, _),
+             .rejected(let transitionID, _, _, _, _),
+             .policyPrepared(let transitionID, _, _):
+            transitionID
+        case .platformAdapted:
+            nil
+        }
+    }
+
+    var historyTerminalState: (state: RouterState<R>, revision: UInt64)? {
+        switch self {
+        case .committed(_, _, let after, let revision, _):
+            (after, revision)
+        case .unchanged(_, let state, let revision, _):
+            (state, revision)
+        default:
+            nil
+        }
+    }
+
     var transitionContext: RouterTransitionContext? {
         switch self {
         case .started(let transition):

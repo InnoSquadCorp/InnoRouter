@@ -702,7 +702,12 @@ struct RouterStateRestorationTests {
             _ = try await activation.value
         }
         #expect(driver.status == .inactive)
-        #expect(try await driver.activate() == .noSnapshot)
+        do {
+            let retry = try await driver.activate()
+            #expect(retry == .noSnapshot)
+        } catch {
+            Issue.record("Expected activation retry, got \(error)")
+        }
         driver.stop()
     }
 

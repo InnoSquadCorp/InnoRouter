@@ -15,17 +15,17 @@ public final class RouterHistory<R: Route> {
     public private(set) var cursor: Int
     public private(set) var checkpoints: [RouterHistoryCheckpoint<R>] = []
     public private(set) var sessionKey: String
-    public private(set) var lastRestorationReport: RouterPartialRestorationReport?
+    public package(set) var lastRestorationReport: RouterPartialRestorationReport?
 
     public let capacity: Int
     public let checkpointCapacity: Int
 
     @ObservationIgnored
-    private let store: RouterStore<R>
+    package let store: RouterStore<R>
     @ObservationIgnored
-    private let validator: RouterPartialRestorationValidator<R>?
+    package let validator: RouterPartialRestorationValidator<R>?
     @ObservationIgnored
-    private let validationTimeout: Duration?
+    package let validationTimeout: Duration?
     @ObservationIgnored
     private var eventObserverID: UUID?
     @ObservationIgnored
@@ -33,19 +33,25 @@ public final class RouterHistory<R: Route> {
     @ObservationIgnored
     private var revisionWaiters: [UUID: (revision: UInt64, continuation: CheckedContinuation<Bool, Never>)] = [:]
     @ObservationIgnored
-    private var isStopped = false
+    package var isStopped = false
     @ObservationIgnored
     private var latestObservedRevision: UInt64
     @ObservationIgnored
-    private var generation: UInt64 = 0
+    package var generation: UInt64 = 0
     @ObservationIgnored
-    private var pendingMoves: [RouterDeferralID: PendingRouterHistoryMove<R>] = [:]
+    package var pendingMoves: [RouterDeferralID: PendingRouterHistoryMove<R>] = [:]
     @ObservationIgnored
     private var activeMoves: [UUID: ActiveRouterHistoryMove<R>] = [:]
     @ObservationIgnored
-    private var activeMoveRequestRoots: [UUID: RouterTransitionID] = [:]
+    package var activeMoveRequestRoots: [UUID: RouterTransitionID] = [:]
     @ObservationIgnored
-    private var ownedRequestRoots: Set<RouterTransitionID> = []
+    package var ownedRequestRoots: Set<RouterTransitionID> = []
+    @ObservationIgnored
+    package var activeRequestMoves: [RouterTransitionID: PendingRouterHistoryMove<R>] = [:]
+    @ObservationIgnored
+    package var activeRequestTerminalWaiters: [
+        RouterTransitionID: CheckedContinuation<Void, Never>
+    ] = [:]
 
     public init(
         store: RouterStore<R>,
@@ -104,6 +110,13 @@ public final class RouterHistory<R: Route> {
     }
 
     public func waitUntilRecorded(_ count: Int) async -> Bool {
+        await waitUntilRecorded(count, didSuspend: {})
+    }
+
+    package func waitUntilRecorded(
+        _ count: Int,
+        didSuspend: @MainActor @Sendable () -> Void
+    ) async -> Bool {
         if entries.count >= count { return true }
         guard !isStopped else { return false }
         let id = UUID()
@@ -115,6 +128,7 @@ public final class RouterHistory<R: Route> {
                     return
                 }
                 recordWaiters[id] = (max(0, count), continuation)
+                didSuspend()
             }
         } onCancel: {
             Task { @MainActor [weak self] in self?.cancelRecordWaiter(id) }
@@ -209,30 +223,7 @@ public final class RouterHistory<R: Route> {
                 reason: .sessionMismatch(expected: sessionKey, actual: checkpoint.sessionKey)
             )
         }
-        let result = await runMove(checkpoint.entry, destinationCursor: nil)
-        guard case .completed(_, let transition) = result else { return result }
-        if let existing = entries.firstIndex(where: { $0.id == checkpoint.entry.id }) {
-            entries[existing] = .init(
-                id: checkpoint.entry.id,
-                navigationState: Self.navigationProjection(store.state),
-                sourceRevision: store.revision
-            )
-            cursor = existing
-        } else {
-            if cursor + 1 < entries.endIndex {
-                entries.removeSubrange((cursor + 1)..<entries.endIndex)
-            }
-            entries.append(.init(
-                id: checkpoint.entry.id,
-                navigationState: Self.navigationProjection(store.state),
-                sourceRevision: store.revision
-            ))
-            if entries.count > capacity {
-                entries.removeFirst(entries.count - capacity)
-            }
-            cursor = entries.index(before: entries.endIndex)
-        }
-        return .completed(cursor: cursor, transition: transition)
+        return await runMove(checkpoint.entry, destinationCursor: nil)
     }
 
     @discardableResult
@@ -347,6 +338,10 @@ public final class RouterHistory<R: Route> {
         let roots = ownedRequestRoots
         ownedRequestRoots.removeAll()
         activeMoveRequestRoots.removeAll()
+        activeRequestMoves.removeAll()
+        let terminalWaiters = activeRequestTerminalWaiters.values
+        activeRequestTerminalWaiters.removeAll()
+        terminalWaiters.forEach { $0.resume() }
         roots.forEach(store.cancelRequestFamily)
     }
 
@@ -365,6 +360,8 @@ public final class RouterHistory<R: Route> {
         guard let move = activeMoves.removeValue(forKey: operationID) else { return }
         move.task.cancel()
         if let requestRootID = activeMoveRequestRoots.removeValue(forKey: operationID) {
+            activeRequestMoves.removeValue(forKey: requestRootID)
+            activeRequestTerminalWaiters.removeValue(forKey: requestRootID)?.resume()
             ownedRequestRoots.remove(requestRootID)
             store.cancelRequestFamily(requestRootID)
         }
@@ -375,18 +372,26 @@ public final class RouterHistory<R: Route> {
 private extension RouterHistory {
     private func observe(_ event: RouterEvent<R>) {
         guard !isStopped else { return }
+        registerActiveMoveAsDeferredIfNeeded(for: event)
         let isOwnedHistoryCommit = Self.ownsHistoryCommit(
             event,
             ownedRequestRoots: ownedRequestRoots,
             pendingMoves: pendingMoves
         )
+        completeActiveMoveIfNeeded(for: event)
         if let completedMove = Self.updatePendingMoveOwnership(
             for: event,
             generation: generation,
             pendingMoves: &pendingMoves,
             ownedRequestRoots: &ownedRequestRoots
         ) {
-            completePendingMove(completedMove)
+            if let terminal = event.historyTerminalState {
+                completePendingMove(
+                    completedMove,
+                    state: terminal.state,
+                    revision: terminal.revision
+                )
+            }
         }
         guard case .committed(_, _, let after, let revision, let context) = event,
               revision > latestObservedRevision else { return }
@@ -414,9 +419,7 @@ private extension RouterHistory {
             entries.removeFirst(entries.count - capacity)
         }
         cursor = entries.index(before: entries.endIndex)
-        let ready = recordWaiters.filter { entries.count >= $0.value.count }
-        for id in ready.keys { recordWaiters.removeValue(forKey: id) }
-        ready.values.forEach { $0.continuation.resume(returning: true) }
+        resumeRecordWaitersIfNeeded()
     }
 
     private func resumeRevisionWaiters(through revision: UInt64) {
@@ -433,22 +436,62 @@ private extension RouterHistory {
         revisionWaiters.removeValue(forKey: id)?.continuation.resume(returning: false)
     }
 
-    private func completePendingMove(_ pending: PendingRouterHistoryMove<R>) {
+    private func completeActiveMoveIfNeeded(for event: RouterEvent<R>) {
+        guard let terminal = event.historyTerminalState,
+              event.transitionContext?.source == .history,
+              let transitionID = event.transitionID,
+              let pending = activeRequestMoves.removeValue(forKey: transitionID) else {
+            return
+        }
+        ownedRequestRoots.remove(pending.requestRootID)
+        if pending.generation == generation {
+            completePendingMove(
+                pending,
+                state: terminal.state,
+                revision: terminal.revision
+            )
+        }
+        activeRequestTerminalWaiters.removeValue(forKey: transitionID)?.resume()
+    }
+
+    private func registerActiveMoveAsDeferredIfNeeded(for event: RouterEvent<R>) {
+        guard case .deferred(
+            let transitionID,
+            _,
+            _,
+            let deferral,
+            let context
+        ) = event,
+        context.source == .history,
+        context.resumedDeferral == nil,
+        let pending = activeRequestMoves.removeValue(forKey: transitionID) else {
+            return
+        }
+        pendingMoves[deferral.id] = pending
+    }
+
+    private func completePendingMove(
+        _ pending: PendingRouterHistoryMove<R>,
+        state: RouterState<R>,
+        revision: UInt64
+    ) {
         let normalized = RouterHistoryEntry(
             id: pending.entry.id,
-            navigationState: Self.navigationProjection(store.state),
-            sourceRevision: store.revision
+            navigationState: Self.navigationProjection(state),
+            sourceRevision: revision
         )
         if let destination = pending.destinationCursor,
            entries.indices.contains(destination),
            entries[destination].id == pending.entry.id {
             entries[destination] = normalized
             cursor = destination
+            resumeRecordWaitersIfNeeded()
             return
         }
         if let existing = entries.firstIndex(where: { $0.id == pending.entry.id }) {
             entries[existing] = normalized
             cursor = existing
+            resumeRecordWaitersIfNeeded()
             return
         }
         if cursor + 1 < entries.endIndex {
@@ -459,121 +502,18 @@ private extension RouterHistory {
             entries.removeFirst(entries.count - capacity)
         }
         cursor = entries.index(before: entries.endIndex)
+        resumeRecordWaitersIfNeeded()
+    }
+
+    private func resumeRecordWaitersIfNeeded() {
+        let ready = recordWaiters.filter { entries.count >= $0.value.count }
+        for id in ready.keys { recordWaiters.removeValue(forKey: id) }
+        ready.values.forEach { $0.continuation.resume(returning: true) }
     }
 }
 
 public extension RouterHistory {
     func removeAllCheckpoints() {
         checkpoints.removeAll()
-    }
-}
-
-private extension RouterHistory {
-    func apply(
-        _ entry: RouterHistoryEntry<R>,
-        destinationCursor: Int?,
-        operationID: UUID
-    ) async -> RouterHistoryMoveResult<R> {
-        let startingGeneration = generation
-        let expectedRevision = store.revision
-        let restoredState: RouterState<R>
-        let restorationReport: RouterPartialRestorationReport?
-        if let validator {
-            do {
-                let prepared = try await preparePartialRestoration(
-                    entry.navigationState,
-                    validator: validator,
-                    timeout: validationTimeout,
-                    sleep: store.runtimeDependencies.sleep
-                )
-                restoredState = prepared.0
-                restorationReport = prepared.1
-            } catch let error as RouterPartialRestorationError {
-                return .unavailable(cursor: cursor, reason: .validationFailed(error))
-            } catch {
-                return .unavailable(
-                    cursor: cursor,
-                    reason: .validationFailed(.validationFailed(String(describing: error)))
-                )
-            }
-        } else {
-            restoredState = entry.navigationState
-            restorationReport = nil
-        }
-        guard !Task.isCancelled,
-              !isStopped,
-              generation == startingGeneration else {
-            return .unavailable(
-                cursor: cursor,
-                reason: isStopped ? .stopped : .cancelled
-            )
-        }
-        lastRestorationReport = restorationReport
-        let target: RouterState<R>
-        do {
-            target = try Self.merge(restoredState, into: store.state)
-        } catch let failure as RouterHistoryFailure {
-            return .unavailable(cursor: cursor, reason: failure)
-        } catch {
-            return .unavailable(cursor: cursor, reason: .incompatibleTopology(.root))
-        }
-        let requestRootID = store.reserveTransitionID()
-        ownedRequestRoots.insert(requestRootID)
-        activeMoveRequestRoots[operationID] = requestRootID
-        let outcome = await store.perform(
-            .apply(RouterPlan(state: target)),
-            context: .init(source: .history),
-            expectedRevision: expectedRevision,
-            bypassesPolicies: false,
-            transitionID: requestRootID,
-            requestRootID: requestRootID,
-            requestSemantics: .historyNavigation(restoredState),
-            executionPrecondition: { [weak self] _ in
-                guard let self,
-                      !self.isStopped,
-                      self.generation == startingGeneration else {
-                    return .cancelled
-                }
-                return nil
-            },
-            deferredResumePreparation: { [weak self] currentState, _ in
-                guard let self,
-                      !self.isStopped,
-                      self.generation == startingGeneration else {
-                    return .rejected(.cancelled)
-                }
-                return Self.prepareNavigationMerge(restoredState, into: currentState)
-            }
-        )
-        switch outcome {
-        case .applied(_, _, _, let outcomeRevision),
-             .unchanged(_, _, let outcomeRevision):
-            ownedRequestRoots.remove(requestRootID)
-            if let destinationCursor,
-               generation == startingGeneration,
-               store.revision == outcomeRevision,
-               latestObservedRevision == outcomeRevision,
-               entries.indices.contains(destinationCursor),
-               entries[destinationCursor].id == entry.id {
-                cursor = destinationCursor
-                entries[destinationCursor] = .init(
-                    id: entry.id,
-                    navigationState: Self.navigationProjection(store.state),
-                    sourceRevision: store.revision
-                )
-            }
-            return .completed(cursor: cursor, transition: outcome)
-        case .deferred(_, _, _, let deferral):
-            pendingMoves[deferral.id] = .init(
-                generation: startingGeneration,
-                requestRootID: requestRootID,
-                entry: entry,
-                destinationCursor: destinationCursor
-            )
-            return .deferred(cursor: cursor, transition: outcome)
-        case .rejected:
-            ownedRequestRoots.remove(requestRootID)
-            return .rejected(cursor: cursor, transition: outcome)
-        }
     }
 }

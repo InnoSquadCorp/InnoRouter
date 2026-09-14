@@ -76,7 +76,7 @@ public final class RouterStore<R: Route> {
     @ObservationIgnored
     var deferredRequests: [RouterDeferralID: DeferredRouterRequest<R>] = [:]
     @ObservationIgnored
-    var deferralExpirationTasks: [RouterDeferralID: Task<Void, Never>] = [:]
+    var deferralExpirationTasks: [RouterDeferralID: RouterDeferralExpiration] = [:]
     @ObservationIgnored
     var scopes: [RouterScopePath: WeakRouterScope<R>] = [:]
     @ObservationIgnored

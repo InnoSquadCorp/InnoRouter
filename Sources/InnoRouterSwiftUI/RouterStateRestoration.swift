@@ -8,48 +8,6 @@ import SwiftUI
 
 import InnoRouterCore
 
-/// Application-selected transport for one opaque router snapshot.
-///
-/// Storage operations are synchronous by design and are executed by
-/// ``RouterRestorationDriver`` on a private actor, never on the main actor.
-/// Implementations should write atomically and must not add implicit cloud
-/// synchronization or analytics behavior.
-public protocol RouterSnapshotStorage: Sendable {
-    func load() throws -> Data?
-    func save(_ data: Data) throws
-    func remove() throws
-}
-
-/// Atomic file-backed snapshot storage at an application-owned URL.
-public struct RouterFileSnapshotStorage: RouterSnapshotStorage, Sendable {
-    public let fileURL: URL
-
-    public init(fileURL: URL) {
-        self.fileURL = fileURL
-    }
-
-    public func load() throws -> Data? {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            return nil
-        }
-        return try Data(contentsOf: fileURL)
-    }
-
-    public func save(_ data: Data) throws {
-        let directory = fileURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(
-            at: directory,
-            withIntermediateDirectories: true
-        )
-        try data.write(to: fileURL, options: .atomic)
-    }
-
-    public func remove() throws {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
-        try FileManager.default.removeItem(at: fileURL)
-    }
-}
-
 /// Observable lifecycle of an opt-in restoration driver.
 public enum RouterRestorationDriverStatus: Sendable, Hashable {
     case inactive
@@ -67,24 +25,9 @@ public enum RouterRestorationDriverActivation<R: Route>: Sendable, Hashable {
     case alreadyActive
 }
 
-private actor RouterSnapshotStorageExecutor {
-    let storage: any RouterSnapshotStorage
-
-    init(storage: any RouterSnapshotStorage) {
-        self.storage = storage
-    }
-
-    func load() throws -> Data? {
-        try storage.load()
-    }
-
-    func save(_ data: Data) throws {
-        try storage.save(data)
-    }
-
-    func remove() throws {
-        try storage.remove()
-    }
+private struct RouterRestorationActivationLease<R: Route & Codable> {
+    let result: RouterRestorationDriverActivation<R>
+    let generation: UInt64
 }
 
 /// Opt-in automatic persistence for one canonical router store.
@@ -125,6 +68,16 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     @ObservationIgnored
     private var retainsManualActivation = false
     @ObservationIgnored
+    private var pendingManualActivationIDs: Set<UUID> = []
+    @ObservationIgnored
+    private var activationTask: Task<Void, Never>?
+    @ObservationIgnored
+    private var activationTaskID: UUID?
+    @ObservationIgnored
+    private var activationWaiters: [
+        UUID: CheckedContinuation<RouterRestorationActivationLease<R>, any Error>
+    ] = [:]
+    @ObservationIgnored
     private var didAttemptRestore = false
     @ObservationIgnored
     private var activationGeneration: UInt64 = 0
@@ -153,6 +106,8 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         @_optimize(none)
     #endif
     isolated deinit {
+        activationTask?.cancel()
+        activationWaiters.values.forEach { $0.resume(throwing: CancellationError()) }
         if let activeRestoreRequestRootID {
             store.cancelRequestFamily(activeRestoreRequestRootID)
         }
@@ -161,25 +116,44 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         }
         scheduledSaveTask?.cancel()
     }
+}
 
+extension RouterRestorationDriver {
     /// Starts commit observation and performs the initial restore once.
     @discardableResult
     public func activate() async throws -> RouterRestorationDriverActivation<R> {
-        retainsManualActivation = true
-        do {
-            return try await activateIfNeeded()
-        } catch {
-            retainsManualActivation = false
-            throw error
+        let claimID = UUID()
+        pendingManualActivationIDs.insert(claimID)
+        return try await withTaskCancellationHandler {
+            do {
+                let lease = try await activateIfNeeded()
+                try Task.checkCancellation()
+                guard pendingManualActivationIDs.remove(claimID) != nil,
+                      activationGeneration == lease.generation,
+                      observationID != nil else {
+                    throw CancellationError()
+                }
+                retainsManualActivation = true
+                return lease.result
+            } catch {
+                pendingManualActivationIDs.remove(claimID)
+                stopActivationIfUnowned()
+                throw error
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.cancelManualActivation(claimID)
+            }
         }
     }
 
-    private func activateIfNeeded() async throws -> RouterRestorationDriverActivation<R> {
-        guard observationID == nil else {
-            return .alreadyActive
+    private func activateIfNeeded() async throws -> RouterRestorationActivationLease<R> {
+        guard observationID == nil, activationTask == nil else {
+            return .init(result: .alreadyActive, generation: activationGeneration)
         }
+
         activationGeneration &+= 1
-        let activation = activationGeneration
+        let generation = activationGeneration
         let expectedRevision = store.revision
         startObservation()
 
@@ -187,19 +161,67 @@ public final class RouterRestorationDriver<R: Route & Codable> {
             status = .active
             let result = RouterRestorationDriverActivation<R>.observationResumed
             lastActivation = result
-            return result
+            return .init(result: result, generation: generation)
         }
 
         didAttemptRestore = true
         status = .loading
+        let waiterID = UUID()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                guard !Task.isCancelled else {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                activationWaiters[waiterID] = continuation
+                startActivationTask(
+                    generation: generation,
+                    expectedRevision: expectedRevision
+                )
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.cancelActivationWaiter(waiterID)
+            }
+        }
+    }
+
+    private func startActivationTask(
+        generation: UInt64,
+        expectedRevision: UInt64
+    ) {
+        guard activationTask == nil else { return }
+        let taskID = UUID()
+        activationTaskID = taskID
+        activationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let result = try await self.performActivation(
+                    taskID: taskID,
+                    generation: generation,
+                    expectedRevision: expectedRevision
+                )
+                self.finishActivation(taskID, result: .success(result))
+            } catch {
+                self.finishActivation(taskID, result: .failure(error))
+            }
+        }
+    }
+
+    private func performActivation(
+        taskID: UUID,
+        generation: UInt64,
+        expectedRevision: UInt64
+    ) async throws -> RouterRestorationActivationLease<R> {
+        try ensureCurrentActivation(generation, taskID: taskID)
         do {
             let data = try await executor.load()
-            try ensureCurrentActivation(activation)
+            try ensureCurrentActivation(generation, taskID: taskID)
             guard let data else {
                 status = .active
                 let result = RouterRestorationDriverActivation<R>.noSnapshot
                 lastActivation = result
-                return result
+                return .init(result: result, generation: generation)
             }
             let transitionID = store.reserveTransitionID()
             activeRestoreTransitionID = transitionID
@@ -218,7 +240,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
                 requestRootID: transitionID,
                 executionPrecondition: { [weak self] _ in
                     guard let self,
-                          self.activationGeneration == activation,
+                          self.activationGeneration == generation,
                           self.observationID != nil else {
                         return .cancelled
                     }
@@ -230,13 +252,14 @@ public final class RouterRestorationDriver<R: Route & Codable> {
             } else {
                 clearActiveRestoreRequest(transitionID)
             }
-            try ensureCurrentActivation(activation)
+            try ensureCurrentActivation(generation, taskID: taskID)
             status = .active
             let result = RouterRestorationDriverActivation.restored(outcome)
             lastActivation = result
-            return result
+            return .init(result: result, generation: generation)
         } catch is CancellationError {
-            guard activationGeneration == activation else {
+            guard activationGeneration == generation,
+                  activationTaskID == taskID else {
                 throw CancellationError()
             }
             didAttemptRestore = false
@@ -246,7 +269,8 @@ public final class RouterRestorationDriver<R: Route & Codable> {
             status = .inactive
             throw CancellationError()
         } catch {
-            guard activationGeneration == activation else {
+            guard activationGeneration == generation,
+                  activationTaskID == taskID else {
                 throw CancellationError()
             }
             didAttemptRestore = false
@@ -287,38 +311,104 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     /// without replaying the initial snapshot over newer in-memory state.
     public func stop() {
         retainsManualActivation = false
+        pendingManualActivationIDs.removeAll()
         attachmentIDs.removeAll()
         stopOwnedWork()
     }
 
     package func attach(_ id: UUID) async throws -> RouterRestorationDriverActivation<R> {
         attachmentIDs.insert(id)
-        return try await activateIfNeeded()
+        let lease = try await activateIfNeeded()
+        try Task.checkCancellation()
+        guard attachmentIDs.contains(id),
+              activationGeneration == lease.generation,
+              observationID != nil else {
+            throw CancellationError()
+        }
+        return lease.result
     }
+
+    package var attachmentCount: Int { attachmentIDs.count }
 
     package func detach(_ id: UUID) {
         attachmentIDs.remove(id)
-        guard attachmentIDs.isEmpty, !retainsManualActivation else { return }
+        guard attachmentIDs.isEmpty,
+              pendingManualActivationIDs.isEmpty,
+              !retainsManualActivation else {
+            return
+        }
+        if status == .loading {
+            didAttemptRestore = false
+        }
         stopOwnedWork()
     }
 
     private func stopOwnedWork() {
         activationGeneration &+= 1
+        activationTask?.cancel()
+        activationTask = nil
+        activationTaskID = nil
+        let waiters = activationWaiters.values
+        activationWaiters.removeAll()
+        waiters.forEach { $0.resume(throwing: CancellationError()) }
         cancelActiveRestoreRequest()
         stopObservation()
         invalidateScheduledSave()
         status = .inactive
     }
 
-    private func ensureCurrentActivation(_ activation: UInt64) throws {
+    private func finishActivation(
+        _ taskID: UUID,
+        result: Result<RouterRestorationActivationLease<R>, any Error>
+    ) {
+        guard activationTaskID == taskID else { return }
+        activationTask = nil
+        activationTaskID = nil
+        let waiters = activationWaiters.values
+        activationWaiters.removeAll()
+        for waiter in waiters {
+            switch result {
+            case .success(let lease):
+                waiter.resume(returning: lease)
+            case .failure(let error):
+                waiter.resume(throwing: error)
+            }
+        }
+    }
+
+    private func cancelActivationWaiter(_ id: UUID) {
+        activationWaiters.removeValue(forKey: id)?.resume(throwing: CancellationError())
+    }
+
+    private func cancelManualActivation(_ id: UUID) {
+        pendingManualActivationIDs.remove(id)
+        stopActivationIfUnowned()
+    }
+
+    private func stopActivationIfUnowned() {
+        guard attachmentIDs.isEmpty,
+              pendingManualActivationIDs.isEmpty,
+              !retainsManualActivation,
+              activationTask != nil || observationID != nil else {
+            return
+        }
+        if status == .loading {
+            didAttemptRestore = false
+        }
+        stopOwnedWork()
+    }
+
+    private func ensureCurrentActivation(_ activation: UInt64, taskID: UUID) throws {
         try Task.checkCancellation()
         guard activationGeneration == activation,
+              activationTaskID == taskID,
               observationID != nil else {
             throw CancellationError()
         }
     }
 
     private func startObservation() {
+        guard observationID == nil else { return }
         observationID = store.addSynchronousEventObserver { [weak self] event in
             self?.observe(event)
         }

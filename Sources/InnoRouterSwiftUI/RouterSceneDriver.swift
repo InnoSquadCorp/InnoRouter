@@ -387,6 +387,7 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
         expected reconciliationID: RouterSceneReconciliationID
     ) async -> Bool {
 #if os(visionOS)
+        guard isCurrent(reconciliationID) else { return false }
         if let previous {
             await dismissImmersiveSpace()
             previousImmersiveSpace = nil
@@ -428,6 +429,7 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
             return false
         }
 #else
+        guard isCurrent(reconciliationID) else { return false }
         if let previous {
             onEvent(.unsupported(route: previous.route, style: .immersiveSpace))
         }

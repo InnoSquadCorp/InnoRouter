@@ -213,7 +213,7 @@ extension RouterStore {
     func takeDeferredRequest(
         _ id: RouterDeferralID
     ) -> DeferredRouterRequest<R>? {
-        deferralExpirationTasks.removeValue(forKey: id)?.cancel()
+        deferralExpirationTasks.removeValue(forKey: id)?.task.cancel()
         deferredTransitions.removeAll { $0.id == id }
         return deferredRequests.removeValue(forKey: id)
     }
@@ -225,19 +225,40 @@ extension RouterStore {
             expireDeferredRequest(id)
             return
         }
+        let token = UUID()
         let sleep = runtimeDependencies.sleep
-        deferralExpirationTasks[id] = Task { @MainActor [weak self] in
+        let task = Task { @MainActor [weak self] in
             do {
                 try await sleep(timeToLive)
             } catch {
                 return
             }
-            self?.expireDeferredRequest(id)
+            guard !Task.isCancelled else { return }
+            self?.expireDeferredRequest(id, token: token)
         }
+        deferralExpirationTasks[id] = .init(token: token, task: task)
     }
 
     private func expireDeferredRequest(_ id: RouterDeferralID) {
         guard let request = takeDeferredRequest(id) else { return }
+        finishExpiredDeferredRequest(request, id: id)
+    }
+
+    private func expireDeferredRequest(_ id: RouterDeferralID, token: UUID) {
+        guard let expiration = deferralExpirationTasks[id],
+              expiration.token == token else {
+            return
+        }
+        deferralExpirationTasks.removeValue(forKey: id)
+        deferredTransitions.removeAll { $0.id == id }
+        guard let request = deferredRequests.removeValue(forKey: id) else { return }
+        finishExpiredDeferredRequest(request, id: id)
+    }
+
+    private func finishExpiredDeferredRequest(
+        _ request: DeferredRouterRequest<R>,
+        id: RouterDeferralID
+    ) {
         let reason = RouterRejectionReason.deferralExpired(id)
         finishDeferredPresentation(
             for: request.action,

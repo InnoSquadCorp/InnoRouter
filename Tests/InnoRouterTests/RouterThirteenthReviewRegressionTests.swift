@@ -461,10 +461,7 @@ struct RouterThirteenthReviewNativeHostTests {
         ))
         let window = makeWindow(host)
         await render(host)
-        for _ in 0..<100 where first.status == .inactive {
-            await Task.yield()
-        }
-        #expect(first.status == .active)
+        #expect(await waitUntil { first.status == .active })
 
         host.rootView = ThirteenthReviewRestorationRoot(
             driver: second,
@@ -472,9 +469,9 @@ struct RouterThirteenthReviewNativeHostTests {
             observations: observations
         )
         await render(host)
-        for _ in 0..<100 where first.status != .inactive || second.status == .inactive {
-            await Task.yield()
-        }
+        #expect(await waitUntil {
+            first.status == .inactive && second.status == .active
+        })
 
         #expect(first.status == .inactive)
         #expect(second.status == .active)
@@ -574,6 +571,19 @@ struct RouterThirteenthReviewNativeHostTests {
             DispatchQueue.main.async { continuation.resume() }
         }
         host.layoutSubtreeIfNeeded()
+    }
+
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        _ condition: () -> Bool
+    ) async -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while clock.now < deadline {
+            if condition() { return true }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        return condition()
     }
 }
 #endif

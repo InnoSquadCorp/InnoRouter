@@ -9,29 +9,60 @@ import InnoRouterCore
 
 @MainActor
 package final class RouterImmersiveSceneEffectQueue {
-    private var generation: UInt64 = 0
-    private var tail: Task<Void, Never>?
+    private struct Waiter {
+        let id: UUID
+        let continuation: CheckedContinuation<Bool, Never>
+    }
+
+    private var isExecuting = false
+    private var waiters: [Waiter] = []
 
     package init() {}
 
     package func enqueue(
         _ operation: @escaping @MainActor @Sendable () async -> Bool
     ) async -> Bool {
-        generation &+= 1
-        let operationGeneration = generation
-        let predecessor = tail
-        let task = Task { @MainActor in
-            await predecessor?.value
-            return await operation()
+        let waiterID = UUID()
+        let acquiredTurn = await withTaskCancellationHandler {
+            if isExecuting {
+                return await withCheckedContinuation { continuation in
+                    guard !Task.isCancelled else {
+                        continuation.resume(returning: false)
+                        return
+                    }
+                    waiters.append(Waiter(id: waiterID, continuation: continuation))
+                }
+            } else {
+                isExecuting = true
+                return true
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.cancelWaiter(waiterID)
+            }
         }
-        tail = Task { @MainActor in
-            _ = await task.value
+
+        guard acquiredTurn else { return false }
+        guard !Task.isCancelled else {
+            finishTurn()
+            return false
         }
-        let result = await task.value
-        if generation == operationGeneration {
-            tail = nil
-        }
+        let result = await operation()
+        finishTurn()
         return result
+    }
+
+    private func cancelWaiter(_ id: UUID) {
+        guard let index = waiters.firstIndex(where: { $0.id == id }) else { return }
+        waiters.remove(at: index).continuation.resume(returning: false)
+    }
+
+    private func finishTurn() {
+        if waiters.isEmpty {
+            isExecuting = false
+        } else {
+            waiters.removeFirst().continuation.resume(returning: true)
+        }
     }
 }
 
