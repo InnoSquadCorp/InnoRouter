@@ -39,6 +39,14 @@ RouterHost(AppRoute.self) {
 Use `AppRoute.makeRouterStore()` and `RouterHost(store:)` only when an app
 boundary must retain the authority.
 
+## Feature metadata namespace
+
+Feature mappings stay under `AppRoute.Feature`, such as
+`AppRoute.Feature.account`. The generated structural metadata array is now
+`AppRoute.routerFeatureCatalog`. Replace any pre-release 6.0 source that read
+`AppRoute.Feature.catalog`; no compatibility alias is provided because it would
+again collide with a valid `@FeatureRoute case catalog(ChildRoute)` mapping.
+
 ## Request vocabulary
 
 | 5.x | 6.0 |

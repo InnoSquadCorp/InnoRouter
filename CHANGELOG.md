@@ -6,6 +6,25 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+- Restoration activation now establishes observation and its starting revision
+  when the shared lifetime is reserved, rejects stopped workers and late manual
+  claims, and preserves newer navigation across restore completion. Deferred
+  expiration tasks are bound to one registration lifetime, so a cancelled
+  timer cannot expire a newer request that reuses the same deferral ID.
+  `@FeatureRoute` now preserves enclosing-route `Self` payloads in direct,
+  nested, and generic routers and permits an associated-value case named
+  `routerFeatureCatalog` while retaining E067 for a parameterless conflict.
+- History-owned checkpoint moves now finalize from their own terminal event,
+  preserve newer navigation, wake record-count waiters, and transfer queued
+  deferral ownership before an immediate resume or cancellation can complete.
+  Shared restoration activation now follows all mounted or manual owners, so
+  cancelling one host cannot stop another live host's automatic saves. Removed
+  scene drivers no longer execute immersive effects that were still waiting in
+  the shared queue. Presentation factories allocate collision-free local
+  bindings and resolve recursive `Self` in the route context. Feature metadata
+  moves from `Route.Feature.catalog` to `Route.routerFeatureCatalog`, leaving
+  natural feature cases such as `catalog` and same-named instance properties
+  available while diagnosing direct generated-member conflicts precisely.
 - Restoration cancellation now removes its complete deferred request family;
   immersive restoration serializes native effects and compensates obsolete
   successful opens; partial scene reconciliation preserves each window's

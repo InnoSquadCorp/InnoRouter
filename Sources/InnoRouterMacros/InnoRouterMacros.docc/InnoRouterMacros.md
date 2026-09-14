@@ -28,7 +28,9 @@ The module exposes eight macros with separate responsibilities:
 - `@Scene` marks parameterless routes that can be opened through the generated
   scene catalog and `RouterSceneDriver`.
 - `@FeatureRoute` generates one bidirectional child-route mapping while the
-  parent `RouterStore` remains the only mutable authority.
+  parent `RouterStore` remains the only mutable authority. Recursive child
+  payloads may use the enclosing route's `Self`, including nested generic
+  routers.
 - `@PresentationResult` generates typed presentation requests so presentation
   completion values are checked at compile time.
 - `@Routable` adds `Route` conformance plus typed `Cases`, `is(_:)`, and

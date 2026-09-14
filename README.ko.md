@@ -132,6 +132,12 @@ enum AppRoute {
 명시적으로 실패합니다. 앱 window와 immersive space 생성·종료 권한은 부모 조립
 지점에 남습니다.
 
+생성된 매핑은 `AppRoute.Feature.account`, 구조 메타데이터는
+`AppRoute.routerFeatureCatalog`에 있습니다. 중첩 generic router를 포함해 재귀
+feature payload에는 부모 route의 `Self`를 사용할 수 있습니다. 연관값이 있는
+`routerFeatureCatalog` case는 정상 overload이며, 연관값이 없는 case만 생성
+메타데이터와 충돌합니다.
+
 자동 복원은 versioned codec과 앱이 선택한 저장소를 명시적으로 연결합니다.
 
 ```swift skip app-lifecycle-fragment
@@ -146,7 +152,10 @@ RouterHost(store: store) { HomeView() }
 ```
 
 driver는 일반 policy pipeline으로 복원하고 commit 저장을 coalesce하며 scene이
-inactive가 될 때 flush합니다. cloud sync는 계속 앱이 선택하는 별도 책임입니다.
+inactive가 될 때 flush합니다. activation 예약 시점에 관찰과 시작 revision을 확정해
+snapshot load 중 들어온 최신 navigation을 덮지 않습니다. 중단된 worker와 caller
+소유권은 이후 activation을 변경할 수 없습니다. cloud sync는 계속 앱이 선택하는 별도
+책임입니다.
 
 삭제되었거나 현재 앱에서 유효하지 않은 route가 snapshot에 있을 수 있다면
 `restorePartially(from:using:validator:validationTimeout:)`를 사용합니다. decode와

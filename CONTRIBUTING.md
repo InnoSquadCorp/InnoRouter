@@ -44,6 +44,15 @@ for ordinary patches — the GitHub `platforms` workflow compiles every
 Apple target and runs tvOS, watchOS, and visionOS Simulator tests on
 every PR.
 
+## 6.0 stabilization workflow
+
+For the 6.0.0 stabilization cycle, follow the
+[contract-first implementation and verification workflow (Korean)](Docs/6.0.0-stabilization-workflow.ko.md).
+Define ownership and lifecycle invariants before changing code, reproduce
+defects with failing tests and passing controls, and connect each acceptance
+criterion to an assertion and a result from the exact candidate. Keep local
+validation, release readiness, and publication status separate.
+
 ## Branching and PR conventions
 
 - Branch off `main`. Topic-branch names look like

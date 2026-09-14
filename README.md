@@ -161,6 +161,14 @@ own its complete subtree; mixed parent/child route values fail explicitly.
 Opening or dismissing application windows and immersive spaces remains a
 parent composition-root responsibility.
 
+Generated mappings remain under `AppRoute.Feature` (for example,
+`AppRoute.Feature.account`). Structural feature metadata is exposed separately
+as `AppRoute.routerFeatureCatalog`, so an app may freely declare a feature case
+named `catalog`. Recursive feature payloads may use `Self`, including in nested
+generic routers. An associated-value case named `routerFeatureCatalog` remains
+a normal overload; only a parameterless case conflicts with the generated
+metadata property.
+
 For opt-in persistence, combine a versioned codec with app-selected storage:
 
 ```swift skip app-lifecycle-fragment
@@ -176,7 +184,10 @@ RouterHost(store: store) { HomeView() }
 
 The driver restores through normal policies, coalesces committed-state writes,
 and flushes when the scene becomes inactive. Storage and cloud synchronization
-remain explicit application choices.
+remain explicit application choices. Observation begins when activation is
+reserved, so navigation committed while snapshot loading is pending is not
+overwritten. Stopping a driver invalidates queued workers and caller ownership;
+a later activation cannot be modified by their delayed completion.
 
 For snapshots containing retired destinations,
 `restorePartially(from:using:validator:validationTimeout:)` decodes and migrates

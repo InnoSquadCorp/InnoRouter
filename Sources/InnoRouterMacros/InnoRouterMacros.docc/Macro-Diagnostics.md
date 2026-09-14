@@ -111,7 +111,7 @@ is the exact `RouterWindow.id` instance managed by the store.
 | `InnoRouterMacro.E064` | Error | Two feature composition points use the same instance ID. |
 | `InnoRouterMacro.E065` | Error | A feature case is conditionally compiled, so its generated catalog is unstable. |
 | `InnoRouterMacro.E066` | Error | A feature case is conditionally unavailable. |
-| `InnoRouterMacro.E067` | Error | A manual `Feature` member conflicts with generated feature mappings. |
+| `InnoRouterMacro.E067` | Error | A manual `Feature` member, static `routerFeatureCatalog`, or parameterless case with that name conflicts with generated feature metadata. Associated-value overloads and instance members remain valid. |
 
 ## Runtime wiring boundary
 
