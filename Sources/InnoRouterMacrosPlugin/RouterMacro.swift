@@ -99,18 +99,23 @@ public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
         if case .invalid = sceneExpansion {
             return []
         }
+        // One parent type context for every helper. A generic router nested in
+        // another type is spelled without its arguments here, so any helper
+        // that skips the specialization emits `Parent.Router` where the
+        // compiler requires `Parent.Router<Value>`.
+        let parentRouteType = specializedRouterType(
+            type.trimmedDescription,
+            for: enumDecl
+        )
         let presentationResultExpansion = analyzeRouterPresentationResults(
             in: enumDecl,
-            routeType: type.trimmedDescription,
+            routeType: parentRouteType,
             context: context
         )
         if case .invalid = presentationResultExpansion {
             return []
         }
-        let featureRouteType = specializedRouterType(
-            type.trimmedDescription,
-            for: enumDecl
-        )
+        let featureRouteType = parentRouteType
         let featureExpansion = analyzeRouterFeatures(
             in: enumDecl,
             routeType: featureRouteType,
@@ -222,7 +227,7 @@ private func makeRouterExtensions(
         }
         sceneMembers = "\n\n" + renderRouterSceneMembers(
             from: specification,
-            routeType: type.trimmedDescription,
+            routeType: specializedType,
             access: access
         )
     } else {
@@ -233,7 +238,7 @@ private func makeRouterExtensions(
     if case .valid(let items) = presentationResultExpansion {
         presentationResultMembers = "\n\n" + renderRouterPresentationResultMembers(
             from: items,
-            routeType: type.trimmedDescription,
+            routeType: specializedType,
             access: access
         )
     } else {

@@ -303,3 +303,60 @@ public enum MacroFirstConsumerProbe {
         }
     }
 }
+
+// MARK: - Nested generic helper contexts
+//
+// A generic router declared inside another type is spelled without its
+// arguments in the macro's type context. Every generated helper has to
+// specialize it the same way, so this consumer names each helper type
+// explicitly instead of letting inference hide a mismatch.
+
+public enum ExternalNestedNamespace {
+    @Router
+    public indirect enum NestedGenericRoute<Value: Hashable & Sendable> {
+        case leaf(Value)
+
+        @PresentationResult(Self.self)
+        case recursive
+
+        @PresentationResult(Bool.self)
+        case login
+
+        @Scene(.window, id: "external-nested-editor")
+        case editor
+
+        public var destination: some View { Text("Destination") }
+    }
+}
+
+public struct ExternalGenericNamespace<Value: Hashable & Sendable> {
+    @Router
+    public enum InnerRoute {
+        @PresentationResult(Bool.self)
+        case login
+
+        @Scene(.window, id: "external-inner-editor")
+        case editor
+
+        public var destination: some View { Text("Destination") }
+    }
+}
+
+public enum ExternalNestedGenericConsumer {
+    public typealias NestedInt = ExternalNestedNamespace.NestedGenericRoute<Int>
+
+    public static func consume() {
+        let login: RouterPresentationRequest<NestedInt, Bool> = NestedInt.Presentation.login
+        let recursive: RouterPresentationRequest<NestedInt, NestedInt> =
+            NestedInt.Presentation.recursive
+        let window: RouterWindowRequest<NestedInt> = NestedInt.Scene.editor
+        let scenes: [RouterSceneDescriptor<NestedInt>] = NestedInt.routerScenes
+
+        let innerLogin: RouterPresentationRequest<ExternalGenericNamespace<Int>.InnerRoute, Bool> =
+            ExternalGenericNamespace<Int>.InnerRoute.Presentation.login
+        let innerWindow: RouterWindowRequest<ExternalGenericNamespace<Int>.InnerRoute> =
+            ExternalGenericNamespace<Int>.InnerRoute.Scene.editor
+
+        _ = (login, recursive, window, scenes, innerLogin, innerWindow)
+    }
+}
