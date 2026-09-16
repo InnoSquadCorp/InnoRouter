@@ -6,6 +6,12 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+- Independent deep-link lookups inside custom parameter conversions no longer
+  inherit a feature's traversal admission, including lookups made by tasks
+  created during conversion. Feature cycles and per-traversal limits remain
+  enforced. Late snapshot removals no longer overwrite a newer save's progress
+  or failure status, while still completing their durable work and reporting
+  storage errors to their original caller.
 - Durable commands now run in the order the driver accepted them, so a removal
   accepted after a save can no longer be overtaken by that save and leave the
   deleted snapshot or pending link back on disk. A command that never reaches

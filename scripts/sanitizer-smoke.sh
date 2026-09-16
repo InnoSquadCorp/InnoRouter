@@ -22,6 +22,8 @@ case "$KIND" in
     ;;
 esac
 
+swift_filter+='|RouterTwentyThirdReviewDeepLinkTests|RouterTwentyThirdReviewRestorationTests|RouterTwentyThirdReviewTraversalBoundaryTests'
+
 cd "$ROOT_DIR"
 echo "[sanitizer-smoke] Running $KIND sanitizer with filter: $swift_filter"
 swift test \
