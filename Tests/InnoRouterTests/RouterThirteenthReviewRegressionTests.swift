@@ -320,7 +320,13 @@ struct RouterThirteenthReviewRegressionTests {
         )
 
         let activation = Task { try await driver.activate() }
+        defer {
+            gate.release()
+            activation.cancel()
+            driver.stop()
+        }
         await gate.waitUntilEntered()
+        let restoreID = try #require(store.activeTransitionID)
         guard case .rejected(_, _, _, .busy) = await store.perform(
             .push(.second),
             context: .init(source: .restoration)
@@ -332,15 +338,22 @@ struct RouterThirteenthReviewRegressionTests {
         }
 
         driver.stop()
-        await Task.yield()
+        #expect(store.cancelledRequestIDs.contains(restoreID))
+        // Cancellation resumes the Store pipeline asynchronously. One yield
+        // is not a completion barrier and can still leave rejectWhileBusy set.
+        try await waitUntil("the cancelled restore releases its execution slot") {
+            store.activeTransitionID == nil
+        }
         let next = await store.perform(.push(.third))
-        if case .rejected(_, _, _, .busy) = next {
-            Issue.record("An unrelated restoration event released cancellation ownership")
+        guard case .applied = next else {
+            Issue.record("The cancelled restore did not release the next navigation: \(next)")
+            return
         }
 
         gate.release()
-        _ = try? await activation.value
+        await #expect(throws: CancellationError.self) { _ = try await activation.value }
         #expect(store.state.root == .stack(path: [.third]))
+        #expect(store.revision == 1)
     }
 }
 

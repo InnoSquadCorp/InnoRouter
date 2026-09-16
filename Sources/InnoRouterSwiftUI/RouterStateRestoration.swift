@@ -8,23 +8,6 @@ import SwiftUI
 
 import InnoRouterCore
 
-/// Observable lifecycle of an opt-in restoration driver.
-public enum RouterRestorationDriverStatus: Sendable, Hashable {
-    case inactive
-    case loading
-    case active
-    case saving
-    case failed(String)
-}
-
-/// Result of activating automatic observation and restoration.
-public enum RouterRestorationDriverActivation<R: Route>: Sendable, Hashable {
-    case noSnapshot
-    case restored(RouterRestorationOutcome<R>)
-    case observationResumed
-    case alreadyActive
-}
-
 private struct RouterRestorationActivationLease<R: Route & Codable> {
     let result: RouterRestorationDriverActivation<R>
     let generation: UInt64
@@ -303,6 +286,8 @@ extension RouterRestorationDriver {
     public func removeSnapshot() async throws {
         invalidateScheduledSave()
         storageEpoch &+= 1
+        let generation = saveGeneration
+        let epoch = storageEpoch
         // Reserving here invalidates every save this driver accepted earlier,
         // so a save already past its own staleness checks cannot write the
         // snapshot back after this removal.
@@ -311,9 +296,15 @@ extension RouterRestorationDriver {
         _ = await durability.waitForTurn(ticket)
         do {
             try await executor.remove()
-            status = observationID == nil ? .inactive : .active
+            if storageEpoch == epoch, saveGeneration == generation {
+                status = observationID == nil ? .inactive : .active
+            }
         } catch {
-            status = .failed(String(describing: error))
+            // Durable I/O still finishes and reports its error to its caller.
+            // A newer save/remove or stop exclusively owns the visible status.
+            if storageEpoch == epoch, saveGeneration == generation {
+                status = .failed(String(describing: error))
+            }
             throw error
         }
     }
