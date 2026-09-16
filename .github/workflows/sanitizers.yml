@@ -54,6 +54,10 @@ jobs:
           ./scripts/sanitizer-smoke.sh "${{ matrix.kind }}" 2>&1 \
             | tee ".build/sanitizer-logs/${{ matrix.kind }}.log"
 
+      - name: Replay failed address tests under LLDB
+        if: failure() && matrix.kind == 'address'
+        run: ./scripts/diagnose-sanitizer-failure.sh address
+
       - name: Collect router crash reports
         if: failure()
         shell: bash
