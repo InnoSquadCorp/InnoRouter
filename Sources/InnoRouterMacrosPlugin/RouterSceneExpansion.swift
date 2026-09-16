@@ -96,39 +96,14 @@ func analyzeRouterScenes(
         )
     }
 
-    if let conflict = enumDecl.memberBlock.members.compactMap({
-        $0.decl.as(VariableDeclSyntax.self)
-    }).first(where: { variable in
-        variable.bindings.contains { binding in
-            binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text == "routerScenes"
-        }
-    }) {
+    if let conflict = firstRouterGeneratedMemberConflict(
+        in: enumDecl.memberBlock.members,
+        typeMembers: ["Scene"],
+        staticMembers: ["routerScenes"]
+    ) {
         diagnoseSceneRouter(
-            .generatedMemberConflict(name: "routerScenes"),
-            at: conflict,
-            context: context
-        )
-        return .invalid
-    }
-
-    if let conflict = enumDecl.memberBlock.members.first(where: { member in
-        if let declaration = member.decl.as(EnumDeclSyntax.self) {
-            return declaration.name.text == "Scene"
-        }
-        if let declaration = member.decl.as(StructDeclSyntax.self) {
-            return declaration.name.text == "Scene"
-        }
-        if let declaration = member.decl.as(ClassDeclSyntax.self) {
-            return declaration.name.text == "Scene"
-        }
-        if let declaration = member.decl.as(TypeAliasDeclSyntax.self) {
-            return declaration.name.text == "Scene"
-        }
-        return false
-    }) {
-        diagnoseSceneRouter(
-            .generatedMemberConflict(name: "Scene"),
-            at: conflict,
+            .generatedMemberConflict(name: conflict.name),
+            at: conflict.declaration,
             context: context
         )
         return .invalid

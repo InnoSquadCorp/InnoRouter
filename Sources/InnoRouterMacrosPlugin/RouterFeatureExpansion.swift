@@ -114,40 +114,15 @@ private struct RouterFeatureMemberConflict {
 private func firstRouterFeatureMemberConflict(
     in members: MemberBlockItemListSyntax
 ) -> RouterFeatureMemberConflict? {
-    for member in members {
-        let declaration = member.decl
-        if let nested = declaration.as(EnumDeclSyntax.self), nested.name.text == "Feature" {
-            return .init(name: "Feature", declaration: declaration)
-        }
-        if let nested = declaration.as(StructDeclSyntax.self), nested.name.text == "Feature" {
-            return .init(name: "Feature", declaration: declaration)
-        }
-        if let nested = declaration.as(ClassDeclSyntax.self), nested.name.text == "Feature" {
-            return .init(name: "Feature", declaration: declaration)
-        }
-        if let alias = declaration.as(TypeAliasDeclSyntax.self), alias.name.text == "Feature" {
-            return .init(name: "Feature", declaration: declaration)
-        }
-        if let variable = declaration.as(VariableDeclSyntax.self),
-           variable.modifiers.contains(where: { modifier in
-               modifier.name.tokenKind == .keyword(.static)
-                   || modifier.name.tokenKind == .keyword(.class)
-           }),
-           variable.bindings.contains(where: { binding in
-               binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text
-                   == "routerFeatureCatalog"
-           }) {
-            return .init(name: "routerFeatureCatalog", declaration: declaration)
-        }
-        if let enumCase = declaration.as(EnumCaseDeclSyntax.self) {
-            for element in enumCase.elements
-            where element.name.text == "routerFeatureCatalog"
-                && element.parameterClause == nil {
-                return .init(name: "routerFeatureCatalog", declaration: declaration)
-            }
-        }
+    guard let conflict = firstRouterGeneratedMemberConflict(
+        in: members,
+        typeMembers: ["Feature"],
+        staticMembers: ["routerFeatureCatalog"],
+        parameterlessCases: ["routerFeatureCatalog"]
+    ) else {
+        return nil
     }
-    return nil
+    return .init(name: conflict.name, declaration: conflict.declaration)
 }
 
 private final class RouterFeatureSelfTypeRewriter: SyntaxRewriter {

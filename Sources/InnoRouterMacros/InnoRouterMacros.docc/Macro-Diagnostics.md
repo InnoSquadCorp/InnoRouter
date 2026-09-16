@@ -41,7 +41,7 @@ whose explicit declarations are redundant.
 | `InnoRouterMacro.E013` | Error | The title or system image is not a nonempty, noninterpolated string literal, or the argument labels are invalid. Use `@TabItem("Title", systemImage: "symbol")`. |
 | `InnoRouterMacro.E014` | Error | A tab case is conditionally available. Keep one stable generated tab catalog. |
 | `InnoRouterMacro.E015` | Error | Tab cases or their attributes are declared inside conditional compilation. Declare the same tab set for every build configuration. |
-| `InnoRouterMacro.E016` | Error | A manual member conflicts with generated `allCases`, `title`, or `systemImage`. Remove the member or all tab annotations. |
+| `InnoRouterMacro.E016` | Error | A type-level declaration collides with the generated `Tab` type or `routerTabs` catalog: a `static`/`class` property, a nested type, or a case of that name. Rename it or remove all tab annotations. An instance property of the same name is legal and is not reported, and a declaration inside `#if` is left to the compiler. |
 | `InnoRouterMacro.W004` | Warning | `RouterTab` is written explicitly even though `@Router` supplies it when tabs are marked. Remove the conformance. |
 
 ## Deep links
@@ -89,7 +89,7 @@ is the exact `RouterWindow.id` instance managed by the store.
 | `InnoRouterMacro.E041` | Error | A scene case is conditionally available. Keep the generated scene catalog stable. |
 | `InnoRouterMacro.E042` | Error | `@Scene` arguments are invalid. Use `.window` or `.immersiveSpace` and an optional nonempty literal `id`. |
 | `InnoRouterMacro.E044` | Error | Two scene cases resolve to the same ID. Give every generated scene a unique stable identifier. |
-| `InnoRouterMacro.E048` | Error | A manual `routerScenes` member conflicts with the generated catalog. Remove the member or all `@Scene` markers. |
+| `InnoRouterMacro.E048` | Error | A type-level declaration collides with the generated `Scene` type or `routerScenes` catalog: a `static`/`class` property or a nested type of that name. Rename it or remove all `@Scene` markers. An instance property of the same name is legal and is not reported, and a declaration inside `#if` is left to the compiler. |
 
 ## Typed presentation results
 

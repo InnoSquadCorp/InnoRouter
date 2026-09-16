@@ -363,44 +363,16 @@ private func enumCasesInsideConditional(_ conditional: IfConfigDeclSyntax) -> [E
 
 private struct ConflictingTabMember {
     let name: String
-    let declaration: VariableDeclSyntax
+    let declaration: DeclSyntax
 }
 
 private func firstConflictingTabMember(in enumDecl: EnumDeclSyntax) -> ConflictingTabMember? {
-    let directVariables = enumDecl.memberBlock.members.compactMap({
-        $0.decl.as(VariableDeclSyntax.self)
-    })
-    let conditionalVariables = enumDecl.memberBlock.members.flatMap { member in
-        guard let conditional = member.decl.as(IfConfigDeclSyntax.self) else {
-            return [VariableDeclSyntax]()
-        }
-        return variablesInsideConditional(conditional)
+    guard let conflict = firstRouterGeneratedMemberConflict(
+        in: enumDecl.memberBlock.members,
+        typeMembers: generatedRouterTabMemberNames,
+        staticMembers: generatedRouterTabMemberNames
+    ) else {
+        return nil
     }
-    for variable in directVariables + conditionalVariables {
-        for binding in variable.bindings {
-            guard let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
-                  generatedRouterTabMemberNames.contains(identifier) else {
-                continue
-            }
-            return ConflictingTabMember(name: identifier, declaration: variable)
-        }
-    }
-    return nil
-}
-
-private func variablesInsideConditional(_ conditional: IfConfigDeclSyntax) -> [VariableDeclSyntax] {
-    conditional.clauses.flatMap { clause in
-        guard case .decls(let members) = clause.elements else {
-            return [VariableDeclSyntax]()
-        }
-        return members.flatMap { member in
-            if let variable = member.decl.as(VariableDeclSyntax.self) {
-                return [variable]
-            }
-            if let nestedConditional = member.decl.as(IfConfigDeclSyntax.self) {
-                return variablesInsideConditional(nestedConditional)
-            }
-            return []
-        }
-    }
+    return ConflictingTabMember(name: conflict.name, declaration: conflict.declaration)
 }
