@@ -149,6 +149,14 @@ A release tag triggers:
 
 The library release and the documentation release are the same event.
 
+For a publication-control failure after a tag exists, preserve that immutable
+tag. Fix workflow-only configuration on `main`, then manually dispatch
+`release.yml` from `main` with the existing `tag` and `prerelease=false` for GA.
+The preflight resolves the tag again; all package builds still use its exact
+commit, not the workflow-control commit. Reusable workflow concurrency groups
+must have distinct static prefixes because `github.workflow` is the caller's
+name in that context. The source lint gate checks this contract.
+
 ## Pages structure
 
 Published documentation lives at:
