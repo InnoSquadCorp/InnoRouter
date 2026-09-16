@@ -49,6 +49,23 @@ private enum UntrustedInspectorDeepLinkRoute: DeepLinkRoute {
     }
 }
 
+private enum IncompleteInspectorDeepLinkRoute: DeepLinkRoute {
+    case item
+
+    static let deepLinkCatalog = DeepLinkRouteCatalog(
+        schemes: ["innorouter"],
+        hosts: ["app.example.com"],
+        entries: [.init(routeCase: "item", pattern: "/products/:id")],
+        isComplete: false
+    )
+
+    static let supportsPureDeepLinkExplanation = true
+
+    static func resolveDeepLink(_ url: URL) -> Self? {
+        preconditionFailure("An incomplete catalog must not resolve: \(url)")
+    }
+}
+
 private struct SideEffectingInspectorID: Hashable, Sendable, DeepLinkParameterValue {
     static let calls = Mutex(0)
     let value: String
@@ -118,6 +135,20 @@ struct RouterInspectorTests {
 
         #expect(analysis.decision == "not-evaluated: custom-resolver")
         #expect(analysis.attempts.map(\.outcome) == [.candidate])
+    }
+
+    @Test("Traversal-limit analysis is explicit and never evaluates a partial catalog")
+    func traversalLimitIsExplicit() throws {
+        let url = try #require(
+            URL(string: "innorouter://app.example.com/products/42")
+        )
+        let analysis = RouterInspectorDeepLinkAnalyzer.analyze(
+            url,
+            as: IncompleteInspectorDeepLinkRoute.self
+        )
+
+        #expect(analysis.decision == "rejected: traversal-limit-exceeded")
+        #expect(analysis.attempts.isEmpty)
     }
 
     @Test("Macro preview does not execute custom parameter conversion")

@@ -18,12 +18,6 @@ func renderRouterDeepLinkMembers(
         .joined(separator: "\n        ")
     let schemes = specification.schemes.map(swiftStringLiteral).joined(separator: ", ")
     let hosts = specification.hosts.map(swiftStringLiteral).joined(separator: ", ")
-    let catalogEntries = specification.items.map {
-        renderDeepLinkCatalogEntry($0, declarationNamespace: declarationNamespace)
-    }
-        .map { indentContinuationLines($0, by: 8) }
-        .joined(separator: "\n        ")
-
     let featureItems = features?.items ?? []
     var renderedURLCases = specification.items.map {
         renderDeepLinkURLCase(
@@ -40,11 +34,72 @@ func renderRouterDeepLinkMembers(
         .map { indentContinuationLines($0, by: 8) }
         .joined(separator: "\n        ")
 
+    let featureResolution = renderFeatureResolution(featureItems)
+    let catalog = renderFeatureDeepLinkCatalog(
+        from: specification,
+        access: access,
+        declarationNamespace: declarationNamespace,
+        featureItems: featureItems
+    )
+
+    return """
+    \(catalog)\(access) static func resolveDeepLink(_ url: Foundation.URL) -> Self? {
+        InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) {
+            var candidates: [Self] = []
+            let matcher = InnoRouterDeepLink.DeepLinkMatcher<Self>(
+                configuration: .init(diagnosticsMode: .disabled)
+            ) {
+                \(indentEveryLine(mappings, by: 4))
+            }
+            if url.user == nil,
+                  url.password == nil,
+                  url.port == nil,
+                  let scheme = url.scheme,
+                  [\(schemes)].contains(where: {
+                      $0.caseInsensitiveCompare(scheme) == .orderedSame
+                  }),
+                  let host = url.host,
+                  [\(hosts)].contains(where: {
+                      $0.caseInsensitiveCompare(host) == .orderedSame
+                  }),
+                  let route = matcher.match(url) {
+                candidates.append(route)
+            }
+    \(indentEveryLine(featureResolution, by: 8))
+            guard candidates.count == 1 else { return nil }
+            return candidates[0]
+        }
+    }
+
+    \(access) func deepLinkURL(
+        origin: InnoRouterDeepLink.DeepLinkOrigin
+    ) -> Foundation.URL? {
+        InnoRouterDeepLink.DeepLinkFeatureRuntime.url(for: self, origin: origin) {
+            switch self {
+        \(indentEveryLine(renderingCases, by: 4))
+            }
+        }
+    }
+    """
+}
+
+private func renderFeatureDeepLinkCatalog(
+    from specification: RouterDeepLinkSpecification,
+    access: String,
+    declarationNamespace: String,
+    featureItems: [RouterFeatureItem]
+) -> String {
+    let schemes = specification.schemes.map(swiftStringLiteral).joined(separator: ", ")
+    let hosts = specification.hosts.map(swiftStringLiteral).joined(separator: ", ")
+    let catalogEntries = specification.items.map {
+        renderDeepLinkCatalogEntry($0, declarationNamespace: declarationNamespace)
+    }
+        .map { indentContinuationLines($0, by: 8) }
+        .joined(separator: "\n        ")
     let featureCatalogMerges = renderFeatureCatalogMerges(
         featureItems,
         declarationNamespace: declarationNamespace
     )
-    let featureResolution = renderFeatureResolution(featureItems)
     var catalogCaseNames = specification.items.map {
         "case .\($0.caseName):\n    return \(swiftStringLiteral($0.caseName))"
     }
@@ -55,65 +110,36 @@ func renderRouterDeepLinkMembers(
     let purity = featureItems.map {
         "InnoRouterDeepLink.DeepLinkFeatureRuntime.supportsPureExplanation(for: \($0.childType).self)"
     }.joined(separator: " && ")
-    let catalog = (specification.generatesInspectorCatalog || !featureItems.isEmpty) ? """
+
+    return """
     \(access) static var supportsPureDeepLinkExplanation: Swift.Bool {
-        true\(purity.isEmpty ? "" : " && " + purity)
+        InnoRouterDeepLink.DeepLinkFeatureRuntime.supportsPureExplanation(for: Self.self) {
+            true\(purity.isEmpty ? "" : " && " + purity)
+        }
     }
 
     \(access) static var deepLinkCatalog: InnoRouterDeepLink.DeepLinkRouteCatalog {
-        var result = InnoRouterDeepLink.DeepLinkRouteCatalog(
-            schemes: [\(schemes)],
-            hosts: [\(hosts)],
-            entries: [
-                \(catalogEntries)
-            ]
-        )
-    \(indentEveryLine(featureCatalogMerges, by: 4))
-        return result
+        InnoRouterDeepLink.DeepLinkFeatureRuntime.catalog(for: Self.self) {
+            var result = InnoRouterDeepLink.DeepLinkRouteCatalog(
+                schemes: [\(schemes)],
+                hosts: [\(hosts)],
+                entries: [
+                    \(indentEveryLine(catalogEntries, by: 4))
+                ]
+            )
+    \(indentEveryLine(featureCatalogMerges, by: 8))
+            return result
+        }
     }
 
     \(access) static func deepLinkCatalogCaseName(for route: Self) -> Swift.String? {
-        switch route {
-        \(indentEveryLine(catalogCaseNames.joined(separator: "\n"), by: 8))
+        InnoRouterDeepLink.DeepLinkFeatureRuntime.caseName(for: route) {
+            switch route {
+        \(indentEveryLine(catalogCaseNames.joined(separator: "\n"), by: 12))
+            }
         }
     }
 
-    """ : ""
-
-    return """
-    \(catalog)\(access) static func resolveDeepLink(_ url: Foundation.URL) -> Self? {
-        var candidates: [Self] = []
-        let matcher = InnoRouterDeepLink.DeepLinkMatcher<Self>(
-            configuration: .init(diagnosticsMode: .disabled)
-        ) {
-            \(mappings)
-        }
-        if url.user == nil,
-              url.password == nil,
-              url.port == nil,
-              let scheme = url.scheme,
-              [\(schemes)].contains(where: {
-                  $0.caseInsensitiveCompare(scheme) == .orderedSame
-              }),
-              let host = url.host,
-              [\(hosts)].contains(where: {
-                  $0.caseInsensitiveCompare(host) == .orderedSame
-              }),
-              let route = matcher.match(url) {
-            candidates.append(route)
-        }
-    \(indentEveryLine(featureResolution, by: 4))
-        guard candidates.count == 1 else { return nil }
-        return candidates[0]
-    }
-
-    \(access) func deepLinkURL(
-        origin: InnoRouterDeepLink.DeepLinkOrigin
-    ) -> Foundation.URL? {
-        switch self {
-        \(renderingCases)
-        }
-    }
     """
 }
 
@@ -245,7 +271,7 @@ private func renderFeatureURLCase(_ item: RouterFeatureItem) -> String {
         guard let url = InnoRouterDeepLink.DeepLinkFeatureRuntime.url(
             for: child,
             origin: origin
-        ), Self.resolveDeepLink(url) == self else {
+        ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
             return nil
         }
         return url
@@ -333,7 +359,7 @@ func renderDeepLinkURLCase(
         \(guardedPrefix)    guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
                 origin: origin,
                 pattern: \(swiftStringLiteral(item.pattern))
-            ), Self.resolveDeepLink(url) == self else {
+            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
                 return nil
             }
             return url
@@ -352,7 +378,7 @@ func renderDeepLinkURLCase(
             parameters: [
     \(indentEveryLine(renderedParameters, by: 12))
             ]
-        ), Self.resolveDeepLink(url) == self else {
+        ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
             return nil
         }
         return url

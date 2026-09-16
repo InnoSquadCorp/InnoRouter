@@ -104,6 +104,8 @@ public struct DeepLinkRouteAttempt: Hashable, Sendable, Codable {
 }
 
 public enum DeepLinkResolutionFailure: Hashable, Sendable {
+    /// Feature-graph traversal exceeded its bounded depth or work budget.
+    case traversalLimitExceeded
     case credentialsNotAllowed
     case portNotAllowed
     case schemeNotAllowed(actual: String?)
@@ -135,15 +137,22 @@ public struct DeepLinkRouteCatalog: Hashable, Sendable, Codable {
     public let schemes: [String]
     public let hosts: [String]
     public let entries: [DeepLinkRouteCatalogEntry]
+    /// Whether traversal reached every feature branch represented by this catalog.
+    ///
+    /// An incomplete catalog never exposes partially collected entries. Its
+    /// explanation rejects with ``DeepLinkResolutionFailure/traversalLimitExceeded``.
+    public let isComplete: Bool
 
     public init(
         schemes: [String],
         hosts: [String],
-        entries: [DeepLinkRouteCatalogEntry]
+        entries: [DeepLinkRouteCatalogEntry],
+        isComplete: Bool = true
     ) {
         self.schemes = schemes
         self.hosts = hosts
-        self.entries = entries
+        self.entries = isComplete ? entries : []
+        self.isComplete = isComplete
     }
 
     /// Returns a child catalog embedded beneath one parent feature namespace.
@@ -162,15 +171,18 @@ public struct DeepLinkRouteCatalog: Hashable, Sendable, Codable {
                     pattern: entry.pattern,
                     parameters: entry.parameters
                 )
-            }
+            },
+            isComplete: isComplete
         )
     }
 
     public func merging(_ other: Self) -> Self {
-        .init(
+        let isComplete = isComplete && other.isComplete
+        return .init(
             schemes: Self.uniqueCaseInsensitive(schemes + other.schemes),
             hosts: Self.uniqueCaseInsensitive(hosts + other.hosts),
-            entries: entries + other.entries
+            entries: isComplete ? entries + other.entries : [],
+            isComplete: isComplete
         )
     }
 
@@ -180,7 +192,8 @@ public struct DeepLinkRouteCatalog: Hashable, Sendable, Codable {
         of url: URL,
         inputLimits: DeepLinkInputLimits = .default
     ) -> Bool {
-        guard url.user == nil, url.password == nil, url.port == nil,
+        guard isComplete,
+              url.user == nil, url.password == nil, url.port == nil,
               let scheme = url.scheme,
               schemes.contains(where: { $0.caseInsensitiveCompare(scheme) == .orderedSame }),
               let host = url.host,
@@ -202,6 +215,9 @@ public struct DeepLinkRouteCatalog: Hashable, Sendable, Codable {
         resolve: (URL) -> R?,
         resolvedCaseName: (R) -> String? = { _ in nil }
     ) -> DeepLinkResolutionExplanation {
+        guard isComplete else {
+            return .init(decision: .rejected(.traversalLimitExceeded), attempts: [])
+        }
         guard url.user == nil, url.password == nil else {
             return .init(decision: .rejected(.credentialsNotAllowed), attempts: [])
         }
@@ -280,5 +296,31 @@ public struct DeepLinkRouteCatalog: Hashable, Sendable, Codable {
     private static func uniqueCaseInsensitive(_ values: [String]) -> [String] {
         var observed: Set<String> = []
         return values.filter { observed.insert($0.lowercased()).inserted }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemes
+        case hosts
+        case entries
+        case isComplete
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let schemes = try container.decode([String].self, forKey: .schemes)
+        let hosts = try container.decode([String].self, forKey: .hosts)
+        let entries = try container.decode([DeepLinkRouteCatalogEntry].self, forKey: .entries)
+        let isComplete = try container.decodeIfPresent(Bool.self, forKey: .isComplete) ?? true
+        self.init(schemes: schemes, hosts: hosts, entries: entries, isComplete: isComplete)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemes, forKey: .schemes)
+        try container.encode(hosts, forKey: .hosts)
+        try container.encode(entries, forKey: .entries)
+        if !isComplete {
+            try container.encode(false, forKey: .isComplete)
+        }
     }
 }

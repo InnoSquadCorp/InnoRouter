@@ -17,7 +17,13 @@ are bare semver (no leading `v`).
   now terminate in every generated deep-link entry point instead of recursing
   until the stack overflows; a cyclic edge contributes no catalog entries and
   resolves to nothing, while independent branches and a child shared by two
-  parents keep working. A generic router declared inside another type now keeps
+  parents keep working. Generated feature traversal now includes the root and
+  enforces per-call depth and work budgets, so endlessly growing generic
+  specializations fail closed instead of crashing. Incomplete catalogs expose
+  no partial entries and report a traversal-limit explanation. An explicitly
+  stopped initial restore also remains observation-only across later
+  detach/attach cycles instead of replaying an old snapshot over newer state.
+  A generic router declared inside another type now keeps
   its generic arguments in the generated `Presentation` and `Scene` helpers.
   `@Router` no longer reports E016 or E048 for a same-named instance property
   or for a declaration inside inactive conditional compilation; real

@@ -112,6 +112,7 @@ public enum RouterInspectorDeepLinkAnalyzer {
             return "accepted \(routeCase) via \(pattern)"
         case .rejected(let failure):
             return switch failure {
+            case .traversalLimitExceeded: "rejected: traversal-limit-exceeded"
             case .credentialsNotAllowed: "rejected: credentials-not-allowed"
             case .portNotAllowed: "rejected: port-not-allowed"
             case .schemeNotAllowed: "rejected: scheme-not-allowed"

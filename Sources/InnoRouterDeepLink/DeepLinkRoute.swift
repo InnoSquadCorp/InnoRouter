@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 import InnoRouterCore
 
@@ -74,14 +75,35 @@ public extension DeepLinkRoute {
     }
 }
 
-/// The route types already being walked by the current deep-link operation.
-///
-/// A feature graph may legitimately reach the same child type from different
-/// parents, so the guard tracks the *current path* rather than every type ever
-/// visited: a sibling that shares a child still contributes its entries. Each
-/// operation kind carries its own path, so a catalog walk never suppresses a
-/// resolution.
-enum DeepLinkTraversal {
+package struct DeepLinkTraversalLimits: Sendable, Hashable {
+    package let maximumDepth: Int
+    package let maximumEntryAttempts: Int
+
+    package init(maximumDepth: Int, maximumEntryAttempts: Int) {
+        precondition(maximumDepth > 0)
+        precondition(maximumEntryAttempts > 0)
+        self.maximumDepth = maximumDepth
+        self.maximumEntryAttempts = maximumEntryAttempts
+    }
+
+    package static let production = Self(maximumDepth: 64, maximumEntryAttempts: 1_024)
+}
+
+/// Package-only deterministic boundary control. Production callers always use
+/// ``DeepLinkTraversalLimits/production``.
+package enum DeepLinkTraversalTestSupport {
+    @TaskLocal package static var limits = DeepLinkTraversalLimits.production
+
+    package static func withLimits<Value>(
+        _ limits: DeepLinkTraversalLimits,
+        operation: () throws -> Value
+    ) rethrows -> Value {
+        try $limits.withValue(limits, operation: operation)
+    }
+}
+
+/// One bounded, synchronous feature-graph traversal.
+private enum DeepLinkTraversal {
     enum Operation: Hashable, Sendable {
         case catalog
         case purity
@@ -95,22 +117,133 @@ enum DeepLinkTraversal {
         let operation: Operation
     }
 
-    @TaskLocal static var path: Set<Step> = []
+    enum Entry {
+        case entered
+        case cycle
+        case limitExceeded
+    }
 
-    /// Runs `body` with `step` on the path, or returns `cycle()` when the step
-    /// is already there.
-    ///
-    /// The generated contracts are synchronous, so one call of an entry point
-    /// is one traversal; nothing leaks between separate or nested calls.
-    static func walking<Value>(
+    final class Context: Sendable {
+        private struct State {
+            var path: [Step] = []
+            var active: Set<Step> = []
+            var entryAttempts = 0
+            var didExceedLimit = false
+        }
+
+        private let state = Mutex(State())
+        private let limits: DeepLinkTraversalLimits
+
+        init(limits: DeepLinkTraversalLimits = DeepLinkTraversalTestSupport.limits) {
+            self.limits = limits
+        }
+
+        var didExceedLimit: Bool {
+            state.withLock { $0.didExceedLimit }
+        }
+
+        func enter(_ step: Step) -> Entry {
+            state.withLock { state in
+                guard !state.didExceedLimit else { return .limitExceeded }
+                state.entryAttempts += 1
+                guard state.entryAttempts <= limits.maximumEntryAttempts else {
+                    state.didExceedLimit = true
+                    return .limitExceeded
+                }
+                guard !state.active.contains(step) else { return .cycle }
+                guard state.path.count < limits.maximumDepth else {
+                    state.didExceedLimit = true
+                    return .limitExceeded
+                }
+                _ = state.active.insert(step)
+                state.path.append(step)
+                return .entered
+            }
+        }
+
+        func leave(_ step: Step) {
+            state.withLock { state in
+                precondition(state.path.last == step, "Unbalanced deep-link traversal")
+                state.path.removeLast()
+                state.active.remove(step)
+            }
+        }
+    }
+
+    @TaskLocal static var context: Context?
+    @TaskLocal static var authorizedGeneratedEntry: Step?
+
+    static func root<Value>(
         _ type: Any.Type,
         _ operation: Operation,
-        cycle: () -> Value,
+        limit: (Value) -> Value,
         body: () -> Value
     ) -> Value {
         let step = Step(type: ObjectIdentifier(type), operation: operation)
-        guard !path.contains(step) else { return cycle() }
-        return $path.withValue(path.union([step]), operation: body)
+        if context != nil, authorizedGeneratedEntry == step {
+            // The feature bridge already admitted this generated child entry.
+            return body()
+        }
+
+        // A direct or genuinely nested public entry starts an independent
+        // traversal. Only bridge-dispatched child entries share their parent.
+        let context = Context()
+        return $context.withValue(context) {
+            guard case .entered = context.enter(step) else {
+                preconditionFailure("A fresh deep-link traversal could not enter its root")
+            }
+            defer { context.leave(step) }
+            let value = body()
+            return context.didExceedLimit ? limit(value) : value
+        }
+    }
+
+    static func feature<Value>(
+        _ type: Any.Type,
+        _ operation: Operation,
+        cycle: () -> Value,
+        limit: () -> Value,
+        body: () -> Value
+    ) -> Value {
+        let step = Step(type: ObjectIdentifier(type), operation: operation)
+        if let context {
+            return feature(
+                step,
+                in: context,
+                cycle: cycle,
+                limit: limit,
+                body: body
+            )
+        }
+        let context = Context()
+        return $context.withValue(context) {
+            feature(
+                step,
+                in: context,
+                cycle: cycle,
+                limit: limit,
+                body: body
+            )
+        }
+    }
+
+    private static func feature<Value>(
+        _ step: Step,
+        in context: Context,
+        cycle: () -> Value,
+        limit: () -> Value,
+        body: () -> Value
+    ) -> Value {
+        switch context.enter(step) {
+        case .cycle:
+            return cycle()
+        case .limitExceeded:
+            return limit()
+        case .entered:
+            defer { context.leave(step) }
+            let value = $authorizedGeneratedEntry.withValue(step, operation: body)
+            return context.didExceedLimit ? limit() : value
+        }
     }
 }
 
@@ -124,57 +257,98 @@ enum DeepLinkTraversal {
 /// and fails closed for that edge: an empty catalog, an impure explanation, or
 /// no resolution. Independent branches keep working.
 public enum DeepLinkFeatureRuntime {
-    public static func catalog<Child: Route>(for type: Child.Type) -> DeepLinkRouteCatalog {
+    public static func catalog<Child: Route>(
+        for type: Child.Type,
+        body: (() -> DeepLinkRouteCatalog)? = nil
+    ) -> DeepLinkRouteCatalog {
+        if let body {
+            return DeepLinkTraversal.root(type, .catalog, limit: { catalog in
+                .init(
+                    schemes: catalog.schemes,
+                    hosts: catalog.hosts,
+                    entries: [],
+                    isComplete: false
+                )
+            }, body: body)
+        }
         guard let routeType = type as? any DeepLinkRoute.Type else {
             return .init(schemes: [], hosts: [], entries: [])
         }
-        return DeepLinkTraversal.walking(
-            routeType,
+        return DeepLinkTraversal.feature(
+            type,
             .catalog,
             cycle: { .init(schemes: [], hosts: [], entries: []) },
+            limit: { .init(schemes: [], hosts: [], entries: [], isComplete: false) },
             body: { routeType.deepLinkCatalog }
         )
     }
 
-    public static func supportsPureExplanation<Child: Route>(for type: Child.Type) -> Bool {
+    public static func supportsPureExplanation<Child: Route>(
+        for type: Child.Type,
+        body: (() -> Bool)? = nil
+    ) -> Bool {
+        if let body {
+            return DeepLinkTraversal.root(type, .purity, limit: { _ in false }, body: body)
+        }
         guard let routeType = type as? any DeepLinkRoute.Type else { return false }
-        return DeepLinkTraversal.walking(
-            routeType,
+        return DeepLinkTraversal.feature(
+            type,
             .purity,
             cycle: { false },
+            limit: { false },
             body: { routeType.supportsPureDeepLinkExplanation }
         )
     }
 
-    public static func resolve<Child: Route>(_ type: Child.Type, url: URL) -> Child? {
+    public static func resolve<Child: Route>(
+        _ type: Child.Type,
+        url: URL,
+        body: (() -> Child?)? = nil
+    ) -> Child? {
+        if let body {
+            return DeepLinkTraversal.root(type, .resolve, limit: { _ in nil }, body: body)
+        }
         guard let routeType = type as? any DeepLinkRoute.Type else { return nil }
-        return DeepLinkTraversal.walking(
-            routeType,
+        return DeepLinkTraversal.feature(
+            type,
             .resolve,
             cycle: { nil },
+            limit: { nil },
             body: { routeType.resolveDeepLink(url) as? Child }
         )
     }
 
-    public static func caseName<Child: Route>(for route: Child) -> String? {
+    public static func caseName<Child: Route>(
+        for route: Child,
+        body: (() -> String?)? = nil
+    ) -> String? {
+        if let body {
+            return DeepLinkTraversal.root(Child.self, .caseName, limit: { _ in nil }, body: body)
+        }
         guard let route = route as? any DeepLinkRoute else { return nil }
-        return DeepLinkTraversal.walking(
-            type(of: route),
+        return DeepLinkTraversal.feature(
+            Child.self,
             .caseName,
             cycle: { nil },
+            limit: { nil },
             body: { route.deepLinkCatalogCaseNameValue() }
         )
     }
 
     public static func url<Child: Route>(
         for route: Child,
-        origin: DeepLinkOrigin
+        origin: DeepLinkOrigin,
+        body: (() -> URL?)? = nil
     ) -> URL? {
+        if let body {
+            return DeepLinkTraversal.root(Child.self, .url, limit: { _ in nil }, body: body)
+        }
         guard let route = route as? any DeepLinkRoute else { return nil }
-        return DeepLinkTraversal.walking(
-            type(of: route),
+        return DeepLinkTraversal.feature(
+            Child.self,
             .url,
             cycle: { nil },
+            limit: { nil },
             body: { route.deepLinkURL(origin: origin) }
         )
     }

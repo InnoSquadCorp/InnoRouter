@@ -148,7 +148,7 @@ struct RouterDeepLinkExpansionMacroTests {
                                     .init(name: "featured", value: deepLinkValue1),
                                     .init(name: "page", value: deepLinkValue2)
                                 ]
-                            ), Self.resolveDeepLink(url) == self else {
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
                                 return nil
                             }
                             return url
@@ -271,7 +271,7 @@ struct RouterDeepLinkExpansionMacroTests {
                                     .init(name: "value", value: deepLinkValue0),
                                     .init(name: "page", value: deepLinkValue1)
                                 ]
-                            ), Self.resolveDeepLink(url) == self else {
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
                                 return nil
                             }
                             return url
@@ -282,7 +282,7 @@ struct RouterDeepLinkExpansionMacroTests {
                                 parameters: [
                                     .init(name: "value", value: deepLinkValue0)
                                 ]
-                            ), Self.resolveDeepLink(url) == self else {
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
                                 return nil
                             }
                             return url
@@ -293,7 +293,7 @@ struct RouterDeepLinkExpansionMacroTests {
                                 parameters: [
                                     .init(name: "value", value: deepLinkValue0)
                                 ]
-                            ), Self.resolveDeepLink(url) == self else {
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
                                 return nil
                             }
                             return url
@@ -412,7 +412,7 @@ struct RouterDeepLinkExpansionMacroTests {
                                 parameters: [
                                     .init(name: "value", value: deepLinkValue0)
                                 ]
-                            ), Self.resolveDeepLink(url) == self else {
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
                                 return nil
                             }
                             return url
@@ -527,7 +527,7 @@ struct RouterDeepLinkExpansionMacroTests {
                             guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
                                 origin: origin,
                                 pattern: "/home"
-                            ), Self.resolveDeepLink(url) == self else {
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
                                 return nil
                             }
                             return url
@@ -1275,7 +1275,7 @@ struct RouterDeepLinkDiagnosticMacroTests {
                             guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
                                 origin: origin,
                                 pattern: "/home"
-                            ), Self.resolveDeepLink(url) == self else {
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
                                 return nil
                             }
                             return url

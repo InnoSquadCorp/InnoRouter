@@ -10,7 +10,7 @@ import Testing
 import InnoRouterMacros
 
 /// Reaches itself through a feature case.
-@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"])
+@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"], inspectorCatalog: true)
 private indirect enum SelfFeatureRoute {
     @DeepLink("/leaf/:id")
     case leaf(id: String)
@@ -22,7 +22,7 @@ private indirect enum SelfFeatureRoute {
 }
 
 /// Two routes that reach each other.
-@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"])
+@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"], inspectorCatalog: true)
 private indirect enum MutualRouteA {
     @DeepLink("/a/:id")
     case leaf(id: String)
@@ -33,7 +33,7 @@ private indirect enum MutualRouteA {
     var destination: some View { EmptyView() }
 }
 
-@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"])
+@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"], inspectorCatalog: true)
 private indirect enum MutualRouteB {
     @DeepLink("/b/:id")
     case leaf(id: String)
@@ -45,7 +45,7 @@ private indirect enum MutualRouteB {
 }
 
 /// The deepest leaf, so the shared child below composes a real catalog.
-@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"])
+@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"], inspectorCatalog: true)
 private enum GrandChildRoute {
     @DeepLink("/grand/:id")
     case leaf(id: String)
@@ -54,7 +54,7 @@ private enum GrandChildRoute {
 }
 
 /// A child that two unrelated parents both own.
-@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"])
+@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"], inspectorCatalog: true)
 private enum SharedChildRoute {
     @DeepLink("/shared/:id")
     case leaf(id: String)
@@ -66,7 +66,7 @@ private enum SharedChildRoute {
 }
 
 /// Two unrelated parents that both own the same child type.
-@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"])
+@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"], inspectorCatalog: true)
 private enum FirstParentRoute {
     @DeepLink("/first/:id")
     case leaf(id: String)
@@ -77,7 +77,7 @@ private enum FirstParentRoute {
     var destination: some View { EmptyView() }
 }
 
-@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"])
+@Router(deepLinkSchemes: ["r19"], deepLinkHosts: ["app"], inspectorCatalog: true)
 private enum SecondParentRoute {
     @DeepLink("/second/:id")
     case leaf(id: String)
@@ -94,13 +94,24 @@ struct RouterNineteenthReviewDeepLinkTests {
     @Test("A self-referencing feature route terminates in every entry point")
     func selfReferencingFeatureRouteTerminates() throws {
         let url = try #require(URL(string: "r19://app/leaf/42"))
-        _ = SelfFeatureRoute.deepLinkCatalog
-        _ = SelfFeatureRoute.supportsPureDeepLinkExplanation
-        _ = SelfFeatureRoute.resolveDeepLink(url)
-        _ = SelfFeatureRoute.explainDeepLink(url)
-        _ = SelfFeatureRoute.deepLinkCatalogCaseName(for: .leaf(id: "42"))
-        _ = SelfFeatureRoute.leaf(id: "42").deepLinkURL(
-            origin: try #require(DeepLinkOrigin(scheme: "r19", host: "app"))
+        let origin = try #require(DeepLinkOrigin(scheme: "r19", host: "app"))
+        #expect(SelfFeatureRoute.deepLinkCatalog.entries.map(\.routeCase) == ["leaf"])
+        #expect(SelfFeatureRoute.deepLinkCatalog.isComplete)
+        #expect(SelfFeatureRoute.supportsPureDeepLinkExplanation == false)
+        #expect(SelfFeatureRoute.resolveDeepLink(url) == .leaf(id: "42"))
+        #expect(
+            SelfFeatureRoute.explainDeepLink(url).decision
+                == .rejected(.customResolverNotEvaluated)
+        )
+        #expect(SelfFeatureRoute.deepLinkCatalogCaseName(for: .leaf(id: "42")) == "leaf")
+        #expect(
+            SelfFeatureRoute.deepLinkCatalogCaseName(for: .child(.leaf(id: "42"))) == nil
+        )
+        #expect(
+            SelfFeatureRoute.leaf(id: "42").deepLinkURL(origin: origin) == url
+        )
+        #expect(
+            SelfFeatureRoute.child(.leaf(id: "42")).deepLinkURL(origin: origin) == nil
         )
     }
 
@@ -108,12 +119,23 @@ struct RouterNineteenthReviewDeepLinkTests {
     /// would see it.
     @Test("Mutually recursive feature routes terminate in every entry point")
     func mutuallyRecursiveFeatureRoutesTerminate() throws {
-        let url = try #require(URL(string: "r19://app/a/7"))
-        _ = MutualRouteA.deepLinkCatalog
-        _ = MutualRouteB.deepLinkCatalog
-        _ = MutualRouteA.supportsPureDeepLinkExplanation
-        _ = MutualRouteA.resolveDeepLink(url)
-        _ = MutualRouteA.explainDeepLink(url)
+        let aURL = try #require(URL(string: "r19://app/a/7"))
+        let bURL = try #require(URL(string: "r19://app/b/7"))
+        let origin = try #require(DeepLinkOrigin(scheme: "r19", host: "app"))
+        #expect(Set(MutualRouteA.deepLinkCatalog.entries.map(\.routeCase)) == [
+            "leaf", "toB.leaf",
+        ])
+        #expect(Set(MutualRouteB.deepLinkCatalog.entries.map(\.routeCase)) == [
+            "leaf", "toA.leaf",
+        ])
+        #expect(MutualRouteA.supportsPureDeepLinkExplanation == false)
+        #expect(MutualRouteA.resolveDeepLink(aURL) == .leaf(id: "7"))
+        #expect(MutualRouteA.resolveDeepLink(bURL) == .toB(.leaf(id: "7")))
+        #expect(MutualRouteA.leaf(id: "7").deepLinkURL(origin: origin) == aURL)
+        #expect(MutualRouteA.toB(.leaf(id: "7")).deepLinkURL(origin: origin) == bURL)
+        #expect(
+            MutualRouteA.toB(.toA(.leaf(id: "7"))).deepLinkURL(origin: origin) == nil
+        )
     }
 
     /// AC-014 — the cyclic edge fails closed instead of guessing.
@@ -121,10 +143,10 @@ struct RouterNineteenthReviewDeepLinkTests {
     func cyclicEdgeFailsClosed() {
         #expect(SelfFeatureRoute.supportsPureDeepLinkExplanation == false)
         #expect(MutualRouteA.supportsPureDeepLinkExplanation == false)
-        // The catalog is finite: a cycle cannot keep adding entries.
-        #expect(SelfFeatureRoute.deepLinkCatalog.entries.count
-            == SelfFeatureRoute.deepLinkCatalog.entries.count)
-        #expect(SelfFeatureRoute.deepLinkCatalog.entries.count < 10)
+        #expect(SelfFeatureRoute.deepLinkCatalog.entries.map(\.routeCase) == ["leaf"])
+        #expect(Set(MutualRouteA.deepLinkCatalog.entries.map(\.routeCase)) == [
+            "leaf", "toB.leaf",
+        ])
     }
 
     /// AC-015 — a child shared by two unrelated parents is not a cycle, so
@@ -138,8 +160,8 @@ struct RouterNineteenthReviewDeepLinkTests {
         // second one, which a global visited set would do.
         let first = FirstParentRoute.deepLinkCatalog
         let second = SecondParentRoute.deepLinkCatalog
-        #expect(first.entries.count == second.entries.count)
-        #expect(first.entries.count > 1)
+        #expect(first.entries.map(\.routeCase) == ["leaf", "child.leaf", "child.child.leaf"])
+        #expect(second.entries.map(\.routeCase) == ["leaf", "child.leaf", "child.child.leaf"])
 
         // Both parents carry the shared child's own pattern.
         let sharedPatterns = Set(standalone.entries.map(\.pattern))
@@ -155,12 +177,9 @@ struct RouterNineteenthReviewDeepLinkTests {
         let secondPass = SelfFeatureRoute.deepLinkCatalog
         #expect(firstPass == secondPass)
 
-        // A nested call made while another catalog walk is on the stack sees
-        // its own path.
-        let nested = SelfFeatureRoute.deepLinkCatalog.entries.isEmpty
-            ? SharedChildRoute.deepLinkCatalog
-            : SharedChildRoute.deepLinkCatalog
-        #expect(nested == SharedChildRoute.deepLinkCatalog)
+        let unrelated = SharedChildRoute.deepLinkCatalog
+        #expect(unrelated.entries.map(\.routeCase) == ["leaf", "child.leaf"])
+        #expect(unrelated == SharedChildRoute.deepLinkCatalog)
     }
 }
 

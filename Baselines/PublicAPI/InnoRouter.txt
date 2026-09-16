@@ -22,11 +22,11 @@ relationship | memberOf | CasePath.extract | CasePath |  |
 relationship | memberOf | CasePath.init(embed:extract:) | CasePath |  |
 relationship | memberOf | DeepLinkAuthenticationPolicy.notRequired | DeepLinkAuthenticationPolicy |  |
 relationship | memberOf | DeepLinkAuthenticationPolicy.required(shouldRequireAuthentication:isAuthenticated:) | DeepLinkAuthenticationPolicy |  |
-relationship | memberOf | DeepLinkFeatureRuntime.caseName(for:) | DeepLinkFeatureRuntime |  |
-relationship | memberOf | DeepLinkFeatureRuntime.catalog(for:) | DeepLinkFeatureRuntime |  |
-relationship | memberOf | DeepLinkFeatureRuntime.resolve(_:url:) | DeepLinkFeatureRuntime |  |
-relationship | memberOf | DeepLinkFeatureRuntime.supportsPureExplanation(for:) | DeepLinkFeatureRuntime |  |
-relationship | memberOf | DeepLinkFeatureRuntime.url(for:origin:) | DeepLinkFeatureRuntime |  |
+relationship | memberOf | DeepLinkFeatureRuntime.caseName(for:body:) | DeepLinkFeatureRuntime |  |
+relationship | memberOf | DeepLinkFeatureRuntime.catalog(for:body:) | DeepLinkFeatureRuntime |  |
+relationship | memberOf | DeepLinkFeatureRuntime.resolve(_:url:body:) | DeepLinkFeatureRuntime |  |
+relationship | memberOf | DeepLinkFeatureRuntime.supportsPureExplanation(for:body:) | DeepLinkFeatureRuntime |  |
+relationship | memberOf | DeepLinkFeatureRuntime.url(for:origin:body:) | DeepLinkFeatureRuntime |  |
 relationship | memberOf | DeepLinkInputLimitViolation.localizedDescription | DeepLinkInputLimitViolation |  |
 relationship | memberOf | DeepLinkInputLimitViolation.pathSegmentCountExceeded(actual:max:) | DeepLinkInputLimitViolation |  |
 relationship | memberOf | DeepLinkInputLimitViolation.queryItemCountExceeded(actual:max:) | DeepLinkInputLimitViolation |  |
@@ -92,6 +92,7 @@ relationship | memberOf | DeepLinkResolutionFailure.noMatchingPattern | DeepLink
 relationship | memberOf | DeepLinkResolutionFailure.parameterConversionFailed(candidatePatterns:) | DeepLinkResolutionFailure |  |
 relationship | memberOf | DeepLinkResolutionFailure.portNotAllowed | DeepLinkResolutionFailure |  |
 relationship | memberOf | DeepLinkResolutionFailure.schemeNotAllowed(actual:) | DeepLinkResolutionFailure |  |
+relationship | memberOf | DeepLinkResolutionFailure.traversalLimitExceeded | DeepLinkResolutionFailure |  |
 relationship | memberOf | DeepLinkRoute.explainDeepLink(_:inputLimits:) | DeepLinkRoute |  |
 relationship | memberOf | DeepLinkRouteAttempt.init(routeCase:pattern:outcome:) | DeepLinkRouteAttempt |  |
 relationship | memberOf | DeepLinkRouteAttempt.outcome | DeepLinkRouteAttempt |  |
@@ -100,10 +101,13 @@ relationship | memberOf | DeepLinkRouteAttempt.routeCase | DeepLinkRouteAttempt 
 relationship | memberOf | DeepLinkRouteAttemptOutcome.candidate | DeepLinkRouteAttemptOutcome |  |
 relationship | memberOf | DeepLinkRouteAttemptOutcome.pathMismatch | DeepLinkRouteAttemptOutcome |  |
 relationship | memberOf | DeepLinkRouteAttemptOutcome.resolved | DeepLinkRouteAttemptOutcome |  |
+relationship | memberOf | DeepLinkRouteCatalog.encode(to:) | DeepLinkRouteCatalog |  |
 relationship | memberOf | DeepLinkRouteCatalog.entries | DeepLinkRouteCatalog |  |
 relationship | memberOf | DeepLinkRouteCatalog.explain(_:inputLimits:shouldResolve:resolve:resolvedCaseName:) | DeepLinkRouteCatalog |  |
 relationship | memberOf | DeepLinkRouteCatalog.hosts | DeepLinkRouteCatalog |  |
-relationship | memberOf | DeepLinkRouteCatalog.init(schemes:hosts:entries:) | DeepLinkRouteCatalog |  |
+relationship | memberOf | DeepLinkRouteCatalog.init(from:) | DeepLinkRouteCatalog |  |
+relationship | memberOf | DeepLinkRouteCatalog.init(schemes:hosts:entries:isComplete:) | DeepLinkRouteCatalog |  |
+relationship | memberOf | DeepLinkRouteCatalog.isComplete | DeepLinkRouteCatalog |  |
 relationship | memberOf | DeepLinkRouteCatalog.merging(_:) | DeepLinkRouteCatalog |  |
 relationship | memberOf | DeepLinkRouteCatalog.namespaced(declarationNamespace:featureID:) | DeepLinkRouteCatalog |  |
 relationship | memberOf | DeepLinkRouteCatalog.schemes | DeepLinkRouteCatalog |  |
@@ -1067,6 +1071,7 @@ symbol | swift.enum.case | DeepLinkResolutionFailure.noMatchingPattern | DeepLin
 symbol | swift.enum.case | DeepLinkResolutionFailure.parameterConversionFailed(candidatePatterns:) | DeepLinkResolutionFailure.parameterConversionFailed(candidatePatterns:) | case parameterConversionFailed(candidatePatterns: [String]) | []
 symbol | swift.enum.case | DeepLinkResolutionFailure.portNotAllowed | DeepLinkResolutionFailure.portNotAllowed | case portNotAllowed | []
 symbol | swift.enum.case | DeepLinkResolutionFailure.schemeNotAllowed(actual:) | DeepLinkResolutionFailure.schemeNotAllowed(actual:) | case schemeNotAllowed(actual: String?) | []
+symbol | swift.enum.case | DeepLinkResolutionFailure.traversalLimitExceeded | DeepLinkResolutionFailure.traversalLimitExceeded | case traversalLimitExceeded | []
 symbol | swift.enum.case | DeepLinkRouteAttemptOutcome.candidate | DeepLinkRouteAttemptOutcome.candidate | case candidate | []
 symbol | swift.enum.case | DeepLinkRouteAttemptOutcome.pathMismatch | DeepLinkRouteAttemptOutcome.pathMismatch | case pathMismatch | []
 symbol | swift.enum.case | DeepLinkRouteAttemptOutcome.resolved | DeepLinkRouteAttemptOutcome.resolved | case resolved | []
@@ -1417,7 +1422,8 @@ symbol | swift.init | DeepLinkMatcherConfiguration.init(diagnosticsMode:logger:i
 symbol | swift.init | DeepLinkOrigin.init(scheme:host:) | init(scheme:host:) | init?(scheme: String, host: String) | []
 symbol | swift.init | DeepLinkResolutionExplanation.init(decision:attempts:) | init(decision:attempts:) | init(decision: DeepLinkResolutionExplanation.Decision, attempts: [DeepLinkRouteAttempt]) | []
 symbol | swift.init | DeepLinkRouteAttempt.init(routeCase:pattern:outcome:) | init(routeCase:pattern:outcome:) | init(routeCase: String, pattern: String, outcome: DeepLinkRouteAttemptOutcome) | []
-symbol | swift.init | DeepLinkRouteCatalog.init(schemes:hosts:entries:) | init(schemes:hosts:entries:) | init(schemes: [String], hosts: [String], entries: [DeepLinkRouteCatalogEntry]) | []
+symbol | swift.init | DeepLinkRouteCatalog.init(from:) | init(from:) | init(from decoder: any Decoder) throws | []
+symbol | swift.init | DeepLinkRouteCatalog.init(schemes:hosts:entries:isComplete:) | init(schemes:hosts:entries:isComplete:) | init(schemes: [String], hosts: [String], entries: [DeepLinkRouteCatalogEntry], isComplete: Bool = true) | []
 symbol | swift.init | DeepLinkRouteCatalogEntry.init(declarationNamespace:featurePath:routeCase:pattern:parameters:) | init(declarationNamespace:featurePath:routeCase:pattern:parameters:) | init(declarationNamespace: String = "", featurePath: [String] = [], routeCase: String, pattern: String, parameters: [DeepLinkRouteParameterSchema] = []) | []
 symbol | swift.init | DeepLinkRouteParameterSchema.init(name:typeName:source:isRequired:isApplicationConversionRequired:) | init(name:typeName:source:isRequired:isApplicationConversionRequired:) | init(name: String, typeName: String, source: DeepLinkRouteParameterSource, isRequired: Bool, isApplicationConversionRequired: Bool = false) | []
 symbol | swift.init | DeepLinkURLParameter.init(name:value:) | init(name:value:) | init(name: String, value: String?) | []
@@ -1535,6 +1541,7 @@ symbol | swift.method | DeepLinkParameters.values(forName:) | values(forName:) |
 symbol | swift.method | DeepLinkParameters.values(forName:as:) | values(forName:as:) | func values<Value>(forName name: String, as type: Value.Type = Value.self) -> [Value] where Value : DeepLinkParameterValue | []
 symbol | swift.method | DeepLinkRoute.deepLinkCatalogCaseNameValue() | deepLinkCatalogCaseNameValue() | func deepLinkCatalogCaseNameValue() -> String? | []
 symbol | swift.method | DeepLinkRoute.deepLinkURL(origin:) | deepLinkURL(origin:) | func deepLinkURL(origin: DeepLinkOrigin) -> URL? | []
+symbol | swift.method | DeepLinkRouteCatalog.encode(to:) | encode(to:) | func encode(to encoder: any Encoder) throws | []
 symbol | swift.method | DeepLinkRouteCatalog.explain(_:inputLimits:shouldResolve:resolve:resolvedCaseName:) | explain(_:inputLimits:shouldResolve:resolve:resolvedCaseName:) | func explain<R>(_ url: URL, inputLimits: DeepLinkInputLimits = .default, shouldResolve: Bool = true, resolve: (URL) -> R?, resolvedCaseName: (R) -> String? = { _ in nil }) -> DeepLinkResolutionExplanation where R : Route | []
 symbol | swift.method | DeepLinkRouteCatalog.merging(_:) | merging(_:) | func merging(_ other: DeepLinkRouteCatalog) -> DeepLinkRouteCatalog | []
 symbol | swift.method | DeepLinkRouteCatalog.namespaced(declarationNamespace:featureID:) | namespaced(declarationNamespace:featureID:) | func namespaced(declarationNamespace: String, featureID: String) -> DeepLinkRouteCatalog | []
@@ -1702,6 +1709,7 @@ symbol | swift.property | DeepLinkRouteAttempt.pattern | pattern | let pattern: 
 symbol | swift.property | DeepLinkRouteAttempt.routeCase | routeCase | let routeCase: String | []
 symbol | swift.property | DeepLinkRouteCatalog.entries | entries | let entries: [DeepLinkRouteCatalogEntry] | []
 symbol | swift.property | DeepLinkRouteCatalog.hosts | hosts | let hosts: [String] | []
+symbol | swift.property | DeepLinkRouteCatalog.isComplete | isComplete | let isComplete: Bool | []
 symbol | swift.property | DeepLinkRouteCatalog.schemes | schemes | let schemes: [String] | []
 symbol | swift.property | DeepLinkRouteCatalogEntry.declarationNamespace | declarationNamespace | let declarationNamespace: String | []
 symbol | swift.property | DeepLinkRouteCatalogEntry.featurePath | featurePath | let featurePath: [String] | []
@@ -2028,11 +2036,11 @@ symbol | swift.struct | RouterWindow | RouterWindow | struct RouterWindow<R> whe
 symbol | swift.struct | RouterWindowHost | RouterWindowHost | @MainActor struct RouterWindowHost<R> where R : DestinationRoute, R : RouterSceneRoute | []
 symbol | swift.struct | RouterWindowRequest | RouterWindowRequest | struct RouterWindowRequest<R> where R : Route | []
 symbol | swift.type.method | Bool.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Bool? | []
-symbol | swift.type.method | DeepLinkFeatureRuntime.caseName(for:) | caseName(for:) | static func caseName<Child>(for route: Child) -> String? where Child : Route | []
-symbol | swift.type.method | DeepLinkFeatureRuntime.catalog(for:) | catalog(for:) | static func catalog<Child>(for type: Child.Type) -> DeepLinkRouteCatalog where Child : Route | []
-symbol | swift.type.method | DeepLinkFeatureRuntime.resolve(_:url:) | resolve(_:url:) | static func resolve<Child>(_ type: Child.Type, url: URL) -> Child? where Child : Route | []
-symbol | swift.type.method | DeepLinkFeatureRuntime.supportsPureExplanation(for:) | supportsPureExplanation(for:) | static func supportsPureExplanation<Child>(for type: Child.Type) -> Bool where Child : Route | []
-symbol | swift.type.method | DeepLinkFeatureRuntime.url(for:origin:) | url(for:origin:) | static func url<Child>(for route: Child, origin: DeepLinkOrigin) -> URL? where Child : Route | []
+symbol | swift.type.method | DeepLinkFeatureRuntime.caseName(for:body:) | caseName(for:body:) | static func caseName<Child>(for route: Child, body: (() -> String?)? = nil) -> String? where Child : Route | []
+symbol | swift.type.method | DeepLinkFeatureRuntime.catalog(for:body:) | catalog(for:body:) | static func catalog<Child>(for type: Child.Type, body: (() -> DeepLinkRouteCatalog)? = nil) -> DeepLinkRouteCatalog where Child : Route | []
+symbol | swift.type.method | DeepLinkFeatureRuntime.resolve(_:url:body:) | resolve(_:url:body:) | static func resolve<Child>(_ type: Child.Type, url: URL, body: (() -> Child?)? = nil) -> Child? where Child : Route | []
+symbol | swift.type.method | DeepLinkFeatureRuntime.supportsPureExplanation(for:body:) | supportsPureExplanation(for:body:) | static func supportsPureExplanation<Child>(for type: Child.Type, body: (() -> Bool)? = nil) -> Bool where Child : Route | []
+symbol | swift.type.method | DeepLinkFeatureRuntime.url(for:origin:body:) | url(for:origin:body:) | static func url<Child>(for route: Child, origin: DeepLinkOrigin, body: (() -> URL?)? = nil) -> URL? where Child : Route | []
 symbol | swift.type.method | DeepLinkMappingBuilder.buildArray(_:) | buildArray(_:) | static func buildArray(_ components: [[DeepLinkMapping<Output>]]) -> [DeepLinkMapping<Output>] | []
 symbol | swift.type.method | DeepLinkMappingBuilder.buildBlock(_:) | buildBlock(_:) | static func buildBlock(_ components: [DeepLinkMapping<Output>]...) -> [DeepLinkMapping<Output>] | []
 symbol | swift.type.method | DeepLinkMappingBuilder.buildEither(first:) | buildEither(first:) | static func buildEither(first component: [DeepLinkMapping<Output>]) -> [DeepLinkMapping<Output>] | []

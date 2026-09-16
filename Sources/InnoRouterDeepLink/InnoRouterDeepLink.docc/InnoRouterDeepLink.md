@@ -39,3 +39,20 @@ standard name therefore remains application-owned and is not invoked by
 read-only analysis. Composed feature routes also retain their declaring
 router's origin policy when rendering URLs; parent direct routes do not inherit
 child origins.
+
+Generated feature traversal is bounded per top-level operation. A recursive
+edge to a type already on the active path is omitted while independent local
+and sibling branches remain available. If concrete generic specializations
+keep growing, the depth or total-work budget fails the whole operation closed:
+resolution, case-name lookup, and URL rendering return `nil`, purity is false,
+and ``DeepLinkRouteCatalog/isComplete`` is false with no partial entries.
+``DeepLinkRoute/explainDeepLink(_:inputLimits:)`` reports
+``DeepLinkResolutionFailure/traversalLimitExceeded`` for that catalog. The
+budget belongs to one call and is not shared with later or concurrent roots.
+
+Manual `DeepLinkRoute` implementations that compose child routers through
+``DeepLinkFeatureRuntime`` can supply the matching root body to its catalog,
+purity, resolution, case-name, or URL bridge. The macro emits these bodies
+automatically; ordinary macro-first users do not call them themselves. The
+bound covers framework-managed feature traversal, not arbitrary recursion
+inside an application-written resolver.

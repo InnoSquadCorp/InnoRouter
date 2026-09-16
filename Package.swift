@@ -347,6 +347,7 @@ let package = Package(
                 // is empty on non-macOS platforms.
                 .target(name: "InnoRouterMacros", condition: .when(platforms: [.macOS])),
                 "InnoRouterCore",
+                "InnoRouterDeepLink",
             ],
             // README.md documents the macOS-only constraint of this
             // target; it is human-facing only and must not be packaged
