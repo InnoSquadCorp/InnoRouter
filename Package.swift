@@ -216,6 +216,17 @@ let package = Package(
         // This executable intentionally crashes when `EnvironmentRouter` is
         // used without a matching host. `principle-gates.sh` asserts both the
         // non-zero exit and the actionable authority diagnostic.
+        // This executable walks a recursive `@FeatureRoute` graph through every
+        // generated deep-link entry point. Without a traversal guard the
+        // generated contracts re-enter their own type until the stack
+        // overflows; `principle-gates.sh` asserts the zero exit.
+        .executableTarget(
+            name: "RouterRecursiveDeepLinkProbe",
+            dependencies: ["InnoRouter", "InnoRouterDeepLink"],
+            path: "Sources/RouterRecursiveDeepLinkProbe",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+
         .executableTarget(
             name: "RouterEnvironmentFailFastProbe",
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],

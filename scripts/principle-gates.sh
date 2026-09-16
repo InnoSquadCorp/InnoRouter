@@ -127,6 +127,32 @@ echo "[principle-gates] Running source-level lint gates"
 # of producing silent fallback behavior.
 # Failure signal: probe succeeded (regression — fallback re-introduced)
 #                 or message missing the expected substring.
+# A recursive `@FeatureRoute` graph must terminate in every generated
+# deep-link entry point instead of recursing until the stack overflows.
+# Failure signal: non-zero exit (a crash reports 139) or a missing completion
+#                 line.
+echo "[principle-gates] Checking recursive deep-link traversal probe"
+RECURSIVE_PROBE_OUTPUT_FILE="$(mktemp)"
+set +e
+swift run --jobs "$SWIFTPM_JOBS" RouterRecursiveDeepLinkProbe >"$RECURSIVE_PROBE_OUTPUT_FILE" 2>&1
+RECURSIVE_PROBE_EXIT_CODE=$?
+set -e
+
+if [[ "$RECURSIVE_PROBE_EXIT_CODE" -ne 0 ]]; then
+  echo "[principle-gates] Failed: recursive deep-link probe exited $RECURSIVE_PROBE_EXIT_CODE"
+  cat "$RECURSIVE_PROBE_OUTPUT_FILE"
+  rm -f "$RECURSIVE_PROBE_OUTPUT_FILE"
+  exit 1
+fi
+
+if ! rg -q "every entry point terminated" "$RECURSIVE_PROBE_OUTPUT_FILE"; then
+  echo "[principle-gates] Failed: recursive deep-link probe did not report completion"
+  cat "$RECURSIVE_PROBE_OUTPUT_FILE"
+  rm -f "$RECURSIVE_PROBE_OUTPUT_FILE"
+  exit 1
+fi
+rm -f "$RECURSIVE_PROBE_OUTPUT_FILE"
+
 echo "[principle-gates] Checking fail-fast probe (missing router authority)"
 PROBE_OUTPUT_FILE="$(mktemp)"
 set +e

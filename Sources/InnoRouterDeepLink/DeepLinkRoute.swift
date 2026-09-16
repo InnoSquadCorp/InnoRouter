@@ -74,30 +74,96 @@ public extension DeepLinkRoute {
     }
 }
 
+/// The route types already being walked by the current deep-link operation.
+///
+/// A feature graph may legitimately reach the same child type from different
+/// parents, so the guard tracks the *current path* rather than every type ever
+/// visited: a sibling that shares a child still contributes its entries. Each
+/// operation kind carries its own path, so a catalog walk never suppresses a
+/// resolution.
+enum DeepLinkTraversal {
+    enum Operation: Hashable, Sendable {
+        case catalog
+        case purity
+        case resolve
+        case caseName
+        case url
+    }
+
+    struct Step: Hashable, Sendable {
+        let type: ObjectIdentifier
+        let operation: Operation
+    }
+
+    @TaskLocal static var path: Set<Step> = []
+
+    /// Runs `body` with `step` on the path, or returns `cycle()` when the step
+    /// is already there.
+    ///
+    /// The generated contracts are synchronous, so one call of an entry point
+    /// is one traversal; nothing leaks between separate or nested calls.
+    static func walking<Value>(
+        _ type: Any.Type,
+        _ operation: Operation,
+        cycle: () -> Value,
+        body: () -> Value
+    ) -> Value {
+        let step = Step(type: ObjectIdentifier(type), operation: operation)
+        guard !path.contains(step) else { return cycle() }
+        return $path.withValue(path.union([step]), operation: body)
+    }
+}
+
 /// Type-erased bridge used by macro-generated parent routers to compose child
 /// feature deep-link contracts without requiring the child module to know its
 /// parent type.
+///
+/// A feature case may name its own route type, directly or through another
+/// module, so every entry point below is re-entrant by construction. Each one
+/// therefore refuses to walk a route type that is already on the current path
+/// and fails closed for that edge: an empty catalog, an impure explanation, or
+/// no resolution. Independent branches keep working.
 public enum DeepLinkFeatureRuntime {
     public static func catalog<Child: Route>(for type: Child.Type) -> DeepLinkRouteCatalog {
         guard let routeType = type as? any DeepLinkRoute.Type else {
             return .init(schemes: [], hosts: [], entries: [])
         }
-        return routeType.deepLinkCatalog
+        return DeepLinkTraversal.walking(
+            routeType,
+            .catalog,
+            cycle: { .init(schemes: [], hosts: [], entries: []) },
+            body: { routeType.deepLinkCatalog }
+        )
     }
 
     public static func supportsPureExplanation<Child: Route>(for type: Child.Type) -> Bool {
         guard let routeType = type as? any DeepLinkRoute.Type else { return false }
-        return routeType.supportsPureDeepLinkExplanation
+        return DeepLinkTraversal.walking(
+            routeType,
+            .purity,
+            cycle: { false },
+            body: { routeType.supportsPureDeepLinkExplanation }
+        )
     }
 
     public static func resolve<Child: Route>(_ type: Child.Type, url: URL) -> Child? {
         guard let routeType = type as? any DeepLinkRoute.Type else { return nil }
-        return routeType.resolveDeepLink(url) as? Child
+        return DeepLinkTraversal.walking(
+            routeType,
+            .resolve,
+            cycle: { nil },
+            body: { routeType.resolveDeepLink(url) as? Child }
+        )
     }
 
     public static func caseName<Child: Route>(for route: Child) -> String? {
         guard let route = route as? any DeepLinkRoute else { return nil }
-        return route.deepLinkCatalogCaseNameValue()
+        return DeepLinkTraversal.walking(
+            type(of: route),
+            .caseName,
+            cycle: { nil },
+            body: { route.deepLinkCatalogCaseNameValue() }
+        )
     }
 
     public static func url<Child: Route>(
@@ -105,6 +171,11 @@ public enum DeepLinkFeatureRuntime {
         origin: DeepLinkOrigin
     ) -> URL? {
         guard let route = route as? any DeepLinkRoute else { return nil }
-        return route.deepLinkURL(origin: origin)
+        return DeepLinkTraversal.walking(
+            type(of: route),
+            .url,
+            cycle: { nil },
+            body: { route.deepLinkURL(origin: origin) }
+        )
     }
 }
