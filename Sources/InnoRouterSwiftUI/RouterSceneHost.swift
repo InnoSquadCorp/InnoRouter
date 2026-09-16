@@ -41,6 +41,10 @@ public struct RouterWindowHost<R: DestinationRoute & RouterSceneRoute>: View {
     private let store: RouterStore<R>
     private let scope: RouterScope<R>
 
+#if !os(tvOS) && !os(watchOS)
+    @Environment(\.dismissWindow) private var dismissWindow
+#endif
+
     public init(id: UUID, store: RouterStore<R>) {
         self.id = id
         self.store = store
@@ -57,6 +61,17 @@ public struct RouterWindowHost<R: DestinationRoute & RouterSceneRoute>: View {
             )
             .routerAuthority(scope, for: R.self)
             .routerWindowLifecycle(id, store: store)
+        } else {
+            // A restored native window can finish opening after the driver has
+            // already dismissed its canonical value. Repair from this window's
+            // own environment once its empty host is mounted as well.
+            Color.clear
+                .task {
+#if !os(tvOS) && !os(watchOS)
+                    guard scope.observedSceneRootRoute == nil else { return }
+                    dismissWindow()
+#endif
+                }
         }
     }
 }
@@ -76,14 +91,18 @@ public struct RouterImmersiveSpaceHost<R: DestinationRoute & RouterSceneRoute>: 
 
     @ViewBuilder
     public var body: some View {
-        if let rootRoute = scope.observedSceneRootRoute {
-            RouterStoreStackSurface(
-                scope: scope,
-                destination: R.destination(for:),
-                root: { R.destination(for: rootRoute) }
-            )
-            .routerAuthority(scope, for: R.self)
-            .routerImmersiveSpaceLifecycle(id, store: store)
+        // Keep the native lifetime boundary mounted while canonical content is
+        // temporarily empty. Removing the inner stack is not a native close.
+        ZStack {
+            if let rootRoute = scope.observedSceneRootRoute {
+                RouterStoreStackSurface(
+                    scope: scope,
+                    destination: R.destination(for:),
+                    root: { R.destination(for: rootRoute) }
+                )
+                .routerAuthority(scope, for: R.self)
+            }
         }
+        .routerImmersiveSpaceLifecycle(id, store: store)
     }
 }

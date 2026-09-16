@@ -114,25 +114,25 @@ jobs:
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.iOS"
             deviceNameContains: "iPhone"
             usesSimulator: true
-            minimumPassedTests: 6
+            minimumPassedTests: 10
           - name: iPadOS
             destination: "iOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.iOS"
             deviceNameContains: "iPad"
             usesSimulator: true
-            minimumPassedTests: 6
+            minimumPassedTests: 10
           - name: Mac-Catalyst
             destination: "macOS,variant=Mac Catalyst"
             runtimePrefix: ""
             deviceNameContains: ""
             usesSimulator: false
-            minimumPassedTests: 6
+            minimumPassedTests: 10
           - name: tvOS
             destination: "tvOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.tvOS"
             deviceNameContains: ""
             usesSimulator: true
-            minimumPassedTests: 8
+            minimumPassedTests: 12
           - name: watchOS
             destination: "watchOS Simulator"
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.watchOS"
@@ -144,7 +144,7 @@ jobs:
             runtimePrefix: "com.apple.CoreSimulator.SimRuntime.xrOS"
             deviceNameContains: ""
             usesSimulator: true
-            minimumPassedTests: 6
+            minimumPassedTests: 10
 
     steps:
       - name: Checkout

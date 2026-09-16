@@ -13,19 +13,25 @@ package struct RouterRuntimeDependencies: Sendable {
     package var makeTransitionID: @Sendable () -> RouterTransitionID
     package var didQueueRequest: @MainActor @Sendable (RouterTransitionID) -> Void
     package var beforeRestorationWorker: @MainActor @Sendable () async throws -> Void
+    package var didFinishRestorationWorker: @MainActor @Sendable () -> Void
+    package var didFinishImmersiveDisappearance: @MainActor @Sendable () -> Void
 
     package init(
         now: @escaping @Sendable () -> Date,
         sleep: @escaping @Sendable (Duration) async throws -> Void,
         makeTransitionID: @escaping @Sendable () -> RouterTransitionID,
         didQueueRequest: @escaping @MainActor @Sendable (RouterTransitionID) -> Void = { _ in },
-        beforeRestorationWorker: @escaping @MainActor @Sendable () async throws -> Void = {}
+        beforeRestorationWorker: @escaping @MainActor @Sendable () async throws -> Void = {},
+        didFinishRestorationWorker: @escaping @MainActor @Sendable () -> Void = {},
+        didFinishImmersiveDisappearance: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.now = now
         self.sleep = sleep
         self.makeTransitionID = makeTransitionID
         self.didQueueRequest = didQueueRequest
         self.beforeRestorationWorker = beforeRestorationWorker
+        self.didFinishRestorationWorker = didFinishRestorationWorker
+        self.didFinishImmersiveDisappearance = didFinishImmersiveDisappearance
     }
 
     package static let live = Self(

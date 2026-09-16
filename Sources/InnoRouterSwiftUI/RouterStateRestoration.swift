@@ -187,6 +187,7 @@ extension RouterRestorationDriver {
         activationTaskID = taskID
         activationTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            defer { self.store.runtimeDependencies.didFinishRestorationWorker() }
             do {
                 try await self.store.runtimeDependencies.beforeRestorationWorker()
                 let result = try await self.performActivation(
@@ -338,6 +339,7 @@ extension RouterRestorationDriver {
     }
 
     package var attachmentCount: Int { attachmentIDs.count }
+    package var activationWaiterCount: Int { activationWaiters.count }
 
     package func detach(_ id: UUID) {
         attachmentIDs.remove(id)

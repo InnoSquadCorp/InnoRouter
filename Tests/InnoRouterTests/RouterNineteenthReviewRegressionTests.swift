@@ -294,10 +294,14 @@ struct RouterNineteenthReviewDurableOrderingTests {
         let fileURL = directory.appendingPathComponent("snapshot.json")
 
         let codec = try RouterSnapshotCodec<NineteenthReviewRoute>(currentVersion: 1)
-        try codec.encode(.rootStack(path: [.saved])).write(to: fileURL)
+        let initialState = RouterState<NineteenthReviewRoute>.rootStack(path: [.saved])
+        try codec.encode(initialState).write(to: fileURL)
 
         let storage = NineteenthReviewBlockingFileStorage(fileURL: fileURL)
-        let store = RouterStore<NineteenthReviewRoute>()
+        // A changed initial restore would legitimately schedule a new automatic
+        // save after removal. Keep that independent command out of this test
+        // of saves accepted before removal and an explicit save accepted later.
+        let store = RouterStore(initialState: initialState)
         let driver = RouterRestorationDriver(
             store: store,
             codec: codec,
@@ -314,14 +318,23 @@ struct RouterNineteenthReviewDurableOrderingTests {
         _ = try await firstElement(from: storage.loads, what: "blocking load")
         let save = Task(priority: .low) { @MainActor in try await driver.save() }
         try await waitUntil("the save reaches storage") { driver.status == .saving }
-        let remove = Task(priority: .high) { @MainActor in try await driver.removeSnapshot() }
-        for _ in 0 ..< 10 {
-            await Task.yield()
+        let (reservations, reservationContinuation) = AsyncStream.makeStream(of: RouterDurabilityReservation.self)
+        defer { reservationContinuation.finish() }
+        try await RouterDurabilityTestSupport.withReservationObserver({ reservation in
+            reservationContinuation.yield(reservation)
+        }) {
+            let remove = Task(priority: .high) { @MainActor in try await driver.removeSnapshot() }
+            defer { remove.cancel() }
+            #expect(try await firstElement(
+                from: reservations,
+                what: "on-disk snapshot removal reservation"
+            ) == .init(ticket: 1, command: .remove))
+            storage.releaseLoad()
+            _ = try await activation.value
+            try await save.value
+            try await remove.value
         }
-        storage.releaseLoad()
-        _ = try? await activation.value
-        _ = try? await save.value
-        try await remove.value
+        #expect(store.revision == 0)
 
         #expect(FileManager.default.fileExists(atPath: fileURL.path) == false)
 

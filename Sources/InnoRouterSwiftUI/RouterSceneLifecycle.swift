@@ -331,6 +331,7 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
     let id: String
     let lifecycleToken: UUID?
     let store: RouterStore<R>
+    @State private var appearedLifetime: UUID?
 
 #if os(visionOS)
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
@@ -340,6 +341,7 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
     func body(content: Content) -> some View {
         content
             .onAppear {
+                appearedLifetime = lifecycleToken
                 guard let lifecycleToken else { return }
                 store.sceneRestorationRegistry.finishImmersiveSpaceRestoration(
                     id: id,
@@ -347,6 +349,10 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
                 )
             }
             .onDisappear {
+                // A body refresh may already contain the replacement's token
+                // while the previous native space is still disappearing.
+                let lifecycleToken = appearedLifetime
+                appearedLifetime = nil
                 guard let lifecycleToken,
                       let restorationTicket = store.sceneRestorationRegistry
                       .beginImmersiveSpaceRestoration(
@@ -354,6 +360,7 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
                           lifecycleToken: lifecycleToken
                       ) else { return }
                 Task { @MainActor in
+                    defer { store.runtimeDependencies.didFinishImmersiveDisappearance() }
                     var keepsRestorationReservation = false
                     defer {
                         if !keepsRestorationReservation {
