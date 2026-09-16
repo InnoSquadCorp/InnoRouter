@@ -180,21 +180,24 @@ private enum DeepLinkTraversal {
         body: () -> Value
     ) -> Value {
         let step = Step(type: ObjectIdentifier(type), operation: operation)
+        // Admission belongs to this generated entry only, not its body or
+        // Tasks created by application-owned parameter conversions. Clear it
+        // for fresh roots too, so another root cannot inherit a stale permit.
         if context != nil, authorizedGeneratedEntry == step {
-            // The feature bridge already admitted this generated child entry.
-            return body()
+            return $authorizedGeneratedEntry.withValue(nil, operation: body)
         }
 
-        // A direct or genuinely nested public entry starts an independent
-        // traversal. Only bridge-dispatched child entries share their parent.
+        // Only bridge-dispatched children share their parent's context.
         let context = Context()
         return $context.withValue(context) {
-            guard case .entered = context.enter(step) else {
-                preconditionFailure("A fresh deep-link traversal could not enter its root")
+            $authorizedGeneratedEntry.withValue(nil) {
+                guard case .entered = context.enter(step) else {
+                    preconditionFailure("A fresh deep-link traversal could not enter its root")
+                }
+                defer { context.leave(step) }
+                let value = body()
+                return context.didExceedLimit ? limit(value) : value
             }
-            defer { context.leave(step) }
-            let value = body()
-            return context.didExceedLimit ? limit(value) : value
         }
     }
 
