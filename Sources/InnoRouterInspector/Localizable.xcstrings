@@ -1,6 +1,8 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "No matching events" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "일치하는 이벤트가 없습니다" } } } },
+    "No events recorded" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "기록된 이벤트가 없습니다" } } } },
     "Bookmark" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "북마크" } } } },
     "Bookmarked" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "북마크됨" } } } },
     "Cancel" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "취소" } } } },

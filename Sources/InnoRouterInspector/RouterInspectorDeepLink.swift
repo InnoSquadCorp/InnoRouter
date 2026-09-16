@@ -277,6 +277,7 @@ public struct RouterInspectorDeepLinkView<R: DeepLinkRoute>: View {
 
     private func execute() {
         guard let store, let url = URL(string: input) else { return }
+        executionStatus = nil
         executionTask = Task { @MainActor in
             defer { executionTask = nil }
             guard !Task.isCancelled else {

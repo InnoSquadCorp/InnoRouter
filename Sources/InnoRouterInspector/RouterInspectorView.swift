@@ -8,9 +8,7 @@ import UniformTypeIdentifiers
 public struct RouterInspectorView: View {
     @Bindable private var recorder: RouterInspectorRecorder
     private let scenario: RouterInspectorScenarioController?
-    @State private var selection: RouterInspectorEntry.ID?
-    @State private var visibleDomains = Set(RouterInspectorDomain.allCases)
-    @State private var searchText = ""
+    @State private var timeline = RouterInspectorTimeline()
     @State private var comparisonEntryID: RouterInspectorEntry.ID?
 #if os(iOS) || os(macOS) || os(visionOS)
     @State private var isImporting = false
@@ -32,8 +30,9 @@ public struct RouterInspectorView: View {
         NavigationSplitView {
             inspectorList
                 .navigationTitle(Text(verbatim: routerInspectorLocalized("InnoRouter Inspector")))
+                .navigationSplitViewColumnWidth(min: 240, ideal: 300, max: 480)
         } detail: {
-            if let entry = selectedEntry {
+            if let entry = timeline.selectedEntry {
                 RouterInspectorDetail(
                     entry: entry,
                     comparison: selectedComparison
@@ -54,27 +53,11 @@ public struct RouterInspectorView: View {
     }
 
     private var filteredEntries: [RouterInspectorEntry] {
-        recorder.entries.filter { entry in
-            guard visibleDomains.contains(entry.domain) else { return false }
-            guard !searchText.isEmpty else { return true }
-            let needle = searchText.localizedLowercase
-            return entry.name.localizedLowercase.contains(needle)
-                || entry.domain.rawValue.localizedLowercase.contains(needle)
-                || entry.outcome.rawValue.localizedLowercase.contains(needle)
-                || entry.metadata.contains { key, value in
-                    key.localizedLowercase.contains(needle)
-                        || value.localizedLowercase.contains(needle)
-                }
-        }
-    }
-
-    private var selectedEntry: RouterInspectorEntry? {
-        guard let selection else { return nil }
-        return recorder.entries.first { $0.id == selection }
+        timeline.filteredEntries
     }
 
     private var inspectorList: some View {
-        List(selection: $selection) {
+        List(selection: $timeline.selection) {
             if let scenario {
                 RouterInspectorScenarioSection(controller: scenario)
             }
@@ -82,13 +65,13 @@ public struct RouterInspectorView: View {
             Section {
                 ForEach(RouterInspectorDomain.allCases) { domain in
                     Button {
-                        toggleVisibility(of: domain)
+                        timeline.toggleVisibility(of: domain)
                     } label: {
                         Label {
                             Text(verbatim: domain.rawValue)
                         } icon: {
                             Image(
-                                systemName: visibleDomains.contains(domain)
+                                systemName: timeline.visibleDomains.contains(domain)
                                     ? "checkmark.circle.fill"
                                     : "circle"
                             )
@@ -100,6 +83,14 @@ public struct RouterInspectorView: View {
             }
 #endif
 
+            if filteredEntries.isEmpty {
+                Text(verbatim: routerInspectorLocalized(
+                    recorder.entries.isEmpty ? "No events recorded" : "No matching events"
+                ))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("inspector.timeline.empty")
+            }
             ForEach(filteredEntries) { entry in
                 RouterInspectorRow(
                     entry: entry,
@@ -108,8 +99,11 @@ public struct RouterInspectorView: View {
                     .tag(entry.id)
             }
         }
+        .onChange(of: recorder.entries, initial: true) { _, entries in
+            timeline.updateEntries(entries)
+        }
         .searchable(
-            text: $searchText,
+            text: $timeline.searchText,
             prompt: Text(verbatim: routerInspectorLocalized("Filter events"))
         )
         .toolbar {
@@ -118,13 +112,13 @@ public struct RouterInspectorView: View {
                 Menu {
                     ForEach(RouterInspectorDomain.allCases) { domain in
                         Button {
-                            toggleVisibility(of: domain)
+                            timeline.toggleVisibility(of: domain)
                         } label: {
                             Label {
                                 Text(verbatim: domain.rawValue)
                             } icon: {
                                 Image(
-                                    systemName: visibleDomains.contains(domain)
+                                    systemName: timeline.visibleDomains.contains(domain)
                                         ? "checkmark.circle.fill"
                                         : "circle"
                                 )
@@ -165,22 +159,22 @@ public struct RouterInspectorView: View {
                 }
 
                 Button {
-                    if let selection { recorder.toggleBookmark(selection) }
+                    if let selection = timeline.selectedEntry?.id { recorder.toggleBookmark(selection) }
                 } label: {
                     Label {
                         Text(verbatim: routerInspectorLocalized("Bookmark"))
                     } icon: {
                         Image(
-                            systemName: selection.map(recorder.isBookmarked) == true
+                            systemName: timeline.selectedEntry.map { recorder.isBookmarked($0.id) } == true
                                 ? "bookmark.fill"
                                 : "bookmark"
                         )
                     }
                 }
-                .disabled(selection == nil)
+                .disabled(timeline.selectedEntry == nil)
 
                 Button {
-                    comparisonEntryID = selection
+                    comparisonEntryID = timeline.selectedEntry?.id
                 } label: {
                     Label {
                         Text(verbatim: routerInspectorLocalized("Set comparison baseline"))
@@ -188,10 +182,10 @@ public struct RouterInspectorView: View {
                         Image(systemName: "arrow.left.and.right")
                     }
                 }
-                .disabled(selection == nil)
+                .disabled(timeline.selectedEntry == nil)
 
                 Button {
-                    stepSelection(by: -1)
+                    timeline.stepSelection(by: -1)
                 } label: {
                     Label {
                         Text(verbatim: routerInspectorLocalized("Previous event"))
@@ -199,10 +193,10 @@ public struct RouterInspectorView: View {
                         Image(systemName: "chevron.up")
                     }
                 }
-                .disabled(!canStepSelection(by: -1))
+                .disabled(!timeline.canStepSelection(by: -1))
 
                 Button {
-                    stepSelection(by: 1)
+                    timeline.stepSelection(by: 1)
                 } label: {
                     Label {
                         Text(verbatim: routerInspectorLocalized("Next event"))
@@ -210,10 +204,10 @@ public struct RouterInspectorView: View {
                         Image(systemName: "chevron.down")
                     }
                 }
-                .disabled(!canStepSelection(by: 1))
+                .disabled(!timeline.canStepSelection(by: 1))
 
                 Button {
-                    selection = nil
+                    timeline.selection = nil
                     comparisonEntryID = nil
                     recorder.clear()
                 } label: {
@@ -273,15 +267,8 @@ public struct RouterInspectorView: View {
         return String(decoding: data, as: UTF8.self)
     }
 
-    private func toggleVisibility(of domain: RouterInspectorDomain) {
-        if visibleDomains.contains(domain) {
-            visibleDomains.remove(domain)
-        } else {
-            visibleDomains.insert(domain)
-        }
-    }
-
     private var selectedComparison: RouterInspectorStateDiff? {
+        let selection = timeline.selectedEntry?.id
         if let comparisonEntryID, let selection {
             return recorder.comparison(from: comparisonEntryID, to: selection)
         }
@@ -322,7 +309,8 @@ public struct RouterInspectorView: View {
                 } else {
                     try recorder.importSnapshot(from: data)
                 }
-                selection = recorder.entries.first?.id
+                timeline.updateEntries(recorder.entries)
+                timeline.selection = filteredEntries.first?.id
                 comparisonEntryID = nil
             } catch {
                 importFailed = true
@@ -330,27 +318,6 @@ public struct RouterInspectorView: View {
         }
     }
 #endif
-
-    private func canStepSelection(by offset: Int) -> Bool {
-        guard !filteredEntries.isEmpty else { return false }
-        guard let selection,
-              let index = filteredEntries.firstIndex(where: { $0.id == selection }) else {
-            return true
-        }
-        return filteredEntries.indices.contains(index + offset)
-    }
-
-    private func stepSelection(by offset: Int) {
-        guard !filteredEntries.isEmpty else { return }
-        guard let selection,
-              let index = filteredEntries.firstIndex(where: { $0.id == selection }) else {
-            self.selection = offset < 0 ? filteredEntries.last?.id : filteredEntries.first?.id
-            return
-        }
-        let target = index + offset
-        guard filteredEntries.indices.contains(target) else { return }
-        self.selection = filteredEntries[target].id
-    }
 }
 
 private struct RouterInspectorRow: View {

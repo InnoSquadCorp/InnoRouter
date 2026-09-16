@@ -13,9 +13,14 @@ struct RouterInspectorScenarioSection: View {
 
     var body: some View {
         Section {
-            LabeledContent(routerInspectorLocalized("Recording status")) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: routerInspectorLocalized("Recording status"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Text(verbatim: routerInspectorLocalized(controller.status.rawValue))
             }
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityElement(children: .combine)
             ProgressView(
                 value: Double(controller.capturedStepCount),
                 total: Double(controller.capacity)
@@ -25,7 +30,7 @@ struct RouterInspectorScenarioSection: View {
                 Text(verbatim: controller.summary)
                     .font(.caption.monospaced())
             }
-            HStack {
+            Group {
                 if controller.status == .recording {
                     Button(routerInspectorLocalized("Refresh progress")) {
                         controller.refreshProgress()
@@ -44,6 +49,8 @@ struct RouterInspectorScenarioSection: View {
                     }
                 }
             }
+            .buttonStyle(.borderless)
+            .fixedSize(horizontal: false, vertical: true)
 #if os(iOS) || os(macOS) || os(visionOS)
             if controller.canImportRawFixture && controller.status != .recording {
                 Button {
