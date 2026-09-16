@@ -6,6 +6,11 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+- Restoration activation, snapshot writes, removals, and stop now share one
+  status-publication owner. Late completions cannot hide a newer loading state
+  or persistence failure. Initial-restore lifetime, durable command ordering,
+  and each operation's caller result remain independent of displayed status;
+  automatic saves acquire status ownership only after their debounce ends.
 - Independent deep-link lookups inside custom parameter conversions no longer
   inherit a feature's traversal admission, including lookups made by tasks
   created during conversion. Feature cycles and per-traversal limits remain

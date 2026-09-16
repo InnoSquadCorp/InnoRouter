@@ -4,7 +4,6 @@
 
 import Foundation
 import Observation
-import SwiftUI
 
 import InnoRouterCore
 
@@ -21,6 +20,9 @@ private struct RouterRestorationActivationLease<R: Route & Codable> {
 @MainActor
 @Observable
 public final class RouterRestorationDriver<R: Route & Codable> {
+    /// Status belongs to the most recently started activation, save, removal,
+    /// or stop. Debounce reservations and already-active claims do not replace
+    /// it; older operations still finish and return their own results.
     public private(set) var status: RouterRestorationDriverStatus = .inactive
     public private(set) var lastActivation: RouterRestorationDriverActivation<R>?
 
@@ -70,6 +72,8 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     private var saveGeneration: UInt64 = 0
     @ObservationIgnored
     private var storageEpoch: UInt64 = 0
+    @ObservationIgnored
+    private var statusGeneration: UInt64 = 0
 
     public init(
         store: RouterStore<R>,
@@ -139,18 +143,19 @@ extension RouterRestorationDriver {
 
         activationGeneration &+= 1
         let generation = activationGeneration
+        let statusOwner = beginStatusOperation()
         let expectedRevision = store.revision
         startObservation()
 
         guard initialRestorePhase == .notStarted else {
-            status = .active
+            publishStatus(.active, ownedBy: statusOwner)
             let result = RouterRestorationDriverActivation<R>.observationResumed
             lastActivation = result
             return .init(result: result, generation: generation)
         }
 
         initialRestorePhase = .inProgress
-        status = .loading
+        publishStatus(.loading, ownedBy: statusOwner)
         let waiterID = UUID()
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
@@ -161,6 +166,7 @@ extension RouterRestorationDriver {
                 activationWaiters[waiterID] = continuation
                 startActivationTask(
                     generation: generation,
+                    statusOwner: statusOwner,
                     expectedRevision: expectedRevision
                 )
             }
@@ -173,6 +179,7 @@ extension RouterRestorationDriver {
 
     private func startActivationTask(
         generation: UInt64,
+        statusOwner: UInt64,
         expectedRevision: UInt64
     ) {
         guard activationTask == nil else { return }
@@ -185,6 +192,7 @@ extension RouterRestorationDriver {
                 let result = try await self.performActivation(
                     taskID: taskID,
                     generation: generation,
+                    statusOwner: statusOwner,
                     expectedRevision: expectedRevision
                 )
                 self.finishActivation(taskID, result: .success(result))
@@ -197,6 +205,7 @@ extension RouterRestorationDriver {
     private func performActivation(
         taskID: UUID,
         generation: UInt64,
+        statusOwner: UInt64,
         expectedRevision: UInt64
     ) async throws -> RouterRestorationActivationLease<R> {
         try ensureCurrentActivation(generation, taskID: taskID)
@@ -204,7 +213,7 @@ extension RouterRestorationDriver {
             let data = try await executor.load()
             try ensureCurrentActivation(generation, taskID: taskID)
             guard let data else {
-                status = .active
+                publishStatus(.active, ownedBy: statusOwner)
                 initialRestorePhase = .completed
                 let result = RouterRestorationDriverActivation<R>.noSnapshot
                 lastActivation = result
@@ -240,7 +249,7 @@ extension RouterRestorationDriver {
                 clearActiveRestoreRequest(transitionID)
             }
             try ensureCurrentActivation(generation, taskID: taskID)
-            status = .active
+            publishStatus(.active, ownedBy: statusOwner)
             initialRestorePhase = .completed
             let result = RouterRestorationDriverActivation.restored(outcome)
             lastActivation = result
@@ -254,7 +263,7 @@ extension RouterRestorationDriver {
             cancelActiveRestoreRequest()
             stopObservation()
             invalidateScheduledSave()
-            status = .inactive
+            publishStatus(.inactive, ownedBy: statusOwner)
             throw CancellationError()
         } catch {
             guard activationGeneration == generation,
@@ -265,7 +274,7 @@ extension RouterRestorationDriver {
             cancelActiveRestoreRequest()
             stopObservation()
             invalidateScheduledSave()
-            status = .failed(String(describing: error))
+            publishStatus(.failed(String(describing: error)), ownedBy: statusOwner)
             throw error
         }
     }
@@ -286,8 +295,7 @@ extension RouterRestorationDriver {
     public func removeSnapshot() async throws {
         invalidateScheduledSave()
         storageEpoch &+= 1
-        let generation = saveGeneration
-        let epoch = storageEpoch
+        let statusOwner = beginStatusOperation()
         // Reserving here invalidates every save this driver accepted earlier,
         // so a save already past its own staleness checks cannot write the
         // snapshot back after this removal.
@@ -296,15 +304,11 @@ extension RouterRestorationDriver {
         _ = await durability.waitForTurn(ticket)
         do {
             try await executor.remove()
-            if storageEpoch == epoch, saveGeneration == generation {
-                status = observationID == nil ? .inactive : .active
-            }
+            publishStatus(observationStatus, ownedBy: statusOwner)
         } catch {
             // Durable I/O still finishes and reports its error to its caller.
-            // A newer save/remove or stop exclusively owns the visible status.
-            if storageEpoch == epoch, saveGeneration == generation {
-                status = .failed(String(describing: error))
-            }
+            // A newer activation/save/remove/stop owns the visible status.
+            publishStatus(.failed(String(describing: error)), ownedBy: statusOwner)
             throw error
         }
     }
@@ -349,6 +353,7 @@ extension RouterRestorationDriver {
     }
 
     private func stopOwnedWork() {
+        let statusOwner = beginStatusOperation()
         activationGeneration &+= 1
         activationTask?.cancel()
         activationTask = nil
@@ -359,7 +364,21 @@ extension RouterRestorationDriver {
         cancelActiveRestoreRequest()
         stopObservation()
         invalidateScheduledSave()
-        status = .inactive
+        publishStatus(.inactive, ownedBy: statusOwner)
+    }
+
+    private var observationStatus: RouterRestorationDriverStatus {
+        observationID == nil ? .inactive : .active
+    }
+
+    private func beginStatusOperation() -> UInt64 {
+        statusGeneration &+= 1
+        return statusGeneration
+    }
+
+    private func publishStatus(_ value: RouterRestorationDriverStatus, ownedBy owner: UInt64) {
+        guard statusGeneration == owner else { return }
+        status = value
     }
 
     private func finishActivation(
@@ -481,28 +500,32 @@ extension RouterRestorationDriver {
         invalidateScheduledSave()
         let generation = saveGeneration
         let epoch = storageEpoch
+        let statusBeforeDelay = statusGeneration
         let delay = saveDebounce
         let sleep = store.runtimeDependencies.sleep
         scheduledSaveTask = Task { @MainActor [weak self] in
             do {
                 try await sleep(delay)
-                guard !Task.isCancelled,
-                      let self,
-                      self.saveGeneration == generation else { return }
-                try await self.saveSnapshot(
-                    generation: generation,
-                    storageEpoch: epoch,
-                    discardIfSuperseded: true
-                )
-                guard self.saveGeneration == generation else { return }
-                self.scheduledSaveTask = nil
             } catch is CancellationError {
                 return
             } catch {
                 guard let self, self.saveGeneration == generation else { return }
-                self.status = .failed(String(describing: error))
+                self.publishStatus(.failed(String(describing: error)), ownedBy: statusBeforeDelay)
                 self.scheduledSaveTask = nil
+                return
             }
+            guard !Task.isCancelled,
+                  let self,
+                  self.saveGeneration == generation else { return }
+            // saveSnapshot owns error publication; the background caller must
+            // not publish it a second time after a newer operation starts.
+            try? await self.saveSnapshot(
+                generation: generation,
+                storageEpoch: epoch,
+                discardIfSuperseded: true
+            )
+            guard self.saveGeneration == generation else { return }
+            self.scheduledSaveTask = nil
         }
     }
 
@@ -517,94 +540,33 @@ extension RouterRestorationDriver {
         storageEpoch expectedStorageEpoch: UInt64,
         discardIfSuperseded: Bool
     ) async throws {
+        let statusOwner = beginStatusOperation()
         // Reserve before the first suspension so this save keeps the position
         // it was accepted in, whatever priority the encode and the storage
         // call end up running at.
         let ticket = durability.reserve(.save)
         defer { durability.finish(ticket) }
-        let data: Data
         do {
             let state = store.state
-            data = try await codecExecutor.encode(state)
-        } catch {
-            if storageEpoch == expectedStorageEpoch,
-               saveGeneration == generation {
-                status = .failed(String(describing: error))
+            let data = try await codecExecutor.encode(state)
+            guard storageEpoch == expectedStorageEpoch,
+                  !discardIfSuperseded || saveGeneration == generation else {
+                publishStatus(observationStatus, ownedBy: statusOwner)
+                return
             }
-            if storageEpoch != expectedStorageEpoch { return }
-            if discardIfSuperseded, saveGeneration != generation { return }
-            throw error
-        }
-
-        guard storageEpoch == expectedStorageEpoch else { return }
-        if discardIfSuperseded, saveGeneration != generation { return }
-        if saveGeneration == generation {
-            status = .saving
-        }
-        guard await durability.waitForTurn(ticket) else {
-            // A removal accepted after this save already deleted the snapshot.
-            // Writing now would resurrect it, and the removal has already
-            // published its own status.
-            return
-        }
-        do {
+            publishStatus(.saving, ownedBy: statusOwner)
+            // A later removal owns status and forbids resurrecting its bytes.
+            guard await durability.waitForTurn(ticket) else { return }
             try await executor.save(data)
-            if storageEpoch == expectedStorageEpoch,
-               saveGeneration == generation {
-                status = observationID == nil ? .inactive : .active
-            }
+            publishStatus(observationStatus, ownedBy: statusOwner)
         } catch {
-            if storageEpoch == expectedStorageEpoch,
-               saveGeneration == generation {
-                status = .failed(String(describing: error))
+            guard storageEpoch == expectedStorageEpoch,
+                  !discardIfSuperseded || saveGeneration == generation else {
+                publishStatus(observationStatus, ownedBy: statusOwner)
+                return
             }
-            if storageEpoch != expectedStorageEpoch { return }
-            if discardIfSuperseded, saveGeneration != generation { return }
+            publishStatus(.failed(String(describing: error)), ownedBy: statusOwner)
             throw error
         }
-    }
-}
-
-public extension View {
-    /// Activates an app-owned restoration driver while this root view is live.
-    ///
-    /// The modifier saves immediately when the scene leaves the active phase.
-    /// Restore and save failures remain visible through the driver's `status`.
-    @MainActor
-    func routerStateRestoration<R: Route & Codable>(
-        _ driver: RouterRestorationDriver<R>
-    ) -> some View {
-        modifier(RouterStateRestorationModifier(driver: driver))
-    }
-}
-
-@MainActor
-private struct RouterStateRestorationModifier<R: Route & Codable>: ViewModifier {
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var attachmentID = UUID()
-    @State private var attachedDriver: RouterRestorationDriver<R>?
-    let driver: RouterRestorationDriver<R>
-
-    func body(content: Content) -> some View {
-        content
-            .task(id: ObjectIdentifier(driver)) {
-                if let attachedDriver, attachedDriver !== driver {
-                    attachedDriver.detach(attachmentID)
-                }
-                attachedDriver = driver
-                _ = try? await driver.attach(attachmentID)
-            }
-            .onChange(of: scenePhase) { _, newPhase in
-                guard newPhase != .active else { return }
-                Task { @MainActor in
-                    try? await driver.save()
-                }
-            }
-            .onDisappear {
-                driver.detach(attachmentID)
-                if attachedDriver === driver {
-                    attachedDriver = nil
-                }
-            }
     }
 }
