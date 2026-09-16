@@ -6,6 +6,23 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+- Durable commands now run in the order the driver accepted them, so a removal
+  accepted after a save can no longer be overtaken by that save and leave the
+  deleted snapshot or pending link back on disk. A command that never reaches
+  storage, such as one whose encode failed, no longer blocks the commands
+  behind it, and ordering is per driver: unrelated drivers still write
+  concurrently. Retrying an unfinished initial restore no longer depends on the
+  displayed status, so a concurrent save — successful or failed — cannot
+  consume the restore attempt that never ran. Recursive `@FeatureRoute` graphs
+  now terminate in every generated deep-link entry point instead of recursing
+  until the stack overflows; a cyclic edge contributes no catalog entries and
+  resolves to nothing, while independent branches and a child shared by two
+  parents keep working. A generic router declared inside another type now keeps
+  its generic arguments in the generated `Presentation` and `Scene` helpers.
+  `@Router` no longer reports E016 or E048 for a same-named instance property
+  or for a declaration inside inactive conditional compilation; real
+  collisions with the generated static catalogs and nested types are still
+  rejected.
 - Restoration activation now establishes observation and its starting revision
   when the shared lifetime is reserved, rejects stopped workers and late manual
   claims, and preserves newer navigation across restore completion. Deferred
