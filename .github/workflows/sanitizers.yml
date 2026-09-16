@@ -47,4 +47,39 @@ jobs:
           swift --version
 
       - name: Run ${{ matrix.kind }} sanitizer smoke
-        run: ./scripts/sanitizer-smoke.sh "${{ matrix.kind }}"
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .build/sanitizer-logs
+          ./scripts/sanitizer-smoke.sh "${{ matrix.kind }}" 2>&1 \
+            | tee ".build/sanitizer-logs/${{ matrix.kind }}.log"
+
+      - name: Collect router crash reports
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p .build/sanitizer-logs/crashes
+          # CrashReporter can finish after SwiftPM returns. Preserve only this
+          # package's test/helper reports, never unrelated runner diagnostics.
+          for attempt in 1 2 3 4 5; do
+            for report_dir in "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports; do
+              if [[ -d "$report_dir" ]]; then
+                find "$report_dir" -maxdepth 1 -type f \
+                  \( -name '*InnoRouter*.ips' -o -name '*InnoRouter*.crash' \
+                     -o -name '*swiftpm-testing-helper*.ips' \) \
+                  -exec cp {} .build/sanitizer-logs/crashes/ \;
+              fi
+            done
+            if [[ -n "$(find .build/sanitizer-logs/crashes -type f -print -quit)" ]]; then
+              break
+            fi
+            if [[ "$attempt" -lt 5 ]]; then sleep 2; fi
+          done
+
+      - name: Upload sanitizer evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sanitizer-${{ matrix.kind }}-${{ github.run_attempt }}
+          path: .build/sanitizer-logs
+          if-no-files-found: error
