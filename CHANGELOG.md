@@ -6,6 +6,22 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+## 6.0.0 - 2026-09-16
+
+- Inspector recording controls remain individually operable in narrow sidebars.
+  Timeline filtering clears hidden selections, shows explicit empty results,
+  and never restores a stale detail when a filter is removed.
+- Immersive hosts keep a stable native lifetime boundary while their canonical
+  content changes. Disappearance callbacks retain the token from appearance, so
+  a closing old space cannot dismiss a newly accepted space with the same ID.
+- Generated deep-link traversal consumes a one-shot child-entry permit instead
+  of nesting an extra TaskLocal scope at every level. This reduces stack use
+  while preserving the depth-64/work-1,024 limits, cycle detection, and isolation
+  of roots started by application conversions or their child tasks.
+- A restored regular window now closes from its own mounted scene context if
+  its canonical route disappeared before native reopening finished. This
+  prevents a blank native window surviving an approved deferred close even
+  when the driver's value-based dismissal ran before reattachment completed.
 - Restoration activation, snapshot writes, removals, and stop now share one
   status-publication owner. Late completions cannot hide a newer loading state
   or persistence failure. Initial-restore lifetime, durable command ordering,

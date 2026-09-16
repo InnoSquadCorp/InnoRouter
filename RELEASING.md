@@ -170,6 +170,7 @@ swift test
 ./scripts/principle-gates.sh
 ./scripts/principle-gates.sh --platforms=all
 ./scripts/build-docc-site.sh --version preview --skip-latest
+./NativeSceneSmoke/script/build_and_run.sh
 ```
 
 If you regenerate `Baselines/PublicAPI`, do it with the same pinned
@@ -178,6 +179,20 @@ toolchain-sensitive. The local `--platforms=all` probe is compile-only;
 it does not execute platform tests. Confirm the GitHub `platforms`
 workflow is green for the release commit. The release workflow invokes
 that same reusable gate again before it publishes anything.
+
+The native scene probe requires a logged-in macOS GUI session. It exercises
+real SwiftUI window closure/restoration through allow, reject, and cancellation,
+and records separate per-run logs. Its success does not stand in for iPadOS
+window, visionOS immersive, accessibility, or physical-device checks.
+Run the independent iPadOS and visionOS probes against explicitly selected
+booted simulators using `NativeSceneSmoke/script/run_simulator.sh`; see the
+[native consumer guide](NativeSceneSmoke/README.md). Retain their separate
+allow/reject/cancel evidence before marking the native scene release gate done.
+The same project also provides `RouterInspectorProbe` with a simulator UI test
+for generated preview, explicit execution/cancellation, redacted export,
+independent recording controls, and filtered selection. The reusable `platforms`
+workflow runs this on iPadOS with the pinned toolchain, checks that a test really
+executed, and preserves screenshot/hierarchy attachments in the result bundle.
 
 ## CI and CD responsibilities
 
@@ -202,6 +217,7 @@ that same reusable gate again before it publishes anything.
 - compiles the one-product macro-first consumer fixture on every platform
 - executes tvOS, watchOS, and visionOS Simulator tests
 - rejects zero-test and partial-discovery runs with minimum pass counts
+- executes the Inspector iPadOS UI regression and retains its xcresult evidence
 
 ### CD
 

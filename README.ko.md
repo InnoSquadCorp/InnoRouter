@@ -333,7 +333,7 @@ framework/platform 정보가 포함된 번들을 내보냅니다. 앱이 `InnoRo
 
 `RouterScenarioRecorder`는 reduction 전 거절과 unchanged를 포함해 요청·시작·terminal
 경계를 같은 actor에서 동기적으로 녹화하므로 완료 직후 stop해도 기록을 놓치지
-않습니다. fixture v3는 route schema, 실행 환경, 의존성/효과 capability, 시작 revision,
+않습니다. fixture v7은 route schema, 실행 환경, 의존성/효과 capability, 시작 revision,
 논리 요청별 submit/wait/cancel/terminal, 가상 시간 이동, 명시적 deferral 결정을
 저장합니다. 첫 요청 전에 metadata와 전체 initial state 호환성을 검사하고 캡처 deferral
 ID를 새 실행 ID에 매핑합니다. 실패나 취소가 반환되기 전에 replay가 소유한 요청과
