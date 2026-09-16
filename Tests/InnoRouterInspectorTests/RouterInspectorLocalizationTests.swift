@@ -32,15 +32,23 @@ struct RouterInspectorLocalizationTests {
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let data = try Data(contentsOf: root.appendingPathComponent("Sources/InnoRouterInspector/Localizable.xcstrings"))
         let catalog = try JSONDecoder().decode(Catalog.self, from: data)
+        let sourceCatalog = try RouterInspectorSourceCatalog(data: data)
         #expect(catalog.strings.count == 66)
         for (key, entry) in catalog.strings {
             #expect(entry.localizations.count == 15)
             for (language, translation) in entry.localizations {
                 #expect(routerInspectorLocalized(key, locale: Locale(identifier: language)) == translation.stringUnit.value)
+                #expect(sourceCatalog.localized(key, preferredLanguages: [language]) == translation.stringUnit.value)
             }
             #expect(routerInspectorLocalized(key, locale: Locale(identifier: "en")) == key)
             #expect(routerInspectorLocalized(key, locale: Locale(identifier: "fi-FI")) == key)
+            #expect(sourceCatalog.localized(key, preferredLanguages: ["en"]) == key)
+            #expect(sourceCatalog.localized(key, preferredLanguages: ["fi-FI"]) == key)
         }
+        #expect(sourceCatalog.localized("Start recording", preferredLanguages: ["ko-KR"]) == "기록 시작")
+        #expect(sourceCatalog.localized("Start recording", preferredLanguages: ["zh-TW"]) == "開始記錄")
+        #expect(sourceCatalog.localized("Start recording", preferredLanguages: ["fi-FI", "ja-JP"]) == "記録を開始")
+        #expect(sourceCatalog.localized("Unknown key", preferredLanguages: ["ko"]) == "Unknown key")
     }
 
     @Test("Regional locales resolve the intended language and script", arguments: [

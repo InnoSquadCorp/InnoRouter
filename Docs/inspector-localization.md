@@ -21,6 +21,11 @@ translation. Regional locales use Foundation's language/script matching;
 tests explicitly cover Korean/Japanese regions and Simplified/Traditional
 Chinese script selection. Unsupported languages fall back to English.
 
+Xcode compiles the catalog into localized bundles. Toolchains such as SwiftPM
+6.3 that copy the catalog unchanged use an internal, cached reader for the same
+plain string values. No generated translation file or duplicated wording is
+maintained. Both resource paths are checked against all 990 reviewed values.
+
 ## Language selection
 
 `RouterInspectorView` and `RouterInspectorDeepLinkView` read SwiftUI's `locale`

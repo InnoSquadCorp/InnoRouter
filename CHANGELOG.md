@@ -13,6 +13,9 @@ are bare semver (no leading `v`).
   SwiftUI locale changes, including existing failure/status messages and
   timestamps; unsupported languages fall back to English. Stable diagnostic
   values and app-owned content are not translated.
+- Inspector also reads the unchanged string catalog on SwiftPM toolchains
+  that copy rather than compile it, preserving localization for Swift 6.3
+  command-line consumers without a generated translation copy.
 - Inspector refreshes its native form and split-view boundaries when layout
   direction changes, preventing stale mirrored content and hit regions while
   retaining parent tab identity, captured data, selection, filters, scenario

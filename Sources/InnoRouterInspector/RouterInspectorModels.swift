@@ -3,6 +3,10 @@ import Foundation
 import InnoRouterCore
 
 func routerInspectorLocalized(_ key: String, locale: Locale? = nil) -> String {
+    // SwiftPM 6.3 copies catalogs instead of compiling them into .lproj files.
+    if let catalog = RouterInspectorLocalization.sourceCatalog {
+        return catalog.localized(key, preferredLanguages: locale.map { [$0.identifier] } ?? Locale.preferredLanguages)
+    }
     guard let locale else {
         return String(localized: String.LocalizationValue(key), bundle: .module)
     }
@@ -20,7 +24,13 @@ func routerInspectorLocalized(_ key: String, locale: Locale? = nil) -> String {
 }
 
 enum RouterInspectorLocalization {
-    // Cache resource bundles only, never rendered strings or the current locale.
+    // Cache immutable resources only, never the selected language or rendered state.
+    static let sourceCatalog: RouterInspectorSourceCatalog? = {
+        guard let url = Bundle.module.url(forResource: "Localizable", withExtension: "xcstrings"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? RouterInspectorSourceCatalog(data: data)
+    }()
+
     static let bundles: [String: Bundle] = Dictionary(uniqueKeysWithValues:
         Bundle.module.localizations.compactMap { language in
             guard let path = Bundle.module.path(forResource: language, ofType: "lproj"),
