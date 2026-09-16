@@ -53,6 +53,13 @@ private final class FifteenthReviewSceneGate {
         releaseContinuation?.resume()
         releaseContinuation = nil
     }
+
+    /// Releases the gate and ends the event stream so every pending wait
+    /// finishes instead of hanging when a test exits before the last event.
+    func finish() {
+        release()
+        eventContinuation.finish()
+    }
 }
 
 @MainActor
@@ -146,13 +153,16 @@ struct RouterFifteenthReviewRegressionTests {
     @Test("Removing a scene driver cancels its queued immersive effect")
     func removedSceneDriverSkipsQueuedEffect() async throws {
         let gate = FifteenthReviewSceneGate()
-        var events = gate.events.makeAsyncIterator()
         let blocker = Task {
             await RouterSceneRestorationRegistry.immersiveEffectQueue.enqueue {
                 await gate.block()
             }
         }
-        #expect(await events.next() == "blocked")
+        defer {
+            gate.finish()
+            blocker.cancel()
+        }
+        try await waitForEvent("blocked", from: gate.events)
 
         let store = RouterStore(initialState: try RouterState<FifteenthReviewSceneRoute>(
             windows: [.init(route: .window)],
@@ -178,19 +188,19 @@ struct RouterFifteenthReviewRegressionTests {
             defer: false
         )
         window.contentView = host
+        defer { window.contentView = nil }
         host.layoutSubtreeIfNeeded()
-        while await events.next() != "window-opened" {}
+        try await waitForEvent("window-opened", from: gate.events)
 
         host.rootView = AnyView(Color.clear)
         host.layoutSubtreeIfNeeded()
-        while await events.next() != "driver-disappeared" {}
+        try await waitForEvent("driver-disappeared", from: gate.events)
         gate.release()
         #expect(await blocker.value)
         #expect(await RouterSceneRestorationRegistry.immersiveEffectQueue.enqueue { true })
 
         #expect(gate.recorded == ["blocked", "window-opened", "driver-disappeared"])
         #expect(store.state.immersiveSpace?.id == "review-immersive")
-        window.contentView = nil
     }
 #endif
 }
