@@ -36,7 +36,7 @@ EOF
 
 "$SCRIPT" 6.0.0 "$TMP_DIR/CHANGELOG.md" "$TMP_DIR/6.0.0.md"
 grep -q 'Migrating to InnoRouter 6' "$TMP_DIR/6.0.0.md"
-grep -q '/6.0.0/documentation/innorouter/migrating-to-innorouter-6/' "$TMP_DIR/6.0.0.md"
+grep -q '/6.0.0/runtime/documentation/innorouter/migrating-to-innorouter-6/' "$TMP_DIR/6.0.0.md"
 grep -q 'Major migration' "$TMP_DIR/6.0.0.md"
 if grep -q 'Historical fix' "$TMP_DIR/6.0.0.md"; then
   echo "[test-render-release-notes] Failed: 6.0 notes included the next release section" >&2

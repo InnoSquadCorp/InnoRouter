@@ -75,7 +75,7 @@ mkdir -p "$(dirname "$OUTPUT_PATH")"
       echo "[render-release-notes] Failed: major release migration guide not found: $MIGRATION_SOURCE" >&2
       exit 1
     fi
-    echo "- [Migrating to InnoRouter $MAJOR](https://innosquadcorp.github.io/InnoRouter/$VERSION/documentation/innorouter/migrating-to-innorouter-$MAJOR/)"
+    echo "- [Migrating to InnoRouter $MAJOR](https://innosquadcorp.github.io/InnoRouter/$VERSION/runtime/documentation/innorouter/migrating-to-innorouter-$MAJOR/)"
   fi
 
   echo

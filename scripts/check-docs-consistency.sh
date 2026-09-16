@@ -82,7 +82,7 @@ require_literal "$CHANGELOG_PATH" "### Breaking" "the 6.0 breaking section is mi
 require_literal Docs/v6-functional-strategy.md "Status: Draft" "strategy must remain Draft pending review"
 require_literal Docs/functional-expansion-spec.md "FR6-012 Breaking public convergence" "spec must own the breaking API gate"
 require_literal Docs/6.0.0-release-checklist.md "Xcode 26.6 / Swift 6.3" "release checklist must retain the pinned toolchain gate"
-require_literal Docs/6.0.0-release-checklist.md "Not run until a 6.0.0 tag exists" "release checklist must not claim exact-tag validation early"
+require_literal Docs/6.0.0-release-checklist.md "Not run until a 6.0.0 tag exists" "release checklist must retain the exact-tag validation prerequisite"
 require_literal Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md "This is a breaking migration" "migration guide must reject alias migration"
 require_file ExamplesSmoke/DeveloperToolsSmoke.swift
 require_file .github/platform-tests.xcworkspace/xcshareddata/xcschemes/InnoRouterDeveloperToolsSmoke.xcscheme
