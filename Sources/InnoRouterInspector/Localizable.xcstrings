@@ -1,6 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Inspector" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "인스펙터" } } } },
     "No matching events" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "일치하는 이벤트가 없습니다" } } } },
     "No events recorded" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "기록된 이벤트가 없습니다" } } } },
     "Bookmark" : { "localizations" : { "ko" : { "stringUnit" : { "state" : "translated", "value" : "북마크" } } } },

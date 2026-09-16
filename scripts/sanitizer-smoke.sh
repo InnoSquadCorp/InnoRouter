@@ -24,6 +24,8 @@ esac
 
 swift_filter+='|RouterTwentyThirdReviewDeepLinkTests|RouterTwentyThirdReviewRestorationTests|RouterTwentyThirdReviewTraversalBoundaryTests'
 swift_filter+='|RouterTwentyFourthReviewRestorationTests'
+swift_filter+='|RouterPublicationCleanupTests|RestorationLifetimeTests|MountedImmersiveLifetimeTests'
+swift_filter+='|RouterInspectorTimelineTests'
 
 cd "$ROOT_DIR"
 echo "[sanitizer-smoke] Running $KIND sanitizer with filter: $swift_filter"

@@ -29,7 +29,10 @@ public struct RouterInspectorView: View {
 #else
         NavigationSplitView {
             inspectorList
-                .navigationTitle(Text(verbatim: routerInspectorLocalized("InnoRouter Inspector")))
+                .navigationTitle(Text(verbatim: routerInspectorLocalized("Inspector")))
+#if os(iOS) || os(visionOS)
+                .navigationBarTitleDisplayMode(.inline)
+#endif
                 .navigationSplitViewColumnWidth(min: 240, ideal: 300, max: 480)
         } detail: {
             if let entry = timeline.selectedEntry {
