@@ -40,7 +40,8 @@ environment = " ".join(shlex.quote(value) for value in [
 command = [
     "xcrun", "lldb", "--batch",
     "--one-line", "settings set target.env-vars " + environment,
-    "--one-line", "run",
+    # Direct launch avoids invoking lldb-argdumper under the sanitizer environment.
+    "--one-line", "process launch",
     "--one-line-on-crash", "thread backtrace all",
     "--one-line-on-crash", "image list -o -f",
     "--", helper, "--test-bundle-path", binary,

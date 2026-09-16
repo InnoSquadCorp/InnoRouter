@@ -170,8 +170,24 @@ private enum DeepLinkTraversal {
         }
     }
 
+    /// A generated child can consume its bridge admission exactly once.
+    /// Tasks inherit this reference, but never a reusable authorization after
+    /// the generated entry starts executing application-owned conversions.
+    final class GeneratedEntryPermit: Sendable {
+        private let step: Mutex<Step?>
+
+        init(_ step: Step) { self.step = Mutex(step) }
+
+        func consume(for candidate: Step) -> Bool {
+            step.withLock { step in
+                defer { step = nil }
+                return step == candidate
+            }
+        }
+    }
+
     @TaskLocal static var context: Context?
-    @TaskLocal static var authorizedGeneratedEntry: Step?
+    @TaskLocal static var authorizedGeneratedEntry: GeneratedEntryPermit?
 
     static func root<Value>(
         _ type: Any.Type,
@@ -180,13 +196,19 @@ private enum DeepLinkTraversal {
         body: () -> Value
     ) -> Value {
         let step = Step(type: ObjectIdentifier(type), operation: operation)
-        // Admission belongs to this generated entry only, not its body or
-        // Tasks created by application-owned parameter conversions. Clear it
-        // for fresh roots too, so another root cannot inherit a stale permit.
-        if context != nil, authorizedGeneratedEntry == step {
-            return $authorizedGeneratedEntry.withValue(nil, operation: body)
+        // Consuming the permit avoids another nested TaskLocal scope at every
+        // depth while keeping conversions and their child Tasks independent.
+        if context != nil, authorizedGeneratedEntry?.consume(for: step) == true {
+            return body()
         }
+        return freshRoot(step, limit: limit, body: body)
+    }
 
+    private static func freshRoot<Value>(
+        _ step: Step,
+        limit: (Value) -> Value,
+        body: () -> Value
+    ) -> Value {
         // Only bridge-dispatched children share their parent's context.
         let context = Context()
         return $context.withValue(context) {
@@ -244,7 +266,7 @@ private enum DeepLinkTraversal {
             return limit()
         case .entered:
             defer { context.leave(step) }
-            let value = $authorizedGeneratedEntry.withValue(step, operation: body)
+            let value = $authorizedGeneratedEntry.withValue(GeneratedEntryPermit(step), operation: body)
             return context.didExceedLimit ? limit() : value
         }
     }
