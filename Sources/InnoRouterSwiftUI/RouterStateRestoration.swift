@@ -80,13 +80,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         UUID: CheckedContinuation<RouterRestorationActivationLease<R>, any Error>
     ] = [:]
     @ObservationIgnored
-    private var didAttemptRestore = false
-    /// Whether the initial restore attempt reached a conclusion.
-    ///
-    /// Tracked separately from `status`: a concurrent save moves the displayed
-    /// status off `.loading` while saying nothing about whether the restore
-    /// finished, and retry eligibility must not depend on that.
-    private var didFinishInitialRestore = false
+    private var initialRestorePhase: RouterInitialRestorePhase = .notStarted
     @ObservationIgnored
     private var activationGeneration: UInt64 = 0
     @ObservationIgnored
@@ -165,15 +159,14 @@ extension RouterRestorationDriver {
         let expectedRevision = store.revision
         startObservation()
 
-        guard !didAttemptRestore else {
+        guard initialRestorePhase == .notStarted else {
             status = .active
             let result = RouterRestorationDriverActivation<R>.observationResumed
             lastActivation = result
             return .init(result: result, generation: generation)
         }
 
-        didAttemptRestore = true
-        didFinishInitialRestore = false
+        initialRestorePhase = .inProgress
         status = .loading
         let waiterID = UUID()
         return try await withTaskCancellationHandler {
@@ -205,6 +198,7 @@ extension RouterRestorationDriver {
         activationTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
+                try await self.store.runtimeDependencies.beforeRestorationWorker()
                 let result = try await self.performActivation(
                     taskID: taskID,
                     generation: generation,
@@ -228,7 +222,7 @@ extension RouterRestorationDriver {
             try ensureCurrentActivation(generation, taskID: taskID)
             guard let data else {
                 status = .active
-                didFinishInitialRestore = true
+                initialRestorePhase = .completed
                 let result = RouterRestorationDriverActivation<R>.noSnapshot
                 lastActivation = result
                 return .init(result: result, generation: generation)
@@ -264,7 +258,7 @@ extension RouterRestorationDriver {
             }
             try ensureCurrentActivation(generation, taskID: taskID)
             status = .active
-            didFinishInitialRestore = true
+            initialRestorePhase = .completed
             let result = RouterRestorationDriverActivation.restored(outcome)
             lastActivation = result
             return .init(result: result, generation: generation)
@@ -273,7 +267,7 @@ extension RouterRestorationDriver {
                   activationTaskID == taskID else {
                 throw CancellationError()
             }
-            didAttemptRestore = false
+            initialRestorePhase = .notStarted
             cancelActiveRestoreRequest()
             stopObservation()
             invalidateScheduledSave()
@@ -284,7 +278,7 @@ extension RouterRestorationDriver {
                   activationTaskID == taskID else {
                 throw CancellationError()
             }
-            didAttemptRestore = false
+            initialRestorePhase = .notStarted
             cancelActiveRestoreRequest()
             stopObservation()
             invalidateScheduledSave()
@@ -327,6 +321,9 @@ extension RouterRestorationDriver {
     /// Stops automatic observation. A later activation resumes observation
     /// without replaying the initial snapshot over newer in-memory state.
     public func stop() {
+        if initialRestorePhase == .inProgress {
+            initialRestorePhase = .explicitlyStopped
+        }
         retainsManualActivation = false
         pendingManualActivationIDs.removeAll()
         attachmentIDs.removeAll()
@@ -354,8 +351,8 @@ extension RouterRestorationDriver {
               !retainsManualActivation else {
             return
         }
-        if !didFinishInitialRestore {
-            didAttemptRestore = false
+        if initialRestorePhase == .inProgress {
+            initialRestorePhase = .notStarted
         }
         stopOwnedWork()
     }
@@ -409,8 +406,8 @@ extension RouterRestorationDriver {
               activationTask != nil || observationID != nil else {
             return
         }
-        if !didFinishInitialRestore {
-            didAttemptRestore = false
+        if initialRestorePhase == .inProgress {
+            initialRestorePhase = .notStarted
         }
         stopOwnedWork()
     }

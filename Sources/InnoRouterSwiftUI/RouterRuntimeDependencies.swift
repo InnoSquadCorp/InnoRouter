@@ -12,17 +12,20 @@ package struct RouterRuntimeDependencies: Sendable {
     package var sleep: @Sendable (Duration) async throws -> Void
     package var makeTransitionID: @Sendable () -> RouterTransitionID
     package var didQueueRequest: @MainActor @Sendable (RouterTransitionID) -> Void
+    package var beforeRestorationWorker: @MainActor @Sendable () async throws -> Void
 
     package init(
         now: @escaping @Sendable () -> Date,
         sleep: @escaping @Sendable (Duration) async throws -> Void,
         makeTransitionID: @escaping @Sendable () -> RouterTransitionID,
-        didQueueRequest: @escaping @MainActor @Sendable (RouterTransitionID) -> Void = { _ in }
+        didQueueRequest: @escaping @MainActor @Sendable (RouterTransitionID) -> Void = { _ in },
+        beforeRestorationWorker: @escaping @MainActor @Sendable () async throws -> Void = {}
     ) {
         self.now = now
         self.sleep = sleep
         self.makeTransitionID = makeTransitionID
         self.didQueueRequest = didQueueRequest
+        self.beforeRestorationWorker = beforeRestorationWorker
     }
 
     package static let live = Self(
@@ -31,6 +34,7 @@ package struct RouterRuntimeDependencies: Sendable {
             try await Task.sleep(for: duration)
         },
         makeTransitionID: RouterTransitionID.init,
-        didQueueRequest: { _ in }
+        didQueueRequest: { _ in },
+        beforeRestorationWorker: {}
     )
 }

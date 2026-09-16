@@ -2,9 +2,29 @@ import Foundation
 import Synchronization
 
 /// The kind of durable command a caller reserved.
-package enum RouterDurabilityCommand: Sendable {
+package enum RouterDurabilityCommand: Sendable, Equatable {
     case save
     case remove
+}
+
+package struct RouterDurabilityReservation: Sendable, Equatable {
+    package let ticket: UInt64
+    package let command: RouterDurabilityCommand
+}
+
+/// Package-only observation of the synchronous acceptance boundary.
+/// Production runs use the nil default and pay no asynchronous coordination.
+package enum RouterDurabilityTestSupport {
+    @TaskLocal package static var didReserve:
+        (@Sendable (RouterDurabilityReservation) -> Void)?
+
+    @MainActor
+    package static func withReservationObserver<Value>(
+        _ observer: @escaping @Sendable (RouterDurabilityReservation) -> Void,
+        operation: @MainActor () async throws -> Value
+    ) async rethrows -> Value {
+        try await $didReserve.withValue(observer, operation: operation)
+    }
 }
 
 /// Runs one driver's durable commands in the order that driver accepted them.
@@ -45,7 +65,7 @@ package final class RouterDurabilityGate: Sendable {
     /// suspends to encode or to reach storage, so acceptance order and
     /// execution order cannot diverge.
     package func reserve(_ command: RouterDurabilityCommand) -> UInt64 {
-        state.withLock { state in
+        let ticket = state.withLock { state in
             let ticket = state.nextTicket
             state.nextTicket &+= 1
             switch command {
@@ -57,6 +77,8 @@ package final class RouterDurabilityGate: Sendable {
             }
             return ticket
         }
+        RouterDurabilityTestSupport.didReserve?(.init(ticket: ticket, command: command))
+        return ticket
     }
 
     /// Waits for this reservation's turn to touch storage.

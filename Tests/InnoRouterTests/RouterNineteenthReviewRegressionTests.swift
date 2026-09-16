@@ -511,17 +511,38 @@ struct RouterNineteenthReviewDurableMatrixTests {
             gatedRoute: .saved,
             plan: RouterPlan(state: .rootStack(path: [.saved]))
         )
-        let submit = Task(priority: .low) { @MainActor in try await driver.submit(link) }
-        try await waitUntil("the submit reaches storage") { driver.status == .saving }
-        let cancel = Task(priority: .high) { @MainActor in try await driver.cancel() }
-        for _ in 0 ..< 10 {
-            await Task.yield()
-        }
+        let (reservations, reservationContinuation) = AsyncStream.makeStream(
+            of: RouterDurabilityReservation.self
+        )
+        defer { reservationContinuation.finish() }
+        try await RouterDurabilityTestSupport.withReservationObserver({ reservation in
+            reservationContinuation.yield(reservation)
+        }) {
+            let submit = Task(priority: .low) { @MainActor in try await driver.submit(link) }
+            defer { submit.cancel() }
+            let saveReservation = try await firstElement(
+                from: reservations,
+                what: "pending-link save reservation"
+            )
+            #expect(saveReservation == .init(ticket: 0, command: .save))
 
-        storage.releaseLoad()
-        _ = try? await restore.value
-        _ = try? await submit.value
-        _ = try? await cancel.value
+            let cancel = Task(priority: .high) { @MainActor in try await driver.cancel() }
+            defer { cancel.cancel() }
+            let removeReservation = try await firstElement(
+                from: reservations,
+                what: "pending-link remove reservation"
+            )
+            #expect(removeReservation == .init(ticket: 1, command: .remove))
+
+            storage.releaseLoad()
+            await #expect(throws: CancellationError.self) {
+                _ = try await restore.value
+            }
+            await #expect(throws: CancellationError.self) {
+                _ = try await submit.value
+            }
+            #expect(try await cancel.value == link)
+        }
 
         #expect(slot.pending == nil)
         #expect(FileManager.default.fileExists(atPath: fileURL.path) == false)
@@ -544,7 +565,7 @@ struct RouterNineteenthReviewDurableMatrixTests {
             store: store,
             codec: codec,
             storage: storage,
-            saveDebounce: .zero
+            saveDebounce: .seconds(3_600)
         )
         let activation = Task { @MainActor in try await driver.activate() }
         defer {
@@ -554,24 +575,45 @@ struct RouterNineteenthReviewDurableMatrixTests {
         }
         _ = try await firstElement(from: storage.loads, what: "blocking load")
 
-        // save → remove → save, all accepted while storage is still busy.
-        let firstSave = Task(priority: .low) { @MainActor in try await driver.save() }
-        try await waitUntil("the first save reaches storage") { driver.status == .saving }
-        let remove = Task(priority: .high) { @MainActor in try await driver.removeSnapshot() }
-        for _ in 0 ..< 10 {
-            await Task.yield()
-        }
-        _ = await store.perform(.push(.current))
-        let lastSave = Task { @MainActor in try await driver.save() }
-        for _ in 0 ..< 10 {
-            await Task.yield()
-        }
+        let (reservations, reservationContinuation) = AsyncStream.makeStream(
+            of: RouterDurabilityReservation.self
+        )
+        defer { reservationContinuation.finish() }
+        try await RouterDurabilityTestSupport.withReservationObserver({ reservation in
+            reservationContinuation.yield(reservation)
+        }) {
+            // save → remove → save, with acceptance proven at the synchronous boundary.
+            let firstSave = Task(priority: .low) { @MainActor in try await driver.save() }
+            defer { firstSave.cancel() }
+            #expect(try await firstElement(
+                from: reservations,
+                what: "first snapshot save reservation"
+            ) == .init(ticket: 0, command: .save))
 
-        storage.releaseLoad()
-        _ = try? await activation.value
-        _ = try? await firstSave.value
-        try await remove.value
-        try await lastSave.value
+            let remove = Task(priority: .high) { @MainActor in try await driver.removeSnapshot() }
+            defer { remove.cancel() }
+            #expect(try await firstElement(
+                from: reservations,
+                what: "snapshot remove reservation"
+            ) == .init(ticket: 1, command: .remove))
+
+            guard case .applied = await store.perform(.push(.current)) else {
+                Issue.record("the replacement navigation was not accepted")
+                return
+            }
+            let lastSave = Task { @MainActor in try await driver.save() }
+            defer { lastSave.cancel() }
+            #expect(try await firstElement(
+                from: reservations,
+                what: "last snapshot save reservation"
+            ) == .init(ticket: 2, command: .save))
+
+            storage.releaseLoad()
+            _ = try await activation.value
+            try await firstSave.value
+            try await remove.value
+            try await lastSave.value
+        }
 
         let state = storage.state
         #expect(state.operations.last == "save", "storage order: \(state.operations)")
