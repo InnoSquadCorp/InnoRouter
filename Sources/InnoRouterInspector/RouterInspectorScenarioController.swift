@@ -15,6 +15,14 @@ public enum RouterInspectorScenarioFailure: String, Hashable, Sendable {
     case startFailed
     case stopFailed
     case importFailed
+
+    var localizationKey: String {
+        switch self {
+        case .startFailed: "Scenario recording could not start"
+        case .stopFailed: "Scenario recording could not stop"
+        case .importFailed: "Scenario import failed"
+        }
+    }
 }
 
 public struct RouterInspectorScenarioStopResult: Hashable, Sendable {

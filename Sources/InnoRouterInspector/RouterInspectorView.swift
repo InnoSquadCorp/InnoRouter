@@ -6,6 +6,10 @@ import UniformTypeIdentifiers
 /// A native developer-facing timeline for ``RouterInspectorRecorder``.
 @MainActor
 public struct RouterInspectorView: View {
+    @Environment(\.locale) private var locale
+#if !os(watchOS)
+    @Environment(\.layoutDirection) private var layoutDirection
+#endif
     @Bindable private var recorder: RouterInspectorRecorder
     private let scenario: RouterInspectorScenarioController?
     @State private var timeline = RouterInspectorTimeline()
@@ -27,30 +31,38 @@ public struct RouterInspectorView: View {
 #if os(watchOS)
         inspectorList
 #else
-        NavigationSplitView {
-            inspectorList
-                .navigationTitle(Text(verbatim: routerInspectorLocalized("Inspector")))
+        // Keep the Inspector's parent-facing identity stable (including an
+        // implicitly selected TabView item) when the native boundary changes.
+        ZStack {
+            NavigationSplitView {
+                inspectorList
+                    .navigationTitle(Text(verbatim: routerInspectorLocalized("Inspector", locale: locale)))
 #if os(iOS) || os(visionOS)
-                .navigationBarTitleDisplayMode(.inline)
+                    .navigationBarTitleDisplayMode(.inline)
 #endif
-                .navigationSplitViewColumnWidth(min: 240, ideal: 300, max: 480)
-        } detail: {
-            if let entry = timeline.selectedEntry {
-                RouterInspectorDetail(
-                    entry: entry,
-                    comparison: selectedComparison
-                )
-            } else {
-                ContentUnavailableView(
-                    label: {
-                        Label {
-                            Text(verbatim: routerInspectorLocalized("Select an event"))
-                        } icon: {
-                            Image(systemName: "point.3.connected.trianglepath.dotted")
+                    .navigationSplitViewColumnWidth(min: 240, ideal: 300, max: 480)
+            } detail: {
+                if let entry = timeline.selectedEntry {
+                    RouterInspectorDetail(
+                        entry: entry,
+                        comparison: selectedComparison
+                    )
+                } else {
+                    ContentUnavailableView(
+                        label: {
+                            Label {
+                                Text(verbatim: routerInspectorLocalized("Select an event", locale: locale))
+                            } icon: {
+                                Image(systemName: "point.3.connected.trianglepath.dotted")
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
+            // Native split/list containers can retain mirrored geometry after a
+            // direction change. Recreate only that boundary; timeline, selection,
+            // comparison, recorder, and scenario state stay owned outside it.
+            .id(layoutDirection)
         }
 #endif
     }
@@ -82,13 +94,14 @@ public struct RouterInspectorView: View {
                     }
                 }
             } header: {
-                Text(verbatim: routerInspectorLocalized("Domains"))
+                Text(verbatim: routerInspectorLocalized("Domains", locale: locale))
             }
 #endif
 
             if filteredEntries.isEmpty {
                 Text(verbatim: routerInspectorLocalized(
-                    recorder.entries.isEmpty ? "No events recorded" : "No matching events"
+                    recorder.entries.isEmpty ? "No events recorded" : "No matching events",
+                    locale: locale
                 ))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -107,7 +120,7 @@ public struct RouterInspectorView: View {
         }
         .searchable(
             text: $timeline.searchText,
-            prompt: Text(verbatim: routerInspectorLocalized("Filter events"))
+            prompt: Text(verbatim: routerInspectorLocalized("Filter events", locale: locale))
         )
         .toolbar {
             ToolbarItemGroup {
@@ -130,7 +143,7 @@ public struct RouterInspectorView: View {
                     }
                 } label: {
                     Label {
-                        Text(verbatim: routerInspectorLocalized("Domains"))
+                        Text(verbatim: routerInspectorLocalized("Domains", locale: locale))
                     } icon: {
                         Image(systemName: "line.3.horizontal.decrease.circle")
                     }
@@ -141,7 +154,7 @@ public struct RouterInspectorView: View {
                     recorder.isPaused ? recorder.resume() : recorder.pause()
                 } label: {
                     Label {
-                        Text(verbatim: routerInspectorLocalized(recorder.isPaused ? "Resume" : "Pause"))
+                        Text(verbatim: routerInspectorLocalized(recorder.isPaused ? "Resume" : "Pause", locale: locale))
                     } icon: {
                         Image(systemName: recorder.isPaused ? "play.fill" : "pause.fill")
                     }
@@ -151,7 +164,7 @@ public struct RouterInspectorView: View {
                     recorder.setPauseOnRejection(!recorder.pauseOnRejection)
                 } label: {
                     Label {
-                        Text(verbatim: routerInspectorLocalized("Pause on rejection"))
+                        Text(verbatim: routerInspectorLocalized("Pause on rejection", locale: locale))
                     } icon: {
                         Image(
                             systemName: recorder.pauseOnRejection
@@ -165,7 +178,7 @@ public struct RouterInspectorView: View {
                     if let selection = timeline.selectedEntry?.id { recorder.toggleBookmark(selection) }
                 } label: {
                     Label {
-                        Text(verbatim: routerInspectorLocalized("Bookmark"))
+                        Text(verbatim: routerInspectorLocalized("Bookmark", locale: locale))
                     } icon: {
                         Image(
                             systemName: timeline.selectedEntry.map { recorder.isBookmarked($0.id) } == true
@@ -180,7 +193,7 @@ public struct RouterInspectorView: View {
                     comparisonEntryID = timeline.selectedEntry?.id
                 } label: {
                     Label {
-                        Text(verbatim: routerInspectorLocalized("Set comparison baseline"))
+                        Text(verbatim: routerInspectorLocalized("Set comparison baseline", locale: locale))
                     } icon: {
                         Image(systemName: "arrow.left.and.right")
                     }
@@ -191,7 +204,7 @@ public struct RouterInspectorView: View {
                     timeline.stepSelection(by: -1)
                 } label: {
                     Label {
-                        Text(verbatim: routerInspectorLocalized("Previous event"))
+                        Text(verbatim: routerInspectorLocalized("Previous event", locale: locale))
                     } icon: {
                         Image(systemName: "chevron.up")
                     }
@@ -202,7 +215,7 @@ public struct RouterInspectorView: View {
                     timeline.stepSelection(by: 1)
                 } label: {
                     Label {
-                        Text(verbatim: routerInspectorLocalized("Next event"))
+                        Text(verbatim: routerInspectorLocalized("Next event", locale: locale))
                     } icon: {
                         Image(systemName: "chevron.down")
                     }
@@ -215,7 +228,7 @@ public struct RouterInspectorView: View {
                     recorder.clear()
                 } label: {
                     Label {
-                        Text(verbatim: routerInspectorLocalized("Clear"))
+                        Text(verbatim: routerInspectorLocalized("Clear", locale: locale))
                     } icon: {
                         Image(systemName: "trash")
                     }
@@ -226,7 +239,7 @@ public struct RouterInspectorView: View {
                     isImporting = true
                 } label: {
                     Label {
-                        Text(verbatim: routerInspectorLocalized("Import"))
+                        Text(verbatim: routerInspectorLocalized("Import", locale: locale))
                     } icon: {
                         Image(systemName: "square.and.arrow.down")
                     }
@@ -234,7 +247,7 @@ public struct RouterInspectorView: View {
 
                 ShareLink(item: exportText) {
                     Label {
-                        Text(verbatim: routerInspectorLocalized("Export"))
+                        Text(verbatim: routerInspectorLocalized("Export", locale: locale))
                     } icon: {
                         Image(systemName: "square.and.arrow.up")
                     }
@@ -250,15 +263,15 @@ public struct RouterInspectorView: View {
             importSnapshot(result)
         }
         .alert(
-            Text(verbatim: routerInspectorLocalized("Import failed")),
+            Text(verbatim: routerInspectorLocalized("Import failed", locale: locale)),
             isPresented: Binding(
                 get: { importFailed },
                 set: { importFailed = $0 }
             )
         ) {
-            Button(routerInspectorLocalized("OK")) { importFailed = false }
+            Button(routerInspectorLocalized("OK", locale: locale)) { importFailed = false }
         } message: {
-            Text(verbatim: routerInspectorLocalized("Unknown error"))
+            Text(verbatim: routerInspectorLocalized("Unknown error", locale: locale))
         }
 #endif
     }
@@ -324,6 +337,7 @@ public struct RouterInspectorView: View {
 }
 
 private struct RouterInspectorRow: View {
+    @Environment(\.locale) private var locale
     let entry: RouterInspectorEntry
     let isBookmarked: Bool
 
@@ -341,13 +355,13 @@ private struct RouterInspectorRow: View {
                 .font(.body.monospaced())
             if isBookmarked {
                 Label {
-                    Text(verbatim: routerInspectorLocalized("Bookmarked"))
+                    Text(verbatim: routerInspectorLocalized("Bookmarked", locale: locale))
                 } icon: {
                     Image(systemName: "bookmark.fill")
                 }
                 .font(.caption)
             }
-            Text(verbatim: entry.timestamp.formatted(date: .omitted, time: .standard))
+            Text(entry.timestamp, format: .dateTime.hour().minute().second().locale(locale))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
@@ -355,6 +369,7 @@ private struct RouterInspectorRow: View {
 }
 
 private struct RouterInspectorDetail: View {
+    @Environment(\.locale) private var locale
     let entry: RouterInspectorEntry
     let comparison: RouterInspectorStateDiff?
 
@@ -363,17 +378,17 @@ private struct RouterInspectorDetail: View {
             LabeledContent {
                 Text(verbatim: entry.domain.rawValue)
             } label: {
-                Text(verbatim: routerInspectorLocalized("Domain"))
+                Text(verbatim: routerInspectorLocalized("Domain", locale: locale))
             }
             LabeledContent {
                 Text(verbatim: entry.name)
             } label: {
-                Text(verbatim: routerInspectorLocalized("Event"))
+                Text(verbatim: routerInspectorLocalized("Event", locale: locale))
             }
             LabeledContent {
                 Text(verbatim: entry.outcome.rawValue)
             } label: {
-                Text(verbatim: routerInspectorLocalized("Outcome"))
+                Text(verbatim: routerInspectorLocalized("Outcome", locale: locale))
             }
             ForEach(entry.metadata.sorted(by: { $0.key < $1.key }), id: \.key) { item in
                 LabeledContent {
@@ -387,23 +402,23 @@ private struct RouterInspectorDetail: View {
                     LabeledContent {
                         Text(verbatim: replay.status.rawValue)
                     } label: {
-                        Text(verbatim: routerInspectorLocalized("Pure reducer"))
+                        Text(verbatim: routerInspectorLocalized("Pure reducer", locale: locale))
                     }
                     if let error = replay.error {
                         LabeledContent {
                             Text(verbatim: error)
                         } label: {
-                            Text(verbatim: routerInspectorLocalized("Error"))
+                            Text(verbatim: routerInspectorLocalized("Error", locale: locale))
                         }
                     }
                 } header: {
-                    Text(verbatim: routerInspectorLocalized("Replay preview"))
+                    Text(verbatim: routerInspectorLocalized("Replay preview", locale: locale))
                 }
             }
             if let diff = entry.diff {
                 Section {
                     if diff.changes.isEmpty {
-                        Text(verbatim: routerInspectorLocalized("No structural changes"))
+                        Text(verbatim: routerInspectorLocalized("No structural changes", locale: locale))
                             .foregroundStyle(.secondary)
                     }
                     ForEach(diff.changes) { change in
@@ -414,13 +429,13 @@ private struct RouterInspectorDetail: View {
                         }
                     }
                 } header: {
-                    Text(verbatim: routerInspectorLocalized("State diff"))
+                    Text(verbatim: routerInspectorLocalized("State diff", locale: locale))
                 }
             }
             if entry.diff == nil, let comparison {
                 Section {
                     if comparison.changes.isEmpty {
-                        Text(verbatim: routerInspectorLocalized("No structural changes"))
+                        Text(verbatim: routerInspectorLocalized("No structural changes", locale: locale))
                             .foregroundStyle(.secondary)
                     }
                     ForEach(comparison.changes) { change in
@@ -431,7 +446,7 @@ private struct RouterInspectorDetail: View {
                         }
                     }
                 } header: {
-                    Text(verbatim: routerInspectorLocalized("Previous captured state"))
+                    Text(verbatim: routerInspectorLocalized("Previous captured state", locale: locale))
                 }
             }
             if let state = entry.state {
@@ -440,7 +455,7 @@ private struct RouterInspectorDetail: View {
                         RouterInspectorStateRow(row: row)
                     }
                 } header: {
-                    Text(verbatim: routerInspectorLocalized("State tree"))
+                    Text(verbatim: routerInspectorLocalized("State tree", locale: locale))
                 }
             }
         }

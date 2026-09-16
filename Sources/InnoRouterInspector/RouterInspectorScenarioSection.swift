@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 
 @MainActor
 struct RouterInspectorScenarioSection: View {
+    @Environment(\.locale) private var locale
     @Bindable var controller: RouterInspectorScenarioController
 #if os(iOS) || os(macOS) || os(visionOS)
     @State private var isImportingRawFixture = false
@@ -14,10 +15,10 @@ struct RouterInspectorScenarioSection: View {
     var body: some View {
         Section {
             VStack(alignment: .leading, spacing: 4) {
-                Text(verbatim: routerInspectorLocalized("Recording status"))
+                Text(verbatim: routerInspectorLocalized("Recording status", locale: locale))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text(verbatim: routerInspectorLocalized(controller.status.rawValue))
+                Text(verbatim: routerInspectorLocalized(controller.status.rawValue, locale: locale))
             }
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityElement(children: .combine)
@@ -25,26 +26,29 @@ struct RouterInspectorScenarioSection: View {
                 value: Double(controller.capturedStepCount),
                 total: Double(controller.capacity)
             )
-            .accessibilityLabel(Text(verbatim: routerInspectorLocalized("Recording progress")))
-            if !controller.summary.isEmpty {
+            .accessibilityLabel(Text(verbatim: routerInspectorLocalized("Recording progress", locale: locale)))
+            if let failure = controller.failure {
+                Text(verbatim: routerInspectorLocalized(failure.localizationKey, locale: locale))
+                    .font(.caption)
+            } else if !controller.summary.isEmpty {
                 Text(verbatim: controller.summary)
                     .font(.caption.monospaced())
             }
             Group {
                 if controller.status == .recording {
-                    Button(routerInspectorLocalized("Refresh progress")) {
+                    Button(routerInspectorLocalized("Refresh progress", locale: locale)) {
                         controller.refreshProgress()
                     }
-                    Button(routerInspectorLocalized("Stop recording")) {
+                    Button(routerInspectorLocalized("Stop recording", locale: locale)) {
                         controller.stop()
                     }
                     Button(role: .cancel) {
                         controller.cancel()
                     } label: {
-                        Text(verbatim: routerInspectorLocalized("Cancel recording"))
+                        Text(verbatim: routerInspectorLocalized("Cancel recording", locale: locale))
                     }
                 } else {
-                    Button(routerInspectorLocalized("Start recording")) {
+                    Button(routerInspectorLocalized("Start recording", locale: locale)) {
                         controller.start()
                     }
                 }
@@ -57,25 +61,25 @@ struct RouterInspectorScenarioSection: View {
                     isImportingRawFixture = true
                 } label: {
                     Label(
-                        routerInspectorLocalized("Import raw fixture"),
+                        routerInspectorLocalized("Import raw fixture", locale: locale),
                         systemImage: "square.and.arrow.down"
                     )
                 }
             }
             if let data = controller.rawExportData() {
-                Text(verbatim: routerInspectorLocalized("Raw fixture may contain route payloads"))
+                Text(verbatim: routerInspectorLocalized("Raw fixture may contain route payloads", locale: locale))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 ShareLink(item: String(decoding: data, as: UTF8.self)) {
                     Label(
-                        routerInspectorLocalized("Export raw fixture"),
+                        routerInspectorLocalized("Export raw fixture", locale: locale),
                         systemImage: "square.and.arrow.up"
                     )
                 }
             }
 #endif
         } header: {
-            Text(verbatim: routerInspectorLocalized("Scenario recording"))
+            Text(verbatim: routerInspectorLocalized("Scenario recording", locale: locale))
         }
 #if os(iOS) || os(macOS) || os(visionOS)
         .fileImporter(

@@ -2,8 +2,32 @@ import Foundation
 
 import InnoRouterCore
 
-func routerInspectorLocalized(_ key: String) -> String {
-    String(localized: String.LocalizationValue(key), bundle: .module)
+func routerInspectorLocalized(_ key: String, locale: Locale? = nil) -> String {
+    guard let locale else {
+        return String(localized: String.LocalizationValue(key), bundle: .module)
+    }
+    // String(localized:locale:) controls formatting but does not select a
+    // different .lproj when the process language and SwiftUI locale disagree.
+    let language = Bundle.preferredLocalizations(
+        from: Array(Set(RouterInspectorLocalization.bundles.keys).union(["en"])).sorted(),
+        forPreferences: [locale.identifier, "en"]
+    ).first ?? "en"
+    // Catalog keys are English source text; Xcode may omit en.lproj when
+    // there are no explicit source-language overrides.
+    guard language != "en" else { return key }
+    let bundle = RouterInspectorLocalization.bundles[language] ?? .module
+    return String(localized: String.LocalizationValue(key), bundle: bundle, locale: locale)
+}
+
+enum RouterInspectorLocalization {
+    // Cache resource bundles only, never rendered strings or the current locale.
+    static let bundles: [String: Bundle] = Dictionary(uniqueKeysWithValues:
+        Bundle.module.localizations.compactMap { language in
+            guard let path = Bundle.module.path(forResource: language, ofType: "lproj"),
+                  let bundle = Bundle(path: path) else { return nil }
+            return (language, bundle)
+        }
+    )
 }
 
 /// Router subsystem represented by one inspector entry.

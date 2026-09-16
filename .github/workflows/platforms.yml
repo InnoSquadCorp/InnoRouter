@@ -60,16 +60,11 @@ jobs:
           xcrun xcresulttool get test-results summary \
             --path "$RUNNER_TEMP/InspectorUI.xcresult" --compact \
             > "$RUNNER_TEMP/InspectorUI-summary.json"
-          python3 - "$RUNNER_TEMP/InspectorUI-summary.json" <<'PY'
-          import json, sys
-          with open(sys.argv[1], encoding="utf-8") as handle:
-              result = json.load(handle)
-          print(result)
-          if (result.get("result") != "Passed" or result.get("passedTests", 0) < 1
-                  or result.get("failedTests") != 0 or result.get("skippedTests") != 0
-                  or result.get("expectedFailures") != 0):
-              raise SystemExit("Inspector UI must execute and pass without skips")
-          PY
+          xcrun xcresulttool get test-results tests \
+            --path "$RUNNER_TEMP/InspectorUI.xcresult" --compact \
+            > "$RUNNER_TEMP/InspectorUI-tests.json"
+          python3 scripts/check-inspector-ui-results.py \
+            "$RUNNER_TEMP/InspectorUI-summary.json" "$RUNNER_TEMP/InspectorUI-tests.json"
 
       - name: Preserve Inspector UI evidence
         if: always()
@@ -79,6 +74,7 @@ jobs:
           path: |
             ${{ runner.temp }}/InspectorUI.xcresult
             ${{ runner.temp }}/InspectorUI-summary.json
+            ${{ runner.temp }}/InspectorUI-tests.json
 
   build-matrix:
     name: build ${{ matrix.platform.name }}

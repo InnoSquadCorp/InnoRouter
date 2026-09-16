@@ -109,6 +109,7 @@ fi
 
 echo "[lint-source-gates] Checking watchOS split-host unavailability contract"
 require_tool python3
+python3 scripts/check-inspector-localization.py
 require_file Sources/InnoRouterSwiftUI/RouterSplitHost.swift "RouterSplitHost source"
 if ! python3 - <<'PY'
 import re

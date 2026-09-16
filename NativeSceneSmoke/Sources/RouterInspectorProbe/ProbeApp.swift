@@ -54,9 +54,17 @@ final class InspectorProbeModel {
 
 @MainActor
 private struct InspectorProbeRoot: View {
+    @Environment(\.locale) private var inheritedLocale
+    @Environment(\.layoutDirection) private var inheritedLayoutDirection
+    @State private var probeLocale = "en"
     @Bindable var model: InspectorProbeModel
+    private let isLocalizationProbe = ProcessInfo.processInfo.arguments.contains("--localization-probe")
+
     var body: some View {
         VStack {
+            if isLocalizationProbe {
+                InspectorProbeLocaleControls(localeIdentifier: $probeLocale)
+            }
             InspectorProbeControls(model: model)
             TabView {
                 NavigationStack {
@@ -64,8 +72,19 @@ private struct InspectorProbeRoot: View {
                         store: model.store,
                         initialURL: "probe://app/products/private-payload-600"
                     )
-                }.tabItem { Text("Deep links") }
+                }
+                .environment(\.locale, isLocalizationProbe ? Locale(identifier: probeLocale) : inheritedLocale)
+                .environment(
+                    \.layoutDirection,
+                    isLocalizationProbe ? (probeLocale == "ar" ? .rightToLeft : .leftToRight) : inheritedLayoutDirection
+                )
+                .tabItem { Text("Deep links") }
                 RouterInspectorView(recorder: model.recorder, scenario: model.scenario)
+                    .environment(\.locale, isLocalizationProbe ? Locale(identifier: probeLocale) : inheritedLocale)
+                    .environment(
+                        \.layoutDirection,
+                        isLocalizationProbe ? (probeLocale == "ar" ? .rightToLeft : .leftToRight) : inheritedLayoutDirection
+                    )
                     .tabItem { Text("Timeline") }
             }
         }
@@ -78,6 +97,27 @@ private struct InspectorProbeRoot: View {
             NSApp.activate(ignoringOtherApps: true)
             #endif
         }
+    }
+}
+
+@MainActor
+private struct InspectorProbeLocaleControls: View {
+    @Binding var localeIdentifier: String
+
+    var body: some View {
+        HStack {
+            Button("en") { localeIdentifier = "en" }
+                .accessibilityIdentifier("probe.locale.en")
+            Button("ko") { localeIdentifier = "ko" }
+                .accessibilityIdentifier("probe.locale.ko")
+            Button("de") { localeIdentifier = "de" }
+                .accessibilityIdentifier("probe.locale.de")
+            Button("ar") { localeIdentifier = "ar" }
+                .accessibilityIdentifier("probe.locale.ar")
+            Text(verbatim: "Locale \(localeIdentifier)")
+                .accessibilityIdentifier("probe.locale.current")
+        }
+        .buttonStyle(.bordered)
     }
 }
 

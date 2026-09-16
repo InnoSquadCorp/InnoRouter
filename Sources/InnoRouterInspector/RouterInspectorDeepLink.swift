@@ -129,6 +129,8 @@ public enum RouterInspectorDeepLinkAnalyzer {
 /// Opt-in Inspector surface for trying URLs against a macro route catalog.
 @MainActor
 public struct RouterInspectorDeepLinkView<R: DeepLinkRoute>: View {
+    @Environment(\.locale) private var locale
+    @Environment(\.layoutDirection) private var layoutDirection
     private let routeType: R.Type
     private let store: RouterStore<R>?
     private let action: @MainActor (R) -> RouterAction<R>
@@ -158,80 +160,85 @@ public struct RouterInspectorDeepLinkView<R: DeepLinkRoute>: View {
     }
 
     public var body: some View {
-        Form {
-            TextField(routerInspectorLocalized("URL"), text: $input)
-            if let analysis {
-                Section(routerInspectorLocalized("Decision")) {
-                    Text(verbatim: analysis.decision)
-                        .font(.body.monospaced())
-                }
-                Section(routerInspectorLocalized("Ordered attempts")) {
-                    ForEach(Array(analysis.attempts.enumerated()), id: \.offset) { _, attempt in
-                        LabeledContent(attempt.pattern) {
-                            Text(verbatim: attempt.outcome.rawValue)
+        // Isolate native Form mirroring without replacing the workbench or
+        // cancelling the execution task owned by its outer lifetime.
+        ZStack {
+            Form {
+                TextField(routerInspectorLocalized("URL", locale: locale), text: $input)
+                if let analysis {
+                    Section(routerInspectorLocalized("Decision", locale: locale)) {
+                        Text(verbatim: analysis.decision)
+                            .font(.body.monospaced())
+                    }
+                    Section(routerInspectorLocalized("Ordered attempts", locale: locale)) {
+                        ForEach(Array(analysis.attempts.enumerated()), id: \.offset) { _, attempt in
+                            LabeledContent(attempt.pattern) {
+                                Text(verbatim: attempt.outcome.rawValue)
+                            }
                         }
                     }
-                }
-                if let diff = analysis.diff {
-                    Section(routerInspectorLocalized("Target difference")) {
-                        if diff.changes.isEmpty {
-                            Text(verbatim: routerInspectorLocalized("No structural change"))
-                        } else {
-                            ForEach(diff.changes) { change in
-                                LabeledContent(change.path) {
-                                    Text(verbatim: "\(change.field): \(change.before) → \(change.after)")
+                    if let diff = analysis.diff {
+                        Section(routerInspectorLocalized("Target difference", locale: locale)) {
+                            if diff.changes.isEmpty {
+                                Text(verbatim: routerInspectorLocalized("No structural change", locale: locale))
+                            } else {
+                                ForEach(diff.changes) { change in
+                                    LabeledContent(change.path) {
+                                        Text(verbatim: "\(change.field): \(change.before) → \(change.after)")
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-            Section(routerInspectorLocalized("Generated catalog")) {
-                ForEach(filteredCatalogEntries) { entry in
-                    VStack(alignment: .leading) {
-                        Text(verbatim: entry.routeCase)
-                        Text(verbatim: entry.pattern)
-                            .font(.caption.monospaced())
-                            .foregroundStyle(.secondary)
+                Section(routerInspectorLocalized("Generated catalog", locale: locale)) {
+                    ForEach(filteredCatalogEntries) { entry in
+                        VStack(alignment: .leading) {
+                            Text(verbatim: entry.routeCase)
+                            Text(verbatim: entry.pattern)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
+            .id(layoutDirection)
         }
-        .navigationTitle(Text(verbatim: routerInspectorLocalized("Deep-link Inspector")))
+        .navigationTitle(Text(verbatim: routerInspectorLocalized("Deep-link Inspector", locale: locale)))
         .searchable(
             text: $catalogFilter,
-            prompt: Text(verbatim: routerInspectorLocalized("Filter catalog"))
+            prompt: Text(verbatim: routerInspectorLocalized("Filter catalog", locale: locale))
         )
         .toolbar {
-#if os(iOS) || os(macOS) || os(visionOS)
-            if !input.isEmpty {
-                ShareLink(item: safeAnalysisSummary) {
-                    Label(
-                        routerInspectorLocalized("Share analysis"),
-                        systemImage: "square.and.arrow.up"
-                    )
+            #if os(iOS) || os(macOS) || os(visionOS)
+                if !input.isEmpty {
+                    ShareLink(item: safeAnalysisSummary) {
+                        Label(
+                            routerInspectorLocalized("Share analysis", locale: locale),
+                            systemImage: "square.and.arrow.up"
+                        )
+                    }
                 }
-            }
-#endif
+            #endif
             if store != nil {
                 Button {
                     execute()
                 } label: {
-                    Label(routerInspectorLocalized("Execute"), systemImage: "play.fill")
+                    Label(routerInspectorLocalized("Execute", locale: locale), systemImage: "play.fill")
                 }
                 .disabled(input.isEmpty || executionTask != nil)
                 if executionTask != nil {
                     Button(role: .cancel) {
                         executionTask?.cancel()
                     } label: {
-                        Label(routerInspectorLocalized("Cancel"), systemImage: "xmark")
+                        Label(routerInspectorLocalized("Cancel", locale: locale), systemImage: "xmark")
                     }
                 }
             }
         }
         .safeAreaInset(edge: .bottom) {
             if let executionStatus {
-                Text(verbatim: routerInspectorLocalized(executionStatus.rawValue))
+                Text(verbatim: routerInspectorLocalized(executionStatus.rawValue, locale: locale))
                     .font(.caption.monospaced())
                     .padding(8)
             }
@@ -271,7 +278,7 @@ public struct RouterInspectorDeepLinkView<R: DeepLinkRoute>: View {
     }
 
     private var safeAnalysisSummary: String {
-        guard let analysis else { return routerInspectorLocalized("Invalid URL") }
+        guard let analysis else { return routerInspectorLocalized("Invalid URL", locale: locale) }
         return RouterInspectorDeepLinkAnalyzer.shareSummary(analysis)
     }
 
