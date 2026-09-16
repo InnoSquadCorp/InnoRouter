@@ -6,13 +6,13 @@ import Testing
 import InnoRouterCore
 @testable import InnoRouterSwiftUI
 
-#if canImport(AppKit)
+#if os(macOS)
 import AppKit
 #elseif canImport(UIKit) && !os(watchOS)
 import UIKit
 #endif
 
-#if canImport(AppKit) || (canImport(UIKit) && !os(watchOS))
+#if os(macOS) || (canImport(UIKit) && !os(watchOS))
 private enum LifetimeRoute: String, DestinationRoute, Codable {
     case saved, current
 
@@ -62,7 +62,7 @@ private final class LifetimeWorkerGate {
 
 @MainActor
 private final class RestorationMount {
-    #if canImport(AppKit)
+    #if os(macOS)
     private let host: NSHostingView<AnyView>
     private let window: NSWindow
     #else
@@ -71,7 +71,7 @@ private final class RestorationMount {
     #endif
 
     init(_ content: AnyView) {
-        #if canImport(AppKit)
+        #if os(macOS)
         host = NSHostingView(rootView: content)
         window = NSWindow(
             contentRect: .init(x: 0, y: 0, width: 240, height: 240),
@@ -94,14 +94,14 @@ private final class RestorationMount {
     func replace(_ content: AnyView) { host.rootView = content; layout() }
     func removeRoot() { replace(AnyView(Color.clear)) }
     func layout() {
-        #if canImport(AppKit)
+        #if os(macOS)
         host.layoutSubtreeIfNeeded()
         #else
         host.view.layoutIfNeeded()
         #endif
     }
     func close() {
-        #if canImport(AppKit)
+        #if os(macOS)
         window.contentView = nil
         window.orderOut(nil)
         #else

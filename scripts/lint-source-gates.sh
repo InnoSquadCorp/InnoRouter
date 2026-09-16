@@ -40,7 +40,7 @@ echo "[lint-source-gates] Checking swiftformat in lint mode"
 require_tool swiftformat
 require_file .swiftformat "swiftformat configuration"
 swiftformat Sources Tests Examples ExamplesSmoke ConsumerSmoke/Sources Package.swift ConsumerSmoke/Package.swift --lint
-swiftformat NativeSceneSmoke/Sources NativeSceneSmoke/iPad NativeSceneSmoke/Vision NativeSceneSmoke/InspectorUITests NativeSceneSmoke/Package.swift --lint
+swiftformat NativeSceneSmoke/Sources NativeSceneSmoke/iPad NativeSceneSmoke/Vision NativeSceneSmoke/InspectorUITests NativeSceneSmoke/CatalystTestHost NativeSceneSmoke/Package.swift --lint
 
 MACRO_PATTERN_SOURCE="Sources/InnoRouterPatternSupport/RoutePattern.swift"
 RUNTIME_PATTERN_SOURCE="Sources/InnoRouterDeepLink/RoutePattern.swift"

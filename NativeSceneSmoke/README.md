@@ -81,3 +81,23 @@ xcodebuild test -project NativeSceneSmoke/NativeSceneSmoke.xcodeproj \
 settings. Its assertions wait for state changes and retain screenshots and
 accessibility hierarchies in the result bundle. Only its own launched probe is
 terminated during test cleanup.
+
+## Catalyst platform test host
+
+`RouterCatalystPlatformTests` compiles the existing platform test sources in a
+minimal Catalyst app host. The hostless SwiftPM Catalyst runner does not create
+an application lifetime suitable for mounting `UIWindow`; explicit controller
+appearance calls without a window do not exercise the required lifecycle.
+
+```sh
+xcodebuild test -project NativeSceneSmoke/NativeSceneSmoke.xcodeproj \
+  -scheme RouterCatalystPlatformTests \
+  -destination 'platform=macOS,variant=Mac Catalyst' \
+  -parallel-testing-enabled NO -resultBundlePath <new-result-bundle-path> \
+  CODE_SIGNING_ALLOWED=NO
+```
+
+The reusable platform CI selects this hosted target only for Catalyst and
+retains the same minimum test count and zero-failure/skip requirements. The
+test target's package name enables existing package-scoped test hooks without
+adding public API. This host is a development fixture, not a published product.

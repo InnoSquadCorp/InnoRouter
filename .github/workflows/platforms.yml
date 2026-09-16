@@ -278,6 +278,7 @@ jobs:
 
       # This target is deliberately macro-free so its runtime checks link on
       # tvOS, watchOS, and visionOS without a host plugin object in the bundle.
+      # Catalyst runs the same sources in a hosted target for UIKit lifetimes.
       - name: Test platform consumer for ${{ matrix.platform.name }}
         shell: bash
         run: |
@@ -285,14 +286,19 @@ jobs:
           result_bundle="$RUNNER_TEMP/InnoRouterPlatformConsumer-${{ matrix.platform.name }}.xcresult"
           summary_json="$RUNNER_TEMP/InnoRouterPlatformConsumer-${{ matrix.platform.name }}-summary.json"
           test_destination='platform=${{ matrix.platform.destination }}'
+          test_target=(-workspace .github/platform-tests.xcworkspace -scheme InnoRouterPlatformTests)
+          if [[ '${{ matrix.platform.name }}' == 'Mac-Catalyst' ]]; then
+            # Mounted UIWindow lifetimes need a real UIApplication/NSApplication,
+            # which the hostless SwiftPM Catalyst test runner does not create.
+            test_target=(-project NativeSceneSmoke/NativeSceneSmoke.xcodeproj -scheme RouterCatalystPlatformTests CODE_SIGNING_ALLOWED=NO)
+          fi
           if [[ '${{ matrix.platform.usesSimulator }}' == 'true' ]]; then
             test_destination="${test_destination},id=${{ steps.simulator.outputs.udid }}"
           fi
           rm -rf "$result_bundle"
 
           xcodebuild test \
-            -workspace .github/platform-tests.xcworkspace \
-            -scheme InnoRouterPlatformTests \
+            "${test_target[@]}" \
             -destination "$test_destination" \
             -destination-timeout 120 \
             -parallel-testing-enabled NO \

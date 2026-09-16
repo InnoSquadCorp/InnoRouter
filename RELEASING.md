@@ -193,6 +193,9 @@ for generated preview, explicit execution/cancellation, redacted export,
 independent recording controls, and filtered selection. The reusable `platforms`
 workflow runs this on iPadOS with the pinned toolchain, checks that a test really
 executed, and preserves screenshot/hierarchy attachments in the result bundle.
+The Catalyst runtime job runs the same platform test sources in the dedicated
+`RouterCatalystPlatformTests` app host, because mounted window lifetimes require
+an application context unavailable in the hostless SwiftPM runner.
 
 ## CI and CD responsibilities
 
