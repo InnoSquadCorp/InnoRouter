@@ -111,6 +111,7 @@ private actor RouterPendingLinkCodec<R: Route & Codable> {
 public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
     public private(set) var status: RouterPendingLinkPersistenceStatus = .inactive
 
+    @ObservationIgnored private let durability = RouterDurabilityGate()
     @ObservationIgnored private let slot: RouterPendingLinkSlot<R>
     @ObservationIgnored private let storage: RouterPendingLinkStorageExecutor
     @ObservationIgnored private let codec = RouterPendingLinkCodec<R>()
@@ -283,14 +284,23 @@ public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
                 checksTaskCancellation: checksTaskCancellation
             )
             let generation = slot.mutationGeneration
-            if let pending = slot.pending {
+            let pending = slot.pending
+            // Reserve before encoding so a cancel or consume accepted after
+            // this write cannot be overtaken by it.
+            let ticket = durability.reserve(pending == nil ? .remove : .save)
+            defer { durability.finish(ticket) }
+            if let pending {
                 let data = try await codec.encode(pending)
                 try validateOperation(
                     operation,
                     checksTaskCancellation: checksTaskCancellation
                 )
-                try await storage.save(data)
+                // A skipped save leaves the newer state to the loop below.
+                if await durability.waitForTurn(ticket) {
+                    try await storage.save(data)
+                }
             } else {
+                _ = await durability.waitForTurn(ticket)
                 try await storage.remove()
             }
             try validateOperation(

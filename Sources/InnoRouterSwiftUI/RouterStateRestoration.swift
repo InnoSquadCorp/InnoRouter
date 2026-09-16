@@ -42,6 +42,8 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     public private(set) var lastActivation: RouterRestorationDriverActivation<R>?
 
     @ObservationIgnored
+    private let durability = RouterDurabilityGate()
+    @ObservationIgnored
     private let store: RouterStore<R>
     @ObservationIgnored
     private let codec: RouterSnapshotCodec<R>
@@ -79,6 +81,12 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     ] = [:]
     @ObservationIgnored
     private var didAttemptRestore = false
+    /// Whether the initial restore attempt reached a conclusion.
+    ///
+    /// Tracked separately from `status`: a concurrent save moves the displayed
+    /// status off `.loading` while saying nothing about whether the restore
+    /// finished, and retry eligibility must not depend on that.
+    private var didFinishInitialRestore = false
     @ObservationIgnored
     private var activationGeneration: UInt64 = 0
     @ObservationIgnored
@@ -165,6 +173,7 @@ extension RouterRestorationDriver {
         }
 
         didAttemptRestore = true
+        didFinishInitialRestore = false
         status = .loading
         let waiterID = UUID()
         return try await withTaskCancellationHandler {
@@ -219,6 +228,7 @@ extension RouterRestorationDriver {
             try ensureCurrentActivation(generation, taskID: taskID)
             guard let data else {
                 status = .active
+                didFinishInitialRestore = true
                 let result = RouterRestorationDriverActivation<R>.noSnapshot
                 lastActivation = result
                 return .init(result: result, generation: generation)
@@ -254,6 +264,7 @@ extension RouterRestorationDriver {
             }
             try ensureCurrentActivation(generation, taskID: taskID)
             status = .active
+            didFinishInitialRestore = true
             let result = RouterRestorationDriverActivation.restored(outcome)
             lastActivation = result
             return .init(result: result, generation: generation)
@@ -298,6 +309,12 @@ extension RouterRestorationDriver {
     public func removeSnapshot() async throws {
         invalidateScheduledSave()
         storageEpoch &+= 1
+        // Reserving here invalidates every save this driver accepted earlier,
+        // so a save already past its own staleness checks cannot write the
+        // snapshot back after this removal.
+        let ticket = durability.reserve(.remove)
+        defer { durability.finish(ticket) }
+        _ = await durability.waitForTurn(ticket)
         do {
             try await executor.remove()
             status = observationID == nil ? .inactive : .active
@@ -337,7 +354,7 @@ extension RouterRestorationDriver {
               !retainsManualActivation else {
             return
         }
-        if status == .loading {
+        if !didFinishInitialRestore {
             didAttemptRestore = false
         }
         stopOwnedWork()
@@ -392,7 +409,7 @@ extension RouterRestorationDriver {
               activationTask != nil || observationID != nil else {
             return
         }
-        if status == .loading {
+        if !didFinishInitialRestore {
             didAttemptRestore = false
         }
         stopOwnedWork()
@@ -512,6 +529,11 @@ extension RouterRestorationDriver {
         storageEpoch expectedStorageEpoch: UInt64,
         discardIfSuperseded: Bool
     ) async throws {
+        // Reserve before the first suspension so this save keeps the position
+        // it was accepted in, whatever priority the encode and the storage
+        // call end up running at.
+        let ticket = durability.reserve(.save)
+        defer { durability.finish(ticket) }
         let data: Data
         do {
             let state = store.state
@@ -530,6 +552,12 @@ extension RouterRestorationDriver {
         if discardIfSuperseded, saveGeneration != generation { return }
         if saveGeneration == generation {
             status = .saving
+        }
+        guard await durability.waitForTurn(ticket) else {
+            // A removal accepted after this save already deleted the snapshot.
+            // Writing now would resurrect it, and the removal has already
+            // published its own status.
+            return
         }
         do {
             try await executor.save(data)
