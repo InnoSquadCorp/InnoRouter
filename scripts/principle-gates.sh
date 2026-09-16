@@ -129,9 +129,10 @@ echo "[principle-gates] Running source-level lint gates"
 #                 or message missing the expected substring.
 # A recursive `@FeatureRoute` graph must terminate in every generated
 # deep-link entry point instead of recursing until the stack overflows.
-# Failure signal: non-zero exit (a crash reports 139) or a missing completion
-#                 line.
+# Failure signal: non-zero exit (a crash reports 139) or a semantic result
+#                 envelope that does not exactly match the expected contract.
 echo "[principle-gates] Checking recursive deep-link traversal probe"
+./scripts/test-recursive-deep-link-probe-gate.sh
 RECURSIVE_PROBE_OUTPUT_FILE="$(mktemp)"
 set +e
 swift run --jobs "$SWIFTPM_JOBS" RouterRecursiveDeepLinkProbe >"$RECURSIVE_PROBE_OUTPUT_FILE" 2>&1
@@ -145,8 +146,8 @@ if [[ "$RECURSIVE_PROBE_EXIT_CODE" -ne 0 ]]; then
   exit 1
 fi
 
-if ! rg -q "every entry point terminated" "$RECURSIVE_PROBE_OUTPUT_FILE"; then
-  echo "[principle-gates] Failed: recursive deep-link probe did not report completion"
+if ! python3 ./scripts/validate-recursive-deep-link-probe.py "$RECURSIVE_PROBE_OUTPUT_FILE"; then
+  echo "[principle-gates] Failed: recursive deep-link probe reported invalid semantics"
   cat "$RECURSIVE_PROBE_OUTPUT_FILE"
   rm -f "$RECURSIVE_PROBE_OUTPUT_FILE"
   exit 1
