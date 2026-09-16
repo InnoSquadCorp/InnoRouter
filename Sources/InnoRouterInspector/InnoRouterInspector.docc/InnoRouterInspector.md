@@ -5,8 +5,9 @@ A bounded, payload-safe navigation timeline for development and diagnostics.
 ## Overview
 
 `InnoRouterInspector` is an opt-in product that observes the canonical
-`RouterStore` event stream. It does not intercept, mutate, or replay routing
-operations.
+`RouterStore` event stream. Timeline capture and pure-reducer previews do not
+intercept or mutate routing operations. The optional deep-link workbench has
+a separate, explicit execution action that submits through the live store.
 
 Create a ``InnoRouterInspector/RouterInspectorRecorder``, attach the store that
 should be observed, and retain each
@@ -64,6 +65,43 @@ that explicit action resolves the URL and submits through normal policies.
 The default share action uses only the structural decision and declared route
 patterns, never the entered URL. Execution status is structured and localized,
 and leaving the workbench cancels only its owned execution task.
+
+## Localization
+
+Inspector-owned controls, accessibility labels, recording/execution statuses,
+and generic failure messages support English, Korean, Japanese, Simplified and
+Traditional Chinese, Spanish, French, German, Italian, Brazilian Portuguese,
+Russian, Arabic, Hindi, Indonesian, Vietnamese, and Thai.
+Views resolve strings from the package resource bundle using the SwiftUI
+`locale` environment, including changes while the same view remains mounted.
+Unsupported languages fall back to English. Timeline timestamps use that
+locale's time formatting.
+
+To select a language for one Inspector subtree, apply
+`.environment(\.locale, Locale(identifier: "ko"))` to its view. Locale and layout
+direction are independent SwiftUI environment values: when forcing an Arabic
+preview in a left-to-right app, also apply
+`.environment(\.layoutDirection, .rightToLeft)`. Normal host-app language and
+layout configuration remains the application's responsibility.
+
+Locale-only changes preserve the native containers. A layout-direction change
+recreates the workbench's native Form and the timeline's native split/list
+boundary on split-view platforms to clear stale mirrored geometry. Stable
+outer containers retain tab identity, recorder, scenario, filter, selection,
+comparison, URL input, and execution ownership. Native focus or scroll position
+may reset, but a direction change does not cancel an in-flight execution.
+
+Event names, domain/outcome identifiers, metadata keys, route patterns,
+structural dumps, and exported JSON remain stable diagnostic values. Custom
+formatter content and successful scenario summaries belong to the app and
+are shown verbatim. Native file/share panels use the host application's and
+system's localization, not the package's catalog.
+
+Scenario recording means capturing navigation events, not screen or audio
+recording. Stopping retains the captured fixture; cancelling discards it
+without undoing navigation. An incomplete capture is distinct from a capture
+operation that failed. Raw fixture warnings refer to potentially sensitive
+route data and must not be removed when translating.
 
 ## Topics
 

@@ -102,6 +102,20 @@ observable effect, do not require an entry. The CI changelog gate requires a
 substantive `Unreleased` change whenever a public API baseline changes; edits
 to an older release section do not satisfy it.
 
+## Inspector translations
+
+Edit `Sources/InnoRouterInspector/Localizable.xcstrings` directly after reading
+the corresponding control or state transition. Review every translated entry
+for meaning; do not generate translations with a script. Preserve the
+distinctions between stopping and cancelling a recording, incomplete data and
+failure, and deferred, rejected, and unresolved execution. See
+[Inspector localization](Docs/inspector-localization.md) for the review contract.
+`python3 scripts/check-inspector-localization.py` validates structure and
+coverage only; it does not translate text or establish linguistic quality.
+Run `swift test --filter RouterInspectorLocalizationTests` to verify compiled
+resources, fallback, and runtime locale changes. Keep the iPad UI tests green
+for long labels and right-to-left layout.
+
 ## Macros
 
 Macro changes (`@Router`, `@TabItem`, `@DeepLink`, `@Routable`, or

@@ -391,10 +391,19 @@ start, progress, stop, completeness, raw import, and raw export controls when
 the app also imports `InnoRouterTesting`. Replay never mutates the live store;
 scenario failures use payload-free categories instead of decoder or app error
 descriptions, and a failed import cannot leave stale raw data exportable.
-app-specific payload formatting remains an explicit opt-in. Imports default to
+App-specific payload formatting remains an explicit opt-in. Imports default to
 an 8 MiB encoded-data limit and 5,000 entries, checked before a full decode;
 `RouterInspectorImportLimits` makes both bounds explicit when constructing the
 recorder.
+
+Inspector controls, accessibility labels, and generic status/failure messages
+include English plus 15 translations: Korean, Japanese, Simplified and
+Traditional Chinese, Spanish, French, German, Italian, Brazilian Portuguese,
+Russian, Arabic, Hindi, Indonesian, Vietnamese, and Thai. Views follow the
+SwiftUI locale, including changes while mounted; unsupported languages fall
+back to English. Diagnostic identifiers and app-provided content remain
+unchanged. See [Inspector localization](Docs/inspector-localization.md) for
+language overrides, semantic review, and validation boundaries.
 
 `RouterActionSequence` stores each action with its transition context and
 replays through `RouterTestStore`, preserving policy-visible provenance and
@@ -406,13 +415,13 @@ transition intervals for Instruments, including cleanup when the adapter ends.
 `RouterScenarioRecorder` synchronously captures bounded request, start,
 cancellation, and terminal boundaries, including requests rejected before
 reduction, so stopping immediately after a completed request cannot lose it.
-Fixture format v5 stores the route schema, replay environment,
+Fixture format v7 stores the route schema, replay environment,
 dependency/effect capabilities, initial revision, each request's relative
 revision precondition and cancellation origin, logical
 submit/wait/cancel/terminal controls, virtual-time advances, explicit deferral
 decisions, and serializable execution semantics. History navigation therefore
 replays through the production navigation-only merge with its original stale
-state constraint even after queueing or repeated deferral rebases. Format v4
+state constraint even after queueing or repeated deferral rebases. Earlier
 and unknown versions are rejected and must be recaptured because those
 execution conditions cannot be inferred safely.
 Replay checks metadata and the complete initial

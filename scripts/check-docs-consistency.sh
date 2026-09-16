@@ -51,6 +51,7 @@ PUBLIC_DOCS=(
   Docs/functional-expansion-spec.md
   Docs/functional-expansion-technical-plan.md
   Docs/6.0.0-release-checklist.md
+  Docs/inspector-localization.md
   Sources/InnoRouterUmbrella/InnoRouter.docc/InnoRouter.md
   Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md
   Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/InnoRouterDeepLink.md
@@ -70,6 +71,7 @@ for readme in README.md README.ko.md; do
   require_literal "$readme" "RouterStore" "$readme must document RouterStore"
   require_literal "$readme" "RouterAction" "$readme must document RouterAction"
   require_literal "$readme" "RouterPlan" "$readme must document RouterPlan"
+  require_literal "$readme" "Docs/inspector-localization.md" "$readme must link Inspector localization guidance"
 done
 
 require_literal README.md "## 30-second quick start" "README.md is missing its quick start"
@@ -95,6 +97,14 @@ import subprocess
 import sys
 
 root = pathlib.Path.cwd()
+fixture_source = (root / "Sources/InnoRouterTesting/RouterScenarioFixture.swift").read_text()
+fixture_version = re.search(r"currentFormatVersion: Int \{ (\d+) \}", fixture_source)
+if fixture_version is None:
+    raise SystemExit("[check-docs-consistency] Cannot find scenario fixture format version")
+for filename, prefix in (("README.md", "Fixture format v"), ("README.ko.md", "fixture v")):
+    if prefix + fixture_version.group(1) not in (root / filename).read_text():
+        raise SystemExit(f"[check-docs-consistency] {filename} scenario fixture version is stale")
+
 package = json.loads(subprocess.check_output(["swift", "package", "dump-package"], text=True))
 actual = [p["name"] for p in package["products"] if isinstance(p.get("type"), dict) and "library" in p["type"]]
 expected = ["InnoRouter", "InnoRouterInspector", "InnoRouterTesting"]

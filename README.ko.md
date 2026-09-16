@@ -320,10 +320,17 @@ bounded timeline, 상태 트리, 구조 diff, JSON import/export, 단계 이동,
 bookmark, correlated timing, 임의 A/B 비교, rejection breakpoint, 순수 reducer replay
 preview를 제공합니다. native 화면은 JSON snapshot과 버전이 있는 진단 번들을 가져오고,
 framework/platform 정보가 포함된 번들을 내보냅니다. 앱이 `InnoRouterTesting`도
-가져오면 `RouterInspectorScenarioController.routerScenario(store:)`로 녹화 시작·진행률·
+가져오면 `RouterInspectorScenarioController.routerScenario(store:)`로 기록 시작·진행률·
 중지·완전성·원본 가져오기/내보내기를 명시적으로 연결할 수 있습니다. replay는 live store를 변경하지 않으며 route payload는 기본적으로 노출하지
 않습니다. 시나리오 실패는 decoder나 앱 오류 원문 대신 payload 없는 종류로 표시하고,
 가져오기 실패 뒤에는 이전 raw fixture를 내보낼 수 없게 제거합니다.
+
+Inspector의 조작 버튼, 접근성 레이블, 일반 상태·실패 안내는 영어와 한국어·일본어·
+중국어 간체/번체·스페인어·프랑스어·독일어·이탈리아어·브라질 포르투갈어·러시아어·
+아랍어·힌디어·인도네시아어·베트남어·태국어로 제공합니다. 화면을 다시 만들지 않아도
+SwiftUI locale 변경을 반영하며, 미지원 언어는 영어로 표시합니다. 진단 식별자와
+앱이 제공한 내용은 번역하지 않습니다. 언어 지정 방법, 의미 검토 기준, 검증 범위는
+[Inspector 다국어 안내](Docs/inspector-localization.md)를 참고하세요.
 
 `RouterActionSequence`는 액션마다 transition context를 저장하고 `RouterTestStore`로
 순서대로 재생합니다. 원래 initial state와 dependency를 제공하면 출처와 요청 메타데이터에
@@ -332,7 +339,7 @@ framework/platform 정보가 포함된 번들을 내보냅니다. 앱이 `InnoRo
 기록하고 adapter 수명이 끝날 때 진행 중인 구간도 닫습니다.
 
 `RouterScenarioRecorder`는 reduction 전 거절과 unchanged를 포함해 요청·시작·terminal
-경계를 같은 actor에서 동기적으로 녹화하므로 완료 직후 stop해도 기록을 놓치지
+경계를 같은 actor에서 동기적으로 기록하므로 완료 직후 stop해도 기록을 놓치지
 않습니다. fixture v7은 route schema, 실행 환경, 의존성/효과 capability, 시작 revision,
 논리 요청별 submit/wait/cancel/terminal, 가상 시간 이동, 명시적 deferral 결정을
 저장합니다. 첫 요청 전에 metadata와 전체 initial state 호환성을 검사하고 캡처 deferral

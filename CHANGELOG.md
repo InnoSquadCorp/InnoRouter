@@ -8,6 +8,15 @@ are bare semver (no leading `v`).
 
 ## 6.0.0 - 2026-09-16
 
+- Inspector provides 66 interface strings in English and 15 translated
+  languages, with semantic context for translators. Mounted views follow
+  SwiftUI locale changes, including existing failure/status messages and
+  timestamps; unsupported languages fall back to English. Stable diagnostic
+  values and app-owned content are not translated.
+- Inspector refreshes its native form and split-view boundaries when layout
+  direction changes, preventing stale mirrored content and hit regions while
+  retaining parent tab identity, captured data, selection, filters, scenario
+  state, URL input, and ownership of in-flight execution.
 - Inspector recording controls remain individually operable in narrow sidebars.
   Timeline filtering clears hidden selections, shows explicit empty results,
   and never restores a stale detail when a filter is removed.

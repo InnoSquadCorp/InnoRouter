@@ -82,6 +82,19 @@ settings. Its assertions wait for state changes and retain screenshots and
 accessibility hierarchies in the result bundle. Only its own launched probe is
 terminated during test cleanup.
 
+`testInspectorMountedLocaleBidirectionalStatePreservation` launches the same fixture with
+`--localization-probe`, exposing app-local English/Korean/German/Arabic switches.
+It changes locale and layout direction without remounting the Inspector,
+checks translated execution/cancellation and recording controls, and retains
+screenshots and hierarchies for right-to-left and narrow-sidebar review.
+It also returns from Arabic to English and back, preserving the entered URL,
+execution status, selected event, and in-progress recording.
+Direction changes during a held execution must retain the pending task, without
+an extra policy submission or an implicit cancellation.
+These switches exist only in the probe and do not alter simulator settings.
+The CI gate requires both current Inspector UI test names to pass without skips;
+a passing count from an older test bundle does not satisfy the gate.
+
 ## Catalyst platform test host
 
 `RouterCatalystPlatformTests` compiles the existing platform test sources in a
