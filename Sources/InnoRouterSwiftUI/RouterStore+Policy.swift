@@ -12,67 +12,6 @@ enum RouterPolicyPreparation {
     case deferred(RouterDeferredTransition)
 }
 
-enum RouterPolicyRaceResult {
-    case decision(RouterPolicyDecision)
-    case timedOut
-    case cancelled
-}
-
-@MainActor
-final class RouterPolicyTimeoutRace {
-    private var continuation: CheckedContinuation<RouterPolicyRaceResult, Never>?
-    private var policyTask: Task<Void, Never>?
-    private var timeoutTask: Task<Void, Never>?
-
-    func run(
-        timeout: Duration?,
-        sleep: @escaping @Sendable (Duration) async throws -> Void,
-        operation: @escaping @MainActor @Sendable () async -> RouterPolicyDecision
-    ) async -> RouterPolicyRaceResult {
-        await withTaskCancellationHandler {
-            await withCheckedContinuation { continuation in
-                self.continuation = continuation
-                guard !Task.isCancelled else {
-                    resolve(.cancelled)
-                    return
-                }
-                policyTask = Task { @MainActor [weak self] in
-                    let decision = await operation()
-                    self?.resolve(.decision(decision))
-                }
-                if let timeout {
-                    timeoutTask = Task { @MainActor [weak self] in
-                        do {
-                            try await sleep(timeout)
-                        } catch {
-                            return
-                        }
-                        self?.resolve(.timedOut)
-                    }
-                }
-            }
-        } onCancel: {
-            Task { @MainActor [weak self] in
-                self?.resolve(.cancelled)
-            }
-        }
-    }
-
-    func cancel() {
-        resolve(.cancelled)
-    }
-
-    private func resolve(_ result: RouterPolicyRaceResult) {
-        guard let continuation else { return }
-        self.continuation = nil
-        policyTask?.cancel()
-        timeoutTask?.cancel()
-        policyTask = nil
-        timeoutTask = nil
-        continuation.resume(returning: result)
-    }
-}
-
 extension RouterStore {
     func prepare(
         for transition: RouterTransition<R>,
@@ -95,7 +34,7 @@ extension RouterStore {
             }
             let preparation = await prepare(policy, transition: transition)
             switch preparation {
-            case .decision(let decision):
+            case .value(let decision):
                 emit(.policyPrepared(
                     transitionID: transition.id,
                     policy: policy.name,
@@ -143,10 +82,10 @@ extension RouterStore {
     private func prepare(
         _ policy: RouterPolicy<R>,
         transition: RouterTransition<R>
-    ) async -> RouterPolicyRaceResult {
+    ) async -> RouterTimeoutRaceResult<RouterPolicyDecision> {
         if let policyTimeout, policyTimeout <= .zero { return .timedOut }
 
-        let race = RouterPolicyTimeoutRace()
+        let race = RouterTimeoutRace<RouterPolicyDecision>()
         activePolicyRaces[transition.id] = race
         let result = await race.run(timeout: policyTimeout, sleep: runtimeDependencies.sleep) {
             await policy.prepare(transition)

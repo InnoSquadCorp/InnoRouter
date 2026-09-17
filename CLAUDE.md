@@ -69,6 +69,10 @@ this flag.
 - `@Router` is the default declaration path and requires expansion plus runtime
   behavior coverage.
 - `@TabItem` marks parameterless tab roots; unmarked cases remain destinations.
+- `@Scene` marks parameterless window or immersive routes on the same router.
+- `@PresentationResult` generates a typed request shared by present and finish.
+- `@FeatureRoute` composes an independent feature's route enum into a parent
+  router without a second store.
 - `@DeepLink` must remain fail closed for origins and malformed input.
 - `@Routable` and `@CasePathable` are advanced supporting macros, not a second
   router architecture.

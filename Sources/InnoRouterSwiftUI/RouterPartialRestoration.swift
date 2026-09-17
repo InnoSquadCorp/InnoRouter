@@ -117,60 +117,9 @@ public struct RouterPartialRestorationOutcome<R: Route>: Hashable, Sendable {
     }
 }
 
-private enum PartialRestorationRaceResult<Value: Sendable>: Sendable {
-    case value(Value)
-    case timedOut
-    case cancelled
-}
-
 private enum PartialRestorationPlanResult<R: Route>: Sendable {
     case success(RouterState<R>, RouterPartialRestorationReport)
     case failure(RouterPartialRestorationError)
-}
-
-@MainActor
-private final class PartialRestorationRace<Value: Sendable> {
-    private var continuation: CheckedContinuation<PartialRestorationRaceResult<Value>, Never>?
-    private var operationTask: Task<Void, Never>?
-    private var timeoutTask: Task<Void, Never>?
-
-    func run(
-        timeout: Duration?,
-        sleep: @escaping @Sendable (Duration) async throws -> Void,
-        operation: @escaping @MainActor @Sendable () async -> Value
-    ) async -> PartialRestorationRaceResult<Value> {
-        await withTaskCancellationHandler {
-            await withCheckedContinuation { continuation in
-                self.continuation = continuation
-                guard Task.isCancelled == false else {
-                    resolve(.cancelled)
-                    return
-                }
-                operationTask = Task { @MainActor [weak self] in
-                    let value = await operation()
-                    self?.resolve(.value(value))
-                }
-                if let timeout {
-                    timeoutTask = Task { @MainActor [weak self] in
-                        do { try await sleep(timeout) } catch { return }
-                        self?.resolve(.timedOut)
-                    }
-                }
-            }
-        } onCancel: {
-            Task { @MainActor [weak self] in self?.resolve(.cancelled) }
-        }
-    }
-
-    private func resolve(_ result: PartialRestorationRaceResult<Value>) {
-        guard let continuation else { return }
-        self.continuation = nil
-        operationTask?.cancel()
-        timeoutTask?.cancel()
-        operationTask = nil
-        timeoutTask = nil
-        continuation.resume(returning: result)
-    }
 }
 
 @MainActor
@@ -429,7 +378,7 @@ package func preparePartialRestoration<R: Route>(
     timeout: Duration?,
     sleep: @escaping @Sendable (Duration) async throws -> Void
 ) async throws -> (RouterState<R>, RouterPartialRestorationReport) {
-    let race = PartialRestorationRace<PartialRestorationPlanResult<R>>()
+    let race = RouterTimeoutRace<PartialRestorationPlanResult<R>>()
     let result = await race.run(timeout: timeout, sleep: sleep) {
         do {
             let value = try await PartialRestorationPlanner(validator: validator).plan(state)
