@@ -114,15 +114,30 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         } catch {
             preconditionFailure("@Router generated an invalid tab catalog: \(error)")
         }
-        let tabScopeIDs = catalog.descriptors.map(\.tab.routerScopeID)
+        // Branch drift is tolerated rather than asserted. This is a View
+        // initializer, so SwiftUI re-runs it on every parent body pass, and the
+        // store's branches are not always something the application chose:
+        // `RouterRestorationDriver` applies a decoded snapshot through
+        // `.apply`, which replaces the root wholesale, and
+        // `RouterPartialRestoration` preserves branch identifiers as written.
+        // A snapshot taken before a tab was renamed or removed therefore
+        // reaches a host whose catalog no longer matches, and asserting there
+        // aborted the process on the next render.
+        //
+        // Rendering is driven by the catalog, and every tab resolves through
+        // `store.scope(at:)`, which yields a nil node for a branch that is not
+        // present. A renamed tab starts empty and an orphaned branch goes
+        // unused — the same outcome the application would get by bumping
+        // `RouterSnapshotCodec.currentVersion`, which remains the way to
+        // migrate deliberately.
         guard case .container(let container) = store.state.root,
               container.style == .tabs else {
-            preconditionFailure("RouterTabHost requires a root tabs container")
+            preconditionFailure(
+                "RouterTabHost requires a root tabs container. A snapshot written "
+                + "before this router used tabs decodes to a different root shape; "
+                + "bump RouterSnapshotCodec.currentVersion to reject or migrate it."
+            )
         }
-        precondition(
-            Set(container.branches.map(\.id)) == Set(tabScopeIDs),
-            "RouterTabHost store branches must match RouterTabRoute.routerTabs"
-        )
         self.tabs = catalog.descriptors
         self.linkHandling = linkHandling
         self.suppliedStore = store
@@ -202,7 +217,15 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
     private func selectionBinding(_ rootScope: RouterScope<R>) -> Binding<RouterScopeID> {
         Binding(
             get: {
-                selectedScope(in: rootScope) ?? tabs[0].tab.routerScopeID
+                // A restored selection can name a branch this catalog no longer
+                // declares. Falling back keeps TabView's selection inside the
+                // set ForEach actually renders.
+                guard let selected = selectedScope(in: rootScope),
+                      tabs.contains(where: { $0.tab.routerScopeID == selected })
+                else {
+                    return tabs[0].tab.routerScopeID
+                }
+                return selected
             },
             set: { selection in
                 rootScope.dispatchRoot(
