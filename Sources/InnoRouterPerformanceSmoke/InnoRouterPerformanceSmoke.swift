@@ -62,23 +62,44 @@ private enum InnoRouterPerformanceSmoke {
             throw PerformanceFailure.usage
         }
 
+        // Budgets are derived from measured CI medians on the pinned macos-26
+        // runner, not from a developer machine. Two runs of the same tree gave
+        // a 1.05x-1.61x run-to-run spread, so each budget is set at roughly 4x
+        // the slower observed median: that catches a ~4x regression while
+        // leaving about 2.5x of margin over the noise actually seen.
+        //
+        //   sample                    slower CI median   budget
+        //   reducer_transition                  124ms      500
+        //   snapshot_roundtrip                  324ms     1300
+        //   deep_link_match                     287ms     1200
+        //   inspector_record_export            4952ms    10000  (unchanged)
+        //   scenario_capture_off_on             105ms      450
+        //   history_capacity_scaling             38ms      200
+        //   catalog_size_scaling                611ms     3000  (unchanged)
+        //
+        // The two unchanged budgets already sat at 2.0x and 4.9x of their CI
+        // medians, so they were bounding real behavior; the other five ranged
+        // from 10x to 106x and would not have failed a tenfold regression.
+        // Re-derive these from a CI artifact after any change that moves the
+        // numbers, and raise rather than lower them when a runner image slows
+        // down.
         let samples = try await [
             measure(
                 name: expectedSampleNames[0],
                 iterations: 20_000,
-                maximumMilliseconds: 2_500,
+                maximumMilliseconds: 500,
                 workload: reducerWorkload
             ),
             measure(
                 name: expectedSampleNames[1],
                 iterations: 200,
-                maximumMilliseconds: 5_000,
+                maximumMilliseconds: 1_300,
                 workload: snapshotWorkload
             ),
             measure(
                 name: expectedSampleNames[2],
                 iterations: 10_000,
-                maximumMilliseconds: 3_000,
+                maximumMilliseconds: 1_200,
                 workload: deepLinkWorkload
             ),
             measure(
@@ -90,13 +111,13 @@ private enum InnoRouterPerformanceSmoke {
             measure(
                 name: expectedSampleNames[4],
                 iterations: 1_000,
-                maximumMilliseconds: 4_000,
+                maximumMilliseconds: 450,
                 workload: scenarioCaptureWorkload
             ),
             measure(
                 name: expectedSampleNames[5],
                 iterations: 512,
-                maximumMilliseconds: 4_000,
+                maximumMilliseconds: 200,
                 workload: historyCapacityWorkload
             ),
             measure(
