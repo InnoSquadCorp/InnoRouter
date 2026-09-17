@@ -390,6 +390,97 @@ struct RouterCompositionMacroTests {
         )
     }
 
+    // The duplicate-marker diagnostics used to anchor on `attributes[1]` from
+    // inside the `else` of `guard attributes.count == 1` — a branch that also
+    // runs for an empty list, so the subscript was an out-of-bounds trap held
+    // off only by caller pre-filtering. They now describe the duplicates and
+    // offer the removal edit.
+    @Test("Duplicate @TabItem offers a removal fix-it")
+    func duplicateTabItemFixIt() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house")
+                @TabItem("Home", systemImage: "house")
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+                case home
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E010] a router tab case must have exactly one @TabItem annotation; remove the duplicate",
+                    line: 4,
+                    column: 5,
+                    severity: .error,
+                    fixIts: [
+                        FixItSpec(message: "Remove the duplicate `@TabItem`"),
+                    ]
+                )
+            ],
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove the duplicate `@TabItem`"],
+            fixedSource: """
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house")
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """
+        )
+    }
+
+    @Test("Duplicate @DeepLink markers on one line remove cleanly")
+    func duplicateDeepLinkMarkerFixIt() {
+        assertMacroExpansion(
+            """
+            @Router(deepLinkSchemes: ["app"], deepLinkHosts: ["app.example.com"])
+            enum AppRoute {
+                @DeepLink("/home") @DeepLink("/home")
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+
+                case home
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E021] a route case must have exactly one @DeepLink annotation; remove the duplicate",
+                    line: 3,
+                    column: 24,
+                    severity: .error,
+                    fixIts: [
+                        FixItSpec(message: "Remove the duplicate `@DeepLink`"),
+                    ]
+                )
+            ],
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove the duplicate `@DeepLink`"],
+            fixedSource: """
+            @Router(deepLinkSchemes: ["app"], deepLinkHosts: ["app.example.com"])
+            enum AppRoute {
+                @DeepLink("/home")
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """
+        )
+    }
+
     @Test("Tab markers generate a separate stable tab identity")
     func tabExpansion() {
         assertMacroExpansion(

@@ -140,7 +140,14 @@ func analyzeRouterPresentationResults(
     for caseDeclaration in annotated {
         let attributes = presentationResultAttributes(on: caseDeclaration)
         guard attributes.count == 1, let attribute = attributes.first else {
-            diagnosePresentationResult(.duplicate, at: attributes[1], context: context)
+            if let duplicate = duplicateAttributeDiagnosis(attributes, in: caseDeclaration) {
+                diagnosePresentationResult(
+                    .duplicate,
+                    at: duplicate.anchor,
+                    context: context,
+                    fixIts: duplicate.fixIts
+                )
+            }
             return .invalid
         }
         guard caseDeclaration.elements.count == 1,
@@ -335,7 +342,8 @@ private func hasRouterAttributeForPresentationResult(_ enumDecl: EnumDeclSyntax)
 private func diagnosePresentationResult(
     _ message: RouterPresentationResultDiagnostic,
     at node: some SyntaxProtocol,
-    context: some MacroExpansionContext
+    context: some MacroExpansionContext,
+    fixIts: [FixIt] = []
 ) {
-    context.diagnose(Diagnostic(node: node, message: message))
+    context.diagnose(Diagnostic(node: node, message: message, fixIts: fixIts))
 }

@@ -62,7 +62,14 @@ func analyzeRouterFeatures(
     for declaration in marked {
         let attributes = featureAttributes(on: declaration)
         guard attributes.count == 1, let attribute = attributes.first else {
-            diagnoseFeature(.duplicateAttribute, at: attributes[1], context: context)
+            if let duplicate = duplicateAttributeDiagnosis(attributes, in: declaration) {
+                diagnoseFeature(
+                    .duplicateAttribute,
+                    at: duplicate.anchor,
+                    context: context,
+                    fixIts: duplicate.fixIts
+                )
+            }
             return .invalid
         }
         guard declaration.elements.count == 1, let element = declaration.elements.first else {

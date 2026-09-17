@@ -280,3 +280,79 @@ func removeConformanceFixIt(
         ]
     )
 }
+
+// MARK: - Duplicate marker removal
+
+/// FixIt payload for the `duplicate…` marker diagnostics.
+struct RemoveDuplicateAttributeFixIt: FixItMessage {
+    let attributeName: String
+    let duplicateCount: Int
+
+    var message: String {
+        duplicateCount == 1
+            ? "Remove the duplicate `@\(attributeName)`"
+            : "Remove the \(duplicateCount) duplicate `@\(attributeName)` attributes"
+    }
+
+    var fixItID: MessageID {
+        MessageID(domain: "InnoRouterMacros", id: "removeDuplicateAttribute")
+    }
+}
+
+/// Where to anchor a duplicate-marker diagnostic, and the edit that resolves it.
+struct DuplicateAttributeDiagnosis {
+    /// The first redundant marker — what the author should look at.
+    let anchor: AttributeSyntax
+    /// Deletes every redundant marker, keeping the first.
+    let fixIt: FixIt
+
+    var fixIts: [FixIt] { [fixIt] }
+}
+
+/// Describes the duplicate markers in `attributes`, or `nil` when there is at
+/// most one.
+///
+/// Every `duplicate…` diagnostic previously anchored on `attributes[1]` from
+/// inside the `else` branch of `guard attributes.count == 1`. That branch also
+/// runs for an empty list, so the subscript was an out-of-bounds trap — a
+/// compiler-plugin crash — held off only by each caller pre-filtering to
+/// annotated declarations. Taking the list and reporting `nil` when there is
+/// nothing to diagnose removes the trap regardless of how callers change.
+///
+/// The removal range starts at `position`, so the marker's *leading* trivia
+/// goes with it. That separator is what joins it to the marker before:
+/// `@TabItem @TabItem case` loses the space, and a marker on its own line
+/// loses the newline and indent that introduced it. Ending at
+/// `endPositionBeforeTrailingTrivia` leaves the line break that belongs to
+/// whatever follows, so neither a blank line nor a run-together line is left
+/// behind.
+func duplicateAttributeDiagnosis(
+    _ attributes: [AttributeSyntax],
+    in enclosing: some SyntaxProtocol
+) -> DuplicateAttributeDiagnosis? {
+    let duplicates = Array(attributes.dropFirst())
+    guard let anchor = duplicates.first else { return nil }
+
+    let name = anchor.attributeName.trimmedDescription
+        .split(separator: ".")
+        .last
+        .map(String.init) ?? anchor.attributeName.trimmedDescription
+
+    return DuplicateAttributeDiagnosis(
+        anchor: anchor,
+        fixIt: FixIt(
+            message: RemoveDuplicateAttributeFixIt(
+                attributeName: name,
+                duplicateCount: duplicates.count
+            ),
+            changes: duplicates.map { duplicate in
+                .replaceText(
+                    range: duplicate.position
+                        ..< duplicate.endPositionBeforeTrailingTrivia,
+                    with: "",
+                    in: Syntax(enclosing)
+                )
+            }
+        )
+    )
+}
