@@ -33,12 +33,21 @@ examples, public docs, or API.
 ## Common commands
 
 ```bash
-swift test --jobs 2
+swift test --jobs 2 --no-parallel
 ./scripts/principle-gates.sh
 ./scripts/principle-gates.sh --platforms=all
 ./scripts/build-docc-site.sh --version preview --skip-latest
 ./scripts/external-consumer-smoke.sh
 ```
+
+`--no-parallel` is required, not optional. `RouterSnapshotStorage` is a
+synchronous protocol by design, so the restoration suites' storage doubles
+hold a real thread inside `load()`/`save()` to keep an operation open. Swift
+Testing runs suites concurrently in-process by default, and enough
+simultaneously blocked doubles starve the cooperative pool: the restoration
+tests then fail with 60s time-limit and `loadTimedOut` errors. The gates in
+`scripts/principle-gates.sh` and `.github/workflows/coverage.yml` already pass
+this flag.
 
 ## Architecture rules
 
@@ -85,8 +94,7 @@ Macro changes require tests in both `Tests/InnoRouterMacrosTests/` and
 
 - Tags are bare SemVer, such as `6.0.0`; never prefix them with `v`.
 - Update only the three public API baselines intentionally.
-- The untagged 6.0 candidate may absorb planned 6.1–6.3 work. After the first 6.0
-  tag, breaking changes target the next major release.
+- Breaking changes after 6.0 target the next major release.
 - A release requires package, macro, DocC, public API, lint, platform, and exact
   downstream revision gates.
 
