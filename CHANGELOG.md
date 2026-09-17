@@ -6,6 +6,41 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+### Changed
+
+- `DeepLinkMatcher.diagnostics` is computed on demand instead of stored.
+  Reading it is unchanged — the same diagnostics are reported, including on a
+  matcher configured with `.disabled`, which continues to suppress emission
+  rather than availability. No migration is required. Computing the value
+  compares every pattern pair, and `@Router` builds a matcher inside each
+  generated `resolveDeepLink` call, so storing it charged that quadratic pass
+  to every deep-link resolution and then discarded the result. Resolution is
+  now linear in catalog size: on a 60-case catalog, 627µs before and 50µs
+  after. The property is recomputed per access, so bind it to a local when
+  inspecting it repeatedly.
+
+### Fixed
+
+- `@Routable` and `@CasePathable` no longer crash the compiler on a case whose
+  argument label is a keyword, such as `case detail(in: Int)`. The label was
+  reused as the extract binding, which emitted `let in` and failed to parse
+  inside the expansion. Labels keep their own spelling and bindings are escaped
+  independently. `@Router` was never affected.
+- Generated argument labels no longer carry an author's backticks, which made
+  `case foo(`default`: Int)` emit an "does not need to be escaped" warning
+  inside the expansion that the author could not silence.
+- `DeepLinkMatcher`'s documentation no longer shows a `FlowPlan` sample, a 5.x
+  type that no longer exists, and now states that a bare matcher compares path
+  and query only and never checks the URL origin. `@DeepLink` and
+  `RouterLinkPipeline` remain fail closed and are the surfaces to prefer.
+
+### Added
+
+- Fix-its for redundant `Route` / `DestinationRoute` conformances and for
+  duplicate `@TabItem`, `@Scene`, `@DeepLink`, `@FeatureRoute` and
+  `@PresentationResult` markers.
+
+
 ## 6.0.0 - 2026-09-16
 
 - Inspector provides 66 interface strings in English and 15 translated
