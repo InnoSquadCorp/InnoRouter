@@ -693,7 +693,10 @@ struct RouterDeepLinkDiagnosticMacroTests {
                 DiagnosticSpec(
                     message: "[InnoRouterMacro.E021] a route case must have exactly one @DeepLink annotation; remove the duplicate",
                     line: 7,
-                    column: 5
+                    column: 5,
+                    fixIts: [
+                        FixItSpec(message: "Remove the duplicate `@DeepLink`"),
+                    ]
                 )
             ],
             macros: makeTestMacros()

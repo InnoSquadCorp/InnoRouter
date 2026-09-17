@@ -33,12 +33,21 @@ examples, public docs, or API.
 ## Common commands
 
 ```bash
-swift test --jobs 2
+swift test --jobs 2 --no-parallel
 ./scripts/principle-gates.sh
 ./scripts/principle-gates.sh --platforms=all
 ./scripts/build-docc-site.sh --version preview --skip-latest
 ./scripts/external-consumer-smoke.sh
 ```
+
+`--no-parallel` is required, not optional. `RouterSnapshotStorage` is a
+synchronous protocol by design, so the restoration suites' storage doubles
+hold a real thread inside `load()`/`save()` to keep an operation open. Swift
+Testing runs suites concurrently in-process by default, and enough
+simultaneously blocked doubles starve the cooperative pool: the restoration
+tests then fail with 60s time-limit and `loadTimedOut` errors. The gates in
+`scripts/principle-gates.sh` and `.github/workflows/coverage.yml` already pass
+this flag.
 
 ## Architecture rules
 
@@ -60,6 +69,10 @@ swift test --jobs 2
 - `@Router` is the default declaration path and requires expansion plus runtime
   behavior coverage.
 - `@TabItem` marks parameterless tab roots; unmarked cases remain destinations.
+- `@Scene` marks parameterless window or immersive routes on the same router.
+- `@PresentationResult` generates a typed request shared by present and finish.
+- `@FeatureRoute` composes an independent feature's route enum into a parent
+  router without a second store.
 - `@DeepLink` must remain fail closed for origins and malformed input.
 - `@Routable` and `@CasePathable` are advanced supporting macros, not a second
   router architecture.

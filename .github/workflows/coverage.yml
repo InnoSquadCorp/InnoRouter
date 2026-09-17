@@ -56,6 +56,19 @@ jobs:
       - name: Generate lcov report
         run: ./scripts/generate-coverage-report.sh coverage.lcov coverage-full.lcov
 
+      # Two floors, because the gated report deliberately omits native
+      # renderers and scene bridges (see generate-coverage-report.sh): counting
+      # their target-specific inactive branches host-only would reward macOS
+      # reachability rather than portable behavior.
+      #
+      # That exclusion covers the hosts a normal app actually touches —
+      # RouterHost, RouterTabHost, RouterSplitHost, EnvironmentRouter and the
+      # scene bridges — so leaving the comprehensive report at 0 meant the
+      # aggregate number was unguarded: it could fall to any value without
+      # failing a gate. The comprehensive floor is a ratchet set just under the
+      # measured value (84.24% at the time of writing), so a real regression
+      # fails while normal branch-counting variance does not. Raise it when the
+      # measured number moves up; never lower it to make a red build pass.
       - name: Validate coverage floor
         run: |
           ./scripts/test-validate-coverage-report.sh
@@ -65,7 +78,7 @@ jobs:
             --minimum-line-coverage 85
           ./scripts/validate-coverage-report.py \
             coverage-full.lcov \
-            --minimum-line-coverage 0
+            --minimum-line-coverage 83
           ./scripts/summarize-coverage-report.py \
             --gated coverage.lcov \
             --comprehensive coverage-full.lcov \

@@ -53,7 +53,14 @@ func analyzeRouterScenes(
     for caseDecl in annotated {
         let attributes = sceneAttributesForRouter(on: caseDecl)
         guard attributes.count == 1, let attribute = attributes.first else {
-            diagnoseSceneRouter(.duplicateScene, at: attributes[1], context: context)
+            if let duplicate = duplicateAttributeDiagnosis(attributes, in: caseDecl) {
+                diagnoseSceneRouter(
+                    .duplicateScene,
+                    at: duplicate.anchor,
+                    context: context,
+                    fixIts: duplicate.fixIts
+                )
+            }
             return .invalid
         }
         guard caseDecl.elements.count == 1, let element = caseDecl.elements.first else {

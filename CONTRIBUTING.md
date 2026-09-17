@@ -34,9 +34,16 @@ maintainers to apply to your contribution.
 git clone https://github.com/InnoSquadCorp/InnoRouter.git
 cd InnoRouter
 swift build
-swift test
+swift test --no-parallel
 ./scripts/principle-gates.sh
 ```
+
+`--no-parallel` is required. `RouterSnapshotStorage` is synchronous by design,
+so the restoration suites' storage doubles hold a real thread inside
+`load()`/`save()`. Swift Testing runs suites concurrently in-process by
+default, and enough simultaneously blocked doubles starve the cooperative
+pool, which surfaces as 60s time-limit and `loadTimedOut` failures in the
+restoration tests. `scripts/principle-gates.sh` already passes the flag.
 
 The principle-gates script is the authoritative local core gate.
 Every PR must keep it green. Local platform coverage is not required
@@ -128,8 +135,8 @@ directory for the toolchain constraint.
 ## Filing the PR
 
 - Link to the originating issue or Discussion in the PR body.
-- Confirm `swift test` and `./scripts/principle-gates.sh` are green
-  locally.
+- Confirm `swift test --no-parallel` and `./scripts/principle-gates.sh`
+  are green locally.
 - Note any platform you could not exercise locally so reviewers can
   watch the matrix workflow accordingly.
 

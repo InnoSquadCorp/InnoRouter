@@ -10,8 +10,9 @@ InnoRouter 6는 하나의 `@Router` enum을 하나의 navigation 모델로 연�
 - `RouterStore<Route>`: reduce, policy prepare, atomic commit의 단일 권한
 - `RouterHost`, `RouterTabHost`, `RouterSplitHost`: native SwiftUI container
 
-> **6.0 상태:** 아직 태그를 만들지 않은 로컬 릴리스 후보입니다. 6.0이 공개된
-> 적이 없으므로, 6.1–6.3으로 계획한 기능도 첫 6.0 태그 전에 함께 포함합니다.
+> **6.0 상태:** 6.0.0을 배포했습니다. 6.1–6.3으로 계획했던 기능은 첫 태그
+> 이전에 모두 포함했으므로 배포 이후 SemVer를 깨지 않았습니다. 이제 breaking
+> 변경은 다음 major 릴리스를 대상으로 합니다.
 
 [English](README.md) · [6.0 전략](Docs/v6-functional-strategy.md) ·
 [5.x 마이그레이션](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)

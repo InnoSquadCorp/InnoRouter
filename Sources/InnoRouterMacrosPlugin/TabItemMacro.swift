@@ -48,7 +48,8 @@ private func isRouterEnum(_ enumDecl: EnumDeclSyntax) -> Bool {
 func diagnoseTabItem(
     _ message: RouterTabDiagnostic,
     at node: some SyntaxProtocol,
-    context: some MacroExpansionContext
+    context: some MacroExpansionContext,
+    fixIts: [FixIt] = []
 ) {
-    context.diagnose(Diagnostic(node: node, message: message))
+    context.diagnose(Diagnostic(node: node, message: message, fixIts: fixIts))
 }

@@ -10,9 +10,9 @@ InnoRouter 6 turns one `@Router` enum into one navigation model:
 - `RouterStore<Route>` reduces, prepares policies, and commits atomically.
 - `RouterHost`, `RouterTabHost`, and `RouterSplitHost` render native SwiftUI containers.
 
-> **6.0 status:** this branch is an untagged local release candidate. Because
-> no 6.0 tag has been published, it also incorporates the originally planned
-> 6.1–6.3 capability sets without creating a post-release SemVer break.
+> **6.0 status:** 6.0.0 is published. The capability sets originally planned
+> for 6.1–6.3 were folded in before the first tag, so no post-release SemVer
+> break was needed. Breaking changes now target the next major release.
 
 [한국어](README.ko.md) · [6.0 strategy](Docs/v6-functional-strategy.md) ·
 [5.x migration](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
@@ -26,7 +26,7 @@ InnoRouter 6 turns one `@Router` enum into one navigation model:
 
 ## Installation
 
-After 6.0.0 is published, add the package and its single runtime product:
+Add the package and its single runtime product:
 
 ```swift skip package-manifest-fragment
 .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.0.0")
@@ -464,12 +464,21 @@ gates pass.
 ## Quality gates
 
 ```bash
-swift test --jobs 2
+swift test --jobs 2 --no-parallel
 ./scripts/check-public-api.sh
 ./scripts/check-docs-consistency.sh
 ./scripts/check-docs-code-blocks.sh
 ./scripts/principle-gates.sh
 ```
+
+`--no-parallel` is required, not optional. `RouterSnapshotStorage` is a
+synchronous protocol by design, so the restoration suites' storage doubles
+hold a real thread inside `load()`/`save()` to keep an operation open. Swift
+Testing runs suites concurrently in-process by default, and enough
+simultaneously blocked doubles starve the cooperative pool: the restoration
+tests then fail with 60s time-limit and `loadTimedOut` errors. The gates in
+`scripts/principle-gates.sh` and `.github/workflows/coverage.yml` already pass
+this flag.
 
 Release validation additionally builds every supported Apple platform and Mac
 Catalyst, verifies library-evolution interfaces for all three public products,

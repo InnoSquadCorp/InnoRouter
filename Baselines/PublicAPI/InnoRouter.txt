@@ -1691,7 +1691,7 @@ symbol | swift.property | DeepLinkInputLimitViolation.localizedDescription | loc
 symbol | swift.property | DeepLinkInputLimits.maxPathSegments | maxPathSegments | var maxPathSegments: Int? | []
 symbol | swift.property | DeepLinkInputLimits.maxQueryItems | maxQueryItems | var maxQueryItems: Int? | []
 symbol | swift.property | DeepLinkInputLimits.maxURLLength | maxURLLength | var maxURLLength: Int? | []
-symbol | swift.property | DeepLinkMatcher.diagnostics | diagnostics | let diagnostics: [DeepLinkMatcherDiagnostic] | []
+symbol | swift.property | DeepLinkMatcher.diagnostics | diagnostics | var diagnostics: [DeepLinkMatcherDiagnostic] { get } | []
 symbol | swift.property | DeepLinkMatcherConfiguration.diagnosticsMode | diagnosticsMode | var diagnosticsMode: DeepLinkMatcherDiagnosticsMode | []
 symbol | swift.property | DeepLinkMatcherConfiguration.inputLimits | inputLimits | var inputLimits: DeepLinkInputLimits | []
 symbol | swift.property | DeepLinkMatcherConfiguration.logger | logger | var logger: Logger? | []

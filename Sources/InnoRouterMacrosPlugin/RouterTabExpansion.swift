@@ -67,7 +67,14 @@ func analyzeRouterTabs(
             continue
         }
         guard attributes.count == 1, let attribute = attributes.first else {
-            diagnoseTabItem(.duplicateTabItem, at: attributes[1], context: context)
+            if let duplicate = duplicateAttributeDiagnosis(attributes, in: caseDecl) {
+                diagnoseTabItem(
+                    .duplicateTabItem,
+                    at: duplicate.anchor,
+                    context: context,
+                    fixIts: duplicate.fixIts
+                )
+            }
             return .invalid
         }
         guard caseDecl.elements.count == 1, let element = caseDecl.elements.first else {

@@ -245,6 +245,35 @@ struct DeepLinkValueContractTests {
         #expect(matcher.match("https://[") == nil)
     }
 
+    // `diagnostics` is computed on demand so that building a matcher — which
+    // `@Router` does inside every generated `resolveDeepLink` call — does not
+    // pay the quadratic pattern-pair comparison. `.disabled` must keep
+    // suppressing emission only, never availability, and repeated reads must
+    // stay stable.
+    @Test("Disabled diagnostics remain readable and stable across accesses")
+    func disabledDiagnosticsRemainReadable() {
+        let matcher = DeepLinkMatcher<Match>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/home") { _ in .direct }
+            DeepLinkMapping("/home") { _ in .direct }
+        }
+
+        let first = matcher.diagnostics
+        #expect(first.contains {
+            if case .duplicatePattern = $0 { true } else { false }
+        })
+        #expect(matcher.diagnostics == first)
+
+        let quiet = DeepLinkMatcher<Match>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/home") { _ in .direct }
+            DeepLinkMapping("/settings") { _ in .direct }
+        }
+        #expect(quiet.diagnostics.isEmpty)
+    }
+
     @Test("Strict diagnostics cover every structural authoring failure")
     func strictDiagnostics() throws {
         let matcher = DeepLinkMatcher<Match>(

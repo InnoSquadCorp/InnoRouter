@@ -62,7 +62,7 @@ public final class RouterStore<R: Route> {
     @ObservationIgnored
     var activeQueuedExecutionTask: Task<Void, Never>?
     @ObservationIgnored
-    var activePolicyRaces: [RouterTransitionID: RouterPolicyTimeoutRace] = [:]
+    var activePolicyRaces: [RouterTransitionID: RouterTimeoutRace<RouterPolicyDecision>] = [:]
     @ObservationIgnored
     var queuedRequests: [QueuedRouterRequest<R>] = []
     @ObservationIgnored

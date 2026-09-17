@@ -30,7 +30,8 @@ public struct FeatureRouteMacro: PeerMacro {
 func diagnoseFeature(
     _ message: RouterFeatureDiagnostic,
     at node: some SyntaxProtocol,
-    context: some MacroExpansionContext
+    context: some MacroExpansionContext,
+    fixIts: [FixIt] = []
 ) {
-    context.diagnose(Diagnostic(node: node, message: message))
+    context.diagnose(Diagnostic(node: node, message: message, fixIts: fixIts))
 }

@@ -140,7 +140,14 @@ func analyzeRouterPresentationResults(
     for caseDeclaration in annotated {
         let attributes = presentationResultAttributes(on: caseDeclaration)
         guard attributes.count == 1, let attribute = attributes.first else {
-            diagnosePresentationResult(.duplicate, at: attributes[1], context: context)
+            if let duplicate = duplicateAttributeDiagnosis(attributes, in: caseDeclaration) {
+                diagnosePresentationResult(
+                    .duplicate,
+                    at: duplicate.anchor,
+                    context: context,
+                    fixIts: duplicate.fixIts
+                )
+            }
             return .invalid
         }
         guard caseDeclaration.elements.count == 1,
@@ -279,13 +286,21 @@ private func presentationResultParameters(
     guard let parameters else { return [] }
     var usedNames: Set<String> = []
     return parameters.enumerated().map { index, parameter in
-        let first = parameter.firstName.map(escapedIdentifier)
-        let second = parameter.secondName.map(escapedIdentifier)
+        // The first name reaches two positions with opposite escaping rules.
+        // At a call site it is an argument label, where a bare keyword is
+        // legal and a backtick warns ("does not need to be escaped"). In the
+        // generated declaration it also names the binding, which a bare
+        // keyword cannot spell. Swift treats `in` and `` `in` `` as the same
+        // name, so the warning-free declaration is the combined single-name
+        // form written escaped — not a `label binding:` pair.
+        let firstLabel = parameter.firstName.map(escapedIdentifier)
+        let firstBinding = firstLabel.map(escapedBindingSpelling)
+        let second = parameter.secondName.map(escapedBindingIdentifier)
         let preferredName: String
         if let second {
             preferredName = second
-        } else if let first, first != "_" {
-            preferredName = first
+        } else if let firstBinding, firstLabel != "_" {
+            preferredName = firstBinding
         } else {
             preferredName = "value\(index)"
         }
@@ -299,13 +314,13 @@ private func presentationResultParameters(
         let type = casePathPayloadType(parameter.type, enumName: routeType)
         let declaration: String
         let invocation: String
-        if let first, first != "_" {
-            if second != nil || localName != first {
-                declaration = "\(first) \(localName): \(type)"
+        if let firstLabel, let firstBinding, firstLabel != "_" {
+            if second != nil || localName != firstBinding {
+                declaration = "\(firstLabel) \(localName): \(type)"
             } else {
-                declaration = "\(first): \(type)"
+                declaration = "\(firstBinding): \(type)"
             }
-            invocation = "\(first): \(localName)"
+            invocation = "\(firstLabel): \(localName)"
         } else {
             declaration = "_ \(localName): \(type)"
             invocation = localName
@@ -327,7 +342,8 @@ private func hasRouterAttributeForPresentationResult(_ enumDecl: EnumDeclSyntax)
 private func diagnosePresentationResult(
     _ message: RouterPresentationResultDiagnostic,
     at node: some SyntaxProtocol,
-    context: some MacroExpansionContext
+    context: some MacroExpansionContext,
+    fixIts: [FixIt] = []
 ) {
-    context.diagnose(Diagnostic(node: node, message: message))
+    context.diagnose(Diagnostic(node: node, message: message, fixIts: fixIts))
 }

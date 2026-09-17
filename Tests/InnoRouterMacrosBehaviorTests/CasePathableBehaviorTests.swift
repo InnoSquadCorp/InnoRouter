@@ -51,6 +51,17 @@ enum CollidingBindingEvent {
     case mixed(Int, v0: String)
 }
 
+// A keyword is legal as an argument label but not as a binding name. These
+// cases previously expanded to `let in`, which crashed swift-frontend.
+@CasePathable
+enum KeywordLabelEvent: Equatable {
+    case single(in: Int)
+    case pair(where: String, repeat: Bool)
+    case mixedKeywords(as: Int, in: Int)
+    case keywordAndPlain(for: Int, id: String)
+    case escapedLabel(`default`: Int)
+}
+
 struct SelfNamedPayload {
     let value: Int
 }
@@ -113,6 +124,56 @@ struct CasePathableBehaviorTests {
 
         let mismatched: Void? = path.extract(.opened(id: "x"))
         #expect(mismatched == nil)
+    }
+
+    // MARK: - keyword argument labels
+
+    @Test("keyword argument label roundtrips through CasePath")
+    func embedExtract_roundtrip_keywordLabel() {
+        let path = KeywordLabelEvent.Cases.single
+        let embedded = path.embed(7)
+        #expect(path.extract(embedded) == 7)
+
+        // The label must survive as written, so the embedded value has to
+        // match a hand-written `.single(in:)`.
+        #expect(embedded == KeywordLabelEvent.single(in: 7))
+        #expect(path.extract(.escapedLabel(default: 1)) == nil)
+    }
+
+    @Test("two keyword argument labels roundtrip through CasePath")
+    func embedExtract_roundtrip_keywordLabelPair() {
+        let path = KeywordLabelEvent.Cases.pair
+        let embedded = path.embed(("x", true))
+        let extracted = path.extract(embedded)
+        #expect(extracted?.0 == "x")
+        #expect(extracted?.1 == true)
+        #expect(embedded == KeywordLabelEvent.pair(where: "x", repeat: true))
+    }
+
+    @Test("repeated keyword labels bind to distinct values")
+    func embedExtract_roundtrip_repeatedKeywordLabels() {
+        // `as` and `in` are both keywords; each needs its own escaped
+        // binding or the extract would reuse one name twice.
+        let path = KeywordLabelEvent.Cases.mixedKeywords
+        let extracted = path.extract(path.embed((1, 2)))
+        #expect(extracted?.0 == 1)
+        #expect(extracted?.1 == 2)
+    }
+
+    @Test("keyword and ordinary labels mix in one case")
+    func embedExtract_roundtrip_keywordAndPlainLabels() {
+        let path = KeywordLabelEvent.Cases.keywordAndPlain
+        let extracted = path.extract(path.embed((3, "id")))
+        #expect(extracted?.0 == 3)
+        #expect(extracted?.1 == "id")
+    }
+
+    @Test("author-escaped label keeps its single escaping")
+    func embedExtract_roundtrip_escapedLabel() {
+        let path = KeywordLabelEvent.Cases.escapedLabel
+        let embedded = path.embed(9)
+        #expect(path.extract(embedded) == 9)
+        #expect(embedded == KeywordLabelEvent.escapedLabel(default: 9))
     }
 
     @Test("single labeled case roundtrips preserving identifier")
