@@ -196,28 +196,18 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
     }
 
     private var store: RouterStore<R> {
-        if let suppliedStore { return suppliedStore }
-        guard let ownedStore else {
-            preconditionFailure("RouterSplitHost requires either an owned or supplied store")
-        }
-        return ownedStore
+        resolveSplitHostStore(
+            supplied: suppliedStore,
+            owned: ownedStore,
+            hostName: "RouterSplitHost"
+        )
     }
 
     private static func makeInitialState(
         split: RouterSplitState,
         branches: [RouterBranch<R>]
     ) -> RouterState<R> {
-        do {
-            let container = try RouterContainerState<R>(
-                style: .split,
-                selection: split.detail,
-                branches: branches,
-                split: split
-            )
-            return try RouterState(root: .container(container))
-        } catch {
-            preconditionFailure("Validated two-column layout produced invalid state: \(error)")
-        }
+        makeSplitHostInitialState(split: split, branches: branches, hostName: "two-column")
     }
 }
 
@@ -360,26 +350,57 @@ public struct RouterThreeColumnSplitHost<
         split: RouterSplitState,
         branches: [RouterBranch<R>]
     ) -> RouterState<R> {
-        do {
-            let container = try RouterContainerState<R>(
-                style: .split,
-                selection: split.detail,
-                branches: branches,
-                split: split
-            )
-            return try RouterState(root: .container(container))
-        } catch {
-            preconditionFailure("Validated three-column layout produced invalid state: \(error)")
-        }
+        makeSplitHostInitialState(split: split, branches: branches, hostName: "three-column")
     }
 
     private var store: RouterStore<R> {
-        if let suppliedStore { return suppliedStore }
-        guard let ownedStore else {
-            preconditionFailure("RouterThreeColumnSplitHost requires either an owned or supplied store")
-        }
-        return ownedStore
+        resolveSplitHostStore(
+            supplied: suppliedStore,
+            owned: ownedStore,
+            hostName: "RouterThreeColumnSplitHost"
+        )
     }
+}
+
+// MARK: - Shared split-host plumbing
+
+/// Builds the root split container both split hosts start from.
+///
+/// The hosts stay separate types — their bodies render different containers —
+/// but this step was written twice, identical apart from the wording that
+/// `hostName` now carries.
+@MainActor
+func makeSplitHostInitialState<R: Route>(
+    split: RouterSplitState,
+    branches: [RouterBranch<R>],
+    hostName: String
+) -> RouterState<R> {
+    do {
+        let container = try RouterContainerState<R>(
+            style: .split,
+            selection: split.detail,
+            branches: branches,
+            split: split
+        )
+        return try RouterState(root: .container(container))
+    } catch {
+        preconditionFailure("Validated \(hostName) layout produced invalid state: \(error)")
+    }
+}
+
+/// Resolves whichever store a split host ended up owning. Every initializer
+/// seeds exactly one, so neither being set is an internal invariant failure.
+@MainActor
+func resolveSplitHostStore<R: Route>(
+    supplied: RouterStore<R>?,
+    owned: RouterStore<R>?,
+    hostName: String
+) -> RouterStore<R> {
+    if let supplied { return supplied }
+    guard let owned else {
+        preconditionFailure("\(hostName) requires either an owned or supplied store")
+    }
+    return owned
 }
 
 @MainActor
