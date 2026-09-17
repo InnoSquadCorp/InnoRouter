@@ -81,7 +81,12 @@ public struct PresentationResultMacro: PeerMacro {
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         guard declaration.is(EnumCaseDeclSyntax.self) else {
-            diagnosePresentationResult(.requiresCase, at: node, context: context)
+            diagnosePresentationResult(
+                .requiresCase,
+                at: node,
+                context: context,
+                fixIts: [removeMisplacedAttributeFixIt(node, in: declaration)]
+            )
             return []
         }
         guard context.lexicalContext.lazy.compactMap({ $0.as(EnumDeclSyntax.self) })

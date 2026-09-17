@@ -356,3 +356,112 @@ func duplicateAttributeDiagnosis(
         )
     )
 }
+
+// MARK: - Misplaced marker removal
+
+/// FixIt payload for the `requires…` placement diagnostics.
+struct RemoveMisplacedAttributeFixIt: FixItMessage {
+    let attributeName: String
+
+    var message: String { "Remove `@\(attributeName)`" }
+
+    var fixItID: MessageID {
+        MessageID(domain: "InnoRouterMacros", id: "removeMisplacedAttribute")
+    }
+}
+
+/// Builds a FixIt that deletes `attribute` from whatever it is attached to.
+///
+/// Used by the `requiresCase` diagnostics, where a marker sits on a
+/// declaration that is not an enum case. Removing it is the whole remedy —
+/// there is nothing for the macro to attach to and nothing to preserve.
+///
+/// Trivia is taken the same way as duplicate-marker removal: from `position`,
+/// so the separator that introduced the attribute goes with it, to
+/// `endPositionBeforeTrailingTrivia`, so the break belonging to the
+/// declaration stays.
+func removeMisplacedAttributeFixIt(
+    _ attribute: AttributeSyntax,
+    in enclosing: some SyntaxProtocol
+) -> FixIt {
+    let name = attribute.attributeName.trimmedDescription
+        .split(separator: ".")
+        .last
+        .map(String.init) ?? attribute.attributeName.trimmedDescription
+
+    return FixIt(
+        message: RemoveMisplacedAttributeFixIt(attributeName: name),
+        changes: [
+            .replaceText(
+                range: attribute.position ..< attribute.endPositionBeforeTrailingTrivia,
+                with: "",
+                in: Syntax(enclosing)
+            ),
+        ]
+    )
+}
+
+// MARK: - Unused attribute argument removal
+
+/// FixIt payload for arguments an attribute no longer acts on.
+struct RemoveAttributeArgumentsFixIt: FixItMessage {
+    let labels: [String]
+
+    var message: String {
+        labels.count == 1
+            ? "Remove `\(labels[0]):`"
+            : "Remove " + labels.map { "`\($0):`" }.joined(separator: " and ")
+    }
+
+    var fixItID: MessageID {
+        MessageID(domain: "InnoRouterMacros", id: "removeAttributeArguments")
+    }
+}
+
+/// Builds a FixIt dropping the `labels` arguments from `attribute`.
+///
+/// Used by `unusedAllowlist`, where `@Router` carries deep-link allowlists but
+/// the enum declares no `@DeepLink` case, so the allowlists have no effect.
+/// Arguments the attribute still acts on — `inspectorCatalog:`, say — are kept,
+/// and the parentheses are dropped only when nothing is left inside them.
+///
+/// Returns `nil` when none of `labels` is present, so a caller that
+/// misidentifies the arguments warns without offering a wrong edit.
+func removeAttributeArgumentsFixIt(
+    _ attribute: AttributeSyntax,
+    labels: [String],
+    in enclosing: some SyntaxProtocol
+) -> FixIt? {
+    guard case .argumentList(let arguments) = attribute.arguments,
+          let leftParen = attribute.leftParen,
+          let rightParen = attribute.rightParen
+    else {
+        return nil
+    }
+    let removedLabels = arguments.compactMap { argument -> String? in
+        guard let label = argument.label?.text, labels.contains(label) else { return nil }
+        return label
+    }
+    guard !removedLabels.isEmpty else { return nil }
+
+    let remaining = arguments.filter { argument in
+        guard let label = argument.label?.text else { return true }
+        return !labels.contains(label)
+    }
+    let replacement = remaining.isEmpty
+        ? ""
+        : "(" + remaining
+            .map { "\($0.label.map { "\($0.text): " } ?? "")\($0.expression.trimmedDescription)" }
+            .joined(separator: ", ") + ")"
+
+    return FixIt(
+        message: RemoveAttributeArgumentsFixIt(labels: removedLabels),
+        changes: [
+            .replaceText(
+                range: leftParen.position ..< rightParen.endPosition,
+                with: replacement,
+                in: Syntax(enclosing)
+            ),
+        ]
+    )
+}

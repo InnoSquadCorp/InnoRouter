@@ -15,7 +15,12 @@ public struct SceneMacro: PeerMacro {
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         guard declaration.is(EnumCaseDeclSyntax.self) else {
-            diagnoseSceneRouter(.sceneRequiresCase, at: node, context: context)
+            diagnoseSceneRouter(
+                .sceneRequiresCase,
+                at: node,
+                context: context,
+                fixIts: [removeMisplacedAttributeFixIt(node, in: declaration)]
+            )
             return []
         }
 

@@ -10,7 +10,12 @@ public struct FeatureRouteMacro: PeerMacro {
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         guard declaration.is(EnumCaseDeclSyntax.self) else {
-            diagnoseFeature(.requiresCase, at: node, context: context)
+            diagnoseFeature(
+                .requiresCase,
+                at: node,
+                context: context,
+                fixIts: [removeMisplacedAttributeFixIt(node, in: declaration)]
+            )
             return []
         }
         guard let nearestEnum = context.lexicalContext.lazy.compactMap({

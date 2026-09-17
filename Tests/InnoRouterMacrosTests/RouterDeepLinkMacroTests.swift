@@ -562,10 +562,69 @@ struct RouterDeepLinkDiagnosticMacroTests {
                 DiagnosticSpec(
                     message: "[InnoRouterMacro.E017] @DeepLink can only be attached to an enum case inside an @Router enum",
                     line: 2,
-                    column: 5
+                    column: 5,
+                    fixIts: [
+                        FixItSpec(message: "Remove `@DeepLink`"),
+                    ]
                 )
             ],
-            macros: makeTestMacros()
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove `@DeepLink`"],
+            fixedSource: """
+            struct Example {
+                var value = 0
+            }
+            """
+        )
+    }
+
+    // The allowlist fix-it must keep arguments @Router still acts on, and drop
+    // the parentheses only when nothing is left inside them.
+    @Test("W006 fix-it keeps arguments the router still uses")
+    func unusedAllowlistFixItKeepsOtherArguments() throws {
+        assertMacroExpansion(
+            """
+            @Router(deepLinkSchemes: ["innorouter"], inspectorCatalog: true)
+            enum PlainRoute {
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum PlainRoute {
+                case home
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension PlainRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.W006] deep-link allowlists have no effect because this @Router has no @DeepLink cases",
+                    line: 1,
+                    column: 1,
+                    severity: .warning,
+                    fixIts: [
+                        FixItSpec(message: "Remove `deepLinkSchemes:`"),
+                    ]
+                )
+            ],
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove `deepLinkSchemes:`"],
+            fixedSource: """
+            @Router(inspectorCatalog: true)
+            enum PlainRoute {
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """
         )
     }
 
@@ -1206,10 +1265,21 @@ struct RouterDeepLinkDiagnosticMacroTests {
                     message: "[InnoRouterMacro.W006] deep-link allowlists have no effect because this @Router has no @DeepLink cases",
                     line: 1,
                     column: 1,
-                    severity: .warning
+                    severity: .warning,
+                    fixIts: [
+                        FixItSpec(message: "Remove `deepLinkSchemes:` and `deepLinkHosts:`"),
+                    ]
                 )
             ],
-            macros: makeTestMacros()
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove `deepLinkSchemes:` and `deepLinkHosts:`"],
+            fixedSource: """
+            @Router
+            enum PlainRoute {
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """
         )
     }
 
@@ -1291,7 +1361,10 @@ struct RouterDeepLinkDiagnosticMacroTests {
                     message: "[InnoRouterMacro.W007] DeepLinkRoute conformance is supplied by @Router when @DeepLink is present; remove the explicit conformance",
                     line: 5,
                     column: 20,
-                    severity: .warning
+                    severity: .warning,
+                    fixIts: [
+                        FixItSpec(message: "Remove the redundant `DeepLinkRoute` conformance"),
+                    ]
                 )
             ],
             macros: makeTestMacros()
