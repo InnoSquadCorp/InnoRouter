@@ -3,19 +3,34 @@ import OSLog
 
 /// Resolves URLs by walking ``DeepLinkMapping`` values in declaration order.
 ///
-/// The output type describes what a matched URL produces. Use a route type
-/// for single-route resolution, or `FlowPlan<R>` when one URL must
-/// rehydrate a push prefix plus a modal tail:
+/// - Important: A matcher checks the **path and query only**. It does not
+///   inspect the scheme, host, user information, or port, so
+///   `https://evil.example.com/home/detail/1` matches `/home/detail/:id`
+///   exactly as a trusted origin would. ``DeepLinkOriginPolicy`` requires an
+///   allowlist at every external URL entry point, and a bare matcher does not
+///   provide one.
+///
+///   Prefer a surface that enforces the origin for you. `@DeepLink` on a
+///   `@Router` case generates a `resolveDeepLink(_:)` that rejects user
+///   information, explicit ports, and any scheme or host outside the
+///   allowlist before matching, and `RouterLinkPipeline` applies
+///   ``DeepLinkAdmission`` the same way. Reach for `DeepLinkMatcher` directly
+///   only for URLs your own process constructed, or pair it with
+///   ``DeepLinkAdmission`` yourself.
+///
+/// The output type describes what a matched URL produces. Use a route type for
+/// single-route resolution, or `RouterPlan<R>` when one URL must rehydrate a
+/// whole navigation state:
 ///
 /// ```swift
 /// let routeMatcher = DeepLinkMatcher<AppRoute> {
 ///     DeepLinkMapping("/home") { _ in .home }
 /// }
 ///
-/// let flowMatcher = DeepLinkMatcher<FlowPlan<AppRoute>> {
+/// let planMatcher = DeepLinkMatcher<RouterPlan<AppRoute>> {
 ///     DeepLinkMapping("/home/detail/:id") { parameters in
 ///         guard let id = parameters.firstValue(forName: "id") else { return nil }
-///         return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
+///         return RouterPlan(state: .rootStack(path: [.home, .detail(id: id)]))
 ///     }
 /// }
 /// ```
@@ -71,10 +86,20 @@ public struct DeepLinkMatcher<Output: Sendable>: Sendable {
         self.engine = engine
     }
 
+    /// Returns the first mapping output whose pattern matches `url`.
+    ///
+    /// - Important: Matching covers the path and query only. The scheme, host,
+    ///   user information, and port are never inspected, so this admits a URL
+    ///   from any origin. See the type documentation for the surfaces that
+    ///   enforce ``DeepLinkOriginPolicy`` before matching.
     public func match(_ url: URL) -> Output? {
         engine.match(url)
     }
 
+    /// Returns the first mapping output whose pattern matches `urlString`.
+    ///
+    /// - Important: Matching covers the path and query only, and the origin is
+    ///   never checked. See ``match(_:)-(URL)`` and the type documentation.
     public func match(_ urlString: String) -> Output? {
         engine.match(urlString)
     }

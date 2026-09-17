@@ -250,6 +250,16 @@ if rg -n '\b(NavigationStore|ModalStore|FlowStore|AppShellStore|AdaptiveSplitSto
   exit 1
 fi
 
+# The markdown sweep above cannot see API documentation, which lives in `///`
+# comments inside the Swift sources. `FlowPlan` survived there in
+# `DeepLinkMatcher`'s doc comment — a code sample referencing a 5.x type that
+# no longer compiles — while every markdown file was clean.
+echo "[lint-source-gates] Checking source doc comments for retired 5.x surfaces"
+if rg -n '^\s*///.*\b(NavigationStore|ModalStore|FlowStore|AppShellStore|AdaptiveSplitStore|SceneStore|NavigationIntent|ModalIntent|FlowIntent|NavigationPlan|FlowPlan|AsyncNavigationMiddlewareExecutor|ChildCoordinator|RouterModalHost)\b' Sources --glob '*.swift'; then
+  echo "[lint-source-gates] Failed: a source doc comment references a retired 5.x surface"
+  exit 1
+fi
+
 echo "[lint-source-gates] Checking documentation for semver tag formatting"
 if rg -n '\bvX\.Y\.Z\b|\bv[0-9]+\.[0-9]+\.[0-9]+\b' README.md RELEASING.md CLAUDE.md Docs Sources --glob '*.md'; then
   echo "[lint-source-gates] Failed: documentation still references v-prefixed release tags"
