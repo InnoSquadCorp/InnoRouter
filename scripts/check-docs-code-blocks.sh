@@ -33,6 +33,12 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 mkdir -p "$TMP_DIR/Sources/DocSnippetCompile"
 export CLANG_MODULE_CACHE_PATH="$ROOT_DIR/.build/doc-snippet-module-cache"
 
+# SwiftPM derives a path dependency's identity from its directory name, which
+# is the repository name in a normal checkout but the worktree name inside a
+# `git worktree`. Reference it by the actual directory so this gate runs from
+# either location.
+INNOROUTER_PACKAGE_REF="$(basename "$ROOT_DIR")"
+
 cat >"$TMP_DIR/Package.swift" <<EOF
 // swift-tools-version: 6.3
 
@@ -54,9 +60,9 @@ let package = Package(
         .executableTarget(
             name: "DocSnippetCompile",
             dependencies: [
-                .product(name: "InnoRouter", package: "InnoRouter"),
-                .product(name: "InnoRouterInspector", package: "InnoRouter"),
-                .product(name: "InnoRouterTesting", package: "InnoRouter")
+                .product(name: "InnoRouter", package: "$INNOROUTER_PACKAGE_REF"),
+                .product(name: "InnoRouterInspector", package: "$INNOROUTER_PACKAGE_REF"),
+                .product(name: "InnoRouterTesting", package: "$INNOROUTER_PACKAGE_REF")
             ]
         )
     ]
