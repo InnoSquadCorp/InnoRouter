@@ -19,7 +19,12 @@ public struct TabItemMacro: PeerMacro {
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         guard declaration.is(EnumCaseDeclSyntax.self) else {
-            diagnoseTabItem(.tabItemRequiresCase, at: node, context: context)
+            diagnoseTabItem(
+                .tabItemRequiresCase,
+                at: node,
+                context: context,
+                fixIts: [removeMisplacedAttributeFixIt(node, in: declaration)]
+            )
             return []
         }
 

@@ -395,6 +395,221 @@ struct RouterCompositionMacroTests {
     // runs for an empty list, so the subscript was an out-of-bounds trap held
     // off only by caller pre-filtering. They now describe the duplicates and
     // offer the removal edit.
+    // Only @DeepLink's misplacement diagnostic had a test; the other four
+    // markers' `requiresCase` paths were never exercised. Each now asserts the
+    // diagnostic and the removal edit.
+    @Test("Misplaced @TabItem offers a removal fix-it")
+    func misplacedTabItemOffersRemoval() {
+        assertMacroExpansion(
+            """
+            struct Example {
+                @TabItem("Home", systemImage: "house")
+                var value = 0
+            }
+            """,
+            expandedSource: """
+            struct Example {
+                var value = 0
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E007] @TabItem can only be attached to an enum case inside an @Router enum",
+                    line: 2,
+                    column: 5,
+                    fixIts: [
+                        FixItSpec(message: "Remove `@TabItem`"),
+                    ]
+                )
+            ],
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove `@TabItem`"],
+            fixedSource: """
+            struct Example {
+                var value = 0
+            }
+            """
+        )
+    }
+
+    @Test("Misplaced @Scene offers a removal fix-it")
+    func misplacedSceneOffersRemoval() {
+        assertMacroExpansion(
+            """
+            struct Example {
+                @Scene("window")
+                var value = 0
+            }
+            """,
+            expandedSource: """
+            struct Example {
+                var value = 0
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E030] @Scene can only be attached to an enum case inside an @Router enum",
+                    line: 2,
+                    column: 5,
+                    fixIts: [
+                        FixItSpec(message: "Remove `@Scene`"),
+                    ]
+                )
+            ],
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove `@Scene`"],
+            fixedSource: """
+            struct Example {
+                var value = 0
+            }
+            """
+        )
+    }
+
+    @Test("Misplaced @FeatureRoute offers a removal fix-it")
+    func misplacedFeatureRouteOffersRemoval() {
+        assertMacroExpansion(
+            """
+            struct Example {
+                @FeatureRoute("account")
+                var value = 0
+            }
+            """,
+            expandedSource: """
+            struct Example {
+                var value = 0
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E058] @FeatureRoute can only be attached to an enum case inside an @Router enum",
+                    line: 2,
+                    column: 5,
+                    fixIts: [
+                        FixItSpec(message: "Remove `@FeatureRoute`"),
+                    ]
+                )
+            ],
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove `@FeatureRoute`"],
+            fixedSource: """
+            struct Example {
+                var value = 0
+            }
+            """
+        )
+    }
+
+    @Test("Misplaced @PresentationResult offers a removal fix-it")
+    func misplacedPresentationResultOffersRemoval() {
+        assertMacroExpansion(
+            """
+            struct Example {
+                @PresentationResult(Int.self)
+                var value = 0
+            }
+            """,
+            expandedSource: """
+            struct Example {
+                var value = 0
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E051] @PresentationResult can only be attached to an enum case",
+                    line: 2,
+                    column: 5,
+                    fixIts: [
+                        FixItSpec(message: "Remove `@PresentationResult`"),
+                    ]
+                )
+            ],
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove `@PresentationResult`"],
+            fixedSource: """
+            struct Example {
+                var value = 0
+            }
+            """
+        )
+    }
+
+    @Test("Redundant RouterTabRoute conformance offers a removal fix-it")
+    func redundantRouterTabConformanceFixIt() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute: RouterTabRoute {
+                @TabItem("Home", systemImage: "house")
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute: RouterTabRoute {
+                case home
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension AppRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Tab: Swift.String, InnoRouterSwiftUI.RouterTab {
+                    case home
+
+                    internal var title: Foundation.LocalizedStringResource {
+                        switch self {
+                        case .home:
+                            return "Home"
+                        }
+                    }
+
+                    internal var systemImage: Swift.String {
+                        switch self {
+                        case .home:
+                            return "house"
+                        }
+                    }
+
+                    internal var routerScopeID: InnoRouterCore.RouterScopeID {
+                        InnoRouterCore.RouterScopeID(rawValue)
+                    }
+                }
+
+                internal static var routerTabs: [InnoRouterSwiftUI.RouterTabDescriptor<Self, Tab>] {
+                    [.init(tab: .home, root: .home)]
+                }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.W004] RouterTabRoute conformance is supplied by @Router when @TabItem is present; remove the explicit conformance",
+                    line: 2,
+                    column: 14,
+                    severity: .warning,
+                    fixIts: [
+                        FixItSpec(message: "Remove the redundant `RouterTabRoute` conformance"),
+                    ]
+                )
+            ],
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove the redundant `RouterTabRoute` conformance"],
+            fixedSource: """
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house")
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """
+        )
+    }
+
     @Test("Duplicate @TabItem offers a removal fix-it")
     func duplicateTabItemFixIt() {
         assertMacroExpansion(

@@ -92,7 +92,7 @@ func analyzeRouterDeepLinks(
                 )
             }
             if origin.hasValues {
-                diagnoseDeepLink(.unusedAllowlist, at: routerAttribute, context: context)
+                diagnoseUnusedDeepLinkAllowlist(routerAttribute, in: enumDecl, context: context)
             }
             return .none
         }
@@ -128,7 +128,18 @@ func analyzeRouterDeepLinks(
 
         let directlyConforms = directlyConforms(enumDecl, to: "DeepLinkRoute")
         if directlyConforms, let inheritanceClause = enumDecl.inheritanceClause {
-            diagnoseDeepLink(.redundantConformance, at: inheritanceClause, context: context)
+            diagnoseDeepLink(
+                .redundantConformance,
+                at: inheritanceClause,
+                context: context,
+                fixIts: [
+                    removeConformanceFixIt(
+                        named: "DeepLinkRoute",
+                        from: inheritanceClause,
+                        in: enumDecl
+                    ),
+                ].compactMap { $0 }
+            )
         }
 
         return .valid(
@@ -144,4 +155,25 @@ func analyzeRouterDeepLinks(
             )
         )
     }
+}
+
+/// Warns that deep-link allowlists have no effect on a router with no
+/// `@DeepLink` case, offering to drop just those arguments.
+private func diagnoseUnusedDeepLinkAllowlist(
+    _ routerAttribute: AttributeSyntax,
+    in enumDecl: EnumDeclSyntax,
+    context: some MacroExpansionContext
+) {
+    diagnoseDeepLink(
+        .unusedAllowlist,
+        at: routerAttribute,
+        context: context,
+        fixIts: [
+            removeAttributeArgumentsFixIt(
+                routerAttribute,
+                labels: ["deepLinkSchemes", "deepLinkHosts"],
+                in: enumDecl
+            ),
+        ].compactMap { $0 }
+    )
 }

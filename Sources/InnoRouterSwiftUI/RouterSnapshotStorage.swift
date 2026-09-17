@@ -25,43 +25,14 @@ public struct RouterFileSnapshotStorage: RouterSnapshotStorage, Sendable {
     }
 
     public func load() throws -> Data? {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            return nil
-        }
-        return try Data(contentsOf: fileURL)
+        try RouterAtomicFileStore(fileURL: fileURL).load()
     }
 
     public func save(_ data: Data) throws {
-        let directory = fileURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(
-            at: directory,
-            withIntermediateDirectories: true
-        )
-        try data.write(to: fileURL, options: .atomic)
+        try RouterAtomicFileStore(fileURL: fileURL).save(data)
     }
 
     public func remove() throws {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
-        try FileManager.default.removeItem(at: fileURL)
-    }
-}
-
-package actor RouterSnapshotStorageExecutor {
-    let storage: any RouterSnapshotStorage
-
-    init(storage: any RouterSnapshotStorage) {
-        self.storage = storage
-    }
-
-    func load() throws -> Data? {
-        try storage.load()
-    }
-
-    func save(_ data: Data) throws {
-        try storage.save(data)
-    }
-
-    func remove() throws {
-        try storage.remove()
+        try RouterAtomicFileStore(fileURL: fileURL).remove()
     }
 }

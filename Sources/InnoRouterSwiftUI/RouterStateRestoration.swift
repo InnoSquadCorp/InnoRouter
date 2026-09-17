@@ -35,7 +35,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     @ObservationIgnored
     private let recovery: RouterSnapshotRecoveryPolicy<R>
     @ObservationIgnored
-    private let executor: RouterSnapshotStorageExecutor
+    private let executor: RouterByteStoreExecutor
     @ObservationIgnored
     private let codecExecutor: RouterSnapshotCodecExecutor<R>
     @ObservationIgnored
@@ -85,7 +85,11 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         self.store = store
         self.codec = codec
         self.recovery = recovery
-        self.executor = RouterSnapshotStorageExecutor(storage: storage)
+        self.executor = RouterByteStoreExecutor(
+            load: { try storage.load() },
+            save: { try storage.save($0) },
+            remove: { try storage.remove() }
+        )
         self.codecExecutor = RouterSnapshotCodecExecutor(codec: codec)
         self.saveDebounce = max(saveDebounce, .zero)
     }

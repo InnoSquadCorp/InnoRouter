@@ -133,13 +133,11 @@ func analyzeRouterTabs(
     }
 
     let directlyConformsToRouterTabRoute = directlyConforms(enumDecl, to: "RouterTabRoute")
-    if directlyConformsToRouterTabRoute, let inheritanceClause = enumDecl.inheritanceClause {
-        diagnoseTabItem(
-            .redundantRouterTabConformance,
-            at: inheritanceClause,
-            context: context
-        )
-    }
+    diagnoseRedundantRouterTabConformance(
+        in: enumDecl,
+        isRedundant: directlyConformsToRouterTabRoute,
+        context: context
+    )
 
     return .valid(
         RouterTabSpecification(
@@ -382,4 +380,26 @@ private func firstConflictingTabMember(in enumDecl: EnumDeclSyntax) -> Conflicti
         return nil
     }
     return ConflictingTabMember(name: conflict.name, declaration: conflict.declaration)
+}
+
+/// Warns about an explicit `RouterTabRoute` conformance that `@Router` already
+/// supplies, offering the removal edit.
+private func diagnoseRedundantRouterTabConformance(
+    in enumDecl: EnumDeclSyntax,
+    isRedundant: Bool,
+    context: some MacroExpansionContext
+) {
+    guard isRedundant, let inheritanceClause = enumDecl.inheritanceClause else { return }
+    diagnoseTabItem(
+        .redundantRouterTabConformance,
+        at: inheritanceClause,
+        context: context,
+        fixIts: [
+            removeConformanceFixIt(
+                named: "RouterTabRoute",
+                from: inheritanceClause,
+                in: enumDecl
+            ),
+        ].compactMap { $0 }
+    )
 }

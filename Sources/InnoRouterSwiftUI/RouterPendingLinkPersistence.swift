@@ -24,21 +24,15 @@ public struct RouterFilePendingLinkStorage: RouterPendingLinkStorage, Sendable {
     }
 
     public func load() throws -> Data? {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
-        return try Data(contentsOf: fileURL)
+        try RouterAtomicFileStore(fileURL: fileURL).load()
     }
 
     public func save(_ data: Data) throws {
-        try FileManager.default.createDirectory(
-            at: fileURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        try data.write(to: fileURL, options: .atomic)
+        try RouterAtomicFileStore(fileURL: fileURL).save(data)
     }
 
     public func remove() throws {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
-        try FileManager.default.removeItem(at: fileURL)
+        try RouterAtomicFileStore(fileURL: fileURL).remove()
     }
 }
 
@@ -65,18 +59,6 @@ private struct RouterPendingLinkEnvelope<R: Route & Codable>: Codable {
 
 public enum RouterPendingLinkPersistenceError: Error, Sendable, Hashable {
     case unsupportedSchemaVersion(Int)
-}
-
-private actor RouterPendingLinkStorageExecutor {
-    let storage: any RouterPendingLinkStorage
-
-    init(storage: any RouterPendingLinkStorage) {
-        self.storage = storage
-    }
-
-    func load() throws -> Data? { try storage.load() }
-    func save(_ data: Data) throws { try storage.save(data) }
-    func remove() throws { try storage.remove() }
 }
 
 private actor RouterPendingLinkCodec<R: Route & Codable> {
@@ -113,7 +95,7 @@ public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
 
     @ObservationIgnored private let durability = RouterDurabilityGate()
     @ObservationIgnored private let slot: RouterPendingLinkSlot<R>
-    @ObservationIgnored private let storage: RouterPendingLinkStorageExecutor
+    @ObservationIgnored private let storage: RouterByteStoreExecutor
     @ObservationIgnored private let codec = RouterPendingLinkCodec<R>()
     @ObservationIgnored private var operationGeneration: UInt64 = 0
     @ObservationIgnored private var cancellationOperation: UInt64?
@@ -123,7 +105,11 @@ public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
         storage: any RouterPendingLinkStorage
     ) {
         self.slot = slot
-        self.storage = RouterPendingLinkStorageExecutor(storage: storage)
+        self.storage = RouterByteStoreExecutor(
+            load: { try storage.load() },
+            save: { try storage.save($0) },
+            remove: { try storage.remove() }
+        )
     }
 
     /// Loads once without replacing a slot mutation that occurred during I/O.

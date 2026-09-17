@@ -21,6 +21,18 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- `RouterTabHost(store:)` no longer aborts the process when the store's tab
+  branches do not match the router's catalog. That initializer is a SwiftUI
+  `View` initializer, re-run on every parent body pass, and the branches are
+  not always what the application chose: restoration applies a decoded snapshot
+  through `.apply`, which replaces the root wholesale, and partial restoration
+  preserves branch identifiers as written. A snapshot taken before a tab was
+  renamed or removed therefore reached a host whose catalog no longer matched,
+  and the assertion fired on the next render. The host now renders its catalog
+  and leaves an orphaned branch unused, and a restored selection naming a tab
+  that no longer exists falls back to the first tab. Bumping
+  `RouterSnapshotCodec.currentVersion` remains the way to reject or migrate an
+  old snapshot deliberately.
 - `@Routable` and `@CasePathable` no longer crash the compiler on a case whose
   argument label is a keyword, such as `case detail(in: Int)`. The label was
   reused as the extract binding, which emitted `let in` and failed to parse

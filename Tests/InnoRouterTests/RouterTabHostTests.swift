@@ -197,6 +197,48 @@ struct RouterTabHostTests {
         #expect(tabContainer(in: store)?.badges == ["settings": 4])
     }
 
+    // A snapshot written before a tab was renamed decodes into a store whose
+    // branches no longer match the catalog. `RouterRestorationDriver` applies it
+    // through `.apply`, which replaces the root wholesale, so the mismatch
+    // reaches a View initializer that SwiftUI re-runs every body pass. That
+    // used to abort the process; the host now renders the catalog and lets the
+    // orphaned branch go unused.
+    @Test("RouterTabHost renders a store whose branches predate a tab rename")
+    func staleRestoredBranchesDoNotAbort() async throws {
+        let store = try makeTabStore(initial: .home)
+
+        // Stand in for a decoded snapshot: "settings" was renamed since it was
+        // written, and it carries the selection.
+        let drifted = try RouterContainerState<RouterTabHostRoute>(
+            style: .tabs,
+            selection: "legacySettings",
+            branches: [
+                RouterBranch(id: "home", node: .stack(path: [])),
+                RouterBranch(id: "inbox", node: .stack(path: [])),
+                RouterBranch(id: "legacySettings", node: .stack(path: [.settings])),
+            ]
+        )
+        let outcome = await store.perform(
+            .apply(RouterPlan(state: try RouterState(root: .container(drifted))))
+        )
+        guard case .applied = outcome else {
+            Issue.record("Expected the drifted snapshot to apply")
+            return
+        }
+
+        let recorder = RouterTabHostRecorder()
+        let host = RouterTabHost(store: store)
+            .environment(recorder)
+
+        _ = try renderRouterTabHost(host)
+        await drainMainActorTasks()
+
+        // The orphaned branch is still in the state; the host simply does not
+        // render it, and the catalog's own tabs remain reachable.
+        #expect(tabContainer(in: store)?.branches.contains { $0.id == "legacySettings" } == true)
+        #expect(recorder.appearances.contains(.home))
+    }
+
     @Test("RouterTabHost follows replacement application-owned stores")
     func externalStoreReplacement() async throws {
 #if canImport(AppKit)
