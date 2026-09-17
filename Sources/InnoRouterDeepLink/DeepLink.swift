@@ -24,7 +24,19 @@ import OSLog
 /// with the next declaration.
 public struct DeepLinkMatcher<Output: Sendable>: Sendable {
     private let engine: DeepLinkMatchEngine<Output>
-    public let diagnostics: [DeepLinkMatcherDiagnostic]
+
+    /// Structural authoring diagnostics for this matcher's patterns.
+    ///
+    /// Computing these compares every pattern pair, so it is quadratic in
+    /// catalog size. It is therefore done on demand rather than at
+    /// construction: `@Router` builds a matcher inside each generated
+    /// `resolveDeepLink` call, and charging that pass to every deep-link
+    /// resolution cost ~620µs of a ~627µs resolution on a 60-case catalog.
+    ///
+    /// `.disabled` suppresses emission, not availability — this still reports
+    /// the same diagnostics for a quiet matcher. Recomputed per access, so
+    /// bind it to a local when inspecting it repeatedly.
+    public var diagnostics: [DeepLinkMatcherDiagnostic] { engine.diagnostics }
 
     public init(
         configuration: DeepLinkMatcherConfiguration = .default,
@@ -35,7 +47,6 @@ public struct DeepLinkMatcher<Output: Sendable>: Sendable {
             configuration: configuration
         )
         self.engine = engine
-        self.diagnostics = engine.diagnostics
     }
 
     /// Creates a matcher that promotes any structural diagnostic into a
@@ -58,7 +69,6 @@ public struct DeepLinkMatcher<Output: Sendable>: Sendable {
             inputLimits: inputLimits
         )
         self.engine = engine
-        self.diagnostics = engine.diagnostics
     }
 
     public func match(_ url: URL) -> Output? {

@@ -28,21 +28,39 @@ enum DeepLinkMatchEvaluation<Output: Sendable>: Sendable {
 struct DeepLinkMatchEngine<Output: Sendable>: Sendable {
     private let mappings: [DeepLinkMatchMapping<Output>]
     private let inputLimits: DeepLinkInputLimits
-    let diagnostics: [DeepLinkMatcherDiagnostic]
+
+    /// Structural authoring diagnostics for this engine's patterns.
+    ///
+    /// Computed on demand rather than stored. `DeepLinkPattern.makeDiagnostics`
+    /// compares every pattern pair, so it is quadratic in catalog size, and
+    /// `@Router` builds a matcher inside each generated `resolveDeepLink` call.
+    /// Storing it therefore charged that quadratic pass to every deep-link
+    /// resolution and then discarded the result, because generated matchers use
+    /// `.disabled`. Measured on a 60-case catalog, one resolution spent ~620µs
+    /// of its ~627µs here.
+    ///
+    /// `.disabled` suppresses *emission*, not availability: callers can still
+    /// read diagnostics off a quiet matcher, which several contract tests rely
+    /// on. Keeping the value computed preserves that without charging matchers
+    /// that never read it. Recomputed per access, so bind it to a local when
+    /// inspecting it repeatedly.
+    var diagnostics: [DeepLinkMatcherDiagnostic] {
+        DeepLinkPattern.makeDiagnostics(
+            for: mappings.map(\.pattern)
+        ).map(DeepLinkMatcherDiagnostic.init)
+    }
 
     init(
         mappings: [DeepLinkMatchMapping<Output>],
         configuration: DeepLinkMatcherConfiguration
     ) {
-        let diagnostics = DeepLinkPattern.makeDiagnostics(
-            for: mappings.map(\.pattern)
-        ).map(DeepLinkMatcherDiagnostic.init)
-
         self.mappings = mappings
         self.inputLimits = configuration.inputLimits
-        self.diagnostics = diagnostics
 
-        DeepLinkMatcherDiagnostic.emit(diagnostics, configuration: configuration)
+        // Only materialize diagnostics when a mode will actually emit them.
+        if configuration.diagnosticsMode != .disabled {
+            DeepLinkMatcherDiagnostic.emit(diagnostics, configuration: configuration)
+        }
     }
 
     init(
@@ -63,7 +81,6 @@ struct DeepLinkMatchEngine<Output: Sendable>: Sendable {
 
         self.mappings = mappings
         self.inputLimits = inputLimits
-        self.diagnostics = diagnostics
     }
 
     func match(_ url: URL) -> Output? {
