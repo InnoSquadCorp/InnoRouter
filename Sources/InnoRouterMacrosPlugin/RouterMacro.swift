@@ -169,20 +169,11 @@ private func makeRouterExtensions(
     }
 
     let hasDestinationRouteConformance = directlyConformsToDestinationRoute(enumDecl)
-    if hasDestinationRouteConformance, let inheritanceClause = enumDecl.inheritanceClause {
-        diagnose(
-            .redundantDestinationRouteConformance,
-            at: inheritanceClause,
-            context: context
-        )
-    }
-    if directlyConformsToRoute(enumDecl), let inheritanceClause = enumDecl.inheritanceClause {
-        diagnose(
-            .redundantRouteConformance,
-            at: inheritanceClause,
-            context: context
-        )
-    }
+    diagnoseRedundantConformances(
+        in: enumDecl,
+        hasDestinationRouteConformance: hasDestinationRouteConformance,
+        context: context
+    )
 
     var conformances: [String] = []
     if !hasDestinationRouteConformance {
@@ -414,10 +405,43 @@ func directlyConformsToRoute(_ enumDecl: EnumDeclSyntax) -> Bool {
     } ?? false
 }
 
+/// Warns about `Route` / `DestinationRoute` conformances that `@Router`
+/// already supplies, offering the removal edit for each.
+private func diagnoseRedundantConformances(
+    in enumDecl: EnumDeclSyntax,
+    hasDestinationRouteConformance: Bool,
+    context: some MacroExpansionContext
+) {
+    guard let inheritanceClause = enumDecl.inheritanceClause else { return }
+
+    func report(_ message: RouterMacroDiagnostic, removing conformanceName: String) {
+        diagnose(
+            message,
+            at: inheritanceClause,
+            context: context,
+            fixIts: [
+                removeConformanceFixIt(
+                    named: conformanceName,
+                    from: inheritanceClause,
+                    in: enumDecl
+                ),
+            ].compactMap { $0 }
+        )
+    }
+
+    if hasDestinationRouteConformance {
+        report(.redundantDestinationRouteConformance, removing: "DestinationRoute")
+    }
+    if directlyConformsToRoute(enumDecl) {
+        report(.redundantRouteConformance, removing: "Route")
+    }
+}
+
 private func diagnose(
     _ message: RouterMacroDiagnostic,
     at node: some SyntaxProtocol,
-    context: some MacroExpansionContext
+    context: some MacroExpansionContext,
+    fixIts: [FixIt] = []
 ) {
-    context.diagnose(Diagnostic(node: node, message: message))
+    context.diagnose(Diagnostic(node: node, message: message, fixIts: fixIts))
 }

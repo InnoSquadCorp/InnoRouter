@@ -232,7 +232,39 @@ internal func emittedLabel(for param: EnumCaseParameterSyntax) -> String? {
         return nil
     }
 
-    return escapedIdentifier(firstName)
+    return labelSpelling(escapedIdentifier(firstName))
+}
+
+/// Returns `spelling` as it should appear in an argument *label* position.
+///
+/// The inverse of ``escapedBindingSpelling``. An argument label accepts a bare
+/// keyword, and escaping one there is not just unnecessary but warns —
+/// "keyword 'default' does not need to be escaped in argument list". An author
+/// who writes `case foo(`default`: Int)` has to escape it in the declaration,
+/// but carrying those backticks into the generated call site produced a
+/// warning in their build that they could not silence.
+///
+/// Backticks are dropped only when the bare spelling actually parses as a
+/// label, so a keyword that genuinely needs escaping keeps it.
+internal func labelSpelling(_ spelling: String) -> String {
+    guard spelling.hasPrefix("`"), spelling.hasSuffix("`") else { return spelling }
+    let bare = unescapedIdentifier(spelling)
+    guard parsesAsArgumentLabel(bare) else { return spelling }
+    return bare
+}
+
+/// Whether `text` can be written bare as an argument label.
+private func parsesAsArgumentLabel(_ text: String) -> Bool {
+    let source = Parser.parse(source: "call(\(text): 0)")
+    guard !source.hasError,
+          source.statements.count == 1,
+          let call = source.statements.first?.item.as(FunctionCallExprSyntax.self),
+          call.arguments.count == 1,
+          let label = call.arguments.first?.label
+    else {
+        return false
+    }
+    return label.text == text
 }
 
 internal func allocateUniqueBindingName(

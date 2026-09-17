@@ -218,3 +218,65 @@ private func keywordReplacementFixIt(
         changes: [.replace(oldNode: Syntax(original), newNode: Syntax(replacement))]
     )
 }
+
+// MARK: - Redundant conformance removal
+
+/// FixIt payload for the `redundant…Conformance` warnings.
+///
+/// Each of those diagnostics already tells the author to "remove the explicit
+/// conformance" and is anchored on the exact ``InheritanceClauseSyntax``, so
+/// the edit is fully mechanical and worth offering as a FixIt.
+struct RemoveRedundantConformanceFixIt: FixItMessage {
+    let conformanceName: String
+
+    var message: String {
+        "Remove the redundant `\(conformanceName)` conformance"
+    }
+
+    var fixItID: MessageID {
+        MessageID(domain: "InnoRouterMacros", id: "removeRedundantConformance")
+    }
+}
+
+/// Builds a FixIt that drops `conformanceName` from `clause`.
+///
+/// The clause is rewritten as text rather than as a node so the three shapes
+/// collapse to one code path: dropping the only conformance has to take the
+/// colon with it (`enum E: Route {` → `enum E {`), while dropping one of
+/// several has to take exactly one separating comma, whichever side it sits on
+/// (`enum E: Route, Codable {` → `enum E: Codable {`).
+///
+/// Returns `nil` when the clause does not actually list `conformanceName`, so a
+/// caller that misidentifies the conformance emits its warning without an edit
+/// rather than a wrong one.
+func removeConformanceFixIt(
+    named conformanceName: String,
+    from clause: InheritanceClauseSyntax,
+    in enclosing: some SyntaxProtocol
+) -> FixIt? {
+    let remaining = clause.inheritedTypes.filter { inherited in
+        inherited.type.trimmedDescription
+            .split(separator: ".")
+            .last
+            .map(String.init) != conformanceName
+    }
+    guard remaining.count != clause.inheritedTypes.count else { return nil }
+
+    let replacement = remaining.isEmpty
+        ? ""
+        : ": " + remaining
+            .map { $0.type.trimmedDescription }
+            .joined(separator: ", ")
+
+    return FixIt(
+        message: RemoveRedundantConformanceFixIt(conformanceName: conformanceName),
+        changes: [
+            .replaceText(
+                range: clause.positionAfterSkippingLeadingTrivia
+                    ..< clause.endPositionBeforeTrailingTrivia,
+                with: replacement,
+                in: Syntax(enclosing)
+            ),
+        ]
+    )
+}

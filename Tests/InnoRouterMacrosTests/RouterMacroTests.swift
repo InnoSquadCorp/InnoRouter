@@ -378,7 +378,10 @@ struct RouterMacroTests {
                     message: "[InnoRouterMacro.W002] DestinationRoute conformance is supplied by @Router; remove the explicit conformance",
                     line: 2,
                     column: 20,
-                    severity: .warning
+                    severity: .warning,
+                    fixIts: [
+                        FixItSpec(message: "Remove the redundant `DestinationRoute` conformance"),
+                    ]
                 )
             ],
             macros: makeTestMacros()
@@ -415,10 +418,114 @@ struct RouterMacroTests {
                     message: "[InnoRouterMacro.W003] Route conformance is inherited from the DestinationRoute supplied by @Router; remove the explicit conformance",
                     line: 2,
                     column: 20,
-                    severity: .warning
+                    severity: .warning,
+                    fixIts: [
+                        FixItSpec(message: "Remove the redundant `Route` conformance"),
+                    ]
                 )
             ],
             macros: makeTestMacros()
+        )
+    }
+
+    // The redundant-conformance warnings tell the author to remove the
+    // conformance, and are anchored on the exact inheritance clause, so they
+    // carry a Fix-It. Removing the only conformance has to take the colon with
+    // it; removing one of several has to take exactly one comma, from whichever
+    // side it sits on. Each shape is asserted through its applied edit.
+    @Test("Redundant Route conformance offers a removal fix-it")
+    func redundantRouteConformanceFixItRemovesWholeClause() throws {
+        assertMacroExpansion(
+            """
+            @Router
+            enum RedundantRoute: Route {
+                case settings
+                var destination: some View { SettingsView() }
+            }
+            """,
+            expandedSource: """
+            enum RedundantRoute: Route {
+                case settings
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { SettingsView() }
+            }
+
+            extension RedundantRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.W003] Route conformance is inherited from the DestinationRoute supplied by @Router; remove the explicit conformance",
+                    line: 2,
+                    column: 20,
+                    severity: .warning,
+                    fixIts: [
+                        FixItSpec(message: "Remove the redundant `Route` conformance"),
+                    ]
+                )
+            ],
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove the redundant `Route` conformance"],
+            fixedSource: """
+            @Router
+            enum RedundantRoute {
+                case settings
+                var destination: some View { SettingsView() }
+            }
+            """
+        )
+    }
+
+    @Test("Removing a trailing redundant conformance keeps the others")
+    func redundantConformanceFixItKeepsSiblings() throws {
+        assertMacroExpansion(
+            """
+            @Router
+            enum RedundantRoute: Codable, Route {
+                case settings
+                var destination: some View { SettingsView() }
+            }
+            """,
+            expandedSource: """
+            enum RedundantRoute: Codable, Route {
+                case settings
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { SettingsView() }
+            }
+
+            extension RedundantRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.W003] Route conformance is inherited from the DestinationRoute supplied by @Router; remove the explicit conformance",
+                    line: 2,
+                    column: 20,
+                    severity: .warning,
+                    fixIts: [
+                        FixItSpec(message: "Remove the redundant `Route` conformance"),
+                    ]
+                )
+            ],
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove the redundant `Route` conformance"],
+            fixedSource: """
+            @Router
+            enum RedundantRoute: Codable {
+                case settings
+                var destination: some View { SettingsView() }
+            }
+            """
         )
     }
 

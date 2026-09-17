@@ -1028,7 +1028,7 @@ struct CasePathableMacroTests {
                 internal enum Cases {
                         internal static let credential = CasePath<Destination, String>(
                             embed: { value in
-                                .credential(`class`: value)
+                                .credential(class: value)
                             },
                             extract: {
                                 if case .credential(let `class`) = $0 {
