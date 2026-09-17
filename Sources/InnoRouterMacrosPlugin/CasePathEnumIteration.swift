@@ -12,6 +12,7 @@
 // Types and helpers are `internal` rather than `private` because
 // the generation file imports them.
 
+import SwiftParser
 import SwiftSyntax
 import SwiftSyntaxMacros
 
@@ -178,15 +179,52 @@ internal func escapedIdentifier(_ token: TokenSyntax) -> String {
     return token.text
 }
 
+/// Returns `token` spelled so it is valid where Swift requires a *binding*
+/// name — a `let` pattern or a parameter's internal name.
+///
+/// Swift accepts a bare keyword as an argument *label* (`case detail(in: Int)`
+/// is legal), but rejects the same spelling as a binding name. `escapedIdentifier`
+/// only preserves backticks the author already wrote, so reusing its result as a
+/// binding emitted `let in`, which fails to parse inside the expansion.
+///
+/// The token kind cannot be used to detect this: `SwiftParser.parseArgumentLabel()`
+/// remaps a keyword label to `.identifier`, so `case detail(in:)` and
+/// `case detail(id:)` arrive with the same `tokenKind`. The spelling is therefore
+/// probed against the parser and backticked only when it would not bind.
+internal func escapedBindingIdentifier(_ token: TokenSyntax) -> String {
+    escapedBindingSpelling(escapedIdentifier(token))
+}
+
+/// Backticks `spelling` unless it is already escaped or already binds.
+internal func escapedBindingSpelling(_ spelling: String) -> String {
+    guard !spelling.hasPrefix("`") else { return spelling }
+    guard !bindsAsIdentifier(spelling) else { return spelling }
+    return "`\(spelling)`"
+}
+
+/// Whether `spelling` can be written bare in a binding position.
+private func bindsAsIdentifier(_ spelling: String) -> Bool {
+    let source = Parser.parse(source: "let \(spelling) = 0")
+    guard !source.hasError,
+          source.statements.count == 1,
+          let declaration = source.statements.first?.item.as(VariableDeclSyntax.self),
+          declaration.bindings.count == 1,
+          let pattern = declaration.bindings.first?.pattern.as(IdentifierPatternSyntax.self)
+    else {
+        return false
+    }
+    return pattern.identifier.text == spelling
+}
+
 internal func bindingName(
     for param: EnumCaseParameterSyntax,
     index: Int
 ) -> String {
     if let firstName = param.firstName, firstName.text != "_" {
-        return escapedIdentifier(firstName)
+        return escapedBindingIdentifier(firstName)
     }
 
-    return param.secondName.map(escapedIdentifier) ?? "v\(index)"
+    return param.secondName.map(escapedBindingIdentifier) ?? "v\(index)"
 }
 
 internal func emittedLabel(for param: EnumCaseParameterSyntax) -> String? {

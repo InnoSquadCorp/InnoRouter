@@ -279,13 +279,21 @@ private func presentationResultParameters(
     guard let parameters else { return [] }
     var usedNames: Set<String> = []
     return parameters.enumerated().map { index, parameter in
-        let first = parameter.firstName.map(escapedIdentifier)
-        let second = parameter.secondName.map(escapedIdentifier)
+        // The first name reaches two positions with opposite escaping rules.
+        // At a call site it is an argument label, where a bare keyword is
+        // legal and a backtick warns ("does not need to be escaped"). In the
+        // generated declaration it also names the binding, which a bare
+        // keyword cannot spell. Swift treats `in` and `` `in` `` as the same
+        // name, so the warning-free declaration is the combined single-name
+        // form written escaped — not a `label binding:` pair.
+        let firstLabel = parameter.firstName.map(escapedIdentifier)
+        let firstBinding = firstLabel.map(escapedBindingSpelling)
+        let second = parameter.secondName.map(escapedBindingIdentifier)
         let preferredName: String
         if let second {
             preferredName = second
-        } else if let first, first != "_" {
-            preferredName = first
+        } else if let firstBinding, firstLabel != "_" {
+            preferredName = firstBinding
         } else {
             preferredName = "value\(index)"
         }
@@ -299,13 +307,13 @@ private func presentationResultParameters(
         let type = casePathPayloadType(parameter.type, enumName: routeType)
         let declaration: String
         let invocation: String
-        if let first, first != "_" {
-            if second != nil || localName != first {
-                declaration = "\(first) \(localName): \(type)"
+        if let firstLabel, let firstBinding, firstLabel != "_" {
+            if second != nil || localName != firstBinding {
+                declaration = "\(firstLabel) \(localName): \(type)"
             } else {
-                declaration = "\(first): \(type)"
+                declaration = "\(firstBinding): \(type)"
             }
-            invocation = "\(first): \(localName)"
+            invocation = "\(firstLabel): \(localName)"
         } else {
             declaration = "_ \(localName): \(type)"
             invocation = localName

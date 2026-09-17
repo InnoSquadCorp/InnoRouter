@@ -355,6 +355,55 @@ struct RoutableMacroTests {
         )
     }
 
+    // Swift accepts a bare keyword as an argument label, and
+    // `SwiftParser.parseArgumentLabel()` remaps it to `.identifier`, so the
+    // token is indistinguishable from an ordinary label. Reusing that
+    // spelling as the extract binding produced `let in`, which failed to
+    // parse and crashed swift-frontend. The label must stay bare and the
+    // binding must be escaped.
+    @Test("Keyword argument labels expansion")
+    func testRoutableWithKeywordArgumentLabels() throws {
+        assertMacroExpansion(
+            """
+            @Routable
+            enum KeywordLabelRoute {
+                case detail(in: Int)
+            }
+            """,
+            expandedSource: """
+            enum KeywordLabelRoute {
+                case detail(in: Int)
+
+                internal enum Cases {
+                        internal static let detail = CasePath<KeywordLabelRoute, Int>(
+                            embed: { value in
+                                .detail(in: value)
+                            },
+                            extract: {
+                                if case .detail(let `in`) = $0 {
+                                    return `in`
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+
+            extension KeywordLabelRoute: Route {
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Associated values expansion")
     func testRoutableWithAssociatedValues() throws {
         assertMacroExpansion(
