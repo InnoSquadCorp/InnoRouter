@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 
 import InnoRouterCore
@@ -268,6 +269,98 @@ struct RouterTabRestorationTopologyTests {
             return
         }
         #expect(store.revision == before)
+    }
+
+    @Test("A replacement driver's topology governs, not the stopped driver's")
+    @MainActor
+    func driverTopologyBelongsToItsOwnLifetime() async throws {
+        let codec = try RouterSnapshotCodec<TopologyRoute>(currentVersion: 1)
+        let storage = StaticStorage(
+            data: try codec.encode(
+                try Self.tabs(
+                    selection: "home",
+                    [.init(id: "home", node: .stack(path: [.detail]))]
+                )
+            )
+        )
+        let store = RouterStore(
+            initialState: try Self.tabs(
+                selection: "home",
+                [.init(id: "home", node: .stack())]
+            )
+        )
+
+        let first = RouterRestorationDriver(
+            store: store,
+            codec: codec,
+            storage: storage,
+            tabTopology: try RouterTabRestorationTopology(scopeIDs: ["home", "profile"])
+        )
+        guard case .restored = try await first.activate() else {
+            Issue.record("Expected the first driver to restore")
+            return
+        }
+        #expect(Self.container(store.state)?.branches.map(\.id) == ["home", "profile"])
+        first.stop()
+
+        // A different catalog is a different driver, not a mutation of the old
+        // one. The stopped driver's topology must not govern this restore.
+        let second = RouterRestorationDriver(
+            store: store,
+            codec: codec,
+            storage: storage,
+            tabTopology: try RouterTabRestorationTopology(scopeIDs: ["home", "settings"])
+        )
+        guard case .restored = try await second.activate() else {
+            Issue.record("Expected the replacement driver to restore")
+            return
+        }
+
+        let container = try #require(Self.container(store.state))
+        #expect(container.branches.map(\.id) == ["home", "settings"])
+        #expect(container.branches[0].node == .stack(path: [.detail]))
+    }
+
+    @Test("A driver without a topology restores exactly")
+    @MainActor
+    func driverWithoutTopologyRestoresExactly() async throws {
+        let codec = try RouterSnapshotCodec<TopologyRoute>(currentVersion: 1)
+        let snapshot = try Self.tabs(
+            selection: "home",
+            [.init(id: "home", node: .stack(path: [.detail]))]
+        )
+        let storage = StaticStorage(data: try codec.encode(snapshot))
+        let store = RouterStore(
+            initialState: try Self.tabs(
+                selection: "home",
+                [
+                    .init(id: "home", node: .stack()),
+                    .init(id: "profile", node: .stack()),
+                ]
+            )
+        )
+
+        let driver = RouterRestorationDriver(
+            store: store,
+            codec: codec,
+            storage: storage
+        )
+        guard case .restored = try await driver.activate() else {
+            Issue.record("Expected the driver to restore")
+            return
+        }
+
+        #expect(store.state == snapshot)
+    }
+
+    private final class StaticStorage: RouterSnapshotStorage {
+        private let stored: Mutex<Data?>
+
+        init(data: Data?) { self.stored = Mutex(data) }
+
+        func load() throws -> Data? { stored.withLock { $0 } }
+        func save(_ data: Data) throws { stored.withLock { $0 = data } }
+        func remove() throws { stored.withLock { $0 = nil } }
     }
 
     @MainActor
