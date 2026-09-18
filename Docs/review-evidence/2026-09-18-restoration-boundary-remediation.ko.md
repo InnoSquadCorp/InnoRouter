@@ -114,7 +114,30 @@ designated로 되돌려 제거를 0으로 만들었다. `RouterRestorationDriver
   patch/minor/prerelease 정상 lifecycle 3종 통과.
 - README 양 언어·SwiftUI DocC·CHANGELOG 갱신. `check-docs-code-blocks.sh` 통과.
 
-## 7. 인수 기준 대조
+## 7. T08 — 게이트
+
+최종 후보 `19c22d00`(코드) / `5f4d3a64`(문서) 트리에서 단독 실행했다.
+
+| 명령 | 결과 |
+| --- | --- |
+| `./scripts/principle-gates.sh` | EXIT=0. 656 tests / 82 suites, known issue 1건(기존) |
+| `./scripts/principle-gates.sh --platforms=all` | EXIT=0. iOS, Mac-Catalyst, macOS, tvOS, watchOS, visionOS 각각 두 scheme Release 빌드 + 공개 인터페이스 검증. iPadOS는 iOS와 destination이 같아 중복 제거 |
+| `./scripts/sanitizer-smoke.sh thread` | EXIT=0. 364 tests / 42 suites |
+| `./scripts/sanitizer-smoke.sh address` | EXIT=0. 352 tests / 46 suites |
+| `./scripts/external-consumer-smoke.sh` | principle-gates 내부에서 통과 (7 tests / 1 suite) |
+
+`principle-gates.sh` 로그의 `Trace/BPT trap: 5`는 `RouterEnvironmentFailFastProbe`가
+의도적으로 precondition 실패를 일으키는 정상 동작이다.
+
+### 7.1 무효 실행 1건
+
+최종 게이트 1차 시도는 `SwiftSyntax.SyntaxRewriter.visitationFunc` undefined symbol로
+링크 실패(EXIT=1)했다. 원인은 이전 게이트 실행 중에 `swift test --filter`를 동시에
+돌려 공유 `.build`의 증분 상태가 깨진 것이고, 소스 변경과는 무관하다.
+`.build/debug`와 `.build/arm64-apple-macosx`를 제거하고 동시 실행 없이 재실행해
+EXIT=0을 얻었다. 위 표는 재실행 결과다.
+
+## 8. 인수 기준 대조
 
 | AC | 상태 | 근거 |
 | --- | --- | --- |
@@ -129,12 +152,16 @@ designated로 되돌려 제거를 0으로 만들었다. `RouterRestorationDriver
 | RBR-AC-009 | 충족 | driverTopologyBelongsToItsOwnLifetime, driverWithoutTopologyRestoresExactly |
 | RBR-AC-010 | 충족 | 5절 sanitizer 로그 |
 | RBR-AC-011 | 충족 | 6절 |
-| RBR-AC-012 | 8절 참조 | |
 | RBR-AC-013 | 미충족 | T09 미착수 |
 | RBR-QA-001 | 미실행 | 실기기·GUI 실행 환경 없음 |
 
-## 8. 남은 작업
+| RBR-AC-012 | 충족 | 7절 |
 
-- RBR-QA-001 수동 QA
-- T09: `6.1.0` version cut, changelog cut, tag, push, Release·DocC 발행
-- 원격 CI는 push 전이므로 미실행
+## 9. 남은 작업
+
+- RBR-QA-001 수동 QA (실행 환경 없음)
+- T08의 원격 CI 검토: push 미수행이므로 미실행
+- T09: `6.1.0` version cut, changelog cut, tag, Release·DocC 발행 — 유지관리자 결정 대기
+
+작업 브랜치 `fix/restoration-boundary`에 커밋 8건이 있고 push하지 않았다.
+`InnoRouterVersion.current`는 여전히 `6.0.0`이며 `6.1.0` cut은 수행하지 않았다.
