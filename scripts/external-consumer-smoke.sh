@@ -21,6 +21,18 @@ else
 fi
 
 SCRATCH_DIR="$ROOT_DIR/.build/external-consumer/$CACHE_KEY"
+SWIFTPM_SCRATCH_DIR="$SCRATCH_DIR/swiftpm"
+if [[ "$VERSION" == "local" ]]; then
+  # A local path dependency can change without its package identity changing.
+  # Reusing the positive consumer's incremental scratch has produced stale
+  # object graphs where the consumer recompiles but links against an older
+  # dependency module. Isolate that build while retaining the intentionally
+  # separate negative-fixture caches, whose source and compiler flags identify
+  # their contract.
+  mkdir -p "$SCRATCH_DIR"
+  SWIFTPM_SCRATCH_DIR="$(mktemp -d "$SCRATCH_DIR/swiftpm.XXXXXX")"
+  trap 'rm -rf "$SWIFTPM_SCRATCH_DIR"' EXIT
+fi
 
 verify_conditional_catalog_conflict() {
   local name="$1"
@@ -44,7 +56,7 @@ verify_conditional_catalog_conflict() {
 
 swift build \
   --package-path "$PACKAGE_DIR" \
-  --scratch-path "$SCRATCH_DIR/swiftpm" \
+  --scratch-path "$SWIFTPM_SCRATCH_DIR" \
   --jobs "$JOBS" \
   --target InnoRouterMacroFirstExternalConsumer
 
@@ -57,7 +69,7 @@ swift build \
 
 swift test \
   --package-path "$PACKAGE_DIR" \
-  --scratch-path "$SCRATCH_DIR/swiftpm" \
+  --scratch-path "$SWIFTPM_SCRATCH_DIR" \
   --jobs "$JOBS" \
   --filter InnoRouterDeveloperToolsExternalConsumerTests
 

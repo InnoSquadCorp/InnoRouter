@@ -4,6 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 JOBS="${SWIFTPM_JOBS:-2}"
 SCRATCH_ROOT="$ROOT_DIR/.build/migration-consumer"
+mkdir -p "$SCRATCH_ROOT"
+AFTER_SCRATCH="$(mktemp -d "$SCRATCH_ROOT/after.XXXXXX")"
+trap 'rm -rf "$AFTER_SCRATCH"' EXIT
 
 echo "[migration-smoke] Running the exact published 5.2.1 consumer"
 before_output="$(
@@ -19,7 +22,7 @@ echo "[migration-smoke] Running the current macro-first 6.0 consumer"
 after_output="$(
   swift run \
     --package-path "$ROOT_DIR/MigrationSmoke/After" \
-    --scratch-path "$SCRATCH_ROOT/after" \
+    --scratch-path "$AFTER_SCRATCH" \
     --jobs "$JOBS" \
     --quiet \
     CanonicalMigrationProbe
