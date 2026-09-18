@@ -1,5 +1,11 @@
 # InnoRouter 탭 복원·문서 정합성 실행 및 명세 대조 기록
 
+> 2026-09-18 정정: 아래 `구현 완료 7`, `부분 / 누락 / 모순 0`, `로컬 검증 완료 10`은
+> 재검토 이전 판정이다. 초기 payload 복사와 생성 시점 topology 고정으로 인한 회귀,
+> native assertion 및 sanitizer 대상 누락이 확인되어 관련 완료 판정을 재개방한다.
+> 기존 통과 실행 사실은 보존하되 현재 완료 근거로 일괄 재사용하지 않는다.
+> [후속 계획과 인수 기준](../2026-09-18-restoration-boundary-remediation-plan.ko.md)을 참조한다.
+
 ## 기준과 범위
 
 - 계획: [탭 복원·문서 정합성 개선 작업계획](../2026-09-18-tab-restoration-and-docs-plan.ko.md), Draft 0.2
