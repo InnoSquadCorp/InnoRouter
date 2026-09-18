@@ -62,10 +62,34 @@ PUBLIC_DOCS=(
 for path in "${PUBLIC_DOCS[@]}"; do require_file "$path"; done
 
 require_literal Package.swift "swift-tools-version: 6.3" "Package.swift must remain on Swift 6.3"
-require_literal Sources/InnoRouterCore/InnoRouterVersion.swift 'public static let current = "6.0.0"' "runtime release identity must match the 6.0 candidate"
+
+# The runtime states the release identity; the documentation must agree with
+# it. Pinning a literal here instead made every version after 6.0.0 fail the
+# gate for saying something true (RBR-G1).
+SEMVER_RE='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$'
+RUNTIME_VERSION="$(sed -n 's/.*public static let current = "\([^"]*\)".*/\1/p' Sources/InnoRouterCore/InnoRouterVersion.swift | head -1)"
+if [[ -z "$RUNTIME_VERSION" ]]; then
+  echo "[check-docs-consistency] Failed: InnoRouterVersion.swift does not declare a current version" >&2
+  failures=1
+  RUNTIME_VERSION="<missing>"
+elif ! [[ "$RUNTIME_VERSION" =~ $SEMVER_RE ]]; then
+  echo "[check-docs-consistency] Failed: runtime version '$RUNTIME_VERSION' is not valid SemVer" >&2
+  failures=1
+fi
+
+# A publication run passes the candidate it is about to tag. The runtime and
+# the changelog must already name that exact version.
+if [[ -n "${RELEASE_VERSION:-}" ]]; then
+  if [[ "$RELEASE_VERSION" != "$RUNTIME_VERSION" ]]; then
+    echo "[check-docs-consistency] Failed: release candidate '$RELEASE_VERSION' does not match runtime '$RUNTIME_VERSION'" >&2
+    failures=1
+  fi
+  require_literal "$CHANGELOG_PATH" "## $RELEASE_VERSION - " "changelog must contain a dated $RELEASE_VERSION section"
+fi
+
 for readme in README.md README.ko.md; do
   require_literal "$readme" "Swift 6.3+" "$readme must document Swift 6.3+"
-  require_literal "$readme" 'from: "6.0.0"' "$readme must install the 6.0 line"
+  require_literal "$readme" "from: \"$RUNTIME_VERSION\"" "$readme must install the $RUNTIME_VERSION line"
   require_literal "$readme" '.product(name: "InnoRouter", package: "InnoRouter")' "$readme must use the umbrella product"
   require_literal "$readme" "@Router" "$readme must lead with macro-first setup"
   require_literal "$readme" "RouterStore" "$readme must document RouterStore"
