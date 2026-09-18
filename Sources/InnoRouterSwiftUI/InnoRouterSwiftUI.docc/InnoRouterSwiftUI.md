@@ -59,6 +59,7 @@ a typed reason without partial state.
 | durable pending link | `RouterPendingLinkPersistenceDriver` |
 | automatic app-selected restoration | `RouterRestorationDriver` |
 | app-validated partial restoration | `RouterStore.restorePartially` |
+| restoring into the current tab catalog | `RouterTabRestorationTopology` |
 | bounded back/forward and checkpoints | `RouterHistory` |
 
 `@TabItem` marks only parameterless tab roots. Unmarked associated-value cases
@@ -73,7 +74,18 @@ rejects, or cancels the immutable request.
 
 Partial restoration validates decoded routes before one revision-checked
 commit and returns a payload-free structural report. A fully removed nonempty
-stack requires an app-provided, revalidated fallback. `RouterHistory` reuses
+stack requires an app-provided, revalidated fallback.
+
+Restoration is exact. A snapshot written before a tab existed carries no branch
+for it, so that tab stays unreachable. `RouterTabRestorationTopology` states
+the scopes the application renders now, as an explicit argument to
+`RouterStore.restore`, `RouterStore.restorePartially`, and
+`RouterRestorationDriver.init`. It carries ordered scope identity only, so
+reconciliation adds empty scopes and never moves routes, presentations, or
+badges into a restored state. Branches the topology does not name are kept as
+orphans for a later catalog, and a selection it no longer names falls back to
+its first scope. A state returned by `RouterSnapshotRecoveryPolicy.use` is the
+application's final answer and is applied without reconciliation. `RouterHistory` reuses
 the same validator, exact plans, and policies for navigation-only moves. It
 observes commits synchronously, tracks deferred destinations by entry identity,
 invalidates old-session work, and preserves live badges and presentations,

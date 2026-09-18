@@ -45,9 +45,43 @@ are bare semver (no leading `v`).
   type that no longer exists, and now states that a bare matcher compares path
   and query only and never checks the URL origin. `@DeepLink` and
   `RouterLinkPipeline` remain fail closed and are the surfaces to prefer.
+- The documentation metadata gate no longer accepts `unpublished` as a
+  publication claim. It matched `published` as a substring, so a document
+  stating the exact opposite passed. Implementation state is now read as a
+  single field that must name a whole-word publication and the version it
+  happened in, and duplicate or contradictory status fields are rejected. The
+  Korean capability row gets the same treatment for `미배포`.
+- The documentation consistency gate reads the release identity from
+  `InnoRouterVersion.swift` instead of requiring the literal `6.0.0`, so a
+  later version no longer fails the gate for being accurate. It validates that
+  the runtime version is SemVer and that both READMEs install it. A
+  publication run can pass `RELEASE_VERSION` to require that the candidate,
+  the runtime, and a dated changelog section all agree.
+- The sanitizer smoke filters now run `RouterTabHostTests`,
+  `RouterDeepLinkHostTests`, and `NativeHostRuntimeTests`, which cover the
+  SwiftUI host boundary that restoration commits through, and
+  `RouterDeepLinkBehaviorTests` now runs under the address sanitizer as well as
+  the thread sanitizer.
 
 ### Added
 
+- `RouterTabRestorationTopology` restores a snapshot into the tab catalog an
+  application renders now. Restoration stays exact by default, so a snapshot
+  written before a tab existed leaves that tab unreachable. Passing a topology
+  to `RouterStore.restore`, `RouterStore.restorePartially`,
+  `RouterRestorationDriver.init`, or `RouterTestStore` adds the missing scopes.
+  Build it with `init(of:)` from a `@Router` enum or `init(catalog:)` from a
+  manual catalog. The value carries ordered scope identity only — no routes,
+  presentations, badges, store, or view — so reconciliation creates empty
+  scopes and cannot move payload into a restored state. A scope the snapshot
+  carries is kept exactly; a branch the topology does not name is preserved
+  after the current scopes for a later catalog; a selection it no longer names
+  falls back to its first scope. Partial restoration reconciles before
+  validating, so the application validates the candidate that will be applied.
+  A state returned by `RouterSnapshotRecoveryPolicy.use` is never reconciled.
+  Render a store restored this way with
+  `RouterTabHost(store:catalog:allowingOrphanedBranches:)`; the existing
+  `init(store:catalog:)` keeps its exact set match.
 - Fix-its for redundant `Route` / `DestinationRoute` conformances and for
   duplicate `@TabItem`, `@Scene`, `@DeepLink`, `@FeatureRoute` and
   `@PresentationResult` markers.

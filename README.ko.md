@@ -167,6 +167,26 @@ route 값은 없습니다. 기존에 비어 있지 않던 stack의 route가 전�
 실패합니다. 앱이 `RouterPartialRestorationValidator(fallback:validate:)`에 fallback을
 명시한 경우에만 그 route를 한 번 더 검증한 뒤 plan에 넣습니다.
 
+복원은 기본적으로 exact입니다. snapshot이 말하는 상태를 그대로 적용하므로, 해당 탭이
+생기기 전에 저장된 snapshot에는 그 탭의 branch가 없고 탭은 도달 불가능한 상태로
+남습니다. 지금 앱이 렌더링하는 탭을 추가하려면 topology를 명시합니다.
+
+```swift skip app-lifecycle-fragment
+let topology = try RouterTabRestorationTopology(of: AppRoute.self)
+
+try await store.restore(from: data, using: codec, tabTopology: topology)
+```
+
+snapshot에 있는 scope는 path·presentation·badge를 그대로 유지합니다. 없는 scope는 빈
+상태로 만들며 route나 badge를 임의로 만들어 넣지 않습니다. topology에 없는 branch는
+현재 scope 뒤에 orphan으로 보존해 이후 catalog가 다시 도달할 수 있게 합니다. 이런
+store는 `RouterTabHost(store:catalog:allowingOrphanedBranches:)`로 렌더링합니다.
+topology에 없는 selection은 첫 번째 scope로 대체됩니다. 같은 parameter가
+`restorePartially`에도 있으며, 이 경로에서는 보정이 검증보다 먼저 실행되어 앱이 실제로
+적용될 후보를 그대로 검증합니다. `RouterRestorationDriver.init`에도 있으며 topology는
+해당 driver의 생명주기에 속합니다. `RouterSnapshotRecoveryPolicy.use`가 반환한 상태는
+앱이 정한 최종 답이므로 보정하지 않습니다.
+
 ## tab과 split
 
 tab root에만 `@TabItem`을 붙이고, 일반 destination case를 같은 enum에 둡니다.

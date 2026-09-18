@@ -200,6 +200,28 @@ stack, restoration fails unless the app provides a fallback route through
 `RouterPartialRestorationValidator(fallback:validate:)`; that fallback is
 validated once before it can enter the plan.
 
+Restoration is exact: it applies what the snapshot says. A snapshot written
+before a tab existed therefore has no branch for it, and that tab stays
+unreachable. To add the tabs the app renders now, state the topology:
+
+```swift skip app-lifecycle-fragment
+let topology = try RouterTabRestorationTopology(of: AppRoute.self)
+
+try await store.restore(from: data, using: codec, tabTopology: topology)
+```
+
+A scope the snapshot carries keeps its path, presentation, and badge. A scope
+it lacks is created empty — no route or badge is invented for it. A branch the
+topology does not name is kept after the current scopes, so a later catalog can
+still reach it; render such a store with
+`RouterTabHost(store:catalog:allowingOrphanedBranches:)`. A selection the
+topology no longer names falls back to its first scope. The same parameter
+exists on `restorePartially`, where reconciliation runs before validation so
+the app sees the candidate that will be applied, and on
+`RouterRestorationDriver.init`, where the topology belongs to that driver's
+lifetime. A state returned by `RouterSnapshotRecoveryPolicy.use` is the app's
+final answer and is never reconciled.
+
 ## Tabs and split views
 
 Mark only tab roots with `@TabItem`; associated-value cases can stay in the same
