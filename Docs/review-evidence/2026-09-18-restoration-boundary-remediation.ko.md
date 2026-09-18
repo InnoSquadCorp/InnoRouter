@@ -129,7 +129,25 @@ designated로 되돌려 제거를 0으로 만들었다. `RouterRestorationDriver
 `principle-gates.sh` 로그의 `Trace/BPT trap: 5`는 `RouterEnvironmentFailFastProbe`가
 의도적으로 precondition 실패를 일으키는 정상 동작이다.
 
-### 7.1 무효 실행 1건
+### 7.1 원격 CI
+
+`main`을 `4451d7af..d9f60862`로 push한 뒤, 동일 SHA `d9f60862`에서 워크플로 7개가
+모두 success로 끝났다.
+
+| 워크플로 | run | 소요 |
+| --- | --- | --- |
+| docs-ci | 35335106439 | 2m37s |
+| migration-smoke | 35335106416 | 5m14s |
+| sanitizers | 35335106486 | 5m45s |
+| performance-smoke | 35335106350 | 6m0s |
+| coverage | 35335106351 | 10m26s |
+| principle-gates | 35335106456 | 11m52s |
+| platforms | 35335106463 | success |
+
+로컬 게이트와 원격 CI가 같은 SHA에서 일치한다. RBR-AC-012의 "정확한 push SHA CI 성공"
+조건이 충족됐다.
+
+### 7.2 무효 실행 1건
 
 최종 게이트 1차 시도는 `SwiftSyntax.SyntaxRewriter.visitationFunc` undefined symbol로
 링크 실패(EXIT=1)했다. 원인은 이전 게이트 실행 중에 `swift test --filter`를 동시에
@@ -160,8 +178,11 @@ EXIT=0을 얻었다. 위 표는 재실행 결과다.
 ## 9. 남은 작업
 
 - RBR-QA-001 수동 QA (실행 환경 없음)
-- T08의 원격 CI 검토: push 미수행이므로 미실행
 - T09: `6.1.0` version cut, changelog cut, tag, Release·DocC 발행 — 유지관리자 결정 대기
 
-작업 브랜치 `fix/restoration-boundary`에 커밋 8건이 있고 push하지 않았다.
-`InnoRouterVersion.current`는 여전히 `6.0.0`이며 `6.1.0` cut은 수행하지 않았다.
+T01~T08은 완료됐다. `main`은 `d9f60862`로 fast-forward push됐고 원격 CI가 통과했다.
+`InnoRouterVersion.current`는 여전히 `6.0.0`이고 `6.1.0` cut과 tag는 수행하지 않았으므로,
+현재 published된 계약은 6.0.0 그대로다. 신규 API는 다음 발행 전까지 미출시 상태다.
+
+`claude/followup-improvements` 로컬 브랜치는 `b4d33be6`으로 squash merge되어 tree가
+동일하므로 반영할 잔여 변경이 없다.
