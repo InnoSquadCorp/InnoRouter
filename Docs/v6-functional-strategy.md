@@ -1,8 +1,8 @@
 # InnoRouter 6.0 Functional Strategy
 
-- Status: Draft
-- Implementation state: local release candidate
-- As of: 2026-09-04
+- Document status: Draft; maintainer approval is not recorded
+- Implementation state: published in 6.0.0; post-release fixes continue on `main`
+- As of: 2026-09-18
 
 ## Decision
 
@@ -100,9 +100,13 @@ separate effects product. Their replacements are listed in the migration guide.
 - UIKit/AppKit controller ownership;
 - a deployment-floor increase without a concrete API requirement.
 
-## Release conditions
+## Release record
 
-The local candidate can become a tagged 6.0.0 release only after all package,
-macro, public-API, documentation, platform, and downstream-consumer gates pass
-on the release toolchain. This document remains Draft until maintainer review;
-implementation status does not self-approve the product decision.
+6.0.0 was published on 2026-09-16 after its package, macro, public-API,
+documentation, platform, and exact downstream-consumer gates passed on the
+release toolchain. The immutable release evidence is recorded in
+`6.0.0-release-checklist.md` and `6.0.0-publication-execution.ko.md`.
+
+This strategy document remains Draft until maintainer approval is recorded;
+publication and implementation progress do not self-approve the product
+decision. Post-release changes follow SemVer and the same release gates.

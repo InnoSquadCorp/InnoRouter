@@ -79,7 +79,6 @@ require_literal README.ko.md "## 30초 Quick Start" "README.ko.md is missing its
 require_file "$CHANGELOG_PATH"
 bash scripts/check-changelog-phase.sh "$CHANGELOG_PATH" || failures=1
 require_literal "$CHANGELOG_PATH" "### Breaking" "the 6.0 breaking section is missing"
-require_literal Docs/v6-functional-strategy.md "Status: Draft" "strategy must remain Draft pending review"
 require_literal Docs/functional-expansion-spec.md "FR6-012 Breaking public convergence" "spec must own the breaking API gate"
 require_literal Docs/6.0.0-release-checklist.md "Xcode 26.6 / Swift 6.3" "release checklist must retain the pinned toolchain gate"
 require_literal Docs/6.0.0-release-checklist.md "Not run until a 6.0.0 tag exists" "release checklist must retain the exact-tag validation prerequisite"
@@ -87,6 +86,9 @@ require_literal Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To
 require_file ExamplesSmoke/DeveloperToolsSmoke.swift
 require_file .github/platform-tests.xcworkspace/xcshareddata/xcschemes/InnoRouterDeveloperToolsSmoke.xcscheme
 require_literal Package.swift 'name: "InnoRouterDeveloperToolsSmoke"' "developer tools platform consumer target is missing"
+
+bash scripts/test-check-doc-metadata.sh || failures=1
+python3 scripts/check-doc-metadata.py "$ROOT_DIR" || failures=1
 
 python3 - <<'PY' || failures=1
 from __future__ import annotations

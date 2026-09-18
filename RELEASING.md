@@ -174,7 +174,7 @@ alias, and pre-releases never update it.
 Run these before tagging:
 
 ```bash
-swift test
+swift test --jobs 2 --no-parallel
 ./scripts/principle-gates.sh
 ./scripts/principle-gates.sh --platforms=all
 ./scripts/build-docc-site.sh --version preview --skip-latest

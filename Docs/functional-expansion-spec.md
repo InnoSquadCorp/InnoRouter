@@ -1,14 +1,17 @@
 # InnoRouter 6.0 Functional Specification with 6.1–6.3 Capability Sets
 
-- Status: Implemented local candidate
-- Revision: 1.4
-- Target: first 6.0.0 tag, including the pre-release 6.1–6.3 scope
-- Updated: 2026-09-05
+- Document status: Draft; maintainer approval is not recorded
+- Implementation status: FR6-001–053 published in 6.0.0
+- Revision: 1.5
+- Target: published 6.0.0 contract plus compatible 6.0.x fixes
+- Updated: 2026-09-18
 
-The implementation status below applies to FR6-001–035. The next six planned
-capabilities extend the identifiers with FR6-036–053 and AC6-031–048 in the
-[Korean addendum](6.0.0-next-capabilities-spec.ko.md). That addendum is Draft;
-its requirements are not yet implemented.
+The contract below defines FR6-001–035. Six additional capability groups extend
+the identifiers with FR6-036–053 and AC6-031–048 in the
+[Korean addendum](6.0.0-next-capabilities-spec.ko.md). Those capabilities were
+implemented before the first 6.0.0 tag and published with it. Both documents
+remain Draft as review artifacts because named approval is still unrecorded;
+that lifecycle status is separate from implementation and publication.
 
 ## Product contract
 
@@ -362,7 +365,10 @@ does not claim to reproduce concurrent request timing.
 | FR6-034 | `RouterTabCatalog`, `RouterSceneCatalog`, platform interface baseline | host catalog tests and per-platform interface gate |
 | FR6-035 | `InnoRouterVersion`, typed snapshot migration, `RouterObservability.signposts`, diagnostic bundles, `RouterActionSequence` | snapshot, system, Inspector, and Testing tests |
 
-## Release rule
+## Release record
 
-This specification documents the implemented local candidate; it does not claim a
-published release. Tagging 6.0.0 requires AC6-010 and maintainer review.
+The FR6-001–053 implementation shipped in 6.0.0 on 2026-09-16. The release
+checklist records the exact tag, release-toolchain gates, downstream resolution,
+and publication result. Future compatible fixes require a new immutable SemVer
+tag and the same release gates. This document's Draft review state remains
+unchanged until a maintainer approval and date are recorded.

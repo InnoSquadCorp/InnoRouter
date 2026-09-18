@@ -35,14 +35,15 @@ growth:
 
 | Product | Maximum symbols |
 | --- | ---: |
-| `InnoRouter` | 933 |
-| `InnoRouterInspector` | 153 |
-| `InnoRouterTesting` | 38 |
+| `InnoRouter` | 1,156 |
+| `InnoRouterInspector` | 207 |
+| `InnoRouterTesting` | 250 |
 
-An intentional addition therefore needs both a reviewed API diff and a
-deliberate budget edit. Removal does not require lowering the budget in the
-same patch, which leaves room to review the semantic change before tightening
-the ceiling.
+`Baselines/PublicAPI/symbol-budgets.tsv` is the machine-readable source for
+these numbers, and the documentation gate rejects drift from this table. An
+intentional addition therefore needs both a reviewed API diff and a deliberate
+budget edit. Removal does not require lowering the budget in the same patch,
+which leaves room to review the semantic change before tightening the ceiling.
 
 Deep-link execution uses one public result vocabulary,
 `RouterLinkExecution`. Hosts emit the same value returned by explicit store
