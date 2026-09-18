@@ -35,9 +35,9 @@ growth:
 
 | Product | Maximum symbols |
 | --- | ---: |
-| `InnoRouter` | 1,156 |
+| `InnoRouter` | 1,172 |
 | `InnoRouterInspector` | 207 |
-| `InnoRouterTesting` | 250 |
+| `InnoRouterTesting` | 252 |
 
 `Baselines/PublicAPI/symbol-budgets.tsv` is the machine-readable source for
 these numbers, and the documentation gate rejects drift from this table. An

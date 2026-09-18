@@ -164,6 +164,47 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         self._ownedStore = State(initialValue: nil)
     }
 
+    /// Hosts application-owned state that was restored against this catalog's
+    /// topology, tolerating branches the catalog no longer names.
+    ///
+    /// Use this with
+    /// ``RouterStore/restore(from:using:tabTopology:expectedRevision:)`` and
+    /// `RouterTabRestorationTopology(catalog:)` built from the same catalog.
+    /// Restoration keeps a branch this catalog dropped so a later catalog can
+    /// still reach it, and those orphans reach the host.
+    ///
+    /// Every tab in `catalog` must still have a branch: an orphan is a branch
+    /// nothing renders, whereas a missing catalog branch is a tab the host
+    /// cannot render. Set `allowingOrphanedBranches` to `false` for the exact
+    /// set match performed by
+    /// ``init(store:catalog:linkHandling:)``.
+    public init(
+        store: RouterStore<R>,
+        catalog: RouterTabCatalog<R>,
+        allowingOrphanedBranches: Bool,
+        linkHandling: RouterLinkHandling<R>? = nil
+    ) throws {
+        let tabScopeIDs = catalog.descriptors.map(\.tab.routerScopeID)
+        guard case .container(let container) = store.state.root,
+              container.style == .tabs else {
+            throw RouterTabCatalogError.storeIsNotTabContainer
+        }
+        let present = Set(container.branches.map(\.id))
+        if allowingOrphanedBranches {
+            guard present.isSuperset(of: tabScopeIDs) else {
+                throw RouterTabCatalogError.storeBranchesDoNotMatchCatalog
+            }
+        } else {
+            guard present == Set(tabScopeIDs) else {
+                throw RouterTabCatalogError.storeBranchesDoNotMatchCatalog
+            }
+        }
+        self.tabs = catalog.descriptors
+        self.linkHandling = linkHandling
+        self.suppliedStore = store
+        self._ownedStore = State(initialValue: nil)
+    }
+
     public var body: some View {
         let rootScope = store.scope()
 

@@ -634,6 +634,7 @@ relationship | memberOf | RouterRequestOverflowStrategy.discardOldest | RouterRe
 relationship | memberOf | RouterRequestOverflowStrategy.rejectNewest | RouterRequestOverflowStrategy |  |
 relationship | memberOf | RouterRestorationDriver.activate() | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.init(store:codec:storage:recovery:saveDebounce:) | RouterRestorationDriver |  |
+relationship | memberOf | RouterRestorationDriver.init(store:codec:storage:recovery:tabTopology:saveDebounce:) | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.lastActivation | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.removeSnapshot() | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.save() | RouterRestorationDriver |  |
@@ -839,6 +840,9 @@ relationship | memberOf | RouterStore.requestObservations | RouterStore |  |
 relationship | memberOf | RouterStore.resolveDeferred(_:with:resumeStrategy:) | RouterStore |  |
 relationship | memberOf | RouterStore.restore(from:using:expectedRevision:) | RouterStore |  |
 relationship | memberOf | RouterStore.restore(from:using:recovery:expectedRevision:) | RouterStore |  |
+relationship | memberOf | RouterStore.restore(from:using:recovery:tabTopology:expectedRevision:) | RouterStore |  |
+relationship | memberOf | RouterStore.restore(from:using:tabTopology:expectedRevision:) | RouterStore |  |
+relationship | memberOf | RouterStore.restorePartially(from:using:validator:tabTopology:validationTimeout:expectedRevision:) | RouterStore |  |
 relationship | memberOf | RouterStore.restorePartially(from:using:validator:validationTimeout:expectedRevision:) | RouterStore |  |
 relationship | memberOf | RouterStore.resume(_:source:) | RouterStore |  |
 relationship | memberOf | RouterStore.resumeDeferred(_:strategy:) | RouterStore |  |
@@ -876,8 +880,18 @@ relationship | memberOf | RouterTabDescriptor.tab | RouterTabDescriptor |  |
 relationship | memberOf | RouterTabHost.body | RouterTabHost |  |
 relationship | memberOf | RouterTabHost.init(_:catalog:initial:badges:configuration:linkHandling:) | RouterTabHost |  |
 relationship | memberOf | RouterTabHost.init(_:initial:badges:configuration:linkHandling:) | RouterTabHost |  |
+relationship | memberOf | RouterTabHost.init(store:catalog:allowingOrphanedBranches:linkHandling:) | RouterTabHost |  |
 relationship | memberOf | RouterTabHost.init(store:catalog:linkHandling:) | RouterTabHost |  |
 relationship | memberOf | RouterTabHost.init(store:linkHandling:) | RouterTabHost |  |
+relationship | memberOf | RouterTabRestorationError.duplicateScopeID(_:) | RouterTabRestorationError |  |
+relationship | memberOf | RouterTabRestorationError.emptyTopology | RouterTabRestorationError |  |
+relationship | memberOf | RouterTabRestorationError.rootIsNotTabs | RouterTabRestorationError |  |
+relationship | memberOf | RouterTabRestorationTopology.fallbackSelection | RouterTabRestorationTopology |  |
+relationship | memberOf | RouterTabRestorationTopology.init(catalog:) | RouterTabRestorationTopology |  |
+relationship | memberOf | RouterTabRestorationTopology.init(of:) | RouterTabRestorationTopology |  |
+relationship | memberOf | RouterTabRestorationTopology.init(scopeIDs:) | RouterTabRestorationTopology |  |
+relationship | memberOf | RouterTabRestorationTopology.reconciling(_:) | RouterTabRestorationTopology |  |
+relationship | memberOf | RouterTabRestorationTopology.scopeIDs | RouterTabRestorationTopology |  |
 relationship | memberOf | RouterTabRole.search | RouterTabRole |  |
 relationship | memberOf | RouterTabRole.standard | RouterTabRole |  |
 relationship | memberOf | RouterTabRoute.routerTab(containingRoot:) | RouterTabRoute |  |
@@ -1042,6 +1056,7 @@ symbol | swift.enum | RouterSplitColumn | RouterSplitColumn | enum RouterSplitCo
 symbol | swift.enum | RouterSplitVisibility | RouterSplitVisibility | enum RouterSplitVisibility | []
 symbol | swift.enum | RouterStateValidationError | RouterStateValidationError | enum RouterStateValidationError | []
 symbol | swift.enum | RouterTabCatalogError | RouterTabCatalogError | enum RouterTabCatalogError | []
+symbol | swift.enum | RouterTabRestorationError | RouterTabRestorationError | enum RouterTabRestorationError | []
 symbol | swift.enum | RouterTabRole | RouterTabRole | enum RouterTabRole | []
 symbol | swift.enum | RouterTransitionSource | RouterTransitionSource | enum RouterTransitionSource | []
 symbol | swift.enum.case | DeepLinkAuthenticationPolicy.notRequired | DeepLinkAuthenticationPolicy.notRequired | case notRequired | []
@@ -1402,6 +1417,9 @@ symbol | swift.enum.case | RouterTabCatalogError.empty | RouterTabCatalogError.e
 symbol | swift.enum.case | RouterTabCatalogError.initialTabNotInCatalog | RouterTabCatalogError.initialTabNotInCatalog | case initialTabNotInCatalog | []
 symbol | swift.enum.case | RouterTabCatalogError.storeBranchesDoNotMatchCatalog | RouterTabCatalogError.storeBranchesDoNotMatchCatalog | case storeBranchesDoNotMatchCatalog | []
 symbol | swift.enum.case | RouterTabCatalogError.storeIsNotTabContainer | RouterTabCatalogError.storeIsNotTabContainer | case storeIsNotTabContainer | []
+symbol | swift.enum.case | RouterTabRestorationError.duplicateScopeID(_:) | RouterTabRestorationError.duplicateScopeID(_:) | case duplicateScopeID(RouterScopeID) | []
+symbol | swift.enum.case | RouterTabRestorationError.emptyTopology | RouterTabRestorationError.emptyTopology | case emptyTopology | []
+symbol | swift.enum.case | RouterTabRestorationError.rootIsNotTabs | RouterTabRestorationError.rootIsNotTabs | case rootIsNotTabs | []
 symbol | swift.enum.case | RouterTabRole.search | RouterTabRole.search | case search | []
 symbol | swift.enum.case | RouterTabRole.standard | RouterTabRole.standard | case standard | []
 symbol | swift.enum.case | RouterTransitionSource.appIntent | RouterTransitionSource.appIntent | case appIntent | []
@@ -1479,6 +1497,7 @@ symbol | swift.init | RouterRequestKey.init(rawValue:) | init(rawValue:) | init(
 symbol | swift.init | RouterRequestKey.init(stringLiteral:) | init(stringLiteral:) | init(stringLiteral value: String) | []
 symbol | swift.init | RouterRequestObservation.init(id:action:context:expectedRevision:) | init(id:action:context:expectedRevision:) | init(id: RouterTransitionID, action: RouterAction<R>, context: RouterTransitionContext, expectedRevision: UInt64? = nil) | []
 symbol | swift.init | RouterRestorationDriver.init(store:codec:storage:recovery:saveDebounce:) | init(store:codec:storage:recovery:saveDebounce:) | @MainActor init(store: RouterStore<R>, codec: RouterSnapshotCodec<R>, storage: any RouterSnapshotStorage, recovery: RouterSnapshotRecoveryPolicy<R> = .fail, saveDebounce: Duration = .milliseconds(250)) | []
+symbol | swift.init | RouterRestorationDriver.init(store:codec:storage:recovery:tabTopology:saveDebounce:) | init(store:codec:storage:recovery:tabTopology:saveDebounce:) | @MainActor init(store: RouterStore<R>, codec: RouterSnapshotCodec<R>, storage: any RouterSnapshotStorage, recovery: RouterSnapshotRecoveryPolicy<R> = .fail, tabTopology: RouterTabRestorationTopology, saveDebounce: Duration = .milliseconds(250)) | []
 symbol | swift.init | RouterRestorationOutcome.init(decoding:transition:) | init(decoding:transition:) | init(decoding: RouterSnapshotDecodingResult<R>, transition: RouterOutcome<R>) | []
 symbol | swift.init | RouterRestorationRouteLocation.init(scope:role:index:) | init(scope:role:index:) | init(scope: RouterScopePath, role: RouterRestorationRouteRole, index: Int? = nil) | []
 symbol | swift.init | RouterSceneCatalog.init(_:) | init(_:) | init(_ descriptors: [RouterSceneDescriptor<R>]) throws | []
@@ -1509,8 +1528,12 @@ symbol | swift.init | RouterTabCatalog.init(_:) | init(_:) | init(_ descriptors:
 symbol | swift.init | RouterTabDescriptor.init(tab:root:) | init(tab:root:) | init(tab: Tab, root: R) | []
 symbol | swift.init | RouterTabHost.init(_:catalog:initial:badges:configuration:linkHandling:) | init(_:catalog:initial:badges:configuration:linkHandling:) | @MainActor init(_ routeType: R.Type, catalog: RouterTabCatalog<R>, initial: R.Tab, badges: [R.Tab : Int] = [:], configuration: RouterStoreConfiguration<R> = .init(), linkHandling: RouterLinkHandling<R>? = nil) throws | []
 symbol | swift.init | RouterTabHost.init(_:initial:badges:configuration:linkHandling:) | init(_:initial:badges:configuration:linkHandling:) | @MainActor init(_ routeType: R.Type, initial: R.Tab, badges: [R.Tab : Int] = [:], configuration: RouterStoreConfiguration<R> = .init(), linkHandling: RouterLinkHandling<R>? = nil) | []
+symbol | swift.init | RouterTabHost.init(store:catalog:allowingOrphanedBranches:linkHandling:) | init(store:catalog:allowingOrphanedBranches:linkHandling:) | @MainActor init(store: RouterStore<R>, catalog: RouterTabCatalog<R>, allowingOrphanedBranches: Bool, linkHandling: RouterLinkHandling<R>? = nil) throws | []
 symbol | swift.init | RouterTabHost.init(store:catalog:linkHandling:) | init(store:catalog:linkHandling:) | @MainActor init(store: RouterStore<R>, catalog: RouterTabCatalog<R>, linkHandling: RouterLinkHandling<R>? = nil) throws | []
 symbol | swift.init | RouterTabHost.init(store:linkHandling:) | init(store:linkHandling:) | @MainActor init(store: RouterStore<R>, linkHandling: RouterLinkHandling<R>? = nil) | []
+symbol | swift.init | RouterTabRestorationTopology.init(catalog:) | init(catalog:) | init<R>(catalog: RouterTabCatalog<R>) where R : RouterTabRoute | []
+symbol | swift.init | RouterTabRestorationTopology.init(of:) | init(of:) | init<R>(of routeType: R.Type) throws where R : RouterTabRoute | []
+symbol | swift.init | RouterTabRestorationTopology.init(scopeIDs:) | init(scopeIDs:) | init(scopeIDs: [RouterScopeID]) throws | []
 symbol | swift.init | RouterThreeColumnSplitHost.init(_:initialSidebarPath:initialContentPath:initialDetailPath:layout:configuration:linkHandling:sidebar:content:detail:) | init(_:initialSidebarPath:initialContentPath:initialDetailPath:layout:configuration:linkHandling:sidebar:content:detail:) | @MainActor init(_ routeType: R.Type, initialSidebarPath: [R] = [], initialContentPath: [R] = [], initialDetailPath: [R] = [], layout: RouterThreeColumnSplitLayout = .standard, configuration: RouterStoreConfiguration<R> = .init(), linkHandling: RouterLinkHandling<R>? = nil, @ViewBuilder sidebar: @escaping () -> SidebarRoot, @ViewBuilder content: @escaping () -> ContentRoot, @ViewBuilder detail: @escaping () -> DetailRoot) | []
 symbol | swift.init | RouterThreeColumnSplitHost.init(store:linkHandling:sidebar:content:detail:) | init(store:linkHandling:sidebar:content:detail:) | @MainActor init(store: RouterStore<R>, linkHandling: RouterLinkHandling<R>? = nil, @ViewBuilder sidebar: @escaping () -> SidebarRoot, @ViewBuilder content: @escaping () -> ContentRoot, @ViewBuilder detail: @escaping () -> DetailRoot) | []
 symbol | swift.init | RouterThreeColumnSplitLayout.init(sidebarScopeID:contentScopeID:detailScopeID:visibility:preferredCompactColumn:) | init(sidebarScopeID:contentScopeID:detailScopeID:visibility:preferredCompactColumn:) | init(sidebarScopeID: RouterScopeID = "sidebar", contentScopeID: RouterScopeID = "content", detailScopeID: RouterScopeID = "detail", visibility: RouterSplitVisibility = .automatic, preferredCompactColumn: RouterSplitColumn = .detail) throws | []
@@ -1671,6 +1694,9 @@ symbol | swift.method | RouterStore.present(_:style:options:at:expecting:) | pre
 symbol | swift.method | RouterStore.resolveDeferred(_:with:resumeStrategy:) | resolveDeferred(_:with:resumeStrategy:) | @MainActor func resolveDeferred(_ id: RouterDeferralID, with resolution: RouterDeferralResolution, resumeStrategy: RouterDeferralResumeStrategy = .requireUnchangedState) async -> RouterOutcome<R> | []
 symbol | swift.method | RouterStore.restore(from:using:expectedRevision:) | restore(from:using:expectedRevision:) | @MainActor func restore(from data: Data, using codec: RouterSnapshotCodec<R>, expectedRevision: UInt64? = nil) async throws -> RouterOutcome<R> where R : Decodable, R : Encodable | []
 symbol | swift.method | RouterStore.restore(from:using:recovery:expectedRevision:) | restore(from:using:recovery:expectedRevision:) | @MainActor func restore(from data: Data, using codec: RouterSnapshotCodec<R>, recovery: RouterSnapshotRecoveryPolicy<R>, expectedRevision: UInt64? = nil) async throws -> RouterRestorationOutcome<R> where R : Decodable, R : Encodable | []
+symbol | swift.method | RouterStore.restore(from:using:recovery:tabTopology:expectedRevision:) | restore(from:using:recovery:tabTopology:expectedRevision:) | @MainActor func restore(from data: Data, using codec: RouterSnapshotCodec<R>, recovery: RouterSnapshotRecoveryPolicy<R>, tabTopology: RouterTabRestorationTopology, expectedRevision: UInt64? = nil) async throws -> RouterRestorationOutcome<R> where R : Decodable, R : Encodable | []
+symbol | swift.method | RouterStore.restore(from:using:tabTopology:expectedRevision:) | restore(from:using:tabTopology:expectedRevision:) | @MainActor func restore(from data: Data, using codec: RouterSnapshotCodec<R>, tabTopology: RouterTabRestorationTopology, expectedRevision: UInt64? = nil) async throws -> RouterOutcome<R> where R : Decodable, R : Encodable | []
+symbol | swift.method | RouterStore.restorePartially(from:using:validator:tabTopology:validationTimeout:expectedRevision:) | restorePartially(from:using:validator:tabTopology:validationTimeout:expectedRevision:) | @MainActor func restorePartially(from data: Data, using codec: RouterSnapshotCodec<R>, validator: RouterPartialRestorationValidator<R>, tabTopology: RouterTabRestorationTopology, validationTimeout: Duration? = nil, expectedRevision: UInt64? = nil) async throws -> RouterPartialRestorationOutcome<R> | []
 symbol | swift.method | RouterStore.restorePartially(from:using:validator:validationTimeout:expectedRevision:) | restorePartially(from:using:validator:validationTimeout:expectedRevision:) | @MainActor func restorePartially(from data: Data, using codec: RouterSnapshotCodec<R>, validator: RouterPartialRestorationValidator<R>, validationTimeout: Duration? = nil, expectedRevision: UInt64? = nil) async throws -> RouterPartialRestorationOutcome<R> | []
 symbol | swift.method | RouterStore.resume(_:source:) | resume(_:source:) | @MainActor func resume(_ pending: PendingRouterLink<R>, source: RouterTransitionSource = .deepLink) async -> RouterLinkExecution<R> | []
 symbol | swift.method | RouterStore.resumeDeferred(_:strategy:) | resumeDeferred(_:strategy:) | @MainActor func resumeDeferred(_ id: RouterDeferralID, strategy: RouterDeferralResumeStrategy = .requireUnchangedState) async -> RouterOutcome<R> | []
@@ -1680,6 +1706,7 @@ symbol | swift.method | RouterStore.transaction(_:) | transaction(_:) | @MainAct
 symbol | swift.method | RouterStoreConfiguration.observing(_:) | observing(_:) | func observing(_ observability: RouterObservability<R>) -> RouterStoreConfiguration<R> | []
 symbol | swift.method | RouterTabCatalog.descriptor(for:) | descriptor(for:) | func descriptor(for tab: R.Tab) -> RouterTabDescriptor<R, R.Tab>? | []
 symbol | swift.method | RouterTabCatalog.tab(containingRoot:) | tab(containingRoot:) | func tab(containingRoot route: R) -> R.Tab? | []
+symbol | swift.method | RouterTabRestorationTopology.reconciling(_:) | reconciling(_:) | func reconciling<R>(_ restored: RouterState<R>) throws -> RouterState<R> where R : Route | []
 symbol | swift.method | View.innoRouterEnvironmentMissingPolicy(_:) | innoRouterEnvironmentMissingPolicy(_:) | @MainActor func innoRouterEnvironmentMissingPolicy(_ policy: EnvironmentMissingPolicy) -> some View | []
 symbol | swift.method | View.routerHandoff(_:configuration:) | routerHandoff(_:configuration:) | @MainActor func routerHandoff<R>(_ route: R?, configuration: RouterHandoffConfiguration<R>) -> some View where R : DeepLinkRoute | []
 symbol | swift.method | View.routerImmersiveSpaceLifecycle(_:store:) | routerImmersiveSpaceLifecycle(_:store:) | @MainActor func routerImmersiveSpaceLifecycle<R>(_ id: String, store: RouterStore<R>) -> some View where R : RouterSceneRoute | []
@@ -1913,6 +1940,8 @@ symbol | swift.property | RouterTabDescriptor.id | id | var id: Tab { get } | []
 symbol | swift.property | RouterTabDescriptor.root | root | let root: R | []
 symbol | swift.property | RouterTabDescriptor.tab | tab | let tab: Tab | []
 symbol | swift.property | RouterTabHost.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | RouterTabRestorationTopology.fallbackSelection | fallbackSelection | var fallbackSelection: RouterScopeID { get } | []
+symbol | swift.property | RouterTabRestorationTopology.scopeIDs | scopeIDs | let scopeIDs: [RouterScopeID] | []
 symbol | swift.property | RouterThreeColumnSplitHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | RouterThreeColumnSplitLayout.contentScopeID | contentScopeID | let contentScopeID: RouterScopeID | []
 symbol | swift.property | RouterThreeColumnSplitLayout.detailScopeID | detailScopeID | var detailScopeID: RouterScopeID { get } | []
@@ -2026,6 +2055,7 @@ symbol | swift.struct | RouterStoreConfiguration | RouterStoreConfiguration | st
 symbol | swift.struct | RouterTabCatalog | RouterTabCatalog | struct RouterTabCatalog<R> where R : RouterTabRoute | []
 symbol | swift.struct | RouterTabDescriptor | RouterTabDescriptor | struct RouterTabDescriptor<R, Tab> where R : Route, Tab : RouterTab | []
 symbol | swift.struct | RouterTabHost | RouterTabHost | @MainActor struct RouterTabHost<R> where R : DestinationRoute, R : RouterTabRoute | []
+symbol | swift.struct | RouterTabRestorationTopology | RouterTabRestorationTopology | struct RouterTabRestorationTopology | []
 symbol | swift.struct | RouterThreeColumnSplitHost | RouterThreeColumnSplitHost | @MainActor struct RouterThreeColumnSplitHost<R, SidebarRoot, ContentRoot, DetailRoot> where R : DestinationRoute, SidebarRoot : View, ContentRoot : View, DetailRoot : View | []
 symbol | swift.struct | RouterThreeColumnSplitLayout | RouterThreeColumnSplitLayout | struct RouterThreeColumnSplitLayout | []
 symbol | swift.struct | RouterTransition | RouterTransition | struct RouterTransition<R> where R : Route | []

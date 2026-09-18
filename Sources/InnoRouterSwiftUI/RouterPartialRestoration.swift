@@ -409,10 +409,55 @@ public extension RouterStore where R: Codable {
         validationTimeout: Duration? = nil,
         expectedRevision: UInt64? = nil
     ) async throws -> RouterPartialRestorationOutcome<R> {
+        try await restorePartially(
+            from: data,
+            using: codec,
+            validator: validator,
+            tabTopology: nil,
+            validationTimeout: validationTimeout,
+            expectedRevision: expectedRevision
+        )
+    }
+
+    /// Decodes and migrates a snapshot, adds the tabs this application renders
+    /// now, validates every route of the resulting candidate with the app, and
+    /// applies one exact plan through normal policies.
+    ///
+    /// Reconciliation runs before validation, so the application sees the
+    /// candidate that will actually be applied and nothing is added to it
+    /// afterwards. Scopes created for tabs the snapshot predates are empty,
+    /// so they contribute no routes to validate.
+    func restorePartially(
+        from data: Data,
+        using codec: RouterSnapshotCodec<R>,
+        validator: RouterPartialRestorationValidator<R>,
+        tabTopology: RouterTabRestorationTopology,
+        validationTimeout: Duration? = nil,
+        expectedRevision: UInt64? = nil
+    ) async throws -> RouterPartialRestorationOutcome<R> {
+        try await restorePartially(
+            from: data,
+            using: codec,
+            validator: validator,
+            tabTopology: .some(tabTopology),
+            validationTimeout: validationTimeout,
+            expectedRevision: expectedRevision
+        )
+    }
+
+    private func restorePartially(
+        from data: Data,
+        using codec: RouterSnapshotCodec<R>,
+        validator: RouterPartialRestorationValidator<R>,
+        tabTopology: RouterTabRestorationTopology?,
+        validationTimeout: Duration?,
+        expectedRevision: UInt64?
+    ) async throws -> RouterPartialRestorationOutcome<R> {
         let capturedRevision = expectedRevision ?? revision
         let decoded = try await RouterSnapshotCodecExecutor(codec: codec).decode(data)
+        let candidate = try tabTopology.map { try $0.reconciling(decoded) } ?? decoded
         let planned = try await preparePartialRestoration(
-            decoded,
+            candidate,
             validator: validator,
             timeout: validationTimeout,
             sleep: runtimeDependencies.sleep

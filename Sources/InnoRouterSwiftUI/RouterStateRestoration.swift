@@ -65,6 +65,8 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         UUID: CheckedContinuation<RouterRestorationActivationLease<R>, any Error>
     ] = [:]
     @ObservationIgnored
+    private let tabTopology: RouterTabRestorationTopology?
+    @ObservationIgnored
     private var initialRestorePhase: RouterInitialRestorePhase = .notStarted
     @ObservationIgnored
     private var activationGeneration: UInt64 = 0
@@ -85,6 +87,34 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         self.store = store
         self.codec = codec
         self.recovery = recovery
+        self.tabTopology = nil
+        self.executor = RouterByteStoreExecutor(
+            load: { try storage.load() },
+            save: { try storage.save($0) },
+            remove: { try storage.remove() }
+        )
+        self.codecExecutor = RouterSnapshotCodecExecutor(codec: codec)
+        self.saveDebounce = max(saveDebounce, .zero)
+    }
+
+    /// Creates a driver whose initial restore reconciles against the tab
+    /// topology this application renders now.
+    ///
+    /// The topology belongs to this driver's lifetime. An application that
+    /// changes its catalog stops this driver and creates another with the new
+    /// topology rather than mutating one in place.
+    public init(
+        store: RouterStore<R>,
+        codec: RouterSnapshotCodec<R>,
+        storage: any RouterSnapshotStorage,
+        recovery: RouterSnapshotRecoveryPolicy<R> = .fail,
+        tabTopology: RouterTabRestorationTopology,
+        saveDebounce: Duration = .milliseconds(250)
+    ) {
+        self.store = store
+        self.codec = codec
+        self.recovery = recovery
+        self.tabTopology = tabTopology
         self.executor = RouterByteStoreExecutor(
             load: { try storage.load() },
             save: { try storage.save($0) },
@@ -239,6 +269,7 @@ extension RouterRestorationDriver {
                 expectedRevision: expectedRevision,
                 transitionID: transitionID,
                 requestRootID: transitionID,
+                tabTopology: tabTopology,
                 executionPrecondition: { [weak self] _ in
                     guard let self,
                           self.activationGeneration == generation,

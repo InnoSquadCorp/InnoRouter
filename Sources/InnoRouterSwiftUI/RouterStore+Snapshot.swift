@@ -71,6 +71,56 @@ public extension RouterStore {
         )
     }
 
+    /// Restores a complete snapshot against the tab topology this application
+    /// renders now.
+    ///
+    /// Unlike ``restore(from:using:expectedRevision:)``, which applies the
+    /// snapshot exactly, this overload adds any tab in `tabTopology` that the
+    /// snapshot predates, so a tab introduced since the snapshot was written
+    /// is selectable. Scopes the snapshot already carries keep their path,
+    /// presentation, and badge; scopes it lacks are created empty.
+    ///
+    /// Pass the topology of the catalog the host renders. Nothing is inferred
+    /// from this store's initial state.
+    func restore(
+        from data: Data,
+        using codec: RouterSnapshotCodec<R>,
+        tabTopology: RouterTabRestorationTopology,
+        expectedRevision: UInt64? = nil
+    ) async throws -> RouterOutcome<R> where R: Codable {
+        let restored = try await RouterSnapshotCodecExecutor(codec: codec).decode(data)
+        let prepared = try tabTopology.reconciling(restored)
+        return await perform(
+            .apply(RouterPlan(state: prepared)),
+            context: .init(source: .restoration),
+            expectedRevision: expectedRevision,
+            bypassesPolicies: false
+        )
+    }
+
+    /// Restores against an explicit tab topology, with an application recovery
+    /// policy for an unreadable snapshot.
+    ///
+    /// A state produced by ``RouterSnapshotRecoveryPolicy/use(_:)`` is the
+    /// application's final answer and is applied exactly. Tab reconciliation
+    /// runs only on a state that actually decoded.
+    func restore(
+        from data: Data,
+        using codec: RouterSnapshotCodec<R>,
+        recovery: RouterSnapshotRecoveryPolicy<R>,
+        tabTopology: RouterTabRestorationTopology,
+        expectedRevision: UInt64? = nil
+    ) async throws -> RouterRestorationOutcome<R> where R: Codable {
+        try await restore(
+            from: data,
+            using: codec,
+            recovery: recovery,
+            expectedRevision: expectedRevision,
+            tabTopology: tabTopology,
+            executionPrecondition: nil
+        )
+    }
+
     package func restore(
         from data: Data,
         using codec: RouterSnapshotCodec<R>,
@@ -78,14 +128,26 @@ public extension RouterStore {
         expectedRevision: UInt64?,
         transitionID: RouterTransitionID? = nil,
         requestRootID: RouterTransitionID? = nil,
+        tabTopology: RouterTabRestorationTopology? = nil,
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async throws -> RouterRestorationOutcome<R> where R: Codable {
         let decoding = try await RouterSnapshotCodecExecutor(codec: codec).decode(
             data,
             recovery: recovery
         )
+        let prepared: RouterState<R>
+        switch (decoding, tabTopology) {
+        case (.restored(let state), .some(let topology)):
+            prepared = try topology.reconciling(state)
+        case (.restored(let state), .none):
+            prepared = state
+        case (.recovered(let state, _), _):
+            // The application already chose this state. Reconciling it would
+            // override the fallback it deliberately returned.
+            prepared = state
+        }
         let transition = await perform(
-            .apply(RouterPlan(state: decoding.state)),
+            .apply(RouterPlan(state: prepared)),
             context: .init(source: .restoration),
             expectedRevision: expectedRevision,
             bypassesPolicies: false,

@@ -423,6 +423,23 @@ public extension RouterTestStore where R: Codable {
         )
     }
 
+    /// Restores against an explicit tab topology through the production
+    /// overload, so a test observes the same reconciliation an app does.
+    @discardableResult
+    func restore(
+        from data: Data,
+        using codec: RouterSnapshotCodec<R>,
+        recovery: RouterSnapshotRecoveryPolicy<R> = .fail,
+        tabTopology: RouterTabRestorationTopology
+    ) async throws -> RouterRestorationOutcome<R> {
+        try await underlying.restore(
+            from: data,
+            using: codec,
+            recovery: recovery,
+            tabTopology: tabTopology
+        )
+    }
+
     /// Exercises app-validated partial restoration with the same virtual
     /// runtime used by policy, deferral, and cancellation tests.
     @discardableResult
@@ -437,6 +454,27 @@ public extension RouterTestStore where R: Codable {
             from: data,
             using: codec,
             validator: validator,
+            validationTimeout: validationTimeout,
+            expectedRevision: expectedRevision
+        )
+    }
+
+    /// Partial restoration against an explicit tab topology, through the same
+    /// production overload.
+    @discardableResult
+    func restorePartially(
+        from data: Data,
+        using codec: RouterSnapshotCodec<R>,
+        validator: RouterPartialRestorationValidator<R>,
+        tabTopology: RouterTabRestorationTopology,
+        validationTimeout: Duration? = nil,
+        expectedRevision: UInt64? = nil
+    ) async throws -> RouterPartialRestorationOutcome<R> {
+        try await underlying.restorePartially(
+            from: data,
+            using: codec,
+            validator: validator,
+            tabTopology: tabTopology,
             validationTimeout: validationTimeout,
             expectedRevision: expectedRevision
         )

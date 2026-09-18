@@ -304,19 +304,20 @@ struct RouterRestorationBoundaryRegressionTests {
             )
         )
 
-        _ = try await store.restore(from: data, using: codec)
+        // The caller states the topology it renders now. Nothing is inferred
+        // from the store.
+        let topology = try RouterTabRestorationTopology(
+            scopeIDs: ["home", "settings", "profile"]
+        )
+        _ = try await store.restore(from: data, using: codec, tabTopology: topology)
 
-        // Withheld until RBR-T04 lands the explicit-topology restore. The
-        // reverted reconciler delivered this only by reading topology the
-        // caller never supplied, which is what R1 and R2 above reject.
-        await withKnownIssue("RBR-T04: explicit tab topology is not implemented yet") {
-            #expect(Self.branchIDs(store.state)?.contains("profile") == true)
-            guard case .applied = await store.perform(
-                .push(.detail).inScope("profile")
-            ) else {
-                Issue.record("Expected the newly added tab to accept navigation")
-                return
-            }
+        #expect(Self.branchIDs(store.state) == ["home", "settings", "profile"])
+        #expect(Self.routes(in: store.state.root) == [.detail])
+        guard case .applied = await store.perform(
+            .push(.detail).inScope("profile")
+        ) else {
+            Issue.record("Expected the newly added tab to accept navigation")
+            return
         }
     }
 }
