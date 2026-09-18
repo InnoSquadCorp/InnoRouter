@@ -46,7 +46,7 @@ private enum PlainHostRoute: DestinationRoute {
     }
 }
 
-private enum HostDeepLinkTab: String, Codable, DestinationRoute, DeepLinkRoute, RouterTabRoute {
+private enum HostDeepLinkTab: String, DestinationRoute, DeepLinkRoute, RouterTabRoute {
     case home
     case settings
 
@@ -153,53 +153,6 @@ struct RouterDeepLinkHostTests {
             return
         }
         #expect(selected.selection == "settings")
-    }
-
-    @Test("A tab deep link selects a current tab after restoring an older catalog")
-    func restoredCatalogSelectsResolvedTab() async throws {
-        let url = try #require(URL(string: "innorouter://app.example.com/settings"))
-        let arbiter = RouterDeepLinkArbiter()
-        let baseline = try RouterContainerState<HostDeepLinkTab>(
-            style: .tabs,
-            selection: "home",
-            branches: [RouterBranch(id: "home"), RouterBranch(id: "settings")]
-        )
-        let store = RouterStore(
-            initialState: try RouterState(root: .container(baseline))
-        )
-        let legacy = try RouterContainerState<HostDeepLinkTab>(
-            style: .tabs,
-            selection: "legacySettings",
-            branches: [
-                RouterBranch(id: "home"),
-                RouterBranch(id: "legacySettings", node: .stack(path: [.settings])),
-            ]
-        )
-        let codec = try RouterSnapshotCodec<HostDeepLinkTab>(currentVersion: 1)
-        let data = try codec.encode(try RouterState(root: .container(legacy)))
-        _ = try await store.restore(from: data, using: codec)
-
-        #expect(
-            submitRouterDeepLink(
-                HostDeepLinkTab.self,
-                url: url,
-                context: RouterDeepLinkContext(arbiter: arbiter, depth: 0),
-                source: RouterDeepLinkSource()
-            ) { route in
-                if let tab = HostDeepLinkTab.routerTab(containingRoot: route) {
-                    store.dispatch(.select(tab.routerScopeID))
-                }
-            }
-        )
-        arbiter.flush(url)
-        for _ in 0..<4 { await Task.yield() }
-
-        guard case .container(let selected) = store.state.root else {
-            Issue.record("Expected restored tab container")
-            return
-        }
-        #expect(selected.selection == "settings")
-        #expect(selected.branches.contains { $0.id == "settings" })
     }
 
     @Test("The shallowest matching host owns one incoming URL")

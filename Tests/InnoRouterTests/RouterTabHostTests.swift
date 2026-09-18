@@ -9,11 +9,10 @@ import Testing
 import InnoRouter
 @testable import InnoRouterSwiftUI
 
-private enum RouterTabHostRoute: String, Codable, DestinationRoute, RouterTabRoute {
+private enum RouterTabHostRoute: String, DestinationRoute, RouterTabRoute {
     case home
     case inbox
     case settings
-    case detail
 
     enum Tab: String, RouterTab {
         case home
@@ -50,7 +49,6 @@ private enum RouterTabHostRoute: String, Codable, DestinationRoute, RouterTabRou
         case .home: "Home"
         case .inbox: "Inbox"
         case .settings: "Settings"
-        case .detail: "Detail"
         }
     }
 
@@ -59,7 +57,6 @@ private enum RouterTabHostRoute: String, Codable, DestinationRoute, RouterTabRou
         case .home: "house"
         case .inbox: "tray"
         case .settings: "gearshape"
-        case .detail: "doc.text"
         }
     }
 
@@ -75,19 +72,6 @@ private final class RouterTabHostRecorder {
     @ObservationIgnored
     var paths: [[RouterTabHostRoute]] = []
     var didDispatch = false
-}
-
-@MainActor
-private final class RouterTabRestorationPolicyRecorder {
-    var proposedContainer: RouterContainerState<RouterTabHostRoute>?
-}
-
-private struct RouterTabSnapshotStorage: RouterSnapshotStorage {
-    let data: Data
-
-    func load() throws -> Data? { data }
-    func save(_ data: Data) throws {}
-    func remove() throws {}
 }
 
 @MainActor
@@ -213,11 +197,14 @@ struct RouterTabHostTests {
         #expect(tabContainer(in: store)?.badges == ["settings": 4])
     }
 
-    // Ordinary exact plans remain exact even when the caller applies an old
-    // topology directly. The host must not crash, but restoration is the
-    // boundary that makes current tabs navigable.
-    @Test("RouterTabHost renders an exact plan whose branches predate a tab rename")
-    func staleExactPlanDoesNotAbort() async throws {
+    // A snapshot written before a tab was renamed decodes into a store whose
+    // branches no longer match the catalog. `RouterRestorationDriver` applies it
+    // through `.apply`, which replaces the root wholesale, so the mismatch
+    // reaches a View initializer that SwiftUI re-runs every body pass. That
+    // used to abort the process; the host now renders the catalog and lets the
+    // orphaned branch go unused.
+    @Test("RouterTabHost renders a store whose branches predate a tab rename")
+    func staleRestoredBranchesDoNotAbort() async throws {
         let store = try makeTabStore(initial: .home)
 
         // Stand in for a decoded snapshot: "settings" was renamed since it was
@@ -246,145 +233,10 @@ struct RouterTabHostTests {
         _ = try renderRouterTabHost(host)
         await drainMainActorTasks()
 
-        // Exact application keeps the caller's topology and the orphaned
-        // branch. It does not silently turn a plan into a restoration repair.
+        // The orphaned branch is still in the state; the host simply does not
+        // render it, and the catalog's own tabs remain reachable.
         #expect(tabContainer(in: store)?.branches.contains { $0.id == "legacySettings" } == true)
-        #expect(store.scope(at: ["settings"]).node == nil)
         #expect(recorder.appearances.contains(.home))
-    }
-
-    @Test("Snapshot restoration reconciles stale tabs before policy and commit")
-    func snapshotRestorationReconcilesTabs() async throws {
-        let codec = try RouterSnapshotCodec<RouterTabHostRoute>(currentVersion: 1)
-        let drifted = try makeDriftedTabState()
-        let data = try codec.encode(drifted)
-        let policyRecorder = RouterTabRestorationPolicyRecorder()
-        var configuration = RouterStoreConfiguration<RouterTabHostRoute>()
-        configuration.policies = [
-            RouterPolicy(name: "observe-restored-tabs") { transition in
-                if case .container(let container) = transition.proposedState.root {
-                    policyRecorder.proposedContainer = container
-                }
-                return .allow
-            },
-        ]
-        let store = try makeTabStore(initial: .home, configuration: configuration)
-        let driver = RouterRestorationDriver(
-            store: store,
-            codec: codec,
-            storage: RouterTabSnapshotStorage(data: data)
-        )
-
-        guard case .restored(let restoration) = try await driver.activate(),
-              case .applied(_, _, let restored, 1) = restoration.transition,
-              case .restored(let decoded) = restoration.decoding,
-              case .container(let container) = restored.root else {
-            Issue.record("Expected one reconciled restoration commit")
-            return
-        }
-
-        let expectedIDs: [RouterScopeID] = ["home", "inbox", "settings", "legacySettings"]
-        #expect(policyRecorder.proposedContainer?.branches.map(\.id) == expectedIDs)
-        #expect(policyRecorder.proposedContainer?.selection == "home")
-        #expect(container.branches.map(\.id) == expectedIDs)
-        #expect(container.selection == "home")
-        #expect(container.badges == ["home": 2, "legacySettings": 7])
-        #expect(container.branches[0].node == .stack(path: [.detail]))
-        #expect(container.branches[1].node == .stack(path: [.inbox]))
-        #expect(container.branches[2].node == .stack())
-        #expect(container.branches[3].node == .stack(path: [.settings]))
-        #expect(decoded == drifted)
-        #expect(store.state == restored)
-
-        guard case .applied = await store.perform(.select("settings")),
-              case .applied = await store.scope(at: ["settings"]).perform(.push(.detail)) else {
-            Issue.record("Expected the restored current tab to remain navigable")
-            return
-        }
-        #expect(store.scope(at: ["settings"]).node == .stack(path: [.detail]))
-
-        let recorder = RouterTabHostRecorder()
-        _ = try renderRouterTabHost(
-            RouterTabHost(store: store).environment(recorder)
-        )
-        await drainMainActorTasks()
-        #expect(recorder.paths.contains([.detail]))
-
-        let saved = try await store.snapshot(using: codec)
-        let reopened = try makeTabStore(initial: .home)
-        guard case .applied = try await reopened.restore(from: saved, using: codec) else {
-            Issue.record("Expected the reconciled snapshot to restore again")
-            return
-        }
-        #expect(reopened.state == store.state)
-        driver.stop()
-    }
-
-    @Test("Partial restoration uses the same current tab topology")
-    func partialRestorationReconcilesTabs() async throws {
-        let codec = try RouterSnapshotCodec<RouterTabHostRoute>(currentVersion: 1)
-        let data = try codec.encode(makeDriftedTabState())
-        let store = try makeTabStore(initial: .home)
-
-        let outcome = try await store.restorePartially(
-            from: data,
-            using: codec,
-            validator: .init { _, _ in .keep }
-        )
-
-        guard case .applied(_, _, let restored, 1) = outcome.transition,
-              case .container(let container) = restored.root else {
-            Issue.record("Expected one reconciled partial-restoration commit")
-            return
-        }
-        #expect(container.branches.map(\.id) == [
-            "home", "inbox", "settings", "legacySettings",
-        ])
-        #expect(container.selection == "home")
-        #expect(outcome.report.entries.allSatisfy { $0.change == .kept })
-    }
-
-    @Test("A policy rejection preserves the current tab topology and revision")
-    func policyRejectsReconciledTabsAtomically() async throws {
-        let codec = try RouterSnapshotCodec<RouterTabHostRoute>(currentVersion: 1)
-        let data = try codec.encode(makeDriftedTabState())
-        var configuration = RouterStoreConfiguration<RouterTabHostRoute>()
-        configuration.policies = [
-            RouterPolicy(name: "tab-restore-lock") { transition in
-                guard case .container(let container) = transition.proposedState.root,
-                      container.branches.contains(where: { $0.id == "settings" }),
-                      container.selection == "home" else {
-                    return .reject("candidate-was-not-reconciled")
-                }
-                return .reject("locked")
-            },
-        ]
-        let store = try makeTabStore(initial: .home, configuration: configuration)
-        let before = store.state
-
-        let outcome = try await store.restore(from: data, using: codec)
-
-        guard case .rejected(_, let state, 0, let reason) = outcome else {
-            Issue.record("Expected policy to reject the reconciled candidate")
-            return
-        }
-        #expect(reason == .policy(name: "tab-restore-lock", message: "locked"))
-        #expect(state == before)
-        #expect(store.state == before)
-        #expect(store.revision == 0)
-    }
-
-    @Test("Restoration rejects a root shape incompatible with the current tab host")
-    func restorationRejectsIncompatibleRootShape() async throws {
-        let codec = try RouterSnapshotCodec<RouterTabHostRoute>(currentVersion: 1)
-        let data = try codec.encode(.rootStack(path: [.detail]))
-        let store = try makeTabStore(initial: .home)
-
-        await #expect(throws: RouterMutationError.incompatibleNavigationTopology(.root)) {
-            try await store.restore(from: data, using: codec)
-        }
-        #expect(store.revision == 0)
-        #expect(tabContainer(in: store)?.selection == "home")
     }
 
     @Test("RouterTabHost follows replacement application-owned stores")
@@ -418,8 +270,7 @@ struct RouterTabHostTests {
 @MainActor
 private func makeTabStore(
     initial: RouterTabHostRoute.Tab,
-    badges: [RouterTabHostRoute.Tab: Int] = [:],
-    configuration: RouterStoreConfiguration<RouterTabHostRoute> = .init()
+    badges: [RouterTabHostRoute.Tab: Int] = [:]
 ) throws -> RouterStore<RouterTabHostRoute> {
     let tabs = RouterTabHostRoute.routerTabs
     let pairs: [(RouterScopeID, Int)] = badges.compactMap { tab, count in
@@ -431,24 +282,7 @@ private func makeTabStore(
         branches: tabs.map { RouterBranch(id: $0.tab.routerScopeID) },
         badges: Dictionary(uniqueKeysWithValues: pairs)
     )
-    return RouterStore(
-        initialState: try RouterState(root: .container(container)),
-        configuration: configuration
-    )
-}
-
-private func makeDriftedTabState() throws -> RouterState<RouterTabHostRoute> {
-    let drifted = try RouterContainerState<RouterTabHostRoute>(
-        style: .tabs,
-        selection: "legacySettings",
-        branches: [
-            RouterBranch(id: "home", node: .stack(path: [.detail])),
-            RouterBranch(id: "inbox", node: .stack(path: [.inbox])),
-            RouterBranch(id: "legacySettings", node: .stack(path: [.settings])),
-        ],
-        badges: ["home": 2, "legacySettings": 7]
-    )
-    return try RouterState(root: .container(drifted))
+    return RouterStore(initialState: try RouterState(root: .container(container)))
 }
 
 @MainActor

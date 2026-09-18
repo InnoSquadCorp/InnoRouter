@@ -417,9 +417,8 @@ public extension RouterStore where R: Codable {
             timeout: validationTimeout,
             sleep: runtimeDependencies.sleep
         )
-        let prepared = try prepareRestoredState(planned.0)
         let transition = await perform(
-            .apply(RouterPlan(state: prepared)),
+            .apply(RouterPlan(state: planned.0)),
             context: .init(source: .restoration),
             expectedRevision: capturedRevision,
             bypassesPolicies: false

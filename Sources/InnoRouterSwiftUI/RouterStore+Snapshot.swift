@@ -46,9 +46,8 @@ public extension RouterStore {
         expectedRevision: UInt64? = nil
     ) async throws -> RouterOutcome<R> where R: Codable {
         let restored = try await RouterSnapshotCodecExecutor(codec: codec).decode(data)
-        let prepared = try prepareRestoredState(restored)
         return await perform(
-            .apply(RouterPlan(state: prepared)),
+            .apply(RouterPlan(state: restored)),
             context: .init(source: .restoration),
             expectedRevision: expectedRevision,
             bypassesPolicies: false
@@ -85,9 +84,8 @@ public extension RouterStore {
             data,
             recovery: recovery
         )
-        let prepared = try prepareRestoredState(decoding.state)
         let transition = await perform(
-            .apply(RouterPlan(state: prepared)),
+            .apply(RouterPlan(state: decoding.state)),
             context: .init(source: .restoration),
             expectedRevision: expectedRevision,
             bypassesPolicies: false,

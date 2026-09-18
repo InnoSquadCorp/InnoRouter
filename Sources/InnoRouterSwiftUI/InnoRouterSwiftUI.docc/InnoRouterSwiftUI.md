@@ -61,13 +61,6 @@ a typed reason without partial state.
 | app-validated partial restoration | `RouterStore.restorePartially` |
 | bounded back/forward and checkpoints | `RouterHistory` |
 
-When a store starts with a tab root, snapshot restoration reconciles decoded
-tab branches against that initial topology before policy evaluation. Matching
-branches retain history, current missing branches use their initial state, an
-obsolete selection falls back to the initial selection, and orphan branches
-remain available for an explicit schema migration. Exact `RouterPlan`
-application does not perform this restoration-only reconciliation.
-
 `@TabItem` marks only parameterless tab roots. Unmarked associated-value cases
 remain ordinary push or presentation destinations in the same route enum.
 Selected images and native search roles remain tab metadata, not identity.

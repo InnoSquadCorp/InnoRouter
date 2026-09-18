@@ -115,17 +115,21 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
             preconditionFailure("@Router generated an invalid tab catalog: \(error)")
         }
         // Branch drift is tolerated rather than asserted. This is a View
-        // initializer, so SwiftUI re-runs it on every parent body pass. Normal
-        // snapshot restoration reconciles against the store's initial tab
-        // topology before policy evaluation, but an application can still
-        // apply an exact plan or construct state whose branches predate the
-        // catalog. Asserting here would abort on the next render.
+        // initializer, so SwiftUI re-runs it on every parent body pass, and the
+        // store's branches are not always something the application chose:
+        // `RouterRestorationDriver` applies a decoded snapshot through
+        // `.apply`, which replaces the root wholesale, and
+        // `RouterPartialRestoration` preserves branch identifiers as written.
+        // A snapshot taken before a tab was renamed or removed therefore
+        // reaches a host whose catalog no longer matches, and asserting there
+        // aborted the process on the next render.
         //
         // Rendering is driven by the catalog, and every tab resolves through
         // `store.scope(at:)`, which yields a nil node for a branch that is not
-        // present. An orphaned branch goes unused. Exact plans remain exact;
-        // applications that intentionally rename a tab and want to transfer
-        // its history must do so in a snapshot migration.
+        // present. A renamed tab starts empty and an orphaned branch goes
+        // unused — the same outcome the application would get by bumping
+        // `RouterSnapshotCodec.currentVersion`, which remains the way to
+        // migrate deliberately.
         guard case .container(let container) = store.state.root,
               container.style == .tabs else {
             preconditionFailure(

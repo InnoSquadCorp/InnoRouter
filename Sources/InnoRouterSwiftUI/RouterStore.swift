@@ -91,8 +91,6 @@ public final class RouterStore<R: Route> {
     var windowLifecycleTokens: [UUID: UUID]
     @ObservationIgnored
     let sceneRestorationRegistry = RouterSceneRestorationRegistry()
-    @ObservationIgnored
-    let restorationTabBaseline: RouterContainerState<R>?
 
     /// A multicast stream of correlated transition events.
     public var events: AsyncStream<RouterEvent<R>> {
@@ -118,12 +116,6 @@ public final class RouterStore<R: Route> {
         }
         self.state = initialState
         self.revision = 0
-        if case .container(let container) = initialState.root,
-           container.style == .tabs {
-            self.restorationTabBaseline = container
-        } else {
-            self.restorationTabBaseline = nil
-        }
         self.policies = configuration.policies
         self.schedulingPolicy = configuration.schedulingPolicy
         self.maximumPendingRequestCount = max(0, configuration.maximumPendingRequestCount)

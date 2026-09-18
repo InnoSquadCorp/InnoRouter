@@ -7,7 +7,7 @@ import UIKit
 import InnoRouterCore
 import InnoRouterSwiftUI
 
-private enum NativeHostRoute: Codable, DestinationRoute, RouterTabRoute {
+private enum NativeHostRoute: DestinationRoute, RouterTabRoute {
     case home
     case settings
     case detail
@@ -47,44 +47,6 @@ private enum NativeHostRoute: Codable, DestinationRoute, RouterTabRoute {
 @Suite("Native host runtime", .tags(.unit))
 @MainActor
 struct NativeHostRuntimeTests {
-    @Test("Snapshot restoration makes every current tab navigable")
-    func tabRestorationUsesCurrentTopology() async throws {
-        let baseline = try RouterContainerState<NativeHostRoute>(
-            style: .tabs,
-            selection: "home",
-            branches: [RouterBranch(id: "home"), RouterBranch(id: "settings")]
-        )
-        let store = RouterStore(
-            initialState: try RouterState(root: .container(baseline))
-        )
-        let legacy = try RouterContainerState<NativeHostRoute>(
-            style: .tabs,
-            selection: "legacySettings",
-            branches: [
-                RouterBranch(id: "home", node: .stack(path: [.detail])),
-                RouterBranch(id: "legacySettings", node: .stack(path: [.settings])),
-            ]
-        )
-        let codec = try RouterSnapshotCodec<NativeHostRoute>(currentVersion: 1)
-        let data = try codec.encode(
-            try RouterState(root: .container(legacy))
-        )
-
-        guard case .applied = try await store.restore(from: data, using: codec),
-              case .applied = await store.perform(.select("settings")),
-              case .applied = await store.scope(at: ["settings"]).perform(.push(.detail)) else {
-            Issue.record("Expected restored current tabs to remain navigable")
-            return
-        }
-        guard case .container(let restored) = store.state.root else {
-            Issue.record("Expected a restored tab container")
-            return
-        }
-        #expect(restored.selection == "settings")
-        #expect(restored.branches.map(\.id) == ["home", "settings", "legacySettings"])
-        #expect(store.scope(at: ["settings"]).node == .stack(path: [.detail]))
-    }
-
     @Test("Stack, tab, and presentation hosts evaluate on the running platform")
     func nativeHostBodies() async throws {
         let stackStore = RouterStore<NativeHostRoute>()
@@ -161,41 +123,6 @@ struct NativeHostRuntimeTests {
             return
         }
         #expect(updated.selection == "settings")
-    }
-
-    @Test("UIHostingController mounts a reconciled restored tab tree")
-    func uiKitRestoredTabMount() async throws {
-        let baseline = try RouterContainerState<NativeHostRoute>(
-            style: .tabs,
-            selection: "home",
-            branches: [RouterBranch(id: "home"), RouterBranch(id: "settings")]
-        )
-        let store = RouterStore(
-            initialState: try RouterState(root: .container(baseline))
-        )
-        let legacy = try RouterContainerState<NativeHostRoute>(
-            style: .tabs,
-            selection: "legacySettings",
-            branches: [
-                RouterBranch(id: "home"),
-                RouterBranch(id: "legacySettings", node: .stack(path: [.settings])),
-            ]
-        )
-        let codec = try RouterSnapshotCodec<NativeHostRoute>(currentVersion: 1)
-        let data = try codec.encode(
-            try RouterState(root: .container(legacy))
-        )
-        _ = try await store.restore(from: data, using: codec)
-        let controller = UIHostingController(rootView: RouterTabHost(store: store))
-
-        controller.loadViewIfNeeded()
-        controller.beginAppearanceTransition(true, animated: false)
-        controller.endAppearanceTransition()
-        _ = await store.perform(.select("settings"))
-        _ = await store.scope(at: ["settings"]).perform(.push(.detail))
-
-        #expect(controller.viewIfLoaded != nil)
-        #expect(store.scope(at: ["settings"]).node == .stack(path: [.detail]))
     }
 #endif
 }
