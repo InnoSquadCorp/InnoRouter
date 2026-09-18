@@ -226,6 +226,14 @@ The macro generates stable case-name scope identifiers, so localization or tab
 reordering does not corrupt restored branch history. `@TabItem` can also define
 a selected system image and native search-tab role.
 
+Snapshot restoration reconciles a tab store against the topology captured when
+that store was created. Matching branches keep their history, tabs added by the
+current app receive their initial branch state, a removed selection falls back
+to the store's initial selection, and orphaned branches remain available for an
+explicit migration. A tab rename creates a new identity; use a
+`RouterSnapshotMigration` when history should move from the old ID to the new
+one. Ordinary `RouterPlan` application remains exact and is not reconciled.
+
 `RouterSplitHost` owns independent sidebar and detail histories, while
 `RouterThreeColumnSplitHost` adds an independent content column. Visibility and
 preferred compact column live in `RouterSplitState` and reconcile through the

@@ -192,6 +192,13 @@ macro가 case 이름 기반 scope ID를 생성하므로 번역이나 tab 순서 
 branch history를 손상시키지 않습니다. `@TabItem`은 선택 상태 system image와 native
 search tab role도 선언할 수 있습니다.
 
+snapshot 복원은 store 생성 시점의 tab 구조와 복원 후보를 정책 실행 전에
+정합화합니다. 같은 ID의 branch history는 유지하고, 현재 앱에 추가된 tab은 초기
+branch 상태로 생성하며, 삭제된 tab을 가리키던 selection은 store의 초기 selection으로
+돌립니다. orphan branch는 명시적 migration을 위해 보존합니다. tab 이름 변경은 새
+identity이므로 기존 기록을 옮겨야 한다면 `RouterSnapshotMigration`을 사용해야 합니다.
+일반 `RouterPlan` 적용은 계속 exact하며 자동 정합화하지 않습니다.
+
 `RouterSplitHost`는 sidebar와 detail의 독립 history를, `RouterThreeColumnSplitHost`는
 content까지 포함한 세 개의 독립 history를 유지합니다. visibility와 compact column
 선호도는 `RouterSplitState`에 들어가며 같은 system-origin pipeline으로 동기화됩니다.

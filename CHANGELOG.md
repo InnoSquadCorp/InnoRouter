@@ -21,6 +21,13 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Snapshot and partial restoration now reconcile a tab root against the
+  topology captured when its store was created. A tab added or renamed by the
+  current app is therefore selectable and navigable after an older snapshot is
+  restored, while matching and orphaned branch history remains intact. An
+  obsolete selection falls back to the store's initial tab before policies
+  inspect the candidate, and the reconciled state still commits once through
+  the normal pipeline. Exact `RouterPlan` application remains unchanged.
 - `RouterTabHost(store:)` no longer aborts the process when the store's tab
   branches do not match the router's catalog. That initializer is a SwiftUI
   `View` initializer, re-run on every parent body pass, and the branches are

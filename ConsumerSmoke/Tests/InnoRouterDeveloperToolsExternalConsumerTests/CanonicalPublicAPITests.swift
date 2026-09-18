@@ -149,6 +149,52 @@ struct CanonicalPublicAPITests {
         #expect(source.contains("RouterScenarioFixture<ExternalRoute>"))
     }
 
+    @Test("A downstream tab store reconciles a snapshot from an older catalog")
+    @MainActor
+    func tabRestorationReconcilesPublishedTopology() async throws {
+        let currentTabs = ExternalRoute.routerTabs
+        let baseline = try RouterContainerState<ExternalRoute>(
+            style: .tabs,
+            selection: ExternalRoute.Tab.home.routerScopeID,
+            branches: currentTabs.map {
+                RouterBranch(id: $0.tab.routerScopeID, node: .stack())
+            }
+        )
+        let store = ExternalRoute.makeRouterStore(
+            initialState: try RouterState(root: .container(baseline))
+        )
+        let legacy = try RouterContainerState<ExternalRoute>(
+            style: .tabs,
+            selection: "legacySettings",
+            branches: [
+                RouterBranch(id: ExternalRoute.Tab.home.routerScopeID, node: .stack()),
+                RouterBranch(id: "legacySettings", node: .stack(path: [.settings])),
+            ]
+        )
+        let codec = try RouterSnapshotCodec<ExternalRoute>(currentVersion: 1)
+        let snapshot = try codec.encode(
+            try RouterState(root: .container(legacy))
+        )
+
+        guard case .applied = try await store.restore(from: snapshot, using: codec),
+              case .container(let restored) = store.state.root else {
+            Issue.record("Expected a reconciled downstream tab restoration")
+            return
+        }
+        #expect(restored.branches.map(\.id) == [
+            ExternalRoute.Tab.home.routerScopeID,
+            ExternalRoute.Tab.settings.routerScopeID,
+            "legacySettings",
+        ])
+        #expect(restored.selection == ExternalRoute.Tab.home.routerScopeID)
+        guard case .applied = await store.perform(
+            .push(.detail(id: "consumer")).inScope(ExternalRoute.Tab.settings.routerScopeID)
+        ) else {
+            Issue.record("Expected the restored current tab to navigate")
+            return
+        }
+    }
+
     @Test("A downstream router may own a type named String")
     func downstreamStringShadowing() throws {
         let url = try #require(
