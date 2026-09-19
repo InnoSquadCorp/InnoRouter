@@ -84,3 +84,29 @@ snapshot JSON schema와 6.0의 generic restore·manual strict initializer는 바
 
 발행하지 않은 API의 6.1 경계를 README 양 언어와 DocC에 표시했다. 6.1 version/tag/Release
 발행은 이번 수정 작업에서 수행하지 않는다.
+
+## 원격 coverage에서 확인한 테스트 동기화 후속 수정
+
+제품 수정은 `345903937d3d3d4388568b03c3a9ff4d1d7bed34`로 push했다. 동일 SHA의
+coverage run `35418080145`에서 기존 `historyStopReleasesActivePolicyLane`이
+"Stopped history left the router policy lane busy"로 실패했다. 커버리지 비율 실패가
+아니라, `stop()` 뒤 `Task.yield()` 한 번을 취소 완료로 간주한 테스트의 실행 순서 문제다.
+Store는 취소를 요청한 뒤 비동기 policy race를 종료하고 `finishExecution`에서 슬롯을
+해제한다. 같은 파일의 restoration 테스트는 이미 이 비동기 계약을 명시하고 있었다.
+
+- stop/reset/caller-cancel 세 테스트에서 실제 `activeTransitionID == nil`을 제한 시간
+  안에 확인한 뒤 다음 이동을 요청한다. 고정 yield 횟수와 caller 반환 시점 추측을 제거했다.
+- policy gate 진입도 공용 bounded event helper로 대기하고, 오류 경로의 gate/task/history
+  정리를 defer로 보장한다. policy gate를 해제하기 **전에** 다음 이동 성공을 확인하므로
+  테스트 정리가 취소 결함을 숨기지 않는다.
+- "busy만 아니면 됨" 대신 applied와 최종 경로까지 단언한다. 제품 코드는 추가 변경하지 않았다.
+- `swift test --enable-code-coverage --jobs 2 --no-parallel`: 665 tests / 84 suites 통과,
+  기존 known issue 1건. 로그 `coverage-local.log`.
+- 변경한 세 경로를 coverage binary로 5회 독립 실행해 모두 통과했다.
+- gated coverage 89.58% (16695/18636), comprehensive 84.89% (19690/23195).
+  기존 85% / 83% 기준을 유지했다.
+- 후속 후보 manifest: `candidate-files-followup.sha256`, SHA-256
+  `432091b89e375c4bdfc549c246b78d331c5eea859891b9d1a917fe8cc8f78393`.
+
+앞선 native/platform/API/sanitizer 증거는 제품 코드가 동일한 `34590393` 후보의 결과다.
+후속 변경은 이 테스트 파일과 실행 기록뿐이며, 최종 원격 CI는 후속 commit에서 다시 확인한다.

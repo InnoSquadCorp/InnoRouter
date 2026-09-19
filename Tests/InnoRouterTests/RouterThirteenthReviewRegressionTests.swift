@@ -51,9 +51,8 @@ private final class ThirteenthReviewPolicyGate {
         }
     }
 
-    func waitUntilEntered() async {
-        var iterator = entries.makeAsyncIterator()
-        _ = await iterator.next()
+    func waitUntilEntered() async throws {
+        _ = try await firstElement(from: entries, what: "history policy entry")
     }
 
     func release() {
@@ -104,7 +103,7 @@ struct RouterThirteenthReviewRegressionTests {
     }
 
     @Test("Stopping history cancels its active request family")
-    func historyStopReleasesActivePolicyLane() async {
+    func historyStopReleasesActivePolicyLane() async throws {
         let gate = ThirteenthReviewPolicyGate()
         let store = RouterStore<ThirteenthReviewRoute>(configuration: .init(
             policies: [RouterPolicy(name: "history") { transition in
@@ -120,21 +119,28 @@ struct RouterThirteenthReviewRegressionTests {
         _ = await store.perform(.push(.second))
 
         let move = Task { await history.goBack() }
-        await gate.waitUntilEntered()
+        defer { move.cancel(); gate.release(); history.stop() }
+        try await gate.waitUntilEntered()
         history.stop()
-        await Task.yield()
+        // stop requests cancellation synchronously, but the Store unwinds its
+        // policy race asynchronously. A yield count cannot prove completion.
+        try await waitUntil("stopped history releases its execution slot") {
+            store.activeTransitionID == nil
+        }
 
         let next = await store.perform(.push(.third))
-        if case .rejected(_, _, _, .busy) = next {
-            Issue.record("Stopped history left the router policy lane busy")
+        guard case .applied = next else {
+            Issue.record("Stopped history did not release the next navigation: \(next)")
+            return
         }
+        #expect(store.state.root == .stack(path: [.first, .second, .third]))
 
         gate.release()
         _ = await move.value
     }
 
     @Test("Reset returns cancellation while releasing the previous history generation")
-    func historyResetReleasesActivePolicyLane() async {
+    func historyResetReleasesActivePolicyLane() async throws {
         let gate = ThirteenthReviewPolicyGate()
         let store = RouterStore<ThirteenthReviewRoute>(configuration: .init(
             policies: [RouterPolicy(name: "history") { transition in
@@ -150,7 +156,8 @@ struct RouterThirteenthReviewRegressionTests {
         _ = await store.perform(.push(.second))
 
         let move = Task { await history.goBack() }
-        await gate.waitUntilEntered()
+        defer { move.cancel(); gate.release(); history.stop() }
+        try await gate.waitUntilEntered()
         history.reset(sessionKey: "replacement")
         guard case .unavailable(_, .cancelled) = await move.value else {
             Issue.record("Expected reset to cancel the prior history generation")
@@ -158,16 +165,18 @@ struct RouterThirteenthReviewRegressionTests {
             return
         }
 
-        let next = await store.perform(.push(.third))
-        if case .rejected(_, _, _, .busy) = next {
-            Issue.record("Reset history left the router policy lane busy")
+        try await waitUntil("reset history releases its execution slot") {
+            store.activeTransitionID == nil
         }
+        let next = await store.perform(.push(.third))
+        guard case .applied = next else { Issue.record("Reset history rejected navigation: \(next)"); return }
+        #expect(store.state.root == .stack(path: [.first, .second, .third]))
         gate.release()
         history.stop()
     }
 
     @Test("Cancelling one history caller releases its request family")
-    func historyCallerCancellationReleasesActivePolicyLane() async {
+    func historyCallerCancellationReleasesActivePolicyLane() async throws {
         let gate = ThirteenthReviewPolicyGate()
         let store = RouterStore<ThirteenthReviewRoute>(configuration: .init(
             policies: [RouterPolicy(name: "history") { transition in
@@ -183,7 +192,8 @@ struct RouterThirteenthReviewRegressionTests {
         _ = await store.perform(.push(.second))
 
         let move = Task { await history.goBack() }
-        await gate.waitUntilEntered()
+        defer { move.cancel(); gate.release(); history.stop() }
+        try await gate.waitUntilEntered()
         move.cancel()
         guard case .unavailable(_, .cancelled) = await move.value else {
             Issue.record("Expected caller cancellation to end the history move")
@@ -191,10 +201,12 @@ struct RouterThirteenthReviewRegressionTests {
             return
         }
 
-        let next = await store.perform(.push(.third))
-        if case .rejected(_, _, _, .busy) = next {
-            Issue.record("Cancelled history caller left the router policy lane busy")
+        try await waitUntil("cancelled history caller releases its execution slot") {
+            store.activeTransitionID == nil
         }
+        let next = await store.perform(.push(.third))
+        guard case .applied = next else { Issue.record("Cancelled history rejected navigation: \(next)"); return }
+        #expect(store.state.root == .stack(path: [.first, .second, .third]))
         gate.release()
         history.stop()
     }
@@ -325,7 +337,7 @@ struct RouterThirteenthReviewRegressionTests {
             activation.cancel()
             driver.stop()
         }
-        await gate.waitUntilEntered()
+        try await gate.waitUntilEntered()
         let restoreID = try #require(store.activeTransitionID)
         guard case .rejected(_, _, _, .busy) = await store.perform(
             .push(.second),
