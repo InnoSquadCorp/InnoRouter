@@ -4,6 +4,13 @@
 
 import InnoRouterCore
 
+/// Payload-free changes made while reconciling root tab structure.
+public enum RouterTabRestorationChange: Hashable, Sendable, Codable {
+    case insertedScope(RouterScopeID)
+    case reorderedScopes([RouterScopeID])
+    case selectionChanged(from: RouterScopeID?, to: RouterScopeID)
+}
+
 /// Structural failures in an explicit tab restoration topology.
 public enum RouterTabRestorationError: Error, Hashable, Sendable {
     /// A topology must name at least one tab, because the first entry is the
@@ -96,13 +103,15 @@ public extension RouterTabRestorationTopology {
     func reconciling<R: Route>(
         _ restored: RouterState<R>
     ) throws -> RouterState<R> {
+        // This public function also accepts application-built mutable values,
+        // not just states that have already passed through a snapshot codec.
+        try restored.validate()
         guard case .container(let candidate) = restored.root,
               candidate.style == .tabs else {
             throw RouterTabRestorationError.rootIsNotTabs
         }
+        try validateStackScopes(in: candidate)
         let named = Set(scopeIDs)
-        // A decoded state has already passed `RouterState.validate()`, so the
-        // snapshot's branch identifiers are unique here.
         let snapshotBranches = Dictionary(
             uniqueKeysWithValues: candidate.branches.map { ($0.id, $0) }
         )
@@ -125,5 +134,31 @@ public extension RouterTabRestorationTopology {
             windows: restored.windows,
             immersiveSpace: restored.immersiveSpace
         )
+    }
+
+    internal func validateStackScopes<R: Route>(in container: RouterContainerState<R>) throws {
+        let currentIDs = Set(scopeIDs)
+        for branch in container.branches where currentIDs.contains(branch.id) {
+            guard case .stack = branch.node else {
+                throw RouterMutationError.expectedStack(.root.appending(branch.id))
+            }
+        }
+    }
+
+    internal func changes<R: Route>(
+        from original: RouterState<R>, to reconciled: RouterState<R>
+    ) -> [RouterTabRestorationChange] {
+        guard case .container(let before) = original.root,
+              case .container(let after) = reconciled.root else { return [] }
+        let previousIDs = before.branches.map(\.id)
+        let currentIDs = after.branches.map(\.id)
+        let previousIDSet = Set(previousIDs)
+        var changes = currentIDs.filter { !previousIDSet.contains($0) }
+            .map(RouterTabRestorationChange.insertedScope)
+        if previousIDs != currentIDs { changes.append(.reorderedScopes(currentIDs)) }
+        if before.selection != after.selection, let selection = after.selection {
+            changes.append(.selectionChanged(from: before.selection, to: selection))
+        }
+        return changes
     }
 }

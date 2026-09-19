@@ -200,6 +200,9 @@ stack, restoration fails unless the app provides a fallback route through
 `RouterPartialRestorationValidator(fallback:validate:)`; that fallback is
 validated once before it can enter the plan.
 
+The explicit tab topology APIs below are **unreleased additions for 6.1**;
+they are not available in the published 6.0.0 package.
+
 Restoration is exact: it applies what the snapshot says. A snapshot written
 before a tab existed therefore has no branch for it, and that tab stays
 unreachable. To add the tabs the app renders now, state the topology:
@@ -221,6 +224,14 @@ the app sees the candidate that will be applied, and on
 `RouterRestorationDriver.init`, where the topology belongs to that driver's
 lifetime. A state returned by `RouterSnapshotRecoveryPolicy.use` is the app's
 final answer and is never reconciled.
+
+Tab-aware restore captures the request's starting revision, so navigation
+committed during decoding makes that restore stale. Public reconciliation
+validates the input and rejects a current tab whose node is not a stack.
+Partial restoration exposes payload-free `report.topologyChanges` alongside
+route entries, including inserted scopes, scope order, and selection changes.
+The report describes the candidate; check `transition` to see whether policies
+accepted it. Reports encoded before 6.1 decode with no topology changes.
 
 ## Tabs and split views
 

@@ -81,19 +81,21 @@ public extension RouterStore {
     /// presentation, and badge; scopes it lacks are created empty.
     ///
     /// Pass the topology of the catalog the host renders. Nothing is inferred
-    /// from this store's initial state.
+    /// from this store's initial state. A navigation committed after this
+    /// request starts makes the decoded candidate stale.
     func restore(
         from data: Data,
         using codec: RouterSnapshotCodec<R>,
         tabTopology: RouterTabRestorationTopology,
         expectedRevision: UInt64? = nil
     ) async throws -> RouterOutcome<R> where R: Codable {
+        let capturedRevision = expectedRevision ?? revision
         let restored = try await RouterSnapshotCodecExecutor(codec: codec).decode(data)
         let prepared = try tabTopology.reconciling(restored)
         return await perform(
             .apply(RouterPlan(state: prepared)),
             context: .init(source: .restoration),
-            expectedRevision: expectedRevision,
+            expectedRevision: capturedRevision,
             bypassesPolicies: false
         )
     }
@@ -111,11 +113,12 @@ public extension RouterStore {
         tabTopology: RouterTabRestorationTopology,
         expectedRevision: UInt64? = nil
     ) async throws -> RouterRestorationOutcome<R> where R: Codable {
-        try await restore(
+        let capturedRevision = expectedRevision ?? revision
+        return try await restore(
             from: data,
             using: codec,
             recovery: recovery,
-            expectedRevision: expectedRevision,
+            expectedRevision: capturedRevision,
             tabTopology: tabTopology,
             executionPrecondition: nil
         )

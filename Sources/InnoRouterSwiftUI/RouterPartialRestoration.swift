@@ -90,9 +90,39 @@ public struct RouterPartialRestorationReportEntry: Hashable, Sendable, Codable {
 
 public struct RouterPartialRestorationReport: Hashable, Sendable, Codable {
     public let entries: [RouterPartialRestorationReportEntry]
+    /// Structural changes in the proposed candidate, before policy evaluation.
+    /// Check the outcome's transition to determine whether it was applied.
+    public let topologyChanges: [RouterTabRestorationChange]
 
     public init(entries: [RouterPartialRestorationReportEntry]) {
         self.entries = entries
+        self.topologyChanges = []
+    }
+
+    public init(
+        entries: [RouterPartialRestorationReportEntry],
+        topologyChanges: [RouterTabRestorationChange]
+    ) {
+        self.entries = entries
+        self.topologyChanges = topologyChanges
+    }
+
+    private enum CodingKeys: String, CodingKey { case entries, topologyChanges }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        entries = try container.decode([RouterPartialRestorationReportEntry].self, forKey: .entries)
+        topologyChanges = try container.decodeIfPresent(
+            [RouterTabRestorationChange].self, forKey: .topologyChanges
+        ) ?? []
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(entries, forKey: .entries)
+        if !topologyChanges.isEmpty {
+            try container.encode(topologyChanges, forKey: .topologyChanges)
+        }
     }
 }
 
@@ -468,6 +498,10 @@ public extension RouterStore where R: Codable {
             expectedRevision: capturedRevision,
             bypassesPolicies: false
         )
-        return RouterPartialRestorationOutcome(report: planned.1, transition: transition)
+        let report = RouterPartialRestorationReport(
+            entries: planned.1.entries,
+            topologyChanges: tabTopology?.changes(from: decoded, to: planned.0) ?? []
+        )
+        return RouterPartialRestorationOutcome(report: report, transition: transition)
     }
 }

@@ -30,6 +30,7 @@ swift_filter+='|RouterInspectorTimelineTests'
 # both sanitizers must actually execute them (RBR-V1).
 swift_filter+='|RouterTabHostTests|RouterDeepLinkHostTests|NativeHostRuntimeTests'
 swift_filter+='|RouterRestorationBoundaryRegressionTests|RouterTabRestorationTopologyTests'
+swift_filter+='|RouterTabRestorationSafetyTests|RouterRestoredTabHostTests'
 
 cd "$ROOT_DIR"
 echo "[sanitizer-smoke] Running $KIND sanitizer with filter: $swift_filter"

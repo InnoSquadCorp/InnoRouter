@@ -464,8 +464,12 @@ relationship | memberOf | RouterPartialRestorationError.validationTimedOut | Rou
 relationship | memberOf | RouterPartialRestorationOutcome.init(report:transition:) | RouterPartialRestorationOutcome |  |
 relationship | memberOf | RouterPartialRestorationOutcome.report | RouterPartialRestorationOutcome |  |
 relationship | memberOf | RouterPartialRestorationOutcome.transition | RouterPartialRestorationOutcome |  |
+relationship | memberOf | RouterPartialRestorationReport.encode(to:) | RouterPartialRestorationReport |  |
 relationship | memberOf | RouterPartialRestorationReport.entries | RouterPartialRestorationReport |  |
 relationship | memberOf | RouterPartialRestorationReport.init(entries:) | RouterPartialRestorationReport |  |
+relationship | memberOf | RouterPartialRestorationReport.init(entries:topologyChanges:) | RouterPartialRestorationReport |  |
+relationship | memberOf | RouterPartialRestorationReport.init(from:) | RouterPartialRestorationReport |  |
+relationship | memberOf | RouterPartialRestorationReport.topologyChanges | RouterPartialRestorationReport |  |
 relationship | memberOf | RouterPartialRestorationReportEntry.change | RouterPartialRestorationReportEntry |  |
 relationship | memberOf | RouterPartialRestorationReportEntry.init(location:change:reason:) | RouterPartialRestorationReportEntry |  |
 relationship | memberOf | RouterPartialRestorationReportEntry.location | RouterPartialRestorationReportEntry |  |
@@ -883,6 +887,9 @@ relationship | memberOf | RouterTabHost.init(_:initial:badges:configuration:link
 relationship | memberOf | RouterTabHost.init(store:catalog:allowingOrphanedBranches:linkHandling:) | RouterTabHost |  |
 relationship | memberOf | RouterTabHost.init(store:catalog:linkHandling:) | RouterTabHost |  |
 relationship | memberOf | RouterTabHost.init(store:linkHandling:) | RouterTabHost |  |
+relationship | memberOf | RouterTabRestorationChange.insertedScope(_:) | RouterTabRestorationChange |  |
+relationship | memberOf | RouterTabRestorationChange.reorderedScopes(_:) | RouterTabRestorationChange |  |
+relationship | memberOf | RouterTabRestorationChange.selectionChanged(from:to:) | RouterTabRestorationChange |  |
 relationship | memberOf | RouterTabRestorationError.duplicateScopeID(_:) | RouterTabRestorationError |  |
 relationship | memberOf | RouterTabRestorationError.emptyTopology | RouterTabRestorationError |  |
 relationship | memberOf | RouterTabRestorationError.rootIsNotTabs | RouterTabRestorationError |  |
@@ -1056,6 +1063,7 @@ symbol | swift.enum | RouterSplitColumn | RouterSplitColumn | enum RouterSplitCo
 symbol | swift.enum | RouterSplitVisibility | RouterSplitVisibility | enum RouterSplitVisibility | []
 symbol | swift.enum | RouterStateValidationError | RouterStateValidationError | enum RouterStateValidationError | []
 symbol | swift.enum | RouterTabCatalogError | RouterTabCatalogError | enum RouterTabCatalogError | []
+symbol | swift.enum | RouterTabRestorationChange | RouterTabRestorationChange | enum RouterTabRestorationChange | []
 symbol | swift.enum | RouterTabRestorationError | RouterTabRestorationError | enum RouterTabRestorationError | []
 symbol | swift.enum | RouterTabRole | RouterTabRole | enum RouterTabRole | []
 symbol | swift.enum | RouterTransitionSource | RouterTransitionSource | enum RouterTransitionSource | []
@@ -1417,6 +1425,9 @@ symbol | swift.enum.case | RouterTabCatalogError.empty | RouterTabCatalogError.e
 symbol | swift.enum.case | RouterTabCatalogError.initialTabNotInCatalog | RouterTabCatalogError.initialTabNotInCatalog | case initialTabNotInCatalog | []
 symbol | swift.enum.case | RouterTabCatalogError.storeBranchesDoNotMatchCatalog | RouterTabCatalogError.storeBranchesDoNotMatchCatalog | case storeBranchesDoNotMatchCatalog | []
 symbol | swift.enum.case | RouterTabCatalogError.storeIsNotTabContainer | RouterTabCatalogError.storeIsNotTabContainer | case storeIsNotTabContainer | []
+symbol | swift.enum.case | RouterTabRestorationChange.insertedScope(_:) | RouterTabRestorationChange.insertedScope(_:) | case insertedScope(RouterScopeID) | []
+symbol | swift.enum.case | RouterTabRestorationChange.reorderedScopes(_:) | RouterTabRestorationChange.reorderedScopes(_:) | case reorderedScopes([RouterScopeID]) | []
+symbol | swift.enum.case | RouterTabRestorationChange.selectionChanged(from:to:) | RouterTabRestorationChange.selectionChanged(from:to:) | case selectionChanged(from: RouterScopeID?, to: RouterScopeID) | []
 symbol | swift.enum.case | RouterTabRestorationError.duplicateScopeID(_:) | RouterTabRestorationError.duplicateScopeID(_:) | case duplicateScopeID(RouterScopeID) | []
 symbol | swift.enum.case | RouterTabRestorationError.emptyTopology | RouterTabRestorationError.emptyTopology | case emptyTopology | []
 symbol | swift.enum.case | RouterTabRestorationError.rootIsNotTabs | RouterTabRestorationError.rootIsNotTabs | case rootIsNotTabs | []
@@ -1482,6 +1493,8 @@ symbol | swift.init | RouterObservability.init(emit:) | init(emit:) | init(emit:
 symbol | swift.init | RouterOpenURLIntentBuilder.init(origin:) | init(origin:) | init(origin: DeepLinkOrigin) | []
 symbol | swift.init | RouterPartialRestorationOutcome.init(report:transition:) | init(report:transition:) | init(report: RouterPartialRestorationReport, transition: RouterOutcome<R>) | []
 symbol | swift.init | RouterPartialRestorationReport.init(entries:) | init(entries:) | init(entries: [RouterPartialRestorationReportEntry]) | []
+symbol | swift.init | RouterPartialRestorationReport.init(entries:topologyChanges:) | init(entries:topologyChanges:) | init(entries: [RouterPartialRestorationReportEntry], topologyChanges: [RouterTabRestorationChange]) | []
+symbol | swift.init | RouterPartialRestorationReport.init(from:) | init(from:) | init(from decoder: any Decoder) throws | []
 symbol | swift.init | RouterPartialRestorationReportEntry.init(location:change:reason:) | init(location:change:reason:) | init(location: RouterRestorationRouteLocation, change: RouterPartialRestorationChange, reason: String) | []
 symbol | swift.init | RouterPartialRestorationValidator.init(fallback:validate:) | init(fallback:validate:) | init(fallback: (@MainActor (RouterScopePath) async -> R?)? = nil, validate: @escaping @MainActor (R, RouterRestorationRouteLocation) async -> RouterRestorationRouteDecision<R>) | []
 symbol | swift.init | RouterPendingLinkPersistenceDriver.init(slot:storage:) | init(slot:storage:) | @MainActor init(slot: RouterPendingLinkSlot<R>, storage: any RouterPendingLinkStorage) | []
@@ -1637,6 +1650,7 @@ symbol | swift.method | RouterLinkPipeline.decide(for:) | decide(for:) | func de
 symbol | swift.method | RouterObservability.record(_:) | record(_:) | @MainActor func record(_ event: RouterEvent<R>) | []
 symbol | swift.method | RouterOpenURLIntentBuilder.intent(for:) | intent(for:) | func intent(for route: R) -> OpenURLIntent? | []
 symbol | swift.method | RouterOpenURLIntentBuilder.url(for:) | url(for:) | func url(for route: R) -> URL? | []
+symbol | swift.method | RouterPartialRestorationReport.encode(to:) | encode(to:) | func encode(to encoder: any Encoder) throws | []
 symbol | swift.method | RouterPendingLinkPersistenceDriver.cancel() | cancel() | @discardableResult @MainActor func cancel() async throws -> PendingRouterLink<R>? | []
 symbol | swift.method | RouterPendingLinkPersistenceDriver.restore(replacing:) | restore(replacing:) | @MainActor func restore(replacing policy: RouterPendingLinkReplacementPolicy = .keepExisting) async throws -> RouterPendingLinkRestoration<R> | []
 symbol | swift.method | RouterPendingLinkPersistenceDriver.resume(on:source:consuming:) | resume(on:source:consuming:) | @MainActor func resume(on store: RouterStore<R>, source: RouterTransitionSource = .deepLink, consuming policy: RouterPendingLinkConsumptionPolicy = .onAcceptance) async throws -> RouterLinkExecution<R>? | []
@@ -1830,6 +1844,7 @@ symbol | swift.property | RouterOutcome.id | id | var id: RouterTransitionID { g
 symbol | swift.property | RouterPartialRestorationOutcome.report | report | let report: RouterPartialRestorationReport | []
 symbol | swift.property | RouterPartialRestorationOutcome.transition | transition | let transition: RouterOutcome<R> | []
 symbol | swift.property | RouterPartialRestorationReport.entries | entries | let entries: [RouterPartialRestorationReportEntry] | []
+symbol | swift.property | RouterPartialRestorationReport.topologyChanges | topologyChanges | let topologyChanges: [RouterTabRestorationChange] | []
 symbol | swift.property | RouterPartialRestorationReportEntry.change | change | let change: RouterPartialRestorationChange | []
 symbol | swift.property | RouterPartialRestorationReportEntry.location | location | let location: RouterRestorationRouteLocation | []
 symbol | swift.property | RouterPartialRestorationReportEntry.reason | reason | let reason: String | []

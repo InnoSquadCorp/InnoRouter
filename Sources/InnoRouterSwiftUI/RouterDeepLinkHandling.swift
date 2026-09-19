@@ -490,54 +490,40 @@ private struct RouterPlanLinkHandlingModifier<R: Route>: ViewModifier {
     }
 
     private func submit(_ url: URL, context: RouterDeepLinkContext) {
-        let admittedDecision: RouterLinkDecision<R>
-        if let handling {
-            admittedDecision = handling.admittedDecision(for: url)
-        } else {
-            guard let resolver = routeType as? any DeepLinkRoute.Type,
-                  let route = resolver.resolveDeepLink(url) as? R,
-                  let state = scope.state,
-                  let plan = try? fallbackPlan(route, state) else {
-                return
-            }
-            admittedDecision = .plan(plan)
-        }
-
-        if case .unhandled = admittedDecision {
-            handling?.onEvent(.unhandled(url: url))
-            return
-        }
-
-        context.arbiter.submit(
-            url: url,
-            source: source,
-            depth: context.depth
-        ) {
-            switch admittedDecision {
-            case .rejected(let reason):
-                handling?.onEvent(.rejected(url: url, reason: reason))
-            case .unhandled:
-                handling?.onEvent(.unhandled(url: url))
-            case .pending(let pending):
-                handling?.onEvent(.pending(pending))
-            case .plan(let plan):
-                Task { @MainActor in
-                    let decision = if let handling {
-                        await handling.authenticatedDecision(for: url, plan: plan)
-                    } else {
-                        RouterLinkDecision<R>.plan(plan)
-                    }
-                    await execute(decision, for: url)
-                }
-            }
-        }
+        submitRouterPlanLink(
+            routeType, url: url, scope: scope, context: context,
+            source: source, handling: handling, fallbackPlan: fallbackPlan
+        )
     }
+}
 
-    private func execute(
-        _ decision: RouterLinkDecision<R>,
-        for url: URL
-    ) async {
-        switch decision {
+/// The submission path used by the native onOpenURL modifier.
+@MainActor
+func submitRouterPlanLink<R: Route>(
+    _ routeType: R.Type,
+    url: URL,
+    scope: RouterScope<R>,
+    context: RouterDeepLinkContext,
+    source: RouterDeepLinkSource,
+    handling: RouterLinkHandling<R>?,
+    fallbackPlan: @escaping @MainActor @Sendable (R, RouterState<R>) throws -> RouterPlan<R>
+) {
+    let admittedDecision: RouterLinkDecision<R>
+    if let handling {
+        admittedDecision = handling.admittedDecision(for: url)
+    } else {
+        guard let resolver = routeType as? any DeepLinkRoute.Type,
+              let route = resolver.resolveDeepLink(url) as? R,
+              let state = scope.state,
+              let plan = try? fallbackPlan(route, state) else { return }
+        admittedDecision = .plan(plan)
+    }
+    if case .unhandled = admittedDecision {
+        handling?.onEvent(.unhandled(url: url))
+        return
+    }
+    context.arbiter.submit(url: url, source: source, depth: context.depth) {
+        switch admittedDecision {
         case .rejected(let reason):
             handling?.onEvent(.rejected(url: url, reason: reason))
         case .unhandled:
@@ -545,11 +531,21 @@ private struct RouterPlanLinkHandlingModifier<R: Route>: ViewModifier {
         case .pending(let pending):
             handling?.onEvent(.pending(pending))
         case .plan(let plan):
-            let outcome = await scope.performRoot(
-                .apply(plan),
-                context: .init(source: .deepLink)
-            )
-            handling?.onEvent(.completed(plan: plan, outcome: outcome))
+            Task { @MainActor in
+                let decision = if let handling {
+                    await handling.authenticatedDecision(for: url, plan: plan)
+                } else {
+                    RouterLinkDecision<R>.plan(plan)
+                }
+                switch decision {
+                case .rejected(let reason): handling?.onEvent(.rejected(url: url, reason: reason))
+                case .unhandled: handling?.onEvent(.unhandled(url: url))
+                case .pending(let pending): handling?.onEvent(.pending(pending))
+                case .plan(let prepared):
+                    let outcome = await scope.performRoot(.apply(prepared), context: .init(source: .deepLink))
+                    handling?.onEvent(.completed(plan: prepared, outcome: outcome))
+                }
+            }
         }
     }
 }

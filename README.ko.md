@@ -167,6 +167,9 @@ route 값은 없습니다. 기존에 비어 있지 않던 stack의 route가 전�
 실패합니다. 앱이 `RouterPartialRestorationValidator(fallback:validate:)`에 fallback을
 명시한 경우에만 그 route를 한 번 더 검증한 뒤 plan에 넣습니다.
 
+아래 명시적 탭 topology API는 **6.1용 미출시 추가 기능**입니다.
+현재 배포된 6.0.0 패키지에는 포함되지 않습니다.
+
 복원은 기본적으로 exact입니다. snapshot이 말하는 상태를 그대로 적용하므로, 해당 탭이
 생기기 전에 저장된 snapshot에는 그 탭의 branch가 없고 탭은 도달 불가능한 상태로
 남습니다. 지금 앱이 렌더링하는 탭을 추가하려면 topology를 명시합니다.
@@ -186,6 +189,12 @@ topology에 없는 selection은 첫 번째 scope로 대체됩니다. 같은 para
 적용될 후보를 그대로 검증합니다. `RouterRestorationDriver.init`에도 있으며 topology는
 해당 driver의 생명주기에 속합니다. `RouterSnapshotRecoveryPolicy.use`가 반환한 상태는
 앱이 정한 최종 답이므로 보정하지 않습니다.
+
+탭 보정 복원은 시작 revision을 캡처하므로 디코딩 중 새 이동이 commit되면 stale로
+거절합니다. 공개 보정 함수는 입력 상태를 검증하고 현재 탭의 node가 stack이 아니면
+실패합니다. 부분 복원의 `report.topologyChanges`에는 추가된 scope, 순서, selection
+변경을 payload 없이 기록합니다. 보고서는 후보에 대한 설명이며 실제 적용 여부는
+`transition`으로 확인합니다. 6.1 이전 보고서는 구조 변경이 없는 값으로 디코딩됩니다.
 
 ## tab과 split
 

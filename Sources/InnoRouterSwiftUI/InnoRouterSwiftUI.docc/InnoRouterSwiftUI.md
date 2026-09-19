@@ -76,6 +76,8 @@ Partial restoration validates decoded routes before one revision-checked
 commit and returns a payload-free structural report. A fully removed nonempty
 stack requires an app-provided, revalidated fallback.
 
+The explicit tab topology APIs are unreleased additions for 6.1.
+
 Restoration is exact. A snapshot written before a tab existed carries no branch
 for it, so that tab stays unreachable. `RouterTabRestorationTopology` states
 the scopes the application renders now, as an explicit argument to
@@ -85,7 +87,14 @@ reconciliation adds empty scopes and never moves routes, presentations, or
 badges into a restored state. Branches the topology does not name are kept as
 orphans for a later catalog, and a selection it no longer names falls back to
 its first scope. A state returned by `RouterSnapshotRecoveryPolicy.use` is the
-application's final answer and is applied without reconciliation. `RouterHistory` reuses
+application's final answer and is applied without reconciliation. Tab-aware
+requests capture their starting revision before decoding. Public reconciliation
+validates mutable state and current stack shapes before preparing a candidate.
+Partial reports include payload-free `topologyChanges`; their transition outcome
+determines whether the candidate was applied. Older reports decode with an empty
+change list.
+
+`RouterHistory` reuses
 the same validator, exact plans, and policies for navigation-only moves. It
 observes commits synchronously, tracks deferred destinations by entry identity,
 invalidates old-session work, and preserves live badges and presentations,

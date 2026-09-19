@@ -35,7 +35,7 @@ growth:
 
 | Product | Maximum symbols |
 | --- | ---: |
-| `InnoRouter` | 1,172 |
+| `InnoRouter` | 1,180 |
 | `InnoRouterInspector` | 207 |
 | `InnoRouterTesting` | 252 |
 

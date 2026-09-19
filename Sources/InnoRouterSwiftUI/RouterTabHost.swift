@@ -190,6 +190,9 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
             throw RouterTabCatalogError.storeIsNotTabContainer
         }
         let present = Set(container.branches.map(\.id))
+        guard let selection = container.selection, tabScopeIDs.contains(selection) else {
+            throw RouterTabCatalogError.storeBranchesDoNotMatchCatalog
+        }
         if allowingOrphanedBranches {
             guard present.isSuperset(of: tabScopeIDs) else {
                 throw RouterTabCatalogError.storeBranchesDoNotMatchCatalog
@@ -199,6 +202,7 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
                 throw RouterTabCatalogError.storeBranchesDoNotMatchCatalog
             }
         }
+        try RouterTabRestorationTopology(catalog: catalog).validateStackScopes(in: container)
         self.tabs = catalog.descriptors
         self.linkHandling = linkHandling
         self.suppliedStore = store
@@ -240,19 +244,24 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         .handleRouterPlans(
             for: R.self,
             scope: rootScope,
-            handling: linkHandling
-        ) { route, state in
-            let action: RouterAction<R>
-            if let tab = tabs.first(where: { $0.root == route })?.tab {
-                action = .select(tab.routerScopeID)
-            } else if case .container(let container) = state.root,
-                      let selected = container.selection {
-                action = .scoped(selected, .push(route))
-            } else {
-                throw RouterMutationError.expectedContainer(.root)
-            }
-            return RouterPlan(state: try RouterReducer.reduce(action, from: state))
+            handling: linkHandling,
+            fallbackPlan: defaultLinkPlan
+        )
+    }
+
+    // Shared with host integration tests so URL expectations exercise the
+    // production default rather than reimplementing it in a test closure.
+    func defaultLinkPlan(_ route: R, _ state: RouterState<R>) throws -> RouterPlan<R> {
+        let action: RouterAction<R>
+        if let tab = tabs.first(where: { $0.root == route })?.tab {
+            action = .select(tab.routerScopeID)
+        } else if case .container(let container) = state.root,
+                  let selected = container.selection {
+            action = .scoped(selected, .push(route))
+        } else {
+            throw RouterMutationError.expectedContainer(.root)
         }
+        return RouterPlan(state: try RouterReducer.reduce(action, from: state))
     }
 
     private func selectionBinding(_ rootScope: RouterScope<R>) -> Binding<RouterScopeID> {

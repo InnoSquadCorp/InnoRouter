@@ -1,7 +1,11 @@
 # InnoRouter 6.0 Functional Specification with 6.1–6.3 Capability Sets
 
 - Document status: Draft; maintainer approval is not recorded
-- Implementation status: FR6-001–053 published in 6.0.0
+- Implementation status: Implemented
+- Publication status: Published
+- Published version: 6.0.0
+- Published commit: f6abef8ee77677c48b32563aac2efaa82100b132
+- Published date: 2026-09-16
 - Revision: 1.5
 - Target: published 6.0.0 contract plus compatible 6.0.x fixes
 - Updated: 2026-09-18

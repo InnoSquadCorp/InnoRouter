@@ -317,7 +317,7 @@ let package = Package(
         // runs from ConsumerSmoke as a real downstream package dependency.
         .testTarget(
             name: "InnoRouterPlatformTests",
-            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
+            dependencies: ["InnoRouterCore", "InnoRouterDeepLink", "InnoRouterSwiftUI"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         // InnoRouterMacrosPlugin is a CompilerPlugin built host-only

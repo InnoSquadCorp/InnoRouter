@@ -1,5 +1,10 @@
 # InnoRouter 복원 경계 재설계·회귀 수정 계획
 
+> 2026-09-19 후속: 직접 복원의 decode 경쟁, public 입력/stack 검증 및 검사·증거 공백을
+> 추가 확인했다. 아래 9월 18일 완료 기록과 구분해
+> [안전성 수정·재검토 기록](review-evidence/2026-09-19-restoration-safety.ko.md)에서
+> RBR-AC-006~012를 다시 검증한다. 6.1 발행(T09)은 후속 T10~T13 결과를 확인한 뒤 판단한다.
+
 | 항목 | 내용 |
 | --- | --- |
 | 문서 상태 | Draft |
@@ -207,6 +212,10 @@ T01의 실패를 먼저 기록하고 T02에서 되돌린 뒤 신규 설계로 �
 | RBR-T07 | metadata/version script 및 오류 fixtures, README/DocC, API baseline/예산 문서, 기존 TRD 실행 기록 정정 | 정상 fixture 통과/잘못된 fixture 실패, 선택 fallback 계약 일치, 완료 주장과 assertion 일치 |
 | RBR-T08 | 최종 코드 후보 고정 후 전체 필수 gate·외부 consumer·지원 플랫폼·coverage·성능 실행. 범위에 맞는 커밋으로 나누고 push 후 동일 SHA 원격 CI 검토 | 알려진 필수 회귀 0, AC별 명령/결과/SHA 연결, 로컬·upstream·원격 SHA 일치 및 필수 CI 성공 |
 | RBR-T09 | `6.1.0` version/changelog cut, bare SemVer tag, exact tag consumer, Release/DocC/latest 확인 | tag SHA·runtime·Release·문서·consumer revision 일치. 이 단계 전에는 배포 완료라고 하지 않음 |
+| RBR-T10 | 새 직접 복원의 시작 revision 캡처, public state 검증, 현재 stack 및 orphan selection 검증 | S1~S4 실패 반례가 정상 대조군과 함께 통과 |
+| RBR-T11 | 구조 변경 보고 및 과거 JSON 호환성, 외부 macro/native URL 경로, decode 중 driver 교체 증거 | AC-006~010의 실제 assertion과 bounded 종료 확인 |
+| RBR-T12 | 구현/발행 상태 필드의 정확한 parser와 오류 fixtures, 미출시 API 버전 표시 | AC-011의 부정·미래·누락·모순 반례 거절 |
+| RBR-T13 | 후속 후보 전체 gate·지원 플랫폼·sanitizer·commit/push·원격 CI 및 재검토 | 후속 코드 후보와 증거 일치. T09의 발행 여부와 구분 |
 
 T02는 단독으로 main에 올려도 안전하다. 되돌린 상태는 발행된 `6.0.0`의 의미와 같고,
 사용자에게 노출된 적 없는 동작만 사라진다. T04~T05는 하나의 논리적 runtime 추가로

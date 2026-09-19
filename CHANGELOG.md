@@ -21,6 +21,11 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Explicit tab restoration captures its starting revision before decoding,
+  preventing a late snapshot from overwriting newer navigation. Reconciliation
+  validates mutable state before indexing branches and rejects non-stack nodes
+  used by current tabs. The orphan-tolerant host rejects an orphan selection
+  and invalid current stack shapes before rendering.
 - `RouterTabHost(store:)` no longer aborts the process when the store's tab
   branches do not match the router's catalog. That initializer is a SwiftUI
   `View` initializer, re-run on every parent body pass, and the branches are
@@ -45,12 +50,10 @@ are bare semver (no leading `v`).
   type that no longer exists, and now states that a bare matcher compares path
   and query only and never checks the URL origin. `@DeepLink` and
   `RouterLinkPipeline` remain fail closed and are the surfaces to prefer.
-- The documentation metadata gate no longer accepts `unpublished` as a
-  publication claim. It matched `published` as a substring, so a document
-  stating the exact opposite passed. Implementation state is now read as a
-  single field that must name a whole-word publication and the version it
-  happened in, and duplicate or contradictory status fields are rejected. The
-  Korean capability row gets the same treatment for `미배포`.
+- The documentation metadata gate parses explicit implementation and
+  publication states, version, commit, and date fields. Negated and future
+  publication prose cannot satisfy a publication claim; duplicate fields and
+  contradictory metadata fail, while unpublished work remains representable.
 - The documentation consistency gate reads the release identity from
   `InnoRouterVersion.swift` instead of requiring the literal `6.0.0`, so a
   later version no longer fails the gate for being accurate. It validates that
@@ -65,6 +68,10 @@ are bare semver (no leading `v`).
 
 ### Added
 
+- Partial restoration reports include payload-free `topologyChanges` for
+  inserted scopes, scope order, and selection changes. Older encoded reports
+  decode with an empty change list; the transition outcome still determines
+  whether the reported candidate was applied.
 - `RouterTabRestorationTopology` restores a snapshot into the tab catalog an
   application renders now. Restoration stays exact by default, so a snapshot
   written before a tab existed leaves that tab unreachable. Passing a topology

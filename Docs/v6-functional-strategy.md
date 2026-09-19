@@ -1,7 +1,11 @@
 # InnoRouter 6.0 Functional Strategy
 
 - Document status: Draft; maintainer approval is not recorded
-- Implementation state: published in 6.0.0; post-release fixes continue on `main`
+- Implementation state: Implemented
+- Publication status: Published
+- Published version: 6.0.0
+- Published commit: f6abef8ee77677c48b32563aac2efaa82100b132
+- Published date: 2026-09-16
 - As of: 2026-09-18
 
 ## Decision
