@@ -12,20 +12,22 @@ Declare one route enum with `@Router`. The generated conformance unlocks one
 containers over that authority. `RouterPlan<Route>` represents an exact target
 shared by deep links, restoration, and transactions.
 
-The first 6.0 release candidate also includes the planned 6.1–6.3 capability sets:
-stable generated tab identities, `@PresentationResult`, `@Scene`, native
-presentation options, FIFO scheduling, semantic transition context, App Intent
-and Handoff bridges, UIKit/AppKit hosting bridges, macro-first state reading,
-pending-link continuation, opt-in restoration, developer-session playback,
-payload-safe observability, shortcut catalogs, scene-local navigation,
-two-/three-column split state, idempotent and coalesced requests, deferred
-policies, native presentation/tab metadata, durable pending links, and
-Inspector investigation bookmarks and breakpoints. The final hardening set
-adds bounded request/deferral admission, policy timeouts, Inspector import
-preflight, throwing manual tab/scene catalogs, and Mac Catalyst interface
-validation. Instruments signposts, typed snapshot migrations, redacted support
-bundles, and deterministic test action sequences complete the release
-diagnostics and reproduction path without adding another navigation authority.
+The published 6.0.0 package supports typed presentations and scenes, native tab
+and split hosts, deep-link admission, snapshot restoration, bounded scheduling,
+and optional testing and Inspector tools. Applications choose their storage,
+recovery, and policy behavior explicitly while the store remains the single
+navigation authority.
+
+### Unreleased 6.1 additions
+
+The current source adds explicit tab-topology restoration for apps whose tab
+catalog changes between launches. `RouterTabRestorationTopology` adds missing
+current scopes while preserving saved paths and orphaned branches. Partial
+restoration reports describe structural changes through `topologyChanges`.
+These APIs are not included in the published 6.0.0 package.
+
+Read <doc:Restoring-Tab-Navigation> for catalog ownership, outcome handling,
+and a complete, compiled example with file persistence.
 
 ```swift compile
 import SwiftUI
@@ -76,6 +78,9 @@ struct AppRoot: View {
 - `RouterPendingLinkSlot`
 - `RouterPendingLinkPersistenceDriver`
 - `RouterRestorationDriver`
+- `RouterTabRestorationTopology` (unreleased 6.1)
+- `RouterTabRestorationChange` (unreleased 6.1)
+- `RouterPartialRestorationReport`
 - `RouterFileSnapshotStorage`
 - `RouterTabCatalog`
 - `RouterSceneCatalog`
@@ -93,3 +98,4 @@ struct AppRoot: View {
 ## Migration
 
 - <doc:Migrating-To-InnoRouter-6>
+- <doc:Restoring-Tab-Navigation>

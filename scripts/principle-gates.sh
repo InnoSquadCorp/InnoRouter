@@ -106,6 +106,7 @@ echo "[principle-gates] Checking documentation Swift code blocks"
 # Local repro: swift build --target <name>
 echo "[principle-gates] Building example smoke targets"
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterMacroFirstSmoke
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterTabRestorationExample
 
 # Gate 7 — independent SwiftPM consumer boundary. Unlike the root smoke
 # targets, this nested package resolves InnoRouter as a package dependency and

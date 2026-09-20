@@ -68,6 +68,10 @@ are bare semver (no leading `v`).
 
 ### Added
 
+- A complete macro-first tab restoration example demonstrates file persistence,
+  catalog changes, restore outcomes, and reopening a saved session. The public
+  DocC catalog links a focused restoration guide and distinguishes the released
+  6.0 surface from unreleased 6.1 additions.
 - Partial restoration reports include payload-free `topologyChanges` for
   inserted scopes, scope order, and selection changes. Older encoded reports
   decode with an empty change list; the transition outcome still determines

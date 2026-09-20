@@ -203,6 +203,11 @@ validated once before it can enter the plan.
 The explicit tab topology APIs below are **unreleased additions for 6.1**;
 they are not available in the published 6.0.0 package.
 
+The [complete tab restoration example](Examples/README.md#tab-restoration-unreleased-61)
+connects the catalog, driver, host, file persistence, and result handling.
+The [restoration guide](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md)
+explains tab identity, schema migration, and recovery boundaries.
+
 Restoration is exact: it applies what the snapshot says. A snapshot written
 before a tab existed therefore has no branch for it, and that tab stays
 unreachable. To add the tabs the app renders now, state the topology:

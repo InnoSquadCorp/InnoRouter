@@ -170,6 +170,10 @@ route 값은 없습니다. 기존에 비어 있지 않던 stack의 route가 전�
 아래 명시적 탭 topology API는 **6.1용 미출시 추가 기능**입니다.
 현재 배포된 6.0.0 패키지에는 포함되지 않습니다.
 
+[전체 탭 복원 예제](Examples/README.md#tab-restoration-unreleased-61)는 catalog, driver,
+host, 파일 저장과 결과 처리를 연결합니다. [복원 가이드](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md)에서
+탭 식별자, schema migration, recovery의 적용 범위를 확인할 수 있습니다.
+
 복원은 기본적으로 exact입니다. snapshot이 말하는 상태를 그대로 적용하므로, 해당 탭이
 생기기 전에 저장된 snapshot에는 그 탭의 branch가 없고 탭은 도달 불가능한 상태로
 남습니다. 지금 앱이 렌더링하는 탭을 추가하려면 topology를 명시합니다.

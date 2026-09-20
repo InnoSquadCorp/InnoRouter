@@ -16,10 +16,11 @@ import CompilerPluginSupport
 // list from the directory contents declaratively, and keeps the
 // rest of the manifest readable.
 
-/// Human-facing examples for the canonical 6.0 surface.
+/// Human-facing examples for the canonical runtime surface.
 private let exampleSources: [String] = [
     "MacrosExample.swift",
     "DeepLinkExample.swift",
+    "TabRestorationExample.swift",
 ]
 
 /// The umbrella-only macro fixture stays isolated so its dependency boundary
@@ -240,6 +241,7 @@ let package = Package(
         // compiles against the public umbrella product.
         exampleTarget(name: "InnoRouterMacrosExample", source: "MacrosExample.swift"),
         exampleTarget(name: "InnoRouterDeepLinkExample", source: "DeepLinkExample.swift"),
+        exampleTarget(name: "InnoRouterTabRestorationExample", source: "TabRestorationExample.swift"),
 
         // MARK: - Example Smoke Targets
         //
@@ -300,6 +302,11 @@ let package = Package(
         ),
 
         // MARK: - Tests
+        .testTarget(
+            name: "InnoRouterExampleTests",
+            dependencies: ["InnoRouter", "InnoRouterTabRestorationExample"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .testTarget(
             name: "InnoRouterTests",
             dependencies: ["InnoRouter", "InnoRouterDeepLink", "InnoRouterSwiftUI", "InnoRouterSystem"],

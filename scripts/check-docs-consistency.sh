@@ -54,6 +54,7 @@ PUBLIC_DOCS=(
   Docs/inspector-localization.md
   Sources/InnoRouterUmbrella/InnoRouter.docc/InnoRouter.md
   Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md
+  Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md
   Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/InnoRouterDeepLink.md
   Sources/InnoRouterMacros/InnoRouterMacros.docc/Router-Macro-First.md
   Sources/InnoRouterTesting/InnoRouterTesting.docc/InnoRouterTesting.md
