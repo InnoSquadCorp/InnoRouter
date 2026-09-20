@@ -8,7 +8,7 @@ import InnoRouterTesting
 @Router
 private enum ConsumerTabRoute: Codable {
     @TabItem("Home", systemImage: "house") case home
-    @TabItem("Settings", systemImage: "gearshape") case settings
+    @TabItem("Settings", systemImage: "gearshape", id: "settings") case settings
     case detail(String)
     var destination: some View { Text(String(describing: self)) }
 }

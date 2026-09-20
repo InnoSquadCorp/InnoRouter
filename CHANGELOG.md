@@ -74,6 +74,9 @@ are bare semver (no leading `v`).
 - Automatic restoration can opt into route-level partial validation with an
   optional current tab topology. It exposes the initial report separately from
   the transition and persists only accepted normalized state.
+- `@TabItem` accepts an optional literal `id:` so a tab's persisted scope can
+  remain stable across route case renames. Duplicate effective IDs fail during
+  macro expansion; existing annotations keep their case-name identity.
 - A complete macro-first tab restoration example demonstrates file persistence,
   catalog changes, restore outcomes, and reopening a saved session. The public
   DocC catalog links a focused restoration guide and distinguishes the released

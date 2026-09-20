@@ -35,7 +35,7 @@ growth:
 
 | Product | Maximum symbols |
 | --- | ---: |
-| `InnoRouter` | 1,192 |
+| `InnoRouter` | 1,193 |
 | `InnoRouterInspector` | 207 |
 | `InnoRouterTesting` | 252 |
 
@@ -69,6 +69,10 @@ selection is introduced.
 Automatic partial restoration adds two umbrella symbols: one opt-in driver
 initializer and one latest-attempt report. It reuses the existing Store,
 validator, topology, transition, and persistence contracts.
+
+Explicit persisted tab identity adds one `@TabItem` overload. The generated
+typed tab and catalog stay unchanged; only the opt-in scope identity is
+decoupled from the route case spelling.
 
 Run both checks with:
 

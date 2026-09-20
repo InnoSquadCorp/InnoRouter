@@ -35,6 +35,7 @@ whose explicit declarations are redundant.
 |---|---|---|
 | `InnoRouterMacro.E007` | Error | `@TabItem` is not attached to an enum case. Move it to one case inside an `@Router` enum. |
 | `InnoRouterMacro.E008` | Error | The nearest enclosing enum does not use `@Router`. Add `@Router` to that enum or remove `@TabItem`. |
+| `InnoRouterMacro.E009` | Error | Two tabs resolve to the same persisted scope ID. Change an explicit `id:` or a conflicting case name so every effective ID is unique. |
 | `InnoRouterMacro.E010` | Error | One case has multiple `@TabItem` annotations. Keep exactly one. |
 | `InnoRouterMacro.E011` | Error | An annotated declaration contains joined cases. Split it so each `@TabItem` annotates exactly one case. |
 | `InnoRouterMacro.E012` | Error | A tab case has associated values and cannot participate in generated `CaseIterable` conformance. Move payload state outside the tab enum. |

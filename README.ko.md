@@ -228,8 +228,8 @@ enum AppRoute {
     @TabItem("홈", systemImage: "house")
     case home
 
-    @TabItem("설정", systemImage: "gear")
-    case settings
+    @TabItem("설정", systemImage: "gear", id: "settings")
+    case preferences
 
     case detail(id: String)
 
@@ -239,9 +239,11 @@ enum AppRoute {
 RouterTabHost(AppRoute.self, initial: .home)
 ```
 
-macro가 case 이름 기반 scope ID를 생성하므로 번역이나 tab 순서 변경이 복원된
-branch history를 손상시키지 않습니다. `@TabItem`은 선택 상태 system image와 native
-search tab role도 선언할 수 있습니다.
+`id:`를 생략하면 case 이름이 저장되는 scope ID입니다. tab case 이름을 바꾸기 전에
+명시 ID를 추가하면 저장된 branch를 계속 찾을 수 있습니다. 이 ID는 tab scope만
+안정화하므로 저장된 path 안의 Codable route case를 바꾸면 별도 snapshot migration이
+필요합니다. 모든 탭의 실제 ID는 고유해야 합니다. `@TabItem`은 선택 상태 system
+image와 native search tab role도 선언할 수 있습니다.
 
 `RouterSplitHost`는 sidebar와 detail의 독립 history를, `RouterThreeColumnSplitHost`는
 content까지 포함한 세 개의 독립 history를 유지합니다. visibility와 compact column

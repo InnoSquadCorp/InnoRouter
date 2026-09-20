@@ -9,7 +9,7 @@ enum RestorableTabRoute: Codable {
     @TabItem("Home", systemImage: "house")
     case home
 
-    @TabItem("Settings", systemImage: "gearshape")
+    @TabItem("Settings", systemImage: "gearshape", id: "settings")
     case settings
 
     case detail(id: String)

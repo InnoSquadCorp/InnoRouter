@@ -28,7 +28,7 @@ public indirect enum ExternalRoute: Codable {
     @TabItem("Home", systemImage: "house")
     case home
 
-    @TabItem("Settings", systemImage: "gear")
+    @TabItem("Settings", systemImage: "gear", id: "settings-stable")
     case settings
 
     @DeepLink("/details/:id")
@@ -256,6 +256,7 @@ public enum MacroFirstConsumerProbe {
         let edit: RouterPresentationRequest<ExternalRoute, ExternalRoute> =
             ExternalRoute.Presentation.edit(value1: 7, .home)
         precondition(edit.route == .edit(value1: 7, .home))
+        precondition(ExternalRoute.Tab.settings.routerScopeID == "settings-stable")
 
         precondition(ExternalFeatureRoute.Feature.catalog.id == "catalog")
         precondition(ExternalFeatureRoute.routerFeatureCatalog.map(\.id) == ["catalog"])

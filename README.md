@@ -269,13 +269,18 @@ enum AppRoute {
     @TabItem("Home", systemImage: "house")
     case home
 
-    @TabItem("Settings", systemImage: "gear")
-    case settings
+    @TabItem("Settings", systemImage: "gear", id: "settings")
+    case preferences
 
     case detail(id: String)
 
     var destination: some View { /* exhaustive switch */ }
 }
+
+Without `id:`, the case name remains the persisted scope identity. Add an
+explicit ID before renaming a tab case to keep its saved branch reachable.
+This stabilizes the tab scope only; changing a Codable route case used inside a
+saved path still requires a snapshot migration. Effective IDs must be unique.
 
 RouterTabHost(AppRoute.self, initial: .home)
 ```

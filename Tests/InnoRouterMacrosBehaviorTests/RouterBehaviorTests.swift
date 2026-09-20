@@ -89,6 +89,7 @@ private enum BehaviorRouterTab {
     @TabItem(
         "Settings",
         systemImage: "gear",
+        id: "settings-stable",
         selectedSystemImage: "gearshape.fill",
         role: .search
     )
@@ -101,6 +102,18 @@ private enum BehaviorRouterTab {
         case .settings:
             Text("Settings")
         }
+    }
+}
+
+@Router
+private enum RenamedBehaviorRouterTab: Codable {
+    @TabItem("Preferences", systemImage: "gear", id: "settings")
+    case preferences
+
+    case detail
+
+    var destination: some View {
+        Text("Destination")
     }
 }
 
@@ -480,11 +493,30 @@ struct RouterBehaviorTests {
         #expect(BehaviorRouterTab.Tab.home.selectedSystemImage == nil)
         #expect(BehaviorRouterTab.Tab.home.role == .standard)
         #expect(BehaviorRouterTab.Tab.home.routerScopeID == "home")
-        #expect(BehaviorRouterTab.Tab.settings.routerScopeID == "settings")
+        #expect(BehaviorRouterTab.Tab.settings.routerScopeID == "settings-stable")
         #expect(BehaviorRouterTab.routerTabs.map(\.root) == [.home, .settings])
 
         let host = RouterTabHost(BehaviorRouterTab.self, initial: .home)
         _ = host.body
+    }
+
+    @Test("An explicit tab ID survives a route case rename in persisted topology")
+    @MainActor
+    func explicitTabIDRestoration() throws {
+        typealias R = RenamedBehaviorRouterTab
+        #expect(R.Tab.preferences.rawValue == "preferences")
+        #expect(R.Tab.preferences.routerScopeID == "settings")
+        let saved = try RouterState<R>(root: .container(.init(
+            style: .tabs,
+            selection: "settings",
+            branches: [.init(id: "settings", node: .stack(path: [.detail]))]
+        )))
+        let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
+        let decoded = try codec.decode(codec.encode(saved))
+        let topology = try RouterTabRestorationTopology(of: R.self)
+
+        #expect(try topology.reconciling(decoded) == saved)
+        #expect(topology.scopeIDs == ["settings"])
     }
 
     @Test("One router can declare tab roots and pushed destinations")

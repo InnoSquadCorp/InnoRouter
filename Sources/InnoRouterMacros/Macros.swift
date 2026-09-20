@@ -152,6 +152,24 @@ public macro TabItem(
     type: "TabItemMacro"
 )
 
+/// Marks a tab while keeping its persisted scope identity independent from
+/// the route case spelling.
+///
+/// Use this before renaming a case that already has persisted snapshots. The
+/// ID stabilizes the tab scope; changing Codable route payload cases still
+/// requires an application-owned snapshot migration.
+@attached(peer)
+public macro TabItem(
+    _ title: LocalizedStringResource,
+    systemImage: String,
+    id: String,
+    selectedSystemImage: String? = nil,
+    role: RouterTabRole = .standard
+) = #externalMacro(
+    module: "InnoRouterMacrosPlugin",
+    type: "TabItemMacro"
+)
+
 // MARK: - @Scene
 
 /// Marks a parameterless `@Router` case as a regular window or immersive scene.

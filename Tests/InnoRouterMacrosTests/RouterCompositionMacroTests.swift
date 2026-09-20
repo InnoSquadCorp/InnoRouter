@@ -754,6 +754,170 @@ struct RouterCompositionMacroTests {
         )
     }
 
+    @Test("Explicit tab IDs generate durable scope identities without changing typed tab identity")
+    func explicitTabIDExpansion() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house", id: "main")
+                case home
+                @TabItem("Settings", systemImage: "gear")
+                case settings
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+                case home
+                case settings
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension AppRoute: InnoRouterSwiftUI.DestinationRoute, InnoRouterSwiftUI.RouterTabRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Tab: Swift.String, InnoRouterSwiftUI.RouterTab {
+                    case home
+                    case settings
+
+                    internal var title: Foundation.LocalizedStringResource {
+                        switch self {
+                        case .home:
+                            return "Home"
+                        case .settings:
+                            return "Settings"
+                        }
+                    }
+
+                    internal var systemImage: Swift.String {
+                        switch self {
+                        case .home:
+                            return "house"
+                        case .settings:
+                            return "gear"
+                        }
+                    }
+
+                    internal var routerScopeID: InnoRouterCore.RouterScopeID {
+                        switch self {
+                        case .home:
+                            return InnoRouterCore.RouterScopeID("main")
+                        case .settings:
+                            return InnoRouterCore.RouterScopeID("settings")
+                        }
+                    }
+                }
+
+                internal static var routerTabs: [InnoRouterSwiftUI.RouterTabDescriptor<Self, Tab>] {
+                    [.init(tab: .home, root: .home), .init(tab: .settings, root: .settings)]
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Explicit tab IDs reject collisions with default case-name IDs")
+    func duplicateEffectiveTabID() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house", id: "settings")
+                case home
+                @TabItem("Settings", systemImage: "gear")
+                case settings
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+                case home
+                case settings
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E009] @Router tab scope ID `settings` is duplicated; give every tab a unique effective ID",
+                    line: 5,
+                    column: 5
+                )
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Escaped explicit tab IDs are compared by represented value")
+    func escapedDuplicateEffectiveTabID() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house", id: "set\\u{74}ings")
+                case home
+                @TabItem("Settings", systemImage: "gear")
+                case settings
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+                case home
+                case settings
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E009] @Router tab scope ID `settings` is duplicated; give every tab a unique effective ID",
+                    line: 5,
+                    column: 5
+                )
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Explicit tab IDs require nonempty noninterpolated literals")
+    func invalidExplicitTabID() {
+        assertMacroExpansion(
+            """
+            let persistedID = "home"
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house", id: persistedID)
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            let persistedID = "home"
+            enum AppRoute {
+                case home
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E013] @TabItem has invalid native tab metadata: id must be one nonempty noninterpolated string literal",
+                    line: 4,
+                    column: 5
+                )
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Scene and typed presentation markers compose in one router")
     func sceneAndPresentationExpansion() {
         assertMacroExpansion(

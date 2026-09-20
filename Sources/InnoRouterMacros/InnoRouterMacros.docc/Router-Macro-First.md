@@ -55,6 +55,7 @@ enum AppRoute {
     @TabItem(
         "Account",
         systemImage: "person",
+        id: "account",
         selectedSystemImage: "person.fill"
     )
     case account
@@ -66,8 +67,11 @@ enum AppRoute {
 ```
 
 Only marked, parameterless cases become tab roots. Unmarked cases remain normal
-destinations. The macro generates a stable case-name `RouterScopeID` for each
-tab; titles and declaration order are not persistence identities.
+destinations. By default the macro uses the case name as `RouterScopeID`;
+titles and declaration order are not persistence identities. Add a literal
+`id:` before renaming a case to keep the persisted tab scope stable. This does
+not migrate Codable route cases stored inside that scope's path. Explicit and
+default effective IDs must be unique across the enum.
 
 Use `role: .search` only for the route that should adopt SwiftUI's native
 search-tab behavior. Role and selected-image metadata do not change the stable

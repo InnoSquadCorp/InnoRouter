@@ -38,6 +38,14 @@ the encoded limit for both `RouterFileSnapshotStorage` and the codec, and set a
 payload limit that fits the application's route state:
 
 ```swift compile
+import InnoRouter
+
+enum AppRoute: Route, Codable {
+    case home
+}
+
+let snapshotURL = FileManager.default.temporaryDirectory
+    .appending(path: "router-snapshot.json")
 let limits = try RouterSnapshotLimits(
     maximumEncodedByteCount: 2 * 1_024 * 1_024,
     maximumPayloadByteCount: 1 * 1_024 * 1_024
@@ -73,12 +81,16 @@ orphan-tolerant initializer still rejects a non-stack current scope or a
 selection outside the current catalog.
 
 Topology reconciliation is not a payload migration or a tab-renaming map.
-Keep stable tab identities when only labels change. If route payloads or the
-root container shape change, define an explicit snapshot schema migration or
-recovery policy. The example keeps codec version `1` because adding/removing
-empty tab scopes alone does not change its route encoding. A state supplied by
-`RouterSnapshotRecoveryPolicy.use` is the application's final fallback and is
-not reconciled again.
+Labels and order do not change identity. Before renaming a tab route case, add
+an explicit persisted identity such as
+`@TabItem("Settings", systemImage: "gear", id: "settings")`; the generated
+typed tab remains the renamed case while `routerScopeID` stays `settings`.
+Explicit and default IDs must be unique. This stabilizes the branch ID only. If
+the renamed route case is also encoded inside a path or other payload, define
+an explicit snapshot schema migration or recovery policy. The example keeps
+codec version `1` because adding/removing empty tab scopes alone does not change
+its route encoding. A state supplied by `RouterSnapshotRecoveryPolicy.use` is
+the application's final fallback and is not reconciled again.
 
 ## Handle outcomes and errors separately
 

@@ -7,6 +7,7 @@ import SwiftDiagnostics
 enum RouterTabDiagnostic: DiagnosticMessage {
     case tabItemRequiresCase
     case tabItemRequiresRouter
+    case duplicateScopeID(String)
     case duplicateTabItem
     case multipleCasesPerDeclaration
     case associatedValues(caseName: String)
@@ -29,6 +30,7 @@ enum RouterTabDiagnostic: DiagnosticMessage {
         switch self {
         case .tabItemRequiresCase: return "InnoRouterMacro.E007"
         case .tabItemRequiresRouter: return "InnoRouterMacro.E008"
+        case .duplicateScopeID: return "InnoRouterMacro.E009"
         case .duplicateTabItem: return "InnoRouterMacro.E010"
         case .multipleCasesPerDeclaration: return "InnoRouterMacro.E011"
         case .associatedValues: return "InnoRouterMacro.E012"
@@ -47,6 +49,8 @@ enum RouterTabDiagnostic: DiagnosticMessage {
             return prefix + "@TabItem can only be attached to an enum case inside an @Router enum"
         case .tabItemRequiresRouter:
             return prefix + "@TabItem requires an enclosing @Router enum; add @Router to the enum or remove @TabItem"
+        case .duplicateScopeID(let id):
+            return prefix + "@Router tab scope ID `\(id)` is duplicated; give every tab a unique effective ID"
         case .duplicateTabItem:
             return prefix + "a router tab case must have exactly one @TabItem annotation; remove the duplicate"
         case .multipleCasesPerDeclaration:
