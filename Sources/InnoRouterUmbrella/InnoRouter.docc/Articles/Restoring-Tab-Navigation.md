@@ -90,19 +90,23 @@ not prove that saved navigation was applied. A newer navigation commit can
 make an in-flight restore stale; preserve the newer state rather than retrying
 the old snapshot over it.
 
-The example uses `.fail` recovery and surfaces failures without silently
-discarding the saved file. Applications decide whether to offer retry, reset,
-or a schema migration. The example does not install deferring policies; if an
-application adds them, it must resolve or cancel the deferred request and
-observe its terminal outcome rather than treating `lastActivation` as a live
-policy-completion feed.
+The example uses the driver's partial-validation initializer. Decode,
+migration, and validation failures remain visible without silently discarding
+the saved file; this mode does not apply a recovery fallback. Applications
+decide whether to offer retry, reset, or a schema migration. If an application
+adds deferring policies, it must resolve or cancel the deferred request and
+observe its terminal outcome rather than treating `lastActivation` or
+`lastPartialRestoration` as a live policy-completion feed.
 
-For route-level keep/drop/replace validation, use
+For a one-shot route-level keep/drop/replace validation, use
 `restorePartially(from:using:validator:tabTopology:validationTimeout:expectedRevision:)`.
 Its `report.topologyChanges` describes inserted scopes, ordering, and selection
 changes in the proposed candidate. Always inspect `transition` as well: a
-report can describe a candidate that was rejected. A plain automatic driver
-restore does not produce this partial-restoration report.
+report can describe a candidate that was rejected. For automatic persistence,
+pass the same validator, timeout, and optional topology to
+`RouterRestorationDriver`. Its `lastPartialRestoration` describes the initial
+attempt. Accepted normalized candidates are saved even when their Store
+transition is unchanged; deferred candidates are saved only after approval.
 
 ## Try the upgrade and reopen flow
 

@@ -214,6 +214,12 @@ stack, restoration fails unless the app provides a fallback route through
 `RouterPartialRestorationValidator(fallback:validate:)`; that fallback is
 validated once before it can enter the plan.
 
+The automatic driver also accepts a required `validator`, optional
+`validationTimeout`, and optional `tabTopology`. It performs the same partial
+planning before one policy transition, exposes the initial result through
+`lastPartialRestoration`, and saves only accepted normalized state. This mode
+does not apply a snapshot recovery fallback.
+
 The explicit tab topology APIs below are **unreleased additions for 6.1**;
 they are not available in the published 6.0.0 package.
 

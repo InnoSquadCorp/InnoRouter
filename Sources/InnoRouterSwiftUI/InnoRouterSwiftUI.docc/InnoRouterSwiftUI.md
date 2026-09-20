@@ -94,6 +94,14 @@ Partial reports include payload-free `topologyChanges`; their transition outcome
 determines whether the candidate was applied. Older reports decode with an empty
 change list.
 
+Automatic restoration can take the same validator, timeout, and optional
+topology. It plans before one policy transition and exposes the initial report
+through `lastPartialRestoration`. Accepted normalized state is persisted,
+including an unchanged Store transition whose source file still required
+cleanup. Deferred candidates are persisted only after terminal approval. This
+partial driver mode reports decode and validation failures and does not apply a
+snapshot recovery fallback.
+
 `RouterHistory` reuses
 the same validator, exact plans, and policies for navigation-only moves. It
 observes commits synchronously, tracks deferred destinations by entry identity,

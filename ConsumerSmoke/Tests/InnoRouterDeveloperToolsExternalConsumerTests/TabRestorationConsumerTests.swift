@@ -13,6 +13,13 @@ private enum ConsumerTabRoute: Codable {
     var destination: some View { Text(String(describing: self)) }
 }
 
+private struct ConsumerTabSnapshotStorage: RouterSnapshotStorage {
+    let data: Data
+    func load() throws -> Data? { data }
+    func save(_ data: Data) throws {}
+    func remove() throws {}
+}
+
 @Suite("External tab restoration")
 @MainActor
 struct TabRestorationConsumerTests {
@@ -60,5 +67,31 @@ struct TabRestorationConsumerTests {
         let reopened = R.makeRouterStore()
         _ = try await reopened.restore(from: saved, using: codec, tabTopology: topology)
         #expect(reopened.state == store.state)
+
+        let driverStore = R.makeRouterStore()
+        let driver = RouterRestorationDriver(
+            store: driverStore,
+            codec: codec,
+            storage: ConsumerTabSnapshotStorage(data: data),
+            validator: .init(
+                fallback: { _ in .detail("fallback") },
+                validate: { route, _ in
+                    route == .detail("saved") ? .remove(reason: "retired") : .keep
+                }
+            ),
+            tabTopology: topology,
+            saveDebounce: .zero
+        )
+        defer { driver.stop() }
+        guard case .restored(let activation) = try await driver.activate(),
+              case .applied = activation.transition else {
+            Issue.record("Expected automatic partial topology restoration")
+            return
+        }
+        #expect(driver.lastPartialRestoration?.report.entries.contains {
+            $0.change == .removed && $0.reason == "retired"
+        } == true)
+        #expect(driverStore.scope(at: ["home"]).node == .stack(path: [.detail("fallback")]))
+        #expect(driverStore.scope(at: ["settings"]).node == .stack())
     }
 }

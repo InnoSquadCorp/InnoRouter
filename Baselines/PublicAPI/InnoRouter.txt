@@ -641,7 +641,9 @@ relationship | memberOf | RouterRequestOverflowStrategy.rejectNewest | RouterReq
 relationship | memberOf | RouterRestorationDriver.activate() | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.init(store:codec:storage:recovery:saveDebounce:) | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.init(store:codec:storage:recovery:tabTopology:saveDebounce:) | RouterRestorationDriver |  |
+relationship | memberOf | RouterRestorationDriver.init(store:codec:storage:validator:validationTimeout:tabTopology:saveDebounce:) | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.lastActivation | RouterRestorationDriver |  |
+relationship | memberOf | RouterRestorationDriver.lastPartialRestoration | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.removeSnapshot() | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.save() | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.status | RouterRestorationDriver |  |
@@ -1524,6 +1526,7 @@ symbol | swift.init | RouterRequestKey.init(stringLiteral:) | init(stringLiteral
 symbol | swift.init | RouterRequestObservation.init(id:action:context:expectedRevision:) | init(id:action:context:expectedRevision:) | init(id: RouterTransitionID, action: RouterAction<R>, context: RouterTransitionContext, expectedRevision: UInt64? = nil) | []
 symbol | swift.init | RouterRestorationDriver.init(store:codec:storage:recovery:saveDebounce:) | init(store:codec:storage:recovery:saveDebounce:) | @MainActor init(store: RouterStore<R>, codec: RouterSnapshotCodec<R>, storage: any RouterSnapshotStorage, recovery: RouterSnapshotRecoveryPolicy<R> = .fail, saveDebounce: Duration = .milliseconds(250)) | []
 symbol | swift.init | RouterRestorationDriver.init(store:codec:storage:recovery:tabTopology:saveDebounce:) | init(store:codec:storage:recovery:tabTopology:saveDebounce:) | @MainActor init(store: RouterStore<R>, codec: RouterSnapshotCodec<R>, storage: any RouterSnapshotStorage, recovery: RouterSnapshotRecoveryPolicy<R> = .fail, tabTopology: RouterTabRestorationTopology, saveDebounce: Duration = .milliseconds(250)) | []
+symbol | swift.init | RouterRestorationDriver.init(store:codec:storage:validator:validationTimeout:tabTopology:saveDebounce:) | init(store:codec:storage:validator:validationTimeout:tabTopology:saveDebounce:) | @MainActor init(store: RouterStore<R>, codec: RouterSnapshotCodec<R>, storage: any RouterSnapshotStorage, validator: RouterPartialRestorationValidator<R>, validationTimeout: Duration? = nil, tabTopology: RouterTabRestorationTopology? = nil, saveDebounce: Duration = .milliseconds(250)) | []
 symbol | swift.init | RouterRestorationOutcome.init(decoding:transition:) | init(decoding:transition:) | init(decoding: RouterSnapshotDecodingResult<R>, transition: RouterOutcome<R>) | []
 symbol | swift.init | RouterRestorationRouteLocation.init(scope:role:index:) | init(scope:role:index:) | init(scope: RouterScopePath, role: RouterRestorationRouteRole, index: Int? = nil) | []
 symbol | swift.init | RouterSceneCatalog.init(_:) | init(_:) | init(_ descriptors: [RouterSceneDescriptor<R>]) throws | []
@@ -1892,6 +1895,7 @@ symbol | swift.property | RouterRequestObservation.context | context | let conte
 symbol | swift.property | RouterRequestObservation.expectedRevision | expectedRevision | let expectedRevision: UInt64? | []
 symbol | swift.property | RouterRequestObservation.id | id | let id: RouterTransitionID | []
 symbol | swift.property | RouterRestorationDriver.lastActivation | lastActivation | @MainActor var lastActivation: RouterRestorationDriverActivation<R>? { get set } | []
+symbol | swift.property | RouterRestorationDriver.lastPartialRestoration | lastPartialRestoration | @MainActor var lastPartialRestoration: RouterPartialRestorationOutcome<R>? { get set } | []
 symbol | swift.property | RouterRestorationDriver.status | status | @MainActor var status: RouterRestorationDriverStatus { get set } | []
 symbol | swift.property | RouterRestorationOutcome.decoding | decoding | let decoding: RouterSnapshotDecodingResult<R> | []
 symbol | swift.property | RouterRestorationOutcome.transition | transition | let transition: RouterOutcome<R> | []

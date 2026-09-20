@@ -180,6 +180,11 @@ route 값은 없습니다. 기존에 비어 있지 않던 stack의 route가 전�
 실패합니다. 앱이 `RouterPartialRestorationValidator(fallback:validate:)`에 fallback을
 명시한 경우에만 그 route를 한 번 더 검증한 뒤 plan에 넣습니다.
 
+자동 driver도 필수 `validator`, 선택적 `validationTimeout`과 `tabTopology`를 받을 수
+있습니다. 동일한 부분 복원 계획을 한 번의 policy transition 전에 수행하고 초기 결과는
+`lastPartialRestoration`으로 노출하며, 수락된 정상화 상태만 저장합니다. 이 모드에서는
+snapshot recovery fallback을 적용하지 않습니다.
+
 아래 명시적 탭 topology API는 **6.1용 미출시 추가 기능**입니다.
 현재 배포된 6.0.0 패키지에는 포함되지 않습니다.
 

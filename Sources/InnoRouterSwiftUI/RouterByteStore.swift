@@ -86,7 +86,7 @@ struct RouterAtomicFileStore: Sendable {
 /// The operations stay synchronous because `RouterSnapshotStorage` and
 /// `RouterPendingLinkStorage` are synchronous by design; this actor is what
 /// keeps them off the main actor.
-actor RouterByteStoreExecutor {
+package actor RouterByteStoreExecutor {
     private let loadBytes: @Sendable () throws -> Data?
     private let saveBytes: @Sendable (Data) throws -> Void
     private let removeBytes: @Sendable () throws -> Void

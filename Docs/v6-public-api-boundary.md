@@ -35,7 +35,7 @@ growth:
 
 | Product | Maximum symbols |
 | --- | ---: |
-| `InnoRouter` | 1,190 |
+| `InnoRouter` | 1,192 |
 | `InnoRouterInspector` | 207 |
 | `InnoRouterTesting` | 252 |
 
@@ -65,6 +65,10 @@ The unreleased 6.1 snapshot boundary adds ten umbrella symbols for explicit
 envelope/payload limits, typed size failures, and bounded file storage. Existing
 initializers retain their 6.0 behavior; no new navigation authority or storage
 selection is introduced.
+
+Automatic partial restoration adds two umbrella symbols: one opt-in driver
+initializer and one latest-attempt report. It reuses the existing Store,
+validator, topology, transition, and persistence contracts.
 
 Run both checks with:
 

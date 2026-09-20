@@ -59,7 +59,13 @@ final class TabRestorationExampleSession {
                 fileURL: snapshotURL,
                 maximumByteCount: limits.maximumEncodedByteCount
             ),
-            recovery: .fail,
+            validator: .init { route, _ in
+                guard case .detail(let id) = route, id.hasPrefix("retired-") else {
+                    return .keep
+                }
+                return .remove(reason: "retired-content")
+            },
+            validationTimeout: .seconds(5),
             tabTopology: RouterTabRestorationTopology(catalog: catalog)
         )
     }
@@ -239,6 +245,12 @@ private struct TabRestorationResultView: View {
                 Text("Automatic saving is active.")
             case nil:
                 EmptyView()
+            }
+
+            if let report = driver.lastPartialRestoration?.report {
+                let changed = report.entries.filter { $0.change != .kept }.count
+                    + report.topologyChanges.count
+                Text("Validated snapshot changes: \(changed)")
             }
         }
         .font(.footnote)

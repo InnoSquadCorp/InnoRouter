@@ -485,6 +485,25 @@ public extension RouterStore where R: Codable {
     ) async throws -> RouterPartialRestorationOutcome<R> {
         let capturedRevision = expectedRevision ?? revision
         let decoded = try await RouterSnapshotCodecExecutor(codec: codec).decode(data)
+        return try await restorePartially(
+            decoded: decoded,
+            validator: validator,
+            tabTopology: tabTopology,
+            validationTimeout: validationTimeout,
+            expectedRevision: capturedRevision
+        )
+    }
+
+    package func restorePartially(
+        decoded: RouterState<R>,
+        validator: RouterPartialRestorationValidator<R>,
+        tabTopology: RouterTabRestorationTopology?,
+        validationTimeout: Duration?,
+        expectedRevision: UInt64,
+        transitionID: RouterTransitionID? = nil,
+        requestRootID: RouterTransitionID? = nil,
+        executionPrecondition: RouterRequestPrecondition<R>? = nil
+    ) async throws -> RouterPartialRestorationOutcome<R> {
         let candidate = try tabTopology.map { try $0.reconciling(decoded) } ?? decoded
         let planned = try await preparePartialRestoration(
             candidate,
@@ -495,8 +514,11 @@ public extension RouterStore where R: Codable {
         let transition = await perform(
             .apply(RouterPlan(state: planned.0)),
             context: .init(source: .restoration),
-            expectedRevision: capturedRevision,
-            bypassesPolicies: false
+            expectedRevision: expectedRevision,
+            bypassesPolicies: false,
+            transitionID: transitionID,
+            requestRootID: requestRootID,
+            executionPrecondition: executionPrecondition
         )
         let report = RouterPartialRestorationReport(
             entries: planned.1.entries,

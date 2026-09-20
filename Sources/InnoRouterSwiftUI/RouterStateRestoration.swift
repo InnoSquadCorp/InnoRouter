@@ -12,6 +12,11 @@ private struct RouterRestorationActivationLease<R: Route & Codable> {
     let generation: UInt64
 }
 
+private struct RouterRestorationPartialConfiguration<R: Route> {
+    let validator: RouterPartialRestorationValidator<R>
+    let validationTimeout: Duration?
+}
+
 /// Opt-in automatic persistence for one canonical router store.
 ///
 /// The driver observes committed transitions, coalesces writes, and restores
@@ -25,25 +30,30 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     /// it; older operations still finish and return their own results.
     public private(set) var status: RouterRestorationDriverStatus = .inactive
     public private(set) var lastActivation: RouterRestorationDriverActivation<R>?
+    /// Report and transition returned by the latest partial activation.
+    ///
+    /// A deferred transition is not a terminal success. Observe Store events
+    /// for the final resumed outcome.
+    public private(set) var lastPartialRestoration: RouterPartialRestorationOutcome<R>?
 
     @ObservationIgnored
-    private let durability = RouterDurabilityGate()
+    package let durability = RouterDurabilityGate()
     @ObservationIgnored
-    private let store: RouterStore<R>
+    package let store: RouterStore<R>
     @ObservationIgnored
     private let codec: RouterSnapshotCodec<R>
     @ObservationIgnored
     private let recovery: RouterSnapshotRecoveryPolicy<R>
     @ObservationIgnored
-    private let executor: RouterByteStoreExecutor
+    package let executor: RouterByteStoreExecutor
     @ObservationIgnored
-    private let codecExecutor: RouterSnapshotCodecExecutor<R>
+    package let codecExecutor: RouterSnapshotCodecExecutor<R>
     @ObservationIgnored
-    private let saveDebounce: Duration
+    package let saveDebounce: Duration
     @ObservationIgnored
     private var observationID: UUID?
     @ObservationIgnored
-    private var scheduledSaveTask: Task<Void, Never>?
+    package var scheduledSaveTask: Task<Void, Never>?
     @ObservationIgnored
     private var activeRestoreTransitionID: RouterTransitionID?
     @ObservationIgnored
@@ -67,15 +77,17 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     @ObservationIgnored
     private let tabTopology: RouterTabRestorationTopology?
     @ObservationIgnored
+    private let partialConfiguration: RouterRestorationPartialConfiguration<R>?
+    @ObservationIgnored
     private var initialRestorePhase: RouterInitialRestorePhase = .notStarted
     @ObservationIgnored
     private var activationGeneration: UInt64 = 0
     @ObservationIgnored
-    private var saveGeneration: UInt64 = 0
+    package var saveGeneration: UInt64 = 0
     @ObservationIgnored
-    private var storageEpoch: UInt64 = 0
+    package var storageEpoch: UInt64 = 0
     @ObservationIgnored
-    private var statusGeneration: UInt64 = 0
+    package var statusGeneration: UInt64 = 0
 
     public init(
         store: RouterStore<R>,
@@ -88,6 +100,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         self.codec = codec
         self.recovery = recovery
         self.tabTopology = nil
+        self.partialConfiguration = nil
         self.executor = RouterByteStoreExecutor(
             load: { try storage.load() },
             save: { try storage.save($0) },
@@ -115,6 +128,38 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         self.codec = codec
         self.recovery = recovery
         self.tabTopology = tabTopology
+        self.partialConfiguration = nil
+        self.executor = RouterByteStoreExecutor(
+            load: { try storage.load() },
+            save: { try storage.save($0) },
+            remove: { try storage.remove() }
+        )
+        self.codecExecutor = RouterSnapshotCodecExecutor(codec: codec)
+        self.saveDebounce = max(saveDebounce, .zero)
+    }
+
+    /// Creates a driver that validates decoded routes before its initial
+    /// restore and then observes the accepted canonical Store state.
+    ///
+    /// This opt-in path does not use snapshot recovery. Decode, migration, and
+    /// validation failures remain visible to the caller and through `status`.
+    public init(
+        store: RouterStore<R>,
+        codec: RouterSnapshotCodec<R>,
+        storage: any RouterSnapshotStorage,
+        validator: RouterPartialRestorationValidator<R>,
+        validationTimeout: Duration? = nil,
+        tabTopology: RouterTabRestorationTopology? = nil,
+        saveDebounce: Duration = .milliseconds(250)
+    ) {
+        self.store = store
+        self.codec = codec
+        self.recovery = .fail
+        self.tabTopology = tabTopology
+        self.partialConfiguration = .init(
+            validator: validator,
+            validationTimeout: validationTimeout
+        )
         self.executor = RouterByteStoreExecutor(
             load: { try storage.load() },
             save: { try storage.save($0) },
@@ -189,6 +234,7 @@ extension RouterRestorationDriver {
         }
 
         initialRestorePhase = .inProgress
+        lastPartialRestoration = nil
         publishStatus(.loading, ownedBy: statusOwner)
         let waiterID = UUID()
         return try await withTaskCancellationHandler {
@@ -252,6 +298,7 @@ extension RouterRestorationDriver {
                 initialRestorePhase = .completed
                 let result = RouterRestorationDriverActivation<R>.noSnapshot
                 lastActivation = result
+                lastPartialRestoration = nil
                 return .init(result: result, generation: generation)
             }
             let transitionID = store.reserveTransitionID()
@@ -262,23 +309,45 @@ extension RouterRestorationDriver {
                     activeRestoreTransitionID = nil
                 }
             }
-            let outcome = try await store.restore(
-                from: data,
-                using: codec,
-                recovery: recovery,
-                expectedRevision: expectedRevision,
-                transitionID: transitionID,
-                requestRootID: transitionID,
-                tabTopology: tabTopology,
-                executionPrecondition: { [weak self] _ in
-                    guard let self,
-                          self.activationGeneration == generation,
-                          self.observationID != nil else {
-                        return .cancelled
-                    }
-                    return nil
+            let precondition: RouterRequestPrecondition<R> = { [weak self] _ in
+                guard let self,
+                      self.activationGeneration == generation,
+                      self.observationID != nil else {
+                    return .cancelled
                 }
-            )
+                return nil
+            }
+            let outcome: RouterRestorationOutcome<R>
+            if let partialConfiguration {
+                let decoded = try await codecExecutor.decode(data)
+                let partial = try await store.restorePartially(
+                    decoded: decoded,
+                    validator: partialConfiguration.validator,
+                    tabTopology: tabTopology,
+                    validationTimeout: partialConfiguration.validationTimeout,
+                    expectedRevision: expectedRevision,
+                    transitionID: transitionID,
+                    requestRootID: transitionID,
+                    executionPrecondition: precondition
+                )
+                outcome = RouterRestorationOutcome(
+                    decoding: .restored(decoded),
+                    transition: partial.transition
+                )
+                try ensureCurrentActivation(generation, taskID: taskID)
+                lastPartialRestoration = partial
+            } else {
+                outcome = try await store.restore(
+                    from: data,
+                    using: codec,
+                    recovery: recovery,
+                    expectedRevision: expectedRevision,
+                    transitionID: transitionID,
+                    requestRootID: transitionID,
+                    tabTopology: tabTopology,
+                    executionPrecondition: precondition
+                )
+            }
             if case .deferred(_, _, _, let deferral) = outcome.transition {
                 activeRestoreDeferralID = deferral.id
             } else {
@@ -289,6 +358,10 @@ extension RouterRestorationDriver {
             initialRestorePhase = .completed
             let result = RouterRestorationDriverActivation.restored(outcome)
             lastActivation = result
+            if partialConfiguration != nil,
+               case .unchanged = outcome.transition {
+                scheduleSave()
+            }
             return .init(result: result, generation: generation)
         } catch is CancellationError {
             guard activationGeneration == generation,
@@ -296,6 +369,7 @@ extension RouterRestorationDriver {
                 throw CancellationError()
             }
             initialRestorePhase = .notStarted
+            lastPartialRestoration = nil
             cancelActiveRestoreRequest()
             stopObservation()
             invalidateScheduledSave()
@@ -307,43 +381,10 @@ extension RouterRestorationDriver {
                 throw CancellationError()
             }
             initialRestorePhase = .notStarted
+            lastPartialRestoration = nil
             cancelActiveRestoreRequest()
             stopObservation()
             invalidateScheduledSave()
-            publishStatus(.failed(String(describing: error)), ownedBy: statusOwner)
-            throw error
-        }
-    }
-
-    /// Encodes and atomically writes the store's latest committed state now.
-    public func save() async throws {
-        invalidateScheduledSave()
-        let generation = saveGeneration
-        let epoch = storageEpoch
-        try await saveSnapshot(
-            generation: generation,
-            storageEpoch: epoch,
-            discardIfSuperseded: false
-        )
-    }
-
-    /// Removes the persisted snapshot without changing router state.
-    public func removeSnapshot() async throws {
-        invalidateScheduledSave()
-        storageEpoch &+= 1
-        let statusOwner = beginStatusOperation()
-        // Reserving here invalidates every save this driver accepted earlier,
-        // so a save already past its own staleness checks cannot write the
-        // snapshot back after this removal.
-        let ticket = durability.reserve(.remove)
-        defer { durability.finish(ticket) }
-        _ = await durability.waitForTurn(ticket)
-        do {
-            try await executor.remove()
-            publishStatus(observationStatus, ownedBy: statusOwner)
-        } catch {
-            // Durable I/O still finishes and reports its error to its caller.
-            // A newer activation/save/remove/stop owns the visible status.
             publishStatus(.failed(String(describing: error)), ownedBy: statusOwner)
             throw error
         }
@@ -404,16 +445,16 @@ extension RouterRestorationDriver {
         publishStatus(.inactive, ownedBy: statusOwner)
     }
 
-    private var observationStatus: RouterRestorationDriverStatus {
+    package var observationStatus: RouterRestorationDriverStatus {
         observationID == nil ? .inactive : .active
     }
 
-    private func beginStatusOperation() -> UInt64 {
+    package func beginStatusOperation() -> UInt64 {
         statusGeneration &+= 1
         return statusGeneration
     }
 
-    private func publishStatus(_ value: RouterRestorationDriverStatus, ownedBy owner: UInt64) {
+    package func publishStatus(_ value: RouterRestorationDriverStatus, ownedBy owner: UInt64) {
         guard statusGeneration == owner else { return }
         status = value
     }
@@ -531,79 +572,5 @@ extension RouterRestorationDriver {
         guard let observationID else { return }
         store.removeSynchronousEventObserver(observationID)
         self.observationID = nil
-    }
-
-    private func scheduleSave() {
-        invalidateScheduledSave()
-        let generation = saveGeneration
-        let epoch = storageEpoch
-        let statusBeforeDelay = statusGeneration
-        let delay = saveDebounce
-        let sleep = store.runtimeDependencies.sleep
-        scheduledSaveTask = Task { @MainActor [weak self] in
-            do {
-                try await sleep(delay)
-            } catch is CancellationError {
-                return
-            } catch {
-                guard let self, self.saveGeneration == generation else { return }
-                self.publishStatus(.failed(String(describing: error)), ownedBy: statusBeforeDelay)
-                self.scheduledSaveTask = nil
-                return
-            }
-            guard !Task.isCancelled,
-                  let self,
-                  self.saveGeneration == generation else { return }
-            // saveSnapshot owns error publication; the background caller must
-            // not publish it a second time after a newer operation starts.
-            try? await self.saveSnapshot(
-                generation: generation,
-                storageEpoch: epoch,
-                discardIfSuperseded: true
-            )
-            guard self.saveGeneration == generation else { return }
-            self.scheduledSaveTask = nil
-        }
-    }
-
-    private func invalidateScheduledSave() {
-        saveGeneration &+= 1
-        scheduledSaveTask?.cancel()
-        scheduledSaveTask = nil
-    }
-
-    private func saveSnapshot(
-        generation: UInt64,
-        storageEpoch expectedStorageEpoch: UInt64,
-        discardIfSuperseded: Bool
-    ) async throws {
-        let statusOwner = beginStatusOperation()
-        // Reserve before the first suspension so this save keeps the position
-        // it was accepted in, whatever priority the encode and the storage
-        // call end up running at.
-        let ticket = durability.reserve(.save)
-        defer { durability.finish(ticket) }
-        do {
-            let state = store.state
-            let data = try await codecExecutor.encode(state)
-            guard storageEpoch == expectedStorageEpoch,
-                  !discardIfSuperseded || saveGeneration == generation else {
-                publishStatus(observationStatus, ownedBy: statusOwner)
-                return
-            }
-            publishStatus(.saving, ownedBy: statusOwner)
-            // A later removal owns status and forbids resurrecting its bytes.
-            guard await durability.waitForTurn(ticket) else { return }
-            try await executor.save(data)
-            publishStatus(observationStatus, ownedBy: statusOwner)
-        } catch {
-            guard storageEpoch == expectedStorageEpoch,
-                  !discardIfSuperseded || saveGeneration == generation else {
-                publishStatus(observationStatus, ownedBy: statusOwner)
-                return
-            }
-            publishStatus(.failed(String(describing: error)), ownedBy: statusOwner)
-            throw error
-        }
     }
 }

@@ -71,6 +71,9 @@ are bare semver (no leading `v`).
 - Applications can opt into finite snapshot envelope, payload, migration, and
   file-I/O byte limits. Existing snapshot codec and file-storage initializers
   retain their unbounded 6.0 behavior.
+- Automatic restoration can opt into route-level partial validation with an
+  optional current tab topology. It exposes the initial report separately from
+  the transition and persists only accepted normalized state.
 - A complete macro-first tab restoration example demonstrates file persistence,
   catalog changes, restore outcomes, and reopening a saved session. The public
   DocC catalog links a focused restoration guide and distinguishes the released
