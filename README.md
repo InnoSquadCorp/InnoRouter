@@ -174,8 +174,17 @@ For opt-in persistence, combine a versioned codec with app-selected storage:
 ```swift skip app-lifecycle-fragment
 let driver = RouterRestorationDriver(
     store: store,
-    codec: try RouterSnapshotCodec(currentVersion: 1),
-    storage: RouterFileSnapshotStorage(fileURL: snapshotURL)
+    codec: try RouterSnapshotCodec(
+        currentVersion: 1,
+        limits: RouterSnapshotLimits(
+            maximumEncodedByteCount: 2 * 1_024 * 1_024,
+            maximumPayloadByteCount: 1 * 1_024 * 1_024
+        )
+    ),
+    storage: try RouterFileSnapshotStorage(
+        fileURL: snapshotURL,
+        maximumByteCount: 2 * 1_024 * 1_024
+    )
 )
 
 RouterHost(store: store) { HomeView() }
@@ -188,6 +197,11 @@ remain explicit application choices. Observation begins when activation is
 reserved, so navigation committed while snapshot loading is pending is not
 overwritten. Stopping a driver invalidates queued workers and caller ownership;
 a later activation cannot be modified by their delayed completion.
+
+The byte limits above are application-selected examples. File storage rejects
+oversized input while reading, and the codec independently bounds the encoded
+envelope, decoded payload, and every migration result. Existing initializers
+remain unbounded for source and behavior compatibility.
 
 For snapshots containing retired destinations,
 `restorePartially(from:using:validator:validationTimeout:)` decodes and migrates

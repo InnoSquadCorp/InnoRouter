@@ -68,6 +68,9 @@ are bare semver (no leading `v`).
 
 ### Added
 
+- Applications can opt into finite snapshot envelope, payload, migration, and
+  file-I/O byte limits. Existing snapshot codec and file-storage initializers
+  retain their unbounded 6.0 behavior.
 - A complete macro-first tab restoration example demonstrates file persistence,
   catalog changes, restore outcomes, and reopening a saved session. The public
   DocC catalog links a focused restoration guide and distinguishes the released

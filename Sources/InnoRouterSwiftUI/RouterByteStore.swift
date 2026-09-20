@@ -4,6 +4,8 @@
 
 import Foundation
 
+import InnoRouterCore
+
 /// Atomic file-backed byte persistence at an application-owned URL.
 ///
 /// `RouterFileSnapshotStorage` and `RouterFilePendingLinkStorage` are separate
@@ -14,13 +16,53 @@ import Foundation
 /// here, so there is one definition of what "atomic file storage" means.
 struct RouterAtomicFileStore: Sendable {
     let fileURL: URL
+    var maximumByteCount: Int?
+
+    init(fileURL: URL, maximumByteCount: Int? = nil) {
+        self.fileURL = fileURL
+        self.maximumByteCount = maximumByteCount
+    }
 
     func load() throws -> Data? {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
-        return try Data(contentsOf: fileURL)
+        guard let maximumByteCount else { return try Data(contentsOf: fileURL) }
+
+        let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+        if let fileSize = (attributes[.size] as? NSNumber)?.intValue,
+           fileSize > maximumByteCount {
+            throw RouterSnapshotError.encodedDataTooLarge(
+                actualByteCount: fileSize,
+                maximumByteCount: maximumByteCount
+            )
+        }
+
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+        var data = Data()
+        let chunkSize = 64 * 1_024
+        while data.count < maximumByteCount {
+            let remaining = maximumByteCount - data.count
+            guard let chunk = try handle.read(upToCount: min(chunkSize, remaining)),
+                  !chunk.isEmpty else { return data }
+            data.append(chunk)
+        }
+        if let overflow = try handle.read(upToCount: 1), !overflow.isEmpty {
+            let actual = maximumByteCount == Int.max ? Int.max : maximumByteCount + 1
+            throw RouterSnapshotError.encodedDataTooLarge(
+                actualByteCount: actual,
+                maximumByteCount: maximumByteCount
+            )
+        }
+        return data
     }
 
     func save(_ data: Data) throws {
+        if let maximumByteCount, data.count > maximumByteCount {
+            throw RouterSnapshotError.encodedDataTooLarge(
+                actualByteCount: data.count,
+                maximumByteCount: maximumByteCount
+            )
+        }
         try FileManager.default.createDirectory(
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true

@@ -35,7 +35,7 @@ growth:
 
 | Product | Maximum symbols |
 | --- | ---: |
-| `InnoRouter` | 1,180 |
+| `InnoRouter` | 1,190 |
 | `InnoRouterInspector` | 207 |
 | `InnoRouterTesting` | 252 |
 
@@ -60,6 +60,11 @@ action steps. Sequence replay now uses each stored context, so the pre-release
 authority or alternative routing vocabulary. The fixture schema is finalized
 before the first 6.0.0 tag; unpublished action-only fixtures are not a supported
 migration format.
+
+The unreleased 6.1 snapshot boundary adds ten umbrella symbols for explicit
+envelope/payload limits, typed size failures, and bounded file storage. Existing
+initializers retain their 6.0 behavior; no new navigation authority or storage
+selection is introduced.
 
 Run both checks with:
 

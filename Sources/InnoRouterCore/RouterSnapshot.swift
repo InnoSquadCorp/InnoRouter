@@ -18,6 +18,36 @@ public struct RouterSnapshotEnvelope: Codable, Equatable, Sendable {
     }
 }
 
+/// Application-selected byte limits for one encoded router snapshot.
+///
+/// Limits are opt-in so existing snapshot callers preserve their 6.0 behavior.
+/// Use a matching limit on ``RouterFileSnapshotStorage`` to reject an oversized
+/// file before allocating its complete contents.
+public struct RouterSnapshotLimits: Hashable, Sendable {
+    public let maximumEncodedByteCount: Int
+    public let maximumPayloadByteCount: Int
+
+    public init(
+        maximumEncodedByteCount: Int,
+        maximumPayloadByteCount: Int
+    ) throws {
+        guard maximumEncodedByteCount > 0 else {
+            throw RouterSnapshotError.invalidByteLimit(
+                name: "maximumEncodedByteCount",
+                value: maximumEncodedByteCount
+            )
+        }
+        guard maximumPayloadByteCount > 0 else {
+            throw RouterSnapshotError.invalidByteLimit(
+                name: "maximumPayloadByteCount",
+                value: maximumPayloadByteCount
+            )
+        }
+        self.maximumEncodedByteCount = maximumEncodedByteCount
+        self.maximumPayloadByteCount = maximumPayloadByteCount
+    }
+}
+
 /// One explicit, adjacent router-snapshot schema migration.
 ///
 /// The transform receives only the encoded ``RouterState`` payload. It must
@@ -66,6 +96,9 @@ public extension RouterSnapshotMigration {
 
 /// Typed persistence failures surfaced before a snapshot reaches a store.
 public enum RouterSnapshotError: Error, Hashable, Sendable {
+    case invalidByteLimit(name: String, value: Int)
+    case encodedDataTooLarge(actualByteCount: Int, maximumByteCount: Int)
+    case payloadTooLarge(actualByteCount: Int, maximumByteCount: Int)
     case invalidCurrentVersion(Int)
     case invalidSnapshotVersion(Int)
     case invalidMigration(from: Int, to: Int)
@@ -105,10 +138,29 @@ public enum RouterSnapshotDecodingResult<R: Route>: Hashable, Sendable {
 public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
     public let currentVersion: Int
     private let migrations: [Int: RouterSnapshotMigration]
+    private let limits: RouterSnapshotLimits?
 
     public init(
         currentVersion: Int,
         migrations: [RouterSnapshotMigration] = []
+    ) throws {
+        try self.init(currentVersion: currentVersion, migrations: migrations, limits: nil)
+    }
+
+    /// Creates a codec that rejects encoded envelopes and route payloads over
+    /// application-selected byte limits.
+    public init(
+        currentVersion: Int,
+        migrations: [RouterSnapshotMigration] = [],
+        limits: RouterSnapshotLimits
+    ) throws {
+        try self.init(currentVersion: currentVersion, migrations: migrations, limits: .some(limits))
+    }
+
+    private init(
+        currentVersion: Int,
+        migrations: [RouterSnapshotMigration],
+        limits: RouterSnapshotLimits?
     ) throws {
         guard currentVersion > 0 else {
             throw RouterSnapshotError.invalidCurrentVersion(currentVersion)
@@ -132,6 +184,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
 
         self.currentVersion = currentVersion
         self.migrations = indexed
+        self.limits = limits
     }
 
     /// Encodes the current state with stable JSON key ordering.
@@ -148,14 +201,19 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
         } catch {
             throw RouterSnapshotError.encodePayload(String(describing: error))
         }
+        try validatePayloadSize(payload)
 
         do {
-            return try Self.encoder().encode(
+            let encoded = try Self.encoder().encode(
                 RouterSnapshotEnvelope(
                     schemaVersion: currentVersion,
                     payload: payload
                 )
             )
+            try validateEncodedSize(encoded)
+            return encoded
+        } catch let error as RouterSnapshotError {
+            throw error
         } catch {
             throw RouterSnapshotError.encodeEnvelope(String(describing: error))
         }
@@ -163,6 +221,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
 
     /// Migrates and decodes a snapshot, then validates the resulting tree.
     public func decode(_ data: Data) throws -> RouterState<R> {
+        try validateEncodedSize(data)
         var envelope: RouterSnapshotEnvelope
         do {
             envelope = try JSONDecoder().decode(RouterSnapshotEnvelope.self, from: data)
@@ -179,6 +238,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
                 current: currentVersion
             )
         }
+        try validatePayloadSize(envelope.payload)
 
         while envelope.schemaVersion < currentVersion {
             guard let migration = migrations[envelope.schemaVersion] else {
@@ -189,6 +249,9 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
             }
             do {
                 envelope.payload = try migration.transform(envelope.payload)
+                try validatePayloadSize(envelope.payload)
+            } catch let error as RouterSnapshotError {
+                throw error
             } catch {
                 throw RouterSnapshotError.migrationFailed(
                     from: migration.fromVersion,
@@ -251,5 +314,23 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         return encoder
+    }
+
+    private func validateEncodedSize(_ data: Data) throws {
+        guard let limit = limits?.maximumEncodedByteCount,
+              data.count > limit else { return }
+        throw RouterSnapshotError.encodedDataTooLarge(
+            actualByteCount: data.count,
+            maximumByteCount: limit
+        )
+    }
+
+    private func validatePayloadSize(_ data: Data) throws {
+        guard let limit = limits?.maximumPayloadByteCount,
+              data.count > limit else { return }
+        throw RouterSnapshotError.payloadTooLarge(
+            actualByteCount: data.count,
+            maximumByteCount: limit
+        )
     }
 }

@@ -33,6 +33,27 @@ executes storage operations off the main actor. Replacing the catalog requires
 ending the old driver's ownership and creating a new driver with the new
 topology; changing a view's catalog alone does not reconfigure a driver.
 
+Select finite byte limits for untrusted or externally replaceable files. Use
+the encoded limit for both `RouterFileSnapshotStorage` and the codec, and set a
+payload limit that fits the application's route state:
+
+```swift compile
+let limits = try RouterSnapshotLimits(
+    maximumEncodedByteCount: 2 * 1_024 * 1_024,
+    maximumPayloadByteCount: 1 * 1_024 * 1_024
+)
+let codec = try RouterSnapshotCodec<AppRoute>(currentVersion: 1, limits: limits)
+let storage = try RouterFileSnapshotStorage(
+    fileURL: snapshotURL,
+    maximumByteCount: limits.maximumEncodedByteCount
+)
+```
+
+The storage limit prevents a complete oversized file allocation. The codec
+also rejects oversized envelopes before JSON decoding and checks the payload
+after envelope decoding and after each migration. The numeric values above are
+examples, not framework defaults. Existing initializers remain unbounded.
+
 ## Understand what changes during reconciliation
 
 The example's old snapshot contains `home` and `legacy`, with `legacy` selected.

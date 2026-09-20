@@ -324,7 +324,9 @@ relationship | memberOf | RouterFilePendingLinkStorage.remove() | RouterFilePend
 relationship | memberOf | RouterFilePendingLinkStorage.save(_:) | RouterFilePendingLinkStorage |  |
 relationship | memberOf | RouterFileSnapshotStorage.fileURL | RouterFileSnapshotStorage |  |
 relationship | memberOf | RouterFileSnapshotStorage.init(fileURL:) | RouterFileSnapshotStorage |  |
+relationship | memberOf | RouterFileSnapshotStorage.init(fileURL:maximumByteCount:) | RouterFileSnapshotStorage |  |
 relationship | memberOf | RouterFileSnapshotStorage.load() | RouterFileSnapshotStorage |  |
+relationship | memberOf | RouterFileSnapshotStorage.maximumByteCount | RouterFileSnapshotStorage |  |
 relationship | memberOf | RouterFileSnapshotStorage.remove() | RouterFileSnapshotStorage |  |
 relationship | memberOf | RouterFileSnapshotStorage.save(_:) | RouterFileSnapshotStorage |  |
 relationship | memberOf | RouterHandoffConfiguration.activityType | RouterHandoffConfiguration |  |
@@ -735,6 +737,7 @@ relationship | memberOf | RouterSnapshotCodec.decode(_:) | RouterSnapshotCodec |
 relationship | memberOf | RouterSnapshotCodec.decode(_:recovery:) | RouterSnapshotCodec |  |
 relationship | memberOf | RouterSnapshotCodec.encode(_:) | RouterSnapshotCodec |  |
 relationship | memberOf | RouterSnapshotCodec.init(currentVersion:migrations:) | RouterSnapshotCodec |  |
+relationship | memberOf | RouterSnapshotCodec.init(currentVersion:migrations:limits:) | RouterSnapshotCodec |  |
 relationship | memberOf | RouterSnapshotDecodingResult.recovered(state:reason:) | RouterSnapshotDecodingResult |  |
 relationship | memberOf | RouterSnapshotDecodingResult.restored(_:) | RouterSnapshotDecodingResult |  |
 relationship | memberOf | RouterSnapshotDecodingResult.state | RouterSnapshotDecodingResult |  |
@@ -746,13 +749,19 @@ relationship | memberOf | RouterSnapshotError.decodePayload(version:message:) | 
 relationship | memberOf | RouterSnapshotError.duplicateMigration(_:) | RouterSnapshotError |  |
 relationship | memberOf | RouterSnapshotError.encodeEnvelope(_:) | RouterSnapshotError |  |
 relationship | memberOf | RouterSnapshotError.encodePayload(_:) | RouterSnapshotError |  |
+relationship | memberOf | RouterSnapshotError.encodedDataTooLarge(actualByteCount:maximumByteCount:) | RouterSnapshotError |  |
 relationship | memberOf | RouterSnapshotError.futureVersion(snapshot:current:) | RouterSnapshotError |  |
+relationship | memberOf | RouterSnapshotError.invalidByteLimit(name:value:) | RouterSnapshotError |  |
 relationship | memberOf | RouterSnapshotError.invalidCurrentVersion(_:) | RouterSnapshotError |  |
 relationship | memberOf | RouterSnapshotError.invalidMigration(from:to:) | RouterSnapshotError |  |
 relationship | memberOf | RouterSnapshotError.invalidSnapshotVersion(_:) | RouterSnapshotError |  |
 relationship | memberOf | RouterSnapshotError.invalidState(_:) | RouterSnapshotError |  |
 relationship | memberOf | RouterSnapshotError.migrationFailed(from:to:message:) | RouterSnapshotError |  |
 relationship | memberOf | RouterSnapshotError.missingMigration(from:current:) | RouterSnapshotError |  |
+relationship | memberOf | RouterSnapshotError.payloadTooLarge(actualByteCount:maximumByteCount:) | RouterSnapshotError |  |
+relationship | memberOf | RouterSnapshotLimits.init(maximumEncodedByteCount:maximumPayloadByteCount:) | RouterSnapshotLimits |  |
+relationship | memberOf | RouterSnapshotLimits.maximumEncodedByteCount | RouterSnapshotLimits |  |
+relationship | memberOf | RouterSnapshotLimits.maximumPayloadByteCount | RouterSnapshotLimits |  |
 relationship | memberOf | RouterSnapshotMigration.codable(from:to:decoding:transform:) | RouterSnapshotMigration |  |
 relationship | memberOf | RouterSnapshotMigration.fromVersion | RouterSnapshotMigration |  |
 relationship | memberOf | RouterSnapshotMigration.init(from:to:transform:) | RouterSnapshotMigration |  |
@@ -1382,13 +1391,16 @@ symbol | swift.enum.case | RouterSnapshotError.decodePayload(version:message:) |
 symbol | swift.enum.case | RouterSnapshotError.duplicateMigration(_:) | RouterSnapshotError.duplicateMigration(_:) | case duplicateMigration(Int) | []
 symbol | swift.enum.case | RouterSnapshotError.encodeEnvelope(_:) | RouterSnapshotError.encodeEnvelope(_:) | case encodeEnvelope(String) | []
 symbol | swift.enum.case | RouterSnapshotError.encodePayload(_:) | RouterSnapshotError.encodePayload(_:) | case encodePayload(String) | []
+symbol | swift.enum.case | RouterSnapshotError.encodedDataTooLarge(actualByteCount:maximumByteCount:) | RouterSnapshotError.encodedDataTooLarge(actualByteCount:maximumByteCount:) | case encodedDataTooLarge(actualByteCount: Int, maximumByteCount: Int) | []
 symbol | swift.enum.case | RouterSnapshotError.futureVersion(snapshot:current:) | RouterSnapshotError.futureVersion(snapshot:current:) | case futureVersion(snapshot: Int, current: Int) | []
+symbol | swift.enum.case | RouterSnapshotError.invalidByteLimit(name:value:) | RouterSnapshotError.invalidByteLimit(name:value:) | case invalidByteLimit(name: String, value: Int) | []
 symbol | swift.enum.case | RouterSnapshotError.invalidCurrentVersion(_:) | RouterSnapshotError.invalidCurrentVersion(_:) | case invalidCurrentVersion(Int) | []
 symbol | swift.enum.case | RouterSnapshotError.invalidMigration(from:to:) | RouterSnapshotError.invalidMigration(from:to:) | case invalidMigration(from: Int, to: Int) | []
 symbol | swift.enum.case | RouterSnapshotError.invalidSnapshotVersion(_:) | RouterSnapshotError.invalidSnapshotVersion(_:) | case invalidSnapshotVersion(Int) | []
 symbol | swift.enum.case | RouterSnapshotError.invalidState(_:) | RouterSnapshotError.invalidState(_:) | case invalidState(RouterStateValidationError) | []
 symbol | swift.enum.case | RouterSnapshotError.migrationFailed(from:to:message:) | RouterSnapshotError.migrationFailed(from:to:message:) | case migrationFailed(from: Int, to: Int, message: String) | []
 symbol | swift.enum.case | RouterSnapshotError.missingMigration(from:current:) | RouterSnapshotError.missingMigration(from:current:) | case missingMigration(from: Int, current: Int) | []
+symbol | swift.enum.case | RouterSnapshotError.payloadTooLarge(actualByteCount:maximumByteCount:) | RouterSnapshotError.payloadTooLarge(actualByteCount:maximumByteCount:) | case payloadTooLarge(actualByteCount: Int, maximumByteCount: Int) | []
 symbol | swift.enum.case | RouterSnapshotRecoveryPolicy.fail | RouterSnapshotRecoveryPolicy.fail | case fail | []
 symbol | swift.enum.case | RouterSnapshotRecoveryPolicy.use(_:) | RouterSnapshotRecoveryPolicy.use(_:) | case use((RouterSnapshotError) -> RouterState<R>) | []
 symbol | swift.enum.case | RouterSplitColumn.content | RouterSplitColumn.content | case content | []
@@ -1475,6 +1487,7 @@ symbol | swift.init | RouterFeatureScope.init(parent:mapping:) | init(parent:map
 symbol | swift.init | RouterFeatureScope.init(parent:mapping:) | init(parent:mapping:) | @MainActor convenience init<Grandparent>(parent: RouterFeatureScope<Grandparent, Parent>, mapping: RouterFeatureMapping<Parent, Child>) where Grandparent : Route | []
 symbol | swift.init | RouterFilePendingLinkStorage.init(fileURL:) | init(fileURL:) | init(fileURL: URL) | []
 symbol | swift.init | RouterFileSnapshotStorage.init(fileURL:) | init(fileURL:) | init(fileURL: URL) | []
+symbol | swift.init | RouterFileSnapshotStorage.init(fileURL:maximumByteCount:) | init(fileURL:maximumByteCount:) | init(fileURL: URL, maximumByteCount: Int) throws | []
 symbol | swift.init | RouterHandoffConfiguration.init(activityType:origin:title:) | init(activityType:origin:title:) | init?(activityType: String, origin: DeepLinkOrigin, title: @escaping (R) -> String) | []
 symbol | swift.init | RouterHistory.init(store:configuration:validator:validationTimeout:) | init(store:configuration:validator:validationTimeout:) | @MainActor init(store: RouterStore<R>, configuration: RouterHistoryConfiguration = .init(), validator: RouterPartialRestorationValidator<R>? = nil, validationTimeout: Duration? = nil) | []
 symbol | swift.init | RouterHistoryCheckpoint.init(id:name:sessionKey:entry:) | init(id:name:sessionKey:entry:) | init(id: UUID = UUID(), name: String, sessionKey: String, entry: RouterHistoryEntry<R>) | []
@@ -1525,7 +1538,9 @@ symbol | swift.init | RouterScopePath.init(arrayLiteral:) | init(arrayLiteral:) 
 symbol | swift.init | RouterShortcutCatalog.init(origin:entries:) | init(origin:entries:) | init(origin: DeepLinkOrigin, entries: [RouterShortcutRoute<R>]) | []
 symbol | swift.init | RouterShortcutRoute.init(id:route:) | init(id:route:) | init(id: String, route: R) | []
 symbol | swift.init | RouterSnapshotCodec.init(currentVersion:migrations:) | init(currentVersion:migrations:) | init(currentVersion: Int, migrations: [RouterSnapshotMigration] = []) throws | []
+symbol | swift.init | RouterSnapshotCodec.init(currentVersion:migrations:limits:) | init(currentVersion:migrations:limits:) | init(currentVersion: Int, migrations: [RouterSnapshotMigration] = [], limits: RouterSnapshotLimits) throws | []
 symbol | swift.init | RouterSnapshotEnvelope.init(schemaVersion:payload:) | init(schemaVersion:payload:) | init(schemaVersion: Int, payload: Data) | []
+symbol | swift.init | RouterSnapshotLimits.init(maximumEncodedByteCount:maximumPayloadByteCount:) | init(maximumEncodedByteCount:maximumPayloadByteCount:) | init(maximumEncodedByteCount: Int, maximumPayloadByteCount: Int) throws | []
 symbol | swift.init | RouterSnapshotMigration.init(from:to:transform:) | init(from:to:transform:) | init(from fromVersion: Int, to toVersion: Int, transform: @escaping (Data) throws -> Data) | []
 symbol | swift.init | RouterSplitHost.init(_:initialSidebarPath:initialPath:layout:configuration:linkHandling:sidebar:root:) | init(_:initialSidebarPath:initialPath:layout:configuration:linkHandling:sidebar:root:) | @MainActor init(_ routeType: R.Type, initialSidebarPath: [R] = [], initialPath: [R] = [], layout: RouterTwoColumnSplitLayout = .standard, configuration: RouterStoreConfiguration<R> = .init(), linkHandling: RouterLinkHandling<R>? = nil, @ViewBuilder sidebar: @escaping () -> SidebarRoot, @ViewBuilder root: @escaping () -> DetailRoot) | []
 symbol | swift.init | RouterSplitHost.init(store:linkHandling:sidebar:root:) | init(store:linkHandling:sidebar:root:) | @MainActor init(store: RouterStore<R>, linkHandling: RouterLinkHandling<R>? = nil, @ViewBuilder sidebar: @escaping () -> SidebarRoot, @ViewBuilder root: @escaping () -> DetailRoot) | []
@@ -1808,6 +1823,7 @@ symbol | swift.property | RouterFeatureScope.path | path | @MainActor var path: 
 symbol | swift.property | RouterFeatureScope.state | state | @MainActor var state: RouterState<Child>? { get } | []
 symbol | swift.property | RouterFilePendingLinkStorage.fileURL | fileURL | let fileURL: URL | []
 symbol | swift.property | RouterFileSnapshotStorage.fileURL | fileURL | let fileURL: URL | []
+symbol | swift.property | RouterFileSnapshotStorage.maximumByteCount | maximumByteCount | let maximumByteCount: Int? | []
 symbol | swift.property | RouterHandoffConfiguration.activityType | activityType | let activityType: String | []
 symbol | swift.property | RouterHandoffConfiguration.origin | origin | let origin: DeepLinkOrigin | []
 symbol | swift.property | RouterHandoffConfiguration.title | title | let title: (R) -> String | []
@@ -1904,6 +1920,8 @@ symbol | swift.property | RouterSnapshotCodec.currentVersion | currentVersion | 
 symbol | swift.property | RouterSnapshotDecodingResult.state | state | var state: RouterState<R> { get } | []
 symbol | swift.property | RouterSnapshotEnvelope.payload | payload | var payload: Data | []
 symbol | swift.property | RouterSnapshotEnvelope.schemaVersion | schemaVersion | var schemaVersion: Int | []
+symbol | swift.property | RouterSnapshotLimits.maximumEncodedByteCount | maximumEncodedByteCount | let maximumEncodedByteCount: Int | []
+symbol | swift.property | RouterSnapshotLimits.maximumPayloadByteCount | maximumPayloadByteCount | let maximumPayloadByteCount: Int | []
 symbol | swift.property | RouterSnapshotMigration.fromVersion | fromVersion | let fromVersion: Int | []
 symbol | swift.property | RouterSnapshotMigration.toVersion | toVersion | let toVersion: Int | []
 symbol | swift.property | RouterSplitHost.body | body | @MainActor var body: some View { get } | []
@@ -2060,6 +2078,7 @@ symbol | swift.struct | RouterShortcutCatalog | RouterShortcutCatalog | struct R
 symbol | swift.struct | RouterShortcutRoute | RouterShortcutRoute | struct RouterShortcutRoute<R> where R : DeepLinkRoute | []
 symbol | swift.struct | RouterSnapshotCodec | RouterSnapshotCodec | struct RouterSnapshotCodec<R> where R : Route, R : Decodable, R : Encodable | []
 symbol | swift.struct | RouterSnapshotEnvelope | RouterSnapshotEnvelope | struct RouterSnapshotEnvelope | []
+symbol | swift.struct | RouterSnapshotLimits | RouterSnapshotLimits | struct RouterSnapshotLimits | []
 symbol | swift.struct | RouterSnapshotMigration | RouterSnapshotMigration | struct RouterSnapshotMigration | []
 symbol | swift.struct | RouterSplitHost | RouterSplitHost | @MainActor struct RouterSplitHost<R, SidebarRoot, DetailRoot> where R : DestinationRoute, SidebarRoot : View, DetailRoot : View | []
 symbol | swift.struct | RouterSplitState | RouterSplitState | struct RouterSplitState | []

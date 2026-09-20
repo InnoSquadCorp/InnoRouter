@@ -46,12 +46,19 @@ final class TabRestorationExampleSession {
     init(snapshotURL: URL) throws {
         let catalog = try RouterTabCatalog(RestorableTabRoute.routerTabs)
         let store = RestorableTabRoute.makeRouterStore()
+        let limits = try RouterSnapshotLimits(
+            maximumEncodedByteCount: 2 * 1_024 * 1_024,
+            maximumPayloadByteCount: 1 * 1_024 * 1_024
+        )
         self.catalog = catalog
         self.store = store
         self.driver = RouterRestorationDriver(
             store: store,
-            codec: try RouterSnapshotCodec(currentVersion: 1),
-            storage: RouterFileSnapshotStorage(fileURL: snapshotURL),
+            codec: try RouterSnapshotCodec(currentVersion: 1, limits: limits),
+            storage: try RouterFileSnapshotStorage(
+                fileURL: snapshotURL,
+                maximumByteCount: limits.maximumEncodedByteCount
+            ),
             recovery: .fail,
             tabTopology: RouterTabRestorationTopology(catalog: catalog)
         )
@@ -67,10 +74,17 @@ final class TabRestorationExampleSession {
                 .init(id: "legacy", node: .stack(path: [.detail(id: "saved-legacy")])),
             ]
         )))
+        let limits = try RouterSnapshotLimits(
+            maximumEncodedByteCount: 2 * 1_024 * 1_024,
+            maximumPayloadByteCount: 1 * 1_024 * 1_024
+        )
         let writer = RouterRestorationDriver(
             store: RouterStore(initialState: state),
-            codec: try RouterSnapshotCodec(currentVersion: 1),
-            storage: RouterFileSnapshotStorage(fileURL: snapshotURL)
+            codec: try RouterSnapshotCodec(currentVersion: 1, limits: limits),
+            storage: try RouterFileSnapshotStorage(
+                fileURL: snapshotURL,
+                maximumByteCount: limits.maximumEncodedByteCount
+            )
         )
         defer { writer.stop() }
         // The driver's storage executor performs file I/O off the main actor.

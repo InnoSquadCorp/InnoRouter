@@ -144,8 +144,17 @@ feature payload에는 부모 route의 `Self`를 사용할 수 있습니다. 연�
 ```swift skip app-lifecycle-fragment
 let driver = RouterRestorationDriver(
     store: store,
-    codec: try RouterSnapshotCodec(currentVersion: 1),
-    storage: RouterFileSnapshotStorage(fileURL: snapshotURL)
+    codec: try RouterSnapshotCodec(
+        currentVersion: 1,
+        limits: RouterSnapshotLimits(
+            maximumEncodedByteCount: 2 * 1_024 * 1_024,
+            maximumPayloadByteCount: 1 * 1_024 * 1_024
+        )
+    ),
+    storage: try RouterFileSnapshotStorage(
+        fileURL: snapshotURL,
+        maximumByteCount: 2 * 1_024 * 1_024
+    )
 )
 
 RouterHost(store: store) { HomeView() }
@@ -157,6 +166,10 @@ inactive가 될 때 flush합니다. activation 예약 시점에 관찰과 시작
 snapshot load 중 들어온 최신 navigation을 덮지 않습니다. 중단된 worker와 caller
 소유권은 이후 activation을 변경할 수 없습니다. cloud sync는 계속 앱이 선택하는 별도
 책임입니다.
+
+위 바이트 한도는 앱이 선택한 예시입니다. 파일 저장소는 읽는 동안 크기를 제한하고,
+codec은 encoded envelope·decoded payload·각 migration 결과를 별도로 제한합니다.
+기존 initializer는 source와 동작 호환성을 위해 제한 없는 의미를 유지합니다.
 
 삭제되었거나 현재 앱에서 유효하지 않은 route가 snapshot에 있을 수 있다면
 `restorePartially(from:using:validator:validationTimeout:)`를 사용합니다. decode와
