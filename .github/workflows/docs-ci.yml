@@ -30,6 +30,11 @@ jobs:
       - name: Swift Version
         run: swift --version
 
+      - name: Restore SwiftPM dependency cache
+        uses: ./.github/actions/swiftpm-dependency-cache
+        with:
+          enabled: ${{ vars.INNOROUTER_DISABLE_CI_CACHE != 'true' }}
+
       - name: Build DocC Site
         run: ./scripts/build-docc-site.sh --version preview --skip-latest
 

@@ -18,13 +18,28 @@ fi
 # Individual platforms are space- or comma-separated and must be one of:
 # ios, ipados, maccatalyst, macos, tvos, watchos, visionos.
 PLATFORMS_ARG=""
+SKIP_DOCC_SITE=0
+SKIP_SOURCE_LINT=0
 for arg in "$@"; do
   case "$arg" in
     --platforms=*)
       PLATFORMS_ARG="${arg#--platforms=}"
       ;;
+    --skip-docc-site)
+      SKIP_DOCC_SITE=1
+      ;;
+    --skip-source-lint)
+      SKIP_SOURCE_LINT=1
+      ;;
   esac
 done
+
+if [[ "$SKIP_DOCC_SITE" -ne 0 || "$SKIP_SOURCE_LINT" -ne 0 ]]; then
+  if [[ "${INNOROUTER_DELEGATED_GATES:-false}" != "true" ]]; then
+    echo "[principle-gates] Failed: delegated gate flags require INNOROUTER_DELEGATED_GATES=true"
+    exit 1
+  fi
+fi
 
 NORMALIZED_PLATFORMS_ARG=""
 if [[ -n "$PLATFORMS_ARG" ]]; then
@@ -72,8 +87,12 @@ echo "[principle-gates] Testing platform interface flag compatibility"
 # Failure signal: build-docc-site.sh non-zero (typically missing symbol
 # or broken doc link).
 # Local repro: ./scripts/build-docc-site.sh --version preview --skip-latest
-echo "[principle-gates] Building DocC preview site"
-./scripts/build-docc-site.sh --version preview --skip-latest
+if [[ "$SKIP_DOCC_SITE" -eq 0 ]]; then
+  echo "[principle-gates] Building DocC preview site"
+  ./scripts/build-docc-site.sh --version preview --skip-latest
+else
+  echo "[principle-gates] DocC preview site delegated to the docs-ci job"
+fi
 
 # Gate 3 — public API baseline diffs. Surfaces accidental public
 # symbol additions/removals/signature changes against the recorded
@@ -120,8 +139,12 @@ echo "[principle-gates] Building independent package consumer smoke"
 # nonisolated(unsafe), @unchecked Sendable, debug-only fences).
 # Failure signal: forbidden pattern detected.
 # Local repro: ./scripts/lint-source-gates.sh
-echo "[principle-gates] Running source-level lint gates"
-./scripts/lint-source-gates.sh
+if [[ "$SKIP_SOURCE_LINT" -eq 0 ]]; then
+  echo "[principle-gates] Running source-level lint gates"
+  ./scripts/lint-source-gates.sh
+else
+  echo "[principle-gates] Source-level lint delegated to the principle-gates lint job"
+fi
 
 # Gate 9 — fail-fast probe verifies that a missing router authority
 # wiring crashes deterministically with an explanatory message instead

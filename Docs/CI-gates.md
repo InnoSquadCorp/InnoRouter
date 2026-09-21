@@ -21,6 +21,13 @@ the whole pipeline.
 ./scripts/principle-gates.sh --platforms=ios,macos
 ```
 
+The `principle-gates` workflow passes `--skip-docc-site` and
+`--skip-source-lint` because its required `docs-ci` workflow and sibling lint
+job run those same gates. These are CI composition flags, not a reduced local
+or release contract. Calling `principle-gates.sh` without them always runs all
+gates, and the flags fail unless the orchestrating workflow explicitly sets
+`INNOROUTER_DELEGATED_GATES=true`.
+
 Environment variables:
 
 | Variable | Default | Purpose |
@@ -92,6 +99,29 @@ Every gate above runs under one of the workflows in `.github/workflows/`:
 | `sanitizers.yml` | focused reducer/store/event-stream Thread Sanitizer and lifecycle/input Address Sanitizer jobs |
 | `migration-smoke.yml` | builds the exact published 5.2.1 downstream fixture, builds its macro-first 6.0 migration against the checkout, and compares final behavior |
 | `release.yml` | verifies the exact tag and changelog, reruns 1–10, calls the reusable platform, coverage, sanitizer, performance, and migration workflows, then serially merges versioned DocC into the required existing Pages site and publishes the GitHub Release; `/latest/` advances monotonically by GA SemVer |
+
+### SwiftPM dependency cache
+
+SwiftPM-based macOS jobs restore `.build/repositories`, `.build/checkouts`,
+`.build/prebuilts`, and narrowly matched shared SwiftSyntax/InnoRouter
+repositories. The key includes a cache-format version, runner OS and
+architecture, the selected Xcode/Swift/macOS SDK fingerprint, and every root,
+consumer, and migration manifest/resolution file. There are no prefix restore
+keys. Those four `Package.resolved` files are tracked for repository CI
+reproducibility; they do not constrain applications that consume InnoRouter as
+a dependency.
+
+Product modules, test binaries, coverage, sanitizer output, DocC output,
+platform DerivedData, and isolated external-consumer scratch directories are
+never cached. A hit only avoids dependency transfer; every test and validation
+gate still executes. GitHub's trigger-dependent cache permissions keep
+low-trust pull requests read-only. Set the repository variable
+`INNOROUTER_DISABLE_CI_CACHE=true` to force cache-free jobs; a miss or disabled
+cache falls back to normal SwiftPM resolution. A cache transport or archive
+failure is also nonfatal, so it cannot replace the underlying build gate.
+
+The implementation pins `actions/cache` to the full commit for 6.1.0 and
+follows GitHub's [dependency cache reference](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching).
 
 Tag format is bare semver (`6.0.0`) — leading-`v` or prefixed semver tags
 are rejected by the regex in `release.yml`.

@@ -52,7 +52,7 @@ fi
 
 echo "[lint-source-gates] Checking immutable GitHub Action references"
 MUTABLE_ACTION_REFS="$(
-  rg -n --no-heading '^\s*uses:\s+[^./][^@]*@' .github/workflows \
+  rg -n --no-heading '^\s*uses:\s+[^./][^@]*@' .github/workflows .github/actions \
     | rg -v '@[0-9a-f]{40}([[:space:]]+#.*)?$' || true
 )"
 if [[ -n "$MUTABLE_ACTION_REFS" ]]; then
@@ -111,6 +111,7 @@ echo "[lint-source-gates] Checking watchOS split-host unavailability contract"
 require_tool python3
 python3 scripts/check-inspector-localization.py
 python3 scripts/check-reusable-workflow-concurrency.py
+python3 scripts/test-ci-optimization-contract.py
 require_file Sources/InnoRouterSwiftUI/RouterSplitHost.swift "RouterSplitHost source"
 if ! python3 - <<'PY'
 import re

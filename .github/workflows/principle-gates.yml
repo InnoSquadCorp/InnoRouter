@@ -112,8 +112,17 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Restore SwiftPM dependency cache
+        uses: ./.github/actions/swiftpm-dependency-cache
+        with:
+          enabled: ${{ vars.INNOROUTER_DISABLE_CI_CACHE != 'true' }}
+
       - name: Install gate tools
         run: brew install ripgrep swiftformat swiftlint
 
       - name: Run Principle Gates
-        run: ./scripts/principle-gates.sh
+        # DocC site generation and source lint remain required in the sibling
+        # docc and lint jobs. The script's default invocation still runs both.
+        env:
+          INNOROUTER_DELEGATED_GATES: "true"
+        run: ./scripts/principle-gates.sh --skip-docc-site --skip-source-lint
