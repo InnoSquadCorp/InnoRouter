@@ -16,7 +16,7 @@ final class InspectorUITests: XCTestCase {
         let hold = app.switches["Hold execution"]
         let holdControl = hold.switches.firstMatch.exists ? hold.switches.firstMatch : hold
         holdControl.tap()
-        XCTAssertEqual(holdControl.value as? String, "1")
+        waitForValue(holdControl, "1")
         let english = try XCTUnwrap(InspectorProbeLanguage.samples.first)
         let arabic = try XCTUnwrap(InspectorProbeLanguage.samples.last)
 
@@ -135,7 +135,7 @@ final class InspectorUITests: XCTestCase {
         let hold = app.switches["Hold execution"]
         let holdControl = hold.switches.firstMatch.exists ? hold.switches.firstMatch : hold
         holdControl.tap()
-        XCTAssertEqual(holdControl.value as? String, "1")
+        waitForValue(holdControl, "1")
         app.buttons["Execute"].tap()
         waitForLabel(counters, "Revision 1 · Policy 2")
         XCTAssertFalse(app.staticTexts["applied"].exists)
@@ -190,6 +190,11 @@ final class InspectorUITests: XCTestCase {
 
     private func waitForLabel(_ element: XCUIElement, _ label: String) {
         let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", label), object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
+    }
+
+    private func waitForValue(_ element: XCUIElement, _ value: String) {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
         XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
     }
 
