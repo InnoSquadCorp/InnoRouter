@@ -15,6 +15,9 @@ package struct RouterRuntimeDependencies: Sendable {
     package var beforeRestorationWorker: @MainActor @Sendable () async throws -> Void
     package var didFinishRestorationWorker: @MainActor @Sendable () -> Void
     package var didFinishImmersiveDisappearance: @MainActor @Sendable () -> Void
+    package var willEnqueueRestorationSave: @MainActor @Sendable () -> Void = {}
+    package var didFinishRestorationSave: @MainActor @Sendable () -> Void = {}
+    package var didFinishSceneLifecycleSave: @MainActor @Sendable () -> Void = {}
 
     package init(
         now: @escaping @Sendable () -> Date,

@@ -110,5 +110,9 @@ package actor RouterByteStoreExecutor {
 
     func load() throws -> Data? { try loadBytes() }
     func save(_ data: Data) throws { try saveBytes(data) }
+    func save(_ data: Data, ifCurrent canBegin: @Sendable () -> Bool) throws {
+        guard canBegin() else { return }
+        try saveBytes(data)
+    }
     func remove() throws { try removeBytes() }
 }

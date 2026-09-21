@@ -32,6 +32,7 @@ swift_filter+='|RouterTabHostTests|RouterDeepLinkHostTests|NativeHostRuntimeTest
 swift_filter+='|RouterRestorationBoundaryRegressionTests|RouterTabRestorationTopologyTests'
 swift_filter+='|RouterTabRestorationSafetyTests|RouterRestoredTabHostTests'
 swift_filter+='|RouterSnapshotLimitTests|RouterRestorationDriverPartialTests'
+swift_filter+='|RouterRestorationStorageCancellationTests'
 
 cd "$ROOT_DIR"
 echo "[sanitizer-smoke] Running $KIND sanitizer with filter: $swift_filter"
