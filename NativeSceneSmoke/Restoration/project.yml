@@ -1,0 +1,22 @@
+name: RouterRestorationProbe
+options:
+  deploymentTarget:
+    iOS: "18.0"
+packages:
+  InnoRouter:
+    path: ../..
+targets:
+  RouterRestorationProbe:
+    type: application
+    platform: iOS
+    sources: [ProbeApp.swift]
+    dependencies:
+      - package: InnoRouter
+        product: InnoRouter
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.innosquad.InnoRouterRestorationProbe
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        SWIFT_VERSION: "6.0"
+        CODE_SIGNING_ALLOWED: NO

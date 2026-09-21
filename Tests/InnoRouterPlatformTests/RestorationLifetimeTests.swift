@@ -40,10 +40,15 @@ private final class FailingLifetimeStorage: RouterSnapshotStorage {
     enum Failure: Error { case unreadable }
 
     private let saves = Mutex(0)
+    let fileURL: URL
+    init(fileURL: URL) { self.fileURL = fileURL }
     var saveCount: Int { saves.withLock { $0 } }
 
     func load() throws -> Data? { throw Failure.unreadable }
-    func save(_ data: Data) { saves.withLock { $0 += 1 } }
+    func save(_ data: Data) throws {
+        try data.write(to: fileURL, options: .atomic)
+        saves.withLock { $0 += 1 }
+    }
     func remove() {}
 }
 
@@ -51,6 +56,7 @@ private final class FailingLifetimeStorage: RouterSnapshotStorage {
 @Observable
 private final class LifetimeScenePhase {
     var value: ScenePhase = .active
+    var rendered: ScenePhase?
 }
 
 @MainActor
@@ -62,6 +68,7 @@ private struct RestorationLifecycleRoot: View {
         Text(verbatim: "Root")
             .routerStateRestoration(driver)
             .environment(\.scenePhase, phase.value)
+            .onChange(of: phase.value, initial: true) { _, value in phase.rendered = value }
     }
 }
 
@@ -147,8 +154,17 @@ private final class RestorationMount {
 struct RestorationLifetimeTests {
     @Test("A mounted background transition preserves a failed restoration")
     func backgroundAfterRestoreFailure() async throws {
-        let storage = FailingLifetimeStorage()
-        let store = RouterStore<LifetimeRoute>()
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appending(path: "snapshot.json")
+        let original = Data("unreadable snapshot".utf8)
+        try original.write(to: url)
+        let storage = FailingLifetimeStorage(fileURL: url)
+        var completedFlushes = 0
+        var configuration = RouterStoreConfiguration<LifetimeRoute>()
+        configuration.runtimeDependencies.didFinishSceneLifecycleSave = { completedFlushes += 1 }
+        let store = RouterStore<LifetimeRoute>(configuration: configuration)
         let driver = RouterRestorationDriver(
             store: store,
             codec: try RouterSnapshotCodec(currentVersion: 1),
@@ -164,9 +180,9 @@ struct RestorationLifetimeTests {
             return false
         }
         phase.value = .background
-        try await until { storage.saveCount == 0 && phase.value == .background }
-        await drainUI()
+        try await until { completedFlushes == 1 }
         #expect(storage.saveCount == 0)
+        #expect(try Data(contentsOf: url) == original)
         #expect(store.revision == 0)
         guard case .failed = driver.status else {
             Issue.record("Skipped lifecycle persistence must preserve the restore failure")
@@ -175,9 +191,12 @@ struct RestorationLifetimeTests {
 
         _ = await store.perform(.push(.current))
         phase.value = .active
-        await drainUI()
+        try await until { phase.rendered == .active }
         phase.value = .background
-        try await until { storage.saveCount == 1 }
+        try await until { completedFlushes == 2 }
+        #expect(storage.saveCount == 1)
+        let codec = try RouterSnapshotCodec<LifetimeRoute>(currentVersion: 1)
+        #expect(try codec.decode(Data(contentsOf: url)) == store.state)
         #expect(store.revision == 1)
     }
 

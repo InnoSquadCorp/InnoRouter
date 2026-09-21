@@ -231,3 +231,30 @@ dependency resolve/compile/test/DocC 구간을 계측한다. 기존 명령에 �
   public API·문서·lint와 전체 플랫폼 principle gate 통과. 원격 SHA·ruleset·CI 측정은 진행 중.
 - 2026-09-21 v0.3: 구현 SHA `7267b565`의 원격 workflow 7개 성공. principle core 첫 표본
   696초와 세부 구간을 기록. 같은 제품 source의 후속 표본·ruleset 적용·최종 판정은 진행 중.
+
+## 12. 저장 실행 경계 후속 수정 — 2026-09-21
+
+`14e81a7f` 재검토에서 기존 driver의 자동 저장이 storage actor의 load 뒤에 대기하다가,
+stop 후 새 driver가 기록한 파일을 뒤늦게 덮는 F3를 재현했다. T701~T703의 앞선 완료 표시는
+당시 실행한 회귀 범위의 이력이며 RRR-AC-02 모든 조합의 충족을 뜻하지 않는다.
+
+- RRR-T707 / AC-02~03: durability ticket의 자동 저장 취소 가능 여부를 기록한다. 취소/교체는
+  미시작 ticket을 무효화하고 storage actor는 동기 I/O 직전 유효 ticket을 원자적으로 확보한다.
+  명시 save는 stop/caller 취소에도 기존 계약을 유지한다. 이미 시작된 I/O의 rollback은 보장하지 않는다.
+- RRR-T708 / AC-01~02·05: enqueue/finish 신호로 순서를 제어하는 실제 파일 회귀를 추가한다.
+  자동/scene flush × stop/마지막 detach, 새 navigation/명시 save/삭제를 검증한다.
+  mounted scenePhase 테스트는 flush 완료를 기다린 뒤 파일 bytes를 검사한다.
+- RRR-T709 / AC-05~08: iOS 18.6 실제 background→프로세스 종료→재실행을 전용 probe로 확인한다.
+  변경 최종 SHA에서 required CI를 통과시키고 아래 미검증 범위와 함께 보고한다.
+
+성능 기록 정정: 696초/587초 두 표본과 과거 소스의 712초 기준선 차이는 최적화 효과를
+입증하지 않는다. RRR-AC-07의 동일 소스 baseline/후보 3회 이상 비교는 미완료이며,
+관측 차이 9.9%를 성능 개선율로 사용하지 않는다. 이 수정은 CI 성능 최적화를 추가하지 않는다.
+
+운영 기록 정정: main ruleset 19074564의 strict required checks 24개 적용과 `14e81a7f`의
+7개 workflow 성공은 재확인했다. 재검토·추가 수정의 완료 여부는 최종 SHA 증거로 별도 판단한다.
+
+T707~709 로컬 결과: 취소 네 조합의 수정 전 실패·수정 후 통과, 명시 save 및 최신 명령 대조군,
+실제 iOS 18.6 background→종료→재실행과 host 12개 테스트를 확인했다.
+[후속 증거](review-evidence/2026-09-21-storage-execution-cancellation.ko.md)에 검증 범위와
+이전 계획에서 여전히 미검증인 범위를 함께 기록했다. 전체 root 695 tests / 88 suites 통과.

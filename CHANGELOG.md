@@ -28,6 +28,10 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Revoking automatic restoration saves now reaches the storage actor. An old
+  save queued behind a slow load can no longer run after stop, last detach,
+  superseding navigation, or removal and overwrite a replacement driver's
+  file. Explicit saves retain their accepted durability contract.
 - Scene lifecycle persistence no longer replaces an unreadable, oversized, or
   otherwise failed initial snapshot with the Store's pre-restore state. It
   waits for an accepted restore or an independent navigation commit; explicit

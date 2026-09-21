@@ -50,6 +50,7 @@ package final class RouterDurabilityGate: Sendable {
         var nextTicket: UInt64 = 0
         var serving: UInt64 = 0
         var outstandingSaves: Set<UInt64> = []
+        var supersedableSaves: Set<UInt64> = []
         var invalidated: Set<UInt64> = []
         var completed: Set<UInt64> = []
         var waiters: [UInt64: CheckedContinuation<Bool, Never>] = [:]
@@ -64,21 +65,46 @@ package final class RouterDurabilityGate: Sendable {
     /// Synchronous on purpose: the caller's position is fixed before it
     /// suspends to encode or to reach storage, so acceptance order and
     /// execution order cannot diverge.
-    package func reserve(_ command: RouterDurabilityCommand) -> UInt64 {
+    package func reserve(_ command: RouterDurabilityCommand, supersedable: Bool = false) -> UInt64 {
         let ticket = state.withLock { state in
             let ticket = state.nextTicket
             state.nextTicket &+= 1
             switch command {
             case .save:
                 state.outstandingSaves.insert(ticket)
+                if supersedable { state.supersedableSaves.insert(ticket) }
             case .remove:
                 state.invalidated.formUnion(state.outstandingSaves)
                 state.outstandingSaves.removeAll()
+                state.supersedableSaves.removeAll()
             }
             return ticket
         }
         RouterDurabilityTestSupport.didReserve?(.init(ticket: ticket, command: command))
         return ticket
+    }
+
+    /// Revokes automatic saves that have not started storage, including work
+    /// already enqueued at a storage actor. Explicit saves keep their tickets.
+    package func invalidateSupersedableSaves() {
+        state.withLock { state in
+            state.invalidated.formUnion(state.supersedableSaves)
+            state.outstandingSaves.subtract(state.supersedableSaves)
+            state.supersedableSaves.removeAll()
+        }
+    }
+
+    /// Claims the write at the storage actor's synchronous execution boundary.
+    /// Invalidation and this claim are ordered by the mutex; no lock is held
+    /// during app-owned I/O, and already-started writes are not rolled back.
+    package func beginSave(_ ticket: UInt64) -> Bool {
+        state.withLock { state in
+            guard state.serving == ticket,
+                  !state.invalidated.contains(ticket),
+                  state.outstandingSaves.remove(ticket) != nil else { return false }
+            state.supersedableSaves.remove(ticket)
+            return true
+        }
     }
 
     /// Waits for this reservation's turn to touch storage.
@@ -112,6 +138,7 @@ package final class RouterDurabilityGate: Sendable {
         var resumptions: [(CheckedContinuation<Bool, Never>, Bool)] = []
         state.withLock { state in
             state.outstandingSaves.remove(ticket)
+            state.supersedableSaves.remove(ticket)
             state.invalidated.remove(ticket)
             state.completed.insert(ticket)
             advance(&state, resumptions: &resumptions)

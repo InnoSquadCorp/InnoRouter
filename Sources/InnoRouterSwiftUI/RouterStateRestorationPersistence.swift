@@ -27,6 +27,7 @@ extension RouterRestorationDriver {
     /// commit is independent evidence that the current Store state is new and
     /// may be persisted even when the original restore failed.
     package func saveForSceneLifecycle(attachmentID: UUID) async {
+        defer { store.runtimeDependencies.didFinishSceneLifecycleSave() }
         guard canSaveForSceneLifecycle(attachmentID: attachmentID) else { return }
         invalidateScheduledSave()
         let generation = saveGeneration
@@ -95,6 +96,7 @@ extension RouterRestorationDriver {
 
     package func invalidateScheduledSave() {
         saveGeneration &+= 1
+        durability.invalidateSupersedableSaves()
         scheduledSaveTask?.cancel()
         scheduledSaveTask = nil
     }
@@ -108,8 +110,11 @@ extension RouterRestorationDriver {
         // Reserve before the first suspension so this save keeps the position
         // it was accepted in, whatever priority the encode and the storage
         // call end up running at.
-        let ticket = durability.reserve(.save)
-        defer { durability.finish(ticket) }
+        let ticket = durability.reserve(.save, supersedable: discardIfSuperseded)
+        defer {
+            durability.finish(ticket)
+            store.runtimeDependencies.didFinishRestorationSave()
+        }
         do {
             let state = store.state
             let data = try await codecExecutor.encode(state)
@@ -126,7 +131,9 @@ extension RouterRestorationDriver {
                 publishStatus(observationStatus, ownedBy: statusOwner)
                 return
             }
-            try await executor.save(data)
+            store.runtimeDependencies.willEnqueueRestorationSave()
+            let gate = durability
+            try await executor.save(data, ifCurrent: { gate.beginSave(ticket) })
             publishStatus(observationStatus, ownedBy: statusOwner)
         } catch {
             guard storageEpoch == expectedStorageEpoch,
