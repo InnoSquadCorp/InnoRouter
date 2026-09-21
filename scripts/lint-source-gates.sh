@@ -52,7 +52,8 @@ fi
 
 echo "[lint-source-gates] Checking immutable GitHub Action references"
 MUTABLE_ACTION_REFS="$(
-  rg -n --no-heading '^\s*uses:\s+[^./][^@]*@' .github/workflows .github/actions \
+  rg -n --no-heading '^\s*uses:\s+[^./][^@]*@' .github \
+    --glob '*.yml' --glob '*.yaml' \
     | rg -v '@[0-9a-f]{40}([[:space:]]+#.*)?$' || true
 )"
 if [[ -n "$MUTABLE_ACTION_REFS" ]]; then
