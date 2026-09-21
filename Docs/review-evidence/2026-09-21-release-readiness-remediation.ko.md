@@ -4,7 +4,7 @@
 | --- | --- |
 | 계획 | `Docs/2026-09-21-release-readiness-remediation-plan.ko.md` |
 | 기준 SHA | `b82b2a81ec241ed21e620741ed5aa8892800f189` |
-| 문서 상태 | Draft — 로컬 구현 검증 완료, 원격 최종 SHA 검증 대기 |
+| 문서 상태 | Draft — 구현 SHA 원격 검증 완료, 운영 설정·최종 문서 SHA 검증 진행 중 |
 | 구현 상태 | 부분 구현 |
 | 배포 상태 | 미배포 |
 
@@ -57,11 +57,40 @@
 
 ## 남은 단계
 
-- [ ] 구현 commit/push 후 로컬·origin/main·원격 SHA 일치 확인.
-- [ ] 정확한 원격 SHA에서 workflow 7개 및 모든 required job 확인.
+- [x] 구현 commit `7267b56564c78cdc60f1a2abd9d22f0229b50aa3` push 후 로컬·origin/main·원격 SHA 일치 확인.
+- [x] 구현 SHA에서 workflow 7개와 하위 job 성공 확인.
 - [ ] main ruleset에 실제 GitHub Actions check context를 연결하고 다시 조회.
-- [ ] 같은 제품 SHA의 principle core step과 구성 구간을 반복 측정해 기존 712초 baseline과 비교.
+- [ ] 같은 제품 소스 digest의 docs-only 후속 SHA로 principle core step 표본 2개를 더 수집해 기존 712초 baseline과 비교.
 - [ ] 계획의 RRR-AC-01~08 최종 대조와 6.1.0 발행 가능성 재판정.
+
+구현 SHA 원격 workflow:
+
+| workflow | run | 결과 |
+| --- | --- | --- |
+| principle-gates | `35559119580` | success — gates/lint/changelog-sync/release-contract 포함 |
+| platforms | `35559119677` | success — 14 jobs |
+| coverage | `35559119617` | success |
+| sanitizers | `35559119648` | success — address/thread |
+| performance-smoke | `35559119685` | success |
+| migration-smoke | `35559119750` | success |
+| docs-ci | `35559119774` | success |
+
+## CI 시간 표본
+
+resolution 파일을 제외한 제품·테스트·consumer source digest는
+`1ab2fdbc65ad77647c0b06a5ef5e4acace9744b20db77afcaab14a0698f9b3e6`다.
+후속 문서 commit은 이 digest를 바꾸지 않는다.
+
+| 표본 | core step | job | 초기 dependency/compile | root test | 비고 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| 기존 no-cache baseline 중앙값 | 712초 | 724초 | 미분리 | 미분리 | 3회 기준선 |
+| 구현 SHA `7267b565`, run `35559119580` | 696초 | 715초 | 114.33초 | 6.22초 | 첫 후보 표본, baseline 대비 2.2% 단축 |
+
+첫 후보의 dependency 로그는 cache fetch 4.82초와 version compute 누적 9.98초를 보였다.
+외부 consumer 구간은 resolve 시작부터 최종 성공까지 약 330초로 가장 큰 관찰 구간이었다.
+GitHub가 해당 성공 run의 수동 rerun을 repository admin 권한 오류로 거절했으므로, 같은 제품
+source digest를 유지하는 자연스러운 문서 후속 commit의 새 push run을 추가 표본으로 사용한다.
+반복 중앙값을 확보하기 전에는 개선 성과를 확정하지 않는다.
 
 현재 결과는 수정 후보의 로컬 검증 완료를 의미한다. runtime version, tag, GitHub Release,
 versioned DocC와 `/latest/`는 변경하거나 발행하지 않았다.

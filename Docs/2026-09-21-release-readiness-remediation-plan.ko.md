@@ -229,3 +229,5 @@ dependency resolve/compile/test/DocC 구간을 계측한다. 기존 명령에 �
 - 2026-09-21 v0.1: F1/F2 재현과 현 소스 재확인에 근거하여 후속 실행 계획 작성. 제품·CI 설정 변경 없음.
 - 2026-09-21 v0.2: T701~T703 구현. 692 tests / 87 suites, 외부 소비자 9 tests / 2 suites,
   public API·문서·lint와 전체 플랫폼 principle gate 통과. 원격 SHA·ruleset·CI 측정은 진행 중.
+- 2026-09-21 v0.3: 구현 SHA `7267b565`의 원격 workflow 7개 성공. principle core 첫 표본
+  696초와 세부 구간을 기록. 같은 제품 source의 후속 표본·ruleset 적용·최종 판정은 진행 중.
