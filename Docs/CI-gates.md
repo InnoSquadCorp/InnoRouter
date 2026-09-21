@@ -100,28 +100,21 @@ Every gate above runs under one of the workflows in `.github/workflows/`:
 | `migration-smoke.yml` | builds the exact published 5.2.1 downstream fixture, builds its macro-first 6.0 migration against the checkout, and compares final behavior |
 | `release.yml` | verifies the exact tag and changelog, reruns 1–10, calls the reusable platform, coverage, sanitizer, performance, and migration workflows, then serially merges versioned DocC into the required existing Pages site and publishes the GitHub Release; `/latest/` advances monotonically by GA SemVer |
 
-### SwiftPM dependency cache
+### SwiftPM resolution and cache decision
 
-SwiftPM-based macOS jobs restore `.build/repositories`, `.build/checkouts`,
-`.build/prebuilts`, and narrowly matched shared SwiftSyntax/InnoRouter
-repositories. The key includes a cache-format version, runner OS and
-architecture, the selected Xcode/Swift/macOS SDK fingerprint, and every root,
-consumer, and migration manifest/resolution file. There are no prefix restore
-keys. Those four `Package.resolved` files are tracked for repository CI
-reproducibility; they do not constrain applications that consume InnoRouter as
-a dependency.
+The root, external consumer, both migration fixtures, and the native Xcode
+workspace track `Package.resolved` for repository CI reproducibility. These
+files do not constrain applications that consume InnoRouter as a dependency.
 
-Product modules, test binaries, coverage, sanitizer output, DocC output,
-platform DerivedData, and isolated external-consumer scratch directories are
-never cached. A hit only avoids dependency transfer; every test and validation
-gate still executes. GitHub's trigger-dependent cache permissions keep
-low-trust pull requests read-only. Set the repository variable
-`INNOROUTER_DISABLE_CI_CACHE=true` to force cache-free jobs; a miss or disabled
-cache falls back to normal SwiftPM resolution. A cache transport or archive
-failure is also nonfatal, so it cannot replace the underlying build gate.
-
-The implementation pins `actions/cache` to the full commit for 6.1.0 and
-follows GitHub's [dependency cache reference](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching).
+A dependency-only `actions/cache` candidate was measured with exact runner,
+toolchain, SDK, architecture, manifest, and resolution keys. Three warm
+principle-gate runs had a 761-second median for the core step versus the
+712-second no-cache baseline, a 6.9% regression. DocC, coverage, migration,
+performance, and sanitizer measurements also showed no consistent benefit.
+The cache was therefore removed rather than expanding it to product binaries or
+weakening its key. CI rebuilds every gate from the tracked resolution. See
+GitHub's [dependency cache reference](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)
+for the cache behavior evaluated here.
 
 Tag format is bare semver (`6.0.0`) — leading-`v` or prefixed semver tags
 are rejected by the regex in `release.yml`.

@@ -39,10 +39,5 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Restore SwiftPM dependency cache
-        uses: ./.github/actions/swiftpm-dependency-cache
-        with:
-          enabled: ${{ vars.INNOROUTER_DISABLE_CI_CACHE != 'true' }}
-
       - name: Compare 5.2.1 and 6.0 consumers
         run: ./scripts/migration-consumer-smoke.sh

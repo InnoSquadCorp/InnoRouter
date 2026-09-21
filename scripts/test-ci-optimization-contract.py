@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Keep CI cache boundaries and delegated gates reviewable."""
+"""Keep CI resolution and delegated gate boundaries reviewable."""
 
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-CACHE_ACTION = ROOT / ".github/actions/swiftpm-dependency-cache/action.yml"
 WORKFLOW_DIR = ROOT / ".github/workflows"
 
 
@@ -19,30 +18,12 @@ def reject(source: str, fragment: str, context: str) -> None:
         raise AssertionError(f"{context}: forbidden {fragment!r}")
 
 
-action = CACHE_ACTION.read_text(encoding="utf-8")
-require(
-    action,
-    "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0",
-    "cache action",
-)
-require(action, "continue-on-error: true", "cache fallback")
-require(action, 'status="error-fallback"', "cache fallback reporting")
-for key_part in (
-    "swiftpm-dependencies-v1-",
-    "runner.os",
-    "runner.arch",
-    "steps.toolchain.outputs.fingerprint",
-    "Package.resolved",
-    "ConsumerSmoke/Package.resolved",
-    "MigrationSmoke/**/Package.resolved",
-):
-    require(action, key_part, "cache key")
-
 resolution_files = (
     "Package.resolved",
     "ConsumerSmoke/Package.resolved",
     "MigrationSmoke/Before/Package.resolved",
     "MigrationSmoke/After/Package.resolved",
+    "NativeSceneSmoke/NativeSceneSmoke.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
 )
 for relative_name in resolution_files:
     resolution = ROOT / relative_name
@@ -50,47 +31,12 @@ for relative_name in resolution_files:
         raise AssertionError(f"resolution contract: missing {relative_name}")
     require(resolution.read_text(encoding="utf-8"), '"revision"', relative_name)
 
-for allowed_path in (
-    ".build/repositories",
-    ".build/checkouts",
-    ".build/prebuilts",
-    "repositories/swift-syntax-*",
-    "repositories/InnoRouter-*",
-    "prebuilts/swift-syntax",
-):
-    require(action, allowed_path, "cache paths")
-
-for forbidden_path in (
-    ".build/arm64-apple-macosx",
-    ".build/external-consumer",
-    ".build/sanitizers",
-    ".build/out",
-    ".build/docc-site",
-    "restore-keys:",
-):
-    reject(action, forbidden_path, "cache boundary")
-
-cached_workflows = (
-    "principle-gates.yml",
-    "docs-ci.yml",
-    "coverage.yml",
-    "performance-smoke.yml",
-    "migration-smoke.yml",
-    "sanitizers.yml",
-    "release.yml",
-)
-for workflow_name in cached_workflows:
-    workflow = (WORKFLOW_DIR / workflow_name).read_text(encoding="utf-8")
-    require(workflow, "uses: ./.github/actions/swiftpm-dependency-cache", workflow_name)
-    require(workflow, "vars.INNOROUTER_DISABLE_CI_CACHE != 'true'", workflow_name)
-
-# The platform matrix uses isolated Xcode DerivedData. Restoring the root
-# SwiftPM cache in every matrix cell would multiply transfer cost without
-# reusing the cached paths.
-platforms = (WORKFLOW_DIR / "platforms.yml").read_text(encoding="utf-8")
-reject(platforms, "swiftpm-dependency-cache", "platforms.yml")
-
 principle_workflow = (WORKFLOW_DIR / "principle-gates.yml").read_text(encoding="utf-8")
+for workflow_path in sorted(WORKFLOW_DIR.glob("*.yml")):
+    workflow = workflow_path.read_text(encoding="utf-8")
+    reject(workflow, "swiftpm-dependency-cache", workflow_path.name)
+    reject(workflow, "actions/cache@", workflow_path.name)
+
 require(
     principle_workflow,
     "./scripts/principle-gates.sh --skip-docc-site --skip-source-lint",
@@ -112,4 +58,4 @@ for retained_default in (
 ):
     require(principle_script, retained_default, "standalone principle gates")
 
-print("[ci-optimization] Cache boundary and delegated gate inventory passed")
+print("[ci-optimization] Resolution and delegated gate inventory passed")

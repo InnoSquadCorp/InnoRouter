@@ -36,11 +36,6 @@ jobs:
       - name: Swift Version
         run: swift --version
 
-      - name: Restore SwiftPM dependency cache
-        uses: ./.github/actions/swiftpm-dependency-cache
-        with:
-          enabled: ${{ vars.INNOROUTER_DISABLE_CI_CACHE != 'true' }}
-
       # This suite expands 10/50/100-case @Routable enums and exercises every
       # generated CasePath shape. Its coarse runtime ceiling is intentionally
       # generous: this is a catastrophic-regression guard, not a benchmark.

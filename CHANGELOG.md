@@ -8,11 +8,13 @@ are bare semver (no leading `v`).
 
 ### Changed
 
-- CI restores only SwiftPM dependency sources and SwiftSyntax prebuilts under
-  an exact manifest/toolchain key. The integration workflow delegates its
-  duplicate DocC site build and source lint pass to the existing required
-  sibling jobs; standalone and release principle gates still run the complete
-  contract.
+- Repository CI now tracks exact SwiftPM resolutions. The integration workflow
+  delegates its duplicate DocC site build and source lint pass to the existing
+  required sibling jobs; standalone and release principle gates still run the
+  complete contract.
+- The Inspector UI gate waits for the native switch value after tapping it,
+  preventing a slow Simulator accessibility update from failing before the
+  tested localization and state-preservation flow begins.
 - `DeepLinkMatcher.diagnostics` is computed on demand instead of stored.
   Reading it is unchanged — the same diagnostics are reported, including on a
   matcher configured with `.disabled`, which continues to suppress emission
