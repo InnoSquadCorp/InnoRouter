@@ -10,6 +10,19 @@ This document covers what each gate enforces, the failure signal
 operators see, and how to reproduce a single gate without running
 the whole pipeline.
 
+The `Protect main history` repository ruleset (19074564) requires 24 GitHub
+Actions check contexts with strict latest-base verification and no bypass
+actors. The existing deletion and force-push protections remain enabled.
+Checks cover lint, changelog-sync, release-contract, gates, docc, coverage,
+migration, smoke, both sanitizers, and all 14 platform jobs. Re-read the live
+ruleset when changing job names; a workflow file alone does not enforce it.
+
+Timing note: the 696- and 587-second runs after restoration remediation are
+observations of the same product source, but their 712-second historical
+baseline predates those source changes. Their 9.9% difference is not evidence
+of an optimization. A comparable baseline/candidate experiment with at least
+three samples remains uncompleted; no build-speed improvement is claimed.
+
 ## Quick reference
 
 ```bash

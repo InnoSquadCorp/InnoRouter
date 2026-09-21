@@ -4,7 +4,7 @@
 | --- | --- |
 | 계획 | `Docs/2026-09-21-release-readiness-remediation-plan.ko.md` |
 | 기준 SHA | `b82b2a81ec241ed21e620741ed5aa8892800f189` |
-| 문서 상태 | Draft — 구현 SHA 원격 검증 완료, 운영 설정·최종 문서 SHA 검증 진행 중 |
+| 문서 상태 | Draft — 과거 검증 기록; 추가 취소 경계는 아래 정정 기록 참고 |
 | 구현 상태 | 부분 구현 |
 | 배포 상태 | 미배포 |
 
@@ -59,7 +59,7 @@
 
 - [x] 구현 commit `7267b56564c78cdc60f1a2abd9d22f0229b50aa3` push 후 로컬·origin/main·원격 SHA 일치 확인.
 - [x] 구현 SHA에서 workflow 7개와 하위 job 성공 확인.
-- [ ] main ruleset에 실제 GitHub Actions check context를 연결하고 다시 조회.
+- [x] main ruleset 19074564에 GitHub Actions context 24개 연결, strict true/bypass 없음 재확인.
 - [ ] 같은 제품 소스 digest의 docs-only 후속 SHA로 principle core step 표본 2개를 더 수집해 기존 712초 baseline과 비교.
 - [ ] 계획의 RRR-AC-01~08 최종 대조와 6.1.0 발행 가능성 재판정.
 
@@ -84,13 +84,23 @@ resolution 파일을 제외한 제품·테스트·consumer source digest는
 | 표본 | core step | job | 초기 dependency/compile | root test | 비고 |
 | --- | ---: | ---: | ---: | ---: | --- |
 | 기존 no-cache baseline 중앙값 | 712초 | 724초 | 미분리 | 미분리 | 3회 기준선 |
-| 구현 SHA `7267b565`, run `35559119580` | 696초 | 715초 | 114.33초 | 6.22초 | 첫 후보 표본, baseline 대비 2.2% 단축 |
+| 구현 SHA `7267b565`, run `35559119580` | 696초 | 715초 | 114.33초 | 6.22초 | 관측값; 과거 기준선과 소스가 달라 개선율 확정 불가 |
+| 문서 SHA `14e81a7f`, run `35560502689` | 587초 | 602초 | 96.32초 | 5.054초 | 같은 제품 소스의 두 번째 관측값 |
 
 첫 후보의 dependency 로그는 cache fetch 4.82초와 version compute 누적 9.98초를 보였다.
 외부 consumer 구간은 resolve 시작부터 최종 성공까지 약 330초로 가장 큰 관찰 구간이었다.
 GitHub가 해당 성공 run의 수동 rerun을 repository admin 권한 오류로 거절했으므로, 같은 제품
 source digest를 유지하는 자연스러운 문서 후속 commit의 새 push run을 추가 표본으로 사용한다.
-반복 중앙값을 확보하기 전에는 개선 성과를 확정하지 않는다.
+두 값의 중앙값 641.5초는 산술값일 뿐이다. 과거 baseline과 소스가 다르고 최소 3회 반복도
+충족하지 않아, 직전 완료 보고의 9.9%를 최적화 효과로 해석해서는 안 된다.
 
 현재 결과는 수정 후보의 로컬 검증 완료를 의미한다. runtime version, tag, GitHub Release,
 versioned DocC와 `/latest/`는 변경하거나 발행하지 않았다.
+
+## 2026-09-21 후속 정정
+
+`14e81a7f` 원격 workflow 7개는 모두 성공했다. 그러나 저장 실행 직전 취소를 확인하지 않는
+F3가 실제 파일로 재현되어 당시의 배포 가능 판단을 철회했다. 관련된 자동/scene flush와
+stop/마지막 detach 네 조합을 enqueue/finish 신호로 고정하면 수정 전 8개 assertion이 실패하고
+명시적 저장 대조군은 통과한다. 후속 수정은 storage actor에서 유효 ticket을 확보한 뒤에만
+실제 쓰기를 실행한다. 신규 결과는 별도 후속 증거 문서에 기록하며 이 과거 수치에 합치지 않는다.
