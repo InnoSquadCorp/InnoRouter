@@ -121,6 +121,43 @@ struct RouterSnapshotLimitTests {
         ))
     }
 
+    @Test("Application migration errors keep the 6.0 wrapping contract")
+    func migrationErrorCompatibility() throws {
+        let oldCodec = try RouterSnapshotCodec<R>(currentVersion: 1)
+        let encoded = try oldCodec.encode(.rootStack(path: [.detail]))
+        let migrationError = RouterSnapshotError.invalidSnapshotVersion(0)
+        let codec = try RouterSnapshotCodec<R>(
+            currentVersion: 2,
+            migrations: [.init(from: 1, to: 2) { _ in throw migrationError }]
+        )
+
+        do {
+            _ = try codec.decode(encoded)
+            Issue.record("Expected the migration to fail")
+        } catch let error as RouterSnapshotError {
+            guard case .migrationFailed(let from, let to, let message) = error else {
+                Issue.record("Expected the 6.0 migrationFailed wrapper, got \(error)")
+                return
+            }
+            #expect(from == 1)
+            #expect(to == 2)
+            #expect(message.contains("invalidSnapshotVersion(0)"))
+        }
+
+        let recovered = try codec.decode(encoded, recovery: .use { error in
+            guard case .migrationFailed = error else { return .rootStack }
+            return .rootStack(path: [.home])
+        })
+        #expect(recovered == .recovered(
+            state: .rootStack(path: [.home]),
+            reason: .migrationFailed(
+                from: 1,
+                to: 2,
+                message: String(describing: migrationError)
+            )
+        ))
+    }
+
     @Test("Bounded file storage reads multiple chunks and preserves an existing file on rejection")
     func boundedFileStorage() throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
@@ -151,6 +188,51 @@ struct RouterSnapshotLimitTests {
         )) {
             try storage.load()
         }
+    }
+
+    @Test("Bounded file reads enforce the stream after metadata changes")
+    func boundedFileMutationDuringLoad() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appending(path: "router.snapshot")
+        let maximum = 128 * 1_024
+        let exact = Data(repeating: 7, count: maximum)
+        let oversized = Data(repeating: 8, count: maximum + 1)
+        let smaller = Data(repeating: 9, count: maximum / 2)
+        let storage = try RouterFileSnapshotStorage(fileURL: url, maximumByteCount: maximum)
+
+        try exact.write(to: url, options: .atomic)
+        #expect(throws: RouterSnapshotError.encodedDataTooLarge(
+            actualByteCount: maximum + 1,
+            maximumByteCount: maximum
+        )) {
+            try RouterByteStoreTestSupport.$afterBoundedFileMetadataRead.withValue({
+                try oversized.write(to: url, options: .atomic)
+            }) {
+                try storage.load()
+            }
+        }
+
+        try exact.write(to: url, options: .atomic)
+        let loaded = try RouterByteStoreTestSupport.$afterBoundedFileMetadataRead.withValue({
+            try smaller.write(to: url, options: .atomic)
+        }) {
+            try storage.load()
+        }
+        #expect(loaded == smaller)
+    }
+
+    @Test("The largest byte limit does not overflow")
+    func maximumIntegerLimit() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "router.snapshot")
+        let data = Data("bounded snapshot".utf8)
+        let storage = try RouterFileSnapshotStorage(fileURL: url, maximumByteCount: Int.max)
+
+        try storage.save(data)
+        #expect(try storage.load() == data)
     }
 
     @Test("Bounded file storage rejects invalid limits")
@@ -230,5 +312,57 @@ struct RouterSnapshotLimitTests {
         #expect(store.state == initial)
         #expect(store.revision == 0)
         #expect(try Data(contentsOf: url) == encoded)
+    }
+
+    @Test("A failed mounted restore cannot be replaced by a lifecycle save")
+    @MainActor
+    func failedRestoreLifecycleSave() async throws {
+        let savedState = RouterState<R>.rootStack(path: Array(repeating: .detail, count: 100))
+        let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
+        let encoded = try codec.encode(savedState)
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appending(path: "router.snapshot")
+        try encoded.write(to: url)
+        let store = RouterStore<R>()
+        let driver = RouterRestorationDriver(
+            store: store,
+            codec: codec,
+            storage: try RouterFileSnapshotStorage(
+                fileURL: url,
+                maximumByteCount: encoded.count - 1
+            )
+        )
+        let attachmentID = UUID()
+        defer {
+            driver.detach(attachmentID)
+            driver.stop()
+        }
+
+        await #expect(throws: RouterSnapshotError.encodedDataTooLarge(
+            actualByteCount: encoded.count,
+            maximumByteCount: encoded.count - 1
+        )) {
+            try await driver.attach(attachmentID)
+        }
+        guard case .failed = driver.status else {
+            Issue.record("Expected the restore failure to remain visible")
+            return
+        }
+
+        await driver.saveForSceneLifecycle(attachmentID: attachmentID)
+        #expect(try Data(contentsOf: url) == encoded)
+        #expect(store.revision == 0)
+        guard case .failed = driver.status else {
+            Issue.record("A skipped lifecycle save must preserve the restore failure")
+            return
+        }
+
+        _ = await store.perform(.push(.home))
+        await driver.saveForSceneLifecycle(attachmentID: attachmentID)
+        let saved = try Data(contentsOf: url)
+        #expect(try codec.decode(saved) == .rootStack(path: [.home]))
+        #expect(store.revision == 1)
     }
 }

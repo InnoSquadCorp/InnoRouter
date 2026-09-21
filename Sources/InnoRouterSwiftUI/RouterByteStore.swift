@@ -6,6 +6,12 @@ import Foundation
 
 import InnoRouterCore
 
+/// Package-only synchronization point for deterministic file mutation tests.
+/// Production calls use the nil default and execute no additional work.
+package enum RouterByteStoreTestSupport {
+    @TaskLocal package static var afterBoundedFileMetadataRead: (@Sendable () throws -> Void)?
+}
+
 /// Atomic file-backed byte persistence at an application-owned URL.
 ///
 /// `RouterFileSnapshotStorage` and `RouterFilePendingLinkStorage` are separate
@@ -35,6 +41,7 @@ struct RouterAtomicFileStore: Sendable {
                 maximumByteCount: maximumByteCount
             )
         }
+        try RouterByteStoreTestSupport.afterBoundedFileMetadataRead?()
 
         let handle = try FileHandle(forReadingFrom: fileURL)
         defer { try? handle.close() }

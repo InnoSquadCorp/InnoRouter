@@ -36,6 +36,35 @@ private final class LifetimeStorage: RouterSnapshotStorage {
     func remove() { bytes.withLock { $0 = nil } }
 }
 
+private final class FailingLifetimeStorage: RouterSnapshotStorage {
+    enum Failure: Error { case unreadable }
+
+    private let saves = Mutex(0)
+    var saveCount: Int { saves.withLock { $0 } }
+
+    func load() throws -> Data? { throw Failure.unreadable }
+    func save(_ data: Data) { saves.withLock { $0 += 1 } }
+    func remove() {}
+}
+
+@MainActor
+@Observable
+private final class LifetimeScenePhase {
+    var value: ScenePhase = .active
+}
+
+@MainActor
+private struct RestorationLifecycleRoot: View {
+    let driver: RouterRestorationDriver<LifetimeRoute>
+    let phase: LifetimeScenePhase
+
+    var body: some View {
+        Text(verbatim: "Root")
+            .routerStateRestoration(driver)
+            .environment(\.scenePhase, phase.value)
+    }
+}
+
 /// Deliberately ignores cancellation so an old worker can finish after its
 /// replacement. The test releases every continuation, including on failure.
 @MainActor
@@ -116,6 +145,42 @@ private final class RestorationMount {
 @Suite("Mounted restoration lifetime", .serialized, .timeLimit(.minutes(1)))
 @MainActor
 struct RestorationLifetimeTests {
+    @Test("A mounted background transition preserves a failed restoration")
+    func backgroundAfterRestoreFailure() async throws {
+        let storage = FailingLifetimeStorage()
+        let store = RouterStore<LifetimeRoute>()
+        let driver = RouterRestorationDriver(
+            store: store,
+            codec: try RouterSnapshotCodec(currentVersion: 1),
+            storage: storage,
+            saveDebounce: .zero
+        )
+        let phase = LifetimeScenePhase()
+        let mount = RestorationMount(AnyView(RestorationLifecycleRoot(driver: driver, phase: phase)))
+        defer { mount.close(); driver.stop() }
+
+        try await until {
+            if case .failed = driver.status { return true }
+            return false
+        }
+        phase.value = .background
+        try await until { storage.saveCount == 0 && phase.value == .background }
+        await drainUI()
+        #expect(storage.saveCount == 0)
+        #expect(store.revision == 0)
+        guard case .failed = driver.status else {
+            Issue.record("Skipped lifecycle persistence must preserve the restore failure")
+            return
+        }
+
+        _ = await store.perform(.push(.current))
+        phase.value = .active
+        await drainUI()
+        phase.value = .background
+        try await until { storage.saveCount == 1 }
+        #expect(store.revision == 1)
+    }
+
     @Test("A late detached worker cannot remove its mounted replacement")
     func lastDetachAndLateWorker() async throws {
         let (store, driver, storage, gate) = try fixture()

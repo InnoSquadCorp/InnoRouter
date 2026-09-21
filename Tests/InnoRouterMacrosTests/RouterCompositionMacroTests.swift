@@ -889,6 +889,34 @@ struct RouterCompositionMacroTests {
 
     @Test("Explicit tab IDs require nonempty noninterpolated literals")
     func invalidExplicitTabID() {
+        for invalidLiteral in ["\"\"", "\"   \""] {
+            assertMacroExpansion(
+                """
+                @Router
+                enum AppRoute {
+                    @TabItem("Home", systemImage: "house", id: \(invalidLiteral))
+                    case home
+                    var destination: some View { EmptyView() }
+                }
+                """,
+                expandedSource: """
+                enum AppRoute {
+                    case home
+                    @Swift.MainActor @SwiftUI.ViewBuilder
+                    var destination: some View { EmptyView() }
+                }
+                """,
+                diagnostics: [
+                    DiagnosticSpec(
+                        message: "[InnoRouterMacro.E013] @TabItem has invalid native tab metadata: id must be one nonempty noninterpolated string literal",
+                        line: 3,
+                        column: 5
+                    )
+                ],
+                macros: makeTestMacros()
+            )
+        }
+
         assertMacroExpansion(
             """
             let persistedID = "home"
@@ -899,6 +927,34 @@ struct RouterCompositionMacroTests {
                 var destination: some View { EmptyView() }
             }
             """,
+            expandedSource: """
+            let persistedID = "home"
+            enum AppRoute {
+                case home
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E013] @TabItem has invalid native tab metadata: id must be one nonempty noninterpolated string literal",
+                    line: 4,
+                    column: 5
+                )
+            ],
+            macros: makeTestMacros()
+        )
+
+        assertMacroExpansion(
+            #"""
+            let persistedID = "home"
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house", id: "\(persistedID)")
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """#,
             expandedSource: """
             let persistedID = "home"
             enum AppRoute {

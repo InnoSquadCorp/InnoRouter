@@ -28,6 +28,15 @@ are bare semver (no leading `v`).
 
 ### Fixed
 
+- Scene lifecycle persistence no longer replaces an unreadable, oversized, or
+  otherwise failed initial snapshot with the Store's pre-restore state. It
+  waits for an accepted restore or an independent navigation commit; explicit
+  `save()` and `removeSnapshot()` calls keep their existing app-controlled
+  behavior.
+- Snapshot migrations once again wrap every application transform failure in
+  `migrationFailed`, including a transform that throws `RouterSnapshotError`.
+  This preserves the 6.0 recovery contract while codec-generated migration
+  payload limit failures remain distinct typed errors.
 - Explicit tab restoration captures its starting revision before decoding,
   preventing a late snapshot from overwriting newer navigation. Reconciliation
   validates mutable state before indexing branches and rejects non-stack nodes

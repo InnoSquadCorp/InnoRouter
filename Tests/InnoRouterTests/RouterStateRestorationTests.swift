@@ -473,6 +473,37 @@ struct RouterStateRestorationTests {
         #expect(store.state.root == .stack(path: [.home]))
     }
 
+    @Test("A reattached completed driver keeps lifecycle save eligibility")
+    func reattachPreservesLifecycleSaveEligibility() async throws {
+        let codec = try RouterSnapshotCodec<RestorableRoute>(currentVersion: 1)
+        let storage = RecordingSnapshotStorage()
+        let store = RouterStore<RestorableRoute>()
+        let driver = RouterRestorationDriver(
+            store: store,
+            codec: codec,
+            storage: storage,
+            saveDebounce: .seconds(3_600)
+        )
+        let firstAttachment = UUID()
+        let secondAttachment = UUID()
+        defer {
+            driver.detach(firstAttachment)
+            driver.detach(secondAttachment)
+            driver.stop()
+        }
+
+        #expect(try await driver.attach(firstAttachment) == .noSnapshot)
+        _ = await store.perform(.push(.detail))
+        driver.detach(firstAttachment)
+        #expect(storage.saveCount == 0)
+
+        #expect(try await driver.attach(secondAttachment) == .observationResumed)
+        await driver.saveForSceneLifecycle(attachmentID: secondAttachment)
+        #expect(storage.saveCount == 1)
+        let saved = try #require(storage.data)
+        #expect(try codec.decode(saved) == .rootStack(path: [.detail]))
+    }
+
     @Test("A stale activation failure cannot stop a newer observation lifetime")
     func staleActivationFailurePreservesNewObservation() async throws {
         let codec = try RouterSnapshotCodec<RestorableRoute>(currentVersion: 1)

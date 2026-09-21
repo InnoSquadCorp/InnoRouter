@@ -110,6 +110,12 @@ adds deferring policies, it must resolve or cancel the deferred request and
 observe its terminal outcome rather than treating `lastActivation` or
 `lastPartialRestoration` as a live policy-completion feed.
 
+When initial loading, decoding, migration, or validation fails, the lifecycle
+modifier preserves the existing file instead of flushing the Store's
+pre-restore value over it. A later independent navigation commit establishes a
+new state that may be saved normally. Applications can still make an explicit
+choice with `save()` or `removeSnapshot()` after presenting retry or reset UI.
+
 For a one-shot route-level keep/drop/replace validation, use
 `restorePartially(from:using:validator:tabTopology:validationTimeout:expectedRevision:)`.
 Its `report.topologyChanges` describes inserted scopes, ordering, and selection

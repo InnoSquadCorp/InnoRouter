@@ -81,6 +81,10 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     @ObservationIgnored
     private var initialRestorePhase: RouterInitialRestorePhase = .notStarted
     @ObservationIgnored
+    private var automaticSaveBaselineRevision: UInt64
+    @ObservationIgnored
+    private var automaticSaveIsEnabled = false
+    @ObservationIgnored
     private var activationGeneration: UInt64 = 0
     @ObservationIgnored
     package var saveGeneration: UInt64 = 0
@@ -108,6 +112,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         )
         self.codecExecutor = RouterSnapshotCodecExecutor(codec: codec)
         self.saveDebounce = max(saveDebounce, .zero)
+        self.automaticSaveBaselineRevision = store.revision
     }
 
     /// Creates a driver whose initial restore reconciles against the tab
@@ -136,6 +141,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         )
         self.codecExecutor = RouterSnapshotCodecExecutor(codec: codec)
         self.saveDebounce = max(saveDebounce, .zero)
+        self.automaticSaveBaselineRevision = store.revision
     }
 
     /// Creates a driver that validates decoded routes before its initial
@@ -167,6 +173,7 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         )
         self.codecExecutor = RouterSnapshotCodecExecutor(codec: codec)
         self.saveDebounce = max(saveDebounce, .zero)
+        self.automaticSaveBaselineRevision = store.revision
     }
 
     // Work around swiftlang/swift#90625 in Swift 6.3.x release builds.
@@ -233,6 +240,8 @@ extension RouterRestorationDriver {
             return .init(result: result, generation: generation)
         }
 
+        automaticSaveBaselineRevision = expectedRevision
+        automaticSaveIsEnabled = false
         initialRestorePhase = .inProgress
         lastPartialRestoration = nil
         publishStatus(.loading, ownedBy: statusOwner)
@@ -296,6 +305,7 @@ extension RouterRestorationDriver {
             guard let data else {
                 publishStatus(.active, ownedBy: statusOwner)
                 initialRestorePhase = .completed
+                automaticSaveIsEnabled = true
                 let result = RouterRestorationDriverActivation<R>.noSnapshot
                 lastActivation = result
                 lastPartialRestoration = nil
@@ -356,6 +366,12 @@ extension RouterRestorationDriver {
             try ensureCurrentActivation(generation, taskID: taskID)
             publishStatus(.active, ownedBy: statusOwner)
             initialRestorePhase = .completed
+            switch outcome.transition {
+            case .applied, .unchanged:
+                automaticSaveIsEnabled = true
+            case .deferred, .rejected:
+                break
+            }
             let result = RouterRestorationDriverActivation.restored(outcome)
             lastActivation = result
             if partialConfiguration != nil,
@@ -416,6 +432,11 @@ extension RouterRestorationDriver {
 
     package var attachmentCount: Int { attachmentIDs.count }
     package var activationWaiterCount: Int { activationWaiters.count }
+
+    package func canSaveForSceneLifecycle(attachmentID: UUID) -> Bool {
+        guard attachmentIDs.contains(attachmentID) else { return false }
+        return automaticSaveIsEnabled || store.revision != automaticSaveBaselineRevision
+    }
 
     package func detach(_ id: UUID) {
         attachmentIDs.remove(id)
@@ -519,10 +540,15 @@ extension RouterRestorationDriver {
     private func observe(_ event: RouterEvent<R>) {
         switch event {
         case .committed(let transitionID, _, _, _, let context):
+            automaticSaveIsEnabled = true
             finishRestoreIfNeeded(transitionID: transitionID, context: context)
             scheduleSave()
-        case .unchanged(let transitionID, _, _, let context),
-             .rejected(let transitionID, _, _, _, let context):
+        case .unchanged(let transitionID, _, _, let context):
+            if isActiveRestoreEvent(transitionID: transitionID, context: context) {
+                automaticSaveIsEnabled = true
+            }
+            finishRestoreIfNeeded(transitionID: transitionID, context: context)
+        case .rejected(let transitionID, _, _, _, let context):
             finishRestoreIfNeeded(transitionID: transitionID, context: context)
         case .deferred(let transitionID, _, _, let deferral, let context):
             guard isActiveRestoreEvent(transitionID: transitionID, context: context) else {

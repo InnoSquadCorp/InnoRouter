@@ -9,6 +9,11 @@ import FeatureCompositionConsumer
 
 @Suite("InnoRouter 6 downstream product boundary")
 struct CanonicalPublicAPITests {
+    private enum SnapshotRoute: String, Route, Codable {
+        case home
+        case fallback
+    }
+
     @Test("Independent feature modules compose through one parent store")
     @MainActor
     func featureComposition() async {
@@ -147,6 +152,36 @@ struct CanonicalPublicAPITests {
             storeFactory: "makeExternalTestStore"
         )
         #expect(source.contains("RouterScenarioFixture<ExternalRoute>"))
+    }
+
+    @Test("Snapshot migration failures preserve the published recovery contract")
+    func snapshotMigrationFailureCompatibility() throws {
+        let oldCodec = try RouterSnapshotCodec<SnapshotRoute>(currentVersion: 1)
+        let encoded = try oldCodec.encode(.rootStack(path: [.home]))
+        let codec = try RouterSnapshotCodec<SnapshotRoute>(
+            currentVersion: 2,
+            migrations: [
+                .init(from: 1, to: 2) { _ in
+                    throw RouterSnapshotError.invalidSnapshotVersion(0)
+                },
+            ]
+        )
+
+        let result = try codec.decode(encoded, recovery: .use { error in
+            guard case .migrationFailed = error else { return .rootStack }
+            return .rootStack(path: [.fallback])
+        })
+        guard case .recovered(let state, let reason) = result else {
+            Issue.record("Expected explicit migration recovery")
+            return
+        }
+        #expect(state == .rootStack(path: [.fallback]))
+        guard case .migrationFailed(let from, let to, _) = reason else {
+            Issue.record("Expected the published migrationFailed wrapper")
+            return
+        }
+        #expect(from == 1)
+        #expect(to == 2)
     }
 
     @Test("A downstream router may own a type named String")

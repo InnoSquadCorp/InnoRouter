@@ -20,6 +20,24 @@ extension RouterRestorationDriver {
         )
     }
 
+    /// Flushes a mounted root when its scene leaves the active phase.
+    ///
+    /// Initial restore failures and unresolved candidates must not replace the
+    /// app-owned snapshot with the Store's pre-restore value. A later app
+    /// commit is independent evidence that the current Store state is new and
+    /// may be persisted even when the original restore failed.
+    package func saveForSceneLifecycle(attachmentID: UUID) async {
+        guard canSaveForSceneLifecycle(attachmentID: attachmentID) else { return }
+        invalidateScheduledSave()
+        let generation = saveGeneration
+        let epoch = storageEpoch
+        try? await saveSnapshot(
+            generation: generation,
+            storageEpoch: epoch,
+            discardIfSuperseded: true
+        )
+    }
+
     /// Removes the persisted snapshot without changing router state.
     public func removeSnapshot() async throws {
         invalidateScheduledSave()
@@ -103,6 +121,11 @@ extension RouterRestorationDriver {
             publishStatus(.saving, ownedBy: statusOwner)
             // A later removal owns status and forbids resurrecting its bytes.
             guard await durability.waitForTurn(ticket) else { return }
+            guard storageEpoch == expectedStorageEpoch,
+                  !discardIfSuperseded || saveGeneration == generation else {
+                publishStatus(observationStatus, ownedBy: statusOwner)
+                return
+            }
             try await executor.save(data)
             publishStatus(observationStatus, ownedBy: statusOwner)
         } catch {

@@ -249,9 +249,6 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
             }
             do {
                 envelope.payload = try migration.transform(envelope.payload)
-                try validatePayloadSize(envelope.payload)
-            } catch let error as RouterSnapshotError {
-                throw error
             } catch {
                 throw RouterSnapshotError.migrationFailed(
                     from: migration.fromVersion,
@@ -259,6 +256,10 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
                     message: String(describing: error)
                 )
             }
+            // Application migration failures keep the 6.0 error contract
+            // above. A limit failure originates in the codec itself, so it
+            // remains a distinct typed error for callers that opt into limits.
+            try validatePayloadSize(envelope.payload)
             envelope.schemaVersion = migration.toVersion
         }
 

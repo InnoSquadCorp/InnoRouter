@@ -35,7 +35,7 @@ private struct RouterStateRestorationModifier<R: Route & Codable>: ViewModifier 
             .onChange(of: scenePhase) { _, newPhase in
                 guard newPhase != .active else { return }
                 Task { @MainActor in
-                    try? await driver.save()
+                    await driver.saveForSceneLifecycle(attachmentID: attachmentID)
                 }
             }
             .onDisappear {

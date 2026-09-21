@@ -124,6 +124,56 @@ struct RouterRestorationDriverPartialTests {
         #expect(reopened.state == .rootStack(path: [.home]))
     }
 
+    @Test("A normalized candidate round-trips through a real file")
+    func normalizedCandidateRealFileRoundTrip() async throws {
+        let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appending(path: "navigation.json")
+        let original = try codec.encode(.rootStack(path: [.home, .retired]))
+        try original.write(to: url)
+        let storage = RouterFileSnapshotStorage(fileURL: url)
+        let store = RouterStore(initialState: RouterState<R>.rootStack(path: [.home]))
+        let driver = RouterRestorationDriver(
+            store: store,
+            codec: codec,
+            storage: storage,
+            validator: .init { route, _ in
+                route == .retired ? .remove(reason: "retired") : .keep
+            },
+            saveDebounce: .zero
+        )
+        defer { driver.stop() }
+
+        guard case .restored(let activation) = try await driver.activate(),
+              case .unchanged = activation.transition else {
+            Issue.record("Expected the normalized candidate to match the current state")
+            return
+        }
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while try Data(contentsOf: url) == original, ContinuousClock.now < deadline {
+            await Task.yield()
+        }
+        let normalized = try Data(contentsOf: url)
+        #expect(try codec.decode(normalized) == .rootStack(path: [.home]))
+
+        driver.stop()
+        let reopened = RouterStore<R>()
+        let reopenedDriver = RouterRestorationDriver(
+            store: reopened,
+            codec: codec,
+            storage: RouterFileSnapshotStorage(fileURL: url)
+        )
+        defer { reopenedDriver.stop() }
+        guard case .restored(let result) = try await reopenedDriver.activate(),
+              case .applied = result.transition else {
+            Issue.record("Expected the normalized file to restore")
+            return
+        }
+        #expect(reopened.state == .rootStack(path: [.home]))
+    }
+
     @Test("An applied partial candidate saves once through normal observation")
     func appliedCandidateUsesAutomaticSave() async throws {
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
@@ -213,9 +263,13 @@ struct RouterRestorationDriverPartialTests {
             validator: .init { _, _ in .keep },
             saveDebounce: .zero
         )
-        defer { driver.stop() }
+        let attachmentID = UUID()
+        defer {
+            driver.detach(attachmentID)
+            driver.stop()
+        }
 
-        guard case .restored(let activation) = try await driver.activate(),
+        guard case .restored(let activation) = try await driver.attach(attachmentID),
               case .deferred = activation.transition,
               case .deferred = driver.lastPartialRestoration?.transition else {
             Issue.record("Expected a reported but uncommitted partial candidate")
@@ -224,6 +278,8 @@ struct RouterRestorationDriverPartialTests {
         #expect(storage.saveCount == 0)
         #expect(store.revision == 0)
         #expect(store.state == .rootStack)
+        await driver.saveForSceneLifecycle(attachmentID: attachmentID)
+        #expect(storage.saveCount == 0)
 
         guard case .applied = await store.resolveDeferred(deferral, with: .allow) else {
             Issue.record("Expected terminal approval to apply the partial candidate")
@@ -233,5 +289,45 @@ struct RouterRestorationDriverPartialTests {
         #expect(try codec.decode(saved) == .rootStack(path: [.home]))
         #expect(store.revision == 1)
         #expect(storage.saveCount == 1)
+    }
+
+    @Test("A rejected partial candidate is not saved by scene lifecycle")
+    func rejectedCandidateIsNotSaved() async throws {
+        let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
+        let storage = PartialDriverStorage(try codec.encode(.rootStack(path: [.home])))
+        let store = RouterStore<R>(configuration: .init(policies: [
+            RouterPolicy(name: "reject-restore") { transition in
+                transition.context.source == .restoration
+                    ? .reject("not accepted")
+                    : .allow
+            },
+        ]))
+        let driver = RouterRestorationDriver(
+            store: store,
+            codec: codec,
+            storage: storage,
+            validator: .init { _, _ in .keep },
+            saveDebounce: .zero
+        )
+        let attachmentID = UUID()
+        defer {
+            driver.detach(attachmentID)
+            driver.stop()
+        }
+
+        guard case .restored(let activation) = try await driver.attach(attachmentID),
+              case .rejected = activation.transition else {
+            Issue.record("Expected the partial candidate to be rejected")
+            return
+        }
+        await driver.saveForSceneLifecycle(attachmentID: attachmentID)
+        #expect(storage.saveCount == 0)
+        #expect(store.state == RouterState<R>.rootStack)
+        #expect(store.revision == 0)
+
+        _ = await store.perform(.push(.detail))
+        let saved = try await firstElement(from: storage.saves, what: "new navigation snapshot")
+        #expect(try codec.decode(saved) == .rootStack(path: [.detail]))
+        #expect(store.revision == 1)
     }
 }
