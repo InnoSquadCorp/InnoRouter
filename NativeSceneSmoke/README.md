@@ -34,8 +34,11 @@ dismissal completion before starting the next independent scenario; view
 disappearance alone is not that completion signal. Passing `--rapid-reopen`
 directly to the visionOS app additionally exercises back-to-back scenarios.
 
-The script retains build/runtime logs and requires the final PASS marker; the
-exit status of `simctl launch` alone does not prove a successful probe. It does
+The script redirects app stdout/stderr to unique simulator files, waits for
+the launched process to exit, and copies the evidence before uninstall or
+simulator shutdown can clear it. It requires the final PASS marker; the exit
+status of `simctl launch` alone does not prove a successful probe. A missing
+marker also collects this app's system logs and recent crash reports. It does
 not boot, erase, shut down, or change settings on the selected simulator, nor
 stop an already running probe.
 
@@ -117,6 +120,9 @@ in a separate SwiftUI-only application. Isolation keeps independent policy
 cases from inheriting that scene session; it does not claim to fix that system
 behavior. Process restart alone did not consistently isolate the sessions;
 three complete sets passed after clearing the probe's installation state.
+Pinned CI also exposed incomplete `simctl --console` output even when the
+system recorded a voluntary process exit. Direct file output and process
+tracking preserve the evidence without relaxing the success-marker checks.
 The pinned CI platform jobs also execute the iPadOS and visionOS
 native probes and retain their logs separately from platform unit tests.
 
