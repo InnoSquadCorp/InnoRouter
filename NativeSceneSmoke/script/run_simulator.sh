@@ -34,12 +34,43 @@ xcodebuild -project "$PROBE_ROOT/NativeSceneSmoke.xcodeproj" -scheme "$scheme" \
   -configuration Debug -destination "id=$device" -derivedDataPath "$PROBE_DERIVED" \
   CODE_SIGNING_ALLOWED=NO build > "$PROBE_LOG_DIR/build.log" 2>&1
 xcrun simctl install "$device" "$PROBE_DERIVED/Build/Products/Debug-$sdk/$scheme.app"
-python3 - "$device" "$bundle" "$PROBE_LOG_DIR/runtime.log" "$platform" "$PROBE_DERIVED/Build/Products/Debug-$sdk/$scheme.app" <<'PY'
+python3 - "$device" "$bundle" "$PROBE_LOG_DIR/runtime.log" "$platform" "$PROBE_DERIVED/Build/Products/Debug-$sdk/$scheme.app" "$scheme" <<'PY'
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 runtime_log = Path(sys.argv[3])
+started = time.time()
+
+
+def diagnose(label):
+    # A console launch can exit successfully even when its app is killed.
+    # Preserve this probe's system diagnostics without accepting a missing PASS.
+    predicate = f'process == "{sys.argv[6]}" OR eventMessage CONTAINS "{sys.argv[2]}"'
+    with runtime_log.with_name(f"system-{label}.log").open("w") as output:
+        try:
+            subprocess.run([
+                "xcrun", "simctl", "spawn", sys.argv[1], "log", "show",
+                "--last", "5m", "--style", "compact", "--predicate", predicate,
+            ], stdout=output, stderr=subprocess.STDOUT, timeout=60, check=False)
+        except subprocess.TimeoutExpired:
+            output.write("System diagnostic collection timed out\n")
+    reports = Path.home() / "Library/Logs/DiagnosticReports"
+    for report in reports.glob(f"{sys.argv[6]}*"):
+        if report.is_file() and report.stat().st_mtime >= started:
+            runtime_log.with_name(f"crash-{label}-{report.name}.log").write_bytes(report.read_bytes())
+
+
+def verify(case_log, expected, label):
+    evidence = case_log.read_text(encoding="utf-8")
+    if expected not in evidence.splitlines() or any(line.startswith("FAIL ") for line in evidence.splitlines()):
+        print(evidence, file=sys.stderr)
+        diagnose(label)
+        raise SystemExit(f"Native {label} failed; see {case_log}")
+    return evidence
+
+
 if sys.argv[4] == "vision":
     # Independent policy cases must not inherit persisted scene sessions from
     # an earlier run of this disposable probe. No failed case is retried.
@@ -53,18 +84,15 @@ if sys.argv[4] == "vision":
                     "xcrun", "simctl", "launch", "--terminate-running-process", "--console",
                     sys.argv[1], sys.argv[2], "--resolution", resolution,
                 ], stdout=output, stderr=subprocess.STDOUT, timeout=180, check=True)
-            evidence = case_log.read_text(encoding="utf-8")
-            combined.write(evidence)
             expected = f"PASS native visionOS {resolution}"
-            if expected not in evidence.splitlines() or any(line.startswith("FAIL ") for line in evidence.splitlines()):
-                print(evidence, file=sys.stderr)
-                raise SystemExit(f"Native visionOS {resolution} failed; see {case_log}")
+            combined.write(verify(case_log, expected, f"vision-{resolution}"))
         combined.write("PASS native visionOS allow/reject/cancel\n")
 else:
     with runtime_log.open("w", encoding="utf-8") as output:
         subprocess.run([
             "xcrun", "simctl", "launch", "--console", sys.argv[1], sys.argv[2],
         ], stdout=output, stderr=subprocess.STDOUT, timeout=180, check=True)
+    verify(runtime_log, "PASS native iPadOS allow/reject/cancel", "ipad")
 PY
 grep -E "^PASS native $marker allow/reject/cancel$" "$PROBE_LOG_DIR/runtime.log"
 if grep -E '^FAIL ' "$PROBE_LOG_DIR/runtime.log"; then exit 1; fi
