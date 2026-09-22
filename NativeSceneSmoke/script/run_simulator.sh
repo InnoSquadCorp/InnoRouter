@@ -34,14 +34,36 @@ xcodebuild -project "$PROBE_ROOT/NativeSceneSmoke.xcodeproj" -scheme "$scheme" \
   -configuration Debug -destination "id=$device" -derivedDataPath "$PROBE_DERIVED" \
   CODE_SIGNING_ALLOWED=NO build > "$PROBE_LOG_DIR/build.log" 2>&1
 xcrun simctl install "$device" "$PROBE_DERIVED/Build/Products/Debug-$sdk/$scheme.app"
-python3 - "$device" "$bundle" "$PROBE_LOG_DIR/runtime.log" <<'PY'
+python3 - "$device" "$bundle" "$PROBE_LOG_DIR/runtime.log" "$platform" "$PROBE_DERIVED/Build/Products/Debug-$sdk/$scheme.app" <<'PY'
+from pathlib import Path
 import subprocess
 import sys
 
-with open(sys.argv[3], "w", encoding="utf-8") as output:
-    subprocess.run([
-        "xcrun", "simctl", "launch", "--console", sys.argv[1], sys.argv[2],
-    ], stdout=output, stderr=subprocess.STDOUT, timeout=180, check=True)
+runtime_log = Path(sys.argv[3])
+if sys.argv[4] == "vision":
+    # Independent policy cases must not inherit persisted scene sessions from
+    # an earlier run of this disposable probe. No failed case is retried.
+    with runtime_log.open("w", encoding="utf-8") as combined:
+        for resolution in ("allow", "reject", "cancel"):
+            subprocess.run(["xcrun", "simctl", "uninstall", sys.argv[1], sys.argv[2]], check=True)
+            subprocess.run(["xcrun", "simctl", "install", sys.argv[1], sys.argv[5]], check=True)
+            case_log = runtime_log.with_name(f"runtime-{resolution}.log")
+            with case_log.open("w", encoding="utf-8") as output:
+                subprocess.run([
+                    "xcrun", "simctl", "launch", "--terminate-running-process", "--console",
+                    sys.argv[1], sys.argv[2], "--resolution", resolution,
+                ], stdout=output, stderr=subprocess.STDOUT, timeout=180, check=True)
+            evidence = case_log.read_text(encoding="utf-8")
+            combined.write(evidence)
+            expected = f"PASS native visionOS {resolution}"
+            if expected not in evidence.splitlines() or any(line.startswith("FAIL ") for line in evidence.splitlines()):
+                raise SystemExit(f"Native visionOS {resolution} failed; see {case_log}")
+        combined.write("PASS native visionOS allow/reject/cancel\n")
+else:
+    with runtime_log.open("w", encoding="utf-8") as output:
+        subprocess.run([
+            "xcrun", "simctl", "launch", "--console", sys.argv[1], sys.argv[2],
+        ], stdout=output, stderr=subprocess.STDOUT, timeout=180, check=True)
 PY
 rg "^PASS native $marker allow/reject/cancel$" "$PROBE_LOG_DIR/runtime.log"
 if rg '^FAIL ' "$PROBE_LOG_DIR/runtime.log"; then exit 1; fi

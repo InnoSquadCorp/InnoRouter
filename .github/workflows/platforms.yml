@@ -335,3 +335,20 @@ jobs:
                   f"only {passed} tests passed; expected at least {minimum}"
               )
           PY
+
+      - name: Verify native scene closure for ${{ matrix.platform.name }}
+        if: matrix.platform.name == 'iPadOS' || matrix.platform.name == 'visionOS'
+        env:
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+          PLATFORM_NAME: ${{ matrix.platform.name }}
+        run: |
+          platform=ipad
+          if [[ "$PLATFORM_NAME" == "visionOS" ]]; then platform=vision; fi
+          ./NativeSceneSmoke/script/run_simulator.sh "$platform" "$SIMULATOR_UDID"
+
+      - name: Preserve native scene evidence
+        if: always() && (matrix.platform.name == 'iPadOS' || matrix.platform.name == 'visionOS')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: native-scene-${{ matrix.platform.name }}
+          path: NativeSceneSmoke/.build/native-*/*.log

@@ -46,7 +46,18 @@ final class VisionProbeModel {
         guard !didRun else { return }
         didRun = true
         do {
-            for resolution in ["allow", "reject", "cancel"] {
+            let resolutions: [String]
+            let supported = ["allow", "reject", "cancel"]
+            if let index = CommandLine.arguments.firstIndex(of: "--resolution") {
+                guard index + 1 < CommandLine.arguments.count,
+                      supported.contains(CommandLine.arguments[index + 1]) else {
+                    throw VisionProbeFailure(message: "Expected --resolution allow, reject, or cancel")
+                }
+                resolutions = [CommandLine.arguments[index + 1]]
+            } else {
+                resolutions = supported
+            }
+            for resolution in resolutions {
                 let priorDismissals = completedDismissals
                 requestedDeferral = nil
                 guard case .applied = await store.perform(.enterImmersiveSpace(.init(id: "theater", route: .theater))) else {
@@ -91,7 +102,7 @@ final class VisionProbeModel {
                 }
                 log("PASS " + resolution)
             }
-            log("PASS native visionOS allow/reject/cancel")
+            log("PASS native visionOS " + resolutions.joined(separator: "/"))
             exit(0)
         } catch {
             log("FAIL " + String(describing: error))

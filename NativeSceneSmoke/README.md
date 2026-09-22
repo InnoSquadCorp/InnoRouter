@@ -92,8 +92,33 @@ execution status, selected event, and in-progress recording.
 Direction changes during a held execution must retain the pending task, without
 an extra policy submission or an implicit cancellation.
 These switches exist only in the probe and do not alter simulator settings.
-The CI gate requires both current Inspector UI test names to pass without skips;
+`testInspectorPolicyPreparationAcknowledgesRequestedState` checks the fixture's
+explicit Hold/Resume commands and visible state acknowledgement, including
+repeating Hold without toggling it off. It then proves that the real Inspector
+execution is held, cancelled without a commit, and applied after Resume.
+These setup controls replace the nested native switch that once ignored a tap
+on CI. No test retries, longer timeouts, or Inspector assertions were removed.
+
+The CI gate requires all three current Inspector UI test names to pass without skips;
 a passing count from an older test bundle does not satisfy the gate.
+
+## Native scene isolation
+
+The simulator runner reinstalls only its disposable visionOS probe to clear
+persisted scene sessions before each allow/reject/cancel case. It checks every
+case's success marker and fails on the first error.
+It does not retry a failed case. Launching the vision probe directly without
+`--resolution` retains the combined sequence for stress testing; `--rapid-reopen`
+also removes the final driver-dismissal wait.
+
+Rapidly reusing a scene in one process can return `scene invalidated before
+create completion` on Xcode 27.0 with visionOS 26.5. The same error was reproduced
+in a separate SwiftUI-only application. Isolation keeps independent policy
+cases from inheriting that scene session; it does not claim to fix that system
+behavior. Process restart alone did not consistently isolate the sessions;
+three complete sets passed after clearing the probe's installation state.
+The pinned CI platform jobs also execute the iPadOS and visionOS
+native probes and retain their logs separately from platform unit tests.
 
 ## Catalyst platform test host
 
