@@ -30,7 +30,8 @@ manifest supports all four orientations so iPad multitasking can create the
 second scene. The visionOS app invokes the real `dismissImmersiveSpace` action.
 Both verify policy deferral, native reopening, allow/reject/cancel outcomes,
 and canonical state. The visionOS fixture waits for the driver's asynchronous
-dismissal completion before starting the next independent scenario; view
+opening completion before requesting a native close, and for dismissal
+completion before starting the next independent scenario. View appearance or
 disappearance alone is not that completion signal. Passing `--rapid-reopen`
 directly to the visionOS app additionally exercises back-to-back scenarios.
 
