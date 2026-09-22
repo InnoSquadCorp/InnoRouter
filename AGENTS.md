@@ -49,6 +49,16 @@ tests then fail with 60s time-limit and `loadTimedOut` errors. The gates in
 `scripts/principle-gates.sh` and `.github/workflows/coverage.yml` already pass
 this flag.
 
+Do not run multiple SwiftPM build or test commands against the same checkout's
+`.build` directory concurrently. Serialize them, or give each process a
+distinct `--scratch-path`, and record the result against the exact commit it
+validated.
+
+A regression test must fail on the pre-fix implementation for the intended
+invariant, not because setup or another contract rejects the fixture first.
+Isolate conflicting preconditions, keep controls for existing rejection
+behavior, and confirm the focused test passes after the fix.
+
 ## Architecture rules
 
 1. Add navigation state to the recursive `RouterState` tree instead of creating
@@ -63,6 +73,10 @@ this flag.
 6. Hosts render native SwiftUI containers over one store. A child scope never
    owns parallel mutable navigation state.
 7. Inspector output is structurally useful and payload-redacted by default.
+8. Before changing concurrency or performance behavior, inspect the public
+   contract and its contract tests. Do not infer that disabling output removes
+   the underlying value or computation; preserve observable behavior and prove
+   the targeted cost with a focused measurement.
 
 ## Macro rules
 
@@ -79,6 +93,10 @@ this flag.
 
 Macro changes require tests in both `Tests/InnoRouterMacrosTests/` and
 `Tests/InnoRouterMacrosBehaviorTests/`.
+
+Macro fix-its require both the diagnostic assertion and `fixedSource` coverage
+for every edit path. Do not offer a fix-it when the edit is ambiguous, requires
+user intent, or can leave the source with another diagnostic.
 
 ## Documentation and examples
 
