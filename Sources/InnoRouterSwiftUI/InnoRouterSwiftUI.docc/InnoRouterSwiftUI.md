@@ -76,7 +76,7 @@ Partial restoration validates decoded routes before one revision-checked
 commit and returns a payload-free structural report. A fully removed nonempty
 stack requires an app-provided, revalidated fallback.
 
-The explicit tab topology APIs are unreleased additions for 6.1.
+The explicit tab topology APIs are available in 6.1.0 and later.
 
 Restoration is exact. A snapshot written before a tab existed carries no branch
 for it, so that tab stays unreachable. `RouterTabRestorationTopology` states
