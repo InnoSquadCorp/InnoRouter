@@ -10,6 +10,7 @@ tree = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
 required = {
     "InspectorUITests/testInspectorRelease600UserFlow()",
     "InspectorUITests/testInspectorMountedLocaleBidirectionalStatePreservation()",
+    "InspectorUITests/testInspectorPolicyPreparationAcknowledgesRequestedState()",
 }
 
 if (summary.get("result") != "Passed" or summary.get("passedTests", 0) < len(required)
@@ -32,4 +33,4 @@ def passed_tests(node):
 missing = required - set(passed_tests(tree))
 if missing:
     raise SystemExit(f"Missing current Inspector UI tests: {sorted(missing)}")
-print("[inspector-ui] Both current test cases passed without skips")
+print("[inspector-ui] All three current test cases passed without skips")

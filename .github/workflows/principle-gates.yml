@@ -78,6 +78,9 @@ jobs:
       - name: Test release changelog contract
         run: bash ./scripts/test-check-release-changelog.sh
 
+      - name: Test release identity contract
+        run: python3 ./scripts/test-release-identity.py
+
       - name: Test shared changelog phase contract
         run: bash ./scripts/test-changelog-phase-contract.sh
 

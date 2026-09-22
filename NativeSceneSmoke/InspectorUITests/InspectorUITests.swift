@@ -13,10 +13,7 @@ final class InspectorUITests: XCTestCase {
         XCTAssertEqual(counters.label, "Revision 0 · Policy 0")
         capture(app, "locale-00-mounted-en")
 
-        let hold = app.switches["Hold execution"]
-        let holdControl = hold.switches.firstMatch.exists ? hold.switches.firstMatch : hold
-        holdControl.tap()
-        waitForValue(holdControl, "1")
+        setExecutionHeld(true, in: app)
         let english = try XCTUnwrap(InspectorProbeLanguage.samples.first)
         let arabic = try XCTUnwrap(InspectorProbeLanguage.samples.last)
 
@@ -132,10 +129,7 @@ final class InspectorUITests: XCTestCase {
         waitForLabel(counters, "Revision 1 · Policy 1")
         capture(app, "02-executed")
 
-        let hold = app.switches["Hold execution"]
-        let holdControl = hold.switches.firstMatch.exists ? hold.switches.firstMatch : hold
-        holdControl.tap()
-        waitForValue(holdControl, "1")
+        setExecutionHeld(true, in: app)
         app.buttons["Execute"].tap()
         waitForLabel(counters, "Revision 1 · Policy 2")
         XCTAssertFalse(app.staticTexts["applied"].exists)
@@ -193,9 +187,40 @@ final class InspectorUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
     }
 
-    private func waitForValue(_ element: XCUIElement, _ value: String) {
-        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
-        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
+    func testInspectorPolicyPreparationAcknowledgesRequestedState() {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "--localization-probe"]
+        app.launch()
+        defer { app.terminate() }
+        let counters = app.staticTexts["probe.revision-policy"]
+        XCTAssertTrue(counters.waitForExistence(timeout: 10))
+
+        setExecutionHeld(false, in: app)
+        setExecutionHeld(true, in: app)
+        setExecutionHeld(true, in: app) // Repeating setup must not toggle it off.
+        app.buttons["Execute"].tap()
+        waitForLabel(counters, "Revision 0 · Policy 1")
+        XCTAssertTrue(app.buttons["Cancel"].isHittable)
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.staticTexts["cancelled"].waitForExistence(timeout: 5))
+        XCTAssertEqual(counters.label, "Revision 0 · Policy 1")
+
+        setExecutionHeld(false, in: app)
+        app.buttons["Execute"].tap()
+        waitForLabel(counters, "Revision 1 · Policy 2")
+        capture(app, "policy-preparation-held-cancelled-resumed")
+    }
+
+    private func setExecutionHeld(_ held: Bool, in app: XCUIApplication) {
+        // This configures the fixture, not the Inspector under test. Explicit
+        // commands avoid depending on a nested native switch's value update.
+        let command = held ? "probe.execution.hold" : "probe.execution.resume"
+        let button = app.buttons[command]
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        XCTAssertTrue(button.isHittable)
+        button.tap()
+        waitForLabel(app.staticTexts["probe.execution.state"], held ? "Execution held" : "Execution ready")
     }
 
     private func select(_ language: InspectorProbeLanguage, in app: XCUIApplication) {

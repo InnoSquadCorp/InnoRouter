@@ -61,7 +61,7 @@ authority or alternative routing vocabulary. The fixture schema is finalized
 before the first 6.0.0 tag; unpublished action-only fixtures are not a supported
 migration format.
 
-The unreleased 6.1 snapshot boundary adds ten umbrella symbols for explicit
+The 6.1.0 snapshot boundary adds ten umbrella symbols for explicit
 envelope/payload limits, typed size failures, and bounded file storage. Existing
 initializers retain their 6.0 behavior; no new navigation authority or storage
 selection is introduced.

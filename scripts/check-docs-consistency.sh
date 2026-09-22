@@ -78,14 +78,10 @@ elif ! [[ "$RUNTIME_VERSION" =~ $SEMVER_RE ]]; then
   failures=1
 fi
 
-# A publication run passes the candidate it is about to tag. The runtime and
-# the changelog must already name that exact version.
+# Publication checks the exact candidate and its channel-specific notes.
+# A prerelease keeps its notes under Unreleased rather than a dated GA section.
 if [[ -n "${RELEASE_VERSION:-}" ]]; then
-  if [[ "$RELEASE_VERSION" != "$RUNTIME_VERSION" ]]; then
-    echo "[check-docs-consistency] Failed: release candidate '$RELEASE_VERSION' does not match runtime '$RUNTIME_VERSION'" >&2
-    failures=1
-  fi
-  require_literal "$CHANGELOG_PATH" "## $RELEASE_VERSION - " "changelog must contain a dated $RELEASE_VERSION section"
+  bash scripts/check-release-identity.sh "$RELEASE_VERSION" "${RELEASE_CHANNEL:-ga}" || failures=1
 fi
 
 for readme in README.md README.ko.md; do

@@ -4,11 +4,10 @@ Restore saved navigation into the tab catalog the application renders now.
 
 ## Availability
 
-Explicit tab-topology restoration is an **unreleased 6.1 addition**. The
-published 6.0.0 package does not contain these APIs. The existing restore
+Explicit tab-topology restoration requires **InnoRouter 6.1.0 or later**. The existing restore
 overloads continue to apply the snapshot exactly unless a topology is supplied.
 
-The complete [TabRestorationExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/TabRestorationExample.swift)
+The complete [TabRestorationExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/6.1.0/Examples/TabRestorationExample.swift)
 uses one `import InnoRouter`, a Codable `@Router` enum, file storage, a
 restoration driver, and a native tab host. The example source itself is compiled
 by the package; its session is exercised by integration tests.
@@ -128,7 +127,7 @@ transition is unchanged; deferred candidates are saved only after approval.
 
 ## Try the upgrade and reopen flow
 
-Follow the [example setup guide](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/README.md#tab-restoration-unreleased-61)
+Follow the [example setup guide](https://github.com/InnoSquadCorp/InnoRouter/blob/6.1.0/Examples/README.md#tab-restoration-610)
 to mount the view and optionally write a previous-version demo snapshot before
 launch. Select Settings, open a detail, save, and reopen using the same URL.
 The new session restores both the new path and the preserved orphan subtree.
