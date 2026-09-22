@@ -214,7 +214,17 @@ jobs:
             .build/gh-pages-cache >> "$GITHUB_OUTPUT"
 
       - name: Run Principle Gates
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+          RELEASE_CHANNEL: ${{ needs.preflight.outputs.prerelease == 'true' && 'prerelease' || 'ga' }}
         run: ./scripts/principle-gates.sh
+
+      - name: Verify exact GA package dependency
+        if: needs.preflight.outputs.prerelease == 'false'
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+          INNOROUTER_CONSUMER_REVISION: ${{ needs.preflight.outputs.commit_sha }}
+        run: ./scripts/external-consumer-smoke.sh "$RELEASE_VERSION"
 
       - name: Build Versioned DocC Site
         shell: bash
