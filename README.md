@@ -10,9 +10,9 @@ InnoRouter 6 turns one `@Router` enum into one navigation model:
 - `RouterStore<Route>` reduces, prepares policies, and commits atomically.
 - `RouterHost`, `RouterTabHost`, and `RouterSplitHost` render native SwiftUI containers.
 
-> **6.0 status:** 6.0.0 is published. The capability sets originally planned
-> for 6.1–6.3 were folded in before the first tag, so no post-release SemVer
-> break was needed. Breaking changes now target the next major release.
+> **6.1.0:** Adds bounded snapshots, automatic partial restoration, explicit
+> tab identity, and safer persistence while preserving the 6.0 public surface.
+> Breaking changes target the next major release.
 
 [한국어](README.ko.md) · [6.0 strategy](Docs/v6-functional-strategy.md) ·
 [5.x migration](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
@@ -29,7 +29,7 @@ InnoRouter 6 turns one `@Router` enum into one navigation model:
 Add the package and its single runtime product:
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.0.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.1.0")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -220,10 +220,9 @@ planning before one policy transition, exposes the initial result through
 `lastPartialRestoration`, and saves only accepted normalized state. This mode
 does not apply a snapshot recovery fallback.
 
-The explicit tab topology APIs below are **unreleased additions for 6.1**;
-they are not available in the published 6.0.0 package.
+The explicit tab topology APIs below require **6.1.0 or later**.
 
-The [complete tab restoration example](Examples/README.md#tab-restoration-unreleased-61)
+The [complete tab restoration example](Examples/README.md#tab-restoration-610)
 connects the catalog, driver, host, file persistence, and result handling.
 The [restoration guide](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md)
 explains tab identity, schema migration, and recovery boundaries.
@@ -520,6 +519,7 @@ gates pass.
 - [API convergence](Docs/v6-api-convergence-spike.md)
 - [Functional specification](Docs/functional-expansion-spec.md)
 - [Delivery plan](Docs/functional-expansion-technical-plan.md)
+- [6.1.0 release checklist](Docs/6.1.0-release-checklist.md)
 - [6.0.0 release checklist](Docs/6.0.0-release-checklist.md)
 - [Migrating from 5.x](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
 - [Changelog](CHANGELOG.md)

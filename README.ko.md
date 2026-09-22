@@ -10,9 +10,8 @@ InnoRouter 6는 하나의 `@Router` enum을 하나의 navigation 모델로 연�
 - `RouterStore<Route>`: reduce, policy prepare, atomic commit의 단일 권한
 - `RouterHost`, `RouterTabHost`, `RouterSplitHost`: native SwiftUI container
 
-> **6.0 상태:** 6.0.0을 배포했습니다. 6.1–6.3으로 계획했던 기능은 첫 태그
-> 이전에 모두 포함했으므로 배포 이후 SemVer를 깨지 않았습니다. 이제 breaking
-> 변경은 다음 major 릴리스를 대상으로 합니다.
+> **6.1.0:** snapshot 크기 제한, 자동 부분 복원, 명시적 탭 식별자와 저장 안정성을
+> 추가하며 6.0 공개 API를 유지합니다. Breaking 변경은 다음 major 릴리스를 대상으로 합니다.
 
 [English](README.md) · [6.0 전략](Docs/v6-functional-strategy.md) ·
 [5.x 마이그레이션](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
@@ -25,10 +24,10 @@ InnoRouter 6는 하나의 `@Router` enum을 하나의 navigation 모델로 연�
 
 ## 설치
 
-6.0.0 공개 후 하나의 runtime product만 추가합니다.
+패키지와 하나의 runtime product를 추가합니다.
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.0.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.1.0")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -185,10 +184,9 @@ route 값은 없습니다. 기존에 비어 있지 않던 stack의 route가 전�
 `lastPartialRestoration`으로 노출하며, 수락된 정상화 상태만 저장합니다. 이 모드에서는
 snapshot recovery fallback을 적용하지 않습니다.
 
-아래 명시적 탭 topology API는 **6.1용 미출시 추가 기능**입니다.
-현재 배포된 6.0.0 패키지에는 포함되지 않습니다.
+아래 명시적 탭 topology API는 **6.1.0 이상**에서 사용할 수 있습니다.
 
-[전체 탭 복원 예제](Examples/README.md#tab-restoration-unreleased-61)는 catalog, driver,
+[전체 탭 복원 예제](Examples/README.md#tab-restoration-610)는 catalog, driver,
 host, 파일 저장과 결과 처리를 연결합니다. [복원 가이드](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md)에서
 탭 식별자, schema migration, recovery의 적용 범위를 확인할 수 있습니다.
 
@@ -424,6 +422,7 @@ consumer 게이트를 모두 통과한 뒤에만 게시합니다.
 - [API 수렴](Docs/v6-api-convergence-spike.md)
 - [기능 명세](Docs/functional-expansion-spec.md)
 - [구현 계획](Docs/functional-expansion-technical-plan.md)
+- [6.1.0 릴리스 체크리스트](Docs/6.1.0-release-checklist.md)
 - [6.0.0 릴리스 체크리스트](Docs/6.0.0-release-checklist.md)
 - [5.x에서 이전](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
 - [변경 기록](CHANGELOG.md)

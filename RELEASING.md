@@ -268,6 +268,12 @@ versioned changelog.
 
 ## Release checklist
 
+- The release `Run Principle Gates` step receives `RELEASE_VERSION` and
+  `RELEASE_CHANNEL`. Its identity check compares the candidate with the runtime
+  and both installation READMEs, then applies the GA or prerelease notes policy.
+- GA publication resolves the remote package at the exact release version and
+  checks its resolved commit against preflight before publishing documentation
+  or the GitHub Release.
 - `CHANGELOG.md` has been cut from `Unreleased` to the release version/date,
   and a new `## Unreleased` section exists above it.
 - A major release links one consolidated migration guide from every localized

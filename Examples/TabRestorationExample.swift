@@ -3,7 +3,7 @@ import SwiftUI
 
 import InnoRouter
 
-// Requires the unreleased 6.1 tab-topology APIs. See Examples/README.md.
+// Requires InnoRouter 6.1.0 or later. See Examples/README.md.
 @Router
 enum RestorableTabRoute: Codable {
     @TabItem("Home", systemImage: "house")

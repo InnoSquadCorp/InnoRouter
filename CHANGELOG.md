@@ -6,15 +6,24 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+## 6.1.0 - 2026-09-22
+
 ### Changed
 
+- Release publication checks the runtime identity and both installation
+  READMEs against the candidate version, with separate GA and prerelease
+  changelog rules. GA publication also verifies the remote package's exact
+  resolved version and commit before publishing the release.
+- Inspector UI preparation uses explicit, acknowledged Hold/Resume commands
+  instead of a nested native switch. A dedicated regression verifies held,
+  cancelled, and resumed execution; localization and interaction checks remain.
+- Platform CI runs the native iPadOS and visionOS scene policy probes and
+  preserves their logs. Independent visionOS policy cases run in fresh
+  processes; the combined rapid-reopen stress mode remains available separately.
 - Repository CI now tracks exact SwiftPM resolutions. The integration workflow
   delegates its duplicate DocC site build and source lint pass to the existing
   required sibling jobs; standalone and release principle gates still run the
   complete contract.
-- The Inspector UI gate waits for the native switch value after tapping it,
-  preventing a slow Simulator accessibility update from failing before the
-  tested localization and state-preservation flow begins.
 - `DeepLinkMatcher.diagnostics` is computed on demand instead of stored.
   Reading it is unchanged — the same diagnostics are reported, including on a
   matcher configured with `.disabled`, which continues to suppress emission

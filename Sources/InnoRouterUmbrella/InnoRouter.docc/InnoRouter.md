@@ -12,19 +12,20 @@ Declare one route enum with `@Router`. The generated conformance unlocks one
 containers over that authority. `RouterPlan<Route>` represents an exact target
 shared by deep links, restoration, and transactions.
 
-The published 6.0.0 package supports typed presentations and scenes, native tab
+InnoRouter supports typed presentations and scenes, native tab
 and split hosts, deep-link admission, snapshot restoration, bounded scheduling,
 and optional testing and Inspector tools. Applications choose their storage,
 recovery, and policy behavior explicitly while the store remains the single
 navigation authority.
 
-### Unreleased 6.1 additions
+### Added in 6.1.0
 
-The current source adds explicit tab-topology restoration for apps whose tab
+Version 6.1.0 adds explicit tab-topology restoration for apps whose tab
 catalog changes between launches. `RouterTabRestorationTopology` adds missing
 current scopes while preserving saved paths and orphaned branches. Partial
 restoration reports describe structural changes through `topologyChanges`.
-These APIs are not included in the published 6.0.0 package.
+It also adds opt-in snapshot byte limits, automatic partial validation,
+and explicit `@TabItem` identifiers. Existing 6.0 initialization defaults remain unchanged.
 
 Read <doc:Restoring-Tab-Navigation> for catalog ownership, outcome handling,
 and a complete, compiled example with file persistence.
@@ -78,8 +79,8 @@ struct AppRoot: View {
 - `RouterPendingLinkSlot`
 - `RouterPendingLinkPersistenceDriver`
 - `RouterRestorationDriver`
-- `RouterTabRestorationTopology` (unreleased 6.1)
-- `RouterTabRestorationChange` (unreleased 6.1)
+- `RouterTabRestorationTopology` (6.1.0+)
+- `RouterTabRestorationChange` (6.1.0+)
 - `RouterPartialRestorationReport`
 - `RouterFileSnapshotStorage`
 - `RouterTabCatalog`
