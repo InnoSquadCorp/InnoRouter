@@ -37,7 +37,8 @@ fi
 if [[ "$VERSION" != "local" ]]; then
   swift package --package-path "$PACKAGE_DIR" --scratch-path "$SWIFTPM_SCRATCH_DIR" resolve
   python3 "$ROOT_DIR/scripts/check-consumer-resolution.py" \
-    "$PACKAGE_DIR/Package.resolved" "$VERSION" "${INNOROUTER_CONSUMER_REVISION:-}"
+    "$PACKAGE_DIR/Package.resolved" "$VERSION" "${INNOROUTER_CONSUMER_REVISION:-}" \
+    "https://github.com/InnoSquadCorp/InnoRouter.git"
 fi
 
 verify_conditional_catalog_conflict() {

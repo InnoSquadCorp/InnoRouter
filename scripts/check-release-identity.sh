@@ -26,8 +26,13 @@ try:
     if declarations != [version]:
         raise ValueError(f"runtime identity {declarations!r} does not match release {version!r}")
     for name in ("README.md", "README.ko.md"):
-        if f'from: "{version}"' not in (root / name).read_text():
-            raise ValueError(f"{name} must install release {version}")
+        packages = re.findall(r'\.package\s*\((.*?)\)', (root / name).read_text(), re.S)
+        installations = []
+        for package in packages:
+            if re.search(r'\burl\s*:\s*"https://github\.com/InnoSquadCorp/InnoRouter(?:\.git)?/?"', package):
+                installations.append(re.findall(r'\bfrom\s*:\s*"([^"]+)"', package))
+        if installations != [[version]]:
+            raise ValueError(f"{name} must contain exactly one InnoRouter declaration installing {version}")
 except (OSError, ValueError) as error:
     raise SystemExit(f"[check-release-identity] Failed: {error}")
 print(f"[check-release-identity] Runtime, installation docs, and release agree on {version}")

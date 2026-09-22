@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+REPOSITORY = "https://github.com/InnoSquadCorp/InnoRouter.git"
 
 
 class ReleaseIdentityTests(unittest.TestCase):
@@ -23,7 +24,7 @@ class ReleaseIdentityTests(unittest.TestCase):
         runtime.parent.mkdir(parents=True, exist_ok=True)
         runtime.write_text(f'public enum InnoRouterVersion {{\n    public static let current = "{version}"\n}}\n')
         for name in ("README.md", "README.ko.md"):
-            (self.root / name).write_text(f'.package(url: "https://example.test/router", from: "{version}")\n')
+            (self.root / name).write_text(f'.package(url: "{REPOSITORY}", from: "{version}")\n')
         notes = "## Unreleased\n\n"
         if channel == "ga":
             notes += f"## {version} - 2026-09-22\n\n"
@@ -66,6 +67,29 @@ class ReleaseIdentityTests(unittest.TestCase):
                 path.write_text(source)
                 self.assertNotEqual(self.check().returncode, 0)
 
+    def test_installation_version_cannot_be_borrowed_or_conflicted(self):
+        current = f'.package(url: "{REPOSITORY}", from: "6.1.0")\n'
+        stale = f'.package(url: "{REPOSITORY}", from: "6.0.0")\n'
+        unrelated = '.package(url: "https://example.test/other", from: "6.1.0")\n'
+        branch = f'.package(url: "{REPOSITORY}", branch: "main")\n'
+        for name in ("README.md", "README.ko.md"):
+            for declarations in (stale + unrelated, current + stale, current * 2, current + branch, unrelated):
+                with self.subTest(readme=name, declarations=declarations):
+                    self.write_candidate("6.1.0", "ga")
+                    (self.root / name).write_text(declarations)
+                    result = self.check()
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(name, result.stdout + result.stderr)
+
+    def test_multiline_installation_and_optional_git_suffix(self):
+        for name in ("README.md", "README.ko.md"):
+            (self.root / name).write_text(
+                '.package(\n    url: "https://github.com/InnoSquadCorp/InnoRouter",\n'
+                '    from: "6.1.0"\n)\n'
+            )
+        result = self.check()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_ga_rejects_uncut_notes(self):
         self.write_candidate("6.1.0", "prerelease")
         self.assertNotEqual(self.check().returncode, 0)
@@ -98,12 +122,36 @@ class ReleaseIdentityTests(unittest.TestCase):
             ([], 1),
         ):
             with self.subTest(pins=pins):
+                for pin in pins:
+                    pin["location"] = REPOSITORY
                 path.write_text(json.dumps({"pins": pins}))
                 result = subprocess.run(
-                    ["python3", str(ROOT / "scripts/check-consumer-resolution.py"), str(path), "6.1.0", "abc"],
+                    ["python3", str(ROOT / "scripts/check-consumer-resolution.py"), str(path), "6.1.0", "abc", REPOSITORY],
                     capture_output=True, text=True, check=False,
                 )
                 self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+
+    def test_consumer_repository_identity_with_and_without_expected_revision(self):
+        path = self.root / "Package.resolved"
+        for location, accepted in (
+            (REPOSITORY, True),
+            (REPOSITORY.removesuffix(".git"), True),
+            (REPOSITORY + "/", True),
+            ("https://example.test/foreign/innorouter.git", False),
+            ("https://github.com/Other/InnoRouter.git", False),
+            (REPOSITORY + "?redirect=other", False),
+            (None, False),
+        ):
+            for revision in ("", "abc"):
+                with self.subTest(location=location, revision=revision):
+                    pin = {"identity": "innorouter", "location": location,
+                           "state": {"version": "6.1.0", "revision": "abc"}}
+                    path.write_text(json.dumps({"pins": [pin]}))
+                    result = subprocess.run(
+                        ["python3", str(ROOT / "scripts/check-consumer-resolution.py"), str(path), "6.1.0", revision, REPOSITORY],
+                        capture_output=True, text=True, check=False,
+                    )
+                    self.assertEqual(result.returncode == 0, accepted, result.stdout + result.stderr)
 
     def test_ga_publishing_checks_the_resolved_commit(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text()
