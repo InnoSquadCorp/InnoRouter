@@ -21,7 +21,7 @@ runtime, item = matches[0]
 if item["state"] != "Booted" or not item["isAvailable"] or sys.argv[2] not in runtime:
     raise SystemExit("Select an available, booted simulator for this platform")
 ' "$device" "$runtime"
-if xcrun simctl spawn "$device" launchctl list | rg -F "application.$bundle"; then
+if xcrun simctl spawn "$device" launchctl list | grep -F -e "UIKitApplication:$bundle" -e "application.$bundle"; then
   echo "The probe is already running; let it finish first." >&2
   exit 1
 fi
@@ -57,6 +57,7 @@ if sys.argv[4] == "vision":
             combined.write(evidence)
             expected = f"PASS native visionOS {resolution}"
             if expected not in evidence.splitlines() or any(line.startswith("FAIL ") for line in evidence.splitlines()):
+                print(evidence, file=sys.stderr)
                 raise SystemExit(f"Native visionOS {resolution} failed; see {case_log}")
         combined.write("PASS native visionOS allow/reject/cancel\n")
 else:
@@ -65,5 +66,5 @@ else:
             "xcrun", "simctl", "launch", "--console", sys.argv[1], sys.argv[2],
         ], stdout=output, stderr=subprocess.STDOUT, timeout=180, check=True)
 PY
-rg "^PASS native $marker allow/reject/cancel$" "$PROBE_LOG_DIR/runtime.log"
-if rg '^FAIL ' "$PROBE_LOG_DIR/runtime.log"; then exit 1; fi
+grep -E "^PASS native $marker allow/reject/cancel$" "$PROBE_LOG_DIR/runtime.log"
+if grep -E '^FAIL ' "$PROBE_LOG_DIR/runtime.log"; then exit 1; fi

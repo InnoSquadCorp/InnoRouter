@@ -352,3 +352,4 @@ jobs:
         with:
           name: native-scene-${{ matrix.platform.name }}
           path: NativeSceneSmoke/.build/native-*/*.log
+          include-hidden-files: true
