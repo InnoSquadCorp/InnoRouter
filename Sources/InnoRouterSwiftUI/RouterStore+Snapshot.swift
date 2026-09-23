@@ -138,6 +138,29 @@ public extension RouterStore {
             data,
             recovery: recovery
         )
+        return try await restore(
+            decoding: decoding,
+            expectedRevision: expectedRevision,
+            transitionID: transitionID,
+            requestRootID: requestRootID,
+            tabTopology: tabTopology,
+            executionPrecondition: executionPrecondition
+        )
+    }
+
+    /// Applies a decoded or recovered snapshot result through normal policies.
+    ///
+    /// Shared with ``RouterRestorationDriver``, whose storage can reject a
+    /// snapshot before the codec reads it and recover that rejection through
+    /// the same policy.
+    package func restore(
+        decoding: RouterSnapshotDecodingResult<R>,
+        expectedRevision: UInt64?,
+        transitionID: RouterTransitionID?,
+        requestRootID: RouterTransitionID?,
+        tabTopology: RouterTabRestorationTopology?,
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async throws -> RouterRestorationOutcome<R> {
         let prepared: RouterState<R>
         switch (decoding, tabTopology) {
         case (.restored(let state), .some(let topology)):

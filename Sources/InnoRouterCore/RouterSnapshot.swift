@@ -121,6 +121,28 @@ public enum RouterSnapshotRecoveryPolicy<R: Route>: Sendable {
     case use(@Sendable (RouterSnapshotError) -> RouterState<R>)
 }
 
+extension RouterSnapshotRecoveryPolicy {
+    /// Applies this policy to a snapshot that could not be read.
+    ///
+    /// Codec decoding and storage that rejects a snapshot before the codec
+    /// reads it, such as a file over its byte limit, share this step, so the
+    /// same typed failure reaches the same validated fallback either way.
+    package func recover(from error: RouterSnapshotError) throws -> RouterSnapshotDecodingResult<R> {
+        switch self {
+        case .fail:
+            throw error
+        case .use(let fallback):
+            let state = fallback(error)
+            do {
+                try state.validate()
+            } catch let validationError as RouterStateValidationError {
+                throw RouterSnapshotError.invalidState(validationError)
+            }
+            return .recovered(state: state, reason: error)
+        }
+    }
+}
+
 /// Distinguishes a decoded snapshot from an explicitly recovered fallback.
 public enum RouterSnapshotDecodingResult<R: Route>: Hashable, Sendable {
     case restored(RouterState<R>)
@@ -296,18 +318,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
         do {
             return .restored(try decode(data))
         } catch let error as RouterSnapshotError {
-            switch recovery {
-            case .fail:
-                throw error
-            case .use(let fallback):
-                let state = fallback(error)
-                do {
-                    try state.validate()
-                } catch let validationError as RouterStateValidationError {
-                    throw RouterSnapshotError.invalidState(validationError)
-                }
-                return .recovered(state: state, reason: error)
-            }
+            return try recovery.recover(from: error)
         }
     }
 

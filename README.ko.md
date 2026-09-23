@@ -169,6 +169,9 @@ snapshot load 중 들어온 최신 navigation을 덮지 않습니다. 중단된 
 위 바이트 한도는 앱이 선택한 예시입니다. 파일 저장소는 읽는 동안 크기를 제한하고,
 codec은 encoded envelope·decoded payload·각 migration 결과를 별도로 제한합니다.
 기존 initializer는 source와 동작 호환성을 위해 제한 없는 의미를 유지합니다.
+6.1.1부터 저장소 한도를 넘은 파일은 codec이 거부한 envelope와 똑같이 driver의
+recovery policy로 전달됩니다. 기본값 `.fail`은 activation을 실패시키고 파일을
+보존하며, `.use`는 앱이 정한 fallback을 적용합니다.
 
 삭제되었거나 현재 앱에서 유효하지 않은 route가 snapshot에 있을 수 있다면
 `restorePartially(from:using:validator:validationTimeout:)`를 사용합니다. decode와

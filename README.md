@@ -201,7 +201,10 @@ a later activation cannot be modified by their delayed completion.
 The byte limits above are application-selected examples. File storage rejects
 oversized input while reading, and the codec independently bounds the encoded
 envelope, decoded payload, and every migration result. Existing initializers
-remain unbounded for source and behavior compatibility.
+remain unbounded for source and behavior compatibility. Since 6.1.1, a file
+over the storage limit reaches the driver's recovery policy exactly like an
+envelope the codec rejects: the default `.fail` fails activation and preserves
+the file, while `.use` applies the application's fallback.
 
 For snapshots containing retired destinations,
 `restorePartially(from:using:validator:validationTimeout:)` decodes and migrates
