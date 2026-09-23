@@ -42,13 +42,15 @@ jobs:
             com.apple.CoreSimulator.SimRuntime.iOS iPad)"
           echo "udid=$simulator_udid" >> "$GITHUB_OUTPUT"
 
+      - name: Boot iPad simulator
+        run: python3 ./scripts/boot-simulator.py '${{ steps.simulator.outputs.udid }}'
+
       - name: Verify Inspector interactions
         env:
           SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
         run: |
           set -euo pipefail
-          xcrun simctl boot "$SIMULATOR_UDID" || true
-          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          test_status=0
           xcodebuild test \
             -project NativeSceneSmoke/NativeSceneSmoke.xcodeproj \
             -scheme RouterInspectorProbe \
@@ -56,13 +58,23 @@ jobs:
             -parallel-testing-enabled NO \
             -derivedDataPath "$RUNNER_TEMP/InspectorUI-derived" \
             -resultBundlePath "$RUNNER_TEMP/InspectorUI.xcresult" \
-            CODE_SIGNING_ALLOWED=NO -quiet
+            CODE_SIGNING_ALLOWED=NO -quiet || test_status=$?
+          # Read the bundle before honoring a failure: `-quiet` names a failing
+          # test but not the assertion, which is printed here instead.
+          if [[ ! -d "$RUNNER_TEMP/InspectorUI.xcresult" ]]; then
+            echo "xcodebuild exited with $test_status without writing a result bundle"
+            exit $(( test_status == 0 ? 1 : test_status ))
+          fi
           xcrun xcresulttool get test-results summary \
             --path "$RUNNER_TEMP/InspectorUI.xcresult" --compact \
             > "$RUNNER_TEMP/InspectorUI-summary.json"
           xcrun xcresulttool get test-results tests \
             --path "$RUNNER_TEMP/InspectorUI.xcresult" --compact \
             > "$RUNNER_TEMP/InspectorUI-tests.json"
+          python3 scripts/report-xcresult-failures.py "$RUNNER_TEMP/InspectorUI-summary.json"
+          if [[ "$test_status" -ne 0 ]]; then
+            exit "$test_status"
+          fi
           python3 scripts/check-inspector-ui-results.py \
             "$RUNNER_TEMP/InspectorUI-summary.json" "$RUNNER_TEMP/InspectorUI-tests.json"
 
@@ -245,32 +257,7 @@ jobs:
 
       - name: Boot ${{ matrix.platform.name }} simulator
         if: matrix.platform.usesSimulator
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - '${{ steps.simulator.outputs.udid }}' <<'PY'
-          import subprocess
-          import sys
-
-          udid = sys.argv[1]
-          try:
-              subprocess.run(
-                  ["xcrun", "simctl", "boot", udid],
-                  check=False,
-                  timeout=60,
-              )
-          except subprocess.TimeoutExpired:
-              print(
-                  f"simctl boot timed out for {udid}; continuing with bootstatus",
-                  file=sys.stderr,
-              )
-
-          subprocess.run(
-              ["xcrun", "simctl", "bootstatus", udid, "-b"],
-              check=True,
-              timeout=180,
-          )
-          PY
+        run: python3 ./scripts/boot-simulator.py '${{ steps.simulator.outputs.udid }}'
 
       # This target is deliberately macro-free so its runtime checks link on
       # tvOS, watchOS, and visionOS without a host plugin object in the bundle.
@@ -293,17 +280,28 @@ jobs:
           fi
           rm -rf "$result_bundle"
 
+          test_status=0
           xcodebuild test \
             "${test_target[@]}" \
             -destination "$test_destination" \
             -destination-timeout 120 \
             -parallel-testing-enabled NO \
             -resultBundlePath "$result_bundle" \
-            -quiet
+            -quiet || test_status=$?
 
+          # Read the bundle before honoring a failure: `-quiet` names a failing
+          # test but not the assertion, which is printed here instead.
+          if [[ ! -d "$result_bundle" ]]; then
+            echo "xcodebuild exited with $test_status without writing a result bundle"
+            exit $(( test_status == 0 ? 1 : test_status ))
+          fi
           xcrun xcresulttool get test-results summary \
             --path "$result_bundle" \
             --compact > "$summary_json"
+          python3 scripts/report-xcresult-failures.py "$summary_json"
+          if [[ "$test_status" -ne 0 ]]; then
+            exit "$test_status"
+          fi
 
           python3 - "$summary_json" '${{ matrix.platform.minimumPassedTests }}' <<'PY'
           import json
@@ -337,6 +335,7 @@ jobs:
           PY
 
       - name: Verify native scene closure for ${{ matrix.platform.name }}
+        id: native_scene
         if: matrix.platform.name == 'iPadOS' || matrix.platform.name == 'visionOS'
         env:
           SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
@@ -346,8 +345,11 @@ jobs:
           if [[ "$PLATFORM_NAME" == "visionOS" ]]; then platform=vision; fi
           ./NativeSceneSmoke/script/run_simulator.sh "$platform" "$SIMULATOR_UDID"
 
+      # Only a probe that ran can leave logs. When an earlier step fails, the
+      # probe is skipped, and a missing-logs error here would only bury the
+      # original failure; a probe that ran and wrote nothing still fails.
       - name: Preserve native scene evidence
-        if: always() && (matrix.platform.name == 'iPadOS' || matrix.platform.name == 'visionOS')
+        if: always() && steps.native_scene.outcome != 'skipped' && (matrix.platform.name == 'iPadOS' || matrix.platform.name == 'visionOS')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: native-scene-${{ matrix.platform.name }}

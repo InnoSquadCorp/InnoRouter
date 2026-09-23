@@ -90,6 +90,9 @@ jobs:
       - name: Test simulator selection contract
         run: bash ./scripts/test-select-simulator.sh
 
+      - name: Test simulator boot retry contract
+        run: bash ./scripts/test-boot-simulator.sh
+
   gates:
     runs-on: macos-26
     timeout-minutes: 30

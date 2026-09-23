@@ -2,15 +2,16 @@ import XCTest
 
 @MainActor
 final class InspectorUITests: XCTestCase {
-    func testInspectorMountedLocaleBidirectionalStatePreservation() throws {
-        continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "--localization-probe"]
-        app.launch()
+    // MARK: - Localization scenarios
+
+    // Each scenario launches its own probe, so one failure costs one scenario
+    // instead of every localization check that followed it in one long flow.
+
+    /// Deep-link execution status relocalizes in place, and a held execution
+    /// survives locale and layout-direction changes.
+    func testInspectorLocaleRelocalizesHeldExecutionWithoutRemounting() throws {
+        let (app, counters) = launchProbe(localizationProbe: true)
         defer { app.terminate() }
-        let counters = app.staticTexts["probe.revision-policy"]
-        XCTAssertTrue(counters.waitForExistence(timeout: 10))
-        XCTAssertEqual(counters.label, "Revision 0 · Policy 0")
         capture(app, "locale-00-mounted-en")
 
         setExecutionHeld(true, in: app)
@@ -19,110 +20,130 @@ final class InspectorUITests: XCTestCase {
 
         for (index, language) in InspectorProbeLanguage.samples.enumerated() {
             select(language, in: app)
-            XCTAssertTrue(app.navigationBars[language.deepLinkTitle].waitForExistence(timeout: 3))
-            XCTAssertTrue(app.buttons[language.execute].isHittable)
+            waitForExistence(app.navigationBars[language.deepLinkTitle])
+            waitForHittable(app.buttons[language.execute])
             if index > 0 {
                 // The previous execution status must relocalize without remounting.
-                XCTAssertTrue(app.staticTexts[language.cancelled].waitForExistence(timeout: 3))
+                waitForExistence(app.staticTexts[language.cancelled])
             }
-            XCTAssertEqual(counters.label, "Revision 0 · Policy \(index)")
+            waitForLabel(counters, "Revision 0 · Policy \(index)")
             capture(app, "locale-\(language.id)-deep-link")
             app.buttons[language.execute].tap()
             waitForLabel(counters, "Revision 0 · Policy \(index + 1)")
-            XCTAssertTrue(app.buttons[language.cancel].isHittable)
-            if language.id == "ar" {
+            waitForHittable(app.buttons[language.cancel])
+            if language.id == arabic.id {
                 for heldLanguage in [english, arabic] {
                     select(heldLanguage, in: app)
-                    XCTAssertTrue(app.navigationBars[heldLanguage.deepLinkTitle].waitForExistence(timeout: 3))
-                    XCTAssertFalse(app.buttons[heldLanguage.execute].isEnabled)
-                    XCTAssertTrue(app.buttons[heldLanguage.cancel].isHittable)
-                    XCTAssertEqual(counters.label, "Revision 0 · Policy 4")
+                    waitForExistence(app.navigationBars[heldLanguage.deepLinkTitle])
+                    waitForEnabled(app.buttons[heldLanguage.execute], false)
+                    waitForHittable(app.buttons[heldLanguage.cancel])
+                    waitForLabel(counters, "Revision 0 · Policy 4")
                     capture(app, "locale-\(heldLanguage.id)-preserved-held-execution")
                 }
             }
             capture(app, "locale-\(language.id)-held")
             app.buttons[language.cancel].tap()
-            XCTAssertTrue(app.staticTexts[language.cancelled].waitForExistence(timeout: 5))
-            XCTAssertTrue(app.buttons[language.execute].isEnabled)
-            XCTAssertEqual(counters.label, "Revision 0 · Policy \(index + 1)")
+            waitForExistence(app.staticTexts[language.cancelled], timeout: 5)
+            waitForEnabled(app.buttons[language.execute], true)
+            waitForLabel(counters, "Revision 0 · Policy \(index + 1)")
             capture(app, "locale-\(language.id)-execution-cancelled")
         }
 
         for language in [english, arabic] {
             select(language, in: app)
-            XCTAssertTrue(app.navigationBars[language.deepLinkTitle].waitForExistence(timeout: 3))
-            XCTAssertTrue(app.staticTexts[language.cancelled].exists)
-            XCTAssertTrue(app.buttons[language.execute].isEnabled)
-            XCTAssertEqual(app.textFields.firstMatch.value as? String, "probe://app/products/private-payload-600")
-            XCTAssertEqual(counters.label, "Revision 0 · Policy 4")
+            waitForExistence(app.navigationBars[language.deepLinkTitle])
+            waitForExistence(app.staticTexts[language.cancelled])
+            waitForEnabled(app.buttons[language.execute], true)
+            waitForValue(app.textFields.firstMatch, "probe://app/products/private-payload-600")
+            waitForLabel(counters, "Revision 0 · Policy 4")
             capture(app, "locale-\(language.id)-preserved-deep-link")
         }
+    }
+
+    /// Timeline recording controls relocalize in place, and the previous
+    /// recording status follows each new locale.
+    func testInspectorLocaleRelocalizesRecordingControlsWithoutRemounting() throws {
+        let (app, counters) = launchProbe(localizationProbe: true)
+        defer { app.terminate() }
 
         app.buttons.matching(identifier: "Timeline").firstMatch.tap()
         for (index, language) in InspectorProbeLanguage.samples.enumerated() {
             select(language, in: app)
-            if !app.buttons[language.startRecording].exists, app.buttons["Show Sidebar"].exists {
-                app.buttons["Show Sidebar"].tap()
-            }
-            XCTAssertTrue(app.buttons[language.startRecording].waitForExistence(timeout: 3))
+            revealRecordingControls(language, in: app)
             if index > 0 {
-                let previousStatus = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", language.cancelled)).firstMatch
-                XCTAssertTrue(previousStatus.waitForExistence(timeout: 3))
+                waitForExistence(status(containing: language.cancelled, in: app))
             }
             capture(app, "locale-\(language.id)-timeline")
             app.buttons[language.startRecording].tap()
-            XCTAssertTrue(app.buttons[language.stopRecording].waitForExistence(timeout: 3))
-            XCTAssertTrue(app.buttons[language.stopRecording].isHittable)
-            XCTAssertTrue(app.buttons[language.cancelRecording].isHittable)
+            waitForHittable(app.buttons[language.stopRecording])
+            waitForHittable(app.buttons[language.cancelRecording])
             XCTAssertFalse(app.buttons[language.stopRecording].frame.intersects(app.buttons[language.cancelRecording].frame))
             capture(app, "locale-\(language.id)-recording")
             app.buttons[language.stopRecording].tap()
-            XCTAssertTrue(app.buttons[language.startRecording].waitForExistence(timeout: 3))
+            waitForExistence(app.buttons[language.startRecording])
             capture(app, "locale-\(language.id)-recording-stopped")
             app.buttons[language.startRecording].tap()
-            XCTAssertTrue(app.buttons[language.cancelRecording].waitForExistence(timeout: 3))
+            waitForExistence(app.buttons[language.cancelRecording])
             app.buttons[language.cancelRecording].tap()
-            XCTAssertTrue(app.buttons[language.startRecording].waitForExistence(timeout: 3))
-            let cancelledStatus = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", language.cancelled)).firstMatch
-            XCTAssertTrue(cancelledStatus.waitForExistence(timeout: 3))
+            waitForExistence(app.buttons[language.startRecording])
+            waitForExistence(status(containing: language.cancelled, in: app))
             capture(app, "locale-\(language.id)-recording-cancelled")
         }
-        XCTAssertEqual(counters.label, "Revision 0 · Policy 4")
+        // Recording never executes a deep link, so no policy runs.
+        waitForLabel(counters, "Revision 0 · Policy 0")
+    }
 
+    /// A selected event and an in-progress recording survive layout-direction
+    /// changes between right-to-left and left-to-right locales.
+    func testInspectorDirectionChangePreservesSelectionAndRecording() throws {
+        let (app, counters) = launchProbe(localizationProbe: true)
+        defer { app.terminate() }
+        let english = try XCTUnwrap(InspectorProbeLanguage.samples.first)
+        let arabic = try XCTUnwrap(InspectorProbeLanguage.samples.last)
+
+        // One held, then cancelled execution records the event selected below.
+        setExecutionHeld(true, in: app)
+        app.buttons[english.execute].tap()
+        waitForLabel(counters, "Revision 0 · Policy 1")
+        waitForHittable(app.buttons[english.cancel])
+        app.buttons[english.cancel].tap()
+        waitForExistence(app.staticTexts[english.cancelled], timeout: 5)
+
+        select(arabic, in: app)
+        app.buttons.matching(identifier: "Timeline").firstMatch.tap()
+        revealRecordingControls(arabic, in: app)
         app.buttons[arabic.startRecording].tap()
-        XCTAssertTrue(app.buttons[arabic.stopRecording].waitForExistence(timeout: 3))
-        app.staticTexts["transition.started"].firstMatch.tap()
-        XCTAssertTrue(app.navigationBars["transition.started"].waitForExistence(timeout: 3))
+        waitForExistence(app.buttons[arabic.stopRecording])
+        let startedEvent = app.staticTexts["transition.started"].firstMatch
+        waitForExistence(startedEvent)
+        startedEvent.tap()
+        waitForExistence(app.navigationBars["transition.started"])
         capture(app, "locale-ar-selected-and-recording")
         for language in [english, arabic] {
             select(language, in: app)
             // Native direction changes must not discard the Inspector's selection or recording.
-            XCTAssertTrue(app.navigationBars["transition.started"].waitForExistence(timeout: 3))
-            XCTAssertTrue(app.staticTexts[language.id == "ar" ? "الحدث" : "Event"].exists)
+            waitForExistence(app.navigationBars["transition.started"])
+            waitForExistence(app.staticTexts[language.id == "ar" ? "الحدث" : "Event"])
             if !app.buttons[language.stopRecording].exists {
                 if app.buttons["Show Sidebar"].exists { app.buttons["Show Sidebar"].tap() }
                 else if app.buttons["BackButton"].exists { app.buttons["BackButton"].tap() }
             }
-            XCTAssertTrue(app.buttons[language.stopRecording].waitForExistence(timeout: 3))
-            XCTAssertTrue(app.buttons[language.cancelRecording].isHittable)
+            waitForExistence(app.buttons[language.stopRecording])
+            waitForHittable(app.buttons[language.cancelRecording])
             capture(app, "locale-\(language.id)-preserved-selection-and-recording")
         }
         app.buttons[arabic.cancelRecording].tap()
-        XCTAssertTrue(app.buttons[arabic.startRecording].waitForExistence(timeout: 3))
-        XCTAssertEqual(counters.label, "Revision 0 · Policy 4")
+        waitForExistence(app.buttons[arabic.startRecording])
+        waitForLabel(counters, "Revision 0 · Policy 1")
         capture(app, "locale-ar-preserved-recording-cancelled")
     }
 
+    // MARK: - Release and preparation flows
+
     func testInspectorRelease600UserFlow() throws {
-        continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
-        app.launch()
+        let (app, counters) = launchProbe(localizationProbe: false)
         defer { app.terminate() }
-        let counters = app.staticTexts["probe.revision-policy"]
-        XCTAssertTrue(counters.waitForExistence(timeout: 10))
-        XCTAssertEqual(counters.label, "Revision 0 · Policy 0")
-        XCTAssertTrue(app.staticTexts["accepted product via /products/:id"].exists)
+        waitForExistence(app.staticTexts["accepted product via /products/:id"])
         capture(app, "01-preview")
 
         app.buttons["Execute"].tap()
@@ -134,31 +155,31 @@ final class InspectorUITests: XCTestCase {
         waitForLabel(counters, "Revision 1 · Policy 2")
         XCTAssertFalse(app.staticTexts["applied"].exists)
         capture(app, "03-held")
-        XCTAssertTrue(app.buttons["Cancel"].isHittable)
+        waitForHittable(app.buttons["Cancel"])
         app.buttons["Cancel"].tap()
-        XCTAssertTrue(app.staticTexts["cancelled"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Execute"].isEnabled)
-        XCTAssertEqual(counters.label, "Revision 1 · Policy 2")
+        waitForExistence(app.staticTexts["cancelled"], timeout: 5)
+        waitForEnabled(app.buttons["Execute"], true)
+        waitForLabel(counters, "Revision 1 · Policy 2")
         capture(app, "04-cancelled")
 
         app.buttons["Check redacted export"].tap()
-        XCTAssertTrue(app.staticTexts["PASS redacted export"].waitForExistence(timeout: 3))
+        waitForExistence(app.staticTexts["PASS redacted export"])
         app.buttons.matching(identifier: "Timeline").firstMatch.tap()
         capture(app, "05-timeline")
         if app.buttons["Show Sidebar"].exists { app.buttons["Show Sidebar"].tap() }
-        XCTAssertTrue(app.buttons["Start recording"].waitForExistence(timeout: 3))
+        waitForExistence(app.buttons["Start recording"])
         app.buttons["Start recording"].tap()
-        XCTAssertTrue(app.buttons["Refresh progress"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.buttons["Stop recording"].isHittable)
-        XCTAssertTrue(app.buttons["Cancel recording"].isHittable)
+        waitForExistence(app.buttons["Refresh progress"])
+        waitForHittable(app.buttons["Stop recording"])
+        waitForHittable(app.buttons["Cancel recording"])
         capture(app, "06-recording-controls")
         app.buttons["Refresh progress"].tap()
-        XCTAssertTrue(app.buttons["Stop recording"].exists)
+        waitForExistence(app.buttons["Stop recording"])
         app.buttons["Stop recording"].tap()
-        XCTAssertTrue(app.buttons["Start recording"].waitForExistence(timeout: 3))
+        waitForExistence(app.buttons["Start recording"])
         app.buttons["Start recording"].tap()
         app.buttons["Cancel recording"].tap()
-        XCTAssertTrue(app.buttons["Start recording"].waitForExistence(timeout: 3))
+        waitForExistence(app.buttons["Start recording"])
         capture(app, "07-recording-cancelled")
         app.staticTexts["transition.committed"].tap()
         XCTAssertFalse(app.staticTexts["Select an event"].exists)
@@ -168,43 +189,33 @@ final class InspectorUITests: XCTestCase {
         let search = app.searchFields["Filter events"]
         if !search.exists, app.buttons["Search"].exists { app.buttons["Search"].tap() }
         if !search.exists { app.collectionViews.firstMatch.swipeDown() }
-        XCTAssertTrue(search.waitForExistence(timeout: 3))
+        waitForExistence(search)
         search.tap()
         search.typeText("zzzz-no-event-600")
-        XCTAssertTrue(app.staticTexts["No matching events"].waitForExistence(timeout: 3))
+        waitForExistence(app.staticTexts["No matching events"])
         if app.frame.width >= 600 { XCTAssertTrue(app.staticTexts["Select an event"].exists) }
         else { XCTAssertFalse(app.staticTexts["Event"].exists) }
         capture(app, "09-no-matches")
         search.buttons["Clear text"].tap()
-        XCTAssertTrue(app.staticTexts["transition.committed"].waitForExistence(timeout: 3))
+        waitForExistence(app.staticTexts["transition.committed"])
         if app.frame.width >= 600 { XCTAssertTrue(app.staticTexts["Select an event"].exists) }
         else { XCTAssertFalse(app.staticTexts["Event"].exists) }
         capture(app, "10-filter-cleared")
     }
 
-    private func waitForLabel(_ element: XCUIElement, _ label: String) {
-        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", label), object: element)
-        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 5), .completed)
-    }
-
     func testInspectorPolicyPreparationAcknowledgesRequestedState() {
-        continueAfterFailure = false
-        let app = XCUIApplication()
-        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "--localization-probe"]
-        app.launch()
+        let (app, counters) = launchProbe(localizationProbe: true)
         defer { app.terminate() }
-        let counters = app.staticTexts["probe.revision-policy"]
-        XCTAssertTrue(counters.waitForExistence(timeout: 10))
 
         setExecutionHeld(false, in: app)
         setExecutionHeld(true, in: app)
         setExecutionHeld(true, in: app) // Repeating setup must not toggle it off.
         app.buttons["Execute"].tap()
         waitForLabel(counters, "Revision 0 · Policy 1")
-        XCTAssertTrue(app.buttons["Cancel"].isHittable)
+        waitForHittable(app.buttons["Cancel"])
         app.buttons["Cancel"].tap()
-        XCTAssertTrue(app.staticTexts["cancelled"].waitForExistence(timeout: 5))
-        XCTAssertEqual(counters.label, "Revision 0 · Policy 1")
+        waitForExistence(app.staticTexts["cancelled"], timeout: 5)
+        waitForLabel(counters, "Revision 0 · Policy 1")
 
         setExecutionHeld(false, in: app)
         app.buttons["Execute"].tap()
@@ -212,22 +223,153 @@ final class InspectorUITests: XCTestCase {
         capture(app, "policy-preparation-held-cancelled-resumed")
     }
 
-    private func setExecutionHeld(_ held: Bool, in app: XCUIApplication) {
+    // MARK: - Probe fixture
+
+    private func launchProbe(
+        localizationProbe: Bool,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> (XCUIApplication, XCUIElement) {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+            + (localizationProbe ? ["--localization-probe"] : [])
+        app.launch()
+        let counters = app.staticTexts["probe.revision-policy"]
+        waitForExistence(counters, timeout: 10, file: file, line: line)
+        XCTAssertEqual(counters.label, "Revision 0 · Policy 0", file: file, line: line)
+        return (app, counters)
+    }
+
+    private func setExecutionHeld(
+        _ held: Bool,
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
         // This configures the fixture, not the Inspector under test. Explicit
         // commands avoid depending on a nested native switch's value update.
         let command = held ? "probe.execution.hold" : "probe.execution.resume"
         let button = app.buttons[command]
-        XCTAssertTrue(button.waitForExistence(timeout: 5))
-        XCTAssertTrue(button.isHittable)
+        waitForExistence(button, timeout: 5, file: file, line: line)
+        waitForHittable(button, file: file, line: line)
         button.tap()
-        waitForLabel(app.staticTexts["probe.execution.state"], held ? "Execution held" : "Execution ready")
+        waitForLabel(
+            app.staticTexts["probe.execution.state"],
+            held ? "Execution held" : "Execution ready",
+            file: file,
+            line: line
+        )
     }
 
-    private func select(_ language: InspectorProbeLanguage, in app: XCUIApplication) {
+    private func select(
+        _ language: InspectorProbeLanguage,
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
         let button = app.buttons["probe.locale.\(language.id)"]
-        XCTAssertTrue(button.isHittable)
+        waitForHittable(button, file: file, line: line)
         button.tap()
-        waitForLabel(app.staticTexts["probe.locale.current"], "Locale \(language.id)")
+        waitForLabel(app.staticTexts["probe.locale.current"], "Locale \(language.id)", file: file, line: line)
+    }
+
+    private func revealRecordingControls(
+        _ language: InspectorProbeLanguage,
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        if !app.buttons[language.startRecording].exists, app.buttons["Show Sidebar"].exists {
+            app.buttons["Show Sidebar"].tap()
+        }
+        waitForExistence(app.buttons[language.startRecording], file: file, line: line)
+    }
+
+    private func status(containing text: String, in app: XCUIApplication) -> XCUIElement {
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+    }
+
+    // MARK: - Waiting
+
+    // Every state change is awaited through a predicate rather than read once,
+    // and a timeout names the element, the awaited state, and what was
+    // observed, reported at the calling line.
+
+    private func waitForExistence(
+        _ element: XCUIElement,
+        timeout: TimeInterval = 3,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        if !element.waitForExistence(timeout: timeout) {
+            XCTFail("Timed out after \(timeout)s waiting for \(element) to exist", file: file, line: line)
+        }
+    }
+
+    private func waitForLabel(
+        _ element: XCUIElement,
+        _ label: String,
+        timeout: TimeInterval = 5,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        waitFor(element, NSPredicate(format: "label == %@", label), "to have label \"\(label)\"", timeout, file, line)
+    }
+
+    private func waitForValue(
+        _ element: XCUIElement,
+        _ value: String,
+        timeout: TimeInterval = 3,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        waitFor(element, NSPredicate(format: "value == %@", value), "to have value \"\(value)\"", timeout, file, line)
+    }
+
+    private func waitForHittable(
+        _ element: XCUIElement,
+        timeout: TimeInterval = 3,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        waitFor(element, NSPredicate(format: "hittable == true"), "to be hittable", timeout, file, line)
+    }
+
+    private func waitForEnabled(
+        _ element: XCUIElement,
+        _ enabled: Bool,
+        timeout: TimeInterval = 3,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let goal = enabled ? "to be enabled" : "to be disabled"
+        waitFor(element, NSPredicate(format: "enabled == %@", NSNumber(value: enabled)), goal, timeout, file, line)
+    }
+
+    private func waitFor(
+        _ element: XCUIElement,
+        _ predicate: NSPredicate,
+        _ goal: String,
+        _ timeout: TimeInterval,
+        _ file: StaticString,
+        _ line: UInt
+    ) {
+        // Check once before polling. A predicate expectation first evaluates
+        // about a second after it starts, so the common, already satisfied
+        // case would otherwise spend that second, as a one-time read never
+        // did. The full timeout then applies to the wait, and `exists` is
+        // evaluated first so an attribute is read only from a resolvable
+        // element.
+        if element.exists, predicate.evaluate(with: element) { return }
+        let satisfied = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(format: "exists == true"),
+            predicate,
+        ])
+        let expectation = XCTNSPredicateExpectation(predicate: satisfied, object: element)
+        guard XCTWaiter.wait(for: [expectation], timeout: timeout) != .completed else { return }
+        let observed = element.exists ? "label \"\(element.label)\"" : "no matching element"
+        XCTFail("Timed out after \(timeout)s waiting for \(element) \(goal); observed \(observed)", file: file, line: line)
     }
 
     private func capture(_ app: XCUIApplication, _ name: String) {
