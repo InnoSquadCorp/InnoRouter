@@ -8,5 +8,5 @@
 /// string in an application. It is informational and does not replace schema
 /// versions owned by snapshots or other persisted formats.
 public enum InnoRouterVersion {
-    public static let current = "6.1.0"
+    public static let current = "6.1.1"
 }

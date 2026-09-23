@@ -10,9 +10,11 @@ InnoRouter 6 turns one `@Router` enum into one navigation model:
 - `RouterStore<Route>` reduces, prepares policies, and commits atomically.
 - `RouterHost`, `RouterTabHost`, and `RouterSplitHost` render native SwiftUI containers.
 
-> **6.1.0:** Adds bounded snapshots, automatic partial restoration, explicit
-> tab identity, and safer persistence while preserving the 6.0 public surface.
-> Breaking changes target the next major release.
+> **6.1.1:** Fixes 6.1.0's tab identity, tab link, host, and snapshot recovery
+> defects, and admits swift-syntax 604 for Xcode 27. 6.1.0 added bounded
+> snapshots, automatic partial restoration, explicit tab identity, and safer
+> persistence while preserving the 6.0 public surface. Breaking changes target
+> the next major release.
 
 [한국어](README.ko.md) · [6.0 strategy](Docs/v6-functional-strategy.md) ·
 [5.x migration](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
@@ -29,7 +31,7 @@ InnoRouter 6 turns one `@Router` enum into one navigation model:
 Add the package and its single runtime product:
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.1.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.1.1")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -522,6 +524,7 @@ gates pass.
 - [API convergence](Docs/v6-api-convergence-spike.md)
 - [Functional specification](Docs/functional-expansion-spec.md)
 - [Delivery plan](Docs/functional-expansion-technical-plan.md)
+- [6.1.1 release checklist](Docs/6.1.1-release-checklist.md)
 - [6.1.0 release checklist](Docs/6.1.0-release-checklist.md)
 - [6.0.0 release checklist](Docs/6.0.0-release-checklist.md)
 - [Migrating from 5.x](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)

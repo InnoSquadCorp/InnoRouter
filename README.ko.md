@@ -10,8 +10,10 @@ InnoRouter 6는 하나의 `@Router` enum을 하나의 navigation 모델로 연�
 - `RouterStore<Route>`: reduce, policy prepare, atomic commit의 단일 권한
 - `RouterHost`, `RouterTabHost`, `RouterSplitHost`: native SwiftUI container
 
-> **6.1.0:** snapshot 크기 제한, 자동 부분 복원, 명시적 탭 식별자와 저장 안정성을
-> 추가하며 6.0 공개 API를 유지합니다. Breaking 변경은 다음 major 릴리스를 대상으로 합니다.
+> **6.1.1:** 6.1.0의 탭 식별자·탭 링크·host·snapshot 복구 결함을 고치고 Xcode 27용
+> swift-syntax 604를 허용합니다. 6.1.0은 snapshot 크기 제한, 자동 부분 복원, 명시적 탭
+> 식별자와 저장 안정성을 추가하며 6.0 공개 API를 유지합니다. Breaking 변경은 다음 major
+> 릴리스를 대상으로 합니다.
 
 [English](README.md) · [6.0 전략](Docs/v6-functional-strategy.md) ·
 [5.x 마이그레이션](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
@@ -27,7 +29,7 @@ InnoRouter 6는 하나의 `@Router` enum을 하나의 navigation 모델로 연�
 패키지와 하나의 runtime product를 추가합니다.
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.1.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.1.1")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -425,6 +427,7 @@ consumer 게이트를 모두 통과한 뒤에만 게시합니다.
 - [API 수렴](Docs/v6-api-convergence-spike.md)
 - [기능 명세](Docs/functional-expansion-spec.md)
 - [구현 계획](Docs/functional-expansion-technical-plan.md)
+- [6.1.1 릴리스 체크리스트](Docs/6.1.1-release-checklist.md)
 - [6.1.0 릴리스 체크리스트](Docs/6.1.0-release-checklist.md)
 - [6.0.0 릴리스 체크리스트](Docs/6.0.0-release-checklist.md)
 - [5.x에서 이전](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
