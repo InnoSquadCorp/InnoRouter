@@ -64,7 +64,9 @@ examples, not framework defaults. Existing initializers remain unbounded.
 Since InnoRouter 6.1.1, a file over the storage limit reaches the driver's
 `RouterSnapshotRecoveryPolicy` exactly like an envelope the codec rejects. The
 default `.fail` fails activation and preserves the file; `.use` receives the
-typed `encodedDataTooLarge` reason and applies the application's fallback. An
+typed `encodedDataTooLarge` reason and submits the application's fallback as
+the restore request. That request passes through normal policies, which can
+reject or defer it, so inspect `outcome.transition` as for any restore. An
 untyped storage failure, such as a denied file permission, says nothing about
 the snapshot and still fails activation.
 

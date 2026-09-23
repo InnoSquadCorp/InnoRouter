@@ -180,8 +180,7 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
             scope: rootScope,
             handling: linkHandling
         ) { route, state in
-            let action = RouterAction<R>.push(route).inScope(detailScopeID)
-            return RouterPlan(state: try RouterReducer.reduce(action, from: state))
+            try splitHostLinkPlan(route, state, detailScopeID: detailScopeID)
         }
     }
 
@@ -191,12 +190,13 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
     /// and this `View` initializer re-runs on every parent body pass, so a
     /// mismatch renders rather than traps. A three-column split keeps its
     /// sidebar and detail and leaves its content branch unused. Any other root
-    /// falls back to the standard scope IDs, which resolve to nil nodes: each
-    /// column renders its root, and navigation into it is rejected.
+    /// falls back to the standard scope IDs, which still resolve by ID: a
+    /// column renders its root over a nil node, or a same-named branch of that
+    /// root. The host's default links never write into such a root.
     private static func columnScopeIDs(
         in store: RouterStore<R>
     ) -> (sidebar: RouterScopeID, detail: RouterScopeID) {
-        let split = rootSplitState(in: store)
+        let split = rootSplitState(of: store.state)
         if split == nil || split?.content != nil {
             RouterHostTopologyDiagnostics.reportMismatch(
                 host: "RouterSplitHost",
@@ -348,8 +348,7 @@ public struct RouterThreeColumnSplitHost<
             scope: rootScope,
             handling: linkHandling
         ) { route, state in
-            let action = RouterAction<R>.push(route).inScope(detailScopeID)
-            return RouterPlan(state: try RouterReducer.reduce(action, from: state))
+            try splitHostLinkPlan(route, state, detailScopeID: detailScopeID)
         }
     }
 
@@ -364,12 +363,12 @@ public struct RouterThreeColumnSplitHost<
     ///
     /// A mismatched root renders rather than traps, for the same reason as
     /// ``RouterSplitHost``. A two-column split keeps its sidebar and detail,
-    /// and every scope the root does not carry falls back to the standard
-    /// layout's ID, which resolves to a nil node.
+    /// and every column the root does not describe falls back to the standard
+    /// layout's scope ID, resolved by ID like any other scope.
     private static func columnScopeIDs(
         in store: RouterStore<R>
     ) -> (sidebar: RouterScopeID, content: RouterScopeID, detail: RouterScopeID) {
-        let split = rootSplitState(in: store)
+        let split = rootSplitState(of: store.state)
         if split?.content == nil {
             RouterHostTopologyDiagnostics.reportMismatch(
                 host: "RouterThreeColumnSplitHost",
@@ -419,14 +418,30 @@ func makeSplitHostInitialState<R: Route>(
     }
 }
 
-/// The root split state of `store`, or nil when its root is another shape.
-@MainActor
-func rootSplitState<R: Route>(in store: RouterStore<R>) -> RouterSplitState? {
-    guard case .container(let container) = store.state.root,
+/// The root split state of `state`, or nil when its root is another shape.
+func rootSplitState<R: Route>(of state: RouterState<R>) -> RouterSplitState? {
+    guard case .container(let container) = state.root,
           container.style == .split else {
         return nil
     }
     return container.split
+}
+
+/// The default link plan both split hosts use: push onto the detail column.
+///
+/// A root of another shape can carry a branch named like the detail column.
+/// The host renders over such a root without owning its topology, so a link
+/// must not push into that branch.
+func splitHostLinkPlan<R: Route>(
+    _ route: R,
+    _ state: RouterState<R>,
+    detailScopeID: RouterScopeID
+) throws -> RouterPlan<R> {
+    guard rootSplitState(of: state) != nil else {
+        throw RouterMutationError.incompatibleNavigationTopology(.root)
+    }
+    let action = RouterAction<R>.push(route).inScope(detailScopeID)
+    return RouterPlan(state: try RouterReducer.reduce(action, from: state))
 }
 
 /// Resolves whichever store a split host ended up owning. Every initializer

@@ -162,6 +162,22 @@ struct RouterSnapshotTests {
         }
     }
 
+    @Test("A recovery fallback is validated before it is returned")
+    func invalidRecoveryFallback() throws {
+        var fallback = RouterState<RouteFixture>.rootStack
+        let duplicateID = UUID()
+        fallback.windows = [
+            .init(id: duplicateID, route: .home),
+            .init(id: duplicateID, route: .detail),
+        ]
+        let invalid = fallback
+        let codec = try RouterSnapshotCodec<RouteFixture>(currentVersion: 1)
+
+        #expect(throws: RouterSnapshotError.invalidState(.duplicateWindow)) {
+            _ = try codec.decode(Data("not a snapshot".utf8), recovery: .use { _ in invalid })
+        }
+    }
+
     @Test("Invalid state is rejected before encoding and after payload decoding")
     func invalidState() throws {
         var state = RouterState<RouteFixture>.rootStack

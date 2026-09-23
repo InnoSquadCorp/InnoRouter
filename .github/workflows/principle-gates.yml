@@ -155,13 +155,18 @@ jobs:
       - name: Test with the committed resolution
         run: swift test --jobs 2 --no-parallel
 
+      # Fail rather than silently re-test the committed 603 floor. Keep the
+      # expected line equal to the upper bound Package.swift admits.
       - name: Resolve the newest admitted swift-syntax
         run: |
           swift package update swift-syntax
           python3 - <<'PY'
           import json
           pins = json.load(open("Package.resolved"))["pins"]
-          print(next(pin["state"]["version"] for pin in pins if pin["identity"] == "swift-syntax"))
+          version = next(pin["state"]["version"] for pin in pins if pin["identity"] == "swift-syntax")
+          print(f"swift-syntax {version}")
+          if not version.startswith("604."):
+              raise SystemExit(f"expected the newest admitted 604 line, resolved {version}")
           PY
 
       - name: Test macros with the newest admitted swift-syntax

@@ -134,9 +134,11 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         //
         // A root that is not a tabs container is tolerated for the same
         // reason. Exact restoration applies any valid decoded state, such as a
-        // stack written before this router adopted tabs. Every tab then
-        // resolves to a nil node: the host renders the catalog's roots and
-        // navigation into them is rejected, rather than trapping here.
+        // stack written before this router adopted tabs. Each tab still
+        // resolves by ID, so it renders its catalog root over a nil node, or a
+        // same-named branch of a split or custom root. The host itself never
+        // writes into such a root: its default links and tab bar selection are
+        // rejected, rather than trapping here.
         if !Self.hasTabsRoot(store.state) {
             RouterHostTopologyDiagnostics.reportMismatch(
                 host: "RouterTabHost",
@@ -257,11 +259,17 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
     // Shared with host integration tests so URL expectations exercise the
     // production default rather than reimplementing it in a test closure.
     func defaultLinkPlan(_ route: R, _ state: RouterState<R>) throws -> RouterPlan<R> {
-        if let tab = tabs.first(where: { $0.root == route })?.tab {
-            return RouterPlan(state: try RouterReducer.reduce(.select(tab.routerScopeID), from: state))
-        }
         guard case .container(let container) = state.root else {
             throw RouterMutationError.expectedContainer(.root)
+        }
+        // A split or custom root can carry a branch named like a tab. The host
+        // renders over such a root without owning its topology, so a link must
+        // not select or push into that branch.
+        guard container.style == .tabs else {
+            throw RouterMutationError.incompatibleNavigationTopology(.root)
+        }
+        if let tab = tabs.first(where: { $0.root == route })?.tab {
+            return RouterPlan(state: try RouterReducer.reduce(.select(tab.routerScopeID), from: state))
         }
         // Push into the tab on screen. When a restored selection names a
         // branch this catalog dropped, the host displays its first tab, and
@@ -279,10 +287,11 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
     /// The tab the host displays for a stored `selection`.
     ///
     /// A restored selection can name a branch this catalog no longer declares,
-    /// and a root that is not a tabs container has no selection. `TabView`
-    /// must stay inside the set `ForEach` renders, so the host displays its
-    /// first tab instead. The selected tab image and the default link target
-    /// use the same answer, so none of them disagrees with the screen.
+    /// and a root of another shape may have no selection or one that is not a
+    /// tab. `TabView` must stay inside the set `ForEach` renders, so the host
+    /// displays its first tab instead. The selected tab image and the default
+    /// link target use the same answer, so none of them disagrees with the
+    /// screen.
     func displayedSelection(for selection: RouterScopeID?) -> RouterScopeID {
         guard let selection,
               tabs.contains(where: { $0.tab.routerScopeID == selection })
@@ -290,6 +299,19 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
             return tabs[0].tab.routerScopeID
         }
         return selection
+    }
+
+    /// Dispatches a tab bar selection unless the root is another shape.
+    ///
+    /// Over a split or custom root the tab bar does not represent that
+    /// container's selection, so a tap must not write it. The display then
+    /// falls back as ``displayedSelection(for:)`` describes.
+    func requestSelection(_ selection: RouterScopeID, in rootScope: RouterScope<R>) {
+        guard let state = rootScope.state, Self.hasTabsRoot(state) else { return }
+        rootScope.dispatchRoot(
+            .select(selection),
+            context: .init(source: .system)
+        )
     }
 
     private static func hasTabsRoot(_ state: RouterState<R>) -> Bool {
@@ -303,10 +325,7 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
                 displayedSelection(for: selectedScope(in: rootScope))
             },
             set: { selection in
-                rootScope.dispatchRoot(
-                    .select(selection),
-                    context: .init(source: .system)
-                )
+                requestSelection(selection, in: rootScope)
             }
         )
     }

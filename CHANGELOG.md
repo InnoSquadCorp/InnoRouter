@@ -36,7 +36,10 @@ are bare semver (no leading `v`).
   body pass. A tab host now renders its catalog, a split host renders the
   columns the root carries or the standard column IDs, navigation into
   missing scopes is rejected, and one warning per host type is logged. The
-  hosts never rewrite the store. Exact restore still round-trips any root
+  hosts never rewrite the store: over a root of another shape, their default
+  links and a tab host's tab bar selection are rejected with
+  `incompatibleNavigationTopology`, even when that root carries a branch
+  named like a tab or column. Exact restore still round-trips any root
   shape; bump `RouterSnapshotCodec.currentVersion` to reject or migrate a
   snapshot deliberately.
 - `RouterRestorationDriver` applies its `RouterSnapshotRecoveryPolicy` to a
@@ -44,8 +47,9 @@ are bare semver (no leading `v`).
   rejects an oversized file before the codec reads it, and activation failed
   on every launch even with `.use`, although the codec's own limit error
   reached the policy. `.use` now receives the storage's
-  `RouterSnapshotError` and applies the fallback; `.fail` still fails
-  activation and preserves the file. An untyped storage error still fails
+  `RouterSnapshotError` and submits the fallback as the restore request
+  through normal policies, so inspect `transition` as for any restore;
+  `.fail` still fails activation and preserves the file. An untyped storage error still fails
   activation, and the partial-validation driver still applies no recovery.
 - The macro plugin no longer uses an exhaustive `switch` over a swift-syntax
   enum. Built with library evolution — a Release build with

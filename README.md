@@ -206,7 +206,8 @@ envelope, decoded payload, and every migration result. Existing initializers
 remain unbounded for source and behavior compatibility. Since 6.1.1, a file
 over the storage limit reaches the driver's recovery policy exactly like an
 envelope the codec rejects: the default `.fail` fails activation and preserves
-the file, while `.use` applies the application's fallback.
+the file, while `.use` restores the application's fallback through normal
+policies, so inspect the activation's `transition` as for any restore.
 
 For snapshots containing retired destinations,
 `restorePartially(from:using:validator:validationTimeout:)` decodes and migrates
