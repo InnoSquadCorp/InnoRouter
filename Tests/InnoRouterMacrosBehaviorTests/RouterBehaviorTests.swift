@@ -33,6 +33,16 @@ public enum PublicBehaviorRouterRoute {
     }
 }
 
+// An explicit `get` accessor is the other destination shape the macro accepts.
+@Router
+private enum ExplicitGetterBehaviorRouterRoute {
+    case settings
+
+    var destination: some View {
+        get { Text("Settings") }
+    }
+}
+
 @Router
 private enum GenericBehaviorRouterRoute<Value: Hashable & Sendable> {
     case detail(Value)
@@ -111,6 +121,35 @@ private enum RenamedBehaviorRouterTab: Codable {
     case preferences
 
     case detail
+
+    var destination: some View {
+        Text("Destination")
+    }
+}
+
+// The two routers differ only in whether a sibling tab declares `id:`. That
+// switches `routerScopeID` from `RouterScopeID(rawValue)` to per-case literals,
+// and the backticked case must produce the same identity on both paths.
+@Router
+private enum ImplicitEscapedBehaviorRouterTab {
+    @TabItem("Home", systemImage: "house")
+    case home
+
+    @TabItem("Default", systemImage: "star")
+    case `default`
+
+    var destination: some View {
+        Text("Destination")
+    }
+}
+
+@Router
+private enum ExplicitSiblingEscapedBehaviorRouterTab {
+    @TabItem("Home", systemImage: "house", id: "main")
+    case home
+
+    @TabItem("Default", systemImage: "star")
+    case `default`
 
     var destination: some View {
         Text("Destination")
@@ -418,6 +457,17 @@ struct RouterBehaviorTests {
         _ = host.body
     }
 
+    @Test("An explicit get accessor composes as the destination")
+    @MainActor
+    func explicitGetterDestinationAndHost() {
+        _ = ExplicitGetterBehaviorRouterRoute.destination(for: .settings)
+
+        let host = RouterHost(ExplicitGetterBehaviorRouterRoute.self) {
+            Text("Root")
+        }
+        _ = host.body
+    }
+
     @Test("Generated route conformance unlocks the canonical store factory")
     @MainActor
     func generatedStoreFactory() async {
@@ -517,6 +567,16 @@ struct RouterBehaviorTests {
 
         #expect(try topology.reconciling(decoded) == saved)
         #expect(topology.scopeIDs == ["settings"])
+    }
+
+    @Test("A backticked tab keeps its case-name identity when a sibling declares an ID")
+    func escapedTabIdentityIgnoresSiblingExplicitID() {
+        typealias Implicit = ImplicitEscapedBehaviorRouterTab
+        typealias Explicit = ExplicitSiblingEscapedBehaviorRouterTab
+        #expect(Implicit.Tab.default.rawValue == "default")
+        #expect(Implicit.Tab.default.routerScopeID == "default")
+        #expect(Explicit.Tab.default.routerScopeID == "default")
+        #expect(Explicit.Tab.home.routerScopeID == "main")
     }
 
     @Test("One router can declare tab roots and pushed destinations")

@@ -823,6 +823,78 @@ struct RouterCompositionMacroTests {
         )
     }
 
+    // Without any `id:` the scope ID is `RouterScopeID(rawValue)`, which Swift
+    // spells without backticks. A sibling's `id:` switches every case to a
+    // literal, and that literal must name the same scope.
+    @Test("A backticked tab keeps its raw-value scope identity beside an explicit ID")
+    func escapedTabIDBesideExplicitID() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house", id: "main")
+                case home
+                @TabItem("Default", systemImage: "star")
+                case `default`
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+                case home
+                case `default`
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension AppRoute: InnoRouterSwiftUI.DestinationRoute, InnoRouterSwiftUI.RouterTabRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Tab: Swift.String, InnoRouterSwiftUI.RouterTab {
+                    case home
+                    case `default`
+
+                    internal var title: Foundation.LocalizedStringResource {
+                        switch self {
+                        case .home:
+                            return "Home"
+                        case .`default`:
+                            return "Default"
+                        }
+                    }
+
+                    internal var systemImage: Swift.String {
+                        switch self {
+                        case .home:
+                            return "house"
+                        case .`default`:
+                            return "star"
+                        }
+                    }
+
+                    internal var routerScopeID: InnoRouterCore.RouterScopeID {
+                        switch self {
+                        case .home:
+                            return InnoRouterCore.RouterScopeID("main")
+                        case .`default`:
+                            return InnoRouterCore.RouterScopeID("default")
+                        }
+                    }
+                }
+
+                internal static var routerTabs: [InnoRouterSwiftUI.RouterTabDescriptor<Self, Tab>] {
+                    [.init(tab: .home, root: .home), .init(tab: .`default`, root: .`default`)]
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Explicit tab IDs reject collisions with default case-name IDs")
     func duplicateEffectiveTabID() {
         assertMacroExpansion(
@@ -879,6 +951,38 @@ struct RouterCompositionMacroTests {
             diagnostics: [
                 DiagnosticSpec(
                     message: "[InnoRouterMacro.E009] @Router tab scope ID `settings` is duplicated; give every tab a unique effective ID",
+                    line: 5,
+                    column: 5
+                )
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Explicit tab IDs collide with a backticked case's unescaped name")
+    func escapedCaseDuplicateEffectiveTabID() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house", id: "default")
+                case home
+                @TabItem("Default", systemImage: "star")
+                case `default`
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+                case home
+                case `default`
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E009] @Router tab scope ID `default` is duplicated; give every tab a unique effective ID",
                     line: 5,
                     column: 5
                 )

@@ -90,6 +90,9 @@ jobs:
       - name: Test simulator selection contract
         run: bash ./scripts/test-select-simulator.sh
 
+      - name: Test simulator boot retry contract
+        run: bash ./scripts/test-boot-simulator.sh
+
   gates:
     runs-on: macos-26
     timeout-minutes: 30
@@ -124,3 +127,61 @@ jobs:
         env:
           INNOROUTER_DELEGATED_GATES: "true"
         run: ./scripts/principle-gates.sh --skip-docc-site --skip-source-lint
+
+  # Forward-toolchain lane, not a release pin. The gates above stay on the
+  # pinned Xcode; this job proves the next Xcode and the newest swift-syntax
+  # line that Package.swift admits still build InnoRouter and pass both macro
+  # suites before users upgrade into them. `xcode-27` is GitHub's preview
+  # image, bumped independently of RELEASING.md's toolchain pin.
+  xcode-27:
+    name: forward toolchain (Xcode 27)
+    runs-on: xcode-27
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      # The image installs the 27.0 build under a release-candidate app name,
+      # so use its default Xcode, and fail instead of silently testing another
+      # major if that default moves.
+      - name: Show toolchain
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          swift --version
+          xcodebuild -version | head -n 1 | grep -Eq '^Xcode 27\.'
+
+      - name: Test with the committed resolution
+        run: swift test --jobs 2 --no-parallel
+
+      # Fail rather than silently re-test the committed 603 floor. Keep the
+      # expected line equal to the upper bound Package.swift admits.
+      - name: Resolve the newest admitted swift-syntax
+        run: |
+          swift package update swift-syntax
+          python3 - <<'PY'
+          import json
+          pins = json.load(open("Package.resolved"))["pins"]
+          version = next(pin["state"]["version"] for pin in pins if pin["identity"] == "swift-syntax")
+          print(f"swift-syntax {version}")
+          if not version.startswith("604."):
+              raise SystemExit(f"expected the newest admitted 604 line, resolved {version}")
+          PY
+
+      - name: Test macros with the newest admitted swift-syntax
+        run: swift test --jobs 2 --no-parallel --filter 'InnoRouterMacrosTests|InnoRouterMacrosBehaviorTests'
+
+      # Library evolution makes swift-syntax's enums resilient, so an exhaustive
+      # switch that SwiftPM's source build accepts can fail in an Xcode build.
+      # Build the macro-first consumer the way the platform gates do.
+      - name: Build the macro-first consumer with library evolution
+        run: |
+          xcodebuild build \
+            -workspace .github/platform-tests.xcworkspace \
+            -scheme InnoRouterMacroFirstSmoke \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/InnoRouter-xcode-27" \
+            -configuration Release \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+            -quiet

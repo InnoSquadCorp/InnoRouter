@@ -6,6 +6,91 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+## 6.1.1 - 2026-09-23
+
+### Fixed
+
+- `@TabItem` no longer changes a backticked tab's persisted scope when a
+  sibling tab declares `id:`. Without any `id:`, `routerScopeID` is
+  `RouterScopeID(rawValue)`, which Swift spells without backticks. A sibling
+  `id:` switches every case to a string literal, and that literal kept the
+  author's backticks, so ``case `default` `` persisted as `` `default` ``
+  beside an explicit ID and as `default` without one. Duplicate detection
+  (E009) compared the backticked spelling too and missed a sibling
+  `id: "default"`. The default ID is now the unescaped case name in both
+  paths. Routers without a backticked tab case expand unchanged. A 6.1.0
+  snapshot that stored the backticked spelling restores that branch as an
+  orphan; keep the old identity with an explicit `id:` that spells it.
+- `RouterTabHost(store:)` pushes a link into the tab it displays. When a
+  restored selection names a branch the catalog no longer declares, the host
+  displays its first tab, but the default link plan pushed onto the stored,
+  hidden branch: the outcome was `.applied` while the screen did not change.
+  The plan now selects the displayed tab and pushes into it in one
+  transition. The selected tab image follows the same displayed selection,
+  and a first tab without a branch rejects the link instead of hiding it.
+- `RouterTabHost(store:)`, `RouterSplitHost(store:)`, and
+  `RouterThreeColumnSplitHost(store:)` no longer abort the process when the
+  store's root is not the container they render. Exact restoration may apply
+  any valid decoded state, including a root written before the application
+  changed containers, and these initializers are re-run on every parent
+  body pass. A tab host now renders its catalog, a split host renders the
+  columns the root carries or the standard column IDs, navigation into
+  missing scopes is rejected, and one warning per host type is logged. The
+  hosts never rewrite the store. Over a root of another shape, even one that
+  carries a branch named like a tab or column, tabs and columns render their
+  roots over an unresolvable scope, so navigation from their content is
+  rejected; default links and a tab host's tab bar selection are rejected with
+  `incompatibleNavigationTopology`. When the root changes back to the host's
+  shape, the host resolves its branches again. Exact restore still round-trips any root
+  shape; bump `RouterSnapshotCodec.currentVersion` to reject or migrate a
+  snapshot deliberately.
+- `RouterRestorationDriver` applies its `RouterSnapshotRecoveryPolicy` to a
+  typed storage rejection. `RouterFileSnapshotStorage(maximumByteCount:)`
+  rejects an oversized file before the codec reads it, and activation failed
+  on every launch even with `.use`, although the codec's own limit error
+  reached the policy. `.use` now receives the storage's
+  `RouterSnapshotError` and submits the fallback as the restore request
+  through normal policies, so inspect `transition` as for any restore;
+  `.fail` still fails activation and preserves the file. An untyped storage error still fails
+  activation, and the partial-validation driver still applies no recovery.
+- The macro plugin no longer uses an exhaustive `switch` over a swift-syntax
+  enum. Built with library evolution — a Release build with
+  `BUILD_LIBRARY_FOR_DISTRIBUTION`, as in the platform gates — swift-syntax
+  604's accessor enum is resilient, and the plugin failed to compile. An
+  accessor shape a later swift-syntax adds is rejected as not get-only.
+
+### Changed
+
+- `Package.swift` admits `swift-syntax` `"603.0.2"..<"605.0.0"`, adding the
+  604 line that Xcode 27 / Swift 6.4 pairs with, so an application whose
+  other macro packages require 604 resolves InnoRouter. The committed
+  resolution stays on 603.0.2.
+- A new `xcode-27` CI job runs the package tests with Xcode 27, re-resolves
+  the newest admitted swift-syntax, runs both macro suites against it, and
+  builds the macro-first consumer with library evolution. It is a forward
+  lane on GitHub's preview image, not a release pin.
+- Simulator jobs boot through `scripts/boot-simulator.py`, which shuts down,
+  erases, and retries a device whose boot never completes, up to three
+  attempts. A stuck boot failed the 6.1.0 release run's visionOS job.
+- Failed simulator test jobs print every assertion their result bundle
+  recorded; `-quiet` output named the failing test only. The native scene
+  evidence upload runs only when its probe ran, so a missing log no longer
+  buries an earlier failure.
+- The Inspector UI localization test is split into three scenarios that each
+  launch a fresh probe, and one-time reads became predicate waits with the
+  same timeouts. No retry was added and no Inspector assertion was removed.
+- `RELEASING.md` classifies adding a case to an existing public enum as
+  breaking. SwiftPM clients compile InnoRouter without library evolution, so
+  every public enum is exhaustive to them, whether or not it is `@frozen`.
+
+### Known issues
+
+- 6.1.0 added `RouterSnapshotError.invalidByteLimit`, `.encodedDataTooLarge`,
+  and `.payloadTooLarge` under the previous release policy. A client `switch`
+  over `RouterSnapshotError` without `default` stops compiling when it moves
+  from 6.0 to 6.1. The cases remain, because removing them would break 6.1.0
+  clients again; handle them or add a `default` branch.
+
 ## 6.1.0 - 2026-09-22
 
 ### Changed

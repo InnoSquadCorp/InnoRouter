@@ -1,3 +1,9 @@
+self-hosted-runner:
+  labels:
+    # GitHub-hosted preview image for the forward Xcode 27 lane. actionlint's
+    # embedded hosted-runner list does not include preview labels yet.
+    - xcode-27
+
 paths:
   .github/workflows/release.yml:
     ignore:

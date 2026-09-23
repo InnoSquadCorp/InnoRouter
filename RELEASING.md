@@ -66,6 +66,10 @@ a *minor* release is a release-process bug:
 - Changing the documented runtime behavior of a public API in a way
   that flips the observable outcome for an existing correct caller.
 - Raising the minimum supported Swift toolchain or platform floor.
+- Adding a case to an existing public enum. SwiftPM clients compile
+  InnoRouter from source without library evolution, so every public enum
+  is exhaustive to them whether or not it is marked `@frozen`: a client
+  `switch` without `default` stops compiling when a case appears.
 
 Anything in that list goes to a `7.0.0` cycle. The
 `Baselines/PublicAPI` symbol-graph baseline gate is the
@@ -75,13 +79,22 @@ graph still count).
 
 ### What is safe in a minor release
 
-- Adding new cases to a non-`@frozen` public enum.
 - Adding new defaulted parameters to a public method.
-- Adding new public types, methods, or properties.
+- Adding new public types, methods, or properties, including a new
+  public enum. Model a value set that must grow within a major release
+  as a struct with static members instead, so a later addition does not
+  break exhaustive client switches.
 - Tightening internal/private types.
 - Behavior changes that fix a bug whose previous behavior was
   documented as incorrect (call this out in CHANGELOG `[Fixed]`).
 - Doc-only changes.
+
+Before 6.1.1 this list allowed new cases on a non-`@frozen` public enum.
+That was wrong for a source package, and 6.1.0 shipped under it: its three
+new `RouterSnapshotError` cases (`invalidByteLimit`, `encodedDataTooLarge`,
+`payloadTooLarge`) break a client's exhaustive `switch` over that error.
+Removing them again would break 6.1.0 clients a second time, so they stay,
+and the 6.1.1 changelog records the source impact.
 
 ### Toolchain pin
 
@@ -92,30 +105,42 @@ graph still count).
 is pinned to a specific
 Xcode release rather than a floating Xcode channel so CI, release tags, DocC
 publishing, and performance smoke validation all exercise the same
-toolchain family. **When cutting a new release, audit and optionally
+toolchain family. The forward `xcode-27` job described below is the one
+deliberate exception. **When cutting a new release, audit and optionally
 bump that pin everywhere** — see the release checklist below.
 
-`swift-tools-version: 6.3` is the package floor. The macro target pins
-`swift-syntax` with `.upToNextMinor(from: "603.0.2")`, and every release
-workflow runs on `macos-26` with Xcode 26.6, whose host compiler reports
-Swift 6.3.3. These four levers are intentionally aligned for 6.0. Raising
-the Swift floor again belongs in a major release note.
+`swift-tools-version: 6.3` is the package floor. The macro target admits
+`swift-syntax` `"603.0.2"..<"605.0.0"`, the 603 and 604 lines, and every
+release workflow runs on `macos-26` with Xcode 26.6, whose host compiler
+reports Swift 6.3.3. The committed `Package.resolved` keeps SwiftPM gates on
+603.0.2. The platform workspace resolves like a new consumer, which takes the
+newest admitted line. Raising the Swift floor again belongs in a major release
+note.
+
+The `xcode-27` job in `principle-gates.yml` is a forward lane, not a release
+pin. It runs on GitHub's preview `xcode-27` image with Xcode 27 / Swift 6.4,
+runs the package tests against the committed resolution, re-resolves the
+newest admitted `swift-syntax`, runs both macro suites against it, and builds
+the macro-first consumer the way an Xcode app does. Raise the `swift-syntax`
+upper bound only after that job passes on the new line.
 
 #### Toolchain pin matrix
 
 | Lever | Current value | Source of truth | Notes |
 | --- | --- | --- | --- |
 | GitHub Actions runner | **macos-26** | `runs-on` in every compiling workflow under `.github/workflows/` | The runner image must provide the pinned Xcode version. |
-| Minimum Xcode for releasing | **26.6** | `xcode-version` in every workflow under `.github/workflows/` | Bumping requires updating every workflow file in the same commit. |
+| Minimum Xcode for releasing | **26.6** | `xcode-version` in every workflow under `.github/workflows/` except the forward `xcode-27` job | Bumping requires updating every workflow file in the same commit. |
 | Bundled Swift host compiler | Swift 6.3.3 (with Xcode 26.6) | `swift --version` on the pinned Xcode | Must match the package's supported Swift line. |
 | Package supported Swift floor | **Swift 6.3** | `swift-tools-version` line in `Package.swift` | Raising belongs in a major release. |
-| `swift-syntax` constraint | `.upToNextMinor(from: "603.0.2")` (i.e. `603.0.x`) | `Package.swift` macro plugin dependency | Allows patch bumps; minor / major bumps require a deliberate audit. |
+| `swift-syntax` constraint | `"603.0.2"..<"605.0.0"` (603.x and 604.x) | `Package.swift` macro plugin dependency | Raising the upper bound requires both macro suites on the new line; the `xcode-27` job runs them on the newest admitted version. |
+| Forward toolchain lane | `xcode-27` runner, Xcode **27.0** | `xcode-27` job in `principle-gates.yml` | Preview image, bumped independently of the release pin. It does not replace the pinned release gates. |
 | Apple platform floor | iOS 18 / iPadOS 18 / macOS 15 / tvOS 18 / watchOS 11 / visionOS 2 | `platforms` block in `Package.swift` | Raising belongs in a major release. |
 | Macro host availability | macOS only (SwiftSyntax host plugin) | `Tests/InnoRouterMacrosTests`, `Tests/InnoRouterMacrosBehaviorTests` | Macro expansion is exercised by the macOS test jobs. |
 
 To bump the Xcode pin, confirm that the matching runner image provides it,
 then change `runs-on` and `xcode-version` in every compiling workflow file
-in a single commit. Regenerate the public-API baseline with the same toolchain
+in a single commit, leaving the forward `xcode-27` job on its own image.
+Regenerate the public-API baseline with the same toolchain
 (`Baselines/PublicAPI` is symbol-graph–sensitive), and rerun
 `./scripts/principle-gates.sh` locally before tagging.
 
