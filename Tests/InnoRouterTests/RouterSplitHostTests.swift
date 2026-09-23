@@ -23,7 +23,7 @@ private enum RouterSplitHostRoute: DestinationRoute {
 
 @MainActor
 private final class RouterSplitHostInvocationGate {
-    private var didRun = false
+    private(set) var didRun = false
 
     func run(_ action: () -> Void) {
         guard !didRun else { return }
@@ -235,6 +235,30 @@ struct RouterSplitHostTests {
         let split = try makeSplitStore(threeColumn: false).state
         let plan = try splitHostLinkPlan(.detail(id: "link"), split, detailScopeID: "detail")
         #expect(plan.state.node(at: ["detail"]) == .stack(path: [.detail(id: "link")]))
+    }
+
+    // The detail column's own content navigates on appear. Over a tabs root
+    // that carries a `detail` branch, the column must not resolve or write it.
+    @Test("Split host columns never write into a root of another shape")
+    func mismatchedRootRejectsColumnNavigation() async throws {
+        let restored = try RouterState<RouterSplitHostRoute>(root: .container(.init(
+            style: .tabs,
+            selection: "detail",
+            branches: [RouterBranch(id: "sidebar"), RouterBranch(id: "detail")]
+        )))
+        let store = RouterStore(initialState: restored)
+        let gate = RouterSplitHostInvocationGate()
+
+        _ = try renderRouterSplitHost(RouterSplitHost(
+            store: store,
+            sidebar: { Text("Sidebar") },
+            root: { RouterSplitHostProbe(gate: gate) }
+        ))
+        for _ in 0..<6 { await Task.yield() }
+
+        #expect(gate.didRun)
+        #expect(store.state == restored)
+        #expect(store.revision == 0)
     }
 
     @Test("Split hosts render over the other column count's split state")

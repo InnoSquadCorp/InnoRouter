@@ -22,6 +22,10 @@ public final class RouterScope<R: Route> {
     var observedSelection: RouterScopeID?
     var observedBadges: [RouterScopeID: Int]
     var observedSplitState: RouterSplitState?
+    /// The style of this scope's container node, observed on its own so a
+    /// host re-renders when its container changes shape rather than on every
+    /// commit that changes the node.
+    var observedContainerStyle: RouterContainerStyle?
     var observedWindows: [RouterWindow<R>]
     var observedImmersiveSpace: RouterImmersiveSpace<R>?
     /// Changes whenever SwiftUI should re-read a system navigation binding,
@@ -57,6 +61,7 @@ public final class RouterScope<R: Route> {
         self.observedSelection = projection.selection
         self.observedBadges = projection.badges
         self.observedSplitState = projection.split
+        self.observedContainerStyle = Self.containerStyle(of: node)
         self.observedWindows = store.state.windows
         self.observedImmersiveSpace = store.state.immersiveSpace
         self.store = store
@@ -411,6 +416,8 @@ public final class RouterScope<R: Route> {
         }
         if observedBadges != projection.badges { observedBadges = projection.badges }
         if observedSplitState != projection.split { observedSplitState = projection.split }
+        let containerStyle = Self.containerStyle(of: refreshedNode)
+        if observedContainerStyle != containerStyle { observedContainerStyle = containerStyle }
         if observedWindows != state.windows { observedWindows = state.windows }
         if observedImmersiveSpace != state.immersiveSpace {
             observedImmersiveSpace = state.immersiveSpace
@@ -427,6 +434,11 @@ public final class RouterScope<R: Route> {
 
     func reportPlatformAdaptation(_ adaptation: RouterPlatformAdaptation) {
         store?.reportPlatformAdaptation(adaptation)
+    }
+
+    private static func containerStyle(of node: RouterNode<R>?) -> RouterContainerStyle? {
+        guard case .container(let container) = node else { return nil }
+        return container.style
     }
 
     private static func projection(

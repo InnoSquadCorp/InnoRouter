@@ -36,10 +36,12 @@ are bare semver (no leading `v`).
   body pass. A tab host now renders its catalog, a split host renders the
   columns the root carries or the standard column IDs, navigation into
   missing scopes is rejected, and one warning per host type is logged. The
-  hosts never rewrite the store: over a root of another shape, their default
-  links and a tab host's tab bar selection are rejected with
-  `incompatibleNavigationTopology`, even when that root carries a branch
-  named like a tab or column. Exact restore still round-trips any root
+  hosts never rewrite the store. Over a root of another shape, even one that
+  carries a branch named like a tab or column, tabs and columns render their
+  roots over an unresolvable scope, so navigation from their content is
+  rejected; default links and a tab host's tab bar selection are rejected with
+  `incompatibleNavigationTopology`. When the root changes back to the host's
+  shape, the host resolves its branches again. Exact restore still round-trips any root
   shape; bump `RouterSnapshotCodec.currentVersion` to reject or migrate a
   snapshot deliberately.
 - `RouterRestorationDriver` applies its `RouterSnapshotRecoveryPolicy` to a

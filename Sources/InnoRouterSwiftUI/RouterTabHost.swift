@@ -134,11 +134,10 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         //
         // A root that is not a tabs container is tolerated for the same
         // reason. Exact restoration applies any valid decoded state, such as a
-        // stack written before this router adopted tabs. Each tab still
-        // resolves by ID, so it renders its catalog root over a nil node, or a
-        // same-named branch of a split or custom root. The host itself never
-        // writes into such a root: its default links and tab bar selection are
-        // rejected, rather than trapping here.
+        // stack written before this router adopted tabs. Each tab then renders
+        // its catalog root over an unresolvable scope, so a same-named branch
+        // of a split or custom root is neither shown nor written, and default
+        // links and tab bar selection are rejected, rather than trapping here.
         if !Self.hasTabsRoot(store.state) {
             RouterHostTopologyDiagnostics.reportMismatch(
                 host: "RouterTabHost",
@@ -223,7 +222,9 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
             ForEach(tabs) { descriptor in
                 let tab = descriptor.tab
                 let scopeID = tab.routerScopeID
-                let scope = store.scope(at: RouterScopePath([scopeID]))
+                let scope = store.scope(
+                    at: resolvesBranches(of: rootScope) ? RouterScopePath([scopeID]) : .unresolvable
+                )
                 let selectedImage = displayedSelection(for: selectedScope(in: rootScope)) == scopeID
                     ? tab.selectedSystemImage ?? tab.systemImage
                     : tab.systemImage
@@ -338,15 +339,28 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         return ownedStore
     }
 
+    /// Whether tabs resolve the root's branches, which holds only while the
+    /// root is a tabs container.
+    ///
+    /// A same-named branch of a split or custom root belongs to that
+    /// container, so each tab then renders over an unresolvable scope that
+    /// neither shows nor writes it, and that root's selection and badges are
+    /// not these tabs'. The container style is observed on its own, so the
+    /// host re-renders when the root changes shape, such as a later tabs
+    /// restore, rather than on every commit.
+    private func resolvesBranches(of rootScope: RouterScope<R>) -> Bool {
+        rootScope.observedContainerStyle == .tabs
+    }
+
     private func selectedScope(in rootScope: RouterScope<R>) -> RouterScopeID? {
-        rootScope.observedSelection
+        resolvesBranches(of: rootScope) ? rootScope.observedSelection : nil
     }
 
     private func badge(
         for scope: RouterScopeID,
         in rootScope: RouterScope<R>
     ) -> Int? {
-        rootScope.observedBadges[scope]
+        resolvesBranches(of: rootScope) ? rootScope.observedBadges[scope] : nil
     }
 
     private func routerTab(
