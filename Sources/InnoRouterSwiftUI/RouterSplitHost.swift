@@ -131,10 +131,9 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
         @ViewBuilder sidebar: @escaping () -> SidebarRoot,
         @ViewBuilder root: @escaping () -> DetailRoot
     ) {
-        let split = Self.requireSplitState(in: store)
-        precondition(split.content == nil, "RouterSplitHost requires a two-column split state")
-        self.sidebarScopeID = split.sidebar
-        self.detailScopeID = split.detail
+        let columns = Self.columnScopeIDs(in: store)
+        self.sidebarScopeID = columns.sidebar
+        self.detailScopeID = columns.detail
         self.linkHandling = linkHandling
         self.sidebarRoot = sidebar
         self.detailRoot = root
@@ -186,13 +185,28 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
         }
     }
 
-    private static func requireSplitState(in store: RouterStore<R>) -> RouterSplitState {
-        guard case .container(let container) = store.state.root,
-              container.style == .split,
-              let split = container.split else {
-            preconditionFailure("RouterSplitHost requires a root split container")
+    /// Resolves the columns this host renders from a supplied store.
+    ///
+    /// Exact restoration can replace the root with any valid decoded shape,
+    /// and this `View` initializer re-runs on every parent body pass, so a
+    /// mismatch renders rather than traps. A three-column split keeps its
+    /// sidebar and detail and leaves its content branch unused. Any other root
+    /// falls back to the standard scope IDs, which resolve to nil nodes: each
+    /// column renders its root, and navigation into it is rejected.
+    private static func columnScopeIDs(
+        in store: RouterStore<R>
+    ) -> (sidebar: RouterScopeID, detail: RouterScopeID) {
+        let split = rootSplitState(in: store)
+        if split == nil || split?.content != nil {
+            RouterHostTopologyDiagnostics.reportMismatch(
+                host: "RouterSplitHost",
+                expected: "a two-column split container"
+            )
         }
-        return split
+        return (
+            split?.sidebar ?? defaultSidebarScopeID,
+            split?.detail ?? defaultDetailScopeID
+        )
     }
 
     private var store: RouterStore<R> {
@@ -275,17 +289,10 @@ public struct RouterThreeColumnSplitHost<
         @ViewBuilder content: @escaping () -> ContentRoot,
         @ViewBuilder detail: @escaping () -> DetailRoot
     ) {
-        guard case .container(let container) = store.state.root,
-              container.style == .split,
-              let split = container.split,
-              let contentScopeID = split.content else {
-            preconditionFailure(
-                "RouterThreeColumnSplitHost requires a root three-column split container"
-            )
-        }
-        self.sidebarScopeID = split.sidebar
-        self.contentScopeID = contentScopeID
-        self.detailScopeID = split.detail
+        let columns = Self.columnScopeIDs(in: store)
+        self.sidebarScopeID = columns.sidebar
+        self.contentScopeID = columns.content
+        self.detailScopeID = columns.detail
         self.linkHandling = linkHandling
         self.sidebarRoot = sidebar
         self.contentRoot = content
@@ -353,6 +360,30 @@ public struct RouterThreeColumnSplitHost<
         makeSplitHostInitialState(split: split, branches: branches, hostName: "three-column")
     }
 
+    /// Resolves the columns this host renders from a supplied store.
+    ///
+    /// A mismatched root renders rather than traps, for the same reason as
+    /// ``RouterSplitHost``. A two-column split keeps its sidebar and detail,
+    /// and every scope the root does not carry falls back to the standard
+    /// layout's ID, which resolves to a nil node.
+    private static func columnScopeIDs(
+        in store: RouterStore<R>
+    ) -> (sidebar: RouterScopeID, content: RouterScopeID, detail: RouterScopeID) {
+        let split = rootSplitState(in: store)
+        if split?.content == nil {
+            RouterHostTopologyDiagnostics.reportMismatch(
+                host: "RouterThreeColumnSplitHost",
+                expected: "a three-column split container"
+            )
+        }
+        let standard = RouterThreeColumnSplitLayout.standard
+        return (
+            split?.sidebar ?? standard.sidebarScopeID,
+            split?.content ?? standard.contentScopeID,
+            split?.detail ?? standard.detailScopeID
+        )
+    }
+
     private var store: RouterStore<R> {
         resolveSplitHostStore(
             supplied: suppliedStore,
@@ -386,6 +417,16 @@ func makeSplitHostInitialState<R: Route>(
     } catch {
         preconditionFailure("Validated \(hostName) layout produced invalid state: \(error)")
     }
+}
+
+/// The root split state of `store`, or nil when its root is another shape.
+@MainActor
+func rootSplitState<R: Route>(in store: RouterStore<R>) -> RouterSplitState? {
+    guard case .container(let container) = store.state.root,
+          container.style == .split else {
+        return nil
+    }
+    return container.split
 }
 
 /// Resolves whichever store a split host ended up owning. Every initializer

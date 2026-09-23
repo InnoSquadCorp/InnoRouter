@@ -126,16 +126,21 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         //
         // Rendering is driven by the catalog, and every tab resolves through
         // `store.scope(at:)`, which yields a nil node for a branch that is not
-        // present. A renamed tab starts empty and an orphaned branch goes
-        // unused — the same outcome the application would get by bumping
-        // `RouterSnapshotCodec.currentVersion`, which remains the way to
-        // migrate deliberately.
-        guard case .container(let container) = store.state.root,
-              container.style == .tabs else {
-            preconditionFailure(
-                "RouterTabHost requires a root tabs container. A snapshot written "
-                + "before this router used tabs decodes to a different root shape; "
-                + "bump RouterSnapshotCodec.currentVersion to reject or migrate it."
+        // present. An orphaned branch goes unused. A tab the snapshot predates
+        // has no branch, and selecting it is rejected as a missing scope until
+        // the store is restored with a `RouterTabRestorationTopology`. Bumping
+        // `RouterSnapshotCodec.currentVersion` remains the way to reject or
+        // migrate a snapshot deliberately.
+        //
+        // A root that is not a tabs container is tolerated for the same
+        // reason. Exact restoration applies any valid decoded state, such as a
+        // stack written before this router adopted tabs. Every tab then
+        // resolves to a nil node: the host renders the catalog's roots and
+        // navigation into them is rejected, rather than trapping here.
+        if !Self.hasTabsRoot(store.state) {
+            RouterHostTopologyDiagnostics.reportMismatch(
+                host: "RouterTabHost",
+                expected: "a tabs container"
             )
         }
         self.tabs = catalog.descriptors
@@ -217,7 +222,7 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
                 let tab = descriptor.tab
                 let scopeID = tab.routerScopeID
                 let scope = store.scope(at: RouterScopePath([scopeID]))
-                let selectedImage = selectedScope(in: rootScope) == scopeID
+                let selectedImage = displayedSelection(for: selectedScope(in: rootScope)) == scopeID
                     ? tab.selectedSystemImage ?? tab.systemImage
                     : tab.systemImage
                 #if os(tvOS) || os(watchOS)
@@ -252,30 +257,50 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
     // Shared with host integration tests so URL expectations exercise the
     // production default rather than reimplementing it in a test closure.
     func defaultLinkPlan(_ route: R, _ state: RouterState<R>) throws -> RouterPlan<R> {
-        let action: RouterAction<R>
         if let tab = tabs.first(where: { $0.root == route })?.tab {
-            action = .select(tab.routerScopeID)
-        } else if case .container(let container) = state.root,
-                  let selected = container.selection {
-            action = .scoped(selected, .push(route))
-        } else {
+            return RouterPlan(state: try RouterReducer.reduce(.select(tab.routerScopeID), from: state))
+        }
+        guard case .container(let container) = state.root else {
             throw RouterMutationError.expectedContainer(.root)
         }
-        return RouterPlan(state: try RouterReducer.reduce(action, from: state))
+        // Push into the tab on screen. When a restored selection names a
+        // branch this catalog dropped, the host displays its first tab, and
+        // pushing into the stored selection landed the route in a branch
+        // nothing renders. Selecting the displayed tab in the same plan keeps
+        // the state and the screen in agreement with one transition.
+        let target = displayedSelection(for: container.selection)
+        var prepared = state
+        if container.selection != target {
+            prepared = try RouterReducer.reduce(.select(target), from: prepared)
+        }
+        return RouterPlan(state: try RouterReducer.reduce(.scoped(target, .push(route)), from: prepared))
+    }
+
+    /// The tab the host displays for a stored `selection`.
+    ///
+    /// A restored selection can name a branch this catalog no longer declares,
+    /// and a root that is not a tabs container has no selection. `TabView`
+    /// must stay inside the set `ForEach` renders, so the host displays its
+    /// first tab instead. The selected tab image and the default link target
+    /// use the same answer, so none of them disagrees with the screen.
+    func displayedSelection(for selection: RouterScopeID?) -> RouterScopeID {
+        guard let selection,
+              tabs.contains(where: { $0.tab.routerScopeID == selection })
+        else {
+            return tabs[0].tab.routerScopeID
+        }
+        return selection
+    }
+
+    private static func hasTabsRoot(_ state: RouterState<R>) -> Bool {
+        guard case .container(let container) = state.root else { return false }
+        return container.style == .tabs
     }
 
     private func selectionBinding(_ rootScope: RouterScope<R>) -> Binding<RouterScopeID> {
         Binding(
             get: {
-                // A restored selection can name a branch this catalog no longer
-                // declares. Falling back keeps TabView's selection inside the
-                // set ForEach actually renders.
-                guard let selected = selectedScope(in: rootScope),
-                      tabs.contains(where: { $0.tab.routerScopeID == selected })
-                else {
-                    return tabs[0].tab.routerScopeID
-                }
-                return selected
+                displayedSelection(for: selectedScope(in: rootScope))
             },
             set: { selection in
                 rootScope.dispatchRoot(
