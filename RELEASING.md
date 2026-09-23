@@ -66,6 +66,10 @@ a *minor* release is a release-process bug:
 - Changing the documented runtime behavior of a public API in a way
   that flips the observable outcome for an existing correct caller.
 - Raising the minimum supported Swift toolchain or platform floor.
+- Adding a case to an existing public enum. SwiftPM clients compile
+  InnoRouter from source without library evolution, so every public enum
+  is exhaustive to them whether or not it is marked `@frozen`: a client
+  `switch` without `default` stops compiling when a case appears.
 
 Anything in that list goes to a `7.0.0` cycle. The
 `Baselines/PublicAPI` symbol-graph baseline gate is the
@@ -75,13 +79,22 @@ graph still count).
 
 ### What is safe in a minor release
 
-- Adding new cases to a non-`@frozen` public enum.
 - Adding new defaulted parameters to a public method.
-- Adding new public types, methods, or properties.
+- Adding new public types, methods, or properties, including a new
+  public enum. Model a value set that must grow within a major release
+  as a struct with static members instead, so a later addition does not
+  break exhaustive client switches.
 - Tightening internal/private types.
 - Behavior changes that fix a bug whose previous behavior was
   documented as incorrect (call this out in CHANGELOG `[Fixed]`).
 - Doc-only changes.
+
+Before 6.1.1 this list allowed new cases on a non-`@frozen` public enum.
+That was wrong for a source package, and 6.1.0 shipped under it: its three
+new `RouterSnapshotError` cases (`invalidByteLimit`, `encodedDataTooLarge`,
+`payloadTooLarge`) break a client's exhaustive `switch` over that error.
+Removing them again would break 6.1.0 clients a second time, so they stay,
+and the 6.1.1 changelog records the source impact.
 
 ### Toolchain pin
 
