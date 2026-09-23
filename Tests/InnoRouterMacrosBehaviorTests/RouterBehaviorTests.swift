@@ -117,6 +117,35 @@ private enum RenamedBehaviorRouterTab: Codable {
     }
 }
 
+// The two routers differ only in whether a sibling tab declares `id:`. That
+// switches `routerScopeID` from `RouterScopeID(rawValue)` to per-case literals,
+// and the backticked case must produce the same identity on both paths.
+@Router
+private enum ImplicitEscapedBehaviorRouterTab {
+    @TabItem("Home", systemImage: "house")
+    case home
+
+    @TabItem("Default", systemImage: "star")
+    case `default`
+
+    var destination: some View {
+        Text("Destination")
+    }
+}
+
+@Router
+private enum ExplicitSiblingEscapedBehaviorRouterTab {
+    @TabItem("Home", systemImage: "house", id: "main")
+    case home
+
+    @TabItem("Default", systemImage: "star")
+    case `default`
+
+    var destination: some View {
+        Text("Destination")
+    }
+}
+
 @Router
 private enum MixedBehaviorRouter {
     @TabItem("Home", systemImage: "house")
@@ -517,6 +546,16 @@ struct RouterBehaviorTests {
 
         #expect(try topology.reconciling(decoded) == saved)
         #expect(topology.scopeIDs == ["settings"])
+    }
+
+    @Test("A backticked tab keeps its case-name identity when a sibling declares an ID")
+    func escapedTabIdentityIgnoresSiblingExplicitID() {
+        typealias Implicit = ImplicitEscapedBehaviorRouterTab
+        typealias Explicit = ExplicitSiblingEscapedBehaviorRouterTab
+        #expect(Implicit.Tab.default.rawValue == "default")
+        #expect(Implicit.Tab.default.routerScopeID == "default")
+        #expect(Explicit.Tab.default.routerScopeID == "default")
+        #expect(Explicit.Tab.home.routerScopeID == "main")
     }
 
     @Test("One router can declare tab roots and pushed destinations")
