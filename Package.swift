@@ -118,15 +118,18 @@ let package = Package(
     dependencies: [
         // Swift Syntax for Macros.
         //
-        // Pinned `upToNextMinor` because swift-syntax compatibility
-        // is tracked by major release lines such as 602.x and 603.x.
-        // The macro plugin uses SwiftSyntaxBuilder / SwiftDiagnostics
-        // directly (see `MacroDiagnostic.swift`, `RoutableMacro.swift`),
-        // so this constraint allows 603.0.x patch backports while
-        // preventing a silent jump to the next major line. Dependabot
-        // opens those updates explicitly so macro fixtures and
-        // public-API baselines can move alongside the bump.
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", .upToNextMinor(from: "603.0.2")),
+        // swift-syntax compatibility is tracked by major release lines
+        // such as 603.x (Swift 6.3) and 604.x (Swift 6.4). The macro
+        // plugin uses SwiftSyntaxBuilder / SwiftDiagnostics directly (see
+        // `MacroDiagnostic.swift`, `RoutableMacro.swift`), so the range
+        // admits exactly the lines whose macro suites have run: an app
+        // whose other macro packages already require 604 still resolves
+        // InnoRouter, and no unaudited line is admitted silently. The
+        // committed Package.resolved keeps CI on the 603 floor, while the
+        // `xcode-27` job re-resolves to the newest admitted version.
+        // Raise the upper bound only after running both macro suites on
+        // the next line.
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", "603.0.2"..<"605.0.0"),
     ],
     targets: [
         // MARK: - Macro Host Route-Pattern Grammar

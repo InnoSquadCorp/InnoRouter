@@ -1,9 +1,11 @@
 # InnoRouter dependabot configuration.
 #
 # - Swift Package Manager updates surface swift-syntax bumps as
-#   explicit PRs (the package is pinned upToNextMinor in
-#   `Package.swift`) so the macro plugin and public-API baselines
-#   can be regenerated alongside the bump.
+#   explicit PRs. `Package.swift` admits a bounded range of release
+#   lines, and the committed Package.resolved keeps CI on its floor,
+#   so a resolution bump is reviewed with the macro suites rather
+#   than taken silently. Raising the range's upper bound is a manual
+#   change after the `xcode-27` job passes on the new line.
 # - GitHub Actions updates surface workflow action bumps so the
 #   pinned `maxim-lobanov/setup-xcode` / `xcode-version` chain stays
 #   current.
