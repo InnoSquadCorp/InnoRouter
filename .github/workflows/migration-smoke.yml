@@ -1,5 +1,8 @@
 name: migration-smoke
 
+permissions:
+  contents: read
+
 on:
   workflow_call:
     inputs:
@@ -19,6 +22,7 @@ concurrency:
 
 jobs:
   migration:
+    if: github.workflow != 'migration-smoke' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     runs-on: macos-26
     timeout-minutes: 30
 
@@ -27,6 +31,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
 
       - name: Select Xcode 26.6
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1

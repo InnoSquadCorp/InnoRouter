@@ -154,7 +154,10 @@ if [[ "$VERSION" == "preview" ]]; then
     PREVIEW_SOURCE_REF="$(git -C "$ROOT_DIR" rev-parse HEAD)"
   fi
 fi
-SOURCE_REF="$(bash "$ROOT_DIR/scripts/resolve-docc-source-ref.sh" "$VERSION" "$PREVIEW_SOURCE_REF")"
+if [[ -n "${INNOROUTER_DOCC_SOURCE_SHA:-}" ]]; then
+  [[ "$(git -C "$ROOT_DIR" rev-parse HEAD)" == "$INNOROUTER_DOCC_SOURCE_SHA" ]] || die "candidate source SHA must equal the build checkout"
+fi
+SOURCE_REF="$(bash "$ROOT_DIR/scripts/resolve-docc-source-ref.sh" "$VERSION" "$PREVIEW_SOURCE_REF" "${INNOROUTER_DOCC_SOURCE_SHA:-}")"
 
 DOCC_MODULES=(
   "InnoRouter|Sources/InnoRouterUmbrella/InnoRouter.docc|runtime|InnoRouter|com.innosquad.innorouter.docs.runtime"

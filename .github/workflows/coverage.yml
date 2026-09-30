@@ -1,5 +1,8 @@
 name: coverage
 
+permissions:
+  contents: read
+
 on:
   workflow_call:
     inputs:
@@ -19,17 +22,18 @@ concurrency:
 
 jobs:
   coverage:
+    if: github.workflow != 'coverage' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     runs-on: macos-26
     timeout-minutes: 30
     permissions:
       contents: read
-      id-token: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
 
       # Coverage uses the same pinned Xcode/Swift toolchain as the
       # principle-gates workflow so the codecov.io trend reflects the
@@ -93,7 +97,18 @@ jobs:
             coverage-full.lcov
             coverage-summary.json
 
-      - name: Upload to Codecov
+  codecov:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dependabot_merge_pr != '')) && (github.workflow != 'coverage' || vars.INNOROUTER_CI_AGGREGATE != 'true')
+    needs: coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: coverage-visibility
+      - name: Upload validated main coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
         with:
           files: ./coverage.lcov

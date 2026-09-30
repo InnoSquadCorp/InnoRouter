@@ -1,0 +1,21 @@
+name: Bug report
+description: Report a reproducible navigation, macro, or documentation problem.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "For vulnerabilities, use the private reporting process in SECURITY.md."
+  - type: input
+    id: environment
+    attributes:
+      label: Version and environment
+      description: InnoRouter version or SHA, Swift/Xcode version, OS and device/simulator.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Minimal route, steps, expected and actual behavior, and relevant redacted logs.
+    validations:
+      required: true

@@ -1,6 +1,22 @@
 # Releasing InnoRouter
 
-This repository ships a Swift Package, versioned DocC documentation, and GitHub Releases from the same semver tag event.
+Validate the version and exact SHA before approving a public SwiftPM tag.
+`release.yml` defaults to `publish=false` for manual candidate validation; see
+[automation policy](Docs/automation-policy.md) for gates and activation boundaries.
+
+Dispatch from main with `version`, full lowercase `commit_sha`, no `tag`, and
+`publish=false`. Candidate Required validates all existing gates and exact-SHA
+consumers, packaging versioned DocC/notes/checksums without creating a tag or
+Release or publishing Pages. A local identity check is:
+
+```bash
+python3 scripts/validate-release-candidate.py --version 6.1.1 --commit-sha <full-sha>
+```
+
+Once the owner approves the same version/SHA, the approved bare SemVer tag is
+already public to SwiftPM. The existing tag event publishes the Swift Package,
+versioned DocC documentation and GitHub Release. Never create a candidate tag
+before approval.
 
 ## Release tag contract
 
@@ -27,9 +43,9 @@ Release-candidate and beta channels use the
 - `6.1.0-beta.2` (beta)
 
 Pre-release tags do **not** match the GA regex above. Publish them
-from the same `release.yml` workflow by first creating and pushing
-the tag, then manually dispatching the workflow with
-`tag=<pre-release-tag>` and `prerelease=true`:
+from the same `release.yml` workflow **after owner approval of the version/SHA**
+by creating and pushing the tag, then manually dispatching the workflow from main
+with `tag=<pre-release-tag>`, `publish=true`, and `prerelease=true`:
 
 ```bash
 git tag 6.0.0-rc.1
@@ -151,7 +167,7 @@ The library release and the documentation release are the same event.
 
 For a publication-control failure after a tag exists, preserve that immutable
 tag. Fix workflow-only configuration on `main`, then manually dispatch
-`release.yml` from `main` with the existing `tag` and `prerelease=false` for GA.
+`release.yml` from `main` with the existing `tag`, `publish=true`, and `prerelease=false` for GA.
 The preflight resolves the tag again; all package builds still use its exact
 commit, not the workflow-control commit. Reusable workflow concurrency groups
 must have distinct static prefixes because `github.workflow` is the caller's

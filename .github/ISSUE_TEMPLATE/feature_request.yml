@@ -1,0 +1,16 @@
+name: Feature request
+description: Describe the navigation problem and a proposed improvement.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and use case
+      description: Describe the current limitation, affected users, and existing workaround.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Suggested behavior, public API or migration implications, and alternatives.

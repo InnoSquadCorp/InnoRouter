@@ -1,5 +1,8 @@
 name: platforms
 
+permissions:
+  contents: read
+
 on:
   workflow_call:
     inputs:
@@ -19,6 +22,7 @@ concurrency:
 
 jobs:
   inspector-ui:
+    if: github.workflow != 'platforms' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     name: test Inspector UI (iPadOS)
     runs-on: macos-26
     timeout-minutes: 30
@@ -27,6 +31,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
 
       - name: Select pinned Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
@@ -77,6 +82,7 @@ jobs:
             ${{ runner.temp }}/InspectorUI-tests.json
 
   build-matrix:
+    if: github.workflow != 'platforms' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     name: build ${{ matrix.platform.name }}
     runs-on: macos-26
     timeout-minutes: 45
@@ -104,6 +110,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
 
       # This build job is compile-only. The authoritative macOS
       # correctness gate remains the `gates` workflow; these jobs catch
@@ -160,6 +167,7 @@ jobs:
             '${{ matrix.platform.name }}'
 
   platform-tests:
+    if: github.workflow != 'platforms' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     name: test ${{ matrix.platform.name }}
     runs-on: macos-26
     timeout-minutes: 45
@@ -209,6 +217,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
 
       - name: Select pinned Xcode
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
@@ -354,3 +363,19 @@ jobs:
           path: NativeSceneSmoke/.build/native-*/*.log
           include-hidden-files: true
           if-no-files-found: error
+
+  required:
+    name: Platforms Required
+    if: always() && (github.workflow != 'platforms' || vars.INNOROUTER_CI_AGGREGATE != 'true')
+    needs: [inspector-ui, build-matrix, platform-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow == 'release' && 'refs/heads/main' || inputs.ref || github.sha }}
+          persist-credentials: false
+      - name: Require every matrix
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 scripts/ci-policy.py require --jobs inspector-ui build-matrix platform-tests

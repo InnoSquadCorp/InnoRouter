@@ -1,40 +1,71 @@
-# InnoRouter dependabot configuration.
-#
-# - Swift Package Manager updates surface swift-syntax bumps as
-#   explicit PRs (the package is pinned upToNextMinor in
-#   `Package.swift`) so the macro plugin and public-API baselines
-#   can be regenerated alongside the bump.
-# - GitHub Actions updates surface workflow action bumps so the
-#   pinned `maxim-lobanov/setup-xcode` / `xcode-version` chain stays
-#   current.
-#
-# Weekly cadence keeps PR pressure manageable; bump to daily only
-# after the principle-gates baseline regeneration story is fully
-# automated.
-
-version: 2
-
-updates:
-  - package-ecosystem: "swift"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "chore(deps)"
-    labels:
-      - "dependencies"
-      - "swift-package"
-
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "chore(ci)"
-    labels:
-      - "dependencies"
-      - "github-actions"
+{
+  "version": 2,
+  "updates": [
+    {
+      "package-ecosystem": "github-actions",
+      "schedule": {
+        "interval": "weekly",
+        "day": "monday",
+        "time": "09:00",
+        "timezone": "Asia/Seoul"
+      },
+      "open-pull-requests-limit": 5,
+      "commit-message": {
+        "prefix": "chore(ci)"
+      },
+      "labels": [
+        "dependencies",
+        "github-actions"
+      ],
+      "groups": {
+        "actions-minor-patch": {
+          "patterns": [
+            "*"
+          ],
+          "update-types": [
+            "minor",
+            "patch"
+          ]
+        }
+      },
+      "directory": "/"
+    },
+    {
+      "package-ecosystem": "swift",
+      "schedule": {
+        "interval": "weekly",
+        "day": "monday",
+        "time": "09:30",
+        "timezone": "Asia/Seoul"
+      },
+      "open-pull-requests-limit": 3,
+      "commit-message": {
+        "prefix": "chore(deps)"
+      },
+      "labels": [
+        "dependencies",
+        "swift",
+        "release-validation"
+      ],
+      "groups": {
+        "swift-minor-patch": {
+          "patterns": [
+            "*"
+          ],
+          "update-types": [
+            "minor",
+            "patch"
+          ],
+          "exclude-patterns": [
+            "github.com/swiftlang/swift-syntax"
+          ]
+        }
+      },
+      "directories": [
+        "/",
+        "/ConsumerSmoke",
+        "/NativeSceneSmoke/NativeSceneSmoke.xcodeproj"
+      ]
+    }
+  ]
+}

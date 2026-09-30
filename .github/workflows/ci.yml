@@ -1,0 +1,231 @@
+name: CI
+run-name: >-
+  ${{ inputs.dependabot_merge_pr != '' && format('CI / Dependabot merge #{0}', inputs.dependabot_merge_pr) || 'CI' }}
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review]
+  push:
+    branches: [main, develop]
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+    inputs:
+      dependabot_merge_pr:
+        description: "Trusted recovery only: actual merged Dependabot PR at current main"
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci-plan:
+    name: CI Plan
+    permissions:
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+      active: ${{ steps.mode.outputs.active }}
+      ref: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify actual bot merge before recovery
+        if: inputs.dependabot_merge_pr != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGED_PR: ${{ inputs.dependabot_merge_pr }}
+          EXPECTED_SHA: ${{ github.sha }}
+          EVENT_REF: ${{ github.ref }}
+        run: |
+          [[ "$EVENT_REF" == 'refs/heads/main' ]] || { echo 'Recovery must run on main.' >&2; exit 1; }
+          python3 -B scripts/dependabot-merge-policy.py verify-post-merge --pr "$MERGED_PR" --expected-sha "$EXPECTED_SHA"
+      - name: Plan exact changed paths
+        id: plan
+        run: python3 scripts/ci-policy.py plan --event "$GITHUB_EVENT_PATH" --output .build/ci-plan.json
+      - name: Select rollout mode
+        id: mode
+        env:
+          AGGREGATE_ACTIVE: ${{ vars.INNOROUTER_CI_AGGREGATE }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$AGGREGATE_ACTIVE" == 'true' || "$EVENT_NAME" == 'workflow_dispatch' || "$EVENT_NAME" == 'merge_group' ]]; then
+            echo 'active=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'active=false' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ci-plan
+          path: .build/ci-plan.json
+
+  policy:
+    name: CI and public operations policy
+    needs: ci-plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Run fail-closed policy and negative contracts
+        run: |
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+          python3 scripts/check-public-operations.py
+          python3 scripts/check-reusable-workflow-concurrency.py
+          python3 scripts/test-ci-optimization-contract.py
+      - name: Install pinned actionlint
+        env:
+          ACTIONLINT_VERSION: '1.7.12'
+        run: |
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" -o "$RUNNER_TEMP/actionlint.tar.gz"
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -config-file .github/actionlint.yaml
+
+  core:
+    name: CI core
+    needs: ci-plan
+    if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.core
+    uses: ./.github/workflows/principle-gates.yml
+    with:
+      ref: ${{ needs.ci-plan.outputs.ref }}
+
+  docc:
+    name: CI docc
+    needs: ci-plan
+    if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.docc
+    uses: ./.github/workflows/docs-ci.yml
+    with:
+      ref: ${{ needs.ci-plan.outputs.ref }}
+
+  platforms:
+    name: CI platforms
+    needs: ci-plan
+    if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.platforms
+    uses: ./.github/workflows/platforms.yml
+    with:
+      ref: ${{ needs.ci-plan.outputs.ref }}
+
+  coverage:
+    name: CI coverage
+    needs: ci-plan
+    if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.coverage
+    uses: ./.github/workflows/coverage.yml
+    permissions:
+      contents: read
+      id-token: write
+    with:
+      ref: ${{ needs.ci-plan.outputs.ref }}
+
+  sanitizers:
+    name: CI sanitizers
+    needs: ci-plan
+    if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.sanitizers
+    uses: ./.github/workflows/sanitizers.yml
+    with:
+      ref: ${{ needs.ci-plan.outputs.ref }}
+
+  performance:
+    name: CI performance
+    needs: ci-plan
+    if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.performance
+    uses: ./.github/workflows/performance-smoke.yml
+    with:
+      ref: ${{ needs.ci-plan.outputs.ref }}
+
+  migration:
+    name: CI migration
+    needs: ci-plan
+    if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.migration
+    uses: ./.github/workflows/migration-smoke.yml
+    with:
+      ref: ${{ needs.ci-plan.outputs.ref }}
+
+  documentation:
+    name: Documentation contracts
+    needs: ci-plan
+    if: fromJSON(needs.ci-plan.outputs.plan).jobs.documentation
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        with:
+          xcode-version: '26.6'
+      - name: Install documentation tools
+        run: brew install ripgrep
+      - name: Validate copyable documentation
+        run: |
+          ./scripts/check-docs-consistency.sh
+          ./scripts/check-docs-code-blocks.sh
+
+  remote-consumer:
+    name: Exact-SHA external macro consumer
+    needs: ci-plan
+    if: fromJSON(needs.ci-plan.outputs.plan).jobs.remote-consumer
+    runs-on: macos-26
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
+        with:
+          xcode-version: '26.6'
+      - name: Resolve exact event revision in a clean consumer
+        env:
+          CONSUMER_REPOSITORY: ${{ github.event.pull_request.head.repo.clone_url || format('https://github.com/{0}.git', github.repository) }}
+          CONSUMER_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 scripts/exact-sha-consumer.py --repository "$CONSUMER_REPOSITORY" --commit-sha "$CONSUMER_REVISION"
+
+  ci-required:
+    name: CI Required
+    if: always()
+    needs: [ci-plan, policy, core, documentation, docc, platforms, coverage, sanitizers, performance, migration, remote-consumer]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Evaluate exact planned dependencies
+        env:
+          CI_PLAN: ${{ needs.ci-plan.outputs.plan }}
+          CI_NEEDS: ${{ toJSON(needs) }}
+          ACTIVE: ${{ needs.ci-plan.outputs.active }}
+        run: |
+          if [[ "$ACTIVE" != 'true' ]]; then
+            python3 scripts/evaluate-transition.py
+          else
+            python3 scripts/ci-policy.py evaluate
+          fi
+      - name: Reuse original protected checks during rollout
+        if: needs.ci-plan.outputs.active == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          MERGE_SHA: ${{ github.sha }}
+        run: |
+          args=()
+          if [[ -n "$PR_NUMBER" ]]; then args+=(--number "$PR_NUMBER" --base "$BASE_SHA" --merge "$MERGE_SHA"); fi
+          python3 scripts/legacy-ci-results.py --event "$EVENT_NAME" --sha "$HEAD_SHA" "${args[@]}"

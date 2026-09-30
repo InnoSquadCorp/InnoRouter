@@ -5,6 +5,15 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 VERSION="${1:-}"
 PREVIEW_REF="${2:-}"
+CANDIDATE_SHA="${3:-}"
+if [[ -n "$CANDIDATE_SHA" ]]; then
+  if ! [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+    echo 'Candidate source reference must be a full lowercase SHA.' >&2; exit 1
+  fi
+  python3 "$ROOT_DIR/scripts/release-version-policy.py" classify "$VERSION" >/dev/null
+  printf '%s\n' "$CANDIDATE_SHA"
+  exit 0
+fi
 
 if [[ -z "$VERSION" ]]; then
   echo '[resolve-docc-source-ref] version is required' >&2

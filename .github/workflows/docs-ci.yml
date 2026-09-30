@@ -1,6 +1,14 @@
 name: docs-ci
 
+permissions:
+  contents: read
+
 on:
+  workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
   pull_request:
   push:
     branches:
@@ -8,11 +16,12 @@ on:
       - develop
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: docs-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   docc:
+    if: github.workflow != 'docs-ci' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     runs-on: macos-26
     timeout-minutes: 30
     permissions:
@@ -21,6 +30,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
 
       - name: Select Xcode 26.6
         uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
