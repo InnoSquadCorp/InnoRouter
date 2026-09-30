@@ -94,6 +94,7 @@ jobs:
           "$RUNNER_TEMP/actionlint" -config-file .github/actionlint.yaml
 
   core:
+    name: CI core
     needs: ci-plan
     if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.core
     uses: ./.github/workflows/principle-gates.yml
@@ -101,6 +102,7 @@ jobs:
       ref: ${{ needs.ci-plan.outputs.ref }}
 
   docc:
+    name: CI docc
     needs: ci-plan
     if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.docc
     uses: ./.github/workflows/docs-ci.yml
@@ -108,6 +110,7 @@ jobs:
       ref: ${{ needs.ci-plan.outputs.ref }}
 
   platforms:
+    name: CI platforms
     needs: ci-plan
     if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.platforms
     uses: ./.github/workflows/platforms.yml
@@ -115,6 +118,7 @@ jobs:
       ref: ${{ needs.ci-plan.outputs.ref }}
 
   coverage:
+    name: CI coverage
     needs: ci-plan
     if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.coverage
     uses: ./.github/workflows/coverage.yml
@@ -125,6 +129,7 @@ jobs:
       ref: ${{ needs.ci-plan.outputs.ref }}
 
   sanitizers:
+    name: CI sanitizers
     needs: ci-plan
     if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.sanitizers
     uses: ./.github/workflows/sanitizers.yml
@@ -132,6 +137,7 @@ jobs:
       ref: ${{ needs.ci-plan.outputs.ref }}
 
   performance:
+    name: CI performance
     needs: ci-plan
     if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.performance
     uses: ./.github/workflows/performance-smoke.yml
@@ -139,6 +145,7 @@ jobs:
       ref: ${{ needs.ci-plan.outputs.ref }}
 
   migration:
+    name: CI migration
     needs: ci-plan
     if: needs.ci-plan.outputs.active == 'true' && fromJSON(needs.ci-plan.outputs.plan).jobs.migration
     uses: ./.github/workflows/migration-smoke.yml

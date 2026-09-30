@@ -9,17 +9,17 @@ PRIMARY = {
     'CI Required': 'Evaluate exact planned dependencies',
 }
 LEGACY = {
-    'principle-gates.yml': ('core', {
+    'principle-gates.yml': ('CI core', {
         'lint': 'Run source-level lint gates', 'changelog-sync': 'Verify CHANGELOG matches public-API baseline change',
         'release-contract': 'Test release note rendering', 'gates': 'Run Principle Gates'}),
-    'docs-ci.yml': ('docc', {'docc': 'Build DocC Site'}),
-    'coverage.yml': ('coverage', {'coverage': 'Validate coverage floor', 'codecov': None}),
-    'migration-smoke.yml': ('migration', {'migration': 'Compare 5.2.1 and 6.0 consumers'}),
-    'performance-smoke.yml': ('performance', {'smoke': 'Run Canonical Runtime Performance Smoke'}),
-    'sanitizers.yml': ('sanitizers', {
+    'docs-ci.yml': ('CI docc', {'docc': 'Build DocC Site'}),
+    'coverage.yml': ('CI coverage', {'coverage': 'Validate coverage floor', 'codecov': None}),
+    'migration-smoke.yml': ('CI migration', {'migration': 'Compare 5.2.1 and 6.0 consumers'}),
+    'performance-smoke.yml': ('CI performance', {'smoke': 'Run Canonical Runtime Performance Smoke'}),
+    'sanitizers.yml': ('CI sanitizers', {
         'thread sanitizer': 'Run thread sanitizer smoke', 'address sanitizer': 'Run address sanitizer smoke',
         'Sanitizers Required': 'Require every matrix'}),
-    'platforms.yml': ('platforms', {
+    'platforms.yml': ('CI platforms', {
         'test Inspector UI (iPadOS)': 'Verify Inspector interactions', 'Platforms Required': 'Require every matrix',
         **{'build '+p: 'Validate public interfaces for '+p for p in ('iOS','iPadOS','Mac-Catalyst','macOS','tvOS','watchOS','visionOS')},
         **{'test '+p: 'Test platform consumer for '+p for p in ('iOS','iPadOS','Mac-Catalyst','tvOS','watchOS','visionOS')}}),
@@ -99,7 +99,7 @@ def verify(api, repository, pr, repo, notification, require):
     if notification:
         require(notification.get('id')==run['id'] and notification.get('run_attempt')==run['run_attempt'], 'obsolete CI notification')
     jobs=api.pages(route(f'actions/runs/{run["id"]}/attempts/{run["run_attempt"]}/jobs'),'jobs')
-    active='core / lint' in {j.get('name') for j in jobs}
+    active='CI core / lint' in {j.get('name') for j in jobs}
     expected=dict(PRIMARY)
     if active:
         for filename,(caller,children) in LEGACY.items():

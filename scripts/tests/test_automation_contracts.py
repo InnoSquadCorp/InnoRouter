@@ -127,6 +127,9 @@ class AutomationContracts(unittest.TestCase):
             self.assertNotIn('continue-on-error:',source)
             self.assertNotIn('    paths:',source)
             self.assertNotIn('secrets.',source)
+        ci=(workflows/'ci.yml').read_text()
+        for job in ('core','docc','platforms','coverage','sanitizers','performance','migration'):
+            self.assertIn('  '+job+':\n    name: CI '+job+'\n',ci)
         platforms=(workflows/'platforms.yml').read_text()
         for expected in ('minimumPassedTests: 12','minimumPassedTests: 6','minimumPassedTests: 10',
                          'RouterInspectorProbe','RouterCatalystPlatformTests','run_simulator.sh',

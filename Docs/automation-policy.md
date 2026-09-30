@@ -46,30 +46,30 @@ No repository settings are changed by this PR.
 
 | Existing required context | New CI equivalent |
 | --- | --- |
-| lint | core / lint |
-| changelog-sync | core / changelog-sync |
-| release-contract | core / release-contract |
-| gates | core / gates |
-| docc | docc / docc |
-| coverage | coverage / coverage (portable 85%, comprehensive 83%) |
-| migration | migration / migration (historical 5.2.1 fixture retained) |
-| smoke | performance / smoke (macro + canonical runtime) |
-| address sanitizer | sanitizers / address sanitizer + Sanitizers Required |
-| thread sanitizer | sanitizers / thread sanitizer + Sanitizers Required |
-| test Inspector UI (iPadOS) | platforms / test Inspector UI (iPadOS) + Platforms Required |
-| build iOS | platforms / build iOS + Platforms Required |
-| build iPadOS | platforms / build iPadOS + Platforms Required |
-| build Mac-Catalyst | platforms / build Mac-Catalyst + Platforms Required |
-| build macOS | platforms / build macOS + Platforms Required |
-| build tvOS | platforms / build tvOS + Platforms Required |
-| build watchOS | platforms / build watchOS + Platforms Required |
-| build visionOS | platforms / build visionOS + Platforms Required |
-| test iOS | platforms / test iOS + Platforms Required |
-| test iPadOS | platforms / test iPadOS + Platforms Required |
-| test Mac-Catalyst | platforms / test Mac-Catalyst + Platforms Required |
-| test tvOS | platforms / test tvOS + Platforms Required |
-| test watchOS | platforms / test watchOS + Platforms Required |
-| test visionOS | platforms / test visionOS + Platforms Required |
+| lint | CI core / lint |
+| changelog-sync | CI core / changelog-sync |
+| release-contract | CI core / release-contract |
+| gates | CI core / gates |
+| docc | CI docc / docc |
+| coverage | CI coverage / coverage (portable 85%, comprehensive 83%) |
+| migration | CI migration / migration (historical 5.2.1 fixture retained) |
+| smoke | CI performance / smoke (macro + canonical runtime) |
+| address sanitizer | CI sanitizers / address sanitizer + Sanitizers Required |
+| thread sanitizer | CI sanitizers / thread sanitizer + Sanitizers Required |
+| test Inspector UI (iPadOS) | CI platforms / test Inspector UI (iPadOS) + Platforms Required |
+| build iOS | CI platforms / build iOS + Platforms Required |
+| build iPadOS | CI platforms / build iPadOS + Platforms Required |
+| build Mac-Catalyst | CI platforms / build Mac-Catalyst + Platforms Required |
+| build macOS | CI platforms / build macOS + Platforms Required |
+| build tvOS | CI platforms / build tvOS + Platforms Required |
+| build watchOS | CI platforms / build watchOS + Platforms Required |
+| build visionOS | CI platforms / build visionOS + Platforms Required |
+| test iOS | CI platforms / test iOS + Platforms Required |
+| test iPadOS | CI platforms / test iPadOS + Platforms Required |
+| test Mac-Catalyst | CI platforms / test Mac-Catalyst + Platforms Required |
+| test tvOS | CI platforms / test tvOS + Platforms Required |
+| test watchOS | CI platforms / test watchOS + Platforms Required |
+| test visionOS | CI platforms / test visionOS + Platforms Required |
 
 All 24 are transitively required by **CI Required** for exhaustive plans. New
 policy, compiled docs and exact remote SHA proof add coverage. Six runtime lanes
@@ -84,7 +84,8 @@ successful original workflow runs at the exact PR head, verifies PR/base/test-me
 identity before and after, and reads all jobs of the latest run attempt and verifies GitHub Actions app, suite, head/merge and job/check association. It
 rejects stale, missing, duplicate, failed, cancelled or unexpectedly skipped
 children. This avoids a second set of heavy Swift/platform/sanitizer runs.
-Policy/docs/exact-SHA consumer checks are additional. Ordinary documentation PRs
+New caller jobs use distinct `CI …` names, so transition skips do not shadow
+original required contexts. Policy/docs/exact-SHA consumer checks are additional. Ordinary documentation PRs
 still pay the legacy full cost in this transition; selection is not fully active.
 
 Owner-approved activation order:
