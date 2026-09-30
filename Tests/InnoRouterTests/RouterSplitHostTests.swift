@@ -6,6 +6,7 @@ import SwiftUI
 import Testing
 
 import InnoRouter
+@testable import InnoRouterSwiftUI
 
 #if !os(watchOS)
 private enum RouterSplitHostRoute: DestinationRoute {
@@ -215,6 +216,25 @@ struct RouterSplitHostTests {
         ))
 
         #expect(store.state == restored)
+    }
+
+    // A root of another shape can carry branches named like the split
+    // columns. The host renders over it without owning its topology, so its
+    // default link must not push into the same-named branch.
+    @Test("Split host links never write into a root of another shape")
+    func mismatchedRootRejectsSplitLinks() throws {
+        let tabs = try RouterState<RouterSplitHostRoute>(root: .container(.init(
+            style: .tabs,
+            selection: "detail",
+            branches: [RouterBranch(id: "sidebar"), RouterBranch(id: "detail")]
+        )))
+        #expect(throws: RouterMutationError.incompatibleNavigationTopology(.root)) {
+            try splitHostLinkPlan(.detail(id: "link"), tabs, detailScopeID: "detail")
+        }
+
+        let split = try makeSplitStore(threeColumn: false).state
+        let plan = try splitHostLinkPlan(.detail(id: "link"), split, detailScopeID: "detail")
+        #expect(plan.state.node(at: ["detail"]) == .stack(path: [.detail(id: "link")]))
     }
 
     @Test("Split hosts render over the other column count's split state")

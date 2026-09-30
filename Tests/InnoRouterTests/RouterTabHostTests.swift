@@ -299,6 +299,41 @@ struct RouterTabHostTests {
         #expect(store.state.node(at: ["legacy"]) == .stack())
     }
 
+    // A split or custom root can carry branches named like tabs. The host
+    // renders over such a root without owning its topology, so neither its
+    // default links nor a tab bar selection may write into those branches.
+    @Test(
+        "Links and tab selection never write into a root of another shape",
+        arguments: [RouterContainerStyle.split, .custom("wizard")]
+    )
+    func mismatchedRootRejectsHostWrites(style: RouterContainerStyle) async throws {
+        var split: RouterSplitState?
+        if style == .split {
+            split = try RouterSplitState(sidebar: "home", detail: "inbox")
+        }
+        let restored = try RouterState<RouterTabLinkRoute>(root: .container(.init(
+            style: style,
+            selection: "inbox",
+            branches: [RouterBranch(id: "home"), RouterBranch(id: "inbox")],
+            split: split
+        )))
+        let store = RouterStore(initialState: restored)
+        let host = RouterTabHost(store: store)
+
+        #expect(throws: RouterMutationError.incompatibleNavigationTopology(.root)) {
+            try host.defaultLinkPlan(.detail, store.state)
+        }
+        #expect(throws: RouterMutationError.incompatibleNavigationTopology(.root)) {
+            try host.defaultLinkPlan(.home, store.state)
+        }
+        host.requestSelection("home", in: store.scope())
+        await drainMainActorTasks()
+
+        #expect(store.state == restored)
+        #expect(store.revision == 0)
+        _ = try renderRouterTabHost(host)
+    }
+
     // Exact restoration may replace the root with any valid shape, such as a
     // stack written before the application adopted tabs. SwiftUI re-runs this
     // initializer on every parent body pass, so it must not trap on that data.

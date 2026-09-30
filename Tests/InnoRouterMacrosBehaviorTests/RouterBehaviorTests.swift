@@ -33,6 +33,16 @@ public enum PublicBehaviorRouterRoute {
     }
 }
 
+// An explicit `get` accessor is the other destination shape the macro accepts.
+@Router
+private enum ExplicitGetterBehaviorRouterRoute {
+    case settings
+
+    var destination: some View {
+        get { Text("Settings") }
+    }
+}
+
 @Router
 private enum GenericBehaviorRouterRoute<Value: Hashable & Sendable> {
     case detail(Value)
@@ -442,6 +452,17 @@ struct RouterBehaviorTests {
         _ = BehaviorRouterRoute.destination(for: .settings)
 
         let host = RouterHost(BehaviorRouterRoute.self) {
+            Text("Root")
+        }
+        _ = host.body
+    }
+
+    @Test("An explicit get accessor composes as the destination")
+    @MainActor
+    func explicitGetterDestinationAndHost() {
+        _ = ExplicitGetterBehaviorRouterRoute.destination(for: .settings)
+
+        let host = RouterHost(ExplicitGetterBehaviorRouterRoute.self) {
             Text("Root")
         }
         _ = host.body

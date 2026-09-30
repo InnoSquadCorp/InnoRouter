@@ -283,7 +283,9 @@ final class InspectorUITests: XCTestCase {
         if !app.buttons[language.startRecording].exists, app.buttons["Show Sidebar"].exists {
             app.buttons["Show Sidebar"].tap()
         }
-        waitForExistence(app.buttons[language.startRecording], file: file, line: line)
+        // Callers tap it next, and a sidebar still animating in can expose the
+        // button before it can receive the tap.
+        waitForHittable(app.buttons[language.startRecording], file: file, line: line)
     }
 
     private func status(containing text: String, in app: XCUIApplication) -> XCUIElement {
