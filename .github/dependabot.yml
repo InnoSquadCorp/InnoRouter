@@ -64,7 +64,7 @@
       "directories": [
         "/",
         "/ConsumerSmoke",
-        "/NativeSceneSmoke"
+        "/NativeSceneSmoke/NativeSceneSmoke.xcodeproj"
       ]
     }
   ]

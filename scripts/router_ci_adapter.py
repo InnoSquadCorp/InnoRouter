@@ -136,7 +136,8 @@ def verify(api, repository, pr, repo, notification, require):
     for check in sorted(checks,key=lambda c:c['id'],reverse=True):
         if check['id'] in known:continue
         if check.get('name')=='Dependabot Merge Ready':
-            require(check.get('app',{}).get('id')==15368,'foreign app spoofed Ready')
+            require(check.get('app',{}).get('id')==15368 and check.get('head_sha')==head
+                    and check.get('external_id')==f'dependabot-policy:{number}:{head}', 'foreign Ready check identity')
             continue
         # Attribute prior attempts/runs to their original API workflow before
         # ignoring historical results; do not trust a display name alone.

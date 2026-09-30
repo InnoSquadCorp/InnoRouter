@@ -10,7 +10,35 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-SWIFT_DIRS = {"/", "/ConsumerSmoke", "/NativeSceneSmoke"}
+SWIFT_DIRS = {"/", "/ConsumerSmoke", "/NativeSceneSmoke/NativeSceneSmoke.xcodeproj"}
+LIVE_LOCKS = ("Package.resolved", "ConsumerSmoke/Package.resolved",
+              "NativeSceneSmoke/NativeSceneSmoke.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved")
+
+
+def swift_fetch_inventory(root, directory):
+    """Reviewed official Swift FileFetcher discovery; no dependency execution.
+
+    A Package.swift scope returns early with its sibling lock only. A scope
+    without that manifest discovers Xcode project/workspace lockfiles instead.
+    https://github.com/dependabot/dependabot-core/blob/main/swift/lib/dependabot/swift/file_fetcher.rb
+    """
+    scope=root/directory.lstrip('/')
+    if (scope/'Package.swift').is_file():
+        return {str(p.relative_to(root)) for p in (scope/'Package.swift',scope/'Package.resolved') if p.is_file()}
+    inventory=set()
+    for project in scope.rglob('*.xcodeproj'):
+        for tail in ('project.pbxproj','project.xcworkspace/xcshareddata/swiftpm/Package.resolved'):
+            path=project/tail
+            if path.is_file():inventory.add(str(path.relative_to(root)))
+    for workspace in scope.rglob('*.xcworkspace'):
+        # The project branch already reads nested workspaces in discovered
+        # .xcodeproj directories. A selected project root is relative '.', so
+        # its project.xcworkspace is independently discoverable.
+        if any(p.name.endswith('.xcodeproj') for p in workspace.relative_to(scope).parents):continue
+        for tail in ('contents.xcworkspacedata','xcshareddata/swiftpm/Package.resolved'):
+            path=workspace/tail
+            if path.is_file():inventory.add(str(path.relative_to(root)))
+    return inventory
 
 
 def check(root=ROOT):
@@ -42,9 +70,9 @@ def check(root=ROOT):
     swift = ecosystems["swift"]
     if len(swift["directories"]) != len(SWIFT_DIRS) or set(swift["directories"]) != SWIFT_DIRS:
         raise ValueError("track only reviewed live manifests; exclude historical/template fixtures")
-    for directory in swift["directories"]:
-        if not (root / directory.lstrip("/") / "Package.swift").is_file():
-            raise ValueError("tracked Swift directory has no live manifest")
+    inventory=set().union(*(swift_fetch_inventory(root,d) for d in swift['directories']))
+    if not set(LIVE_LOCKS) <= inventory:
+        raise ValueError("Dependabot fetch scopes miss a live SwiftPM/Xcode lock; manifest scopes return early")
     if "release-validation" not in swift["labels"] or ecosystems["github-actions"]["directory"] != "/":
         raise ValueError("Swift updates require exhaustive validation; Actions must use root")
     pin = re.search(r'swift-syntax\.git", \.upToNextMinor\(from: "([0-9.]+)"', (root / "Package.swift").read_text())
@@ -52,8 +80,7 @@ def check(root=ROOT):
         raise ValueError("SwiftSyntax must retain a reviewed release-line constraint")
     minimum = tuple(map(int, pin[1].split('.')))
     resolved = []
-    for name in ("Package.resolved", "ConsumerSmoke/Package.resolved",
-                 "NativeSceneSmoke/NativeSceneSmoke.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"):
+    for name in LIVE_LOCKS:
         lock = json.loads((root / name).read_text())
         syntax = [p for p in lock["pins"] if p["identity"] == "swift-syntax"]
         if len(syntax) != 1 or not re.fullmatch(r'[0-9a-f]{40}', syntax[0]["state"].get("revision", "")):

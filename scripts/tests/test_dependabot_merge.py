@@ -1,9 +1,11 @@
 import copy
 import importlib.util
 import json
+import re
 from pathlib import Path
 import sys
 import unittest
+from unittest import mock
 
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'scripts'))
@@ -18,7 +20,7 @@ HEAD,BASE,MERGE='a'*40,'b'*40,'c'*40
 class API:
     def __init__(self,active=False):
         self.repo={'id':123,'full_name':REPO,'default_branch':'main','allow_auto_merge':True,'allow_squash_merge':True}
-        self.pr={'number':55,'state':'open','merged':False,'draft':False,'mergeable':True,'user':dict(policy.BOT),
+        self.pr={'number':55,'node_id':'PR_node','state':'open','merged':False,'draft':False,'mergeable':True,'user':dict(policy.BOT),
                  'head':{'sha':HEAD,'repo':{'id':123,'full_name':REPO}},
                  'base':{'ref':'main','sha':BASE,'repo':{'id':123,'full_name':REPO}},'merge_commit_sha':MERGE,
                  'requested_reviewers':[],'requested_teams':[],'auto_merge':None}
@@ -77,6 +79,8 @@ class API:
         if p.startswith('actions/runs/'):return copy.deepcopy(self.runs[int(p.split('/')[2])])
         if p.startswith('actions/jobs/'):
             return copy.deepcopy(next(j for jobs in self.jobs.values() for j in jobs if j['id']==int(p.split('/')[-1])))
+        if p.startswith('check-runs/'):
+            return copy.deepcopy(next(c for c in self.checks if c['id']==int(p.split('/')[-1])))
         raise AssertionError('unhandled GET '+p)
 
     def pages(self,path,key=None):
@@ -97,6 +101,11 @@ class API:
         raise AssertionError('unhandled pages '+p)
 
     def graphql(self,query,variables):
+        if 'disablePullRequestAutoMerge' in query:
+            self.writes.append(('disable',variables))
+            if self.denied:raise PermissionError('permission denied')
+            self.pr['auto_merge']=None
+            return {'disablePullRequestAutoMerge':{'pullRequest':{'id':'PR_node'}}}
         if 'enablePullRequestAutoMerge' in query:
             self.writes.append(('enable',variables))
             if self.denied:raise PermissionError('permission denied')
@@ -155,7 +164,8 @@ class DependabotTests(unittest.TestCase):
         for mutate in (lambda a:a.repo.update(allow_auto_merge=False),lambda a:a.repo.update(allow_squash_merge=False),
                        lambda a:a.rules[0]['parameters'].update(strict_required_status_checks_policy=False),
                        lambda a:a.rules[0]['parameters']['required_status_checks'][0].update(integration_id=7),
-                       lambda a:a.ruleset.update(bypass_actors=[{'actor_id':1}]),
+                       lambda a:a.ruleset.update(bypass_actors=[{'actor_id':15368,'actor_type':'Integration'}]),
+                       lambda a:a.ruleset.update(current_user_can_bypass='always'),
                        lambda a:a.rules[0]['parameters'].update(required_status_checks=[])):
             api=API();mutate(api);self.assert_rejected(api)
         api=API();self.assertIn('standby',policy.coordinate(api,55,False));self.assertFalse(any(x[0]=='enable' for x in api.writes))
@@ -238,7 +248,7 @@ class DependabotTests(unittest.TestCase):
 
     def test_privileged_workflow_executes_trusted_api_only_code(self):
         source=(ROOT/'.github/workflows/dependabot-auto-merge.yml').read_text()
-        self.assertIn('ref: ${{ github.workflow_sha }}',source)
+        self.assertEqual(source.count('ref: refs/heads/main'),4)
         self.assertIn('sparse-checkout: scripts',source)
         self.assertIn('persist-credentials: false',source)
         self.assertNotIn('github.event.pull_request.head.sha',source)
@@ -249,6 +259,81 @@ class DependabotTests(unittest.TestCase):
         self.assertIn('checks: write',source)
         self.assertIn('actions: write',source)
         self.assertNotIn('required_approving_review_count',source)
+        expected={
+            'inspect':{'contents':'read','actions':'read','checks':'read','pull-requests':'read'},
+            'manual-ready':{'contents':'read','actions':'read','checks':'write','pull-requests':'read'},
+            'bot-ready':{'contents':'write','actions':'read','checks':'write','pull-requests':'write'},
+            'post-merge':{'contents':'read','actions':'write','pull-requests':'read'}}
+        for job,permissions in expected.items():
+            block=re.search(r'(?ms)^  '+job+r':\n(.*?)(?=^  [a-z-]+:|\Z)',source)[1]
+            granted=re.search(r'(?ms)^    permissions:\n(.*?)(?=^    \S)',block)[1]
+            self.assertEqual(dict(re.findall(r'^      ([a-z-]+): (read|write|none)$',granted,re.M)),permissions)
+
+    def test_actual_job_conditions_reject_branch_dispatch_and_inspect_failure(self):
+        source=(ROOT/'.github/workflows/dependabot-auto-merge.yml').read_text()
+        for job in ('manual-ready','bot-ready','post-merge'):
+            expression=re.search(r'(?m)^  '+job+r':\n    (?:needs:.*\n    )?if: (.*)',source)[1]
+            expression=expression.removeprefix('${{ ').removesuffix(' }}')
+            for ref,workflow_ref,inspect,allowed in (
+                    ('refs/heads/main','refs/heads/main','success',True),
+                    ('refs/heads/topic','refs/heads/topic','success',False),
+                    ('refs/heads/main','refs/heads/stale','success',False),
+                    ('refs/heads/main','refs/heads/main','failure',False),
+                    ('refs/heads/main','refs/heads/main','skipped',False)):
+                values={'always()':'True','github.repository':repr(REPO),'github.ref':repr(ref),
+                        'github.workflow_ref':repr(REPO+'/.github/workflows/dependabot-auto-merge.yml@'+workflow_ref),
+                        'needs.inspect.result':repr(inspect),'needs.inspect.outputs.manual_prs':repr('[55]'),
+                        'needs.inspect.outputs.bot_prs':repr('[55]'),'vars.DEPENDABOT_AUTO_MERGE_ENABLED':repr('true')}
+                evaluated=expression
+                for name,value in values.items():evaluated=evaluated.replace(name,value)
+                with self.subTest(job=job,ref=ref,inspect=inspect):
+                    self.assertEqual(eval(evaluated.replace('&&','and'),{'__builtins__':{}}),allowed)
+
+    def test_runtime_context_rejects_non_default_workflow(self):
+        environment={'GITHUB_REPOSITORY':REPO,'GITHUB_REF':'refs/heads/main',
+                     'GITHUB_WORKFLOW_REF':REPO+'/.github/workflows/dependabot-auto-merge.yml@refs/heads/main'}
+        policy.trusted_context(environment)
+        for key,value in (('GITHUB_REF','refs/heads/topic'),('GITHUB_WORKFLOW_REF','stale workflow'),
+                          ('GITHUB_REPOSITORY','other/repo'),('GITHUB_REF',None)):
+            with self.assertRaises(policy.Rejected):policy.trusted_context({**environment,key:value})
+
+    def test_failed_gate_and_post_enable_proof_cancel_native_request(self):
+        for deny_gate in (False,True):
+            api=API();api.pr['auto_merge']={'enabled_at':'now'}
+            if deny_gate:
+                with mock.patch.object(api,'mutate',side_effect=PermissionError('checks write denied')):
+                    self.assertIn('blocked',policy.coordinate(api,55,False))
+            else:
+                proof=policy.proof(api,55)
+                with mock.patch.object(policy,'proof',side_effect=[proof,proof,policy.Rejected('review raced')]):
+                    self.assertIn('blocked',policy.coordinate(api,55,True))
+            self.assertIsNone(api.pr['auto_merge'])
+            self.assertTrue(any(x[0]=='disable' for x in api.writes))
+
+    def test_unknown_gate_create_is_not_repeated_and_cancel_uncertainty_surfaces(self):
+        api=API();api.pr['auto_merge']={'enabled_at':'now'}
+        with mock.patch.object(api,'mutate',side_effect=TimeoutError('reply lost')) as mutation:
+            self.assertIn('blocked',policy.coordinate(api,55,True));self.assertEqual(mutation.call_count,1)
+        self.assertIsNone(api.pr['auto_merge'])
+        api=API();api.pr['auto_merge']={'enabled_at':'now'};api.denied=True
+        with mock.patch.object(api,'mutate',side_effect=PermissionError('checks write denied')):
+            with self.assertRaisesRegex(policy.Rejected,'cancellation unconfirmed'):policy.coordinate(api,55,False)
+
+    def test_uncertain_applied_gate_update_is_read_back_once(self):
+        api=API();check=policy.gate(api,55,HEAD,'in_progress');original=api.mutate
+        def applied_then_timeout(method,path,payload):
+            original(method,path,payload);raise TimeoutError('reply lost')
+        with mock.patch.object(api,'mutate',side_effect=applied_then_timeout) as mutation:
+            self.assertEqual(policy.gate(api,55,HEAD,'completed',check),check)
+            self.assertEqual(mutation.call_count,1)
+
+    def test_redacted_bypass_requires_owner_audit_and_visible_token_bypass_rejects(self):
+        api=API();del api.ruleset['bypass_actors'];policy.proof(api,55)
+        api.ruleset['current_user_can_bypass']='pull_requests_only';self.assert_rejected(api)
+
+    def test_wrong_base_edit_cancels_verified_bot_request(self):
+        api=API();api.pr['base']['ref']='develop';api.pr['auto_merge']={'enabled_at':'now'}
+        self.assertIn('wrong base',policy.coordinate(api,55,True));self.assertIsNone(api.pr['auto_merge'])
 
 
 if __name__=='__main__':unittest.main()

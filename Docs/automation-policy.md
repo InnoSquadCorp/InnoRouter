@@ -4,6 +4,9 @@ This repository-local policy adapts InnoDI PR #44's immutable head
 `356589ef82ef36d1bfd645169cb1762a7a483e56` (merged as
 `4ae50bc58fd19bd10ea673244699fcfd30b79f68`) to InnoRouter's existing gates.
 It does not change the runtime API, MIT license, security support, or contact promises.
+The trusted automatic-merge coordinator is adapted from InnoDI PR #47's reviewed
+immutable head `3df084278f16b99ac7acf5ea09d6bfc7227f4c80`. Router's validation
+inventory, transition evidence and main DocC artifact behavior remain local.
 
 ## Validation contract
 
@@ -144,7 +147,14 @@ move/recreate it to recover publication.
 | Actions | Monday 09:00 | 5 | chore(ci) | actions-minor-patch, minor/patch |
 | Swift | Monday 09:30 | 3 | chore(deps) | swift-minor-patch, minor/patch |
 
-Swift tracks root, ConsumerSmoke and NativeSceneSmoke manifests. Historical
+Swift tracks root and ConsumerSmoke manifests plus the manifest-free
+`/NativeSceneSmoke/NativeSceneSmoke.xcodeproj` scope. Official Swift fetching
+returns early when `Package.swift` exists; `/NativeSceneSmoke` therefore misses
+the nested Xcode lock. The selected project scope discovers `project.xcworkspace`
+and its live `Package.resolved`. The inventory guard verifies all three live
+locks are fetched, using the official [Swift fetcher](https://github.com/dependabot/dependabot-core/blob/main/swift/lib/dependabot/swift/file_fetcher.rb)
+and [updater](https://github.com/dependabot/dependabot-core/blob/main/swift/lib/dependabot/swift/file_updater.rb)
+mode contract. Historical
 MigrationSmoke/Before and After, generated/scratch packages and negative fixtures
 are deliberately excluded. Actions remain full SHA-pinned. SwiftSyntax uses the
 normalized `github.com/swiftlang/swift-syntax` pattern and is excluded from the
@@ -153,6 +163,12 @@ eligible for automatic merge after exhaustive verification. The reviewed Swift
 config uses no unsupported development prefix, dependency-type or toolchain key.
 Root SwiftSyntax constraint and all live locks must agree; a partial toolchain
 update fails the public-operations guard. Migration locks retain historical pins.
+Dependabot's separate scope proposals do not establish that a toolchain update
+will update every companion in one PR. If root/consumer/Xcode proposals are
+partial, they stay blocked until a reviewed companion update aligns them in the
+same PR. No privileged bot job edits those files or resolves PR dependencies.
+Adding the Xcode fetch scope fixes discovery; it is not a claim that a real
+cross-scope SwiftSyntax update has already been observed end to end.
 
 Configured labels are `dependencies`, `github-actions`, `swift` and
 `release-validation` (Swift). None existed in the read-only baseline. GitHub
@@ -172,7 +188,7 @@ and negative tests for the exact required contexts. At baseline
 settings decisions. No PAT/App credential is created. The implementation PR
 itself is never an automatic merge target.
 
-`dependabot-auto-merge.yml` checks out only the trusted workflow commit's
+`dependabot-auto-merge.yml` checks out only `refs/heads/main`'s
 `scripts` directory with persisted credentials disabled. It executes Python's
 standard library and GitHub APIs; it never executes PR code, dependencies,
 caches or artifacts. `workflow_run` is a wake-up only. The coordinator verifies
@@ -182,6 +198,10 @@ workflow path/ID, PR event/linkage, repository ID, author login/type/immutable I
 PR head checks from the current test-merge SHA and rejects head/base/attempt races.
 The Router adapter freezes both the 24 original gates and their active reusable
 counterparts. Major/SwiftSyntax updates use the same exhaustive proof.
+Every mutating job requires main ref, the exact repository/default workflow ref
+and successful inspection, including the post-merge `always()` job. The CLI
+rechecks the same trusted context before mutations. Non-main/stale branch
+dispatch and failed/skipped inspection are rejected by actual condition tests.
 
 The permission boundary is explicit: inspection uses contents/actions/checks/PR
 read; the human eligibility check adds checks write only; bot coordination uses
@@ -192,10 +212,29 @@ write with contents/PR read. Bot coordination uses native
 it is required separately from CI inputs to avoid a circular gate. Human PRs
 receive an eligibility success without enabling auto-merge, preserving their
 existing manual CI/review policy. No additional required review count is added.
+Failed proof or Ready write invalidates readiness and independently cancels any
+verified bot's outstanding native request. An unconfirmed initial check creation
+never causes a second POST; uncertain updates are read back before acceptance.
+Cancellation failure is surfaced instead of claiming the request was stopped.
+
+The API can redact `bypass_actors` for a token without Administration write.
+Missing data is not an empty-list audit. Activation requires an owner audit of
+the app's no-bypass configuration; runtime rejects visible Actions-app bypass or
+token bypass capability. No Administration credential is added. Preserve the
+observed no-bypass settings; this runtime limitation does not authorize weakening.
+
+With the existing zero-required-review-count policy, a new review/thread change
+after the last API read is not atomically locked by native protection. Supported
+review/comment events and hourly thread reconciliation invalidate Ready and
+cancel requests after processing; strict native CI remains independent. Atomic
+review locking would require a separately approved review-policy decision.
+Turning off the variable cancels observed bot requests during reconciliation;
+it is not a synchronous stop of all outstanding native requests.
 
 After the selective CI rollout above, owner-approved automatic-merge activation
 must add strict **Dependabot Merge Ready** from app `15368` alongside **CI
-Required**, confirm trusted coordinator execution for human/bot PRs, enable
+Required** after bootstrap with the flag off confirms human Ready contexts and
+no pending-check cycle; confirm trusted coordinator execution, enable
 repository `allow_auto_merge`, then set `DEPENDABOT_AUTO_MERGE_ENABLED=true` last.
 Existing review, conversation, deletion, non-fast-forward and no-bypass policies
 remain intact. Current unset variables and `allow_auto_merge=false` keep bot

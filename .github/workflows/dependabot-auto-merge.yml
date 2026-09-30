@@ -6,6 +6,8 @@ on:
   workflow_run:
     workflows: [CI, Dependabot Review Notice]
     types: [requested, in_progress, completed]
+  push:
+    branches: [main]
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
@@ -15,7 +17,7 @@ permissions:
 
 jobs:
   inspect:
-    if: github.repository == 'InnoSquadCorp/InnoRouter'
+    if: github.repository == 'InnoSquadCorp/InnoRouter' && github.ref == 'refs/heads/main' && github.workflow_ref == 'InnoSquadCorp/InnoRouter/.github/workflows/dependabot-auto-merge.yml@refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -28,9 +30,9 @@ jobs:
       manual_prs: ${{ steps.targets.outputs.manual_prs }}
     steps:
       - name: Checkout trusted coordinator only
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.workflow_sha }}
+          ref: refs/heads/main
           persist-credentials: false
           sparse-checkout: scripts
       - name: Resolve authoritative API targets
@@ -41,7 +43,7 @@ jobs:
 
   manual-ready:
     needs: inspect
-    if: needs.inspect.outputs.manual_prs != '[]' && needs.inspect.outputs.manual_prs != ''
+    if: needs.inspect.result == 'success' && github.ref == 'refs/heads/main' && github.workflow_ref == 'InnoSquadCorp/InnoRouter/.github/workflows/dependabot-auto-merge.yml@refs/heads/main' && needs.inspect.outputs.manual_prs != '[]' && needs.inspect.outputs.manual_prs != ''
     strategy:
       matrix:
         pr: ${{ fromJSON(needs.inspect.outputs.manual_prs) }}
@@ -57,9 +59,9 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout trusted coordinator only
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.workflow_sha }}
+          ref: refs/heads/main
           persist-credentials: false
           sparse-checkout: scripts
       - name: Complete manual policy check without enabling auto-merge
@@ -71,7 +73,7 @@ jobs:
 
   bot-ready:
     needs: inspect
-    if: needs.inspect.outputs.bot_prs != '[]' && needs.inspect.outputs.bot_prs != ''
+    if: needs.inspect.result == 'success' && github.ref == 'refs/heads/main' && github.workflow_ref == 'InnoSquadCorp/InnoRouter/.github/workflows/dependabot-auto-merge.yml@refs/heads/main' && needs.inspect.outputs.bot_prs != '[]' && needs.inspect.outputs.bot_prs != ''
     strategy:
       fail-fast: false
       matrix:
@@ -88,9 +90,9 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout trusted coordinator only
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.workflow_sha }}
+          ref: refs/heads/main
           persist-credentials: false
           sparse-checkout: scripts
       - name: Gate native auto-merge on exact current CI proof
@@ -101,7 +103,7 @@ jobs:
         run: python3 -B scripts/dependabot-merge-policy.py coordinate --pr "$PR_NUMBER"
 
   post-merge:
-    if: ${{ always() && github.repository == 'InnoSquadCorp/InnoRouter' && vars.DEPENDABOT_AUTO_MERGE_ENABLED == 'true' }}
+    if: ${{ always() && needs.inspect.result == 'success' && github.repository == 'InnoSquadCorp/InnoRouter' && github.ref == 'refs/heads/main' && github.workflow_ref == 'InnoSquadCorp/InnoRouter/.github/workflows/dependabot-auto-merge.yml@refs/heads/main' && vars.DEPENDABOT_AUTO_MERGE_ENABLED == 'true' }}
     needs: [inspect, manual-ready, bot-ready]
     concurrency:
       group: dependabot-post-merge
@@ -114,9 +116,9 @@ jobs:
       pull-requests: read
     steps:
       - name: Checkout trusted coordinator only
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.workflow_sha }}
+          ref: refs/heads/main
           persist-credentials: false
           sparse-checkout: scripts
       - name: Reconcile actual bot merge and only its current-main CI

@@ -44,7 +44,7 @@ class GitHub:
             data=None if payload is None else json.dumps(payload).encode(), method=method,
             headers={"Authorization": "Bearer " + self.token,
                      "Accept": "application/vnd.github+json", "Content-Type": "application/json",
-                     "X-GitHub-Api-Version": "2026-03-10"})
+                     "X-GitHub-Api-Version": "2022-11-28"})
         # No mutation retries: an unknown outcome must be read back first.
         with urllib.request.urlopen(request, timeout=30) as response:
             raw = response.read()
@@ -83,6 +83,13 @@ def route(suffix):
     return f"repos/{REPOSITORY}" + ("/" + suffix if suffix else "")
 
 
+def trusted_context(environment):
+    require(environment.get("GITHUB_REPOSITORY") == REPOSITORY and
+            environment.get("GITHUB_REF") == "refs/heads/main" and
+            environment.get("GITHUB_WORKFLOW_REF") == REPOSITORY + "/.github/workflows/dependabot-auto-merge.yml@refs/heads/main",
+            "mutation requires trusted default-main workflow/ref")
+
+
 def bot(pr):
     return all(pr.get("user", {}).get(k) == v for k, v in BOT.items())
 
@@ -117,8 +124,15 @@ def native_rules(api, repo):
         require(rule.get("ruleset_source_type") == "Repository" and source == REPOSITORY,
                 "unverified inherited protection")
         ruleset = api.get(route(f"rulesets/{rule['ruleset_id']}"))
-        require(ruleset.get("enforcement") == "active" and ruleset.get("bypass_actors") == [],
-                "inactive or bypassable protection")
+        require(ruleset.get("enforcement") == "active", "inactive protection")
+        # Bypass actors are redacted without Administration write. Activation
+        # verifies the app has no bypass once; never interpret a missing list as
+        # empty or add an admin credential just to audit unrelated actors.
+        if "current_user_can_bypass" in ruleset:
+            require(ruleset["current_user_can_bypass"] == "never", "coordinator token can bypass protection")
+        if "bypass_actors" in ruleset:
+            require(not any(a.get("actor_type") == "Integration" and a.get("actor_id") == APP
+                            for a in ruleset["bypass_actors"]), "GitHub Actions has protection bypass")
     require({"CI Required", READY} <= contexts, "native CI/ready requirement missing")
 
 
@@ -189,20 +203,44 @@ def gate(api, number, head, status, check_id=None, reason="Metadata verification
                     c.get("external_id") == payload["external_id"] and c.get("head_sha") == head]
         require(len(existing) <= 1, "duplicate managed ready checks")
         if not existing:
-            return api.mutate("POST", route("check-runs"), payload)["id"]
+            try:
+                observed = api.mutate("POST", route("check-runs"), payload)
+            except Exception:
+                matches = [c for c in api.pages(route(f"commits/{head}/check-runs?filter=all"), "check_runs")
+                           if c.get("external_id") == payload["external_id"] and c.get("name") == READY]
+                require(len(matches) == 1, "ready creation outcome unconfirmed; no retry")
+                observed = matches[0]
+            check_id = observed["id"]
+            require(observed.get("app", {}).get("id") == APP and observed.get("status") == payload["status"] and
+                    observed.get("head_sha") == head and observed.get("external_id") == payload["external_id"] and
+                    ("conclusion" not in payload or observed.get("conclusion") == payload["conclusion"]), "ready creation not confirmed")
+            return check_id
         check_id = existing[0]["id"]
     payload.pop("head_sha")
-    api.mutate("PATCH", route(f"check-runs/{check_id}"), payload)
+    try:
+        observed = api.mutate("PATCH", route(f"check-runs/{check_id}"), payload)
+    except Exception:
+        observed = api.get(route(f"check-runs/{check_id}"))
+    require(observed.get("app", {}).get("id") == APP and observed.get("status") == payload["status"] and
+            observed.get("external_id") == payload["external_id"] and observed.get("head_sha") == head and
+            ("conclusion" not in payload or observed.get("conclusion") == payload["conclusion"]), "ready update not confirmed")
     return check_id
 
 
 def coordinate(api, number, enabled=False, notification=None):
     pr = api.get(route(f"pulls/{number}"))
-    require(pr.get("base", {}).get("repo", {}).get("full_name") == REPOSITORY and pr["base"].get("ref") == "main", "foreign target")
+    require(pr.get("base", {}).get("repo", {}).get("full_name") == REPOSITORY, "foreign target")
     if pr.get("state") != "open":
         return "closed: reconcile post-merge separately"
     head = pr.get("head", {}).get("sha", "")
     require(bool(SHA.fullmatch(head)), "invalid gate head")
+    if pr["base"].get("ref") != "main":
+        if bot(pr):
+            try:
+                gate(api, number, head, "failure", reason="Base changed: only protected main is eligible.")
+            finally:
+                cancel_auto_merge(api, pr)
+        return "wrong base: auto-merge ineligible"
     if not bot(pr):
         gate(api, number, head, "completed", reason="Manual PR: automation ineligible; normal CI/review requirements remain.")
         return "manual PR; auto-merge not requested"
@@ -215,8 +253,9 @@ def coordinate(api, number, enabled=False, notification=None):
         runs = api.pages(route(f"actions/workflows/ci.yml/runs?event=pull_request&head_sha={head}"), "workflow_runs")
         if not runs or max(runs, key=lambda r: (r["run_number"], r["id"]))["id"] != notification["id"]:
             return "obsolete notification; no mutation"
-    check_id = gate(api, number, head, "in_progress", reason="Awaiting verified full CI and current metadata.")
+    check_id = None
     try:
+        check_id = gate(api, number, head, "in_progress", reason="Awaiting verified full CI and current metadata.")
         require(enabled is True, "standby: new auto-merge approvals disabled")
         first = proof(api, number, notification)
         require(first["head"] == head, "head changed before native enable")
@@ -240,8 +279,36 @@ def coordinate(api, number, enabled=False, notification=None):
         gate(api, number, head, "completed", check_id, "Verified full CI, exact head/base and latest attempt; native strict requirements apply.")
         return "native auto-merge armed; server owns actual merge"
     except Exception as error:
-        gate(api, number, head, "failure", check_id, "Auto-merge rejected: " + str(error))
-        return "blocked: " + str(error)
+        reason = "blocked: " + str(error)
+        try:
+            # An unconfirmed initial POST/PATCH must not lead to a second
+            # creation. Cancel independently and let a later read reconcile it.
+            if check_id is not None:
+                gate(api, number, head, "failure", check_id, "Auto-merge rejected: " + str(error))
+        except Exception as gate_error:
+            reason += "; ready update unconfirmed: " + str(gate_error)
+        finally:
+            try:
+                cancel_auto_merge(api, api.get(route(f"pulls/{number}")))
+            except Exception as cancel_error:
+                # No claim that a previously armed request was stopped when
+                # both APIs are unavailable. Surface an operator-visible failure.
+                raise Rejected(reason + "; cancellation unconfirmed: " + str(cancel_error)) from cancel_error
+        return reason
+
+
+def cancel_auto_merge(api, pr):
+    # Protective cancellation is limited to verified bot PRs in this repository.
+    # A failure never falls back to a direct merge or blind mutation retry.
+    if bot(pr) and pr.get("auto_merge") and pr.get("state") == "open":
+        require(pr.get("base", {}).get("repo", {}).get("full_name") == REPOSITORY, "foreign cancellation")
+        try:
+            api.graphql('''mutation($id:ID!) {
+              disablePullRequestAutoMerge(input:{pullRequestId:$id}) { pullRequest { id } }
+            }''', {"id": pr["node_id"]})
+        except Exception:
+            observed = api.get(route(f"pulls/{pr['number']}"))
+            require(not observed.get("auto_merge") or observed.get("state") == "closed", "native cancellation not confirmed")
 
 
 def verify_post_merge(api, number, expected_sha):
@@ -293,11 +360,11 @@ def targets(api, event_name, event):
         require(path in {CI_PATH, NOTICE_PATH}, "unrecognized notification workflow")
         if path == CI_PATH and live.get("event") != "pull_request":
             return [], None
-        require(live.get("event") in {"pull_request", "pull_request_review"}, "wrong notification event")
+        require(live.get("event") in {"pull_request", "pull_request_review", "pull_request_review_comment"}, "wrong notification event")
         numbers = [p["number"] for p in live.get("pull_requests", [])]
         require(len(numbers) == 1, "missing/ambiguous notification PR")
         return numbers, alert if path == CI_PATH else None
-    require(event_name in {"schedule", "workflow_dispatch"}, "unsupported coordinator event")
+    require(event_name in {"schedule", "workflow_dispatch", "push"}, "unsupported coordinator event")
     return [p["number"] for p in api.pages(route("pulls?state=open&base=main"))], None
 
 
@@ -308,6 +375,10 @@ def main():
     parser.add_argument("--expected-sha")
     args = parser.parse_args()
     try:
+        if args.command in {"coordinate", "verify-post-merge"}:
+            require(type(args.pr) is int and args.pr > 0, "missing/invalid PR number")
+        if args.command in {"coordinate", "post-merge"}:
+            trusted_context(os.environ)
         api = GitHub()
         require(os.environ.get("GITHUB_REPOSITORY", REPOSITORY) == REPOSITORY, "foreign workflow repository")
         enabled = os.environ.get("DEPENDABOT_AUTO_MERGE_ENABLED") == "true"
