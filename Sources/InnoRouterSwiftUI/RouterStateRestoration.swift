@@ -17,6 +17,13 @@ private struct RouterRestorationPartialConfiguration<R: Route> {
     let validationTimeout: Duration?
 }
 
+/// A stored snapshot to restore, or the recovery policy's answer to storage
+/// that rejected it before the codec could read it.
+private enum RouterInitialSnapshot<R: Route> {
+    case data(Data)
+    case recovered(RouterSnapshotDecodingResult<R>)
+}
+
 /// Opt-in automatic persistence for one canonical router store.
 ///
 /// The driver observes committed transitions, coalesces writes, and restores
@@ -40,8 +47,6 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     package let durability = RouterDurabilityGate()
     @ObservationIgnored
     package let store: RouterStore<R>
-    @ObservationIgnored
-    private let codec: RouterSnapshotCodec<R>
     @ObservationIgnored
     private let recovery: RouterSnapshotRecoveryPolicy<R>
     @ObservationIgnored
@@ -101,7 +106,6 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         saveDebounce: Duration = .milliseconds(250)
     ) {
         self.store = store
-        self.codec = codec
         self.recovery = recovery
         self.tabTopology = nil
         self.partialConfiguration = nil
@@ -130,7 +134,6 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         saveDebounce: Duration = .milliseconds(250)
     ) {
         self.store = store
-        self.codec = codec
         self.recovery = recovery
         self.tabTopology = tabTopology
         self.partialConfiguration = nil
@@ -159,7 +162,6 @@ public final class RouterRestorationDriver<R: Route & Codable> {
         saveDebounce: Duration = .milliseconds(250)
     ) {
         self.store = store
-        self.codec = codec
         self.recovery = .fail
         self.tabTopology = tabTopology
         self.partialConfiguration = .init(
@@ -300,9 +302,9 @@ extension RouterRestorationDriver {
     ) async throws -> RouterRestorationActivationLease<R> {
         try ensureCurrentActivation(generation, taskID: taskID)
         do {
-            let data = try await executor.load()
+            let loaded = try await loadInitialSnapshot()
             try ensureCurrentActivation(generation, taskID: taskID)
-            guard let data else {
+            guard let loaded else {
                 publishStatus(.active, ownedBy: statusOwner)
                 initialRestorePhase = .completed
                 automaticSaveIsEnabled = true
@@ -328,7 +330,7 @@ extension RouterRestorationDriver {
                 return nil
             }
             let outcome: RouterRestorationOutcome<R>
-            if let partialConfiguration {
+            if let partialConfiguration, case .data(let data) = loaded {
                 let decoded = try await codecExecutor.decode(data)
                 let partial = try await store.restorePartially(
                     decoded: decoded,
@@ -348,9 +350,7 @@ extension RouterRestorationDriver {
                 lastPartialRestoration = partial
             } else {
                 outcome = try await store.restore(
-                    from: data,
-                    using: codec,
-                    recovery: recovery,
+                    decoding: try await decoding(of: loaded),
                     expectedRevision: expectedRevision,
                     transitionID: transitionID,
                     requestRootID: transitionID,
@@ -403,6 +403,34 @@ extension RouterRestorationDriver {
             invalidateScheduledSave()
             publishStatus(.failed(String(describing: error)), ownedBy: statusOwner)
             throw error
+        }
+    }
+
+    /// Loads the initial snapshot, answering a typed storage rejection with
+    /// the recovery policy.
+    ///
+    /// Storage can reject a snapshot before the codec reads it, such as a file
+    /// over its byte limit. The codec raises the same typed error for its own
+    /// limits and recovers it through the policy, so this rejection is
+    /// recovered the same way; `.fail` rethrows it unchanged. Partial
+    /// restoration does not use recovery, and an untyped storage failure is
+    /// environmental rather than a verdict on the snapshot, so both still fail
+    /// activation.
+    private func loadInitialSnapshot() async throws -> RouterInitialSnapshot<R>? {
+        do {
+            return try await executor.load().map(RouterInitialSnapshot.data)
+        } catch let rejection as RouterSnapshotError where partialConfiguration == nil {
+            return .recovered(try recovery.recover(from: rejection))
+        }
+    }
+
+    /// Decodes stored bytes through the recovery policy, after the restore
+    /// request is reserved, or returns the policy's answer to storage that
+    /// rejected them.
+    private func decoding(of loaded: RouterInitialSnapshot<R>) async throws -> RouterSnapshotDecodingResult<R> {
+        switch loaded {
+        case .data(let data): try await codecExecutor.decode(data, recovery: recovery)
+        case .recovered(let decoding): decoding
         }
     }
 

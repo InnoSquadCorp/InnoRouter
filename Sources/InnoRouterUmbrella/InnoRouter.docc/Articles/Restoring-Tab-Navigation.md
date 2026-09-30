@@ -61,6 +61,13 @@ also rejects oversized envelopes before JSON decoding and checks the payload
 after envelope decoding and after each migration. The numeric values above are
 examples, not framework defaults. Existing initializers remain unbounded.
 
+Since InnoRouter 6.1.1, a file over the storage limit reaches the driver's
+`RouterSnapshotRecoveryPolicy` exactly like an envelope the codec rejects. The
+default `.fail` fails activation and preserves the file; `.use` receives the
+typed `encodedDataTooLarge` reason and applies the application's fallback. An
+untyped storage failure, such as a denied file permission, says nothing about
+the snapshot and still fails activation.
+
 ## Understand what changes during reconciliation
 
 The example's old snapshot contains `home` and `legacy`, with `legacy` selected.
