@@ -4,9 +4,10 @@ import InnoRouterCore
 
 /// A route that can build the SwiftUI destination for each of its cases.
 ///
-/// `DestinationRoute` is the simple, route-owned composition boundary used by
-/// ``RouterHost``. Larger applications can keep destination construction in a
-/// coordinator and continue using ``NavigationHost`` directly.
+/// `DestinationRoute` is the route-owned composition boundary used by
+/// ``RouterHost``, ``RouterTabHost``, and ``RouterSplitHost``. Applications
+/// that retain the authority outside a host create it with
+/// ``makeRouterStore(initialState:configuration:)`` and pass it to a host.
 ///
 /// The `@Router` macro is the default way to adopt this protocol:
 ///
@@ -35,21 +36,17 @@ public protocol DestinationRoute: Route {
     static func destination(for route: Self) -> Destination
 }
 
-public extension NavigationHost where R: DestinationRoute, DestinationView == R.Destination {
-    /// Creates an externally owned host whose destination builder is supplied
-    /// by the route type.
-    ///
-    /// Prefer ``RouterHost`` while the store can stay local to the view tree.
-    /// Use this initializer when deep-link handling, restoration, middleware,
-    /// or another application boundary needs the `NavigationStore` directly.
-    init(
-        store: NavigationStore<R>,
-        @ViewBuilder root: @escaping () -> Root
-    ) {
-        self.init(
-            store: store,
-            destination: R.destination(for:),
-            root: root
+public extension DestinationRoute {
+    /// Creates the canonical store unlocked by `@Router`'s generated
+    /// `DestinationRoute` conformance.
+    @MainActor
+    static func makeRouterStore(
+        initialState: RouterState<Self> = .rootStack,
+        configuration: RouterStoreConfiguration<Self> = .init()
+    ) -> RouterStore<Self> {
+        RouterStore(
+            initialState: initialState,
+            configuration: configuration
         )
     }
 }

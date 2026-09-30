@@ -19,7 +19,12 @@ public struct TabItemMacro: PeerMacro {
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         guard declaration.is(EnumCaseDeclSyntax.self) else {
-            diagnoseTabItem(.tabItemRequiresCase, at: node, context: context)
+            diagnoseTabItem(
+                .tabItemRequiresCase,
+                at: node,
+                context: context,
+                fixIts: [removeMisplacedAttributeFixIt(node, in: declaration)]
+            )
             return []
         }
 
@@ -48,7 +53,8 @@ private func isRouterEnum(_ enumDecl: EnumDeclSyntax) -> Bool {
 func diagnoseTabItem(
     _ message: RouterTabDiagnostic,
     at node: some SyntaxProtocol,
-    context: some MacroExpansionContext
+    context: some MacroExpansionContext,
+    fixIts: [FixIt] = []
 ) {
-    context.diagnose(Diagnostic(node: node, message: message))
+    context.diagnose(Diagnostic(node: node, message: message, fixIts: fixIts))
 }

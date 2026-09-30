@@ -1,6 +1,12 @@
 name: coverage
 
 on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or tag to check out
+        required: false
+        type: string
   pull_request:
   push:
     branches:
@@ -8,7 +14,7 @@ on:
       - develop
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: coverage-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -22,6 +28,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       # Coverage uses the same pinned Xcode/Swift toolchain as the
       # principle-gates workflow so the codecov.io trend reflects the
@@ -39,54 +47,51 @@ jobs:
           swift --version
 
       - name: Run tests with coverage
-        run: swift test --enable-code-coverage --jobs 2
+        # Swift Testing is concurrent in-process by default even though
+        # SwiftPM's CLI help historically described `--no-parallel` as the
+        # default. Be explicit so actor-heavy coverage runs remain
+        # deterministic on the pinned Swift 6.3.3 toolchain.
+        run: swift test --enable-code-coverage --jobs 2 --no-parallel
 
       - name: Generate lcov report
-        run: |
-          set -euo pipefail
-          PROF_DATA=$(find .build -name 'default.profdata' -print -quit)
-          if [[ -z "${PROF_DATA}" ]]; then
-            echo "::error::default.profdata not found under .build/"
-            exit 1
-          fi
-          # Collect every .xctest bundle and derive each primary binary path
-          # explicitly rather than globbing inside Contents/MacOS, which would
-          # also match files nested under the .dSYM (e.g. Relocations YAML).
-          TEST_BINS=()
-          while IFS= read -r XCTEST_BUNDLE; do
-            BUNDLE_NAME=$(basename "${XCTEST_BUNDLE}" .xctest)
-            TEST_BIN="${XCTEST_BUNDLE}/Contents/MacOS/${BUNDLE_NAME}"
-            if [[ ! -x "${TEST_BIN}" ]]; then
-              echo "::error::Test binary not executable at ${TEST_BIN}"
-              exit 1
-            fi
-            TEST_BINS+=("${TEST_BIN}")
-          done < <(find .build -type d -name '*.xctest' | sort)
-          if [[ "${#TEST_BINS[@]}" -eq 0 ]]; then
-            echo "::error::.xctest bundle not found under .build/"
-            exit 1
-          fi
-          PRIMARY_BIN="${TEST_BINS[0]}"
-          LLVM_COV_ARGS=("${PRIMARY_BIN}")
-          for TEST_BIN in "${TEST_BINS[@]:1}"; do
-            LLVM_COV_ARGS+=(-object "${TEST_BIN}")
-          done
-          echo "Using profdata: ${PROF_DATA}"
-          printf 'Using binary:   %s\n' "${TEST_BINS[@]}"
-          xcrun llvm-cov export \
-            "${LLVM_COV_ARGS[@]}" \
-            -instr-profile "${PROF_DATA}" \
-            -format=lcov \
-            -ignore-filename-regex='Tests|\.build|Examples|ExamplesSmoke|InternalExecutionTrace\.swift|Sources/[^/]*FailFastProbe/' \
-            > coverage.lcov
-          wc -l coverage.lcov
+        run: ./scripts/generate-coverage-report.sh coverage.lcov coverage-full.lcov
 
+      # Two floors, because the gated report deliberately omits native
+      # renderers and scene bridges (see generate-coverage-report.sh): counting
+      # their target-specific inactive branches host-only would reward macOS
+      # reachability rather than portable behavior.
+      #
+      # That exclusion covers the hosts a normal app actually touches —
+      # RouterHost, RouterTabHost, RouterSplitHost, EnvironmentRouter and the
+      # scene bridges — so leaving the comprehensive report at 0 meant the
+      # aggregate number was unguarded: it could fall to any value without
+      # failing a gate. The comprehensive floor is a ratchet set just under the
+      # measured value (84.24% at the time of writing), so a real regression
+      # fails while normal branch-counting variance does not. Raise it when the
+      # measured number moves up; never lower it to make a red build pass.
       - name: Validate coverage floor
         run: |
           ./scripts/test-validate-coverage-report.sh
+          ./scripts/test-summarize-coverage-report.sh
           ./scripts/validate-coverage-report.py \
             coverage.lcov \
             --minimum-line-coverage 85
+          ./scripts/validate-coverage-report.py \
+            coverage-full.lcov \
+            --minimum-line-coverage 83
+          ./scripts/summarize-coverage-report.py \
+            --gated coverage.lcov \
+            --comprehensive coverage-full.lcov \
+            --output coverage-summary.json
+
+      - name: Upload coverage visibility artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: coverage-visibility
+          path: |
+            coverage.lcov
+            coverage-full.lcov
+            coverage-summary.json
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7

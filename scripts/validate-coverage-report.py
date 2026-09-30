@@ -81,9 +81,12 @@ def parse_report(path: Path) -> tuple[int, int, int]:
 
             computed_entries = len(line_hits)
             computed_hit = sum(hit_count > 0 for hit_count in line_hits.values())
+            unlisted_found = declared_found - computed_entries
+            unlisted_hit = declared_hit - computed_hit
             if (
-                declared_found < computed_entries
-                or declared_hit < computed_hit
+                unlisted_found < 0
+                or unlisted_hit < 0
+                or unlisted_hit > unlisted_found
                 or declared_hit > declared_found
             ):
                 raise CoverageReportError(

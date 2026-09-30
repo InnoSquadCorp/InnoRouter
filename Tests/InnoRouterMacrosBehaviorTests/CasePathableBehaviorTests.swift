@@ -28,6 +28,86 @@ enum EscapedKeywordEvent {
     case `switch`(id: String)
 }
 
+@CasePathable
+enum ConditionalEvent {
+#if os(macOS)
+    case desktop(id: String)
+#else
+    case portable(id: String)
+#endif
+}
+
+@Routable
+enum ConditionalRouteEvent {
+#if os(macOS)
+    case desktop
+#else
+    case portable
+#endif
+}
+
+@CasePathable
+enum CollidingBindingEvent {
+    case mixed(Int, v0: String)
+}
+
+// A keyword is legal as an argument label but not as a binding name. These
+// cases previously expanded to `let in`, which crashed swift-frontend.
+@CasePathable
+enum KeywordLabelEvent: Equatable {
+    case single(in: Int)
+    case pair(where: String, repeat: Bool)
+    case mixedKeywords(as: Int, in: Int)
+    case keywordAndPlain(for: Int, id: String)
+    case escapedLabel(`default`: Int)
+}
+
+struct SelfNamedPayload {
+    let value: Int
+}
+
+@CasePathable
+indirect enum RecursivePayloadEvent {
+    case end
+    case next(Self)
+    case optional(Self?)
+    case many([Self])
+    case tuple(Self, Self?)
+    case generic(Result<Self, Never>)
+    case named(SelfNamedPayload)
+}
+
+enum CasePathNamespace {
+    @CasePathable
+    indirect enum NestedRecursivePayload {
+        case end
+        case next(Self)
+    }
+}
+
+@CasePathable
+enum ConditionalAvailabilityEvent {
+    case regular
+#if os(macOS)
+    @available(macOS 26.0, *)
+#endif
+    case future
+
+#if os(macOS)
+#if arch(arm64)
+    @available(macOS 26.0, *)
+#endif
+#endif
+    case nestedFuture
+
+#if os(macOS)
+    @available(macOS 26.0, *)
+#else
+    @available(iOS 18.0, *)
+#endif
+    case branchFuture
+}
+
 // MARK: - @Suite
 
 @Suite("CasePathableBehaviorTests")
@@ -44,6 +124,56 @@ struct CasePathableBehaviorTests {
 
         let mismatched: Void? = path.extract(.opened(id: "x"))
         #expect(mismatched == nil)
+    }
+
+    // MARK: - keyword argument labels
+
+    @Test("keyword argument label roundtrips through CasePath")
+    func embedExtract_roundtrip_keywordLabel() {
+        let path = KeywordLabelEvent.Cases.single
+        let embedded = path.embed(7)
+        #expect(path.extract(embedded) == 7)
+
+        // The label must survive as written, so the embedded value has to
+        // match a hand-written `.single(in:)`.
+        #expect(embedded == KeywordLabelEvent.single(in: 7))
+        #expect(path.extract(.escapedLabel(default: 1)) == nil)
+    }
+
+    @Test("two keyword argument labels roundtrip through CasePath")
+    func embedExtract_roundtrip_keywordLabelPair() {
+        let path = KeywordLabelEvent.Cases.pair
+        let embedded = path.embed(("x", true))
+        let extracted = path.extract(embedded)
+        #expect(extracted?.0 == "x")
+        #expect(extracted?.1 == true)
+        #expect(embedded == KeywordLabelEvent.pair(where: "x", repeat: true))
+    }
+
+    @Test("repeated keyword labels bind to distinct values")
+    func embedExtract_roundtrip_repeatedKeywordLabels() {
+        // `as` and `in` are both keywords; each needs its own escaped
+        // binding or the extract would reuse one name twice.
+        let path = KeywordLabelEvent.Cases.mixedKeywords
+        let extracted = path.extract(path.embed((1, 2)))
+        #expect(extracted?.0 == 1)
+        #expect(extracted?.1 == 2)
+    }
+
+    @Test("keyword and ordinary labels mix in one case")
+    func embedExtract_roundtrip_keywordAndPlainLabels() {
+        let path = KeywordLabelEvent.Cases.keywordAndPlain
+        let extracted = path.extract(path.embed((3, "id")))
+        #expect(extracted?.0 == 3)
+        #expect(extracted?.1 == "id")
+    }
+
+    @Test("author-escaped label keeps its single escaping")
+    func embedExtract_roundtrip_escapedLabel() {
+        let path = KeywordLabelEvent.Cases.escapedLabel
+        let embedded = path.embed(9)
+        #expect(path.extract(embedded) == 9)
+        #expect(embedded == KeywordLabelEvent.escapedLabel(default: 9))
     }
 
     @Test("single labeled case roundtrips preserving identifier")
@@ -73,6 +203,84 @@ struct CasePathableBehaviorTests {
         let switchEmbedded = switchPath.embed("settings")
         #expect(switchPath.extract(switchEmbedded) == "settings")
         #expect(switchPath.extract(.`default`) == nil)
+    }
+
+    @Test("conditional cases expose only the active branch's CasePath")
+    func conditionalCaseRoundtrip() {
+#if os(macOS)
+        let path = ConditionalEvent.Cases.desktop
+        #expect(path.extract(path.embed("mac")) == "mac")
+#else
+        let path = ConditionalEvent.Cases.portable
+        #expect(path.extract(path.embed("portable")) == "portable")
+#endif
+    }
+
+    @Test("Routable conditional cases preserve Route conformance and CasePath")
+    func conditionalRoutableCaseRoundtrip() {
+#if os(macOS)
+        let route: any Route = ConditionalRouteEvent.desktop
+        #expect(route is ConditionalRouteEvent)
+        #expect(ConditionalRouteEvent.desktop.is(ConditionalRouteEvent.Cases.desktop))
+#else
+        let route: any Route = ConditionalRouteEvent.portable
+        #expect(route is ConditionalRouteEvent)
+        #expect(ConditionalRouteEvent.portable.is(ConditionalRouteEvent.Cases.portable))
+#endif
+    }
+
+    @Test("generated extraction bindings remain unique")
+    func collidingBindingsRoundtrip() {
+        let path = CollidingBindingEvent.Cases.mixed
+        let embedded = path.embed((7, "seven"))
+        let extracted = path.extract(embedded)
+        #expect(extracted?.0 == 7)
+        #expect(extracted?.1 == "seven")
+    }
+
+    @Test("Self payloads resolve to the enclosing enum")
+    func recursiveSelfPayloadRoundtrip() {
+        let path = RecursivePayloadEvent.Cases.next
+        let embedded = path.embed(.end)
+        guard let extracted = path.extract(embedded) else {
+            Issue.record("Expected recursive payload extraction")
+            return
+        }
+        if case .end = extracted {
+        } else {
+            Issue.record("Expected the enclosing enum payload")
+        }
+
+        let optional = RecursivePayloadEvent.Cases.optional
+        #expect(optional.extract(optional.embed(nil)) != nil)
+        let many = RecursivePayloadEvent.Cases.many
+        #expect(many.extract(many.embed([.end]))?.count == 1)
+        let tuple = RecursivePayloadEvent.Cases.tuple
+        #expect(tuple.extract(tuple.embed((.end, nil)))?.1 == nil)
+        let generic = RecursivePayloadEvent.Cases.generic
+        guard case .success(.end)? = generic.extract(generic.embed(.success(.end))) else {
+            Issue.record("Expected Self nested in a generic payload")
+            return
+        }
+        let named = RecursivePayloadEvent.Cases.named
+        #expect(named.extract(named.embed(.init(value: 42)))?.value == 42)
+        let nested = CasePathNamespace.NestedRecursivePayload.Cases.next
+        guard case .end? = nested.extract(nested.embed(.end)) else {
+            Issue.record("Expected nested enum Self to resolve to its declaration")
+            return
+        }
+    }
+
+#if os(macOS)
+    @available(macOS 26.0, *)
+#endif
+    @Test("conditional availability reaches generated CasePath members")
+    func conditionalAvailabilityRoundtrip() {
+        let path = ConditionalAvailabilityEvent.Cases.future
+        let extracted: Void? = path.extract(path.embed(()))
+        #expect(extracted != nil)
+        _ = ConditionalAvailabilityEvent.Cases.nestedFuture.embed(())
+        _ = ConditionalAvailabilityEvent.Cases.branchFuture.embed(())
     }
 
     // MARK: - is(_:)

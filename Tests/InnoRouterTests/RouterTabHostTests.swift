@@ -9,10 +9,40 @@ import Testing
 import InnoRouter
 @testable import InnoRouterSwiftUI
 
-private enum RouterTabHostRoute: String, DestinationRoute, RouterTab {
+private enum RouterTabHostRoute: String, DestinationRoute, RouterTabRoute {
     case home
     case inbox
     case settings
+
+    enum Tab: String, RouterTab {
+        case home
+        case inbox
+        case settings
+
+        var title: LocalizedStringResource {
+            switch self {
+            case .home: "Home"
+            case .inbox: "Inbox"
+            case .settings: "Settings"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .home: "house"
+            case .inbox: "tray"
+            case .settings: "gearshape"
+            }
+        }
+
+        var routerScopeID: RouterScopeID { RouterScopeID(rawValue) }
+    }
+
+    static let routerTabs: [RouterTabDescriptor<Self, Tab>] = [
+        .init(tab: .home, root: .home),
+        .init(tab: .inbox, root: .inbox),
+        .init(tab: .settings, root: .settings),
+    ]
 
     var title: LocalizedStringResource {
         switch self {
@@ -39,18 +69,24 @@ private enum RouterTabHostRoute: String, DestinationRoute, RouterTab {
 @Observable
 private final class RouterTabHostRecorder {
     var appearances: [RouterTabHostRoute] = []
+    @ObservationIgnored
+    var paths: [[RouterTabHostRoute]] = []
     var didDispatch = false
 }
 
 @MainActor
 private struct RouterTabDestination: View {
     @EnvironmentRouter(RouterTabHostRoute.self) private var router
+    @EnvironmentRouterState(RouterTabHostRoute.self) private var routerState
     @Environment(RouterTabHostRecorder.self) private var recorder
 
     let route: RouterTabHostRoute
 
     var body: some View {
         Text(route.title)
+#if canImport(AppKit)
+            .background(RouterTabStateCapture(path: routerState.path, recorder: recorder))
+#endif
             .onAppear {
                 recorder.appearances.append(route)
                 guard route == .home, !recorder.didDispatch else { return }
@@ -61,125 +97,205 @@ private struct RouterTabDestination: View {
     }
 }
 
+#if canImport(AppKit)
+private struct RouterTabStateCapture: NSViewRepresentable {
+    let path: [RouterTabHostRoute]
+    let recorder: RouterTabHostRecorder
+
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        recorder.paths.append(path)
+    }
+}
+#endif
+
 @Suite("RouterTabHost", .tags(.unit))
 @MainActor
 struct RouterTabHostTests {
-    @Test("RouterTabState owns selection and normalized badge state")
-    func stateOwnership() {
-        let state = RouterTabState(
-            initial: RouterTabHostRoute.home,
+    @Test("Manual tab catalogs fail with typed validation errors")
+    func manualCatalogValidation() throws {
+        #expect(throws: RouterTabCatalogError.empty) {
+            try RouterTabCatalog<RouterTabHostRoute>([])
+        }
+        #expect(throws: RouterTabCatalogError.duplicateTabIdentity) {
+            try RouterTabCatalog<RouterTabHostRoute>([
+                .init(tab: .home, root: .home),
+                .init(tab: .home, root: .inbox),
+            ])
+        }
+        #expect(throws: RouterTabCatalogError.duplicateRootRoute) {
+            try RouterTabCatalog<RouterTabHostRoute>([
+                .init(tab: .home, root: .home),
+                .init(tab: .inbox, root: .home),
+            ])
+        }
+
+        let catalog = try RouterTabCatalog(RouterTabHostRoute.routerTabs)
+        _ = try RouterTabHost(
+            RouterTabHostRoute.self,
+            catalog: catalog,
+            initial: .home
+        )
+    }
+
+    @Test("RouterStore owns selection and normalized badge state")
+    func stateOwnership() async throws {
+        let store = try makeTabStore(
+            initial: .home,
             badges: [.inbox: 2, .settings: 0]
         )
 
-        #expect(state.selection == .home)
-        #expect(state.badges == [.inbox: 2])
+        _ = await store.perform(.select("settings"))
+        _ = await store.perform(.setBadge(5, for: "home"))
+        _ = await store.perform(.setBadge(0, for: "inbox"))
 
-        state.send(.select(.settings))
-        state.send(.setBadge(5, for: .home))
-        state.send(.setBadge(0, for: .inbox))
+        let container = try #require(tabContainer(in: store))
+        #expect(container.selection == "settings")
+        #expect(container.badges == ["home": 5])
 
-        #expect(state.selection == .settings)
-        #expect(state.badges == [.home: 5])
-
-        state.send(.clearAllBadges)
-        #expect(state.badges.isEmpty)
+        _ = await store.perform(.clearAllBadges)
+        #expect(tabContainer(in: store)?.badges.isEmpty == true)
     }
 
-    @Test("RouterActions maps tab methods to the internal host state")
-    func routerActionMapping() {
-        let state = RouterTabState(initial: RouterTabHostRoute.home)
+    @Test("RouterActions maps tab methods to the canonical root scope")
+    func routerActionMapping() async throws {
+        let store = try makeTabStore(initial: .home)
         let router = RouterActions(
-            authority: RouterAuthority(tab: state.actionHandler)
+            authority: RouterAuthority(scope: store.scope())
         )
 
         router.select(.inbox)
         router.setBadge(3, for: .inbox)
         router.setBadge(-1, for: .settings)
+        await drainMainActorTasks()
 
-        #expect(state.selection == .inbox)
-        #expect(state.badges == [.inbox: 3])
+        var container = try #require(tabContainer(in: store))
+        #expect(container.selection == "inbox")
+        #expect(container.badges == ["inbox": 3])
 
         router.clearBadge(for: .inbox)
-        #expect(state.badges.isEmpty)
-
-        router.setBadge(1, for: .home)
-        router.setBadge(2, for: .settings)
-        router.clearAllBadges()
-        #expect(state.badges.isEmpty)
+        await drainMainActorTasks()
+        container = try #require(tabContainer(in: store))
+        #expect(container.badges.isEmpty)
     }
 
-    @Test("Nearest same-route authority does not inherit an outer tab capability")
-    func nearestAuthorityReplacement() {
-        var outerSelections: [RouterTabHostRoute] = []
-        var environment = RouterEnvironment()
-        environment.register(
-            RouterAuthority(
-                tab: { action in
-                    guard case .select(let tab) = action else { return }
-                    outerSelections.append(tab)
-                }
-            ),
-            for: RouterTabHostRoute.self
-        )
-        environment.register(
-            RouterAuthority(
-                navigation: { _ in }
-            ),
-            for: RouterTabHostRoute.self
-        )
-        let snapshot = environment
-        let router = RouterActions(
-            routeType: RouterTabHostRoute.self,
-            environmentMissingPolicy: .logAndDegrade,
-            resolveEnvironment: { snapshot }
-        )
-
-        router.select(.settings)
-
-        #expect(outerSelections.isEmpty)
-    }
-
-    @Test("Missing tab capability degrades without dispatching another capability")
-    func missingTabCapability() {
-        var navigationIntents: [NavigationIntent<RouterTabHostRoute>] = []
-        let router = RouterActions(
-            authority: RouterAuthority(
-                navigation: { navigationIntents.append($0) }
-            ),
-            environmentMissingPolicy: .logAndDegrade
-        )
-
-        router.select(.settings)
-
-        #expect(navigationIntents.isEmpty)
-    }
-
-    @Test("RouterTabHost constructs local state and publishes tab actions")
-    func hostConstructionAndAuthority() throws {
-        let state = RouterTabState(initial: RouterTabHostRoute.home)
+    @Test("RouterTabHost renders and publishes one store authority")
+    func hostConstructionAndAuthority() async throws {
+        let store = try makeTabStore(initial: .home)
         let recorder = RouterTabHostRecorder()
-        let host = RouterTabHost(state: state)
+        let catalog = try RouterTabCatalog(RouterTabHostRoute.routerTabs)
+        let host = try RouterTabHost(store: store, catalog: catalog)
             .environment(recorder)
 
         _ = try renderRouterTabHost(host)
+        await drainMainActorTasks()
 
         #expect(recorder.didDispatch)
         #expect(recorder.appearances.contains(.home))
-        #expect(state.selection == .inbox)
-        #expect(state.badges == [.settings: 4])
+        #expect(tabContainer(in: store)?.selection == "inbox")
+        #expect(tabContainer(in: store)?.badges == ["settings": 4])
     }
 
-    @Test("Tab action handlers are Sendable and main-actor isolated")
-    func actionHandlerIsolation() {
-        let state = RouterTabState(initial: RouterTabHostRoute.home)
+    // A snapshot written before a tab was renamed decodes into a store whose
+    // branches no longer match the catalog. `RouterRestorationDriver` applies it
+    // through `.apply`, which replaces the root wholesale, so the mismatch
+    // reaches a View initializer that SwiftUI re-runs every body pass. That
+    // used to abort the process; the host now renders the catalog and lets the
+    // orphaned branch go unused.
+    @Test("RouterTabHost renders a store whose branches predate a tab rename")
+    func staleRestoredBranchesDoNotAbort() async throws {
+        let store = try makeTabStore(initial: .home)
 
-        requireSendable(state.actionHandler)
-        state.actionHandler(.select(.settings))
+        // Stand in for a decoded snapshot: "settings" was renamed since it was
+        // written, and it carries the selection.
+        let drifted = try RouterContainerState<RouterTabHostRoute>(
+            style: .tabs,
+            selection: "legacySettings",
+            branches: [
+                RouterBranch(id: "home", node: .stack(path: [])),
+                RouterBranch(id: "inbox", node: .stack(path: [])),
+                RouterBranch(id: "legacySettings", node: .stack(path: [.settings])),
+            ]
+        )
+        let outcome = await store.perform(
+            .apply(RouterPlan(state: try RouterState(root: .container(drifted))))
+        )
+        guard case .applied = outcome else {
+            Issue.record("Expected the drifted snapshot to apply")
+            return
+        }
 
-        #expect(state.selection == .settings)
+        let recorder = RouterTabHostRecorder()
+        let host = RouterTabHost(store: store)
+            .environment(recorder)
+
+        _ = try renderRouterTabHost(host)
+        await drainMainActorTasks()
+
+        // The orphaned branch is still in the state; the host simply does not
+        // render it, and the catalog's own tabs remain reachable.
+        #expect(tabContainer(in: store)?.branches.contains { $0.id == "legacySettings" } == true)
+        #expect(recorder.appearances.contains(.home))
     }
 
-    private func requireSendable<T: Sendable>(_: T) {}
+    @Test("RouterTabHost follows replacement application-owned stores")
+    func externalStoreReplacement() async throws {
+#if canImport(AppKit)
+        let catalog = try RouterTabCatalog(RouterTabHostRoute.routerTabs)
+        let first = try makeTabStore(initial: .home)
+        let second = try makeTabStore(initial: .home)
+        let firstRecorder = RouterTabHostRecorder()
+        let secondRecorder = RouterTabHostRecorder()
+        let initial = try RouterTabHost(store: first, catalog: catalog)
+            .environment(firstRecorder)
+        let hostingView = try renderRouterTabHost(initial)
+        await drainMainActorTasks()
+        _ = await first.perform(.select("home"))
+        _ = await second.perform(.push(.settings).inScope("home"))
+
+        hostingView.rootView = try RouterTabHost(store: second, catalog: catalog)
+            .environment(secondRecorder)
+        await renderRouterTabHostReplacement(hostingView)
+        await drainMainActorTasks()
+
+        #expect(tabContainer(in: first)?.selection == "home")
+        #expect(secondRecorder.paths.contains([.settings]))
+#else
+        throw Skip("RouterTabHost replacement rendering requires AppKit.")
+#endif
+    }
+}
+
+@MainActor
+private func makeTabStore(
+    initial: RouterTabHostRoute.Tab,
+    badges: [RouterTabHostRoute.Tab: Int] = [:]
+) throws -> RouterStore<RouterTabHostRoute> {
+    let tabs = RouterTabHostRoute.routerTabs
+    let pairs: [(RouterScopeID, Int)] = badges.compactMap { tab, count in
+        count > 0 ? (tab.routerScopeID, count) : nil
+    }
+    let container = try RouterContainerState<RouterTabHostRoute>(
+        style: .tabs,
+        selection: initial.routerScopeID,
+        branches: tabs.map { RouterBranch(id: $0.tab.routerScopeID) },
+        badges: Dictionary(uniqueKeysWithValues: pairs)
+    )
+    return RouterStore(initialState: try RouterState(root: .container(container)))
+}
+
+@MainActor
+private func tabContainer(
+    in store: RouterStore<RouterTabHostRoute>
+) -> RouterContainerState<RouterTabHostRoute>? {
+    guard case .container(let container) = store.state.root else { return nil }
+    return container
+}
+
+@MainActor
+private func drainMainActorTasks() async {
+    for _ in 0..<4 { await Task.yield() }
 }
 
 #if canImport(AppKit)
@@ -191,6 +307,17 @@ private func renderRouterTabHost<V: View>(_ view: V) throws -> NSHostingView<V> 
     hostingView.layoutSubtreeIfNeeded()
     RunLoop.main.run(until: Date().addingTimeInterval(0.05))
     return hostingView
+}
+
+@MainActor
+private func renderRouterTabHostReplacement<V: View>(
+    _ hostingView: NSHostingView<V>
+) async {
+    hostingView.layoutSubtreeIfNeeded()
+    await withCheckedContinuation { continuation in
+        DispatchQueue.main.async { continuation.resume() }
+    }
+    hostingView.layoutSubtreeIfNeeded()
 }
 #else
 @MainActor

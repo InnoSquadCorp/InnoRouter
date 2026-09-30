@@ -1,115 +1,170 @@
 import Foundation
-import Observation
+import OSLog
 import SwiftUI
 
 import InnoRouterCore
 
-/// A route that can be rendered as a native tab item.
+@MainActor
+enum UnsupportedTabBadgeDiagnostics {
+    private static let logger = Logger(
+        subsystem: "io.innosquad.innorouter",
+        category: "tab-presentation"
+    )
+    private static var hasReported = false
+
+    static func reportIfNeeded(_ count: Int?) {
+#if os(tvOS) || os(watchOS)
+        guard let count, count > 0, !hasReported else { return }
+        hasReported = true
+        logger.warning(
+            "Tab badge state is retained, but the native badge visual is unavailable on this platform."
+        )
+#else
+        _ = count
+#endif
+    }
+}
+
+extension View {
+    @MainActor
+    @ViewBuilder
+    func routerTabBadgeDiagnostics<R: Route>(
+        _ count: Int?,
+        scopeID: RouterScopeID,
+        routerScope: RouterScope<R>
+    ) -> some View {
+#if os(tvOS) || os(watchOS)
+        self.onChange(of: count, initial: true) { _, newCount in
+            UnsupportedTabBadgeDiagnostics.reportIfNeeded(newCount)
+            if let newCount, newCount > 0 {
+                routerScope.reportPlatformAdaptation(
+                    .tabBadgeVisualUnavailable(scope: scopeID, count: newCount)
+                )
+            }
+        }
+#else
+        self
+#endif
+    }
+}
+
+/// Semantic native role for a macro-generated tab.
+public enum RouterTabRole: String, Route, Codable {
+    case standard
+    case search
+}
+
+/// A stable, type-safe identity for one native tab.
 ///
-/// `@Router` generates this conformance when every route case carries
-/// `@TabItem` metadata. Manual conformances remain available for advanced
-/// `TabCoordinator` shells. The default `id` implementation makes every tab
-/// its own identity so `TabView(selection:)` can use the route directly.
+/// `@Router` generates a nested `Tab` enum conforming to this protocol when
+/// at least one route case carries `@TabItem`. Keeping tab identity separate
+/// from the route enum prevents ordinary push and presentation destinations
+/// from being passed to tab-only APIs.
 public protocol RouterTab: Route, CaseIterable, Identifiable {
     /// Localizable label rendered alongside the icon.
     var title: LocalizedStringResource { get }
     /// SF Symbol name rendered in the tab's `Label`.
     var systemImage: String { get }
+    /// Optional SF Symbol rendered while the tab is selected.
+    var selectedSystemImage: String? { get }
+    /// Native role used by the modern SwiftUI `Tab` surface.
+    var role: RouterTabRole { get }
+    /// Durable scope persisted in ``RouterState`` snapshots.
+    var routerScopeID: RouterScopeID { get }
 }
 
 public extension RouterTab {
     var id: Self { self }
+    var selectedSystemImage: String? { nil }
+    var role: RouterTabRole { .standard }
 }
 
-/// A presentation-layer protocol for tab-based navigation surfaces.
-///
-/// `TabCoordinator` owns the currently-selected tab and a per-tab
-/// badge dictionary. It complements rather than replaces
-/// `NavigationStore` / `ModalStore`: each tab usually owns its own
-/// per-tab navigation stack, while the coordinator only tracks which
-/// tab is in front and any unread-count overlays.
-///
-/// ## Platform availability
-///
-/// `TabCoordinatorView` renders through `TabView`, which is available on every
-/// InnoRouter platform. On tvOS and watchOS badge state is preserved while the
-/// unavailable native visual is omitted. The first positive badge passed to
-/// ``TabCoordinator/setBadge(_:for:)`` reports one privacy-safe runtime warning.
-///
-/// ## Conforming
-///
-/// Conformers are reference types because they carry mutable
-/// `selectedTab` / `tabBadges` state observed by SwiftUI. They are
-/// `@MainActor`-isolated so SwiftUI binding writes stay on the main
-/// thread.
-///
-/// ```swift
-/// @Observable @MainActor
-/// final class AppTabs: TabCoordinator {
-///     enum TabType: String, RouterTab { case home, search, profile
-///         var title: LocalizedStringResource {
-///             switch self {
-///             case .home: "Home"
-///             case .search: "Search"
-///             case .profile: "Profile"
-///             }
-///         }
-///         var systemImage: String { rawValue + ".fill" }
-///     }
-///     var selectedTab: TabType = .home
-///     var tabBadges: [TabType: Int] = [:]
-///     @ViewBuilder
-///     func content(for tab: TabType) -> some View { … }
-/// }
-/// ```
-@MainActor
-public protocol TabCoordinator: AnyObject, Observable {
-    associatedtype TabType: RouterTab
-    associatedtype TabContent: View
+/// Maps one stable tab identity to the route rendered at that tab's root.
+public struct RouterTabDescriptor<R: Route, Tab: RouterTab>: Sendable, Identifiable {
+    /// The generated or application-defined tab identity.
+    public let tab: Tab
+    /// The route rendered as the root of this tab's independent stack.
+    public let root: R
 
-    var selectedTab: TabType { get set }
-    var tabBadges: [TabType: Int] { get set }
+    public var id: Tab { tab }
 
-    @ViewBuilder
-    func content(for tab: TabType) -> TabContent
-}
-
-public extension TabCoordinator {
-    func switchTab(to tab: TabType) {
-        selectedTab = tab
-    }
-
-    func setBadge(_ count: Int, for tab: TabType) {
-        UnsupportedTabBadgeDiagnostics.reportIfNeeded(count)
-        tabBadges[tab] = count > 0 ? count : nil
-    }
-
-    func badge(for tab: TabType) -> Int? {
-        tabBadges[tab]
-    }
-
-    func clearAllBadges() {
-        tabBadges.removeAll()
+    public init(tab: Tab, root: R) {
+        self.tab = tab
+        self.root = root
     }
 }
 
-public struct TabCoordinatorView<C: TabCoordinator>: View {
-    @Bindable private var coordinator: C
+extension RouterTabDescriptor: Equatable where R: Equatable {}
+extension RouterTabDescriptor: Hashable where R: Hashable {}
 
-    public init(coordinator: C) {
-        self.coordinator = coordinator
-    }
+/// Structural failures in an application-authored tab catalog.
+public enum RouterTabCatalogError: Error, Hashable, Sendable {
+    case empty
+    case duplicateTabIdentity
+    case duplicateScopeID(RouterScopeID)
+    case duplicateRootRoute
+    case initialTabNotInCatalog
+    case storeIsNotTabContainer
+    case storeBranchesDoNotMatchCatalog
+}
 
-    public var body: some View {
-        TabView(selection: $coordinator.selectedTab) {
-            ForEach(Array(C.TabType.allCases), id: \.self) { tab in
-                coordinator.content(for: tab)
-                    .tabItem {
-                        Label(tab.title, systemImage: tab.systemImage)
-                    }
-                    .tag(tab)
-                    .routerTabBadge(coordinator.tabBadges[tab])
-            }
+/// A validated ordered tab catalog for advanced manual conformances.
+///
+/// `@Router` validates this shape at expansion time. Applications that build a
+/// catalog manually can construct this value with `try` and pass it to the
+/// throwing ``RouterTabHost`` initializers instead of encountering a host
+/// precondition.
+public struct RouterTabCatalog<R: RouterTabRoute>: Sendable {
+    public let descriptors: [RouterTabDescriptor<R, R.Tab>]
+
+    public init(
+        _ descriptors: [RouterTabDescriptor<R, R.Tab>]
+    ) throws {
+        guard !descriptors.isEmpty else { throw RouterTabCatalogError.empty }
+        guard Set(descriptors.map(\.tab)).count == descriptors.count else {
+            throw RouterTabCatalogError.duplicateTabIdentity
         }
+        let scopeIDs = descriptors.map(\.tab.routerScopeID)
+        guard Set(scopeIDs).count == scopeIDs.count else {
+            let duplicate = scopeIDs.first { id in
+                scopeIDs.filter { $0 == id }.count > 1
+            } ?? scopeIDs[0]
+            throw RouterTabCatalogError.duplicateScopeID(duplicate)
+        }
+        guard Set(descriptors.map(\.root)).count == descriptors.count else {
+            throw RouterTabCatalogError.duplicateRootRoute
+        }
+        self.descriptors = descriptors
+    }
+
+    public func descriptor(for tab: R.Tab) -> RouterTabDescriptor<R, R.Tab>? {
+        descriptors.first { $0.tab == tab }
+    }
+
+    public func tab(containingRoot route: R) -> R.Tab? {
+        descriptors.first { $0.root == route }?.tab
+    }
+}
+
+/// A route catalog containing one or more macro-first tab roots.
+///
+/// `@Router` supplies this conformance and a nested ``RouterTab`` identity
+/// enum. Manual conformances can provide the same descriptor catalog.
+public protocol RouterTabRoute: Route {
+    associatedtype Tab: RouterTab
+
+    /// The complete, ordered tab catalog rendered by ``RouterTabHost``.
+    static var routerTabs: [RouterTabDescriptor<Self, Tab>] { get }
+}
+
+public extension RouterTabRoute {
+    /// Returns the descriptor for a tab identity, if it is in the catalog.
+    static func routerTab(for tab: Tab) -> RouterTabDescriptor<Self, Tab>? {
+        routerTabs.first { $0.tab == tab }
+    }
+
+    /// Returns the tab whose root route exactly matches `route`.
+    static func routerTab(containingRoot route: Self) -> Tab? {
+        routerTabs.first { $0.root == route }?.tab
     }
 }

@@ -137,12 +137,12 @@ root = pathlib.Path(sys.argv[1])
 
 checks = [
     (
-        "Sources/InnoRouterDeepLink/DeepLinkPipeline.swift",
+        "Sources/InnoRouterDeepLink/RouterLinkPipeline.swift",
         [
             "shouldRequireAuthentication: @Sendable (R) -> Bool",
-            "isAuthenticated: @Sendable () -> Bool",
-            "customResolver: @escaping @Sendable (URL) -> R?",
-            "public typealias Planner = @Sendable (R) -> NavigationPlan<R>",
+            "isAuthenticated: @Sendable () async -> Bool",
+            "public typealias Planner = @Sendable (R) -> RouterPlan<R>",
+            "customResolver: @escaping @Sendable (URL) -> RouterPlan<R>?",
         ],
     ),
     (
@@ -152,47 +152,10 @@ checks = [
         ],
     ),
     (
-        "Sources/InnoRouterEffects/NavigationEffectHandler.swift",
+        "Sources/InnoRouterSwiftUI/RouterStoreTypes.swift",
         [
-            "_ shouldExecute: @escaping @Sendable () -> Bool",
-            "prepare: @escaping @MainActor @Sendable (NavigationCommand<R>) async -> NavigationInterception<R>",
-        ],
-    ),
-    (
-        "Sources/InnoRouterEffects/DeepLinkEffectHandler.swift",
-        [
-            "_ authorize: @escaping @MainActor @Sendable (PendingDeepLink<R>) async throws -> Bool",
-        ],
-    ),
-    (
-        "Sources/InnoRouterEffects/FlowDeepLinkEffectHandler.swift",
-        [
-            "_ authorize: @escaping @MainActor @Sendable (FlowPendingDeepLink<R>) async throws -> Bool",
-        ],
-    ),
-    (
-        "Sources/InnoRouterSwiftUI/FlowStoreConfiguration.swift",
-        [
-            "public var onEvent: (@MainActor @Sendable (FlowEvent<R>) -> Void)?",
-        ],
-    ),
-    (
-        "Sources/InnoRouterSwiftUI/ModalStoreConfiguration.swift",
-        [
-            "public var onEvent: (@MainActor @Sendable (ModalEvent<M>) -> Void)?",
-        ],
-    ),
-    (
-        "Sources/InnoRouterSwiftUI/NavigationStoreConfiguration.swift",
-        [
-            "public var onEvent: (@MainActor @Sendable (NavigationEvent<R>) -> Void)?",
-        ],
-    ),
-    (
-        "Sources/InnoRouterSwiftUI/ChildCoordinator.swift",
-        [
-            "var onFinish: (@MainActor @Sendable (Result) -> Void)? { get set }",
-            "var onCancel: (@MainActor @Sendable () -> Void)? { get set }",
+            "prepare: @escaping @MainActor @Sendable (RouterTransition<R>) async -> RouterPolicyDecision",
+            "public var onEvent: (@MainActor @Sendable (RouterEvent<R>) -> Void)?",
         ],
     ),
 ]
@@ -262,40 +225,27 @@ print_toolchain_context
 echo "[check-public-api] Building package for symbol extraction"
 swift build >/dev/null
 
-XR_TRIPLE="arm64-apple-xros2.0-simulator"
-XR_SDK_PATH="$(xcrun --sdk xrsimulator --show-sdk-path)"
-[[ -n "$XR_SDK_PATH" ]] || { echo "[check-public-api] Failed to locate xrsimulator SDK path" >&2; exit 1; }
-XR_DERIVED_DATA_PATH="$temp_root/xros-derived-data"
-
-echo "[check-public-api] Building InnoRouterSpatial for visionOS symbol extraction"
-xcodebuild build \
-  -scheme InnoRouterSpatial \
-  -destination 'generic/platform=visionOS Simulator' \
-  -derivedDataPath "$XR_DERIVED_DATA_PATH" \
-  -quiet
-
 echo "[check-public-api] Verifying source-level @Sendable contracts"
 check_sendable_contracts "$ROOT_DIR"
 
 HOST_BUILD_BIN_DIR="$(swift build --show-bin-path)"
 HOST_MODULES_DIR="$HOST_BUILD_BIN_DIR/Modules"
 HOST_MODULE_CACHE_DIR="$HOST_BUILD_BIN_DIR/ModuleCache"
+if [[ ! -d "$HOST_MODULES_DIR" ]] \
+  && find "$HOST_BUILD_BIN_DIR" -maxdepth 1 -type d -name '*.swiftmodule' -print -quit \
+    | grep -q .; then
+  # Xcode 27's native SwiftPM build layout places module directories directly
+  # in Products/Debug and the module cache beside Products.
+  HOST_MODULES_DIR="$HOST_BUILD_BIN_DIR"
+  HOST_MODULE_CACHE_DIR="$(cd "$HOST_BUILD_BIN_DIR/../.." && pwd -P)/ModuleCache.noindex"
+fi
 HOST_SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 HOST_PLATFORM_FRAMEWORKS_DIR="$(resolve_platform_frameworks_dir)"
 IFS=$'\t' read -r HOST_TARGET_TRIPLE HOST_RESOURCE_DIR <<< "$(read_target_context)"
 
-XR_PRODUCTS_DIR="$XR_DERIVED_DATA_PATH/Build/Products/Debug-xrsimulator"
-XR_MODULES_DIR="$XR_PRODUCTS_DIR"
-XR_MODULE_CACHE_DIR="$XR_DERIVED_DATA_PATH/ModuleCache.noindex"
-XR_PLATFORM_FRAMEWORKS_DIR="$(resolve_platform_frameworks_dir xrsimulator)"
-XR_PACKAGE_FRAMEWORKS_DIR="$XR_PRODUCTS_DIR/PackageFrameworks"
-IFS=$'\t' read -r XR_TARGET_CONTEXT_TRIPLE XR_RESOURCE_DIR <<< "$(read_target_context "$XR_TRIPLE")"
-
 [[ -d "$HOST_MODULES_DIR" ]] || { echo "[check-public-api] Missing modules directory: $HOST_MODULES_DIR" >&2; exit 1; }
 [[ -d "$HOST_MODULE_CACHE_DIR" ]] || { echo "[check-public-api] Missing module cache directory: $HOST_MODULE_CACHE_DIR" >&2; exit 1; }
 [[ -n "$HOST_SDK_PATH" ]] || { echo "[check-public-api] Failed to locate host SDK path" >&2; exit 1; }
-[[ -d "$XR_PRODUCTS_DIR" ]] || { echo "[check-public-api] Missing xros products directory: $XR_PRODUCTS_DIR" >&2; exit 1; }
-[[ -d "$XR_MODULE_CACHE_DIR" ]] || { echo "[check-public-api] Missing xros module cache directory: $XR_MODULE_CACHE_DIR" >&2; exit 1; }
 
 toolchain_bin_dir="$(cd "$(dirname "$(dirname "$HOST_RESOURCE_DIR")")/bin" && pwd -P)"
 swift_symbolgraph_extract_bin="$toolchain_bin_dir/swift-symbolgraph-extract"
@@ -481,21 +431,34 @@ while IFS=$'\t' read -r product_name target_name; do
     "$HOST_RESOURCE_DIR" \
     "$HOST_PLATFORM_FRAMEWORKS_DIR"
 
-  if [[ "$product_name" == "InnoRouterSpatial" ]]; then
-    extract_product_symbols \
-      "$target_name" \
-      "$raw_dir/xros" \
-      "$XR_MODULES_DIR" \
-      "$XR_MODULE_CACHE_DIR" \
-      "$XR_SDK_PATH" \
-      "$XR_TARGET_CONTEXT_TRIPLE" \
-      "$XR_RESOURCE_DIR" \
-      "$XR_PACKAGE_FRAMEWORKS_DIR" \
-      "$XR_PLATFORM_FRAMEWORKS_DIR"
+  if [[ "$product_name" == "InnoRouter" ]]; then
+    # The umbrella intentionally declares no duplicate wrappers. Its public
+    # contract is the union of the canonical modules it re-exports; package
+    # access hides the 5.x compatibility implementation from these graphs.
+    for canonical_module in InnoRouterCore InnoRouterDeepLink InnoRouterSwiftUI InnoRouterMacros InnoRouterSystem; do
+      extract_product_symbols \
+        "$canonical_module" \
+        "$raw_dir/$canonical_module" \
+        "$HOST_MODULES_DIR" \
+        "$HOST_MODULE_CACHE_DIR" \
+        "$HOST_SDK_PATH" \
+        "$HOST_TARGET_TRIPLE" \
+        "$HOST_RESOURCE_DIR" \
+        "$HOST_PLATFORM_FRAMEWORKS_DIR"
+    done
   fi
 
   mkdir -p "$(dirname "$normalized_path")"
   normalize_symbol_graph "$product_name" "$raw_dir" "$normalized_path" "$ROOT_DIR_CANONICAL"
+
+  if [[ "$product_name" == "InnoRouter" ]]; then
+    retired_surface='(^|[^[:alnum:]_])(NavigationStore|ModalStore|FlowStore|AppShellStore|AdaptiveSplitStore|SceneStore|NavigationIntent|ModalIntent|FlowIntent|NavigationPlan|FlowPlan|AsyncNavigationMiddlewareExecutor|ChildCoordinator)([^[:alnum:]_]|$)'
+    if grep -E -- "$retired_surface" "$normalized_path" >/dev/null 2>&1; then
+      echo "[check-public-api] Retired 5.x surface leaked into InnoRouter 6:" >&2
+      grep -En -- "$retired_surface" "$normalized_path" >&2
+      failed=1
+    fi
+  fi
 
   baseline_path="$BASELINE_DIR/${product_name}.txt"
   if [[ "$MODE" == "write" ]]; then
@@ -537,6 +500,8 @@ fi
 if [[ "$failed" -ne 0 ]]; then
   exit 1
 fi
+
+bash "$ROOT_DIR/scripts/check-public-api-budget.sh" "$BASELINE_DIR"
 
 if [[ "$MODE" == "write" ]]; then
   echo "[check-public-api] Baselines regenerated in $BASELINE_DIR"

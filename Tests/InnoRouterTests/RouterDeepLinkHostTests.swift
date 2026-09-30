@@ -46,24 +46,35 @@ private enum PlainHostRoute: DestinationRoute {
     }
 }
 
-private enum HostDeepLinkTab: String, DestinationRoute, DeepLinkRoute, RouterTab {
+private enum HostDeepLinkTab: String, DestinationRoute, DeepLinkRoute, RouterTabRoute {
     case home
     case settings
 
-    var title: LocalizedStringResource {
-        switch self {
-        case .home: "Home"
-        case .settings: "Settings"
+    enum Tab: String, RouterTab {
+        case home
+        case settings
+
+        var title: LocalizedStringResource {
+            switch self {
+            case .home: "Home"
+            case .settings: "Settings"
+            }
         }
+        var systemImage: String { self == .home ? "house" : "gear" }
+        var routerScopeID: RouterScopeID { RouterScopeID(rawValue) }
     }
-    var systemImage: String { self == .home ? "house" : "gear" }
+
+    static let routerTabs: [RouterTabDescriptor<Self, Tab>] = [
+        .init(tab: .home, root: .home),
+        .init(tab: .settings, root: .settings),
+    ]
 
     static func resolveDeepLink(_ url: URL) -> Self? {
         url.path == "/settings" ? .settings : nil
     }
 
     static func destination(for route: Self) -> some View {
-        Text(route.title)
+        Text(route.rawValue)
     }
 }
 
@@ -83,50 +94,6 @@ struct RouterDeepLinkHostTests {
 
         #expect(first === sameScene)
         #expect(first !== otherScene)
-    }
-
-    @Test("A DeepLinkRoute candidate pushes through its FlowStore")
-    func pushesResolvedRoute() throws {
-        let url = try #require(URL(string: "innorouter://app.example.com/detail/42"))
-        let arbiter = RouterDeepLinkArbiter()
-        let source = RouterDeepLinkSource()
-        let store = FlowStore<HostDeepLinkRoute>()
-
-        #expect(
-            submitRouterDeepLink(
-                HostDeepLinkRoute.self,
-                url: url,
-                context: RouterDeepLinkContext(arbiter: arbiter, depth: 0),
-                source: source
-            ) { route in
-                store.send(.push(route))
-            }
-        )
-        arbiter.flush(url)
-
-        #expect(store.path == [.push(.detail(id: "42"))])
-    }
-
-    @Test("A modal deep-link candidate presents with its host style")
-    func presentsResolvedModalRoute() throws {
-        let url = try #require(URL(string: "innorouter://app.example.com/settings"))
-        let arbiter = RouterDeepLinkArbiter()
-        let store = ModalStore<HostDeepLinkRoute>()
-
-        #expect(
-            submitRouterDeepLink(
-                HostDeepLinkRoute.self,
-                url: url,
-                context: RouterDeepLinkContext(arbiter: arbiter, depth: 0),
-                source: RouterDeepLinkSource()
-            ) { route in
-                store.send(.present(route, style: .fullScreenCover))
-            }
-        )
-        arbiter.flush(url)
-
-        #expect(store.currentPresentation?.route == .settings)
-        #expect(store.currentPresentation?.style == .fullScreenCover)
     }
 
     @Test("A route without DeepLinkRoute capability is a no-op")
@@ -151,10 +118,20 @@ struct RouterDeepLinkHostTests {
     }
 
     @Test("Tab deep links select instead of pushing")
-    func selectsResolvedTab() throws {
+    func selectsResolvedTab() async throws {
         let url = try #require(URL(string: "innorouter://app.example.com/settings"))
         let arbiter = RouterDeepLinkArbiter()
-        let state = RouterTabState(initial: HostDeepLinkTab.home)
+        let container = try RouterContainerState<HostDeepLinkTab>(
+            style: .tabs,
+            selection: "home",
+            branches: [
+                RouterBranch(id: "home"),
+                RouterBranch(id: "settings"),
+            ]
+        )
+        let store = RouterStore(
+            initialState: try RouterState(root: .container(container))
+        )
 
         #expect(
             submitRouterDeepLink(
@@ -163,12 +140,19 @@ struct RouterDeepLinkHostTests {
                 context: RouterDeepLinkContext(arbiter: arbiter, depth: 0),
                 source: RouterDeepLinkSource()
             ) { route in
-                state.send(.select(route))
+                if let tab = HostDeepLinkTab.routerTab(containingRoot: route) {
+                    store.dispatch(.select(tab.routerScopeID))
+                }
             }
         )
         arbiter.flush(url)
+        for _ in 0..<4 { await Task.yield() }
 
-        #expect(state.selection == .settings)
+        guard case .container(let selected) = store.state.root else {
+            Issue.record("Expected tab container")
+            return
+        }
+        #expect(selected.selection == "settings")
     }
 
     @Test("The shallowest matching host owns one incoming URL")
@@ -341,37 +325,5 @@ struct RouterDeepLinkHostTests {
         arbiter.flush(url)
 
         #expect(recorder.values == ["first"])
-    }
-
-    @Test("A modal tail still rejects automatic pushes")
-    func modalTailInvariant() throws {
-        let url = try #require(URL(string: "innorouter://app.example.com/detail/blocked"))
-        let arbiter = RouterDeepLinkArbiter()
-        let recorder = RouterDeepLinkRecorder<FlowEvent<HostDeepLinkRoute>>()
-        let store = FlowStore<HostDeepLinkRoute>(
-            initial: [.sheet(.settings)],
-            configuration: FlowStoreConfiguration { recorder.values.append($0) }
-                .withMacroFirstDiagnostics(hostName: "RouterHost")
-        )
-
-        submitRouterDeepLink(
-            HostDeepLinkRoute.self,
-            url: url,
-            context: RouterDeepLinkContext(arbiter: arbiter, depth: 0),
-            source: RouterDeepLinkSource()
-        ) { route in
-            store.send(.push(route))
-        }
-        arbiter.flush(url)
-
-        #expect(store.path == [.sheet(.settings)])
-        #expect(
-            recorder.values.contains(
-                .intentRejected(
-                    .push(.detail(id: "blocked")),
-                    .pushBlockedByModalTail
-                )
-            )
-        )
     }
 }

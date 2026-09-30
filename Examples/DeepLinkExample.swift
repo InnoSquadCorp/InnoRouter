@@ -42,5 +42,5 @@ private struct ProductListView: View {
     }
 }
 
-// Use DeepLinkPipeline when authentication, pending/resume, or multi-step
-// navigation needs explicit application policy.
+// Use RouterLinkPipeline when authentication or an exact multi-branch plan
+// needs explicit application policy.

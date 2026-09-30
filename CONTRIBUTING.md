@@ -14,10 +14,10 @@ maintainers to apply to your contribution.
 - **Propose a behaviour change.** Open a GitHub Discussion under
   *Ideas*, describe the call site you want to enable, and list any
   alternatives you considered. Behaviour changes that touch the
-  public surface (`Route`, `NavigationCommand`, `NavigationStore`,
-  `ModalStore`, `FlowStore`, the deep-link pipeline) need a
-  short rationale that ties the change to one of the principle
-  axes in [`Docs/v2-principle-scorecard.md`](Docs/v2-principle-scorecard.md).
+  public surface (`@Router`, `RouterState`, `RouterAction`, `RouterPlan`,
+  `RouterStore`, native hosts, or the link pipeline) need a short rationale
+  tied to the 6.0 product contract in
+  [`Docs/v6-functional-strategy.md`](Docs/v6-functional-strategy.md).
 - **Fix documentation.** README, DocC catalogs (`Sources/*/*.docc`),
   and the in-repo guides under `Docs/` are all open to PRs. Doc-only
   PRs do not require a CHANGELOG entry.
@@ -34,15 +34,31 @@ maintainers to apply to your contribution.
 git clone https://github.com/InnoSquadCorp/InnoRouter.git
 cd InnoRouter
 swift build
-swift test
+swift test --no-parallel
 ./scripts/principle-gates.sh
 ```
+
+`--no-parallel` is required. `RouterSnapshotStorage` is synchronous by design,
+so the restoration suites' storage doubles hold a real thread inside
+`load()`/`save()`. Swift Testing runs suites concurrently in-process by
+default, and enough simultaneously blocked doubles starve the cooperative
+pool, which surfaces as 60s time-limit and `loadTimedOut` failures in the
+restoration tests. `scripts/principle-gates.sh` already passes the flag.
 
 The principle-gates script is the authoritative local core gate.
 Every PR must keep it green. Local platform coverage is not required
 for ordinary patches — the GitHub `platforms` workflow compiles every
 Apple target and runs tvOS, watchOS, and visionOS Simulator tests on
 every PR.
+
+## 6.0 stabilization workflow
+
+For the 6.0.0 stabilization cycle, follow the
+[contract-first implementation and verification workflow (Korean)](Docs/6.0.0-stabilization-workflow.ko.md).
+Define ownership and lifecycle invariants before changing code, reproduce
+defects with failing tests and passing controls, and connect each acceptance
+criterion to an assertion and a result from the exact candidate. Keep local
+validation, release readiness, and publication status separate.
 
 ## Branching and PR conventions
 
@@ -63,13 +79,15 @@ every PR.
 
 A change is **breaking** if it would fail to compile for an existing
 caller, narrow a generic constraint, or change documented runtime
-behaviour. Breaking changes target a 6.0 cycle, not a 5.x minor.
+behaviour. Breaking changes after 6.0 target the next major release, not a
+6.x minor.
 
 If your PR touches the public surface:
 
-1. Update the matching `Baselines/PublicAPI/<Module>.txt` in the same
-   commit. The principle-gates baseline diff is intentional.
-2. Add the user-visible impact to `CHANGELOG.md` under `## Unreleased`
+1. Update the affected `InnoRouter`, `InnoRouterTesting`, or
+   `InnoRouterInspector` baseline in `Baselines/PublicAPI/` in the same commit.
+2. Add the user-visible impact to `CHANGELOG.md` under the current
+   `<version> - Unreleased` heading
    in the matching `Breaking`, `Added`, `Changed`, `Fixed`, `Deprecated`,
    `Removed`, or `Security` section. Breaking entries include the required
    call-site migration.
@@ -91,9 +109,24 @@ observable effect, do not require an entry. The CI changelog gate requires a
 substantive `Unreleased` change whenever a public API baseline changes; edits
 to an older release section do not satisfy it.
 
+## Inspector translations
+
+Edit `Sources/InnoRouterInspector/Localizable.xcstrings` directly after reading
+the corresponding control or state transition. Review every translated entry
+for meaning; do not generate translations with a script. Preserve the
+distinctions between stopping and cancelling a recording, incomplete data and
+failure, and deferred, rejected, and unresolved execution. See
+[Inspector localization](Docs/inspector-localization.md) for the review contract.
+`python3 scripts/check-inspector-localization.py` validates structure and
+coverage only; it does not translate text or establish linguistic quality.
+Run `swift test --filter RouterInspectorLocalizationTests` to verify compiled
+resources, fallback, and runtime locale changes. Keep the iPad UI tests green
+for long labels and right-to-left layout.
+
 ## Macros
 
-Macro changes (`@Routable`, `@CasePathable`) require coverage in both
+Macro changes (`@Router`, `@TabItem`, `@DeepLink`, `@Routable`, or
+`@CasePathable`) require coverage in both
 `Tests/InnoRouterMacrosTests/` (expansion fixtures) and
 `Tests/InnoRouterMacrosBehaviorTests/` (runtime round-trip). The
 behaviour test target is macOS-only — see the README in that
@@ -102,8 +135,8 @@ directory for the toolchain constraint.
 ## Filing the PR
 
 - Link to the originating issue or Discussion in the PR body.
-- Confirm `swift test` and `./scripts/principle-gates.sh` are green
-  locally.
+- Confirm `swift test --no-parallel` and `./scripts/principle-gates.sh`
+  are green locally.
 - Note any platform you could not exercise locally so reviewers can
   watch the matrix workflow accordingly.
 

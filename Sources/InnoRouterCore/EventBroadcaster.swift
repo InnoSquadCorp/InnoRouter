@@ -8,8 +8,7 @@ import Foundation
 /// Package-internal helper that fans a single event out to multiple
 /// `AsyncStream` subscribers.
 ///
-/// Each store (`NavigationStore`, `ModalStore`, `FlowStore`,
-/// `SceneStore`) owns one broadcaster keyed by its event enum.
+/// A `RouterStore` owns one broadcaster keyed by `RouterEvent`.
 /// Subscribers receive their own `AsyncStream` via `stream()`, and the
 /// broadcaster cleans up per-subscriber state through
 /// `AsyncStream.Continuation.onTermination` so cancelled `for await`

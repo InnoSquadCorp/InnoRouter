@@ -19,10 +19,12 @@ import Testing
 func makeTestMacros() -> [String: Macro.Type] {
     [
         "Router": RouterMacro.self,
-        "SceneRouter": SceneRouterMacro.self,
+        "FeatureRoute": FeatureRouteMacro.self,
         "Scene": SceneMacro.self,
+        "InnoRouterMacros.Scene": SceneMacro.self,
         "DeepLink": DeepLinkMacro.self,
         "TabItem": TabItemMacro.self,
+        "PresentationResult": PresentationResultMacro.self,
         "Routable": RoutableMacro.self,
         "CasePathable": CasePathableMacro.self,
     ]
@@ -353,6 +355,55 @@ struct RoutableMacroTests {
         )
     }
 
+    // Swift accepts a bare keyword as an argument label, and
+    // `SwiftParser.parseArgumentLabel()` remaps it to `.identifier`, so the
+    // token is indistinguishable from an ordinary label. Reusing that
+    // spelling as the extract binding produced `let in`, which failed to
+    // parse and crashed swift-frontend. The label must stay bare and the
+    // binding must be escaped.
+    @Test("Keyword argument labels expansion")
+    func testRoutableWithKeywordArgumentLabels() throws {
+        assertMacroExpansion(
+            """
+            @Routable
+            enum KeywordLabelRoute {
+                case detail(in: Int)
+            }
+            """,
+            expandedSource: """
+            enum KeywordLabelRoute {
+                case detail(in: Int)
+
+                internal enum Cases {
+                        internal static let detail = CasePath<KeywordLabelRoute, Int>(
+                            embed: { value in
+                                .detail(in: value)
+                            },
+                            extract: {
+                                if case .detail(let `in`) = $0 {
+                                    return `in`
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+
+            extension KeywordLabelRoute: Route {
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Associated values expansion")
     func testRoutableWithAssociatedValues() throws {
         assertMacroExpansion(
@@ -651,6 +702,170 @@ struct RoutableMacroTests {
 
 @Suite("CasePathable Macro Tests")
 struct CasePathableMacroTests {
+    @Test("Associated-value bindings are unique and Self names the enclosing enum")
+    func testCasePathableBindingHygieneAndSelfPayload() {
+        assertMacroExpansion(
+            """
+            @CasePathable
+            indirect enum RecursiveDestination {
+                case mixed(Int, v0: String)
+                case next(Self)
+            }
+            """,
+            expandedSource: """
+            indirect enum RecursiveDestination {
+                case mixed(Int, v0: String)
+                case next(Self)
+
+                internal enum Cases {
+                        internal static let mixed = CasePath<RecursiveDestination, (Int, String)>(
+                            embed: { value in
+                                .mixed(value.0, v0: value.1)
+                            },
+                            extract: {
+                                if case .mixed(let v0, let __innoRouterCaseValue1) = $0 {
+                                    return (v0, __innoRouterCaseValue1)
+                                };
+                                return nil
+                            }
+                        )
+                        internal static let next = CasePath<RecursiveDestination, RecursiveDestination>(
+                            embed: { value in
+                                .next(value)
+                            },
+                            extract: {
+                                if case .next(let v0) = $0 {
+                                    return v0
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Conditional availability is copied to generated members")
+    func testCasePathableConditionalAvailability() {
+        assertMacroExpansion(
+            """
+            @CasePathable
+            enum FutureDestination {
+            #if os(macOS)
+            @available(macOS 26.0, *)
+            #endif
+                case future
+            }
+            """,
+            expandedSource: """
+            enum FutureDestination {
+            #if os(macOS)
+            @available(macOS 26.0, *)
+            #endif
+                case future
+
+                internal enum Cases {
+                        #if os(macOS)
+                        @available(macOS 26.0, *)
+                        #endif
+                        internal static let future = CasePath<FutureDestination, Void>(
+                            embed: { _ in
+                                .future
+                            },
+                            extract: {
+                                if case .future = $0 {
+                                    return ()
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Conditional enum cases preserve their compilation branches")
+    func testCasePathableConditionalCases() {
+        assertMacroExpansion(
+            """
+            @CasePathable
+            enum ConditionalDestination {
+            #if os(macOS)
+                case desktop(id: String)
+            #else
+                case portable(id: String)
+            #endif
+            }
+            """,
+            expandedSource: """
+            enum ConditionalDestination {
+            #if os(macOS)
+                case desktop(id: String)
+            #else
+                case portable(id: String)
+            #endif
+
+                internal enum Cases {
+                    #if os(macOS)
+                        internal static let desktop = CasePath<ConditionalDestination, String>(
+                            embed: { value in
+                                .desktop(id: value)
+                            },
+                            extract: {
+                                if case .desktop(let id) = $0 {
+                                    return id
+                                };
+                                return nil
+                            }
+                        )
+                    #else
+                        internal static let portable = CasePath<ConditionalDestination, String>(
+                            embed: { value in
+                                .portable(id: value)
+                            },
+                            extract: {
+                                if case .portable(let id) = $0 {
+                                    return id
+                                };
+                                return nil
+                            }
+                        )
+                    #endif
+                }
+
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Basic enum expansion")
     func testCasePathableBasicEnum() throws {
         assertMacroExpansion(
@@ -813,7 +1028,7 @@ struct CasePathableMacroTests {
                 internal enum Cases {
                         internal static let credential = CasePath<Destination, String>(
                             embed: { value in
-                                .credential(`class`: value)
+                                .credential(class: value)
                             },
                             extract: {
                                 if case .credential(let `class`) = $0 {

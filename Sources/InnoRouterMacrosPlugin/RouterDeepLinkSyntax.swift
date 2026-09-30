@@ -124,6 +124,33 @@ func conflictingDeepLinkResolver(
     return nil
 }
 
+func conflictingDeepLinkURLRenderer(
+    in enumDecl: EnumDeclSyntax
+) -> FunctionDeclSyntax? {
+    let declarations = enumDecl.memberBlock.members.flatMap { member -> [DeclSyntax] in
+        if let conditional = member.decl.as(IfConfigDeclSyntax.self) {
+            return declarationsInsideDeepLinkConditional(conditional)
+        }
+        return [member.decl]
+    }
+
+    for declaration in declarations {
+        if let function = declaration.as(FunctionDeclSyntax.self),
+           function.name.text == "deepLinkURL",
+           function.genericParameterClause == nil,
+           function.modifiers.contains(where: { modifier in
+               modifier.name.tokenKind == .keyword(.static) ||
+                   modifier.name.tokenKind == .keyword(.class)
+           }) == false,
+           function.signature.parameterClause.parameters.count == 1,
+           let parameter = function.signature.parameterClause.parameters.first,
+           parameter.firstName.text == "origin" {
+            return function
+        }
+    }
+    return nil
+}
+
 private func declarationsInsideDeepLinkConditional(
     _ conditional: IfConfigDeclSyntax
 ) -> [DeclSyntax] {

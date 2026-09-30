@@ -1,0 +1,8 @@
+# platform<TAB>target-triple substring<TAB>minimum OS
+iOS	apple-ios18.0-simulator	iOS 18
+iPadOS	apple-ios18.0-simulator	iPadOS 18
+Mac-Catalyst	apple-ios18.0-macabi	Mac Catalyst 18
+macOS	apple-macos15.0	macOS 15
+tvOS	apple-tvos18.0-simulator	tvOS 18
+watchOS	apple-watchos11.0-simulator	watchOS 11
+visionOS	apple-xros2.0-simulator	visionOS 2

@@ -5,17 +5,29 @@ import PackageDescription
 
 let innoRouterDependency: Package.Dependency
 
+// SwiftPM derives a dependency's identity differently per form, and the two
+// branches below do not agree. A remote dependency takes it from the URL's
+// last path component, which is always `InnoRouter`. A path dependency takes
+// it from the directory name, which is the repository name in a normal
+// checkout but the worktree name inside a `git worktree`. Each branch
+// therefore records the identity its own dependency will resolve to.
+let innoRouterPackage: String
+
 if let version = ProcessInfo.processInfo.environment["INNOROUTER_CONSUMER_VERSION"] {
     guard let exactVersion = Version(version) else {
         fatalError("INNOROUTER_CONSUMER_VERSION must be a valid semantic version")
     }
-
     innoRouterDependency = .package(
         url: "https://github.com/InnoSquadCorp/InnoRouter.git",
         exact: exactVersion
     )
+    innoRouterPackage = "InnoRouter"
 } else {
     innoRouterDependency = .package(path: "..")
+    innoRouterPackage = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .lastPathComponent
 }
 
 let package = Package(
@@ -30,26 +42,57 @@ let package = Package(
     dependencies: [innoRouterDependency],
     targets: [
         .target(
-            name: "InnoRouterMacroFirstExternalConsumer",
+            name: "AccountFeature",
             dependencies: [
-                .product(name: "InnoRouter", package: "InnoRouter"),
+                .product(name: "InnoRouter", package: innoRouterPackage),
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .target(
-            name: "InnoRouterSpatialExternalConsumer",
+            name: "SearchFeature",
             dependencies: [
-                .product(name: "InnoRouterSpatial", package: "InnoRouter"),
+                .product(name: "InnoRouter", package: innoRouterPackage),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "FeatureCompositionConsumer",
+            dependencies: [
+                "AccountFeature",
+                "SearchFeature",
+                .product(name: "InnoRouter", package: innoRouterPackage),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterMacroFirstExternalConsumer",
+            dependencies: [
+                .product(name: "InnoRouter", package: innoRouterPackage),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "AvailabilityNegativeConsumer",
+            dependencies: [
+                "InnoRouterMacroFirstExternalConsumer",
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "ConditionalFeatureNegativeConsumer",
+            dependencies: [
+                .product(name: "InnoRouter", package: innoRouterPackage),
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
-            name: "InnoRouterSpatialExternalConsumerTests",
+            name: "InnoRouterDeveloperToolsExternalConsumerTests",
             dependencies: [
-                "InnoRouterSpatialExternalConsumer",
-                .product(name: "InnoRouterCore", package: "InnoRouter"),
-                .product(name: "InnoRouterSpatial", package: "InnoRouter"),
-                .product(name: "InnoRouterSwiftUI", package: "InnoRouter"),
+                "InnoRouterMacroFirstExternalConsumer",
+                "FeatureCompositionConsumer",
+                .product(name: "InnoRouter", package: innoRouterPackage),
+                .product(name: "InnoRouterInspector", package: innoRouterPackage),
+                .product(name: "InnoRouterTesting", package: innoRouterPackage),
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

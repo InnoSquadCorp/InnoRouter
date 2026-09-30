@@ -10,7 +10,14 @@ func analyzeDeepLinkCase(
 ) -> RouterDeepLinkItem? {
     let attributes = deepLinkAttributes(on: caseDecl)
     guard attributes.count == 1, let attribute = attributes.first else {
-        diagnoseDeepLink(.duplicateMarker, at: attributes[1], context: context)
+        if let duplicate = duplicateAttributeDiagnosis(attributes, in: caseDecl) {
+            diagnoseDeepLink(
+                .duplicateMarker,
+                at: duplicate.anchor,
+                context: context,
+                fixIts: duplicate.fixIts
+            )
+        }
         return nil
     }
     guard caseDecl.elements.count == 1, let element = caseDecl.elements.first else {

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to publish, for example 5.0.0-rc.1"
+        description: "Release tag to publish, for example 6.0.0-rc.1"
         required: true
         type: string
       prerelease:
@@ -115,6 +115,47 @@ jobs:
     permissions:
       contents: read
 
+  coverage-gate:
+    name: Coverage gate
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
+    uses: ./.github/workflows/coverage.yml
+    with:
+      ref: ${{ needs.preflight.outputs.commit_sha }}
+    permissions:
+      contents: read
+      id-token: write
+
+  sanitizer-gates:
+    name: Sanitizer gates
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
+    uses: ./.github/workflows/sanitizers.yml
+    with:
+      ref: ${{ needs.preflight.outputs.commit_sha }}
+    permissions:
+      contents: read
+
+  performance-gate:
+    name: Performance gate
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
+    uses: ./.github/workflows/performance-smoke.yml
+    with:
+      ref: ${{ needs.preflight.outputs.commit_sha }}
+    permissions:
+      contents: read
+
+  migration-gate:
+    name: Migration gate
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
+    uses: ./.github/workflows/migration-smoke.yml
+    with:
+      ref: ${{ needs.preflight.outputs.commit_sha }}
+    permissions:
+      contents: read
+
   build:
     needs: preflight
     if: needs.preflight.outputs.publish == 'true'
@@ -173,7 +214,17 @@ jobs:
             .build/gh-pages-cache >> "$GITHUB_OUTPUT"
 
       - name: Run Principle Gates
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+          RELEASE_CHANNEL: ${{ needs.preflight.outputs.prerelease == 'true' && 'prerelease' || 'ga' }}
         run: ./scripts/principle-gates.sh
+
+      - name: Verify exact GA package dependency
+        if: needs.preflight.outputs.prerelease == 'false'
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+          INNOROUTER_CONSUMER_REVISION: ${{ needs.preflight.outputs.commit_sha }}
+        run: ./scripts/external-consumer-smoke.sh "$RELEASE_VERSION"
 
       - name: Build Versioned DocC Site
         shell: bash
@@ -197,7 +248,11 @@ jobs:
   publish-gh-pages:
     needs:
       - build
+      - coverage-gate
+      - migration-gate
+      - performance-gate
       - platform-gates
+      - sanitizer-gates
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -226,8 +281,12 @@ jobs:
   create-release:
     needs:
       - build
+      - coverage-gate
+      - migration-gate
+      - performance-gate
       - platform-gates
       - publish-gh-pages
+      - sanitizer-gates
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -246,7 +305,7 @@ jobs:
             .build/release-notes.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           tag_name: ${{ needs.build.outputs.version }}
           name: InnoRouter ${{ needs.build.outputs.version }}

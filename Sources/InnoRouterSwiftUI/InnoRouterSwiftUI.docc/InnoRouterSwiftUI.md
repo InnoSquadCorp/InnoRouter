@@ -1,95 +1,112 @@
 # InnoRouterSwiftUI
 
-Macro-first SwiftUI routing, externally owned stores, modal routing,
-coordinators, and typed `EnvironmentRouter` actions for InnoRouter.
+The native SwiftUI rendering layer for InnoRouter's macro-first state model.
 
 ## Overview
 
-`InnoRouterSwiftUI` adapts the core execution model to SwiftUI.
+Use `@Router` to declare route data and destinations. `RouterHost`,
+`RouterTabHost`, and `RouterSplitHost` render a single `RouterStore`; child
+views send typed actions through `@EnvironmentRouter`.
+Views read the same nearest scope through `@EnvironmentRouterState`; its
+`RouterStateReader` exposes no mutation methods.
 
-This module owns:
+The canonical runtime consists of:
 
-- `DestinationRoute`, `RouterHost`, `RouterModalHost`, `RouterSplitHost`,
-  `RouterTabHost`, and `EnvironmentRouter`
-- `NavigationStore`
-- `NavigationHost` and `NavigationSplitHost` (watchOS not supported for split host)
-- `CoordinatorHost` and `CoordinatorSplitHost` (watchOS not supported for split host)
-- `ModalStore` and `ModalHost`
-- `FlowStore` and `FlowHost`
-- `NavigationIntent` and `ModalIntent`
-- `RouterActions` and `EnvironmentRouter`
-- `RouterTab`, `StepCoordinator`, and `TabCoordinator`
+- `RouterState<Route>` for the complete visible hierarchy;
+- `RouterAction<Route>` for incremental requests;
+- `RouterPlan<Route>` for exact targets;
+- `RouterStore<Route>` for reduce, async prepare, and atomic commit;
+- `RouterScope<Route>` for stable, read-only subtree projections;
+- `RouterRestorationDriver<Route>` for opt-in app-selected persistence;
+- `RouterHistory<Route>` for opt-in bounded navigation-only checkpoints.
 
-The guiding rule is simple: declare destinations with `@Router`, choose the
-local macro-first host for the surface, and let views use
-`@EnvironmentRouter`. Promote a store to an application-owned authority only
-when authentication-aware deep-link replay, restoration, middleware, direct
-observation, or cross-surface policy requires it. Stores own transition
-authority, and hosts bridge system UI state back into those authorities.
+A host owns its store by default. Retain and inject a store at an application
+boundary only for restoration, policies, inspection, or direct observation.
 
-Spatial scene routing is an opt-in boundary documented by the separate
-`InnoRouterSpatial` product. It is not re-exported by the `InnoRouter`
-umbrella.
+## Basic host
 
-## Choosing a surface
+```swift skip doc-fragment
+@Router
+enum AppRoute {
+    case detail(id: String)
 
-Pick the narrowest authority that matches the app boundary:
+    var destination: some View { /* exhaustive switch */ }
+}
 
-| Need | Use |
-|---|---|
-| Self-contained stack plus sheet / cover | `@Router` + `RouterHost` |
-| Self-contained modal-only feature | `@Router` + `RouterModalHost` |
-| Self-contained split detail stack plus modal | `@Router` + `RouterSplitHost` |
-| Single-route incoming URLs | Add `@DeepLink`; `RouterHost` and `RouterSplitHost` push, while `RouterTabHost` selects |
-| Native tabs with host-owned selection and badges | `@Router` + `@TabItem` + `RouterTabHost` |
-| Stack with external deep-link, restoration, or middleware authority | `NavigationStore` + `NavigationHost` |
-| Split-view stack on supported platforms | `NavigationStore` + `NavigationSplitHost` |
-| Sheet / cover authority | `ModalStore` + `ModalHost` |
-| Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
-| Custom app shell with externally owned tab state | `TabCoordinator` + `TabCoordinatorView` |
-| visionOS windows, volumes, immersive spaces | Opt in to `@SceneRouter` from `InnoRouterSpatial` |
-| Reducer, effect, or app-boundary execution | `InnoRouterEffects` |
-| Host-less router assertions | `InnoRouterTesting` |
+RouterHost(AppRoute.self) {
+    HomeView()
+}
+```
 
-## Platform support
+`RouterHost` owns push navigation and one sheet or full-screen presentation per
+stack. Every accepted transition commits one state value. Every refusal returns
+a typed reason without partial state.
 
-InnoRouter ships on every Apple platform it currently supports:
+## Native composition
 
-| Capability | iOS | iPadOS | macOS | tvOS | watchOS | visionOS |
-|---|---|---|---|---|---|---|
-| `RouterHost` / `NavigationHost` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `RouterModalHost` / `ModalHost` `.sheet` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `RouterModalHost` / `ModalHost` `.fullScreenCover` (native) | ✅ | ✅ | ⚠ degrades to `.sheet` | ✅ | ⚠ degrades to `.sheet` | ⚠ degrades to `.sheet` |
-| `RouterSplitHost` / `NavigationSplitHost` / `CoordinatorSplitHost` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| `RouterTabHost` / `TabCoordinator` badge state and native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
+| Need | Surface |
+| --- | --- |
+| stack and presentation | `RouterHost` |
+| tabs and independent branch history | `RouterTabHost` |
+| two-column split tree | `RouterSplitHost` |
+| three-column split tree | `RouterThreeColumnSplitHost` |
+| regular-window local history | `RouterWindowHost` |
+| immersive-space local history | `RouterImmersiveSpaceHost` |
+| application-owned authority | `RouterStore` |
+| child subtree | `RouterScope` |
+| macro-first read-only state | `EnvironmentRouterState` |
+| pending authenticated link | `RouterPendingLinkSlot` |
+| durable pending link | `RouterPendingLinkPersistenceDriver` |
+| automatic app-selected restoration | `RouterRestorationDriver` |
+| app-validated partial restoration | `RouterStore.restorePartially` |
+| restoring into the current tab catalog | `RouterTabRestorationTopology` |
+| bounded back/forward and checkpoints | `RouterHistory` |
 
-`⚠ state only` means tab selection and badge values remain functional, but the
-host omits SwiftUI's unavailable native badge visual. The first positive badge
-submitted through `RouterActions`, `RouterTabHost` initial state, or
-`TabCoordinator.setBadge` reports one privacy-safe warning on that platform.
+`@TabItem` marks only parameterless tab roots. Unmarked associated-value cases
+remain ordinary push or presentation destinations in the same route enum.
+Selected images and native search roles remain tab metadata, not identity.
 
-## Topics
+Use the atomic stack helpers for idempotent producer behavior and attach a
+`RouterRequestKey` when queued duplicates should use keep-first or
+replace-pending semantics. A `RouterPolicy` can defer a transition while the
+store continues unrelated work; resolving that deferral explicitly resumes,
+rejects, or cancels the immutable request.
 
-### Essentials
+Partial restoration validates decoded routes before one revision-checked
+commit and returns a payload-free structural report. A fully removed nonempty
+stack requires an app-provided, revalidated fallback.
 
-- <doc:NavigationStore-and-Hosts>
-- <doc:Split-Modal-and-Composition>
-- <doc:Coordinators-and-Environment-Intent>
+The explicit tab topology APIs are available in 6.1.0 and later.
 
-### Tutorials
+Restoration is exact. A snapshot written before a tab existed carries no branch
+for it, so that tab stays unreachable. `RouterTabRestorationTopology` states
+the scopes the application renders now, as an explicit argument to
+`RouterStore.restore`, `RouterStore.restorePartially`, and
+`RouterRestorationDriver.init`. It carries ordered scope identity only, so
+reconciliation adds empty scopes and never moves routes, presentations, or
+badges into a restored state. Branches the topology does not name are kept as
+orphans for a later catalog, and a selection it no longer names falls back to
+its first scope. A state returned by `RouterSnapshotRecoveryPolicy.use` is the
+application's final answer and is applied without reconciliation. Tab-aware
+requests capture their starting revision before decoding. Public reconciliation
+validates mutable state and current stack shapes before preparing a candidate.
+Partial reports include payload-free `topologyChanges`; their transition outcome
+determines whether the candidate was applied. Older reports decode with an empty
+change list.
 
-- <doc:Tutorial-LoginOnboarding>
-- <doc:Tutorial-DeepLinkReconciliation>
-- <doc:Tutorial-MiddlewareComposition>
-- <doc:Tutorial-MigratingFromNestedHosts>
-- <doc:Tutorial-Throttling>
-- <doc:Migration-FromTCA>
-- <doc:CaseStudy-OnboardingFlow>
+Automatic restoration can take the same validator, timeout, and optional
+topology. It plans before one policy transition and exposes the initial report
+through `lastPartialRestoration`. Accepted normalized state is persisted,
+including an unchanged Store transition whose source file still required
+cleanup. Deferred candidates are persisted only after terminal approval. This
+partial driver mode reports decode and validation failures and does not apply a
+snapshot recovery fallback.
 
-### Guides
-
-- <doc:Migrating-To-InnoRouter-5>
-- <doc:Guide-SequenceVsBatchVsTransaction>
-- <doc:Guide-StepCoordinatorVsFlowStore>
-- <doc:Guide-EnvironmentMissingPolicy>
-- <doc:Guide-QueueCoalescePolicy>
+`RouterHistory` reuses
+the same validator, exact plans, and policies for navigation-only moves. It
+observes commits synchronously, tracks deferred destinations by entry identity,
+invalidates old-session work, and preserves live badges and presentations,
+rejects modal path conflicts, and never changes scene inventory. Multiple active
+histories on one Store follow successful history-originated navigation while
+retaining independent capacities, checkpoints, and session keys. Session
+boundaries are app-defined through `reset(sessionKey:)`.

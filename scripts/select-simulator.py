@@ -25,7 +25,11 @@ def runtime_version(identifier: str, prefix: str) -> tuple[int, ...] | None:
     return tuple(int(component) for component in components)
 
 
-def select_simulator(payload: dict[str, Any], prefix: str) -> str:
+def select_simulator(
+    payload: dict[str, Any],
+    prefix: str,
+    name_contains: str | None = None,
+) -> str:
     devices_by_runtime = payload.get("devices", {})
     if not isinstance(devices_by_runtime, dict):
         raise ValueError("simctl payload must contain a devices object")
@@ -45,6 +49,10 @@ def select_simulator(payload: dict[str, Any], prefix: str) -> str:
             if device.get("isAvailable", True) is False:
                 continue
 
+            name = str(device.get("name", ""))
+            if name_contains and name_contains.casefold() not in name.casefold():
+                continue
+
             udid = device.get("udid")
             if not isinstance(udid, str) or not udid:
                 continue
@@ -55,7 +63,7 @@ def select_simulator(payload: dict[str, Any], prefix: str) -> str:
                 (
                     version,
                     device.get("state") == "Booted",
-                    str(device.get("name", "")),
+                    name,
                     udid,
                 )
             )
@@ -67,20 +75,21 @@ def select_simulator(payload: dict[str, Any], prefix: str) -> str:
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         print(
-            "Usage: select-simulator.py <simctl-devices-json> <runtime-prefix>",
+            "Usage: select-simulator.py <simctl-devices-json> <runtime-prefix> [name-contains]",
             file=sys.stderr,
         )
         return 2
 
     devices_path = Path(sys.argv[1])
     runtime_prefix = sys.argv[2]
+    name_contains = sys.argv[3] if len(sys.argv) == 4 and sys.argv[3] else None
     try:
         payload = json.loads(devices_path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("simctl payload root must be an object")
-        print(select_simulator(payload, runtime_prefix))
+        print(select_simulator(payload, runtime_prefix, name_contains))
     except (OSError, json.JSONDecodeError, LookupError, ValueError) as error:
         print(f"[select-simulator] {error}", file=sys.stderr)
         return 1

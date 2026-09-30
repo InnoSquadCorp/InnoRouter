@@ -8,7 +8,7 @@ JOBS="${SWIFTPM_JOBS:-2}"
 
 if [[ "$VERSION" != "local" ]]; then
   if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "[external-consumer-smoke] Failed: expected a bare GA semantic version, got '$VERSION'" >&2
+    echo "[external-consumer-smoke] Failed: expected bare GA semver, got '$VERSION'" >&2
     exit 1
   fi
   export INNOROUTER_CONSUMER_VERSION="$VERSION"
@@ -21,25 +21,133 @@ else
 fi
 
 SCRATCH_DIR="$ROOT_DIR/.build/external-consumer/$CACHE_KEY"
+SWIFTPM_SCRATCH_DIR="$SCRATCH_DIR/swiftpm"
+if [[ "$VERSION" == "local" ]]; then
+  # A local path dependency can change without its package identity changing.
+  # Reusing the positive consumer's incremental scratch has produced stale
+  # object graphs where the consumer recompiles but links against an older
+  # dependency module. Isolate that build while retaining the intentionally
+  # separate negative-fixture caches, whose source and compiler flags identify
+  # their contract.
+  mkdir -p "$SCRATCH_DIR"
+  SWIFTPM_SCRATCH_DIR="$(mktemp -d "$SCRATCH_DIR/swiftpm.XXXXXX")"
+  trap 'rm -rf "$SWIFTPM_SCRATCH_DIR"' EXIT
+fi
+
+if [[ "$VERSION" != "local" ]]; then
+  swift package --package-path "$PACKAGE_DIR" --scratch-path "$SWIFTPM_SCRATCH_DIR" resolve
+  python3 "$ROOT_DIR/scripts/check-consumer-resolution.py" \
+    "$PACKAGE_DIR/Package.resolved" "$VERSION" "${INNOROUTER_CONSUMER_REVISION:-}" \
+    "https://github.com/InnoSquadCorp/InnoRouter.git"
+fi
+
+verify_conditional_catalog_conflict() {
+  local name="$1"
+  shift
+  local log="$SCRATCH_DIR/$name.log"
+  if swift build \
+    --package-path "$PACKAGE_DIR" \
+    --scratch-path "$SCRATCH_DIR/$name" \
+    --jobs "$JOBS" \
+    "$@" \
+    --target InnoRouterMacroFirstExternalConsumer >"$log" 2>&1; then
+    echo "[external-consumer-smoke] Failed: $name unexpectedly compiled" >&2
+    exit 1
+  fi
+  if ! grep -q "invalid redeclaration of 'routerFeatureCatalog'" "$log"; then
+    echo "[external-consumer-smoke] Failed: $name missed the compiler diagnostic" >&2
+    cat "$log" >&2
+    exit 1
+  fi
+}
 
 swift build \
   --package-path "$PACKAGE_DIR" \
-  --scratch-path "$SCRATCH_DIR/swiftpm" \
+  --scratch-path "$SWIFTPM_SCRATCH_DIR" \
   --jobs "$JOBS" \
   --target InnoRouterMacroFirstExternalConsumer
 
-(
-  cd "$PACKAGE_DIR"
-  # This non-interactive smoke resolves either the current checkout or the
-  # exact GA tag validated above. Avoid a local Xcode trust prompt masking the
-  # actual downstream build result in a fresh DerivedData directory.
-  xcodebuild build \
-    -scheme InnoRouterConsumerSmoke-Package \
-    -destination 'generic/platform=visionOS Simulator' \
-    -derivedDataPath "$SCRATCH_DIR/xcode" \
-    -jobs "${XCODEBUILD_JOBS:-2}" \
-    -skipMacroValidation \
-    -quiet
-)
+swift build \
+  --package-path "$PACKAGE_DIR" \
+  --scratch-path "$SCRATCH_DIR/conditional-case-positive" \
+  --jobs "$JOBS" \
+  -Xswiftc -DINNOROUTER_CUSTOM_CONDITIONAL \
+  --target InnoRouterMacroFirstExternalConsumer
 
-echo "[external-consumer-smoke] Macro-first and Spatial consumer contracts passed ($VERSION)"
+swift test \
+  --package-path "$PACKAGE_DIR" \
+  --scratch-path "$SWIFTPM_SCRATCH_DIR" \
+  --jobs "$JOBS" \
+  --filter InnoRouterDeveloperToolsExternalConsumerTests
+
+if [[ "$VERSION" == "local" ]]; then
+  AVAILABILITY_LOG="$SCRATCH_DIR/availability-negative.log"
+  if swift build \
+    --package-path "$PACKAGE_DIR" \
+    --scratch-path "$SCRATCH_DIR/availability-negative" \
+    --jobs "$JOBS" \
+    -Xswiftc -DINNOROUTER_AVAILABILITY_NEGATIVE \
+    --target AvailabilityNegativeConsumer >"$AVAILABILITY_LOG" 2>&1; then
+    echo "[external-consumer-smoke] Failed: unguarded availability probe unexpectedly compiled" >&2
+    exit 1
+  fi
+  if ! grep -q "futureConfirmation.*only available in macOS 26" "$AVAILABILITY_LOG"; then
+    echo "[external-consumer-smoke] Failed: availability probe did not reach the expected compiler diagnostic" >&2
+    cat "$AVAILABILITY_LOG" >&2
+    exit 1
+  fi
+  if ! grep -q "conditionalFutureConfirmation.*only available in macOS 26" "$AVAILABILITY_LOG"; then
+    echo "[external-consumer-smoke] Failed: conditional availability was not propagated to the generated presentation factory" >&2
+    cat "$AVAILABILITY_LOG" >&2
+    exit 1
+  fi
+
+  CONDITIONAL_FEATURE_LOG="$SCRATCH_DIR/conditional-feature-negative.log"
+  if swift build \
+    --package-path "$PACKAGE_DIR" \
+    --scratch-path "$SCRATCH_DIR/conditional-feature-negative" \
+    --jobs "$JOBS" \
+    -Xswiftc -DINNOROUTER_CONDITIONAL_FEATURE_NEGATIVE \
+    --target ConditionalFeatureNegativeConsumer >"$CONDITIONAL_FEATURE_LOG" 2>&1; then
+    echo "[external-consumer-smoke] Failed: conditional FeatureRoute probe unexpectedly compiled" >&2
+    exit 1
+  fi
+  if ! grep -q "InnoRouterMacro.E065" "$CONDITIONAL_FEATURE_LOG"; then
+    echo "[external-consumer-smoke] Failed: conditional FeatureRoute probe missed E065" >&2
+    cat "$CONDITIONAL_FEATURE_LOG" >&2
+    exit 1
+  fi
+
+  verify_conditional_catalog_conflict \
+    conditional-catalog-conflict \
+    -Xswiftc -DINNOROUTER_CONDITIONAL_FEATURE_CATALOG_CONFLICT
+  verify_conditional_catalog_conflict \
+    nested-catalog-if-conflict \
+    -Xswiftc -DINNOROUTER_NESTED_FEATURE_CATALOG_CONFLICT \
+    -Xswiftc -DINNOROUTER_NESTED_FEATURE_IF
+  verify_conditional_catalog_conflict \
+    nested-catalog-elseif-conflict \
+    -Xswiftc -DINNOROUTER_NESTED_FEATURE_CATALOG_CONFLICT \
+    -Xswiftc -DINNOROUTER_NESTED_FEATURE_ELSEIF
+  verify_conditional_catalog_conflict \
+    nested-catalog-else-conflict \
+    -Xswiftc -DINNOROUTER_NESTED_FEATURE_CATALOG_CONFLICT
+
+  FEATURE_CASE_LOG="$SCRATCH_DIR/feature-case-conflict.log"
+  if swift build \
+    --package-path "$PACKAGE_DIR" \
+    --scratch-path "$SCRATCH_DIR/feature-case-conflict" \
+    --jobs "$JOBS" \
+    -Xswiftc -DINNOROUTER_FEATURE_CASE_CONFLICT \
+    --target InnoRouterMacroFirstExternalConsumer >"$FEATURE_CASE_LOG" 2>&1; then
+    echo "[external-consumer-smoke] Failed: direct feature case conflict unexpectedly compiled" >&2
+    exit 1
+  fi
+  if ! grep -q "InnoRouterMacro.E067" "$FEATURE_CASE_LOG"; then
+    echo "[external-consumer-smoke] Failed: direct feature case conflict missed E067" >&2
+    cat "$FEATURE_CASE_LOG" >&2
+    exit 1
+  fi
+fi
+
+echo "[external-consumer-smoke] 6.0 runtime, developer-product, and presentation availability contracts passed ($VERSION)"

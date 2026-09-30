@@ -6,6 +6,539 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+## 6.1.0 - 2026-09-22
+
+### Changed
+
+- Release publication checks the runtime identity and both installation
+  READMEs against the candidate version, with separate GA and prerelease
+  changelog rules. GA publication also verifies the remote package's exact
+  resolved version and commit before publishing the release.
+- Inspector UI preparation uses explicit, acknowledged Hold/Resume commands
+  instead of a nested native switch. A dedicated regression verifies held,
+  cancelled, and resumed execution; localization and interaction checks remain.
+- Platform CI runs the native iPadOS and visionOS scene policy probes and
+  preserves their logs. Independent visionOS policy cases run in fresh
+  processes; the combined rapid-reopen stress mode remains available separately.
+- Repository CI now tracks exact SwiftPM resolutions. The integration workflow
+  delegates its duplicate DocC site build and source lint pass to the existing
+  required sibling jobs; standalone and release principle gates still run the
+  complete contract.
+- `DeepLinkMatcher.diagnostics` is computed on demand instead of stored.
+  Reading it is unchanged — the same diagnostics are reported, including on a
+  matcher configured with `.disabled`, which continues to suppress emission
+  rather than availability. No migration is required. Computing the value
+  compares every pattern pair, and `@Router` builds a matcher inside each
+  generated `resolveDeepLink` call, so storing it charged that quadratic pass
+  to every deep-link resolution and then discarded the result. Resolution is
+  now linear in catalog size: on a 60-case catalog, 627µs before and 50µs
+  after. The property is recomputed per access, so bind it to a local when
+  inspecting it repeatedly.
+
+### Fixed
+
+- Revoking automatic restoration saves now reaches the storage actor. An old
+  save queued behind a slow load can no longer run after stop, last detach,
+  superseding navigation, or removal and overwrite a replacement driver's
+  file. Explicit saves retain their accepted durability contract.
+- Scene lifecycle persistence no longer replaces an unreadable, oversized, or
+  otherwise failed initial snapshot with the Store's pre-restore state. It
+  waits for an accepted restore or an independent navigation commit; explicit
+  `save()` and `removeSnapshot()` calls keep their existing app-controlled
+  behavior.
+- Snapshot migrations once again wrap every application transform failure in
+  `migrationFailed`, including a transform that throws `RouterSnapshotError`.
+  This preserves the 6.0 recovery contract while codec-generated migration
+  payload limit failures remain distinct typed errors.
+- Explicit tab restoration captures its starting revision before decoding,
+  preventing a late snapshot from overwriting newer navigation. Reconciliation
+  validates mutable state before indexing branches and rejects non-stack nodes
+  used by current tabs. The orphan-tolerant host rejects an orphan selection
+  and invalid current stack shapes before rendering.
+- `RouterTabHost(store:)` no longer aborts the process when the store's tab
+  branches do not match the router's catalog. That initializer is a SwiftUI
+  `View` initializer, re-run on every parent body pass, and the branches are
+  not always what the application chose: restoration applies a decoded snapshot
+  through `.apply`, which replaces the root wholesale, and partial restoration
+  preserves branch identifiers as written. A snapshot taken before a tab was
+  renamed or removed therefore reached a host whose catalog no longer matched,
+  and the assertion fired on the next render. The host now renders its catalog
+  and leaves an orphaned branch unused, and a restored selection naming a tab
+  that no longer exists falls back to the first tab. Bumping
+  `RouterSnapshotCodec.currentVersion` remains the way to reject or migrate an
+  old snapshot deliberately.
+- `@Routable` and `@CasePathable` no longer crash the compiler on a case whose
+  argument label is a keyword, such as `case detail(in: Int)`. The label was
+  reused as the extract binding, which emitted `let in` and failed to parse
+  inside the expansion. Labels keep their own spelling and bindings are escaped
+  independently. `@Router` was never affected.
+- Generated argument labels no longer carry an author's backticks, which made
+  `case foo(`default`: Int)` emit an "does not need to be escaped" warning
+  inside the expansion that the author could not silence.
+- `DeepLinkMatcher`'s documentation no longer shows a `FlowPlan` sample, a 5.x
+  type that no longer exists, and now states that a bare matcher compares path
+  and query only and never checks the URL origin. `@DeepLink` and
+  `RouterLinkPipeline` remain fail closed and are the surfaces to prefer.
+- The documentation metadata gate parses explicit implementation and
+  publication states, version, commit, and date fields. Negated and future
+  publication prose cannot satisfy a publication claim; duplicate fields and
+  contradictory metadata fail, while unpublished work remains representable.
+- The documentation consistency gate reads the release identity from
+  `InnoRouterVersion.swift` instead of requiring the literal `6.0.0`, so a
+  later version no longer fails the gate for being accurate. It validates that
+  the runtime version is SemVer and that both READMEs install it. A
+  publication run can pass `RELEASE_VERSION` to require that the candidate,
+  the runtime, and a dated changelog section all agree.
+- The sanitizer smoke filters now run `RouterTabHostTests`,
+  `RouterDeepLinkHostTests`, and `NativeHostRuntimeTests`, which cover the
+  SwiftUI host boundary that restoration commits through, and
+  `RouterDeepLinkBehaviorTests` now runs under the address sanitizer as well as
+  the thread sanitizer.
+
+### Added
+
+- Applications can opt into finite snapshot envelope, payload, migration, and
+  file-I/O byte limits. Existing snapshot codec and file-storage initializers
+  retain their unbounded 6.0 behavior.
+- Automatic restoration can opt into route-level partial validation with an
+  optional current tab topology. It exposes the initial report separately from
+  the transition and persists only accepted normalized state.
+- `@TabItem` accepts an optional literal `id:` so a tab's persisted scope can
+  remain stable across route case renames. Duplicate effective IDs fail during
+  macro expansion; existing annotations keep their case-name identity.
+- A complete macro-first tab restoration example demonstrates file persistence,
+  catalog changes, restore outcomes, and reopening a saved session. The public
+  DocC catalog links a focused restoration guide and distinguishes the existing
+  6.0 surface from APIs added in 6.1.0.
+- Partial restoration reports include payload-free `topologyChanges` for
+  inserted scopes, scope order, and selection changes. Older encoded reports
+  decode with an empty change list; the transition outcome still determines
+  whether the reported candidate was applied.
+- `RouterTabRestorationTopology` restores a snapshot into the tab catalog an
+  application renders now. Restoration stays exact by default, so a snapshot
+  written before a tab existed leaves that tab unreachable. Passing a topology
+  to `RouterStore.restore`, `RouterStore.restorePartially`,
+  `RouterRestorationDriver.init`, or `RouterTestStore` adds the missing scopes.
+  Build it with `init(of:)` from a `@Router` enum or `init(catalog:)` from a
+  manual catalog. The value carries ordered scope identity only — no routes,
+  presentations, badges, store, or view — so reconciliation creates empty
+  scopes and cannot move payload into a restored state. A scope the snapshot
+  carries is kept exactly; a branch the topology does not name is preserved
+  after the current scopes for a later catalog; a selection it no longer names
+  falls back to its first scope. Partial restoration reconciles before
+  validating, so the application validates the candidate that will be applied.
+  A state returned by `RouterSnapshotRecoveryPolicy.use` is never reconciled.
+  Render a store restored this way with
+  `RouterTabHost(store:catalog:allowingOrphanedBranches:)`; the existing
+  `init(store:catalog:)` keeps its exact set match.
+- Fix-its for redundant `Route` / `DestinationRoute` conformances and for
+  duplicate `@TabItem`, `@Scene`, `@DeepLink`, `@FeatureRoute` and
+  `@PresentationResult` markers.
+
+
+## 6.0.0 - 2026-09-16
+
+- Inspector provides 66 interface strings in English and 15 translated
+  languages, with semantic context for translators. Mounted views follow
+  SwiftUI locale changes, including existing failure/status messages and
+  timestamps; unsupported languages fall back to English. Stable diagnostic
+  values and app-owned content are not translated.
+- Inspector also reads the unchanged string catalog on SwiftPM toolchains
+  that copy rather than compile it, preserving localization for Swift 6.3
+  command-line consumers without a generated translation copy.
+- Inspector refreshes its native form and split-view boundaries when layout
+  direction changes, preventing stale mirrored content and hit regions while
+  retaining parent tab identity, captured data, selection, filters, scenario
+  state, URL input, and ownership of in-flight execution.
+- Inspector recording controls remain individually operable in narrow sidebars.
+  Timeline filtering clears hidden selections, shows explicit empty results,
+  and never restores a stale detail when a filter is removed.
+- Immersive hosts keep a stable native lifetime boundary while their canonical
+  content changes. Disappearance callbacks retain the token from appearance, so
+  a closing old space cannot dismiss a newly accepted space with the same ID.
+- Generated deep-link traversal consumes a one-shot child-entry permit instead
+  of nesting an extra TaskLocal scope at every level. This reduces stack use
+  while preserving the depth-64/work-1,024 limits, cycle detection, and isolation
+  of roots started by application conversions or their child tasks.
+- A restored regular window now closes from its own mounted scene context if
+  its canonical route disappeared before native reopening finished. This
+  prevents a blank native window surviving an approved deferred close even
+  when the driver's value-based dismissal ran before reattachment completed.
+- Restoration activation, snapshot writes, removals, and stop now share one
+  status-publication owner. Late completions cannot hide a newer loading state
+  or persistence failure. Initial-restore lifetime, durable command ordering,
+  and each operation's caller result remain independent of displayed status;
+  automatic saves acquire status ownership only after their debounce ends.
+- Independent deep-link lookups inside custom parameter conversions no longer
+  inherit a feature's traversal admission, including lookups made by tasks
+  created during conversion. Feature cycles and per-traversal limits remain
+  enforced. Late snapshot removals no longer overwrite a newer save's progress
+  or failure status, while still completing their durable work and reporting
+  storage errors to their original caller.
+- Durable commands now run in the order the driver accepted them, so a removal
+  accepted after a save can no longer be overtaken by that save and leave the
+  deleted snapshot or pending link back on disk. A command that never reaches
+  storage, such as one whose encode failed, no longer blocks the commands
+  behind it, and ordering is per driver: unrelated drivers still write
+  concurrently. Retrying an unfinished initial restore no longer depends on the
+  displayed status, so a concurrent save — successful or failed — cannot
+  consume the restore attempt that never ran. Recursive `@FeatureRoute` graphs
+  now terminate in every generated deep-link entry point instead of recursing
+  until the stack overflows; a cyclic edge contributes no catalog entries and
+  resolves to nothing, while independent branches and a child shared by two
+  parents keep working. Generated feature traversal now includes the root and
+  enforces per-call depth and work budgets, so endlessly growing generic
+  specializations fail closed instead of crashing. Incomplete catalogs expose
+  no partial entries and report a traversal-limit explanation. An explicitly
+  stopped initial restore also remains observation-only across later
+  detach/attach cycles instead of replaying an old snapshot over newer state.
+  A generic router declared inside another type now keeps
+  its generic arguments in the generated `Presentation` and `Scene` helpers.
+  `@Router` no longer reports E016 or E048 for a same-named instance property
+  or for a declaration inside inactive conditional compilation; real
+  collisions with the generated static catalogs and nested types are still
+  rejected.
+- Restoration activation now establishes observation and its starting revision
+  when the shared lifetime is reserved, rejects stopped workers and late manual
+  claims, and preserves newer navigation across restore completion. Deferred
+  expiration tasks are bound to one registration lifetime, so a cancelled
+  timer cannot expire a newer request that reuses the same deferral ID.
+  `@FeatureRoute` now preserves enclosing-route `Self` payloads in direct,
+  nested, and generic routers and permits an associated-value case named
+  `routerFeatureCatalog` while retaining E067 for a parameterless conflict.
+- History-owned checkpoint moves now finalize from their own terminal event,
+  preserve newer navigation, wake record-count waiters, and transfer queued
+  deferral ownership before an immediate resume or cancellation can complete.
+  Shared restoration activation now follows all mounted or manual owners, so
+  cancelling one host cannot stop another live host's automatic saves. Removed
+  scene drivers no longer execute immersive effects that were still waiting in
+  the shared queue. Presentation factories allocate collision-free local
+  bindings and resolve recursive `Self` in the route context. Feature metadata
+  moves from `Route.Feature.catalog` to `Route.routerFeatureCatalog`, leaving
+  natural feature cases such as `catalog` and same-named instance properties
+  available while diagnosing direct generated-member conflicts precisely.
+- Restoration cancellation now removes its complete deferred request family;
+  immersive restoration serializes native effects and compensates obsolete
+  successful opens; partial scene reconciliation preserves each window's
+  completed Store ownership. Multiple `RouterHistory` observers now follow
+  one another's successful navigation without duplicating their own moves.
+  Case-path generation avoids associated-value binding collisions, resolves
+  recursive `Self` payloads in the enclosing enum, and preserves conditional
+  availability. Scenario source generation rejects the discard identifier
+  anywhere a Swift declaration or qualified factory name is required.
+- Macro-first hosts and scene/restoration drivers now follow replacement
+  application-owned stores and driver leases without retaining stale SwiftUI
+  state. History and restoration stop/reset operations cancel their complete
+  request families; `RouterHistoryFailure.cancelled` distinguishes a superseded
+  move from a permanently stopped history. Restoration cleanup correlates the
+  exact initial transition or resumed deferral, so an unrelated restoration
+  event cannot release another driver's cancellation ownership.
+- Generated deep links now return a URL only when it resolves to the original
+  route, including static-path collisions and composed Feature ambiguity, and
+  required path values reject empty segments. Conditional `@Routable` and
+  `@CasePathable` cases preserve compiler branches, conditional presentation
+  diagnostics inspect syntax instead of source text, and scenario source
+  factories share strict Swift identifier validation.
+- Feature, window, and immersive scopes now carry Store-owned logical lifetime
+  tokens through queueing, policy suspension, and deferral rebasing. Stale
+  scopes cannot mutate a same-ID replacement Scene or complete another
+  Feature's presentation.
+- Native Scene failure repair now uses a bounded, lifetime-deduplicated Store
+  lane that is not dropped by the application request queue limit and does not
+  evict, interrupt, or bypass serialization for ordinary requests.
+- Scenario fixture format v7 preserves ownership for ordinary Feature actions,
+  presentations, completions, and plans. Older formats fail closed instead of
+  replaying a Feature request as an unscoped root action.
+- Feature plans containing window or immersive inventory are rejected before
+  root extraction, policy admission, or partial mutation.
+- `@PresentationResult` factories preserve conditionally compiled availability
+  clauses, including nested compiler conditions, and downstream consumers now
+  verify both guarded success and unguarded availability diagnostics.
+- Feature plans now revalidate their complete nested macro feature ownership at
+  executor and resumed-commit boundaries. Scenario fixture format v6 records
+  that mapping path; replay and generated tests require resolvers built from
+  the same typed mappings and fail closed on missing or duplicate resolvers.
+- Pending-link cancellation now follows one logical Store request through
+  queueing and arbitrarily repeated policy deferrals, including a resumed
+  non-cooperative policy. Cancelling the slot returns the serialized lane
+  without allowing a late commit.
+- Immersive restoration now distinguishes opened, user-cancelled, failed, and
+  stale native results. Failed opens repair only the current canonical
+  lifetime, release reservations, and bypass application admission policies.
+- `@Router` diagnoses conditional `@FeatureRoute` declarations consistently,
+  including conditional attributes and nested qualified spellings.
+  `@PresentationResult` factories preserve all case availability attributes.
+- Changelog phase checks now share one Bash-only implementation that can run
+  in the Ubuntu release-contract job without Swift or ripgrep.
+- Feature plans now retain scoped intent through queueing, policy deferral,
+  scenario capture, and replay. Rebased plans replace only their owned subtree
+  and preserve current sibling navigation and application scene inventory.
+- Cancelling a pending-link slot now cancels its owned Store request and blocks
+  late commits. Deferred native scene closes restore the authoritative scene,
+  dead scope cache entries are weak and bounded, and programmatic requests no
+  longer force unrelated native binding reconciliation.
+
+- Pending-link persistence now gives every restore/save/submit/cancel/resume
+  operation explicit generation ownership. Caller or driver cancellation
+  prevents a late storage load from resurrecting a gated link or overwriting a
+  newer operation's status.
+- Scenario fixture format v5 records each request's revision precondition and
+  cancellation origin. Replay translates revisions relative to its own
+  baseline, reproduces queued stale-history outcomes, and distinguishes an
+  explicit request cancellation from a deferral `.cancel` decision or an
+  unrepresented history lifetime.
+- Scenario recording now observes actual active and queued request cancellation
+  at the store boundary instead of inferring controls from cancelled terminal
+  events. Generated external fixtures cover stale history plus action and
+  history deferral-resume cancellation.
+- Restoration stop and caller cancellation now cancel the exact owned restore
+  request, release its serialized execution lane, and prevent a late policy
+  result from committing without cancelling unrelated or newer work.
+- Scenario history validation now distinguishes the navigation-only intent from
+  its merged exact action. Existing scenes can precede history submission,
+  while tampered resumed actions and unrepresented stopped-history lifetimes
+  fail preflight before any production request executes.
+- Bound caller-driven presentation cancellation and native immersive-space
+  disappearance to the exact presentation UUID or scene lifetime that
+  originated the request. Deferred/resumed presentation work now cancels its
+  active policy race, releases the serialized lane, and rechecks ownership
+  before a late non-cooperative policy can commit or defer again.
+- Native sheet, cover, and popover dismissal callbacks retain the UUID that
+  created their binding, so a delayed system callback cannot remove a newer
+  replacement presentation. Presentation detent callbacks use the same guard.
+- History rebase now reconstructs its navigation-only plan at executor entry,
+  preserving current windows, immersive spaces, badges, and non-conflicting
+  presentations even when the resumed request waited in the queue. Conflicting
+  presentations and incompatible topology return structured rejections.
+- Scenario replay and generated tests now validate the complete request and
+  deferral control graph before production execution, rejecting duplicate
+  logical submissions, invalid event indices, missing terminals, and invalid
+  deferral ownership.
+- Scenario replay now registers every actual deferred outcome before
+  validation or cancellation can fail, so failure cleanup cannot leave
+  replay-owned work able to commit later.
+- Macro-generated deep-link catalog witnesses qualify `Swift.String`, allowing
+  application route enums to own a payload type named `String` without
+  changing its conversion semantics.
+- Closed third-review races by propagating cancellation into queue-promoted
+  executor tasks, binding typed presentation completion to the exact UUID and
+  completion owner, and draining scenario-replay-owned work before failure or
+  cancellation returns.
+- Scenario replay now rejects a mismatched complete initial state before the
+  first request. Inspector scenario failures expose localized payload-free
+  categories instead of arbitrary error descriptions or stale raw exports.
+- Macro catalog purity now uses runtime type identity, so shadowed standard
+  names cannot invoke application converters during read-only analysis.
+  Feature URL rendering preserves each parent or child declaration's own
+  origin allowlist and round-trips through composed routers.
+- Closed the 6.0 review races around feature-scope execution, partial restoration
+  cancellation/fallback, synchronous history checkpoints and deferred cursors,
+  and test waiter shutdown.
+- Scenario fixture format v3 adds route/environment/dependency preflight,
+  logical-to-live deferral identity mapping, request-owned terminal validation,
+  rejection categories, and separate Swift/JSON generated artifacts.
+- Macro catalogs now compose child-feature declarations and matchers under
+  stable feature namespaces, reject ambiguous feature instances, and keep the
+  default Inspector explanation path free of application conversion code.
+- The Inspector deep-link workbench now shares only payload-free structural
+  summaries by default and offers an opt-in scenario recording, progress,
+  stop/cancel, raw export, and native raw-import workflow.
+
+### Breaking
+
+- InnoRouter is now macro-first: `@Router` unlocks one `RouterStore`, one
+  recursive `RouterState`, and one `RouterAction` vocabulary.
+- The selectable library products are now only `InnoRouter`,
+  `InnoRouterTesting`, and `InnoRouterInspector`. The former granular runtime,
+  macro, effects, scene, and spatial libraries are removed from the external
+  dependency contract.
+- The independent `NavigationStore`, `ModalStore`, `FlowStore`, `AppShellStore`,
+  `AdaptiveSplitStore`, and `SceneStore` authorities and their intent/plan
+  families are removed from the public API. See the 6.0 migration guide.
+- Coordinator callback lifecycles are replaced by exact, result-bearing
+  presentations on `RouterStore` and `EnvironmentRouter`.
+- Deep-link authentication is now actor-safe: `isAuthenticated` is async and
+  `RouterLinkPipeline.decide(for:)` must be awaited.
+- Snapshot encoding is now off the main actor, so
+  `RouterStore.snapshot(using:)` must be awaited. Terminal `RouterEvent` cases
+  also carry their `RouterTransitionContext` directly.
+- `RouterTestStore.finish()` is async so it can diagnose and then await
+  cancellation of store-owned requests, timers, waiters, and deferrals.
+- Native scene actions are available only when the route conforms to
+  `RouterSceneRoute`; unsupported scene styles and mismatched immersive IDs
+  are rejected instead of entering canonical state.
+- The retired 5.x implementation and regression tree is no longer shipped in
+  the checkout. Migration evidence remains available in Git history only.
+- Custom split-column identifiers and initial native split state now use the
+  throwing `RouterTwoColumnSplitLayout` and `RouterThreeColumnSplitLayout`
+  contracts instead of raw host parameters.
+- Deep-link hosts and explicit store handling now share
+  `RouterLinkExecution`; the duplicate `RouterLinkEvent` vocabulary is removed.
+
+### Added
+
+- Macro-first feature composition now uses `@FeatureRoute`,
+  `RouterFeatureMapping`, and `RouterFeatureHost` to project independent route
+  modules through one parent store without child authorities.
+- `RouterTestRuntime`, virtual time, correlated request handles, and strict
+  pending-work diagnostics make timeout, queue, cancellation, and deferral
+  tests deterministic.
+- App-validated partial restoration keeps valid sibling state, reports every
+  removal or replacement, and rejects stale validation commits.
+- `inspectorCatalog: true` generates a payload-free deep-link catalog and
+  explanation path consumed by the Inspector URL workbench.
+- Explicit scenario capture separates observations from developer-authored
+  expectations and emits real `RouterTestStore` Swift Testing source only for
+  complete, bounded fixtures.
+- `RouterHistory` adds bounded navigation-only back/forward and named
+  checkpoints while preserving modal, badge, and scene lifetime state.
+
+- Public API extraction now includes every module re-exported by the umbrella,
+  including Apple system integrations, and a separate per-product symbol
+  budget prevents baseline regeneration from silently expanding the surface.
+- Fixed-seed state-machine, malformed-input, event-stream, and object-lifetime
+  suites now back the canonical invariants. Release publication also requires
+  independent Thread Sanitizer and Address Sanitizer jobs.
+- The performance workflow now records seven release-mode samples: reducer,
+  snapshot, deep-link, Inspector, scenario capture off/on, history-capacity,
+  and catalog-size throughput, in a validated JSON trend artifact.
+- Coverage keeps the portable 85% gate and now also uploads a comprehensive
+  all-library LCOV report plus per-component JSON visibility for native hosts,
+  macro bootstrap code, and every previously floor-excluded source.
+- A real downstream migration gate now builds the exact published 5.2.1
+  `NavigationStore` scenario and its macro-first 6.0 `RouterStore` replacement,
+  then fails if their expected final navigation behavior differs.
+- `RouterObservability.signposts` exposes payload-free transition intervals to
+  Instruments, and `InnoRouterVersion.current` supplies one release identity
+  for application and support diagnostics.
+- `RouterSnapshotMigration.codable` turns adjacent snapshot upgrades into
+  compiler-checked old-payload-to-new-payload transforms.
+- Inspector can export a deterministic `RouterInspectorDiagnosticBundle` with
+  platform and framework identity around its redacted timeline; bookmark order
+  is stable across runs.
+- `RouterActionSequence` adds versioned, deterministic action fixtures that
+  replay through the production reducer, policy, and event pipeline in
+  `RouterTestStore`.
+- `RouterActionStep` preserves per-action provenance, animation, request keys,
+  and deferral context during serialization and policy-aware sequential replay.
+- Inspector reopens diagnostic bundles in the Recorder and native view,
+  rejects unsupported formats and duplicate envelope keys, enforces import
+  limits before entry decoding, and clears stale timing on session replacement.
+- Snapshot validation rejects nonpositive schema versions and out-of-range
+  migration definitions without integer overflow. Signpost intervals close
+  exactly once on all terminal outcomes, replacement, and adapter teardown.
+
+- `RouterState` models stacks, presentations, nested tab/split branches,
+  selections, badges, regular windows, and immersive state in one validated
+  value. `RouterScope` provides stable read-only subtree projections.
+- `RouterStore` runs a pure reduce → async policy prepare → atomic commit
+  pipeline with typed busy, rejection, cancellation, and stale outcomes.
+- `RouterPlan` is the shared exact-state value for transactions, deep links,
+  and restoration.
+- `RouterSnapshotCodec` adds deterministic versioned snapshots, adjacent
+  migrations, typed failures, and explicit fallback provenance.
+- Result-bearing presentation distinguishes returned values, interactive
+  dismissal, caller cancellation, and policy rejection.
+- `RouterLinkPipeline` maps admitted URLs directly to complete plans and can
+  retain an authentication-gated plan without partial navigation.
+- `RouterTabHost` keeps independent tab histories inside the same store.
+  `@Router` supports mixed `@TabItem` roots and ordinary destinations and
+  generates stable case-name scope identifiers.
+- `RouterTestStore` asserts the production transition lifecycle host-lessly.
+- `InnoRouterInspector` records a bounded correlated timeline with structural
+  before/after summaries and route-payload redaction by default.
+- The pre-release candidate includes the planned 6.1 capability set: FIFO
+  request scheduling, atomic `RouterPlanBuilder` transactions, semantic
+  transition source/animation metadata, popovers and presentation options,
+  macro-generated typed presentation requests, and system-binding
+  reconciliation after rejected transitions.
+- `@Scene` now forms a partial window/immersive catalog on the same `@Router`
+  enum, and `RouterSceneDriver` reconciles committed scene state with native
+  SwiftUI scene actions. Regular windows preserve their exact UUID through
+  value-based `WindowGroup` open and dismissal actions; scene lifecycle
+  modifiers feed interactive closure back into the store and reopen a scene
+  whose system-originated dismissal is rejected by policy.
+- App Intent URL generation and universal-link-only Handoff continuation share
+  the canonical deep-link plan pipeline. UIKit and AppKit hosting bridges reuse
+  the application-owned `RouterStore`.
+- The optional Inspector adds search, payload-redacted state trees, structural
+  diffs, JSON export, and non-mutating pure-reducer replay previews.
+- The pre-release 6.2 capability set adds `@EnvironmentRouterState` and its
+  narrow read-only projection, explicit pending-link replacement/cancellation/
+  continuation, and an opt-in `RouterRestorationDriver` with atomic file
+  storage and scene-phase flushing.
+- Inspector sessions can now be imported, stepped, and compared without a live
+  store. `RouterTestStore` accepts transition context and exact plans and adds
+  snapshot, restoration, unchanged-event, and complete-state assertions.
+- The best-effort 6.3 capability set adds payload-safe `RouterObservability`
+  adapters for unified logging or app-owned metrics and a typed
+  `RouterShortcutCatalog` shared by concrete application App Intents.
+- Regular windows and immersive spaces now retain their own recursive
+  navigation nodes in canonical state. `@Scene` generates typed `Route.Scene`
+  requests, while `RouterWindowHost` and `RouterImmersiveSpaceHost` render the
+  exact scene-local stack and presentation lifetime.
+- `RouterSplitState` and `RouterThreeColumnSplitHost` add validated two- and
+  three-column topology, independent column histories, visibility, and compact
+  column preference.
+- Atomic `pushIfNeeded`, `backOrPush`, and `replaceTop` actions avoid common
+  read-then-write races. Semantic request keys add keep-first and
+  replace-pending coalescing without disturbing unrelated FIFO requests.
+- Policies can defer any transition, release the execution lane, and resume,
+  reject, or cancel explicitly. Resume is revision-safe by default, with an
+  opt-in rebase strategy, and awaited presentation results survive deferral.
+- Presentation state now includes selected detent, background/content
+  interaction, and corner radius. `@TabItem` adds selected images and native
+  search-tab roles.
+- `RouterPendingLinkPersistenceDriver` adds versioned, atomic persistence for
+  the exact pending authentication continuation at an app-selected location.
+- Inspector sessions now preserve bookmarks and correlated timing, compare
+  arbitrary captured states, pause on terminal rejection, and import JSON
+  snapshots through the native file importer.
+- `RouterPlatformCapabilities` declares the exact native feature contract for
+  every supported Apple platform. Presentation and tab fallbacks emit
+  deduplicated `platformAdapted` events that observability and Inspector expose
+  without route payloads.
+- Platform runtime tests now execute the same capability and adaptation
+  contract on iPhone, iPad, Mac Catalyst, tvOS, watchOS, and visionOS.
+- Request admission is now explicitly bounded: callers can choose queue
+  overflow behavior, set a policy timeout, and bound or expire unresolved
+  deferrals with typed eviction, capacity, and expiry outcomes.
+- `RouterTabCatalog` and `RouterSceneCatalog` add throwing structural
+  validation for advanced manual conformances while keeping `@Router` as the
+  default catalog producer.
+- Inspector JSON import now preflights encoded bytes and top-level entry count
+  before full decoding. Platform CI emits and verifies library-evolution
+  interfaces for all three public products on every floor, including Mac
+  Catalyst.
+
+### Fixed
+
+- Slow restoration loads cannot overwrite a newer committed revision, failed
+  activation can be retried, stale debounce tasks cannot discard newer saves,
+  and snapshot encoding no longer blocks the main actor.
+- Regular-window UUIDs cannot be reused for a different route. Scene dispatch
+  rechecks revision ownership around native async operations and rolls back a
+  failed open through a non-rejectable, revision-checked system repair instead
+  of leaving an unrepresented canonical scene.
+- `@EnvironmentRouterState` tracks its narrow path, presentation, selection,
+  badge, window, and immersive projections instead of invalidating every
+  reader for every router mutation.
+- Default Inspector exports redact scope identifiers, native window UUIDs, and
+  immersive identifiers while using collision-free structural node IDs.
+- Cancellation no longer retains arbitrary unknown request identifiers, and
+  observability adapters report the real source of terminal transitions.
+- Slow pending-link loads cannot overwrite a newer in-memory submission, and
+  concurrent saves converge on the latest slot generation.
+- A typed presentation deferred by policy now keeps its original result waiter
+  alive through approval and completes it on deferred rejection or cancellation.
+- Split hosts no longer force-unwrap custom three-column topology, and platform
+  adaptation deduplication keeps a bounded recent-event history.
+- Policy deferral diagnostics are informational instead of being classified as
+  rejections. Scope refresh invalidates only the exact system-reconciled
+  subtree, and AppKit-only hosting code no longer leaks into Mac Catalyst.
+- Caller cancellation now terminates timed policy preparation immediately even
+  when the policy itself does not cooperatively observe cancellation.
+
 ## 5.2.1 - 2026-07-21
 
 ### Fixed
@@ -732,7 +1265,7 @@ ran the pre-OSS `4.0.0` snapshot follow the diffs under
 - `Docs/CI-gates.md` — single-page reference for every gate run
   by `scripts/principle-gates.sh`, with purpose, failure signal,
   and local repro command per gate.
-- `Docs/StoreSelectionGuide.md` — decision tree plus four worked
+- `Docs/Archive/5.x/StoreSelectionGuide.md` — decision tree plus four worked
   examples (single push stack, push + independent modal, atomic
   URL → push + modal, iPad split) for new adopters choosing
   between `NavigationStore`, `ModalStore`, `FlowStore`, and the
@@ -1134,7 +1667,7 @@ details that matter for teams that tested pre-OSS snapshots.
   are typechecked against the local package through a temporary
   SwiftPM target, and `principle-gates.sh` now runs the repo-wide
   check.
-- `Docs/macro-dependency-cost.md`, `Examples/SampleAppExample.swift`,
+- `Docs/Archive/5.x/macro-dependency-cost.md`, `Examples/SampleAppExample.swift`,
   `ExamplesSmoke/SampleAppSmoke.swift`, the sequence/batch/transaction
   DocC guide, and OSS metadata files (`CONTRIBUTING.md`,
   `SECURITY.md`, `CODE_OF_CONDUCT.md`) round out adoption evidence
@@ -1143,7 +1676,7 @@ details that matter for teams that tested pre-OSS snapshots.
   `scripts/check-changelog-sync.sh`, the `changelog-sync` workflow
   job, weekly Dependabot config, and platform runtime tests for tvOS /
   watchOS make release drift visible before tags are cut.
-- `Docs/IntentSelectionGuide.md` names the four request types
+- `Docs/Archive/5.x/IntentSelectionGuide.md` names the four request types
   (`NavigationCommand` / `ModalCommand` / `*Intent` / `FlowPlan`)
   side by side with imperative-vs-view-layer guidance,
   `NavigationIntent` vs `FlowIntent` decision boundary, and three

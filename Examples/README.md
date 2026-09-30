@@ -1,66 +1,90 @@
-# Examples — human-facing, idiomatic surface
+# InnoRouter 6 examples
 
-Files under `Examples/` exist to **show how a real adopter writes
-code against the latest InnoRouter surface**. They are read by
-new users, copied into apps, and rendered in the README.
+These examples are intentionally macro-first and compile against the single
+public `InnoRouter` runtime product.
 
-Each `Examples/<Name>Example.swift` has a 1:1 partner under
-`ExamplesSmoke/<Name>Smoke.swift` (see
-[`ExamplesSmoke/README.md`](../ExamplesSmoke/README.md) for the
-counterpart's rules). The
-[`scripts/check-examples-parity.sh`](../scripts/check-examples-parity.sh)
-gate enforces that pairing.
+- `MacrosExample.swift` demonstrates the default host, native tabs and split
+  view, presentations, and environment actions generated from `@Router`.
+- `DeepLinkExample.swift` demonstrates fail-closed `@DeepLink` resolution in a
+  macro-first host.
+- `TabRestorationExample.swift` connects a Codable `@Router`, one store/catalog,
+  file storage, the restoration driver, and an orphan-tolerant tab host. It
+  requires **InnoRouter 6.1.0 or later**.
 
-## What belongs here
-
-- Complete, idiomatic snippets that build standalone.
-- Macro-driven surface (`@Router`, `RouterHost`,
-  `@EnvironmentRouter`, …) as the default simple path, with the lower-level
-  store and intent APIs where the example genuinely needs them — see
-  [`MacrosExample.swift`](MacrosExample.swift).
-- The full headline feature surface (deep-link pipeline + auth
-  policy + flow projection + middleware) where the example narrates a
-  real adoption path — see
-  [`SampleAppExample.swift`](SampleAppExample.swift).
-
-## What does NOT belong here
-
-- Speculative or aspirational APIs that have not landed yet.
-- Code that depends on private helpers (`@_spi`, internal-only
-  protocols).
-- Large unrelated features bundled into one example file. Add a new
-  `<Name>Example.swift` (and its smoke partner) instead.
-
-## When to edit which side
-
-| Change | Edit `Examples/` | Edit `ExamplesSmoke/` |
-| --- | --- | --- |
-| Rename a public symbol | ✅ | ✅ |
-| Add a new macro-driven surface | ✅ (idiomatic example) | ✅ in `MacrosSmoke.swift` when the default consumer contract changes |
-| Add a non-macro public API used in multiple examples | ✅ | ✅ |
-| Add a one-off compile-stability regression test | ➖ | ✅ (`*Smoke.swift` only) |
-| Bug fix in narrative prose / comments | ✅ | ➖ |
-| Add a brand-new example | ✅ (new `<Name>Example.swift`) | ✅ (new `<Name>Smoke.swift` + `Package.swift` target + `principle-gates.sh` build entry) |
-
-When you add a new `<Name>Example.swift`, the parity gate also
-requires:
-
-1. `ExamplesSmoke/<Name>Smoke.swift` — compiler-stable mirror.
-2. A target named `InnoRouter<Name>Example` in `Package.swift`.
-3. A `swift build --target InnoRouter<Name>Example` line in
-   `scripts/principle-gates.sh` under the *human-facing example
-   targets* block.
-
-Skipping any of those three fails the parity gate.
-
-## Build / verify locally
+The matching files in `ExamplesSmoke/` are compiler-stable CI fixtures. The
+independent package under `ConsumerSmoke/` proves the actual downstream product
+boundary for the runtime, testing support, and inspector.
 
 ```bash
-swift build --target InnoRouter<Name>Example
-./scripts/check-examples-parity.sh
+swift build --target InnoRouterMacrosExample
+swift build --target InnoRouterDeepLinkExample
+swift build --target InnoRouterTabRestorationExample
+swift build --target InnoRouterMacroFirstSmoke
+./scripts/external-consumer-smoke.sh
 ```
 
-The full pipeline runs through
-[`scripts/principle-gates.sh`](../scripts/principle-gates.sh) —
-see [`Docs/CI-gates.md`](../Docs/CI-gates.md) for the complete gate
-list.
+## Tab restoration (6.1.0)
+
+Copy `TabRestorationExample.swift` into a SwiftUI app using InnoRouter 6.1.0
+or later. The file imports
+only the public `InnoRouter` product; no internal modules or test tools are
+required. Add this app entry point, or use the view in an existing app:
+
+```swift skip app-entry-point
+import Foundation
+import SwiftUI
+
+@main
+struct RestorationDemoApp: App {
+    private let snapshotURL = URL.applicationSupportDirectory
+        .appending(path: "InnoRouterRestorationDemo/navigation.json")
+
+    var body: some Scene {
+        WindowGroup {
+            TabRestorationUpgradeDemoView(snapshotURL: snapshotURL)
+        }
+    }
+}
+```
+
+Use a dedicated demo path. The launcher has two explicit actions:
+
+1. **Create previous-version demo** overwrites that file with an old
+   `home`/`legacy` snapshot and then mounts the current `home`/`settings` host.
+   Only use it with no other scene or driver writing the same file.
+2. **Open saved session** opens the current file without replacing it. Select
+   this after quitting and reopening the demo to exercise persistence.
+
+On the first action, Home shows the saved `saved-home` detail, Settings is a
+new empty stack, and the removed Legacy tab is hidden. Its saved subtree is
+retained as an orphan; selection falls back from Legacy to Home. Select
+Settings, choose Open detail, and await Save now's success message. Quit and
+reopen, choose Open saved session, and confirm the Settings detail returns.
+Automatic writes are also coalesced after navigation and flushed when the
+scene becomes inactive; force-killing an app does not guarantee a final flush.
+
+For ordinary app startup, use `TabRestorationExampleView(snapshotURL:)`
+directly instead of the tutorial launcher. Retain one session per root and
+use a stable, separate file per account or independently owned scene. Do not
+open multiple windows against the demo's single file.
+
+The result panel distinguishes no snapshot, applied, unchanged, rejected,
+deferred, and operation failure. The example's `.fail` recovery leaves reset
+and migration decisions to the application. A restore returning without an
+error is not sufficient evidence of a commit. For a partial-validation driver,
+inspect `lastPartialRestoration`; for `restorePartially`, inspect the returned
+outcome. In both cases, `report.topologyChanges` describes the candidate and
+`transition` determines whether it was applied.
+
+Run the actual example's file persistence and upgrade tests with:
+
+```bash
+swift test --jobs 2 --no-parallel --filter TabRestorationExampleTests
+```
+
+These tests cover old-catalog reconciliation, navigation in the inserted tab,
+save/reopen through a new session, missing files, and malformed-file
+preservation. They do not replace native gesture or OS process-relaunch QA.
+
+See the [tab restoration guide](../Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md)
+for identity, schema migration, recovery, and lifecycle contracts.

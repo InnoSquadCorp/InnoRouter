@@ -95,9 +95,44 @@ public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
         if case .invalid = tabExpansion {
             return []
         }
+        let sceneExpansion = analyzeRouterScenes(in: enumDecl, context: context)
+        if case .invalid = sceneExpansion {
+            return []
+        }
+        // One parent type context for every helper. A generic router nested in
+        // another type is spelled without its arguments here, so any helper
+        // that skips the specialization emits `Parent.Router` where the
+        // compiler requires `Parent.Router<Value>`.
+        let parentRouteType = specializedRouterType(
+            type.trimmedDescription,
+            for: enumDecl
+        )
+        let presentationResultExpansion = analyzeRouterPresentationResults(
+            in: enumDecl,
+            routeType: parentRouteType,
+            context: context
+        )
+        if case .invalid = presentationResultExpansion {
+            return []
+        }
+        let featureRouteType = parentRouteType
+        let featureExpansion = analyzeRouterFeatures(
+            in: enumDecl,
+            routeType: featureRouteType,
+            context: context
+        )
+        if case .invalid = featureExpansion {
+            return []
+        }
         let deepLinkExpansion = analyzeRouterDeepLinks(
             routerAttribute: node,
             in: enumDecl,
+            featureCaseCount: {
+                if case .valid(let specification) = featureExpansion {
+                    return specification.items.count
+                }
+                return 0
+            }(),
             context: context
         )
         if case .invalid = deepLinkExpansion {
@@ -107,6 +142,9 @@ public struct RouterMacro: MemberAttributeMacro, ExtensionMacro {
             for: type,
             enumDecl: enumDecl,
             tabExpansion: tabExpansion,
+            sceneExpansion: sceneExpansion,
+            presentationResultExpansion: presentationResultExpansion,
+            featureExpansion: featureExpansion,
             deepLinkExpansion: deepLinkExpansion,
             node: node,
             context: context
@@ -118,29 +156,24 @@ private func makeRouterExtensions(
     for type: some TypeSyntaxProtocol,
     enumDecl: EnumDeclSyntax,
     tabExpansion: RouterTabExpansion,
+    sceneExpansion: RouterSceneExpansion,
+    presentationResultExpansion: RouterPresentationResultExpansion,
+    featureExpansion: RouterFeatureExpansion,
     deepLinkExpansion: RouterDeepLinkExpansion,
     node: AttributeSyntax,
     context: some MacroExpansionContext
 ) throws -> [ExtensionDeclSyntax] {
+    let specializedType = specializedRouterType(type.trimmedDescription, for: enumDecl)
     if extractCasePathEnumCases(from: enumDecl).isEmpty {
         diagnose(.emptyRouter, at: node, context: context)
     }
 
     let hasDestinationRouteConformance = directlyConformsToDestinationRoute(enumDecl)
-    if hasDestinationRouteConformance, let inheritanceClause = enumDecl.inheritanceClause {
-        diagnose(
-            .redundantDestinationRouteConformance,
-            at: inheritanceClause,
-            context: context
-        )
-    }
-    if directlyConformsToRoute(enumDecl), let inheritanceClause = enumDecl.inheritanceClause {
-        diagnose(
-            .redundantRouteConformance,
-            at: inheritanceClause,
-            context: context
-        )
-    }
+    diagnoseRedundantConformances(
+        in: enumDecl,
+        hasDestinationRouteConformance: hasDestinationRouteConformance,
+        context: context
+    )
 
     var conformances: [String] = []
     if !hasDestinationRouteConformance {
@@ -150,14 +183,19 @@ private func makeRouterExtensions(
     let access = inferAccessLevel(from: enumDecl).keyword
     let tabMembers: String
     if case .valid(let specification) = tabExpansion {
-        if !specification.directlyConformsToRouterTab {
-            conformances.append("InnoRouterSwiftUI.RouterTab")
+        if !specification.directlyConformsToRouterTabRoute {
+            conformances.append("InnoRouterSwiftUI.RouterTabRoute")
         }
         tabMembers = "\n\n" + renderRouterTabMembers(from: specification, access: access)
     } else {
         tabMembers = ""
     }
 
+    let featureSpecification: RouterFeatureSpecification? = if case .valid(let specification) = featureExpansion {
+        specification
+    } else {
+        nil
+    }
     let deepLinkMembers: String
     if case .valid(let specification) = deepLinkExpansion {
         if !specification.directlyConformsToDeepLinkRoute {
@@ -165,10 +203,48 @@ private func makeRouterExtensions(
         }
         deepLinkMembers = "\n\n" + renderRouterDeepLinkMembers(
             from: specification,
-            access: access
+            access: access,
+            declarationNamespace: type.trimmedDescription,
+            features: featureSpecification
         )
     } else {
         deepLinkMembers = ""
+    }
+
+    let sceneMembers: String
+    if case .valid(let specification) = sceneExpansion {
+        if !specification.directlyConformsToRouterSceneRoute {
+            conformances.append("InnoRouterSwiftUI.RouterSceneRoute")
+        }
+        sceneMembers = "\n\n" + renderRouterSceneMembers(
+            from: specification,
+            routeType: specializedType,
+            access: access
+        )
+    } else {
+        sceneMembers = ""
+    }
+
+    let presentationResultMembers: String
+    if case .valid(let items) = presentationResultExpansion {
+        presentationResultMembers = "\n\n" + renderRouterPresentationResultMembers(
+            from: items,
+            routeType: specializedType,
+            access: access
+        )
+    } else {
+        presentationResultMembers = ""
+    }
+
+    let featureMembers: String
+    if case .valid(let specification) = featureExpansion {
+        featureMembers = "\n\n" + renderRouterFeatureMembers(
+            from: specification,
+            parentType: specializedType,
+            access: access
+        )
+    } else {
+        featureMembers = ""
     }
 
     let conformanceClause = conformances.isEmpty
@@ -181,7 +257,7 @@ private func makeRouterExtensions(
             @SwiftUI.ViewBuilder
             \(raw: access) static func destination(for route: Self) -> some SwiftUI.View {
                 route.destination
-            }\(raw: tabMembers)\(raw: deepLinkMembers)
+            }\(raw: tabMembers)\(raw: sceneMembers)\(raw: featureMembers)\(raw: presentationResultMembers)\(raw: deepLinkMembers)
         }
         """
     )
@@ -202,6 +278,25 @@ func qualifiedType(module: String, name: String) -> TypeSyntax {
             name: .identifier(name)
         )
     )
+}
+
+private func specializedRouterType(
+    _ type: String,
+    for enumDecl: EnumDeclSyntax
+) -> String {
+    guard let parameters = enumDecl.genericParameterClause?.parameters,
+          !parameters.isEmpty else {
+        return type
+    }
+    let finalComponent = type.split(separator: ".").last.map(String.init) ?? type
+    guard !finalComponent.contains("<") else { return type }
+    let arguments = parameters.map { parameter in
+        if parameter.specifier?.tokenKind == .keyword(.each) {
+            return "repeat each \(parameter.name.text)"
+        }
+        return parameter.name.text
+    }
+    return "\(type)<\(arguments.joined(separator: ", "))>"
 }
 
 func conflictsWithGeneratedDestination(
@@ -310,10 +405,43 @@ func directlyConformsToRoute(_ enumDecl: EnumDeclSyntax) -> Bool {
     } ?? false
 }
 
+/// Warns about `Route` / `DestinationRoute` conformances that `@Router`
+/// already supplies, offering the removal edit for each.
+private func diagnoseRedundantConformances(
+    in enumDecl: EnumDeclSyntax,
+    hasDestinationRouteConformance: Bool,
+    context: some MacroExpansionContext
+) {
+    guard let inheritanceClause = enumDecl.inheritanceClause else { return }
+
+    func report(_ message: RouterMacroDiagnostic, removing conformanceName: String) {
+        diagnose(
+            message,
+            at: inheritanceClause,
+            context: context,
+            fixIts: [
+                removeConformanceFixIt(
+                    named: conformanceName,
+                    from: inheritanceClause,
+                    in: enumDecl
+                ),
+            ].compactMap { $0 }
+        )
+    }
+
+    if hasDestinationRouteConformance {
+        report(.redundantDestinationRouteConformance, removing: "DestinationRoute")
+    }
+    if directlyConformsToRoute(enumDecl) {
+        report(.redundantRouteConformance, removing: "Route")
+    }
+}
+
 private func diagnose(
     _ message: RouterMacroDiagnostic,
     at node: some SyntaxProtocol,
-    context: some MacroExpansionContext
+    context: some MacroExpansionContext,
+    fixIts: [FixIt] = []
 ) {
-    context.diagnose(Diagnostic(node: node, message: message))
+    context.diagnose(Diagnostic(node: node, message: message, fixIts: fixIts))
 }

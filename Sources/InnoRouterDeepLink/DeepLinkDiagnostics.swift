@@ -167,7 +167,7 @@ public struct DeepLinkInputLimits: Sendable, Equatable {
     }
 }
 
-public enum DeepLinkInputLimitViolation: Sendable, Equatable {
+public enum DeepLinkInputLimitViolation: Sendable, Hashable {
     case urlLengthExceeded(actual: Int, max: Int)
     case pathSegmentCountExceeded(actual: Int, max: Int)
     case queryItemCountExceeded(actual: Int, max: Int)

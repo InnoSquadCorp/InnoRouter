@@ -5,6 +5,20 @@ public protocol DeepLinkParameterValue: Sendable {
     /// Returns a typed value for a raw deep-link parameter string, or `nil`
     /// when the value cannot be represented by the conforming type.
     static func parseDeepLinkParameter(_ value: String) -> Self?
+
+    /// Returns the canonical string used when this value is rendered into a
+    /// deep-link path segment or query item.
+    ///
+    /// The default uses `String(describing:)` to preserve source compatibility
+    /// for existing conformances. Custom nominal values should provide a
+    /// representation that `parseDeepLinkParameter(_:)` can parse back.
+    var deepLinkParameterString: String { get }
+}
+
+public extension DeepLinkParameterValue {
+    var deepLinkParameterString: String {
+        String(describing: self)
+    }
 }
 
 extension String: DeepLinkParameterValue {

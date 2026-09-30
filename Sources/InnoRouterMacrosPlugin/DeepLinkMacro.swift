@@ -15,7 +15,12 @@ public struct DeepLinkMacro: PeerMacro {
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         guard declaration.is(EnumCaseDeclSyntax.self) else {
-            diagnoseDeepLink(.requiresCase, at: node, context: context)
+            diagnoseDeepLink(
+                .requiresCase,
+                at: node,
+                context: context,
+                fixIts: [removeMisplacedAttributeFixIt(node, in: declaration)]
+            )
             return []
         }
 

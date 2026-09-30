@@ -78,6 +78,12 @@ jobs:
       - name: Test release changelog contract
         run: bash ./scripts/test-check-release-changelog.sh
 
+      - name: Test release identity contract
+        run: python3 ./scripts/test-release-identity.py
+
+      - name: Test shared changelog phase contract
+        run: bash ./scripts/test-changelog-phase-contract.sh
+
       - name: Test release note rendering
         run: bash ./scripts/test-render-release-notes.sh
 
@@ -113,4 +119,8 @@ jobs:
         run: brew install ripgrep swiftformat swiftlint
 
       - name: Run Principle Gates
-        run: ./scripts/principle-gates.sh
+        # DocC site generation and source lint remain required in the sibling
+        # docc and lint jobs. The script's default invocation still runs both.
+        env:
+          INNOROUTER_DELEGATED_GATES: "true"
+        run: ./scripts/principle-gates.sh --skip-docc-site --skip-source-lint

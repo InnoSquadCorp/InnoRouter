@@ -3,6 +3,7 @@ import SwiftSyntax
 struct RouterDeepLinkOrigin {
     let schemes: [String]
     let hosts: [String]
+    let generatesInspectorCatalog: Bool
 
     var hasValues: Bool { !schemes.isEmpty || !hosts.isEmpty }
 }
@@ -14,26 +15,41 @@ enum RouterDeepLinkOriginResult {
 
 func parseDeepLinkOrigin(from attribute: AttributeSyntax) -> RouterDeepLinkOriginResult {
     guard case .argumentList(let arguments) = attribute.arguments else {
-        return .success(RouterDeepLinkOrigin(schemes: [], hosts: []))
+        return .success(RouterDeepLinkOrigin(
+            schemes: [],
+            hosts: [],
+            generatesInspectorCatalog: false
+        ))
     }
 
     var schemes: [String] = []
     var hosts: [String] = []
+    var generatesInspectorCatalog = false
     var seenLabels: Set<String> = []
     for argument in arguments {
         guard let label = argument.label?.text,
-              label == "deepLinkSchemes" || label == "deepLinkHosts" else {
-            return .failure("use only the `deepLinkSchemes:` and `deepLinkHosts:` labels")
+              label == "deepLinkSchemes"
+                || label == "deepLinkHosts"
+                || label == "inspectorCatalog" else {
+            return .failure("use only the `deepLinkSchemes:`, `deepLinkHosts:`, and `inspectorCatalog:` labels")
         }
         guard seenLabels.insert(label).inserted else {
             return .failure("`\(label)` may only be provided once")
         }
-        guard let values = plainStringArray(argument.expression) else {
-            return .failure("`\(label)` must be an array of plain string literals")
-        }
-        if label == "deepLinkSchemes" {
+        if label == "inspectorCatalog" {
+            guard let literal = argument.expression.as(BooleanLiteralExprSyntax.self) else {
+                return .failure("`inspectorCatalog` must be a Boolean literal")
+            }
+            generatesInspectorCatalog = literal.literal.tokenKind == .keyword(.true)
+        } else if label == "deepLinkSchemes" {
+            guard let values = plainStringArray(argument.expression) else {
+                return .failure("`\(label)` must be an array of plain string literals")
+            }
             schemes = values
         } else {
+            guard let values = plainStringArray(argument.expression) else {
+                return .failure("`\(label)` must be an array of plain string literals")
+            }
             hosts = values
         }
     }
@@ -49,7 +65,11 @@ func parseDeepLinkOrigin(from attribute: AttributeSyntax) -> RouterDeepLinkOrigi
     guard let invalidScheme = normalizedSchemes.first(where: { !isValidDeepLinkScheme($0) }) else {
         guard let invalidHost = normalizedHosts.first(where: { !isValidDeepLinkHost($0) }) else {
             return .success(
-                RouterDeepLinkOrigin(schemes: normalizedSchemes, hosts: normalizedHosts)
+                RouterDeepLinkOrigin(
+                    schemes: normalizedSchemes,
+                    hosts: normalizedHosts,
+                    generatesInspectorCatalog: generatesInspectorCatalog
+                )
             )
         }
         return .failure("`\(invalidHost)` is not an exact ASCII DNS, IPv4, or localhost host")

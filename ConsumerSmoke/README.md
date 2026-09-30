@@ -1,26 +1,22 @@
 # External consumer smoke
 
-This nested Swift package validates InnoRouter from a downstream package
-boundary rather than from a target declared in the framework's root manifest.
+This nested Swift package validates the InnoRouter 6 public boundary from a
+real downstream package.
 
-By default it resolves the repository checkout through a local path:
+By default it resolves the local checkout:
 
 ```bash
 ./scripts/external-consumer-smoke.sh
 ```
 
-After a release is published, pass its bare semantic version to resolve the
-exact remote tag and verify package discovery, product imports, macros, and
-platform compilation:
+After 6.0.0 is published, pass the bare semantic version to verify the exact
+remote tag:
 
 ```bash
-./scripts/external-consumer-smoke.sh 5.0.0
+./scripts/external-consumer-smoke.sh 6.0.0
 ```
 
-`InnoRouterMacroFirstExternalConsumer` depends only on `InnoRouter`.
-`InnoRouterSpatialExternalConsumer` depends only on `InnoRouterSpatial`.
-`InnoRouterSpatialExternalConsumerTests` links and runs the Spatial product,
-its generated `@SceneRouter` surface, public API, and the complete visionOS
-runtime regression suite in a simulator. The platform workflow owns simulator
-discovery and executes that suite through the nested package's
-`InnoRouterConsumerSmoke-Package` scheme.
+The runtime fixture depends only on `InnoRouter` and exercises `@Router`,
+mixed tab/destination cases, native hosts, deep links, the canonical store, and
+versioned snapshots. The test fixture imports the two optional developer
+products and exercises `RouterTestStore` plus `RouterInspectorRecorder`.

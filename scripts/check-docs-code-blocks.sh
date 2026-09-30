@@ -9,16 +9,37 @@ if ! command -v rg >/dev/null 2>&1; then
   exit 1
 fi
 
-DOC_FILES=()
-while IFS= read -r file_path; do
-  DOC_FILES+=("$file_path")
-done < <(rg --files -g '*.md' | sort)
+# InnoRouter 6 publishes one runtime catalog plus the optional Testing and
+# Inspector catalogs. The retained 5.x DocC articles are migration evidence,
+# not part of the external documentation surface.
+DOC_FILES=(
+  "README.md"
+  "README.ko.md"
+  "Examples/README.md"
+  "Docs/v6-functional-strategy.md"
+  "Docs/v6-api-convergence-spike.md"
+  "Docs/functional-expansion-spec.md"
+  "Docs/functional-expansion-technical-plan.md"
+  "Sources/InnoRouterUmbrella/InnoRouter.docc/InnoRouter.md"
+  "Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md"
+  "Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md"
+  "Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/InnoRouterDeepLink.md"
+  "Sources/InnoRouterMacros/InnoRouterMacros.docc/Router-Macro-First.md"
+  "Sources/InnoRouterTesting/InnoRouterTesting.docc/InnoRouterTesting.md"
+  "Sources/InnoRouterInspector/InnoRouterInspector.docc/InnoRouterInspector.md"
+)
 
 mkdir -p "$ROOT_DIR/.build/doc-snippet-check" "$ROOT_DIR/.build/doc-snippet-module-cache"
 TMP_DIR="$(mktemp -d "$ROOT_DIR/.build/doc-snippets.XXXXXX")"
 trap 'rm -rf "$TMP_DIR"' EXIT
 mkdir -p "$TMP_DIR/Sources/DocSnippetCompile"
 export CLANG_MODULE_CACHE_PATH="$ROOT_DIR/.build/doc-snippet-module-cache"
+
+# SwiftPM derives a path dependency's identity from its directory name, which
+# is the repository name in a normal checkout but the worktree name inside a
+# `git worktree`. Reference it by the actual directory so this gate runs from
+# either location.
+INNOROUTER_PACKAGE_REF="$(basename "$ROOT_DIR")"
 
 cat >"$TMP_DIR/Package.swift" <<EOF
 // swift-tools-version: 6.3
@@ -41,14 +62,9 @@ let package = Package(
         .executableTarget(
             name: "DocSnippetCompile",
             dependencies: [
-                .product(name: "InnoRouter", package: "InnoRouter"),
-                .product(name: "InnoRouterCore", package: "InnoRouter"),
-                .product(name: "InnoRouterSwiftUI", package: "InnoRouter"),
-                .product(name: "InnoRouterSpatial", package: "InnoRouter"),
-                .product(name: "InnoRouterDeepLink", package: "InnoRouter"),
-                .product(name: "InnoRouterEffects", package: "InnoRouter"),
-                .product(name: "InnoRouterMacros", package: "InnoRouter"),
-                .product(name: "InnoRouterTesting", package: "InnoRouter")
+                .product(name: "InnoRouter", package: "$INNOROUTER_PACKAGE_REF"),
+                .product(name: "InnoRouterInspector", package: "$INNOROUTER_PACKAGE_REF"),
+                .product(name: "InnoRouterTesting", package: "$INNOROUTER_PACKAGE_REF")
             ]
         )
     ]

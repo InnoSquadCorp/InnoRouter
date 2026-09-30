@@ -1,0 +1,10 @@
+version = 1
+name = "InnoRouter native macOS scene probe"
+
+[setup]
+script = ""
+
+[[actions]]
+name = "Run"
+icon = "run"
+command = "./script/build_and_run.sh"

@@ -1,10 +1,10 @@
 /// The marker protocol every typed route must conform to.
 ///
 /// `Route` is the bedrock identity that flows through every InnoRouter
-/// surface — `RouteStack`, `NavigationCommand`, `NavigationStore`,
-/// `ModalStore`, `FlowStore`, deep-link planners and the macro-generated
-/// `CasePath` members. Concrete adopters are normally enums whose cases
-/// describe the screens of a feature module.
+/// surface — `RouterState`, `RouterAction`, `RouterStore`, whole-state
+/// deep-link plans, and the macro-generated `CasePath` members. Concrete
+/// adopters are normally enums whose cases describe the destinations of an
+/// application or feature module.
 ///
 /// ## Requirements
 ///
@@ -13,13 +13,9 @@
 /// - `Hashable` so the framework can store routes in `Set`s and use
 ///   them as `NavigationStack(value:)` identities.
 /// - `Sendable` so the same route values can flow across actor
-///   boundaries — middleware on a background actor, deep-link
-///   pipelines on a `@MainActor`, event consumers in `Task`s —
+///   boundaries — policy preparation, deep-link pipelines, App Intent and
+///   Handoff adapters, and event consumers in `Task`s —
 ///   without `@unchecked` escape hatches.
-///
-/// `Sendable` conformance for downstream generics is intentionally
-/// unconditional: every `NavigationIntent`, `ModalIntent`, and
-/// `FlowIntent` is `Sendable` because `Route: Sendable` already is.
 ///
 /// ## Conforming
 ///

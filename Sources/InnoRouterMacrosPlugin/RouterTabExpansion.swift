@@ -13,19 +13,23 @@ enum RouterTabExpansion {
 
 struct RouterTabSpecification {
     let items: [RouterTabItem]
-    let directlyConformsToRouterTab: Bool
+    let directlyConformsToRouterTabRoute: Bool
 }
 
 struct RouterTabItem {
     let name: String
+    let scopeID: String
+    let explicitScopeIDExpression: String?
+    let attribute: AttributeSyntax
     let titleExpression: String
     let systemImageExpression: String
+    let selectedSystemImageExpression: String?
+    let roleExpression: String?
 }
 
 private let generatedRouterTabMemberNames: Set<String> = [
-    "allCases",
-    "title",
-    "systemImage",
+    "Tab",
+    "routerTabs",
 ]
 
 func analyzeRouterTabs(
@@ -63,12 +67,17 @@ func analyzeRouterTabs(
     for caseDecl in directCases {
         let attributes = tabItemAttributes(on: caseDecl)
         guard !attributes.isEmpty else {
-            let name = caseDecl.elements.first?.name.text ?? "<unknown>"
-            diagnoseTabItem(.missingTabItem(caseName: name), at: caseDecl, context: context)
-            return .invalid
+            continue
         }
         guard attributes.count == 1, let attribute = attributes.first else {
-            diagnoseTabItem(.duplicateTabItem, at: attributes[1], context: context)
+            if let duplicate = duplicateAttributeDiagnosis(attributes, in: caseDecl) {
+                diagnoseTabItem(
+                    .duplicateTabItem,
+                    at: duplicate.anchor,
+                    context: context,
+                    fixIts: duplicate.fixIts
+                )
+            }
             return .invalid
         }
         guard caseDecl.elements.count == 1, let element = caseDecl.elements.first else {
@@ -105,14 +114,23 @@ func analyzeRouterTabs(
             items.append(
                 RouterTabItem(
                     name: escapedIdentifier(element.name),
+                    scopeID: metadata.scopeID ?? element.name.text,
+                    explicitScopeIDExpression: metadata.scopeIDExpression,
+                    attribute: attribute,
                     titleExpression: metadata.titleExpression,
-                    systemImageExpression: metadata.systemImageExpression
+                    systemImageExpression: metadata.systemImageExpression,
+                    selectedSystemImageExpression: metadata.selectedSystemImageExpression,
+                    roleExpression: metadata.roleExpression
                 )
             )
         case .failure(let reason):
             diagnoseTabItem(.invalidArguments(reason: reason), at: attribute, context: context)
             return .invalid
         }
+    }
+
+    if diagnoseDuplicateScopeID(in: items, context: context) {
+        return .invalid
     }
 
     if let conflict = firstConflictingTabMember(in: enumDecl) {
@@ -124,62 +142,125 @@ func analyzeRouterTabs(
         return .invalid
     }
 
-    let directlyConformsToRouterTab = directlyConforms(enumDecl, to: "RouterTab")
-    if directlyConformsToRouterTab, let inheritanceClause = enumDecl.inheritanceClause {
-        diagnoseTabItem(
-            .redundantRouterTabConformance,
-            at: inheritanceClause,
-            context: context
-        )
-    } else if directlyConforms(enumDecl, to: "CaseIterable"),
-              let inheritanceClause = enumDecl.inheritanceClause {
-        diagnoseTabItem(
-            .redundantCaseIterableConformance,
-            at: inheritanceClause,
-            context: context
-        )
-    }
+    let directlyConformsToRouterTabRoute = directlyConforms(enumDecl, to: "RouterTabRoute")
+    diagnoseRedundantRouterTabConformance(
+        in: enumDecl,
+        isRedundant: directlyConformsToRouterTabRoute,
+        context: context
+    )
 
     return .valid(
         RouterTabSpecification(
             items: items,
-            directlyConformsToRouterTab: directlyConformsToRouterTab
+            directlyConformsToRouterTabRoute: directlyConformsToRouterTabRoute
         )
     )
+}
+
+private func diagnoseDuplicateScopeID(
+    in items: [RouterTabItem],
+    context: some MacroExpansionContext
+) -> Bool {
+    var seenScopeIDs: Set<String> = []
+    guard let duplicate = items.first(where: { !seenScopeIDs.insert($0.scopeID).inserted }) else {
+        return false
+    }
+    diagnoseTabItem(
+        .duplicateScopeID(duplicate.scopeID),
+        at: duplicate.attribute,
+        context: context
+    )
+    return true
 }
 
 func renderRouterTabMembers(
     from specification: RouterTabSpecification,
     access: String
 ) -> String {
-    let allCases = specification.items
-        .map { ".\($0.name)" }
+    let descriptors = specification.items
+        .map { ".init(tab: .\($0.name), root: .\($0.name))" }
         .joined(separator: ", ")
     var lines = [
-        "\(access) static var allCases: [Self] {",
-        "    [\(allCases)]",
-        "}",
-        "",
-        "\(access) var title: Foundation.LocalizedStringResource {",
-        "    switch self {",
+        "\(access) enum Tab: Swift.String, InnoRouterSwiftUI.RouterTab {",
     ]
     for item in specification.items {
-        lines.append("    case .\(item.name):")
-        lines.append("        return \(item.titleExpression)")
+        lines.append("    case \(item.name)")
+    }
+    lines.append(contentsOf: [
+        "",
+        "    \(access) var title: Foundation.LocalizedStringResource {",
+        "        switch self {",
+    ])
+    for item in specification.items {
+        lines.append("        case .\(item.name):")
+        lines.append("            return \(item.titleExpression)")
+    }
+    lines.append(contentsOf: [
+        "        }",
+        "    }",
+        "",
+        "    \(access) var systemImage: Swift.String {",
+        "        switch self {",
+    ])
+    for item in specification.items {
+        lines.append("        case .\(item.name):")
+        lines.append("            return \(item.systemImageExpression)")
+    }
+    lines.append(contentsOf: [
+        "        }",
+        "    }",
+    ])
+    if specification.items.contains(where: { $0.selectedSystemImageExpression != nil }) {
+        lines.append(contentsOf: [
+            "",
+            "    \(access) var selectedSystemImage: Swift.String? {",
+            "        switch self {",
+        ])
+        for item in specification.items {
+            let expression = item.selectedSystemImageExpression ?? "nil"
+            lines.append("        case .\(item.name):")
+            lines.append("            return \(expression)")
+        }
+        lines.append(contentsOf: [
+            "        }",
+            "    }",
+        ])
+    }
+    if specification.items.contains(where: { $0.roleExpression != nil }) {
+        lines.append(contentsOf: [
+            "",
+            "    \(access) var role: InnoRouterSwiftUI.RouterTabRole {",
+            "        switch self {",
+        ])
+        for item in specification.items {
+            let expression = item.roleExpression ?? ".standard"
+            lines.append("        case .\(item.name):")
+            lines.append("            return \(expression)")
+        }
+        lines.append(contentsOf: [
+            "        }",
+            "    }",
+        ])
+    }
+    lines.append("")
+    lines.append("    \(access) var routerScopeID: InnoRouterCore.RouterScopeID {")
+    if specification.items.contains(where: { $0.explicitScopeIDExpression != nil }) {
+        lines.append("        switch self {")
+        for item in specification.items {
+            let expression = item.explicitScopeIDExpression ?? swiftStringLiteral(item.scopeID)
+            lines.append("        case .\(item.name):")
+            lines.append("            return InnoRouterCore.RouterScopeID(\(expression))")
+        }
+        lines.append("        }")
+    } else {
+        lines.append("        InnoRouterCore.RouterScopeID(rawValue)")
     }
     lines.append(contentsOf: [
         "    }",
         "}",
         "",
-        "\(access) var systemImage: Swift.String {",
-        "    switch self {",
-    ])
-    for item in specification.items {
-        lines.append("    case .\(item.name):")
-        lines.append("        return \(item.systemImageExpression)")
-    }
-    lines.append(contentsOf: [
-        "    }",
+        "\(access) static var routerTabs: [InnoRouterSwiftUI.RouterTabDescriptor<Self, Tab>] {",
+        "    [\(descriptors)]",
         "}",
     ])
     return lines.joined(separator: "\n")
@@ -195,8 +276,12 @@ func directlyConforms(_ enumDecl: EnumDeclSyntax, to protocolName: String) -> Bo
 }
 
 private struct ParsedTabItem {
+    let scopeID: String?
+    let scopeIDExpression: String?
     let titleExpression: String
     let systemImageExpression: String
+    let selectedSystemImageExpression: String?
+    let roleExpression: String?
 }
 
 private enum TabItemParseResult {
@@ -206,30 +291,75 @@ private enum TabItemParseResult {
 
 private func parseTabItem(_ attribute: AttributeSyntax) -> TabItemParseResult {
     guard case .argumentList(let arguments) = attribute.arguments,
-          arguments.count == 2,
-          let titleArgument = arguments.first,
-          let systemImageArgument = arguments.last else {
-        return .failure("provide exactly one unlabeled title and one `systemImage:` argument")
+          (2...5).contains(arguments.count),
+          let titleArgument = arguments.first else {
+        return .failure("provide a title, `systemImage:`, and optional selected image or role")
     }
     guard titleArgument.label == nil else {
         return .failure("the title must be the first unlabeled argument")
     }
-    guard systemImageArgument.label?.text == "systemImage" else {
-        return .failure("the second argument label must be exactly `systemImage:`")
-    }
     guard isNonemptyPlainStringLiteral(titleArgument.expression) else {
         return .failure("the title must be a nonempty plain string literal")
+    }
+    let labeledArguments = Array(arguments.dropFirst())
+    let labels = labeledArguments.compactMap { $0.label?.text }
+    guard labels.count == labeledArguments.count,
+          Set(labels).count == labels.count,
+          Set(labels).isSubset(of: ["systemImage", "id", "selectedSystemImage", "role"]) else {
+        return .failure("use `systemImage:`, `id:`, `selectedSystemImage:`, and `role:` at most once")
+    }
+    guard let systemImageArgument = labeledArguments.first(where: {
+        $0.label?.text == "systemImage"
+    }) else {
+        return .failure("`systemImage:` is required")
     }
     guard isNonemptyPlainStringLiteral(systemImageArgument.expression) else {
         return .failure("systemImage must be a nonempty plain string literal")
     }
+    let idArgument = labeledArguments.first { $0.label?.text == "id" }
+    let scopeID: String?
+    let scopeIDExpression: String?
+    if let idArgument {
+        guard let literal = idArgument.expression.as(StringLiteralExprSyntax.self),
+              let value = literal.representedLiteralValue,
+              value.contains(where: { !$0.isWhitespace }) else {
+            return .failure("id must be one nonempty noninterpolated string literal")
+        }
+        scopeID = value
+        scopeIDExpression = idArgument.expression.trimmedDescription
+    } else {
+        scopeID = nil
+        scopeIDExpression = nil
+    }
+    let selectedImageArgument = labeledArguments.first {
+        $0.label?.text == "selectedSystemImage"
+    }
+    if let selectedImageArgument,
+       !isNonemptyPlainStringLiteral(selectedImageArgument.expression) {
+        return .failure("selectedSystemImage must be a nonempty plain string literal")
+    }
+    let roleArgument = labeledArguments.first { $0.label?.text == "role" }
+    if let roleArgument, !isSupportedTabRole(roleArgument.expression) {
+        return .failure("role must be `.standard` or `.search`")
+    }
 
     return .success(
         ParsedTabItem(
+            scopeID: scopeID,
+            scopeIDExpression: scopeIDExpression,
             titleExpression: titleArgument.expression.trimmedDescription,
-            systemImageExpression: systemImageArgument.expression.trimmedDescription
+            systemImageExpression: systemImageArgument.expression.trimmedDescription,
+            selectedSystemImageExpression: selectedImageArgument?.expression.trimmedDescription,
+            roleExpression: roleArgument?.expression.trimmedDescription
         )
     )
+}
+
+private func isSupportedTabRole(_ expression: ExprSyntax) -> Bool {
+    let value = expression.trimmedDescription
+    return value == ".standard" || value == ".search"
+        || value.hasSuffix("RouterTabRole.standard")
+        || value.hasSuffix("RouterTabRole.search")
 }
 
 private func isNonemptyPlainStringLiteral(_ expression: ExprSyntax) -> Bool {
@@ -293,44 +423,38 @@ private func enumCasesInsideConditional(_ conditional: IfConfigDeclSyntax) -> [E
 
 private struct ConflictingTabMember {
     let name: String
-    let declaration: VariableDeclSyntax
+    let declaration: DeclSyntax
 }
 
 private func firstConflictingTabMember(in enumDecl: EnumDeclSyntax) -> ConflictingTabMember? {
-    let directVariables = enumDecl.memberBlock.members.compactMap({
-        $0.decl.as(VariableDeclSyntax.self)
-    })
-    let conditionalVariables = enumDecl.memberBlock.members.flatMap { member in
-        guard let conditional = member.decl.as(IfConfigDeclSyntax.self) else {
-            return [VariableDeclSyntax]()
-        }
-        return variablesInsideConditional(conditional)
+    guard let conflict = firstRouterGeneratedMemberConflict(
+        in: enumDecl.memberBlock.members,
+        typeMembers: generatedRouterTabMemberNames,
+        staticMembers: generatedRouterTabMemberNames
+    ) else {
+        return nil
     }
-    for variable in directVariables + conditionalVariables {
-        for binding in variable.bindings {
-            guard let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
-                  generatedRouterTabMemberNames.contains(identifier) else {
-                continue
-            }
-            return ConflictingTabMember(name: identifier, declaration: variable)
-        }
-    }
-    return nil
+    return ConflictingTabMember(name: conflict.name, declaration: conflict.declaration)
 }
 
-private func variablesInsideConditional(_ conditional: IfConfigDeclSyntax) -> [VariableDeclSyntax] {
-    conditional.clauses.flatMap { clause in
-        guard case .decls(let members) = clause.elements else {
-            return [VariableDeclSyntax]()
-        }
-        return members.flatMap { member in
-            if let variable = member.decl.as(VariableDeclSyntax.self) {
-                return [variable]
-            }
-            if let nestedConditional = member.decl.as(IfConfigDeclSyntax.self) {
-                return variablesInsideConditional(nestedConditional)
-            }
-            return []
-        }
-    }
+/// Warns about an explicit `RouterTabRoute` conformance that `@Router` already
+/// supplies, offering the removal edit.
+private func diagnoseRedundantRouterTabConformance(
+    in enumDecl: EnumDeclSyntax,
+    isRedundant: Bool,
+    context: some MacroExpansionContext
+) {
+    guard isRedundant, let inheritanceClause = enumDecl.inheritanceClause else { return }
+    diagnoseTabItem(
+        .redundantRouterTabConformance,
+        at: inheritanceClause,
+        context: context,
+        fixIts: [
+            removeConformanceFixIt(
+                named: "RouterTabRoute",
+                from: inheritanceClause,
+                in: enumDecl
+            ),
+        ].compactMap { $0 }
+    )
 }

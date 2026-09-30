@@ -218,3 +218,250 @@ private func keywordReplacementFixIt(
         changes: [.replace(oldNode: Syntax(original), newNode: Syntax(replacement))]
     )
 }
+
+// MARK: - Redundant conformance removal
+
+/// FixIt payload for the `redundant…Conformance` warnings.
+///
+/// Each of those diagnostics already tells the author to "remove the explicit
+/// conformance" and is anchored on the exact ``InheritanceClauseSyntax``, so
+/// the edit is fully mechanical and worth offering as a FixIt.
+struct RemoveRedundantConformanceFixIt: FixItMessage {
+    let conformanceName: String
+
+    var message: String {
+        "Remove the redundant `\(conformanceName)` conformance"
+    }
+
+    var fixItID: MessageID {
+        MessageID(domain: "InnoRouterMacros", id: "removeRedundantConformance")
+    }
+}
+
+/// Builds a FixIt that drops `conformanceName` from `clause`.
+///
+/// The clause is rewritten as text rather than as a node so the three shapes
+/// collapse to one code path: dropping the only conformance has to take the
+/// colon with it (`enum E: Route {` → `enum E {`), while dropping one of
+/// several has to take exactly one separating comma, whichever side it sits on
+/// (`enum E: Route, Codable {` → `enum E: Codable {`).
+///
+/// Returns `nil` when the clause does not actually list `conformanceName`, so a
+/// caller that misidentifies the conformance emits its warning without an edit
+/// rather than a wrong one.
+func removeConformanceFixIt(
+    named conformanceName: String,
+    from clause: InheritanceClauseSyntax,
+    in enclosing: some SyntaxProtocol
+) -> FixIt? {
+    let remaining = clause.inheritedTypes.filter { inherited in
+        inherited.type.trimmedDescription
+            .split(separator: ".")
+            .last
+            .map(String.init) != conformanceName
+    }
+    guard remaining.count != clause.inheritedTypes.count else { return nil }
+
+    let replacement = remaining.isEmpty
+        ? ""
+        : ": " + remaining
+            .map { $0.type.trimmedDescription }
+            .joined(separator: ", ")
+
+    return FixIt(
+        message: RemoveRedundantConformanceFixIt(conformanceName: conformanceName),
+        changes: [
+            .replaceText(
+                range: clause.positionAfterSkippingLeadingTrivia
+                    ..< clause.endPositionBeforeTrailingTrivia,
+                with: replacement,
+                in: Syntax(enclosing)
+            ),
+        ]
+    )
+}
+
+// MARK: - Duplicate marker removal
+
+/// FixIt payload for the `duplicate…` marker diagnostics.
+struct RemoveDuplicateAttributeFixIt: FixItMessage {
+    let attributeName: String
+    let duplicateCount: Int
+
+    var message: String {
+        duplicateCount == 1
+            ? "Remove the duplicate `@\(attributeName)`"
+            : "Remove the \(duplicateCount) duplicate `@\(attributeName)` attributes"
+    }
+
+    var fixItID: MessageID {
+        MessageID(domain: "InnoRouterMacros", id: "removeDuplicateAttribute")
+    }
+}
+
+/// Where to anchor a duplicate-marker diagnostic, and the edit that resolves it.
+struct DuplicateAttributeDiagnosis {
+    /// The first redundant marker — what the author should look at.
+    let anchor: AttributeSyntax
+    /// Deletes every redundant marker, keeping the first.
+    let fixIt: FixIt
+
+    var fixIts: [FixIt] { [fixIt] }
+}
+
+/// Describes the duplicate markers in `attributes`, or `nil` when there is at
+/// most one.
+///
+/// Every `duplicate…` diagnostic previously anchored on `attributes[1]` from
+/// inside the `else` branch of `guard attributes.count == 1`. That branch also
+/// runs for an empty list, so the subscript was an out-of-bounds trap — a
+/// compiler-plugin crash — held off only by each caller pre-filtering to
+/// annotated declarations. Taking the list and reporting `nil` when there is
+/// nothing to diagnose removes the trap regardless of how callers change.
+///
+/// The removal range starts at `position`, so the marker's *leading* trivia
+/// goes with it. That separator is what joins it to the marker before:
+/// `@TabItem @TabItem case` loses the space, and a marker on its own line
+/// loses the newline and indent that introduced it. Ending at
+/// `endPositionBeforeTrailingTrivia` leaves the line break that belongs to
+/// whatever follows, so neither a blank line nor a run-together line is left
+/// behind.
+func duplicateAttributeDiagnosis(
+    _ attributes: [AttributeSyntax],
+    in enclosing: some SyntaxProtocol
+) -> DuplicateAttributeDiagnosis? {
+    let duplicates = Array(attributes.dropFirst())
+    guard let anchor = duplicates.first else { return nil }
+
+    let name = anchor.attributeName.trimmedDescription
+        .split(separator: ".")
+        .last
+        .map(String.init) ?? anchor.attributeName.trimmedDescription
+
+    return DuplicateAttributeDiagnosis(
+        anchor: anchor,
+        fixIt: FixIt(
+            message: RemoveDuplicateAttributeFixIt(
+                attributeName: name,
+                duplicateCount: duplicates.count
+            ),
+            changes: duplicates.map { duplicate in
+                .replaceText(
+                    range: duplicate.position
+                        ..< duplicate.endPositionBeforeTrailingTrivia,
+                    with: "",
+                    in: Syntax(enclosing)
+                )
+            }
+        )
+    )
+}
+
+// MARK: - Misplaced marker removal
+
+/// FixIt payload for the `requires…` placement diagnostics.
+struct RemoveMisplacedAttributeFixIt: FixItMessage {
+    let attributeName: String
+
+    var message: String { "Remove `@\(attributeName)`" }
+
+    var fixItID: MessageID {
+        MessageID(domain: "InnoRouterMacros", id: "removeMisplacedAttribute")
+    }
+}
+
+/// Builds a FixIt that deletes `attribute` from whatever it is attached to.
+///
+/// Used by the `requiresCase` diagnostics, where a marker sits on a
+/// declaration that is not an enum case. Removing it is the whole remedy —
+/// there is nothing for the macro to attach to and nothing to preserve.
+///
+/// Trivia is taken the same way as duplicate-marker removal: from `position`,
+/// so the separator that introduced the attribute goes with it, to
+/// `endPositionBeforeTrailingTrivia`, so the break belonging to the
+/// declaration stays.
+func removeMisplacedAttributeFixIt(
+    _ attribute: AttributeSyntax,
+    in enclosing: some SyntaxProtocol
+) -> FixIt {
+    let name = attribute.attributeName.trimmedDescription
+        .split(separator: ".")
+        .last
+        .map(String.init) ?? attribute.attributeName.trimmedDescription
+
+    return FixIt(
+        message: RemoveMisplacedAttributeFixIt(attributeName: name),
+        changes: [
+            .replaceText(
+                range: attribute.position ..< attribute.endPositionBeforeTrailingTrivia,
+                with: "",
+                in: Syntax(enclosing)
+            ),
+        ]
+    )
+}
+
+// MARK: - Unused attribute argument removal
+
+/// FixIt payload for arguments an attribute no longer acts on.
+struct RemoveAttributeArgumentsFixIt: FixItMessage {
+    let labels: [String]
+
+    var message: String {
+        labels.count == 1
+            ? "Remove `\(labels[0]):`"
+            : "Remove " + labels.map { "`\($0):`" }.joined(separator: " and ")
+    }
+
+    var fixItID: MessageID {
+        MessageID(domain: "InnoRouterMacros", id: "removeAttributeArguments")
+    }
+}
+
+/// Builds a FixIt dropping the `labels` arguments from `attribute`.
+///
+/// Used by `unusedAllowlist`, where `@Router` carries deep-link allowlists but
+/// the enum declares no `@DeepLink` case, so the allowlists have no effect.
+/// Arguments the attribute still acts on — `inspectorCatalog:`, say — are kept,
+/// and the parentheses are dropped only when nothing is left inside them.
+///
+/// Returns `nil` when none of `labels` is present, so a caller that
+/// misidentifies the arguments warns without offering a wrong edit.
+func removeAttributeArgumentsFixIt(
+    _ attribute: AttributeSyntax,
+    labels: [String],
+    in enclosing: some SyntaxProtocol
+) -> FixIt? {
+    guard case .argumentList(let arguments) = attribute.arguments,
+          let leftParen = attribute.leftParen,
+          let rightParen = attribute.rightParen
+    else {
+        return nil
+    }
+    let removedLabels = arguments.compactMap { argument -> String? in
+        guard let label = argument.label?.text, labels.contains(label) else { return nil }
+        return label
+    }
+    guard !removedLabels.isEmpty else { return nil }
+
+    let remaining = arguments.filter { argument in
+        guard let label = argument.label?.text else { return true }
+        return !labels.contains(label)
+    }
+    let replacement = remaining.isEmpty
+        ? ""
+        : "(" + remaining
+            .map { "\($0.label.map { "\($0.text): " } ?? "")\($0.expression.trimmedDescription)" }
+            .joined(separator: ", ") + ")"
+
+    return FixIt(
+        message: RemoveAttributeArgumentsFixIt(labels: removedLabels),
+        changes: [
+            .replaceText(
+                range: leftParen.position ..< rightParen.endPosition,
+                with: replacement,
+                in: Syntax(enclosing)
+            ),
+        ]
+    )
+}

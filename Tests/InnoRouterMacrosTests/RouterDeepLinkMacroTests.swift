@@ -12,6 +12,46 @@ import Testing
 
 @Suite("Router Deep-Link Macro Tests")
 struct RouterDeepLinkExpansionMacroTests {
+    @Test("Inspector catalog case names use the qualified Swift string type")
+    func catalogCaseNameUsesQualifiedSwiftString() {
+        let specification = RouterDeepLinkSpecification(
+            schemes: ["innorouter"],
+            hosts: ["app.example.com"],
+            items: [],
+            directlyConformsToDeepLinkRoute: false,
+            hasUnmappedCases: true,
+            generatesInspectorCatalog: true
+        )
+
+        let standalone = renderRouterDeepLinkMembers(
+            from: specification,
+            access: "internal",
+            declarationNamespace: "ShadowedStringRoute"
+        )
+        let composed = renderRouterDeepLinkMembers(
+            from: specification,
+            access: "internal",
+            declarationNamespace: "ShadowedStringRoute",
+            features: .init(items: [
+                .init(
+                    caseName: "child",
+                    childType: "ChildRoute",
+                    emittedLabel: nil,
+                    id: "child"
+                )
+            ])
+        )
+
+        for generated in [standalone, composed] {
+            #expect(generated.contains(
+                "static func deepLinkCatalogCaseName(for route: Self) -> Swift.String?"
+            ))
+            #expect(!generated.contains(
+                "static func deepLinkCatalogCaseName(for route: Self) -> String?"
+            ))
+        }
+    }
+
     @Test("Generates a public typed resolver and normalizes origin allowlists")
     func basicPublicExpansion() throws {
         assertMacroExpansion(
@@ -74,19 +114,45 @@ struct RouterDeepLinkExpansionMacroTests {
                             return .product(id: deepLinkValue0, featured: deepLinkValue1, page: deepLinkValue2)
                         }
                     }
-                    let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
-                        originPolicy: .allowlisted(
-                            schemes: ["innorouter", "https"],
-                            hosts: ["app.example.com"]
-                        ),
-                        matcher: matcher
-                    )
-                    guard case .plan(let plan) = pipeline.decide(for: url),
-                          plan.commands.count == 1,
-                          case .push(let route) = plan.commands[0] else {
+                    guard url.user == nil,
+                          url.password == nil,
+                          url.port == nil,
+                          let scheme = url.scheme,
+                          ["innorouter", "https"].contains(where: {
+                              $0.caseInsensitiveCompare(scheme) == .orderedSame
+                          }),
+                          let host = url.host,
+                          ["app.example.com"].contains(where: {
+                              $0.caseInsensitiveCompare(host) == .orderedSame
+                          }),
+                          let route = matcher.match(url) else {
                         return nil
                     }
                     return route
+                }
+
+                public func deepLinkURL(
+                    origin: InnoRouterDeepLink.DeepLinkOrigin
+                ) -> Foundation.URL? {
+                    guard ["innorouter", "https"].contains(origin.scheme),
+                          ["app.example.com"].contains(origin.host) else {
+                        return nil
+                    }
+                    switch self {
+                    case let .product(deepLinkValue0, deepLinkValue1, deepLinkValue2):
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                                origin: origin,
+                                pattern: "/products/:id/:featured",
+                                parameters: [
+                                    .init(name: "id", value: deepLinkValue0),
+                                    .init(name: "featured", value: deepLinkValue1),
+                                    .init(name: "page", value: deepLinkValue2)
+                                ]
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
+                                return nil
+                            }
+                            return url
+                    }
                 }
             }
             """,
@@ -172,19 +238,66 @@ struct RouterDeepLinkExpansionMacroTests {
                             return .name(value: deepLinkValue0)
                         }
                     }
-                    let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
-                        originPolicy: .allowlisted(
-                            schemes: ["innorouter"],
-                            hosts: ["app.example.com"]
-                        ),
-                        matcher: matcher
-                    )
-                    guard case .plan(let plan) = pipeline.decide(for: url),
-                          plan.commands.count == 1,
-                          case .push(let route) = plan.commands[0] else {
+                    guard url.user == nil,
+                          url.password == nil,
+                          url.port == nil,
+                          let scheme = url.scheme,
+                          ["innorouter"].contains(where: {
+                              $0.caseInsensitiveCompare(scheme) == .orderedSame
+                          }),
+                          let host = url.host,
+                          ["app.example.com"].contains(where: {
+                              $0.caseInsensitiveCompare(host) == .orderedSame
+                          }),
+                          let route = matcher.match(url) else {
                         return nil
                     }
                     return route
+                }
+
+                internal func deepLinkURL(
+                    origin: InnoRouterDeepLink.DeepLinkOrigin
+                ) -> Foundation.URL? {
+                    guard ["innorouter"].contains(origin.scheme),
+                          ["app.example.com"].contains(origin.host) else {
+                        return nil
+                    }
+                    switch self {
+                    case let .paged(deepLinkValue0, deepLinkValue1):
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                                origin: origin,
+                                pattern: "/items/:value",
+                                parameters: [
+                                    .init(name: "value", value: deepLinkValue0),
+                                    .init(name: "page", value: deepLinkValue1)
+                                ]
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
+                                return nil
+                            }
+                            return url
+                        case let .identifier(deepLinkValue0):
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                                origin: origin,
+                                pattern: "/items/:value",
+                                parameters: [
+                                    .init(name: "value", value: deepLinkValue0)
+                                ]
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
+                                return nil
+                            }
+                            return url
+                        case let .name(deepLinkValue0):
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                                origin: origin,
+                                pattern: "/items/:value",
+                                parameters: [
+                                    .init(name: "value", value: deepLinkValue0)
+                                ]
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
+                                return nil
+                            }
+                            return url
+                    }
                 }
             }
             """,
@@ -267,19 +380,43 @@ struct RouterDeepLinkExpansionMacroTests {
                             return .value(value: deepLinkValue0)
                         }
                     }
-                    let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
-                        originPolicy: .allowlisted(
-                            schemes: ["innorouter"],
-                            hosts: ["app.example.com"]
-                        ),
-                        matcher: matcher
-                    )
-                    guard case .plan(let plan) = pipeline.decide(for: url),
-                          plan.commands.count == 1,
-                          case .push(let route) = plan.commands[0] else {
+                    guard url.user == nil,
+                          url.password == nil,
+                          url.port == nil,
+                          let scheme = url.scheme,
+                          ["innorouter"].contains(where: {
+                              $0.caseInsensitiveCompare(scheme) == .orderedSame
+                          }),
+                          let host = url.host,
+                          ["app.example.com"].contains(where: {
+                              $0.caseInsensitiveCompare(host) == .orderedSame
+                          }),
+                          let route = matcher.match(url) else {
                         return nil
                     }
                     return route
+                }
+
+                internal func deepLinkURL(
+                    origin: InnoRouterDeepLink.DeepLinkOrigin
+                ) -> Foundation.URL? {
+                    guard ["innorouter"].contains(origin.scheme),
+                          ["app.example.com"].contains(origin.host) else {
+                        return nil
+                    }
+                    switch self {
+                    case let .value(deepLinkValue0):
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                                origin: origin,
+                                pattern: "/values/:value",
+                                parameters: [
+                                    .init(name: "value", value: deepLinkValue0)
+                                ]
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
+                                return nil
+                            }
+                            return url
+                    }
                 }
             }
             """,
@@ -315,33 +452,42 @@ struct RouterDeepLinkExpansionMacroTests {
                 var destination: some View { EmptyView() }
             }
 
-            extension AppTab: InnoRouterSwiftUI.DestinationRoute, InnoRouterSwiftUI.RouterTab, InnoRouterDeepLink.DeepLinkRoute {
+            extension AppTab: InnoRouterSwiftUI.DestinationRoute, InnoRouterSwiftUI.RouterTabRoute, InnoRouterDeepLink.DeepLinkRoute {
                 @Swift.MainActor
                 @SwiftUI.ViewBuilder
                 internal static func destination(for route: Self) -> some SwiftUI.View {
                     route.destination
                 }
 
-                internal static var allCases: [Self] {
-                    [.home, .settings]
-                }
+                internal enum Tab: Swift.String, InnoRouterSwiftUI.RouterTab {
+                    case home
+                    case settings
 
-                internal var title: Foundation.LocalizedStringResource {
-                    switch self {
-                    case .home:
-                        return "Home"
-                    case .settings:
-                        return "Settings"
+                    internal var title: Foundation.LocalizedStringResource {
+                        switch self {
+                        case .home:
+                            return "Home"
+                        case .settings:
+                            return "Settings"
+                        }
+                    }
+
+                    internal var systemImage: Swift.String {
+                        switch self {
+                        case .home:
+                            return "house"
+                        case .settings:
+                            return "gear"
+                        }
+                    }
+
+                    internal var routerScopeID: InnoRouterCore.RouterScopeID {
+                        InnoRouterCore.RouterScopeID(rawValue)
                     }
                 }
 
-                internal var systemImage: Swift.String {
-                    switch self {
-                    case .home:
-                        return "house"
-                    case .settings:
-                        return "gear"
-                    }
+                internal static var routerTabs: [InnoRouterSwiftUI.RouterTabDescriptor<Self, Tab>] {
+                    [.init(tab: .home, root: .home), .init(tab: .settings, root: .settings)]
                 }
 
                 internal static func resolveDeepLink(_ url: Foundation.URL) -> Self? {
@@ -352,19 +498,42 @@ struct RouterDeepLinkExpansionMacroTests {
                             return .home
                         }
                     }
-                    let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
-                        originPolicy: .allowlisted(
-                            schemes: ["innorouter"],
-                            hosts: ["app.example.com"]
-                        ),
-                        matcher: matcher
-                    )
-                    guard case .plan(let plan) = pipeline.decide(for: url),
-                          plan.commands.count == 1,
-                          case .push(let route) = plan.commands[0] else {
+                    guard url.user == nil,
+                          url.password == nil,
+                          url.port == nil,
+                          let scheme = url.scheme,
+                          ["innorouter"].contains(where: {
+                              $0.caseInsensitiveCompare(scheme) == .orderedSame
+                          }),
+                          let host = url.host,
+                          ["app.example.com"].contains(where: {
+                              $0.caseInsensitiveCompare(host) == .orderedSame
+                          }),
+                          let route = matcher.match(url) else {
                         return nil
                     }
                     return route
+                }
+
+                internal func deepLinkURL(
+                    origin: InnoRouterDeepLink.DeepLinkOrigin
+                ) -> Foundation.URL? {
+                    guard ["innorouter"].contains(origin.scheme),
+                          ["app.example.com"].contains(origin.host) else {
+                        return nil
+                    }
+                    switch self {
+                    case .home:
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                                origin: origin,
+                                pattern: "/home"
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
+                                return nil
+                            }
+                            return url
+                        default:
+                            return nil
+                    }
                 }
             }
             """,
@@ -393,10 +562,69 @@ struct RouterDeepLinkDiagnosticMacroTests {
                 DiagnosticSpec(
                     message: "[InnoRouterMacro.E017] @DeepLink can only be attached to an enum case inside an @Router enum",
                     line: 2,
-                    column: 5
+                    column: 5,
+                    fixIts: [
+                        FixItSpec(message: "Remove `@DeepLink`"),
+                    ]
                 )
             ],
-            macros: makeTestMacros()
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove `@DeepLink`"],
+            fixedSource: """
+            struct Example {
+                var value = 0
+            }
+            """
+        )
+    }
+
+    // The allowlist fix-it must keep arguments @Router still acts on, and drop
+    // the parentheses only when nothing is left inside them.
+    @Test("W006 fix-it keeps arguments the router still uses")
+    func unusedAllowlistFixItKeepsOtherArguments() throws {
+        assertMacroExpansion(
+            """
+            @Router(deepLinkSchemes: ["innorouter"], inspectorCatalog: true)
+            enum PlainRoute {
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum PlainRoute {
+                case home
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+
+            extension PlainRoute: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.W006] deep-link allowlists have no effect because this @Router has no @DeepLink cases",
+                    line: 1,
+                    column: 1,
+                    severity: .warning,
+                    fixIts: [
+                        FixItSpec(message: "Remove `deepLinkSchemes:`"),
+                    ]
+                )
+            ],
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove `deepLinkSchemes:`"],
+            fixedSource: """
+            @Router(inspectorCatalog: true)
+            enum PlainRoute {
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """
         )
     }
 
@@ -524,7 +752,10 @@ struct RouterDeepLinkDiagnosticMacroTests {
                 DiagnosticSpec(
                     message: "[InnoRouterMacro.E021] a route case must have exactly one @DeepLink annotation; remove the duplicate",
                     line: 7,
-                    column: 5
+                    column: 5,
+                    fixIts: [
+                        FixItSpec(message: "Remove the duplicate `@DeepLink`"),
+                    ]
                 )
             ],
             macros: makeTestMacros()
@@ -967,6 +1198,40 @@ struct RouterDeepLinkDiagnosticMacroTests {
         )
     }
 
+    @Test("E050 rejects a manual URL renderer")
+    func conflictingURLRenderer() throws {
+        assertMacroExpansion(
+            """
+            @Router(
+                deepLinkSchemes: ["innorouter"],
+                deepLinkHosts: ["app.example.com"]
+            )
+            enum ManualRoute {
+                @DeepLink("/home")
+                case home
+                func deepLinkURL(origin: DeepLinkOrigin) -> URL? { nil }
+                var destination: some View { EmptyView() }
+            }
+            """,
+            expandedSource: """
+            enum ManualRoute {
+                case home
+                func deepLinkURL(origin: DeepLinkOrigin) -> URL? { nil }
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.E050] @Router with @DeepLink generates `deepLinkURL(origin:)`; remove the manual instance method",
+                    line: 8,
+                    column: 5
+                )
+            ],
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("W006 warns when allowlists have no marked cases")
     func unusedAllowlist() throws {
         assertMacroExpansion(
@@ -1000,10 +1265,21 @@ struct RouterDeepLinkDiagnosticMacroTests {
                     message: "[InnoRouterMacro.W006] deep-link allowlists have no effect because this @Router has no @DeepLink cases",
                     line: 1,
                     column: 1,
-                    severity: .warning
+                    severity: .warning,
+                    fixIts: [
+                        FixItSpec(message: "Remove `deepLinkSchemes:` and `deepLinkHosts:`"),
+                    ]
                 )
             ],
-            macros: makeTestMacros()
+            macros: makeTestMacros(),
+            applyFixIts: ["Remove `deepLinkSchemes:` and `deepLinkHosts:`"],
+            fixedSource: """
+            @Router
+            enum PlainRoute {
+                case home
+                var destination: some View { EmptyView() }
+            }
+            """
         )
     }
 
@@ -1043,19 +1319,40 @@ struct RouterDeepLinkDiagnosticMacroTests {
                             return .home
                         }
                     }
-                    let pipeline = InnoRouterDeepLink.DeepLinkPipeline<Self>(
-                        originPolicy: .allowlisted(
-                            schemes: ["innorouter"],
-                            hosts: ["app.example.com"]
-                        ),
-                        matcher: matcher
-                    )
-                    guard case .plan(let plan) = pipeline.decide(for: url),
-                          plan.commands.count == 1,
-                          case .push(let route) = plan.commands[0] else {
+                    guard url.user == nil,
+                          url.password == nil,
+                          url.port == nil,
+                          let scheme = url.scheme,
+                          ["innorouter"].contains(where: {
+                              $0.caseInsensitiveCompare(scheme) == .orderedSame
+                          }),
+                          let host = url.host,
+                          ["app.example.com"].contains(where: {
+                              $0.caseInsensitiveCompare(host) == .orderedSame
+                          }),
+                          let route = matcher.match(url) else {
                         return nil
                     }
                     return route
+                }
+
+                internal func deepLinkURL(
+                    origin: InnoRouterDeepLink.DeepLinkOrigin
+                ) -> Foundation.URL? {
+                    guard ["innorouter"].contains(origin.scheme),
+                          ["app.example.com"].contains(origin.host) else {
+                        return nil
+                    }
+                    switch self {
+                    case .home:
+                            guard let url = InnoRouterDeepLink.DeepLinkURLBuilder.makeURL(
+                                origin: origin,
+                                pattern: "/home"
+                            ), InnoRouterDeepLink.DeepLinkFeatureRuntime.resolve(Self.self, url: url) == self else {
+                                return nil
+                            }
+                            return url
+                    }
                 }
             }
             """,
@@ -1064,7 +1361,10 @@ struct RouterDeepLinkDiagnosticMacroTests {
                     message: "[InnoRouterMacro.W007] DeepLinkRoute conformance is supplied by @Router when @DeepLink is present; remove the explicit conformance",
                     line: 5,
                     column: 20,
-                    severity: .warning
+                    severity: .warning,
+                    fixIts: [
+                        FixItSpec(message: "Remove the redundant `DeepLinkRoute` conformance"),
+                    ]
                 )
             ],
             macros: makeTestMacros()

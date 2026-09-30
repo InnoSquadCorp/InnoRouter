@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SOURCE_SCRIPT="$ROOT_DIR/scripts/check-changelog-sync.sh"
+SOURCE_PHASE_SCRIPT="$ROOT_DIR/scripts/check-changelog-phase.sh"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -15,6 +16,7 @@ run_scenario() {
 
   mkdir -p "$repo_dir/Baselines/PublicAPI" "$repo_dir/scripts"
   cp "$SOURCE_SCRIPT" "$repo_dir/scripts/check-changelog-sync.sh"
+  cp "$SOURCE_PHASE_SCRIPT" "$repo_dir/scripts/check-changelog-phase.sh"
   printf '%s\n' 'public struct ExistingSymbol' >"$repo_dir/Baselines/PublicAPI/InnoRouter.txt"
   printf '%s\n' \
     '# Changelog' \
