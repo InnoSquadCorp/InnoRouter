@@ -41,7 +41,10 @@ def path_impact(path):
     if path == ".spi.yml" or ".docc/" in path or path == "scripts/build-docc-site.sh":
         return {"documentation", "docc"}, "DocC/SPI"
     if path.startswith(("Sources/", "Plugins/", "Tests/", "Examples/", "ExamplesSmoke/")):
-        return {"core", "documentation", "docc"}, "source/macro/test/example"
+        # Router runtime/SwiftUI/macro and their tests/examples have cross-platform,
+        # native scene, restoration and instrumentation effects. Preserve every
+        # existing protected gate; only the earlier explicit DocC scope narrows it.
+        return set(JOBS), "source/macro/test/example (all Router gates)"
     if path.startswith(("ConsumerSmoke/", "NativeSceneSmoke/")):
         return {"core", "platforms", "remote-consumer"}, "consumer/native scene"
     if path.startswith("MigrationSmoke/"):

@@ -37,7 +37,7 @@ class SelectionTests(unittest.TestCase):
             ([".github/workflows/migration-smoke.yml"], {"policy", "migration"}),
             ([".github/workflows/sanitizers.yml"], {"policy", "sanitizers"}),
             ([".github/workflows/dependabot-auto-merge.yml"], {"policy"}),
-            (["Sources/InnoRouterMacrosPlugin/RouterMacro.swift"], {"policy", "core", "documentation", "docc"}),
+            (["Sources/InnoRouterMacrosPlugin/RouterMacro.swift"], set(policy.JOBS)),
             (["NativeSceneSmoke/Sources/Fixture.swift"], {"policy", "core", "platforms", "remote-consumer"}),
             (["MigrationSmoke/Before/Package.swift"], {"policy", "migration"}),
             (["scripts/ci-policy.py"], set(policy.JOBS)),
@@ -52,6 +52,39 @@ class SelectionTests(unittest.TestCase):
                 plan = policy.make_plan("pull_request", pr(), paths)
                 policy.validate_plan(plan)
                 self.assertEqual({j for j, selected in plan["jobs"].items() if selected}, expected)
+
+    def test_source_tests_and_examples_preserve_all_router_gates(self):
+        # These changes can affect platforms, UI, restoration, instrumentation,
+        # performance and consumers even when the portable Swift tests pass.
+        paths = ["Sources/InnoRouterCore/RouterReducer.swift",
+                 "Sources/InnoRouterSwiftUI/RouterHost.swift",
+                 "Sources/InnoRouterInspector/RouterInspector.swift",
+                 "Sources/InnoRouterMacrosPlugin/RouterMacro.swift",
+                 "Plugins/RouterBuildPlugin/plugin.swift",
+                 "Tests/InnoRouterTests/RouterRestorationTests.swift",
+                 "Tests/InnoRouterMacrosBehaviorTests/RouterMacroTests.swift",
+                 "Examples/Navigation.swift", "ExamplesSmoke/Package.swift"]
+        for path in paths:
+            with self.subTest(path=path):
+                plan = policy.make_plan("pull_request", pr(), [path])
+                self.assertTrue(all(plan["jobs"].values()))
+                policy.evaluate(plan, results(plan))
+                for job in policy.JOBS:
+                    reduced = copy.deepcopy(plan)
+                    reduced["jobs"][job] = False
+                    with self.subTest(suppressed=job), self.assertRaises(ValueError):
+                        policy.evaluate(reduced, results(reduced))
+
+    def test_scoped_workflows_and_source_docc_stay_selective(self):
+        for path, expected in [
+                (".github/workflows/platforms.yml", {"policy", "platforms"}),
+                (".github/workflows/docs-ci.yml", {"policy", "docc"}),
+                ("Sources/InnoRouterUmbrella/InnoRouter.docc/Guide.md",
+                 {"policy", "documentation", "docc"})]:
+            with self.subTest(path=path):
+                plan = policy.make_plan("pull_request", pr(), [path])
+                self.assertEqual({j for j, selected in plan["jobs"].items() if selected}, expected)
+                policy.evaluate(plan, results(plan))
 
     def test_every_pr_lifecycle_and_label_transition(self):
         for action in policy.PR_ACTIONS:
@@ -103,8 +136,7 @@ class SelectionTests(unittest.TestCase):
             paths = policy.changed_paths(root, base, head)
             self.assertEqual(set(paths), {"Sources/deleted.swift", "Sources/renamed.swift", "renamed.md"})
             plan = policy.make_plan("pull_request", pr(), paths)
-            self.assertTrue(plan["jobs"]["core"])
-            self.assertTrue(plan["jobs"]["documentation"])
+            self.assertTrue(all(plan["jobs"].values()))
             event = pr(action="synchronize")
             event["pull_request"].update(base={"sha": base}, head={"sha": head})
             event_file, output, github_output = root / "event.json", root / "plan.json", root / "github-output"

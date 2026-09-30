@@ -24,7 +24,7 @@ Dependabot PRs always select every gate. Missing labels do not weaken bot valida
 | README, ordinary Markdown, Docs | Documentation consistency and compiled code blocks |
 | DocC catalogs, `.spi.yml`, DocC builder | Documentation contracts and DocC site |
 | Dependabot, issue/PR templates, LICENSE, SECURITY | Public operations and policy |
-| Runtime, macro, test, example | Existing principle gates (full Swift/macro/restoration tests, public API, source lint, generated and local external consumers), documentation, DocC |
+| Sources runtime/SwiftUI/Inspector/macros, Plugins, Tests, Examples, ExamplesSmoke | Every gate, including every original protected platform/UI/restoration/coverage/sanitizer/performance/migration check |
 | ConsumerSmoke, NativeSceneSmoke | Principle gates, all platform/Inspector/native scene checks, exact-SHA external consumer |
 | Historical MigrationSmoke | Existing 5.2.1/current migration comparison |
 | Individual reusable workflow | Its affected gates; principle workflow also selects docs/DocC |
@@ -74,8 +74,13 @@ No repository settings are changed by this PR.
 | test watchOS | CI platforms / test watchOS + Platforms Required |
 | test visionOS | CI platforms / test visionOS + Platforms Required |
 
-All 24 are transitively required by **CI Required** for exhaustive plans. New
-policy, compiled docs and exact remote SHA proof add coverage. Six runtime lanes
+All 24 are transitively required by **CI Required** for source, plugin, general
+test/example changes and every exhaustive event. Only explicitly scoped DocC
+catalogs within Sources use the documentation plan. General Tests/Examples have
+no narrowed fixture allowlist: their cross-platform effects are not proven to be
+isolated. Selective documentation/operations/individual workflow plans save work
+without weakening ordinary source PR guarantees. New policy, compiled docs and
+exact remote SHA proof add coverage. Six runtime lanes
 retain their execution-count checks (10 iOS, 10 iPadOS, 10 Catalyst, 12 tvOS,
 6 watchOS, 10 visionOS), zero skips/expected failures, native scene closure on
 iPadOS/visionOS and Inspector interaction assertions. Confirm the numbers against
