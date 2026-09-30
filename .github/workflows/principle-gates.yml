@@ -109,6 +109,9 @@ jobs:
       - name: Test simulator selection contract
         run: bash ./scripts/test-select-simulator.sh
 
+      - name: Test simulator boot retry contract
+        run: bash ./scripts/test-boot-simulator.sh
+
   gates:
     if: github.workflow != 'principle-gates' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     runs-on: macos-26
