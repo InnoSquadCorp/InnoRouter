@@ -194,6 +194,52 @@ struct RouterSplitHostTests {
         _ = host.body
     }
 
+    // Exact restoration may replace the root with any valid shape. SwiftUI
+    // re-runs these initializers on every parent body pass, so a root that is
+    // not the host's split shape must render rather than trap.
+    @Test("Split hosts render over a store whose root is not a split container")
+    func nonSplitRootDoesNotAbort() throws {
+        let restored = RouterState<RouterSplitHostRoute>.rootStack(path: [.detail(id: "restored")])
+        let store = RouterStore(initialState: restored)
+
+        _ = try renderRouterSplitHost(RouterSplitHost(
+            store: store,
+            sidebar: { Text("Sidebar") },
+            root: { Text("Detail") }
+        ))
+        _ = try renderRouterSplitHost(RouterThreeColumnSplitHost(
+            store: store,
+            sidebar: { Text("Sidebar") },
+            content: { Text("Content") },
+            detail: { Text("Detail") }
+        ))
+
+        #expect(store.state == restored)
+    }
+
+    @Test("Split hosts render over the other column count's split state")
+    func mismatchedColumnCountDoesNotAbort() throws {
+        let twoColumn = try makeSplitStore(threeColumn: false)
+        let threeColumn = try makeSplitStore(threeColumn: true)
+        let twoColumnState = twoColumn.state
+        let threeColumnState = threeColumn.state
+
+        _ = try renderRouterSplitHost(RouterSplitHost(
+            store: threeColumn,
+            sidebar: { Text("Sidebar") },
+            root: { Text("Detail") }
+        ))
+        _ = try renderRouterSplitHost(RouterThreeColumnSplitHost(
+            store: twoColumn,
+            sidebar: { Text("Sidebar") },
+            content: { Text("Content") },
+            detail: { Text("Detail") }
+        ))
+
+        #expect(twoColumn.state == twoColumnState)
+        #expect(threeColumn.state == threeColumnState)
+    }
+
     @Test("Two- and three-column hosts follow replacement application-owned stores")
     func externalStoreReplacement() async throws {
 #if canImport(AppKit)
