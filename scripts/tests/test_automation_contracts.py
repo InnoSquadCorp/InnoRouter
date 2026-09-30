@@ -132,6 +132,11 @@ class AutomationContracts(unittest.TestCase):
                          'RouterInspectorProbe','RouterCatalystPlatformTests','run_simulator.sh',
                          'check-inspector-ui-results.py','Platforms Required','fail-fast: false'):
             self.assertIn(expected,platforms)
+        for name in ('platforms.yml','sanitizers.yml'):
+            before,required=(workflows/name).read_text().rsplit('  required:\n',1)
+            self.assertNotIn("github.workflow == 'release'",before)
+            self.assertIn('ref: ${{ inputs.ref || github.sha }}',before)
+            self.assertIn("github.workflow == 'release' && 'refs/heads/main'",required)
         coverage=(workflows/'coverage.yml').read_text()
         self.assertIn('--minimum-line-coverage 85',coverage)
         self.assertIn('--minimum-line-coverage 83',coverage)

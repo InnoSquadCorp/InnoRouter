@@ -30,7 +30,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.workflow == 'release' && 'refs/heads/main' || inputs.ref || github.sha }}
+          ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
 
       - name: Select pinned Xcode
@@ -109,7 +109,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.workflow == 'release' && 'refs/heads/main' || inputs.ref || github.sha }}
+          ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
 
       # This build job is compile-only. The authoritative macOS
@@ -216,7 +216,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.workflow == 'release' && 'refs/heads/main' || inputs.ref || github.sha }}
+          ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
 
       - name: Select pinned Xcode
