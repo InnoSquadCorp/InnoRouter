@@ -85,7 +85,31 @@ private enum RouterTabLinkRoute: String, DestinationRoute, RouterTabRoute {
     ]
 
     static func destination(for route: Self) -> some View {
+        RouterTabLinkDestination(route: route)
+    }
+}
+
+@MainActor
+@Observable
+private final class RouterTabLinkRecorder {
+    var pushAttempts = 0
+}
+
+// A tab root that navigates from its own content once, as an app would.
+@MainActor
+private struct RouterTabLinkDestination: View {
+    @EnvironmentRouter(RouterTabLinkRoute.self) private var router
+    @Environment(RouterTabLinkRecorder.self) private var recorder: RouterTabLinkRecorder?
+
+    let route: RouterTabLinkRoute
+
+    var body: some View {
         Text(route.rawValue)
+            .onAppear {
+                guard let recorder, route != .detail, recorder.pushAttempts == 0 else { return }
+                recorder.pushAttempts += 1
+                router.go(.detail)
+            }
     }
 }
 
@@ -301,9 +325,10 @@ struct RouterTabHostTests {
 
     // A split or custom root can carry branches named like tabs. The host
     // renders over such a root without owning its topology, so neither its
-    // default links nor a tab bar selection may write into those branches.
+    // default links, a tab bar selection, nor navigation from a tab's own
+    // content may write into those branches.
     @Test(
-        "Links and tab selection never write into a root of another shape",
+        "Links, tab selection, and tab content never write into a root of another shape",
         arguments: [RouterContainerStyle.split, .custom("wizard")]
     )
     func mismatchedRootRejectsHostWrites(style: RouterContainerStyle) async throws {
@@ -327,11 +352,13 @@ struct RouterTabHostTests {
             try host.defaultLinkPlan(.home, store.state)
         }
         host.requestSelection("home", in: store.scope())
+        let recorder = RouterTabLinkRecorder()
+        _ = try renderRouterTabHost(host.environment(recorder))
         await drainMainActorTasks()
 
+        #expect(recorder.pushAttempts == 1)
         #expect(store.state == restored)
         #expect(store.revision == 0)
-        _ = try renderRouterTabHost(host)
     }
 
     // Exact restoration may replace the root with any valid shape, such as a

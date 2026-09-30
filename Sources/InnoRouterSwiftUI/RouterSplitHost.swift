@@ -153,8 +153,13 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
         rootScope: RouterScope<R>,
         reconciliationRevision _: UInt64
     ) -> some View {
-        let sidebarScope = store.scope(at: [sidebarScopeID])
-        let detailScope = store.scope(at: [detailScopeID])
+        // A same-named branch of another root shape belongs to that container,
+        // so the columns bind to an unresolvable scope that neither shows nor
+        // writes it. The container style is observed on its own and re-renders
+        // this host when the root changes shape, such as a later split restore.
+        let resolvesColumns = rootScope.observedContainerStyle == .split
+        let sidebarScope = store.scope(at: resolvesColumns ? [sidebarScopeID] : .unresolvable)
+        let detailScope = store.scope(at: resolvesColumns ? [detailScopeID] : .unresolvable)
 
         return NavigationSplitView(
             columnVisibility: splitVisibilityBinding(rootScope),
@@ -190,9 +195,9 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
     /// and this `View` initializer re-runs on every parent body pass, so a
     /// mismatch renders rather than traps. A three-column split keeps its
     /// sidebar and detail and leaves its content branch unused. Any other root
-    /// falls back to the standard scope IDs, which still resolve by ID: a
-    /// column renders its root over a nil node, or a same-named branch of that
-    /// root. The host's default links never write into such a root.
+    /// falls back to the standard scope IDs, and while the root is not a split
+    /// container the columns render their roots over an unresolvable scope,
+    /// so the host neither shows nor writes a same-named branch of that root.
     private static func columnScopeIDs(
         in store: RouterStore<R>
     ) -> (sidebar: RouterScopeID, detail: RouterScopeID) {
@@ -313,9 +318,12 @@ public struct RouterThreeColumnSplitHost<
         rootScope: RouterScope<R>,
         reconciliationRevision _: UInt64
     ) -> some View {
-        let sidebarScope = store.scope(at: [sidebarScopeID])
-        let contentScope = store.scope(at: [contentScopeID])
-        let detailScope = store.scope(at: [detailScopeID])
+        // Columns resolve only over a split root, for the same reason as
+        // ``RouterSplitHost``.
+        let resolvesColumns = rootScope.observedContainerStyle == .split
+        let sidebarScope = store.scope(at: resolvesColumns ? [sidebarScopeID] : .unresolvable)
+        let contentScope = store.scope(at: resolvesColumns ? [contentScopeID] : .unresolvable)
+        let detailScope = store.scope(at: resolvesColumns ? [detailScopeID] : .unresolvable)
 
         return NavigationSplitView(
             columnVisibility: splitVisibilityBinding(rootScope),
@@ -364,7 +372,7 @@ public struct RouterThreeColumnSplitHost<
     /// A mismatched root renders rather than traps, for the same reason as
     /// ``RouterSplitHost``. A two-column split keeps its sidebar and detail,
     /// and every column the root does not describe falls back to the standard
-    /// layout's scope ID, resolved by ID like any other scope.
+    /// layout's scope ID.
     private static func columnScopeIDs(
         in store: RouterStore<R>
     ) -> (sidebar: RouterScopeID, content: RouterScopeID, detail: RouterScopeID) {

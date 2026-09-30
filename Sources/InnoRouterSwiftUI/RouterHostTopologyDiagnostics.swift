@@ -1,5 +1,18 @@
 import OSLog
 
+import InnoRouterCore
+
+extension RouterScopePath {
+    /// A path that no valid state resolves, because branch IDs are non-empty.
+    ///
+    /// A host binds its content here while the store's root is not the
+    /// container it renders. A same-named branch of that root is then neither
+    /// shown nor written, and every navigation from the content is rejected.
+    static var unresolvable: RouterScopePath {
+        RouterScopePath([RouterScopeID(rawValue: "")])
+    }
+}
+
 /// Reports a supplied store whose root is not the container a host renders.
 ///
 /// Host initializers are SwiftUI `View` initializers, re-run on every parent
