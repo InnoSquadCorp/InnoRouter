@@ -129,7 +129,14 @@ private struct InspectorProbeControls: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Revision \(model.store.revision) · Policy \(model.policyEntries)")
                 .accessibilityIdentifier("probe.revision-policy")
-            Toggle("Hold execution", isOn: $model.holdsExecution)
+            HStack {
+                Button("Hold execution") { model.holdsExecution = true }
+                    .accessibilityIdentifier("probe.execution.hold")
+                Button("Resume execution") { model.holdsExecution = false }
+                    .accessibilityIdentifier("probe.execution.resume")
+                Text(model.holdsExecution ? "Execution held" : "Execution ready")
+                    .accessibilityIdentifier("probe.execution.state")
+            }
             Button("Check redacted export") { model.checkRedaction() }
             Text(model.exportStatus)
         }

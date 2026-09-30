@@ -9,7 +9,7 @@ public `InnoRouter` runtime product.
   macro-first host.
 - `TabRestorationExample.swift` connects a Codable `@Router`, one store/catalog,
   file storage, the restoration driver, and an orphan-tolerant tab host. It
-  requires the **unreleased 6.1 APIs**, not the published 6.0.0 package.
+  requires **InnoRouter 6.1.0 or later**.
 
 The matching files in `ExamplesSmoke/` are compiler-stable CI fixtures. The
 independent package under `ConsumerSmoke/` proves the actual downstream product
@@ -23,10 +23,10 @@ swift build --target InnoRouterMacroFirstSmoke
 ./scripts/external-consumer-smoke.sh
 ```
 
-## Tab restoration (unreleased 6.1)
+## Tab restoration (6.1.0)
 
-Copy `TabRestorationExample.swift` into a SwiftUI app using the current source
-revision. After 6.1.0 is published, use that release or later. The file imports
+Copy `TabRestorationExample.swift` into a SwiftUI app using InnoRouter 6.1.0
+or later. The file imports
 only the public `InnoRouter` product; no internal modules or test tools are
 required. Add this app entry point, or use the view in an existing app:
 
@@ -71,9 +71,10 @@ open multiple windows against the demo's single file.
 The result panel distinguishes no snapshot, applied, unchanged, rejected,
 deferred, and operation failure. The example's `.fail` recovery leaves reset
 and migration decisions to the application. A restore returning without an
-error is not sufficient evidence of a commit. Automatic driver restore does
-not return a partial-validation report; apps using `restorePartially` must
-inspect both `report.topologyChanges` and `transition`.
+error is not sufficient evidence of a commit. For a partial-validation driver,
+inspect `lastPartialRestoration`; for `restorePartially`, inspect the returned
+outcome. In both cases, `report.topologyChanges` describes the candidate and
+`transition` determines whether it was applied.
 
 Run the actual example's file persistence and upgrade tests with:
 

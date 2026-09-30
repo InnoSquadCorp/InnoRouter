@@ -108,6 +108,7 @@ echo "[principle-gates] Checking public API baselines"
 # Failure signal: drift between the documents.
 # Local repro: ./scripts/check-docs-consistency.sh
 echo "[principle-gates] Checking maintainer docs consistency"
+python3 ./scripts/test-release-identity.py
 ./scripts/check-docs-consistency.sh
 
 # Gate 5 — Swift code blocks inside DocC and Markdown actually
