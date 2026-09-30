@@ -1,5 +1,7 @@
 # InnoRouter
 
+[![CI](https://github.com/InnoSquadCorp/InnoRouter/actions/workflows/ci.yml/badge.svg)](https://github.com/InnoSquadCorp/InnoRouter/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/InnoSquadCorp/InnoRouter)](https://github.com/InnoSquadCorp/InnoRouter/releases) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter) · [DocC](https://innosquadcorp.github.io/InnoRouter/latest/)
+
 SwiftUI를 위한 macro-first typed navigation 라이브러리입니다.
 
 InnoRouter 6는 하나의 `@Router` enum을 하나의 navigation 모델로 연결합니다.
@@ -443,3 +445,5 @@ consumer build도 추가로 수행합니다.
 ## 라이선스
 
 MIT. [LICENSE](LICENSE)를 확인하세요.
+
+CI 영향 분류, 의존성 업데이트, 릴리스 후보와 관리자 활성화 절차는 [자동화 정책](Docs/automation-policy.md)에 정리되어 있습니다.

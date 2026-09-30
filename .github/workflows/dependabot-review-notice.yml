@@ -1,0 +1,17 @@
+name: Dependabot Review Notice
+
+on:
+  pull_request_review:
+    types: [submitted, dismissed, edited]
+
+# A PR-context wake-up has no token permissions, secrets, checkout, artifacts,
+# cache or dependencies. The default-branch workflow_run consumer re-reads APIs.
+permissions: {}
+
+jobs:
+  notice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Notify trusted metadata reconciliation
+        run: echo 'Review metadata changed; trusted coordinator will re-query GitHub.'

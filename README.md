@@ -1,5 +1,7 @@
 # InnoRouter
 
+[![CI](https://github.com/InnoSquadCorp/InnoRouter/actions/workflows/ci.yml/badge.svg)](https://github.com/InnoSquadCorp/InnoRouter/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/InnoSquadCorp/InnoRouter)](https://github.com/InnoSquadCorp/InnoRouter/releases) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter) · [DocC](https://innosquadcorp.github.io/InnoRouter/latest/)
+
 Macro-first, typed navigation for SwiftUI.
 
 InnoRouter 6 turns one `@Router` enum into one navigation model:
@@ -550,3 +552,5 @@ and builds a downstream consumer pinned to the candidate revision.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+CI selection, dependency updates, release candidates and maintainer activation are documented in [automation policy](Docs/automation-policy.md).

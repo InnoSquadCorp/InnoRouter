@@ -149,3 +149,13 @@ By contributing you agree to follow the repository
 
 Security-sensitive findings should not go through public issues —
 follow the disclosure process described in [`SECURITY.md`](SECURITY.md).
+
+## CI and dependency updates
+
+Read [automation policy](Docs/automation-policy.md) for changed-path selection,
+the strict aggregate and protected-check rollout. Run `python3 -m unittest discover
+-s scripts/tests -v`, `python3 scripts/check-public-operations.py` and actionlint
+for automation changes. Use `swift test --jobs 2 --no-parallel` for Swift tests.
+Record the exact SHA, toolchain, performed checks and untested platform boundaries
+in the PR template. Dependabot major and SwiftSyntax PRs remain separate and require
+exhaustive CI before the trusted automatic-merge coordinator can accept them.

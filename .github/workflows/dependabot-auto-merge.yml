@@ -1,0 +1,126 @@
+name: Dependabot auto-merge
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled, ready_for_review, converted_to_draft, closed]
+  workflow_run:
+    workflows: [CI, Dependabot Review Notice]
+    types: [requested, in_progress, completed]
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.repository == 'InnoSquadCorp/InnoRouter'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+      pull-requests: read
+    outputs:
+      bot_prs: ${{ steps.targets.outputs.bot_prs }}
+      manual_prs: ${{ steps.targets.outputs.manual_prs }}
+    steps:
+      - name: Checkout trusted coordinator only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: scripts
+      - name: Resolve authoritative API targets
+        id: targets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B scripts/dependabot-merge-policy.py targets
+
+  manual-ready:
+    needs: inspect
+    if: needs.inspect.outputs.manual_prs != '[]' && needs.inspect.outputs.manual_prs != ''
+    strategy:
+      matrix:
+        pr: ${{ fromJSON(needs.inspect.outputs.manual_prs) }}
+    concurrency:
+      group: dependabot-ready-${{ matrix.pr }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      checks: write
+      pull-requests: read
+    steps:
+      - name: Checkout trusted coordinator only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: scripts
+      - name: Complete manual policy check without enabling auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ matrix.pr }}
+          DEPENDABOT_AUTO_MERGE_ENABLED: 'false'
+        run: python3 -B scripts/dependabot-merge-policy.py coordinate --pr "$PR_NUMBER"
+
+  bot-ready:
+    needs: inspect
+    if: needs.inspect.outputs.bot_prs != '[]' && needs.inspect.outputs.bot_prs != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJSON(needs.inspect.outputs.bot_prs) }}
+    concurrency:
+      group: dependabot-ready-${{ matrix.pr }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+      checks: write
+      pull-requests: write
+    steps:
+      - name: Checkout trusted coordinator only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: scripts
+      - name: Gate native auto-merge on exact current CI proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ matrix.pr }}
+          DEPENDABOT_AUTO_MERGE_ENABLED: ${{ vars.DEPENDABOT_AUTO_MERGE_ENABLED }}
+        run: python3 -B scripts/dependabot-merge-policy.py coordinate --pr "$PR_NUMBER"
+
+  post-merge:
+    if: ${{ always() && github.repository == 'InnoSquadCorp/InnoRouter' && vars.DEPENDABOT_AUTO_MERGE_ENABLED == 'true' }}
+    needs: [inspect, manual-ready, bot-ready]
+    concurrency:
+      group: dependabot-post-merge
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+      pull-requests: read
+    steps:
+      - name: Checkout trusted coordinator only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout: scripts
+      - name: Reconcile actual bot merge and only its current-main CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPENDABOT_AUTO_MERGE_ENABLED: ${{ vars.DEPENDABOT_AUTO_MERGE_ENABLED }}
+        run: python3 -B scripts/dependabot-merge-policy.py post-merge
