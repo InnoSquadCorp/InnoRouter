@@ -128,14 +128,13 @@ bump that pin everywhere** — see the release checklist below.
 `swift-tools-version: 6.3` is the package floor. The macro target admits
 `swift-syntax` `"603.0.2"..<"605.0.0"`, the 603 and 604 lines, and every
 release workflow runs on `macos-26` with Xcode 26.6, whose host compiler
-reports Swift 6.3.3. The committed `Package.resolved` keeps SwiftPM gates on
-603.0.2. The platform workspace resolves like a new consumer, which takes the
+reports Swift 6.3.3. The committed root and consumer locks use 604.0.0 together. The platform workspace resolves like a new consumer, which takes the
 newest admitted line. Raising the Swift floor again belongs in a major release
 note.
 
 The `xcode-27` job in `principle-gates.yml` is a forward lane, not a release
 pin. It runs on GitHub's preview `xcode-27` image with Xcode 27 / Swift 6.4,
-runs the package tests against the committed resolution, re-resolves the
+runs the package tests against the committed resolution, checks the 603.0.2 macro floor, and re-resolves the
 newest admitted `swift-syntax`, runs both macro suites against it, and builds
 the macro-first consumer the way an Xcode app does. Raise the `swift-syntax`
 upper bound only after that job passes on the new line.

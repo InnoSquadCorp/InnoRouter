@@ -125,8 +125,8 @@ let package = Package(
         // admits exactly the lines whose macro suites have run: an app
         // whose other macro packages already require 604 still resolves
         // InnoRouter, and no unaudited line is admitted silently. The
-        // committed Package.resolved keeps CI on the 603 floor, while the
-        // `xcode-27` job re-resolves to the newest admitted version.
+        // committed Package.resolved uses 604 across every live consumer, while the
+        // `xcode-27` job tests both the newest admitted version and the 603 floor.
         // Raise the upper bound only after running both macro suites on
         // the next line.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", "603.0.2"..<"605.0.0"),

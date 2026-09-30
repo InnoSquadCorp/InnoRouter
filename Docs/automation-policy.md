@@ -291,3 +291,18 @@ forms share these references. Preserve MIT 2025 InnoSquad, the current security
 support line, acknowledgment/patch promises and private advisory reporting.
 Repository metadata, visibility, credentials, security settings, registration
 and support-policy changes are separate owner decisions.
+
+
+### 6.1.1 integration
+
+The forward Xcode 27 job from #54 is required by both the transition bridge and
+active reusable inventory, in addition to the original 24 contexts. It checks
+the committed 604 resolution, newest admitted 604 macros and library-evolution
+consumer, and the still-supported 603.0.2 macro floor. Its checkout honors the
+exact caller ref and its standalone trigger uses the same rollout guard.
+
+SwiftSyntax's reviewed manifest range is 603.0.2..<605.0.0. All three live
+root/consumer/native locks move to 604.0.0 together; partial updates and an
+unreviewed upper-bound expansion remain rejected. Codecov uses #49's reviewed
+7.1.1 pin in the main-only metadata upload job, preserving the read-only PR lane.
+The existing 24 native protection settings remain unchanged by this code update.

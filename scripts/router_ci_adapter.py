@@ -17,7 +17,11 @@ PRIMARY = {
 LEGACY = {
     'principle-gates.yml': ('CI core', {
         'lint': 'Run source-level lint gates', 'changelog-sync': 'Verify CHANGELOG matches public-API baseline change',
-        'release-contract': 'Test release note rendering', 'gates': 'Run Principle Gates'}),
+        'release-contract': 'Test release note rendering', 'gates': 'Run Principle Gates',
+        'forward toolchain (Xcode 27)': (
+            'Show toolchain', 'Test with the committed resolution',
+            'Resolve the newest admitted swift-syntax', 'Test macros with the newest admitted swift-syntax',
+            'Build the macro-first consumer with library evolution', 'Test the supported SwiftSyntax floor')}),
     'docs-ci.yml': ('CI docc', {'docc': 'Build DocC Site'}),
     'coverage.yml': ('CI coverage', {'coverage': 'Validate coverage floor', 'codecov': None}),
     'migration-smoke.yml': ('CI migration', {'migration': 'Compare 5.2.1 and 6.0 consumers'}),
@@ -71,7 +75,8 @@ def validate_jobs(jobs, expected, run, head, merge, checks, repository, require,
                 'wrong Actions app/suite/head/job proof: '+name)
         if conclusion=='success':
             steps=job.get('steps',[])
-            require(step in {s.get('name') for s in steps}, 'missing core validation step: '+name)
+            required_steps=(step,) if isinstance(step,str) else step
+            require(set(required_steps) <= {s.get('name') for s in steps}, 'missing core validation step: '+name)
             require(all(s.get('status')=='completed' and (s.get('conclusion')=='success' or
                         (s.get('conclusion')=='skipped' and skip_step(name,s.get('name'),active))) for s in steps),
                     'unexpected skipped/failed/incomplete step: '+name)

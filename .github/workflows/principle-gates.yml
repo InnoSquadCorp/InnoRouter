@@ -16,7 +16,7 @@ on:
       - develop
 
 concurrency:
-  group: principle-gates-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: principle-gates-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -157,13 +157,17 @@ jobs:
   # suites before users upgrade into them. `xcode-27` is GitHub's preview
   # image, bumped independently of RELEASING.md's toolchain pin.
   xcode-27:
+    if: github.workflow != 'principle-gates' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     name: forward toolchain (Xcode 27)
     runs-on: xcode-27
     timeout-minutes: 45
 
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
 
       # The image installs the 27.0 build under a release-candidate app name,
       # so use its default Xcode, and fail instead of silently testing another
@@ -208,3 +212,13 @@ jobs:
             -configuration Release \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             -quiet
+
+      - name: Test the supported SwiftSyntax floor
+        run: |
+          swift package resolve swift-syntax --version 603.0.2
+          python3 - <<'PYTHON'
+          import json
+          state = next(p['state'] for p in json.load(open('Package.resolved'))['pins'] if p['identity'] == 'swift-syntax')
+          assert state['version'] == '603.0.2', state
+          PYTHON
+          swift test --jobs 2 --no-parallel --filter 'InnoRouterMacrosTests|InnoRouterMacrosBehaviorTests'
