@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -80,17 +81,27 @@ class AutomationContracts(unittest.TestCase):
         step=source.split('      - name: Validate release request\n')[1].split('      - name: Resolve exact tag commit')[0]
         script=step.split('        run: |\n')[1]
         script='\n'.join(line[10:] if line.startswith('          ') else line for line in script.splitlines())
-        sha=subprocess.check_output(['git','-C',str(ROOT),'rev-parse','HEAD'],text=True).strip()
-        base={**os.environ,'RELEASE_EVENT':'workflow_dispatch','RELEASE_DISPATCH_REF':'refs/heads/main',
-              'RELEASE_TAG':'','RELEASE_VERSION':'6.1.0','RELEASE_COMMIT_SHA':sha,
-              'RELEASE_PUBLISH':'false','RELEASE_PRERELEASE':'false'}
         with tempfile.TemporaryDirectory() as temp:
+            fixture=Path(temp)/'repository';fixture.mkdir()
+            for name in ('CHANGELOG.md','README.md','README.ko.md','Sources/InnoRouterCore/InnoRouterVersion.swift'):
+                target=fixture/name;target.parent.mkdir(parents=True,exist_ok=True)
+                shutil.copyfile(ROOT/name,target)
+            shutil.copytree(ROOT/'scripts',fixture/'scripts',ignore=shutil.ignore_patterns('__pycache__'))
+            env={**os.environ,'GIT_AUTHOR_NAME':'Fixture','GIT_COMMITTER_NAME':'Fixture',
+                 'GIT_AUTHOR_EMAIL':'fixture@example.invalid','GIT_COMMITTER_EMAIL':'fixture@example.invalid'}
+            def git(*args):
+                return subprocess.check_output(['git','-C',str(fixture),'-c','commit.gpgsign=false',*args],env=env,text=True).strip()
+            git('init','-q','-b','main');git('add','.');git('commit','-qm','published baseline')
+            sha=git('rev-parse','HEAD');git('update-ref','refs/remotes/origin/main',sha)
+            base={**env,'RELEASE_EVENT':'workflow_dispatch','RELEASE_DISPATCH_REF':'refs/heads/main',
+                  'RELEASE_TAG':'','RELEASE_VERSION':'6.1.0','RELEASE_COMMIT_SHA':sha,
+                  'RELEASE_PUBLISH':'false','RELEASE_PRERELEASE':'false'}
             output=Path(temp)/'output'
             def execute(changes):
                 output.write_text('')
-                return subprocess.run(['bash','-c',script],cwd=ROOT,
+                return subprocess.run(['bash','-c',script],cwd=fixture,
                     env={**base,**changes,'GITHUB_OUTPUT':str(output)},capture_output=True,text=True)
-            self.assertEqual(execute({}).returncode,0)
+            result=execute({});self.assertEqual(result.returncode,0,result.stderr)
             self.assertIn('publish=false\n',output.read_text())
             self.assertIn('candidate=true\n',output.read_text())
             for changes in ({'RELEASE_DISPATCH_REF':'refs/heads/topic'}, {'RELEASE_TAG':'6.1.0'},
@@ -102,6 +113,9 @@ class AutomationContracts(unittest.TestCase):
             self.assertEqual(execute({'RELEASE_EVENT':'push','RELEASE_TAG':'6.1.0-rc.1',
                                      'RELEASE_VERSION':'','RELEASE_COMMIT_SHA':''}).returncode,0)
             self.assertIn('validate=false\n',output.read_text())
+            # Valid identity alone cannot authorize an unmerged topic commit.
+            (fixture/'unmerged.txt').write_text('topic only\n');git('add','.');git('commit','-qm','unmerged topic')
+            self.assertNotEqual(execute({'RELEASE_COMMIT_SHA':git('rev-parse','HEAD')}).returncode,0)
 
     def test_pr_workflows_preserve_router_gates_and_privilege_boundaries(self):
         workflows=ROOT/'.github/workflows'

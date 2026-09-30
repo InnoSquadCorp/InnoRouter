@@ -171,6 +171,52 @@ and negative tests for the exact required contexts. At baseline
 settings decisions. No PAT/App credential is created. The implementation PR
 itself is never an automatic merge target.
 
+`dependabot-auto-merge.yml` checks out only the trusted workflow commit's
+`scripts` directory with persisted credentials disabled. It executes Python's
+standard library and GitHub APIs; it never executes PR code, dependencies,
+caches or artifacts. `workflow_run` is a wake-up only. The coordinator verifies
+workflow path/ID, PR event/linkage, repository ID, author login/type/immutable ID
+`49699333`, latest run/attempt, complete paginated jobs/checks/statuses, app
+`15368`, check suite and job URLs, and required validation steps. It distinguishes
+PR head checks from the current test-merge SHA and rejects head/base/attempt races.
+The Router adapter freezes both the 24 original gates and their active reusable
+counterparts. Major/SwiftSyntax updates use the same exhaustive proof.
+
+The permission boundary is explicit: inspection uses contents/actions/checks/PR
+read; the human eligibility check adds checks write only; bot coordination uses
+contents/checks/PR write and actions read; a separate post-merge job uses actions
+write with contents/PR read. Bot coordination uses native
+`enablePullRequestAutoMerge(expectedHeadOid: …)` and never a direct merge API.
+**Dependabot Merge Ready** remains incomplete until current full proof succeeds;
+it is required separately from CI inputs to avoid a circular gate. Human PRs
+receive an eligibility success without enabling auto-merge, preserving their
+existing manual CI/review policy. No additional required review count is added.
+
+After the selective CI rollout above, owner-approved automatic-merge activation
+must add strict **Dependabot Merge Ready** from app `15368` alongside **CI
+Required**, confirm trusted coordinator execution for human/bot PRs, enable
+repository `allow_auto_merge`, then set `DEPENDABOT_AUTO_MERGE_ENABLED=true` last.
+Existing review, conversation, deletion, non-fast-forward and no-bypass policies
+remain intact. Current unset variables and `allow_auto_merge=false` keep bot
+coordination in standby. These are proposed settings, not settings applied here.
+
+Native auto-merge using `GITHUB_TOKEN` does not establish that a normal push
+workflow will run. The separate reconciliation job verifies an actual merged
+Dependabot PR whose merge SHA is still current main. Only when no CI push or
+matching recovery dispatch exists at that SHA does it dispatch the fixed
+`ci.yml` on main with that PR number. CI re-verifies the actual merge before full
+validation and the main coverage upload. An uncertain API mutation is read back
+once, never blindly retried. Hourly reconciliation covers token-suppressed
+closed events; it does not replay failed main runs. Router's main DocC workflow
+produces a preview artifact; public Pages publication remains the explicitly
+approved release path. A manual dispatch without this verified recovery input
+cannot upload coverage, publish Pages or mutate performance history.
+
+Activation requires a controlled, owner-approved live bot update and an observed
+current-main recovery run. Unit fixtures and this human Draft PR cannot prove
+the actual native merge/token event behavior. Keep that verification and obsolete
+standalone-trigger removal tracked as rollout follow-ups.
+
 Official references: [Dependabot options](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference),
 [Swift normalization](https://github.com/dependabot/dependabot-core/blob/main/swift/lib/dependabot/swift/url_helpers.rb),
 [Dependabot with Actions](https://docs.github.com/en/code-security/tutorials/secure-your-dependencies/automate-dependabot-with-actions),
