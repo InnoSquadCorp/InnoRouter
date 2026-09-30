@@ -11,6 +11,10 @@ import UIKit
 #endif
 
 #if canImport(AppKit) || (canImport(UIKit) && !os(watchOS))
+// The bounded visionOS CI comparison changes only this test-fixture switch in
+// its temporary original-mount variant. Normal test runs use explicit mounting.
+private let explicitlyMountsRestoredTabs = true
+
 private enum RestoredHostRoute: String, Codable, DestinationRoute, RouterTabRoute, DeepLinkRoute {
     case home, settings, detail
     enum Tab: String, RouterTab {
@@ -41,8 +45,15 @@ private final class RestoredTabRecorder {
         let scope: RouterScopePath?
     }
     let appearances = AsyncStream<Appearance>.makeStream()
+    private var observedAppearances: [Appearance] = []
+
+    func record(_ appearance: Appearance) {
+        observedAppearances.append(appearance)
+        appearances.continuation.yield(appearance)
+    }
+
     func waitFor(_ route: RestoredHostRoute, path: [RestoredHostRoute], scope: RouterScopePath) async -> Bool {
-        await withTaskGroup(of: Bool.self) { group in
+        let matched = await withTaskGroup(of: Bool.self) { group in
             group.addTask {
                 for await event in self.appearances.stream {
                     if event.route == route, event.path == path, event.scope == scope { return true }
@@ -57,6 +68,10 @@ private final class RestoredTabRecorder {
             group.cancelAll()
             return observed
         }
+        if !matched {
+            print("[restored-tab] No matching appearance for \(route), path=\(path), scope=\(scope); observed=\(observedAppearances)")
+        }
+        return matched
     }
 }
 
@@ -79,12 +94,12 @@ private struct RestoredTabDestination: View {
         Text(route.rawValue)
             .accessibilityIdentifier("restored-tab-" + route.rawValue)
             .onAppear {
-                recorder?.appearances.continuation.yield(.init(route: route, path: state.path, scope: state.scopePath))
+                recorder?.record(.init(route: route, path: state.path, scope: state.scopePath))
             }
             .onChange(of: state.path) { _, path in
                 // Native stacks may retain their root instead of re-running
                 // onAppear when popping. Observe its actual scoped reader.
-                recorder?.appearances.continuation.yield(.init(route: route, path: path, scope: state.scopePath))
+                recorder?.record(.init(route: route, path: path, scope: state.scopePath))
             }
     }
 }
@@ -118,7 +133,23 @@ struct RouterRestoredTabHostTests {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 600, height: 800))
         window.rootViewController = controller
         window.makeKeyAndVisible()
-        defer { window.isHidden = true }
+        // Match the mounted lifecycle used by RestorationMount in this target.
+        // Make this test-owned controller's appearance and layout explicit.
+        if explicitlyMountsRestoredTabs {
+            controller.loadViewIfNeeded()
+            controller.beginAppearanceTransition(true, animated: false)
+            controller.endAppearanceTransition()
+            controller.view.layoutIfNeeded()
+        }
+        print("[restored-tab] connectedScenes=\(UIApplication.shared.connectedScenes.count), windowScene=\(String(describing: window.windowScene?.activationState)), attached=\(controller.viewIfLoaded?.window != nil)")
+        defer {
+            if explicitlyMountsRestoredTabs {
+                controller.beginAppearanceTransition(false, animated: false)
+                controller.endAppearanceTransition()
+            }
+            window.isHidden = true
+            if explicitlyMountsRestoredTabs { window.rootViewController = nil }
+        }
 #endif
         #expect(await recorder.waitFor(.home, path: [], scope: ["home"]))
         #expect(RouterStateReader(scope: store.scope()).selection == "home")

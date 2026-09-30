@@ -268,10 +268,134 @@ jobs:
         if: matrix.platform.usesSimulator
         run: python3 ./scripts/boot-simulator.py '${{ steps.simulator.outputs.udid }}'
 
+      # A finite A/B experiment for #54, not a retry-until-green mechanism.
+      # Both variants use this exact production checkout, simulator and runner;
+      # only the test fixture's explicit appearance/layout switch changes.
+      - name: Compare original and explicit visionOS tab mounting
+        id: mount_comparison
+        if: matrix.platform.name == 'visionOS' && github.event_name == 'pull_request' && github.event.pull_request.number == 54
+        shell: bash
+        env:
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          set -euo pipefail
+          fixture=Tests/InnoRouterPlatformTests/RouterRestoredTabHostTests.swift
+          evidence="$RUNNER_TEMP/RestoredTabMountComparison"
+          mkdir -p "$evidence"
+          cp "$fixture" "$evidence/explicit.swift"
+          trap 'cp "$evidence/explicit.swift" "$fixture"' EXIT
+          git rev-parse HEAD > "$evidence/commit.txt"
+          xcodebuild -version > "$evidence/toolchain.txt"
+          swift --version >> "$evidence/toolchain.txt"
+          xcrun simctl list devices available --json > "$evidence/devices.json"
+          printf '%s\n' "$SIMULATOR_UDID" > "$evidence/device-udid.txt"
+
+          for variant in original explicit; do
+            cp "$evidence/explicit.swift" "$fixture"
+            if [[ "$variant" == original ]]; then
+              python3 - "$fixture" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          source = path.read_text()
+          marker = "private let explicitlyMountsRestoredTabs = true"
+          if source.count(marker) != 1:
+              raise SystemExit("Expected exactly one explicit-mount fixture switch")
+          path.write_text(source.replace(marker, marker.replace("true", "false")))
+          PY
+            fi
+            cp "$fixture" "$evidence/$variant.swift"
+            result_bundle="$evidence/$variant.xcresult"
+            test_status=0
+            xcodebuild test \
+              -workspace .github/platform-tests.xcworkspace \
+              -scheme InnoRouterPlatformTests \
+              -destination "platform=visionOS Simulator,id=$SIMULATOR_UDID" \
+              -destination-timeout 120 \
+              -parallel-testing-enabled NO \
+              -only-testing:InnoRouterPlatformTests/RouterRestoredTabHostTests \
+              -derivedDataPath "$RUNNER_TEMP/RestoredTabMountComparison-derived" \
+              -resultBundlePath "$result_bundle" \
+              -quiet > "$evidence/$variant.log" 2>&1 || test_status=$?
+            cat "$evidence/$variant.log"
+            printf '%s\n' "$test_status" > "$evidence/$variant-exit.txt"
+            if [[ -d "$result_bundle" ]]; then
+              xcrun xcresulttool get test-results summary --path "$result_bundle" --compact \
+                > "$evidence/$variant-summary.json" || true
+              xcrun xcresulttool get test-results tests --path "$result_bundle" --compact \
+                > "$evidence/$variant-tests.json" || true
+            fi
+          done
+          cp "$evidence/explicit.swift" "$fixture"
+          cmp "$fixture" "$evidence/explicit.swift"
+
+          python3 - "$evidence" <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          import sys
+          root = Path(sys.argv[1])
+          results = {}
+          for variant in ("original", "explicit"):
+              summary_path = root / f"{variant}-summary.json"
+              try:
+                  summary = json.loads(summary_path.read_text())
+              except (OSError, ValueError):
+                  summary = {}
+              failures = summary.get("testFailures") or []
+              results[variant] = {
+                  "exit": int((root / f"{variant}-exit.txt").read_text()),
+                  "result": summary.get("result"),
+                  "total": summary.get("totalTestCount"),
+                  "passed": summary.get("passedTests"),
+                  "failed": summary.get("failedTests"),
+                  "skipped": summary.get("skippedTests"),
+                  "expected": summary.get("expectedFailures"),
+                  "failures": failures,
+                  "fixtureSHA256": hashlib.sha256((root / f"{variant}.swift").read_bytes()).hexdigest(),
+              }
+          original, explicit = results["original"], results["explicit"]
+          def passed(result):
+              return (result["exit"] == 0 and result["result"] == "Passed"
+                      and result["total"] == result["passed"] == 1
+                      and result["failed"] == result["skipped"] == result["expected"] == 0)
+          original_failed_at_appearance = (
+              original["exit"] != 0 and original["result"] == "Failed"
+              and original["total"] == original["failed"] == 1
+              and original["skipped"] == original["expected"] == 0
+              and any('recorder.waitFor(.home, path: [], scope: ["home"])' in item.get("failureText", "")
+                      for item in original["failures"])
+          )
+          if passed(original):
+              disposition = "original-passed-failure-not-reproduced"
+          elif original_failed_at_appearance:
+              disposition = "original-first-appearance-failure-reproduced"
+          else:
+              disposition = "original-had-unexpected-failure"
+          report = {
+              "comparison": disposition,
+              "order": ["original", "explicit"],
+              "simulatorReused": True,
+              "simulatorResetBetweenVariants": False,
+              "simulatorUDID": (root / "device-udid.txt").read_text().strip(),
+              "productionCommit": (root / "commit.txt").read_text().strip(),
+              "variants": results,
+          }
+          (root / "comparison.json").write_text(json.dumps(report, indent=2) + "\n")
+          print(json.dumps(report, indent=2))
+          if not passed(explicit):
+              raise SystemExit("Explicit mounting did not pass its one focused test")
+          if not (passed(original) or original_failed_at_appearance):
+              print("Original result is inconclusive; inspect its retained diagnostics")
+          PY
+
       # This target is deliberately macro-free so its runtime checks link on
       # tvOS, watchOS, and visionOS without a host plugin object in the bundle.
       # Catalyst runs the same sources in a hosted target for UIKit lifetimes.
       - name: Test platform consumer for ${{ matrix.platform.name }}
+        # Collect the full suite even if the focused candidate failed. That
+        # earlier required failure still keeps this job red.
+        if: ${{ !cancelled() && (success() || steps.mount_comparison.outcome == 'failure') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -307,6 +431,11 @@ jobs:
           xcrun xcresulttool get test-results summary \
             --path "$result_bundle" \
             --compact > "$summary_json"
+          # Keep detailed test records alongside the summary.
+          xcrun xcresulttool get test-results tests \
+            --path "$result_bundle" --compact \
+            > "$RUNNER_TEMP/InnoRouterPlatformConsumer-${{ matrix.platform.name }}-tests.json" \
+            || echo "Warning: detailed xcresult export failed" >&2
           python3 scripts/report-xcresult-failures.py "$summary_json"
           if [[ "$test_status" -ne 0 ]]; then
             exit "$test_status"
@@ -342,6 +471,18 @@ jobs:
                   f"only {passed} tests passed; expected at least {minimum}"
               )
           PY
+
+      - name: Preserve platform test evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: platform-tests-${{ matrix.platform.name }}
+          path: |
+            ${{ runner.temp }}/InnoRouterPlatformConsumer-${{ matrix.platform.name }}.xcresult
+            ${{ runner.temp }}/InnoRouterPlatformConsumer-${{ matrix.platform.name }}-summary.json
+            ${{ runner.temp }}/InnoRouterPlatformConsumer-${{ matrix.platform.name }}-tests.json
+            ${{ runner.temp }}/RestoredTabMountComparison
+          if-no-files-found: warn
 
       - name: Verify native scene closure for ${{ matrix.platform.name }}
         id: native_scene
