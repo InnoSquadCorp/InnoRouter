@@ -1,5 +1,7 @@
 """Frozen Router validation inventory for the trusted API-only coordinator."""
 import re
+import importlib.util
+from pathlib import Path
 
 PRIMARY = {
     'CI Plan': 'Plan exact changed paths',
@@ -71,16 +73,29 @@ def validate_jobs(jobs, expected, run, head, merge, checks, repository, require,
     return ids
 
 
+def validation_runs(api, runs, workflow_id, repository_id, number, head, source, require):
+    spec = importlib.util.spec_from_file_location('metadata_policy', Path(__file__).with_name('ci-metadata-policy.py'))
+    metadata = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(metadata)
+    return metadata.partition(api, runs, repository='InnoSquadCorp/InnoRouter',
+                              repository_id=repository_id, workflow_id=workflow_id,
+                              number=number, head=head, source=source, require=require)
+
+
 def verify(api, repository, pr, repo, notification, require):
     route=lambda suffix: f'repos/{repository}/{suffix}'
     head,main,merge,number=pr['head']['sha'],pr['base']['sha'],pr['merge_commit_sha'],pr['number']
     compare=api.get(route(f'compare/{main}...{head}'))
     require(compare.get('behind_by')==0 and compare.get('status') in {'ahead','identical'}, 'branch is behind latest main')
     latest={}
+    metadata_check_ids=set()
     def current_run(filename, mandatory=True):
         workflow=api.get(route('actions/workflows/'+filename))
         require(workflow.get('path')=='.github/workflows/'+filename and workflow.get('state')=='active', 'wrong source workflow')
         runs=api.pages(route(f'actions/workflows/{filename}/runs?event=pull_request&head_sha={head}'),'workflow_runs')
+        if filename == 'ci.yml':
+            runs, ignored, _ = validation_runs(api, runs, workflow['id'], repo['id'], number, head, merge, require)
+            metadata_check_ids.update(ignored)
         if not runs and not mandatory: return None
         require(bool(runs),'missing workflow: '+filename)
         candidate=max(runs,key=lambda r:(r['run_number'],r['id']))
@@ -115,7 +130,7 @@ def verify(api, repository, pr, repo, notification, require):
         require(all(s.get('state')=='success' for s in states.values()),'additional commit status pending/failed')
     by_id={c['id']:c for c in checks}
     require(len(by_id)==len(checks),'duplicate check IDs')
-    known=validate_jobs(jobs,expected,run,head,merge,by_id,repository,require,active)
+    known=metadata_check_ids | validate_jobs(jobs,expected,run,head,merge,by_id,repository,require,active)
     # During rollout all 24 original checks are required independently of the
     # PR-controlled transition evaluator. Active CI verifies the same children.
     for filename,(caller,children) in LEGACY.items():

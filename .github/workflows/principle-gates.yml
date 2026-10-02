@@ -39,10 +39,10 @@ jobs:
           persist-credentials: false
 
       - name: Install lint tools
-        run: brew install actionlint ripgrep swiftformat swiftlint
+        run: brew install ripgrep swiftformat swiftlint
 
       - name: Run workflow lint
-        run: actionlint -config-file .github/actionlint.yaml
+        run: python3 -B scripts/check-ci-workflows.py
 
       - name: Run source-level lint gates
         run: ./scripts/lint-source-gates.sh
