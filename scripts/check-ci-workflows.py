@@ -20,6 +20,7 @@ ARCHIVES = {
     ('Linux', 'x86_64'): ('linux_amd64', '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8'),
 }
 QUEUE_LOCATIONS = {('release.yml', None): '  queue: max'}
+QUEUE_LOCATIONS[('ci.yml', None)] = "  queue: ${{ (github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base))) && 'max' || 'single' }}"
 QUEUE_DIAGNOSTIC = 'unexpected key "queue" for "concurrency" section. expected one of "cancel-in-progress", "group"'
 
 
@@ -30,7 +31,7 @@ def check_queue_compatibility(workflows):
     for path in workflows:
         job = None
         for number, line in enumerate(path.read_text().splitlines(), 1):
-            if re.match(r'^\S', line):
+            if re.match(r'^[^\s#]', line):
                 job = None
             match = re.fullmatch(r'  ([\w-]+):', line)
             if match:

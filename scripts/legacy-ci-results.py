@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
-"""Read-only transition bridge: reuse the original 24 checks without duplicate builds."""
+"""Read-only transition bridge: reuse the original checks without duplicate builds."""
 import argparse
+import importlib.util
 import json
 import os
+from pathlib import Path
 import sys
 import time
 import urllib.request
+
+_spec = importlib.util.spec_from_file_location('managed', Path(__file__).with_name('ci-managed-checks.py'))
+managed = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(managed)
+
+# Separate workflows can spend hours queued for macOS runners. Keep the bridge
+# bounded below GitHub's six-hour job limit, with time left for final proof.
+DEFAULT_TIMEOUT_SECONDS = 330 * 60
+MAX_POLL_SECONDS = 120
 
 LEGACY = {
     '.github/workflows/principle-gates.yml': ('lint', 'changelog-sync', 'release-contract', 'gates'),
@@ -26,20 +37,26 @@ class Pending(ValueError):
 
 def latest_runs(runs, event, sha, number=None):
     selected = {}
+    pending = []
     for path in LEGACY:
         matches = [r for r in runs if r.get('path', '').split('@')[0] == path and r.get('event') == event
                    and r.get('head_sha') == sha and (number is None or any(
                        p.get('number') == number for p in r.get('pull_requests', [])))]
         if not matches:
-            raise Pending('missing run: ' + path)
+            pending.append('missing run: ' + path)
+            continue
         # Latest created run, then latest attempt of that run. Earlier green runs
         # never mask a pending rerun or a later failed run.
         run = max(matches, key=lambda r: (r['created_at'], r['id'], r['run_attempt']))
         if run.get('status') != 'completed':
-            raise Pending('incomplete run: ' + path)
+            pending.append('incomplete run: ' + path)
+            continue
         if run.get('conclusion') != 'success':
             raise ValueError('failed/cancelled/skipped latest run: ' + path)
         selected[path] = run
+    # A queued workflow must not mask a terminal failure later in the inventory.
+    if pending:
+        raise Pending('; '.join(pending))
     return selected
 
 
@@ -106,11 +123,12 @@ def main():
     p.add_argument('--number', type=int)
     p.add_argument('--base')
     p.add_argument('--merge')
-    p.add_argument('--timeout', type=int, default=6600)
+    p.add_argument('--timeout', type=int, default=DEFAULT_TIMEOUT_SECONDS)
     args = p.parse_args()
     try:
         api = API(os.environ['GITHUB_REPOSITORY'], os.environ['GH_TOKEN'])
         start = time.monotonic()
+        poll_seconds = 15
         while True:
             if args.number:
                 current_pr(api, args.number, args.sha, args.base, args.merge)
@@ -122,6 +140,7 @@ def main():
                                                and p.get('head', {}).get('sha') == args.sha for p in run.get('pull_requests', [])):
                         raise ValueError('legacy run tested a stale base/head')
                     jobs = api.pages(f'repos/{api.repo}/actions/runs/{run["id"]}/attempts/{run["run_attempt"]}/jobs', 'jobs')
+                    jobs, _ = managed.validation_jobs(api, jobs, run, api.repo, args.sha, args.number)
                     validate_jobs(path, run, jobs)
                     for job in jobs:
                         prefix = f'https://api.github.com/repos/{api.repo}/check-runs/'
@@ -138,13 +157,15 @@ def main():
                     raise Pending('new run/attempt arrived')
                 if args.number:
                     current_pr(api, args.number, args.sha, args.base, args.merge)
-                print('Transition CI Required: all original 24 jobs succeeded at the exact current revision.')
+                print('Transition CI Required: all original workflow jobs succeeded at the exact current revision.')
                 return 0
             except Pending as error:
-                if time.monotonic() - start >= args.timeout:
+                remaining = args.timeout - (time.monotonic() - start)
+                if remaining <= 0:
                     raise ValueError('timed out waiting for legacy CI: ' + str(error))
                 print(str(error), flush=True)
-                time.sleep(30)
+                time.sleep(min(poll_seconds, remaining))
+                poll_seconds = min(poll_seconds * 2, MAX_POLL_SECONDS)
     except (ValueError, KeyError, OSError) as error:
         print('Legacy CI rejected: ' + str(error), file=sys.stderr)
         return 1

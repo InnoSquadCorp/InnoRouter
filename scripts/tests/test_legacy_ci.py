@@ -1,7 +1,10 @@
 import copy
 import importlib.util
+import io
 from pathlib import Path
+import re
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('legacy', ROOT / 'scripts/legacy-ci-results.py')
@@ -78,6 +81,113 @@ class LegacyTests(unittest.TestCase):
             if field in ('head','base'):api.pr[field]['sha']='d'*40
             else:api.pr[field]='changed'
             with self.assertRaises(ValueError):legacy.current_pr(api,55,'a'*40,'b'*40,'c'*40)
+
+    def test_later_failure_is_not_hidden_by_an_earlier_queued_workflow(self):
+        runs = self.runs()
+        runs[0].update(status='queued', conclusion=None)
+        for conclusion in ['failure', 'cancelled', 'skipped']:
+            with self.subTest(conclusion=conclusion):
+                runs[-1]['conclusion'] = conclusion
+                with self.assertRaisesRegex(ValueError, 'failed/cancelled/skipped'):
+                    legacy.latest_runs(runs, 'pull_request', 'a' * 40, 55)
+
+
+class QueueTranscript:
+    """Real validation contract with a virtual runner queue; never sleeps."""
+    repo = 'InnoSquadCorp/InnoRouter'
+
+    def __init__(self, ready_at):
+        self.now = 0
+        self.ready_at = ready_at
+        self.sleeps = []
+        self.pr = dict(state='open', head=dict(sha='a' * 40),
+                       base=dict(sha='b' * 40, ref='main'), merge_commit_sha='c' * 40)
+        self.runs = LegacyTests().runs()
+        self.jobs, self.checks = {}, {}
+        for run in self.runs:
+            run['pull_requests'] = [dict(number=55, head=self.pr['head'], base=self.pr['base'])]
+            run['check_suite_id'] = run['id'] + 100
+            jobs = []
+            for index, name in enumerate(legacy.LEGACY[run['path']]):
+                job_id = run['id'] * 100 + index
+                conclusion = 'skipped' if name == 'codecov' else 'success'
+                job = dict(id=job_id, name=name, run_id=run['id'], run_attempt=1,
+                           status='completed', conclusion=conclusion,
+                           check_run_url=f'https://api.github.com/repos/{self.repo}/check-runs/{job_id}')
+                jobs.append(job)
+                self.checks[job_id] = dict(app=dict(id=15368), name=name,
+                    check_suite=dict(id=run['check_suite_id']), head_sha='c' * 40,
+                    status='completed', conclusion=conclusion,
+                    details_url=f'https://github.com/{self.repo}/actions/runs/{run["id"]}/job/{job_id}')
+            self.jobs[run['id']] = jobs
+
+    def get(self, path):
+        if '/pulls/' in path: return copy.deepcopy(self.pr)
+        return copy.deepcopy(self.checks[int(path.rsplit('/', 1)[1])])
+
+    def pages(self, path, key):
+        if key == 'workflow_runs':
+            runs = copy.deepcopy(self.runs)
+            if self.now < self.ready_at: runs[-1].update(status='in_progress', conclusion=None)
+            return runs
+        return copy.deepcopy(self.jobs[int(path.split('/actions/runs/')[1].split('/')[0])])
+
+    def sleep(self, seconds):
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+    def execute(self, *extra):
+        argv = ['legacy-ci-results.py', '--event', 'pull_request', '--sha', 'a' * 40,
+                '--number', '55', '--base', 'b' * 40, '--merge', 'c' * 40, *extra]
+        with mock.patch.object(legacy, 'API', return_value=self), mock.patch('sys.argv', argv), \
+                mock.patch.dict('os.environ', GITHUB_REPOSITORY=self.repo, GH_TOKEN='fixture'), \
+                mock.patch.object(legacy.time, 'monotonic', side_effect=lambda: self.now), \
+                mock.patch.object(legacy.time, 'sleep', side_effect=self.sleep), \
+                mock.patch('sys.stdout', new_callable=io.StringIO), \
+                mock.patch('sys.stderr', new_callable=io.StringIO) as error:
+            return legacy.main(), error.getvalue()
+
+
+class QueueBudgetTests(unittest.TestCase):
+    def test_valid_late_platform_completion_survives_old_110_minute_limit(self):
+        t = QueueTranscript(ready_at=7100)
+        self.assertEqual(t.execute(), (0, ''))
+        self.assertGreaterEqual(t.now, 7100)
+        self.assertLess(len(t.sleeps), 70, 'runner queue polling should back off')
+
+    def test_normal_completion_has_no_wait(self):
+        t = QueueTranscript(ready_at=0)
+        self.assertEqual(t.execute(), (0, ''))
+        self.assertEqual(t.sleeps, [])
+
+    def test_unfinished_validation_still_times_out_at_the_explicit_budget(self):
+        t = QueueTranscript(ready_at=99999)
+        result, error = t.execute('--timeout', '65')
+        self.assertEqual(result, 1)
+        self.assertIn('timed out waiting for legacy CI', error)
+        self.assertEqual(t.now, 65, 'backoff must not oversleep the remaining budget')
+
+    def test_pr_change_during_wait_is_rejected_without_more_sleep(self):
+        t = QueueTranscript(ready_at=7100)
+        original_sleep = t.sleep
+        def move_pr(seconds):
+            original_sleep(seconds)
+            t.pr['head']['sha'] = 'd' * 40
+        t.sleep = move_pr
+        result, error = t.execute()
+        self.assertEqual(result, 1)
+        self.assertIn('PR/base/test-merge changed', error)
+        self.assertEqual(len(t.sleeps), 1)
+
+    def test_workflow_budget_leaves_time_to_finish_proof(self):
+        from test_ci_event_routing import expression_value
+        job = (ROOT / '.github/workflows/ci.yml').read_text().split('\n  ci-required:\n', 1)[1]
+        expression = re.search(r'^    timeout-minutes: (.+)$', job, re.M)[1][3:-3]
+        minutes = expression_value(expression, {'needs.ci-plan.outputs.active': 'false'})
+        self.assertGreaterEqual(minutes * 60, legacy.DEFAULT_TIMEOUT_SECONDS + 600)
+        self.assertLessEqual(minutes, 360)
+        for mode in ['true', '']:
+            self.assertEqual(expression_value(expression, {'needs.ci-plan.outputs.active': mode}), 10)
 
 
 if __name__=='__main__':unittest.main()

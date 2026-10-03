@@ -3,12 +3,16 @@ import re
 import importlib.util
 from pathlib import Path
 
+_spec = importlib.util.spec_from_file_location('managed', Path(__file__).with_name('ci-managed-checks.py'))
+managed = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(managed)
+
 PRIMARY = {
     'CI Plan': 'Plan exact changed paths',
     'CI and public operations policy': 'Run fail-closed policy and negative contracts',
     'Documentation contracts': 'Validate copyable documentation',
     'Exact-SHA external macro consumer': 'Resolve exact event revision in a clean consumer',
-    'CI Required': 'Evaluate exact planned dependencies',
+    'CI Required': 'Require exact planned dependencies',
 }
 LEGACY = {
     'principle-gates.yml': ('CI core', {
@@ -39,7 +43,8 @@ def skip_step(job, step, active):
     if child.startswith('test ') and child not in ('test iPadOS','test visionOS','test Inspector UI (iPadOS)') and step in (
             'Verify native scene closure for '+child.removeprefix('test '), 'Preserve native scene evidence'):
         return True
-    return (active and job == 'CI Required' and step == 'Reuse original protected checks during rollout') or (job == 'CI Plan' and step == 'Verify actual bot merge before recovery')
+    return (job == 'CI Required' and (step == 'Verify prior validation for metadata' or
+            (active and step == 'Reuse original protected checks during rollout'))) or (job == 'CI Plan' and step == 'Verify actual bot merge before recovery')
 
 
 def validate_jobs(jobs, expected, run, head, merge, checks, repository, require, active=False, all_skipped=False):
@@ -114,6 +119,7 @@ def verify(api, repository, pr, repo, notification, require):
     if notification:
         require(notification.get('id')==run['id'] and notification.get('run_attempt')==run['run_attempt'], 'obsolete CI notification')
     jobs=api.pages(route(f'actions/runs/{run["id"]}/attempts/{run["run_attempt"]}/jobs'),'jobs')
+    jobs, _ = managed.validation_jobs(api, jobs, run, repository, head, number)
     active='CI core / lint' in {j.get('name') for j in jobs}
     expected=dict(PRIMARY)
     if active:
@@ -137,6 +143,7 @@ def verify(api, repository, pr, repo, notification, require):
         legacy=current_run(filename,mandatory=not active)
         if legacy is None:continue
         legacy_jobs=api.pages(route(f'actions/runs/{legacy["id"]}/attempts/{legacy["run_attempt"]}/jobs'),'jobs')
+        legacy_jobs, _ = managed.validation_jobs(api, legacy_jobs, legacy, repository, head, number)
         if active and legacy_jobs and all(j.get('conclusion')=='skipped' for j in legacy_jobs):
             require(all(j.get('status')=='completed' for j in legacy_jobs),'pending standalone skip')
             # Matrix job-level conditions can skip before matrix expansion.
