@@ -4,6 +4,7 @@ Only the latest real validation of this exact PR head, base, workflow definition
 and validation-label set is accepted. All transport is read-only and bounded.
 """
 import argparse
+import importlib.util
 from datetime import datetime, timedelta, timezone
 import json
 import os
@@ -11,6 +12,10 @@ from pathlib import Path
 import re
 import sys
 from urllib.request import Request, build_opener, HTTPRedirectHandler
+
+_spec = importlib.util.spec_from_file_location('managed', Path(__file__).with_name('ci-managed-checks.py'))
+managed = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(managed)
 
 CONFIG = {'repository': 'InnoSquadCorp/InnoRouter', 'workflow': '.github/workflows/ci.yml', 'labels': ['release-validation'], 'checks': ['CI Required']}
 FLAGS = ('release-validation', 'run-asan', 'concurrency-review')
@@ -134,6 +139,7 @@ def prove(api, event, env, check_name='CI Required'):
     attempt = run['run_attempt']
     require(type(attempt) is int and attempt > 0, 'invalid validation attempt')
     jobs = api.pages(route + f"actions/runs/{run['id']}/attempts/{attempt}/jobs", 'jobs')
+    jobs, _ = managed.validation_jobs(api, jobs, run, repo, head, number)
     require(jobs and all(j.get('status') == 'completed' and j.get('conclusion') in {'success', 'skipped'}
                         for j in jobs), 'validation contains failed or unfinished jobs')
     for name in {'CI Required', check_name}:

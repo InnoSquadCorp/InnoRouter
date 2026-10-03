@@ -36,6 +36,9 @@ class MetadataAPI:
             self.checks.append(dict(id=30000+i,name=name,app=dict(id=15368),check_suite=dict(id=SUITE),head_sha=bot.HEAD,
                                     status='completed',conclusion=job['conclusion'],details_url=f'https://github.com/{bot.REPO}/actions/runs/{META}/job/{job["id"]}'))
     def get(self,path):
+        if '/check-runs/' in path:
+            found=[c for c in self.checks if str(c['id'])==path.rsplit('/',1)[-1]]
+            if found:return copy.deepcopy(found[0])
         if path.endswith(f'actions/runs/{META}'):
             self.reads+=1;result=copy.deepcopy(self.run)
             if self.reads%2==0 and self.finish_mutation:self.finish_mutation(result)

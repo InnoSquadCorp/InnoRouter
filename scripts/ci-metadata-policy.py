@@ -5,7 +5,13 @@ merge parents, complete job/check inventory and latest attempt before excluding
 one from latest-validation selection. Unknown evidence blocks the caller.
 """
 import itertools
+import importlib.util
+from pathlib import Path
 import re
+
+_spec = importlib.util.spec_from_file_location('managed', Path(__file__).with_name('ci-managed-checks.py'))
+managed = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(managed)
 
 PREFIX = 'CI metadata-only v1 '
 TITLE = re.compile(PREFIX + r'pr:([1-9][0-9]*) head:([0-9a-f]{40}) base:([0-9a-f]{40}) action:(labeled|unlabeled|edited) source:([0-9a-f]{40})')
@@ -61,9 +67,11 @@ def partition(api, runs, *, repository, repository_id, workflow_id, number, head
         checks = api.pages(route + f"check-suites/{run['check_suite_id']}/check-runs?filter=all", 'check_runs')
         by_id = {c.get('id'): c for c in checks}
         require(len(by_id) == len(checks), 'duplicate metadata checks')
-        observed = set()
+        observed, managed_ids = set(), set()
         for attempt in range(1, run['run_attempt'] + 1):
             jobs = api.pages(route + f"actions/runs/{run['id']}/attempts/{attempt}/jobs", 'jobs')
+            jobs, excluded = managed.validation_jobs(api, jobs, {**run, 'run_attempt': attempt}, repository, head, number)
+            managed_ids.update(excluded)
             names = [j.get('name') for j in jobs]
             require(len(names) == len(set(names)) and set(names) in INVENTORIES,
                     'missing, extra or validation-named metadata job')
@@ -98,7 +106,7 @@ def partition(api, runs, *, repository, repository_id, workflow_id, number, head
                         check.get('conclusion') == expected and check.get('details_url') ==
                         f"https://github.com/{repository}/actions/runs/{run['id']}/job/{job['id']}",
                         'metadata run executed work or has unverified native checks')
-        require(set(by_id) == observed, 'unassociated metadata checks')
+        require(set(by_id) == observed | managed_ids, 'unassociated metadata checks')
         final = api.get(route + f"actions/runs/{run['id']}")
         require(all(final.get(k) == run.get(k) for k in (
             'id', 'run_number', 'run_attempt', 'workflow_id', 'path', 'event', 'display_title',

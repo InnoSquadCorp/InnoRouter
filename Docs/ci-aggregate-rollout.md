@@ -4,6 +4,20 @@ The default remains transition mode until the new fixed-name metadata gate is
 merged and a full aggregate dispatch passes on the current main commit. A PR
 must retain the existing required contexts until that evidence exists.
 
+The transition bridge waits up to 330 minutes within a 360-minute job budget,
+including macOS runner queue time. Polling backs off from 15 to 120 seconds;
+the latest failed or cancelled workflow rejects the gate even when another
+workflow remains queued. PR/head/base changes and incomplete proof still fail.
+This temporary polling job is bypassed after aggregate activation, when GitHub
+waits for child jobs through native `needs` dependencies without an idle runner.
+Aggregate and metadata gates retain a separate 10-minute timeout.
+
+GitHub may include the API-created `Dependabot Merge Ready` check in a native
+workflow's jobs response. The bridge, coordinator and metadata validators
+separate it only after verifying the Actions app, PR/head, suite, external ID
+and API-created check URL. Its verdict remains independently required; it
+cannot substitute for a missing, failed or skipped native validation job.
+
 After merging this change:
 
 1. Dispatch `ci.yml` on `main` without a Dependabot recovery input. Manual
