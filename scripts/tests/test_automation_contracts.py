@@ -96,6 +96,47 @@ class AutomationContracts(unittest.TestCase):
             path.write_text(json.dumps(lock))
             with self.assertRaises(ValueError):guard.check(fixture)
 
+    def test_reviewed_swift_syntax_range_and_complete_locks(self):
+        guard=load('check-public-operations')
+        with tempfile.TemporaryDirectory() as temp:
+            fixture=Path(temp)
+            shutil.copytree(ROOT,fixture,dirs_exist_ok=True,ignore=shutil.ignore_patterns('.git','.build','__pycache__'))
+            original=(fixture/'Package.swift').read_text()
+            guard.check(fixture)
+            for lo,hi in (('603.0.2','606.0.0'),('604.0.0','605.0.0'),('603.0.0','605.0.0')):
+                (fixture/'Package.swift').write_text(original.replace('"603.0.2"..<"605.0.0"',f'"{lo}"..<"{hi}"'))
+                with self.assertRaisesRegex(ValueError,'reviewed'):guard.check(fixture)
+            (fixture/'Package.swift').write_text(original)
+            for version,accepted in (('603.0.1',False),('603.0.2',True),('604.0.0',True),('605.0.0',False)):
+                for name in guard.LIVE_LOCKS:
+                    path=fixture/name;lock=json.loads(path.read_text())
+                    next(pin['state'] for pin in lock['pins'] if pin['identity']=='swift-syntax')['version']=version
+                    path.write_text(json.dumps(lock))
+                if accepted:guard.check(fixture)
+                else:
+                    with self.assertRaisesRegex(ValueError,'outside'):guard.check(fixture)
+
+    def test_forward_toolchain_is_in_both_aggregate_inventories(self):
+        bridge=load('legacy-ci-results');adapter=load('router_ci_adapter')
+        name='forward toolchain (Xcode 27)'
+        self.assertIn(name,bridge.LEGACY['.github/workflows/principle-gates.yml'])
+        self.assertIn('Test the supported SwiftSyntax floor',adapter.LEGACY['principle-gates.yml'][1][name])
+        source=(ROOT/'.github/workflows/principle-gates.yml').read_text().split('  xcode-27:\n')[1]
+        self.assertIn("github.workflow != 'principle-gates' || vars.INNOROUTER_CI_AGGREGATE != 'true'",source)
+        self.assertIn('ref: ${{ inputs.ref || github.sha }}',source)
+        self.assertIn('persist-credentials: false',source)
+        for step in ('Test with the committed resolution','Test macros with the newest admitted swift-syntax',
+                     'Build the macro-first consumer with library evolution','Test the supported SwiftSyntax floor'):
+            self.assertIn('- name: '+step,source)
+
+    def test_recovery_cannot_cancel_native_main_validation(self):
+        ci=(ROOT/'.github/workflows/ci.yml').read_text()
+        self.assertIn("format('dependabot-{0}', inputs.dependabot_merge_pr) || 'validation'",ci)
+        for name in ('principle-gates','platforms','coverage','docs-ci','sanitizers','performance-smoke','migration-smoke'):
+            source=(ROOT/'.github/workflows'/f'{name}.yml').read_text()
+            group=re.search(r'^  group: (.*)$',source,re.M)[1]
+            self.assertIn('${{ github.run_id }}',group)
+
     def test_candidate_identity_and_source_links(self):
         candidate=load('validate-release-candidate')
         for version in ('6.1.0','6.1.1','7.0.0-rc.1'):

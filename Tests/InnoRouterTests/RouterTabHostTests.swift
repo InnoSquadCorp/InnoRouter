@@ -65,6 +65,54 @@ private enum RouterTabHostRoute: String, DestinationRoute, RouterTabRoute {
     }
 }
 
+private enum RouterTabLinkRoute: String, DestinationRoute, RouterTabRoute {
+    case home
+    case inbox
+    case detail
+
+    enum Tab: String, RouterTab {
+        case home
+        case inbox
+
+        var title: LocalizedStringResource { self == .home ? "Home" : "Inbox" }
+        var systemImage: String { self == .home ? "house" : "tray" }
+        var routerScopeID: RouterScopeID { RouterScopeID(rawValue) }
+    }
+
+    static let routerTabs: [RouterTabDescriptor<Self, Tab>] = [
+        .init(tab: .home, root: .home),
+        .init(tab: .inbox, root: .inbox),
+    ]
+
+    static func destination(for route: Self) -> some View {
+        RouterTabLinkDestination(route: route)
+    }
+}
+
+@MainActor
+@Observable
+private final class RouterTabLinkRecorder {
+    var pushAttempts = 0
+}
+
+// A tab root that navigates from its own content once, as an app would.
+@MainActor
+private struct RouterTabLinkDestination: View {
+    @EnvironmentRouter(RouterTabLinkRoute.self) private var router
+    @Environment(RouterTabLinkRecorder.self) private var recorder: RouterTabLinkRecorder?
+
+    let route: RouterTabLinkRoute
+
+    var body: some View {
+        Text(route.rawValue)
+            .onAppear {
+                guard let recorder, route != .detail, recorder.pushAttempts == 0 else { return }
+                recorder.pushAttempts += 1
+                router.go(.detail)
+            }
+    }
+}
+
 @MainActor
 @Observable
 private final class RouterTabHostRecorder {
@@ -237,6 +285,99 @@ struct RouterTabHostTests {
         // render it, and the catalog's own tabs remain reachable.
         #expect(tabContainer(in: store)?.branches.contains { $0.id == "legacySettings" } == true)
         #expect(recorder.appearances.contains(.home))
+    }
+
+    // The host displays its first tab for a restored selection the catalog no
+    // longer declares. A link it pushes must land in that displayed tab rather
+    // than in the hidden branch, and it selects that tab in the same plan.
+    @Test("A link under an orphaned restored selection lands in the displayed tab")
+    func orphanedSelectionLinkTargetsDisplayedTab() async throws {
+        let store = RouterStore<RouterTabLinkRoute>(
+            initialState: try RouterState(root: .container(.init(
+                style: .tabs,
+                selection: "legacy",
+                branches: [
+                    RouterBranch(id: "home"),
+                    RouterBranch(id: "inbox"),
+                    RouterBranch(id: "legacy"),
+                ]
+            )))
+        )
+        let host = RouterTabHost(store: store)
+        #expect(host.displayedSelection(for: "legacy") == "home")
+        #expect(host.displayedSelection(for: nil) == "home")
+        #expect(host.displayedSelection(for: "inbox") == "inbox")
+
+        let plan = try host.defaultLinkPlan(.detail, store.state)
+        guard case .applied = await store.perform(.apply(plan)) else {
+            Issue.record("Expected the default link plan to apply")
+            return
+        }
+
+        guard case .container(let container) = store.state.root else {
+            Issue.record("Expected the tabs root to remain")
+            return
+        }
+        #expect(container.selection == "home")
+        #expect(store.state.node(at: ["home"]) == .stack(path: [.detail]))
+        #expect(store.state.node(at: ["legacy"]) == .stack())
+    }
+
+    // A split or custom root can carry branches named like tabs. The host
+    // renders over such a root without owning its topology, so neither its
+    // default links, a tab bar selection, nor navigation from a tab's own
+    // content may write into those branches.
+    @Test(
+        "Links, tab selection, and tab content never write into a root of another shape",
+        arguments: [RouterContainerStyle.split, .custom("wizard")]
+    )
+    func mismatchedRootRejectsHostWrites(style: RouterContainerStyle) async throws {
+        var split: RouterSplitState?
+        if style == .split {
+            split = try RouterSplitState(sidebar: "home", detail: "inbox")
+        }
+        let restored = try RouterState<RouterTabLinkRoute>(root: .container(.init(
+            style: style,
+            selection: "inbox",
+            branches: [RouterBranch(id: "home"), RouterBranch(id: "inbox")],
+            split: split
+        )))
+        let store = RouterStore(initialState: restored)
+        let host = RouterTabHost(store: store)
+
+        #expect(throws: RouterMutationError.incompatibleNavigationTopology(.root)) {
+            try host.defaultLinkPlan(.detail, store.state)
+        }
+        #expect(throws: RouterMutationError.incompatibleNavigationTopology(.root)) {
+            try host.defaultLinkPlan(.home, store.state)
+        }
+        host.requestSelection("home", in: store.scope())
+        let recorder = RouterTabLinkRecorder()
+        _ = try renderRouterTabHost(host.environment(recorder))
+        await drainMainActorTasks()
+
+        #expect(recorder.pushAttempts == 1)
+        #expect(store.state == restored)
+        #expect(store.revision == 0)
+    }
+
+    // Exact restoration may replace the root with any valid shape, such as a
+    // stack written before the application adopted tabs. SwiftUI re-runs this
+    // initializer on every parent body pass, so it must not trap on that data.
+    @Test("RouterTabHost renders its catalog over a store whose root is not tabs")
+    func nonTabRootDoesNotAbort() async throws {
+        let restored = RouterState<RouterTabHostRoute>.rootStack(path: [.settings])
+        let store = RouterStore(initialState: restored)
+        let recorder = RouterTabHostRecorder()
+        let host = RouterTabHost(store: store)
+            .environment(recorder)
+
+        _ = try renderRouterTabHost(host)
+        await drainMainActorTasks()
+
+        #expect(recorder.appearances.contains(.home))
+        // The host renders; it never rewrites the application's state.
+        #expect(store.state == restored)
     }
 
     @Test("RouterTabHost follows replacement application-owned stores")

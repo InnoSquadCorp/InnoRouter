@@ -9,7 +9,9 @@ summary = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 tree = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
 required = {
     "InspectorUITests/testInspectorRelease600UserFlow()",
-    "InspectorUITests/testInspectorMountedLocaleBidirectionalStatePreservation()",
+    "InspectorUITests/testInspectorLocaleRelocalizesHeldExecutionWithoutRemounting()",
+    "InspectorUITests/testInspectorLocaleRelocalizesRecordingControlsWithoutRemounting()",
+    "InspectorUITests/testInspectorDirectionChangePreservesSelectionAndRecording()",
     "InspectorUITests/testInspectorPolicyPreparationAcknowledgesRequestedState()",
 }
 
@@ -33,4 +35,4 @@ def passed_tests(node):
 missing = required - set(passed_tests(tree))
 if missing:
     raise SystemExit(f"Missing current Inspector UI tests: {sorted(missing)}")
-print("[inspector-ui] All three current test cases passed without skips")
+print(f"[inspector-ui] All {len(required)} current test cases passed without skips")

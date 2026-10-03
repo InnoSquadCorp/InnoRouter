@@ -82,19 +82,27 @@ xcodebuild test -project NativeSceneSmoke/NativeSceneSmoke.xcodeproj \
 ```
 
 `RouterInspectorUITests` uses app-local English language arguments, not simulator
-settings. Its assertions wait for state changes and retain screenshots and
-accessibility hierarchies in the result bundle. Only its own launched probe is
-terminated during test cleanup.
+settings. Its assertions await every state change through a predicate instead
+of reading it once, report a timeout at the calling line with the awaited and
+observed state, and retain screenshots and accessibility hierarchies in the
+result bundle. Only its own launched probe is terminated during test cleanup.
 
-`testInspectorMountedLocaleBidirectionalStatePreservation` launches the same fixture with
-`--localization-probe`, exposing app-local English/Korean/German/Arabic switches.
-It changes locale and layout direction without remounting the Inspector,
-checks translated execution/cancellation and recording controls, and retains
-screenshots and hierarchies for right-to-left and narrow-sidebar review.
-It also returns from Arabic to English and back, preserving the entered URL,
-execution status, selected event, and in-progress recording.
-Direction changes during a held execution must retain the pending task, without
-an extra policy submission or an implicit cancellation.
+Three localization scenarios launch the same fixture with
+`--localization-probe`, exposing app-local English/Korean/German/Arabic
+switches. Each starts from a fresh launch, so one failure costs one scenario:
+
+- `testInspectorLocaleRelocalizesHeldExecutionWithoutRemounting` changes locale
+  and layout direction without remounting the Inspector, checks translated
+  execution and cancellation, and preserves the entered URL and execution
+  status from Arabic to English and back. Direction changes during a held
+  execution must retain the pending task, without an extra policy submission or
+  an implicit cancellation.
+- `testInspectorLocaleRelocalizesRecordingControlsWithoutRemounting` checks
+  translated recording controls and statuses, and retains screenshots and
+  hierarchies for right-to-left and narrow-sidebar review.
+- `testInspectorDirectionChangePreservesSelectionAndRecording` preserves the
+  selected event and the in-progress recording from Arabic to English and back.
+
 These switches exist only in the probe and do not alter simulator settings.
 `testInspectorPolicyPreparationAcknowledgesRequestedState` checks the fixture's
 explicit Hold/Resume commands and visible state acknowledgement, including
@@ -103,8 +111,13 @@ execution is held, cancelled without a commit, and applied after Resume.
 These setup controls replace the nested native switch that once ignored a tap
 on CI. No test retries, longer timeouts, or Inspector assertions were removed.
 
-The CI gate requires all three current Inspector UI test names to pass without skips;
-a passing count from an older test bundle does not satisfy the gate.
+In 6.1.1 the former single localization test became the three scenarios
+above, and its one-time reads became predicate waits with the same timeouts. No
+retry was added and no Inspector assertion was removed.
+
+The CI gate requires all five current Inspector UI test names to pass without skips;
+a passing count from an older test bundle does not satisfy the gate. When a test
+fails, the job prints every assertion the result bundle recorded.
 
 ## Native scene isolation
 

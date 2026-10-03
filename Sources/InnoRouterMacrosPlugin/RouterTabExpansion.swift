@@ -114,7 +114,12 @@ func analyzeRouterTabs(
             items.append(
                 RouterTabItem(
                     name: escapedIdentifier(element.name),
-                    scopeID: metadata.scopeID ?? element.name.text,
+                    // The default must equal the generated `Tab` raw value,
+                    // which Swift spells without backticks. A sibling `id:`
+                    // replaces `RouterScopeID(rawValue)` with per-case
+                    // literals, and a literal that kept the author's
+                    // backticks silently renamed this tab's persisted scope.
+                    scopeID: metadata.scopeID ?? unescapedIdentifier(element.name.text),
                     explicitScopeIDExpression: metadata.scopeIDExpression,
                     attribute: attribute,
                     titleExpression: metadata.titleExpression,

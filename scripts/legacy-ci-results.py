@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only transition bridge: reuse the original checks without duplicate builds."""
+"""Read-only transition bridge: reuse the original checks plus the forward-toolchain lane without duplicate builds."""
 import argparse
 import importlib.util
 import json
@@ -19,7 +19,7 @@ DEFAULT_TIMEOUT_SECONDS = 330 * 60
 MAX_POLL_SECONDS = 120
 
 LEGACY = {
-    '.github/workflows/principle-gates.yml': ('lint', 'changelog-sync', 'release-contract', 'gates'),
+    '.github/workflows/principle-gates.yml': ('lint', 'changelog-sync', 'release-contract', 'gates', 'forward toolchain (Xcode 27)'),
     '.github/workflows/docs-ci.yml': ('docc',),
     '.github/workflows/coverage.yml': ('coverage', 'codecov'),
     '.github/workflows/migration-smoke.yml': ('migration',),
@@ -157,7 +157,7 @@ def main():
                     raise Pending('new run/attempt arrived')
                 if args.number:
                     current_pr(api, args.number, args.sha, args.base, args.merge)
-                print('Transition CI Required: all original workflow jobs succeeded at the exact current revision.')
+                print('Transition CI Required: all original and forward-toolchain jobs succeeded at the exact current revision.')
                 return 0
             except Pending as error:
                 remaining = args.timeout - (time.monotonic() - start)

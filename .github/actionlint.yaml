@@ -1,2 +1,5 @@
 # concurrency.queue is checked by exact source location in check-ci-workflows.py.
-{}
+self-hosted-runner:
+  labels:
+    # GitHub-hosted preview image for the forward Xcode 27 lane.
+    - xcode-27

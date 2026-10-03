@@ -54,7 +54,7 @@ class API:
             result='skipped' if step is None else 'success'
             job={'id':job_id,'run_id':run_id,'run_attempt':1,'name':name,'status':'completed','conclusion':result,
                  'check_run_url':f'https://api.github.com/repos/{REPO}/check-runs/{check_id}',
-                 'steps':[] if step is None else [{'name':step,'status':'completed','conclusion':'success'}]}
+                 'steps':[] if step is None else [{'name':s,'status':'completed','conclusion':'success'} for s in ((step,) if isinstance(step,str) else step)]}
             self.jobs[run_id].append(job)
             self.checks.append({'id':check_id,'name':name,'head_sha':HEAD,'app':{'id':15368},
                                 'check_suite':{'id':run['check_suite_id']},'status':'completed','conclusion':result,
@@ -330,6 +330,29 @@ class DependabotTests(unittest.TestCase):
     def test_redacted_bypass_requires_owner_audit_and_visible_token_bypass_rejects(self):
         api=API();del api.ruleset['bypass_actors'];policy.proof(api,55)
         api.ruleset['current_user_can_bypass']='pull_requests_only';self.assert_rejected(api)
+
+    def test_missing_failed_or_skipped_forward_toolchain_rejects_bot(self):
+        for active in (False,True):
+            for result in ('missing','failure','skipped'):
+                api=API(active=active)
+                jobname=('CI core / ' if active else '')+'forward toolchain (Xcode 27)'
+                selected=next(jobs for jobs in api.jobs.values() if any(j['name']==jobname for j in jobs))
+                job=next(j for j in selected if j['name']==jobname)
+                if result=='missing':selected.remove(job)
+                else:job['conclusion']=result
+                self.assert_rejected(api)
+
+    def test_every_forward_proof_step_is_required(self):
+        for active in (False,True):
+            for step in adapter.LEGACY['principle-gates.yml'][1]['forward toolchain (Xcode 27)']:
+                for mode in ('missing','skipped','failure'):
+                    api=API(active=active)
+                    name=('CI core / ' if active else '')+'forward toolchain (Xcode 27)'
+                    job=next(j for jobs in api.jobs.values() for j in jobs if j['name']==name)
+                    selected=next(s for s in job['steps'] if s['name']==step)
+                    if mode=='missing':job['steps'].remove(selected)
+                    else:selected['conclusion']=mode
+                    self.assert_rejected(api)
 
     def test_wrong_base_edit_cancels_verified_bot_request(self):
         api=API();api.pr['base']['ref']='develop';api.pr['auto_merge']={'enabled_at':'now'}
