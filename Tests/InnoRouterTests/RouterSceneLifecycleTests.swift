@@ -611,6 +611,89 @@ struct RouterSceneLifecycleTests {
         ))
     }
 
+    @Test("Immersive restoration uses the surviving driver instead of the disappeared scene")
+    func restorationUsesSurvivingDriver() async throws {
+        let state = try RouterState<PlainSceneLifecycleRoute>(
+            immersiveSpace: .init(id: "shared", route: .old)
+        )
+        let store = RouterStore(initialState: state)
+        let token = try #require(store.immersiveSpaceLifecycleToken)
+        let ticket = try #require(
+            store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
+                id: "shared", lifecycleToken: token
+            )
+        )
+        var requestedIDs: [String] = []
+        store.sceneRestorationRegistry.installImmersiveActions(.init(
+            open: { id in
+                requestedIDs.append(id)
+                return .opened
+            },
+            dismiss: {}
+        ), owner: UUID())
+        let restored = await restoreRouterImmersiveSpaceAfterDeferredClosure(
+            id: "shared", lifecycleToken: token, ticket: ticket, store: store,
+            open: { .error }, // The disappearing scene's environment is invalid.
+            dismiss: {}
+        )
+        #expect(restored)
+        #expect(requestedIDs == ["shared"])
+        #expect(store.state == state)
+    }
+
+    @Test("A stale restored space is dismissed through the driver that opened it")
+    func staleRestorationUsesMatchingDriver() async throws {
+        let state = try RouterState<PlainSceneLifecycleRoute>(
+            immersiveSpace: .init(id: "shared", route: .old)
+        )
+        let store = RouterStore(initialState: state)
+        let token = try #require(store.immersiveSpaceLifecycleToken)
+        let ticket = try #require(
+            store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
+                id: "shared", lifecycleToken: token
+            )
+        )
+        var dismissals: [String] = []
+        store.sceneRestorationRegistry.installImmersiveActions(.init(
+            open: { [weak store] _ in
+                guard let store else { return .error }
+                _ = await store.perform(.dismissImmersiveSpace)
+                _ = await store.perform(
+                    .enterImmersiveSpace(.init(id: "shared", route: .replacement))
+                )
+                store.sceneRestorationRegistry.installImmersiveActions(.init(
+                    open: { _ in .opened }, dismiss: { dismissals.append("replacement") }
+                ), owner: UUID())
+                return .opened
+            },
+            dismiss: { dismissals.append("original") }
+        ), owner: UUID())
+
+        let restored = await restoreRouterImmersiveSpaceAfterDeferredClosure(
+            id: "shared", lifecycleToken: token, ticket: ticket, store: store,
+            open: { .error }, dismiss: { dismissals.append("disappeared") }
+        )
+
+        #expect(!restored)
+        #expect(dismissals == ["original"])
+        #expect(store.state.immersiveSpace?.route == .replacement)
+        #expect(store.immersiveSpaceLifecycleToken != token)
+    }
+
+    @Test("An obsolete driver cannot remove its replacement's immersive actions")
+    func obsoleteDriverDoesNotRemoveActions() {
+        let registry = RouterSceneRestorationRegistry()
+        let first = UUID()
+        let second = UUID()
+        let actions = RouterImmersiveSceneActions(open: { _ in .opened }, dismiss: {})
+        registry.installImmersiveActions(actions, owner: first)
+        registry.installImmersiveActions(actions, owner: second)
+        registry.removeImmersiveActions(owner: first)
+        #expect(registry.immersiveActions != nil)
+        registry.removeImmersiveActions(owner: second)
+        #expect(registry.immersiveActions == nil)
+    }
+
     @Test("Successful immersive restoration keeps its reservation until appearance")
     func successfulImmersiveRestorationKeepsReservation() async throws {
         let state = try RouterState<PlainSceneLifecycleRoute>(

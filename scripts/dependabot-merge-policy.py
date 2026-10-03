@@ -244,17 +244,24 @@ def coordinate(api, number, enabled=False, notification=None):
     if not bot(pr):
         gate(api, number, head, "completed", reason="Manual PR: automation ineligible; normal CI/review requirements remain.")
         return "manual PR; auto-merge not requested"
-    # Notifications are only wake-ups. Obsolete run events do not overwrite a
-    # newer decision; current pending/failure events invalidate readiness.
-    if notification:
-        current = api.get(route(f"actions/runs/{notification['id']}"))
-        if current.get("run_attempt") != notification.get("run_attempt") or current.get("head_sha") != head:
-            return "obsolete notification; no mutation"
-        runs = api.pages(route(f"actions/workflows/ci.yml/runs?event=pull_request&head_sha={head}"), "workflow_runs")
-        if not runs or max(runs, key=lambda r: (r["run_number"], r["id"]))["id"] != notification["id"]:
-            return "obsolete notification; no mutation"
     check_id = None
     try:
+        # Notifications are only wake-ups. Obsolete run events do not overwrite a
+        # newer decision; current pending/failure events invalidate readiness.
+        if notification:
+            current = api.get(route(f"actions/runs/{notification['id']}"))
+            if current.get("run_attempt") != notification.get("run_attempt") or current.get("head_sha") != head:
+                return "obsolete notification; no mutation"
+            runs = api.pages(route(f"actions/workflows/ci.yml/runs?event=pull_request&head_sha={head}"), "workflow_runs")
+            workflow = api.get(route('actions/workflows/ci.yml'))
+            repo = api.get(route(''))
+            runs, _, metadata = router_ci_adapter.validation_runs(api, runs, workflow['id'], repo['id'], number,
+                                                                  head, pr['merge_commit_sha'], require)
+            if (notification['id'], notification['run_attempt']) in metadata:
+                notification = None
+            elif not runs or max(runs, key=lambda r: (r['run_number'], r['id']))['id'] != notification['id']:
+                return 'obsolete notification; no mutation'
+
         check_id = gate(api, number, head, "in_progress", reason="Awaiting verified full CI and current metadata.")
         require(enabled is True, "standby: new auto-merge approvals disabled")
         first = proof(api, number, notification)

@@ -1,10 +1,10 @@
 name: CI
 run-name: >-
-  ${{ inputs.dependabot_merge_pr != '' && format('CI / Dependabot merge #{0}', inputs.dependabot_merge_pr) || 'CI' }}
+  ${{ (github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') && format('CI metadata-only v1 pr:{0} head:{1} base:{2} action:{3} source:{4}', github.event.pull_request.number, github.event.pull_request.head.sha, github.event.pull_request.base.sha, github.event.action, github.workflow_sha) || inputs.dependabot_merge_pr != '' && format('CI / Dependabot merge #{0}', inputs.dependabot_merge_pr) || 'CI' }}
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches: [main, develop]
   merge_group:
@@ -21,12 +21,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.workflow }}-${{ (github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') && format('metadata-{0}', github.run_id) || (github.event.pull_request.number || github.ref) }}
   cancel-in-progress: true
 
 jobs:
   ci-plan:
     name: CI Plan
+    if: ${{ !(github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') }}
     permissions:
       contents: read
       pull-requests: read
@@ -86,12 +87,7 @@ jobs:
           python3 scripts/check-reusable-workflow-concurrency.py
           python3 scripts/test-ci-optimization-contract.py
       - name: Install pinned actionlint
-        env:
-          ACTIONLINT_VERSION: '1.7.12'
-        run: |
-          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" -o "$RUNNER_TEMP/actionlint.tar.gz"
-          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
-          "$RUNNER_TEMP/actionlint" -config-file .github/actionlint.yaml
+        run: python3 -B scripts/check-ci-workflows.py
 
   core:
     name: CI core
@@ -192,8 +188,8 @@ jobs:
         run: python3 scripts/exact-sha-consumer.py --repository "$CONSUMER_REPOSITORY" --commit-sha "$CONSUMER_REVISION"
 
   ci-required:
-    name: CI Required
-    if: always()
+    name: ${{ (github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') && 'CI Metadata Only' || 'CI Required' }}
+    if: ${{ always() && !(github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') }}
     needs: [ci-plan, policy, core, documentation, docc, platforms, coverage, sanitizers, performance, migration, remote-consumer]
     runs-on: ubuntu-latest
     timeout-minutes: 120

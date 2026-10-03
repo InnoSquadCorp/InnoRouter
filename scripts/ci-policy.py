@@ -11,7 +11,7 @@ import sys
 JOBS = ("policy", "core", "documentation", "docc", "platforms", "coverage",
         "sanitizers", "performance", "migration", "remote-consumer")
 SHA = re.compile(r"[0-9a-f]{40}")
-PR_ACTIONS = {"opened", "synchronize", "reopened", "labeled", "unlabeled", "ready_for_review"}
+PR_ACTIONS = {"opened", "synchronize", "reopened", "labeled", "unlabeled"}
 WORKFLOW_IMPACT = {
     "ci.yml": set(JOBS),
     "principle-gates.yml": {"core", "documentation", "docc"},
@@ -97,7 +97,7 @@ def make_plan(event_name, event, paths):
         if not isinstance(labels, list) or any(not isinstance(x, dict) or not isinstance(x.get("name"), str) for x in labels):
             raise ValueError("missing or malformed PR labels")
         author = pr.get("user", {}).get("login")
-        lane = "release-validation" if author == "dependabot[bot]" or any(x["name"] == "release-validation" for x in labels) else "fast"
+        lane = "release-validation" if author == "dependabot[bot]" or any(x["name"].lower() == "release-validation" for x in labels) else "fast"
     elif event_name == "push":
         if event.get("ref") not in ("refs/heads/main", "refs/heads/develop"):
             raise ValueError("CI push must target main/develop")

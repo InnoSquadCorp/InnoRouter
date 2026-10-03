@@ -155,6 +155,8 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
     @State private var previousImmersiveSpaceLifetime: UUID?
     @State private var previousStoreIdentity: ObjectIdentifier?
     @State private var reconciliationQueue = RouterSceneReconciliationQueue()
+    @State private var immersiveActionsOwner = UUID()
+    @State private var registeredRestorationRegistry: RouterSceneRestorationRegistry?
 
 #if !os(tvOS) && !os(watchOS)
     @Environment(\.openWindow) private var openWindow
@@ -195,6 +197,12 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
 
     public var body: some View {
         content()
+            .onAppear { registerImmersiveActions() }
+            .onChange(of: ObjectIdentifier(store)) { _, _ in registerImmersiveActions() }
+            .onDisappear {
+                registeredRestorationRegistry?.removeImmersiveActions(owner: immersiveActionsOwner)
+                registeredRestorationRegistry = nil
+            }
             .task(id: RouterSceneReconciliationID(
                 store: ObjectIdentifier(store),
                 revision: store.revision
@@ -215,6 +223,29 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
                     )
                 }
             }
+    }
+
+    private func registerImmersiveActions() {
+#if os(visionOS)
+        let registry = store.sceneRestorationRegistry
+        if registeredRestorationRegistry !== registry {
+            registeredRestorationRegistry?.removeImmersiveActions(owner: immersiveActionsOwner)
+        }
+        let open = openImmersiveSpace
+        let dismiss = dismissImmersiveSpace
+        registry.installImmersiveActions(.init(
+            open: { id in
+                switch await open(id: id) {
+                case .opened: .opened
+                case .userCancelled: .userCancelled
+                case .error: .error
+                @unknown default: .error
+                }
+            },
+            dismiss: { await dismiss() }
+        ), owner: immersiveActionsOwner)
+        registeredRestorationRegistry = registry
+#endif
     }
 
     private func reconcile(
