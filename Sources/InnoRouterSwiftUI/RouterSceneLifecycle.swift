@@ -67,6 +67,20 @@ package final class RouterImmersiveSceneEffectQueue {
 }
 
 @MainActor
+package struct RouterImmersiveSceneActions {
+    package let open: @MainActor @Sendable (String) async -> RouterImmersiveSpaceOpenResult
+    package let dismiss: @MainActor @Sendable () async -> Void
+
+    package init(
+        open: @escaping @MainActor @Sendable (String) async -> RouterImmersiveSpaceOpenResult,
+        dismiss: @escaping @MainActor @Sendable () async -> Void
+    ) {
+        self.open = open
+        self.dismiss = dismiss
+    }
+}
+
+@MainActor
 package final class RouterSceneRestorationRegistry {
     package static let immersiveEffectQueue = RouterImmersiveSceneEffectQueue()
 
@@ -82,8 +96,21 @@ package final class RouterSceneRestorationRegistry {
 
     private var restoringWindows: [WindowLifetime: UUID] = [:]
     private var restoringImmersiveSpaces: [ImmersiveSpaceLifetime: UUID] = [:]
+    private var immersiveActionsOwner: UUID?
+    package private(set) var immersiveActions: RouterImmersiveSceneActions?
 
     package init() {}
+
+    package func installImmersiveActions(_ actions: RouterImmersiveSceneActions, owner: UUID) {
+        immersiveActionsOwner = owner
+        immersiveActions = actions
+    }
+
+    package func removeImmersiveActions(owner: UUID) {
+        guard immersiveActionsOwner == owner else { return }
+        immersiveActionsOwner = nil
+        immersiveActions = nil
+    }
 
     package func beginWindowRestoration(id: UUID, lifecycleToken: UUID) -> UUID? {
         let lifetime = WindowLifetime(id: id, token: lifecycleToken)
@@ -180,11 +207,22 @@ package func restoreRouterImmersiveSpaceAfterDeferredClosure<R: Route>(
             return false
         }
 
-        let result = await open()
+        // Restoration may outlive the disappeared scene's SwiftUI environment.
+        // Use the surviving scene driver's actions when one is registered.
+        let actions = store.sceneRestorationRegistry.immersiveActions
+        let result = if let actions {
+            await actions.open(id)
+        } else {
+            await open()
+        }
         guard store.state.immersiveSpace?.id == id,
               store.immersiveSpaceLifecycleToken == lifecycleToken else {
             if result == .opened {
-                await dismiss()
+                if let actions {
+                    await actions.dismiss()
+                } else {
+                    await dismiss()
+                }
             }
             return false
         }

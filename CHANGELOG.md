@@ -6,6 +6,13 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+### Fixed
+
+- Deferred visionOS immersive-space closure restores through the surviving
+  scene driver, avoiding open requests from the disappearing scene's invalid
+  SwiftUI context. Driver replacement and stale-open compensation preserve
+  the existing canonical lifetime protections.
+
 ## 6.1.0 - 2026-09-22
 
 ### Changed
