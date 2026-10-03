@@ -15,7 +15,7 @@ spec.loader.exec_module(policy)
 
 
 def pr(labels=(), action="opened"):
-    return {"action": action, "pull_request": {"labels": [{"name": x} for x in labels]}}
+    return {"action": action, "changes": {"base": {"ref": {"from": "develop"}}} if action == "edited" else {}, "pull_request": {"labels": [{"name": x} for x in labels]}}
 
 
 def results(plan):

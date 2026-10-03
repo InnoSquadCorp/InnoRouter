@@ -27,9 +27,14 @@ class MetadataAPI:
         for i,name in enumerate(sorted(m.INVENTORIES[0] if inventory is None else inventory)):
             job=dict(id=20000+i,name=name,run_id=META,run_attempt=1,head_sha=bot.HEAD,status='completed',conclusion='skipped',steps=[],
                      check_run_url=f'https://api.github.com/repos/{bot.REPO}/check-runs/{30000+i}')
+            if name in m.GATES:
+                job.update(conclusion='success', steps=[
+                    dict(name='Checkout',status='completed',conclusion='success'),
+                    dict(name='Verify prior validation for metadata',status='completed',conclusion='success'),
+                    dict(name=m.GATES[name],status='completed',conclusion='skipped')])
             self.jobs.append(job)
             self.checks.append(dict(id=30000+i,name=name,app=dict(id=15368),check_suite=dict(id=SUITE),head_sha=bot.HEAD,
-                                    status='completed',conclusion='skipped',details_url=f'https://github.com/{bot.REPO}/actions/runs/{META}/job/{job["id"]}'))
+                                    status='completed',conclusion=job['conclusion'],details_url=f'https://github.com/{bot.REPO}/actions/runs/{META}/job/{job["id"]}'))
     def get(self,path):
         if path.endswith(f'actions/runs/{META}'):
             self.reads+=1;result=copy.deepcopy(self.run)
@@ -54,8 +59,7 @@ class MetadataTests(unittest.TestCase):
         direct=set();calls=[]
         for key,job in yaml(ROOT/m.PATH)['jobs'].items():
             name=job.get('name',key)
-            if key=='ci-required':calls.append(({'CI Metadata Only'},{name[4:-3]}))
-            elif 'uses' in job:
+            if 'uses' in job:
                 children=yaml(ROOT/job['uses'])['jobs']
                 calls.append(({name},{name+' / '+v.get('name',k) for k,v in children.items()}))
             else:direct.add(name)

@@ -11,7 +11,7 @@ import sys
 JOBS = ("policy", "core", "documentation", "docc", "platforms", "coverage",
         "sanitizers", "performance", "migration", "remote-consumer")
 SHA = re.compile(r"[0-9a-f]{40}")
-PR_ACTIONS = {"opened", "synchronize", "reopened", "labeled", "unlabeled"}
+PR_ACTIONS = {"opened", "synchronize", "reopened", "edited", "labeled", "unlabeled"}
 WORKFLOW_IMPACT = {
     "ci.yml": set(JOBS),
     "principle-gates.yml": {"core", "documentation", "docc"},
@@ -93,6 +93,8 @@ def make_plan(event_name, event, paths):
         pr = event.get("pull_request", {})
         if event.get("action") not in PR_ACTIONS or not isinstance(pr, dict):
             raise ValueError("unsupported PR event")
+        if event["action"] == "edited" and not event.get("changes", {}).get("base"):
+            raise ValueError("metadata-only edit must not create a validation plan")
         labels = pr.get("labels")
         if not isinstance(labels, list) or any(not isinstance(x, dict) or not isinstance(x.get("name"), str) for x in labels):
             raise ValueError("missing or malformed PR labels")

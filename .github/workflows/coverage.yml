@@ -101,6 +101,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dependabot_merge_pr != '')) && (github.workflow != 'coverage' || vars.INNOROUTER_CI_AGGREGATE != 'true')
     needs: coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
