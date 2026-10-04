@@ -6,6 +6,25 @@ import InnoRouterCore
 
 @MainActor
 extension RouterStore {
+    /// Reject exact replay claims when runtime semantics are absent from the
+    /// portable request representation. Never persist an incarnation or grant.
+    func replayLimitationCode(
+        semantics: RouterRequestSemantics<R>,
+        authorization requestAuthorization: RouterRequestAuthorization<R>?,
+        lifetimeMutation: RouterScopeLifetimeMutation,
+        hasPrecondition: Bool,
+        hasPreparation: Bool
+    ) -> String? {
+        if lifetimeMutation.replacesOwnership { return "runtime.ownershipReplacement" }
+        if authorization != nil || requestAuthorization != nil { return "runtime.authorization" }
+        switch semantics {
+        case .action, .featureAction, .featurePlan:
+            return hasPrecondition || hasPreparation ? "runtime.executionPrecondition" : nil
+        case .historyNavigation:
+            return nil
+        }
+    }
+
     func admitExecution(
         _ action: RouterAction<R>,
         context: RouterTransitionContext,
@@ -20,6 +39,12 @@ extension RouterStore {
                 reason: .cancelled,
                 context: context,
                 action: action
+            ))
+        }
+
+        if let rejection = executionPrecondition?(state) {
+            return .terminal(reject(
+                transitionID, reason: rejection, context: context, action: action
             ))
         }
 

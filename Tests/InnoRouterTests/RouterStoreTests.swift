@@ -516,6 +516,7 @@ struct RouterStoreTests {
     func repeatedDeferredPresentationCompletion() async throws {
         let firstDeferralID = RouterDeferralID()
         let secondDeferralID = RouterDeferralID()
+        let (commits, commitContinuation) = AsyncStream<String>.makeStream()
         let store = RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
@@ -533,13 +534,18 @@ struct RouterStoreTests {
                         }
                         return .deferRequest(secondDeferralID)
                     },
-                ]
+                ],
+                onEvent: { event in
+                    if case .committed = event { commitContinuation.yield("presented") }
+                }
             )
         )
         let result = Task { @MainActor in
             await store.present(.detail, expecting: String.self)
         }
-        await drainMainActor()
+        defer { result.cancel() }
+        // A fixed number of executor yields does not establish policy completion.
+        try await waitForEvent("presented", from: commits)
 
         await #expect(
             throws: RouterPresentationCompletionError.dismissalDeferred(firstDeferralID)
@@ -728,7 +734,7 @@ struct RouterStoreTests {
         let result = Task { @MainActor in
             await store.present(.detail, expecting: String.self)
         }
-        await drainMainActor()
+        try await waitUntilPresented(store)
 
         try await store.finishPresentation(returning: "saved")
 
@@ -745,7 +751,7 @@ struct RouterStoreTests {
         let result = Task { @MainActor in
             await store.present(request)
         }
-        await drainMainActor()
+        try await waitUntilPresented(store)
 
         let wrongRequest = RouterPresentationRequest<RouteFixture, String>(route: .settings)
         guard case .stack(let stack) = store.state.root,
@@ -780,7 +786,7 @@ struct RouterStoreTests {
         )
         let request = RouterPresentationRequest<RouteFixture, String>(route: .detail)
         let awaiting = Task { @MainActor in await store.present(request) }
-        await drainMainActor()
+        try await waitUntilPresented(store)
         guard case .stack(let initialStack) = store.state.root,
               let originalID = initialStack.presentation?.id else {
             Issue.record("Expected original presentation")
@@ -797,10 +803,11 @@ struct RouterStoreTests {
             await store.perform(.apply(.init(state: replacementState)))
         }
         while !gate.isWaiting { await Task.yield() }
+        let completionRequests = store.requestObservations
         let completion = Task { @MainActor in
             try await store.finishPresentation(request, returning: "stale")
         }
-        await drainMainActor()
+        _ = try await firstElement(from: completionRequests, what: "queued presentation completion")
 
         gate.release()
         guard case .applied = await replacement.value else {
@@ -1022,6 +1029,8 @@ struct RouterStoreTests {
         #expect(store.revision == 0)
     }
 
+#if canImport(SwiftUI)
+    // Native Binding adapters are verified only with the real SwiftUI module.
     @Test("A native dismissal cannot remove a replacement presentation")
     @MainActor
     func nativeDismissalUsesExactPresentationIdentity() async throws {
@@ -1340,6 +1349,8 @@ struct RouterStoreTests {
         #expect(store.revision == 1)
     }
 
+#endif
+
     @Test("Presentation cancellation follows ownership across repeated deferrals")
     @MainActor
     func cancelledPresentationAfterRepeatedDeferral() async {
@@ -1414,7 +1425,7 @@ struct RouterStoreTests {
         let awaiting = Task { @MainActor in
             await store.present(.detail, expecting: String.self)
         }
-        await drainMainActor()
+        try await waitUntilPresented(store)
         guard case .stack(let stack) = store.state.root,
               let presentationID = stack.presentation?.id else {
             Issue.record("Expected active presentation")
@@ -1437,12 +1448,12 @@ struct RouterStoreTests {
 
     @Test("Interactive dismissal is distinct from returning a value")
     @MainActor
-    func presentationDismissal() async {
+    func presentationDismissal() async throws {
         let store = RouterStore<RouteFixture>()
         let result = Task { @MainActor in
             await store.present(.detail, expecting: String.self)
         }
-        await drainMainActor()
+        try await waitUntilPresented(store)
 
         _ = await store.perform(.dismissPresentation)
 
@@ -1451,16 +1462,18 @@ struct RouterStoreTests {
 
     @Test("Cancelling an awaiting caller dismisses only its presentation")
     @MainActor
-    func presentationCancellation() async {
+    func presentationCancellation() async throws {
         let store = RouterStore<RouteFixture>()
         let result = Task { @MainActor in
             await store.present(.detail, expecting: String.self)
         }
-        await drainMainActor()
+        try await waitUntilPresented(store)
 
         result.cancel()
         #expect(await result.value == .cancelled)
-        await drainMainActor()
+        try await waitUntil("cancelled presentation dismissal") {
+            store.state.root == .stack()
+        }
         #expect(store.state.root == .stack())
     }
 
@@ -1495,12 +1508,12 @@ struct RouterStoreTests {
 
     @Test("A destination cannot return the wrong result type")
     @MainActor
-    func presentationResultTypeMismatch() async {
+    func presentationResultTypeMismatch() async throws {
         let store = RouterStore<RouteFixture>()
         let result = Task { @MainActor in
             await store.present(.detail, expecting: String.self)
         }
-        await drainMainActor()
+        try await waitUntilPresented(store)
         guard case .stack(let stack) = store.state.root,
               let presentationID = stack.presentation?.id else {
             Issue.record("Expected active presentation")
@@ -1586,9 +1599,10 @@ struct RouterStoreTests {
     }
 
     @MainActor
-    private func drainMainActor() async {
-        for _ in 0..<8 {
-            await Task.yield()
+    private func waitUntilPresented(_ store: RouterStore<RouteFixture>) async throws {
+        try await waitUntil("presentation committed") {
+            guard case .stack(let stack) = store.state.root else { return false }
+            return stack.presentation != nil
         }
     }
 }

@@ -12,6 +12,7 @@ extension RouterStore {
                 observeCancellation(id)
             }
             activePolicyRaces[id]?.cancel()
+            activeAuthorizationRaces[id]?.cancel()
             activeQueuedExecutionTask?.cancel()
             return
         }
@@ -171,6 +172,7 @@ extension RouterStore {
         activeSystemRepairIdentity = nil
         activeQueuedExecutionTask = nil
         activePolicyRaces.removeValue(forKey: id)
+        activeAuthorizationRaces.removeValue(forKey: id)
         cancelledRequestIDs.remove(id)
         resumeRequestCompletionWaiters(for: id)
         startNextRequestIfNeeded()
@@ -226,6 +228,8 @@ extension RouterStore {
                     transitionID: request.id,
                     requestRootID: request.rootID,
                     requestSemantics: request.semantics,
+                    authorization: request.authorization,
+                    lifetimeMutation: request.lifetimeMutation,
                     executionPrecondition: request.executionPrecondition,
                     executionPreparation: request.executionPreparation,
                     deferredResumePreparation: request.deferredResumePreparation

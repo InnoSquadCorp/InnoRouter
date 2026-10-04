@@ -135,6 +135,7 @@ package func makeRouterPresentationBinding<R: Route>(
             .effectivePresentationStyle(for: presentation.style)
         return effectiveStyle == style ? presentation.id : nil
     }
+    let lifetimePrecondition = expectedPresentationID.map { scope.presentationLifetimePrecondition(id: $0) }
     return Binding<RouterPresentation<R>?>(
         get: {
             guard let presentation = scope.observedPresentation else {
@@ -148,17 +149,15 @@ package func makeRouterPresentationBinding<R: Route>(
             if let presentation {
                 scope.dispatch(
                     .present(presentation),
-                    context: .init(source: .system)
+                    context: .init(source: .system),
+                    executionPrecondition: lifetimePrecondition
                 )
             } else {
-                guard let expectedPresentationID else { return }
+                guard expectedPresentationID != nil else { return }
                 scope.dispatch(
                     .dismissPresentation,
                     context: .init(source: .system),
-                    executionPrecondition: RouterStore<R>.presentationIdentityPrecondition(
-                        id: expectedPresentationID,
-                        at: scope.path
-                    )
+                    executionPrecondition: lifetimePrecondition
                 )
             }
         }
@@ -170,7 +169,8 @@ package func makeRouterPresentationDetentBinding<R: Route>(
     scope: RouterScope<R>,
     presentation: RouterPresentation<R>
 ) -> Binding<RouterPresentationDetent> {
-    Binding(
+    let lifetimePrecondition = scope.presentationLifetimePrecondition(id: presentation.id)
+    return Binding(
         get: {
             guard scope.observedPresentation?.id == presentation.id,
                   let selected = scope.observedPresentation?.options.selectedDetent else {
@@ -184,10 +184,7 @@ package func makeRouterPresentationDetentBinding<R: Route>(
             scope.dispatch(
                 .setPresentationDetent(detent),
                 context: .init(source: .system),
-                executionPrecondition: RouterStore<R>.presentationIdentityPrecondition(
-                    id: presentation.id,
-                    at: scope.path
-                )
+                executionPrecondition: lifetimePrecondition
             )
         }
     )

@@ -2,6 +2,7 @@
 // InnoRouterSwiftUI - read-only scoped projection of RouterStore
 // Copyright © 2026 Inno Squad. All rights reserved.
 
+import Foundation
 import Observation
 
 import InnoRouterCore
@@ -36,21 +37,24 @@ public final class RouterScope<R: Route> {
     ///
     /// This is read-only and is primarily useful for deriving an atomic
     /// ``RouterPlan`` from the current tree at a host boundary.
-    public var state: RouterState<R>? { store?.state }
+    public var state: RouterState<R>? { matchesCurrentLifetime ? store?.state : nil }
 
     var authorityRevision: UInt64 { store?.revision ?? 0 }
 
     var outcomeScopePath: RouterScopePath { path }
 
     @ObservationIgnored
-    private weak var store: RouterStore<R>?
+    weak var store: RouterStore<R>?
     @ObservationIgnored
-    private let sceneLifetime: RouterSceneRequestLifetime?
+    private(set) var sceneLifetime: RouterSceneRequestLifetime?
+    @ObservationIgnored
+    private let lifetimeToken: UUID?
 
     init(
         path: RouterScopePath,
         node: RouterNode<R>?,
-        store: RouterStore<R>
+        store: RouterStore<R>,
+        lifetimeToken: UUID?
     ) {
         let projection = Self.projection(from: node)
         self.path = path
@@ -65,12 +69,19 @@ public final class RouterScope<R: Route> {
         self.observedWindows = store.state.windows
         self.observedImmersiveSpace = store.state.immersiveSpace
         self.store = store
+        self.lifetimeToken = lifetimeToken
         self.sceneLifetime = store.sceneRequestLifetime(at: path)
     }
 
-    var matchesCurrentSceneLifetime: Bool {
-        guard let sceneLifetime else { return path.domain == .application }
-        return store?.matchesSceneRequestLifetime(sceneLifetime) == true
+    /// Cache identity is distinct from mutation authority: a missing capture
+    /// stays stable while absent, but can never acquire a later incarnation.
+    func matchesCapturedLifetime(_ token: UUID?) -> Bool {
+        lifetimeToken == token
+    }
+
+    var matchesCurrentLifetime: Bool {
+        guard let lifetimeToken else { return false }
+        return store?.scopeLifetimeToken(at: path) == lifetimeToken
     }
 
     /// Performs an action relative to this scope.
@@ -116,15 +127,15 @@ public final class RouterScope<R: Route> {
         )
     }
 
-    /// Performs an action at the owning store root.
+    /// Performs an action at the owning store root while this scope is alive.
+    /// Intentional replacement independent of a child lifetime must use the Store.
     public func performRoot(
         _ action: RouterAction<R>,
         context: RouterTransitionContext = .init()
     ) async -> RouterOutcome<R> {
-        guard let store else {
-            return Self.missingAuthorityOutcome()
-        }
-        return await store.perform(action, context: context)
+        await performRoot(
+            action, context: context, expectedRevision: nil, executionPrecondition: nil
+        )
     }
 
     func performRoot(
@@ -132,13 +143,36 @@ public final class RouterScope<R: Route> {
         context: RouterTransitionContext,
         expectedRevision: UInt64?
     ) async -> RouterOutcome<R> {
+        await performRoot(
+            action,
+            context: context,
+            expectedRevision: expectedRevision,
+            executionPrecondition: nil
+        )
+    }
+
+    func performRoot(
+        _ action: RouterAction<R>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?,
+        executionPrecondition: RouterRequestPrecondition<R>?,
+        authorization: RouterRequestAuthorization<R>? = nil
+    ) async -> RouterOutcome<R> {
         guard let store else { return Self.missingAuthorityOutcome() }
         return await store.perform(
             action,
             context: context,
             expectedRevision: expectedRevision,
-            bypassesPolicies: false
+            bypassesPolicies: false,
+            authorization: authorization,
+            executionPrecondition: combinedExecutionPrecondition(executionPrecondition)
         )
+    }
+
+    func captureLinkAuthorizationPrecondition(
+        request: RouterRequestAuthorization<R>?
+    ) -> RouterRequestPrecondition<R>? {
+        store?.authorizationPrecondition(request: request, existing: combinedExecutionPrecondition(nil))
     }
 
     func performFeatureAction(
@@ -190,171 +224,10 @@ public final class RouterScope<R: Route> {
                 node: node,
                 features: features
             ),
+            lifetimeMutation: .replaceSubtree(path),
             executionPrecondition: combinedExecutionPrecondition(executionPrecondition),
             executionPreparation: preparation,
             deferredResumePreparation: { state, _ in preparation(state) }
-        )
-    }
-
-    /// Presents a route and suspends until its exact presentation returns a
-    /// value, is dismissed, is cancelled, or fails policy admission.
-    public func present<Value: Sendable>(
-        _ route: R,
-        style: RouterPresentationStyle = .sheet,
-        options: RouterPresentationOptions = .init(),
-        expecting: Value.Type = Value.self
-    ) async -> RouterPresentationOutcome<Value> {
-        await present(
-            route,
-            style: style,
-            options: options,
-            expecting: expecting,
-            executionPrecondition: nil
-        )
-    }
-
-    func present<Value: Sendable>(
-        _ route: R,
-        style: RouterPresentationStyle,
-        options: RouterPresentationOptions,
-        expecting: Value.Type,
-        executionPrecondition: RouterRequestPrecondition<R>?
-    ) async -> RouterPresentationOutcome<Value> {
-        guard let store else { return .cancelled }
-        return await store.present(
-            route,
-            style: style,
-            options: options,
-            at: path,
-            expecting: expecting,
-            executionPrecondition: combinedExecutionPrecondition(executionPrecondition)
-        )
-    }
-
-    func presentFeature<Value: Sendable>(
-        _ route: R,
-        style: RouterPresentationStyle,
-        options: RouterPresentationOptions,
-        expecting: Value.Type,
-        features: [RouterFeatureCatalogEntry],
-        executionPrecondition: RouterRequestPrecondition<R>?
-    ) async -> RouterPresentationOutcome<Value> {
-        guard let store else { return .cancelled }
-        return await store.present(
-            route,
-            style: style,
-            options: options,
-            at: path,
-            expecting: expecting,
-            executionPrecondition: combinedExecutionPrecondition(executionPrecondition),
-            requestSemantics: .featureAction(
-                scope: path,
-                lifetime: sceneLifetime,
-                features: features
-            )
-        )
-    }
-
-    /// Presents a macro-generated, result-typed request.
-    public func present<Value: Sendable>(
-        _ request: RouterPresentationRequest<R, Value>
-    ) async -> RouterPresentationOutcome<Value> {
-        await present(
-            request.route,
-            style: request.style,
-            options: request.options,
-            expecting: Value.self
-        )
-    }
-
-    /// Completes the exact presentation active in this scope.
-    public func finishPresentation<Value: Sendable>(
-        returning value: Value
-    ) async throws {
-        try await finishPresentation(returning: value, executionPrecondition: nil)
-    }
-
-    func finishPresentation<Value: Sendable>(
-        returning value: Value,
-        executionPrecondition: RouterRequestPrecondition<R>?
-    ) async throws {
-        guard let store else {
-            throw RouterPresentationCompletionError.noActivePresentation(scope: path)
-        }
-        try await store.finishPresentation(
-            at: path,
-            returning: value,
-            executionPrecondition: combinedExecutionPrecondition(executionPrecondition)
-        )
-    }
-
-    /// Completes only when the active route matches the typed request.
-    public func finishPresentation<Value: Sendable>(
-        _ request: RouterPresentationRequest<R, Value>,
-        returning value: Value
-    ) async throws {
-        try await finishPresentation(
-            request,
-            returning: value,
-            executionPrecondition: nil
-        )
-    }
-
-    func finishPresentation<Value: Sendable>(
-        _ request: RouterPresentationRequest<R, Value>,
-        returning value: Value,
-        executionPrecondition: RouterRequestPrecondition<R>?
-    ) async throws {
-        guard let store else {
-            throw RouterPresentationCompletionError.noActivePresentation(scope: path)
-        }
-        try await store.finishPresentation(
-            request,
-            at: path,
-            returning: value,
-            executionPrecondition: combinedExecutionPrecondition(executionPrecondition)
-        )
-    }
-
-    func finishFeaturePresentation<Value: Sendable>(
-        returning value: Value,
-        features: [RouterFeatureCatalogEntry],
-        executionPrecondition: RouterRequestPrecondition<R>?
-    ) async throws {
-        guard let store else {
-            throw RouterPresentationCompletionError.noActivePresentation(scope: path)
-        }
-        try await store.finishPresentation(
-            at: path,
-            returning: value,
-            executionPrecondition: combinedExecutionPrecondition(executionPrecondition),
-            requestSemantics: .featureAction(
-                scope: path,
-                lifetime: sceneLifetime,
-                features: features
-            )
-        )
-    }
-
-    func finishFeaturePresentation<Value: Sendable>(
-        _ request: RouterPresentationRequest<R, Value>,
-        returning value: Value,
-        features: [RouterFeatureCatalogEntry],
-        executionPrecondition: RouterRequestPrecondition<R>?
-    ) async throws {
-        guard let store else {
-            throw RouterPresentationCompletionError.noActivePresentation(scope: path)
-        }
-        try await store.finishPresentation(
-            request,
-            at: path,
-            returning: value,
-            executionPrecondition: combinedExecutionPrecondition(executionPrecondition),
-            requestSemantics: .featureAction(
-                scope: path,
-                lifetime: sceneLifetime,
-                features: features
-            )
         )
     }
 
@@ -396,13 +269,38 @@ public final class RouterScope<R: Route> {
         }
     }
 
+    @discardableResult
+    func dispatchRoot(
+        _ action: RouterAction<R>,
+        context: RouterTransitionContext,
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) -> Task<RouterOutcome<R>, Never> {
+        Task { @MainActor [self] in
+            return await performRoot(
+                action,
+                context: context,
+                expectedRevision: nil,
+                executionPrecondition: executionPrecondition
+            )
+        }
+    }
+
     func refresh(
         from state: RouterState<R>,
         reconcileSystemBinding: Bool = false
     ) {
-        let refreshedNode = state.node(at: path)
+        // A scope acquired synchronously during commit can capture its new
+        // runtime incarnation before the native scene lifetime is installed.
+        // Complete that capture only while it still owns the current runtime;
+        // missing and expired scopes must retain their original semantics.
+        if matchesCurrentLifetime,
+           let currentSceneLifetime = store?.sceneRequestLifetime(at: path),
+           sceneLifetime != currentSceneLifetime {
+            sceneLifetime = currentSceneLifetime
+        }
+        let refreshedNode = matchesCurrentLifetime ? state.node(at: path) : nil
         let projection = Self.projection(from: refreshedNode)
-        let sceneRootRoute = state.sceneRootRoute(at: path)
+        let sceneRootRoute = matchesCurrentLifetime ? state.sceneRootRoute(at: path) : nil
         if node != refreshedNode { node = refreshedNode }
         if observedPath != projection.path { observedPath = projection.path }
         if observedSceneRootRoute != sceneRootRoute {
@@ -418,9 +316,11 @@ public final class RouterScope<R: Route> {
         if observedSplitState != projection.split { observedSplitState = projection.split }
         let containerStyle = Self.containerStyle(of: refreshedNode)
         if observedContainerStyle != containerStyle { observedContainerStyle = containerStyle }
-        if observedWindows != state.windows { observedWindows = state.windows }
-        if observedImmersiveSpace != state.immersiveSpace {
-            observedImmersiveSpace = state.immersiveSpace
+        let windows = matchesCurrentLifetime ? state.windows : []
+        let immersiveSpace = matchesCurrentLifetime ? state.immersiveSpace : nil
+        if observedWindows != windows { observedWindows = windows }
+        if observedImmersiveSpace != immersiveSpace {
+            observedImmersiveSpace = immersiveSpace
         }
         if reconcileSystemBinding {
             reconciliationRevision &+= 1
@@ -460,6 +360,19 @@ public final class RouterScope<R: Route> {
         }
     }
 
+    func presentationLifetimePrecondition(id: UUID) -> RouterRequestPrecondition<R> {
+        let childPath = path.appendingPresentation(id)
+        let childToken = store?.scopeLifetimeToken(at: childPath)
+        let identity = RouterStore<R>.presentationIdentityPrecondition(id: id, at: path)
+        return { [weak store] state in
+            if let rejection = identity(state) { return rejection }
+            guard let childToken, store?.scopeLifetimeToken(at: childPath) == childToken else {
+                return .mutation(.expiredScope(childPath))
+            }
+            return nil
+        }
+    }
+
     private static func missingAuthorityOutcome() -> RouterOutcome<R> {
         .rejected(
             id: RouterTransitionID(),
@@ -469,16 +382,14 @@ public final class RouterScope<R: Route> {
         )
     }
 
-    private func combinedExecutionPrecondition(
+    func combinedExecutionPrecondition(
         _ supplied: RouterRequestPrecondition<R>?
     ) -> RouterRequestPrecondition<R>? {
-        guard sceneLifetime != nil || supplied != nil else { return nil }
-        let lifetime = sceneLifetime
+        let token = lifetimeToken
+        let path = path
         return { [weak store] state in
-            if let lifetime {
-                guard let store, store.matchesSceneRequestLifetime(lifetime) else {
-                    return RouterStore<R>.expiredSceneLifetimeReason(lifetime)
-                }
+            guard let token, store?.scopeLifetimeToken(at: path) == token else {
+                return .mutation(.expiredScope(path))
             }
             return supplied?(state)
         }

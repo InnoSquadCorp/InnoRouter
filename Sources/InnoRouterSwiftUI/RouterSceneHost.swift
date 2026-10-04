@@ -39,7 +39,6 @@ public struct RouterImmersiveSpaceRequest<R: Route>: Hashable, Sendable {
 public struct RouterWindowHost<R: DestinationRoute & RouterSceneRoute>: View {
     private let id: UUID
     private let store: RouterStore<R>
-    private let scope: RouterScope<R>
 
 #if !os(tvOS) && !os(watchOS)
     @Environment(\.dismissWindow) private var dismissWindow
@@ -48,11 +47,11 @@ public struct RouterWindowHost<R: DestinationRoute & RouterSceneRoute>: View {
     public init(id: UUID, store: RouterStore<R>) {
         self.id = id
         self.store = store
-        self.scope = store.scope(at: .window(id))
     }
 
     @ViewBuilder
     public var body: some View {
+        let scope = store.scope(at: .window(id))
         if let rootRoute = scope.observedSceneRootRoute {
             RouterStoreStackSurface(
                 scope: scope,
@@ -81,16 +80,15 @@ public struct RouterWindowHost<R: DestinationRoute & RouterSceneRoute>: View {
 public struct RouterImmersiveSpaceHost<R: DestinationRoute & RouterSceneRoute>: View {
     private let id: String
     private let store: RouterStore<R>
-    private let scope: RouterScope<R>
 
     public init(id: String, store: RouterStore<R>) {
         self.id = id
         self.store = store
-        self.scope = store.scope(at: .immersiveSpace(id))
     }
 
     @ViewBuilder
     public var body: some View {
+        let scope = store.scope(at: .immersiveSpace(id))
         // Keep the native lifetime boundary mounted while canonical content is
         // temporarily empty. Removing the inner stack is not a native close.
         ZStack {

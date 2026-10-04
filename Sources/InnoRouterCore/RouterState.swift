@@ -4,91 +4,6 @@
 
 import Foundation
 
-/// A stable identifier for one child scope in a router state tree.
-///
-/// Scope identifiers are persisted in snapshots, so applications should use
-/// durable values instead of localized labels or array offsets.
-public struct RouterScopeID: RawRepresentable, Hashable, Sendable, Codable,
-    ExpressibleByStringLiteral, CustomStringConvertible {
-    public var rawValue: String
-
-    public init(rawValue: String) {
-        self.rawValue = rawValue
-    }
-
-    public init(_ rawValue: String) {
-        self.rawValue = rawValue
-    }
-
-    public init(stringLiteral value: StringLiteralType) {
-        self.rawValue = value
-    }
-
-    public var description: String { rawValue }
-}
-
-/// The scene-local authority selected by a router scope path.
-public enum RouterScopeDomain: Hashable, Sendable, Codable {
-    /// The application's primary router tree.
-    case application
-    /// One exact regular-window instance.
-    case window(UUID)
-    /// One exact immersive-space instance.
-    case immersiveSpace(String)
-}
-
-/// An ordered path from one scene-local router root to a nested scope.
-public struct RouterScopePath: Hashable, Sendable, Codable,
-    ExpressibleByArrayLiteral, CustomStringConvertible {
-    public var domain: RouterScopeDomain
-    public var components: [RouterScopeID]
-
-    public init(
-        _ components: [RouterScopeID] = [],
-        domain: RouterScopeDomain = .application
-    ) {
-        self.domain = domain
-        self.components = components
-    }
-
-    public init(arrayLiteral elements: RouterScopeID...) {
-        self.domain = .application
-        self.components = elements
-    }
-
-    /// The primary application router scope.
-    public static let root = RouterScopePath([])
-
-    /// The root scope owned by one exact regular window.
-    public static func window(_ id: UUID) -> RouterScopePath {
-        RouterScopePath(domain: .window(id))
-    }
-
-    /// The root scope owned by one exact immersive space.
-    public static func immersiveSpace(_ id: String) -> RouterScopePath {
-        RouterScopePath(domain: .immersiveSpace(id))
-    }
-
-    /// Returns a path extended by one child scope.
-    public func appending(_ scope: RouterScopeID) -> RouterScopePath {
-        RouterScopePath(components + [scope], domain: domain)
-    }
-
-    public var description: String {
-        let prefix: String
-        switch domain {
-        case .application:
-            prefix = ""
-        case .window(let id):
-            prefix = "/window[\(id.uuidString)]"
-        case .immersiveSpace(let id):
-            prefix = "/immersive[\(id)]"
-        }
-        guard !components.isEmpty else { return prefix.isEmpty ? "/" : prefix }
-        return prefix + "/" + components.map(\.rawValue).joined(separator: "/")
-    }
-}
-
 /// Native presentation styles owned by a stack scope.
 public enum RouterPresentationStyle: String, Hashable, Sendable, Codable {
     case sheet
@@ -172,17 +87,21 @@ public struct RouterPresentation<R: Route>: Identifiable, Hashable, Sendable {
     public var route: R
     public var style: RouterPresentationStyle
     public var options: RouterPresentationOptions
+    /// Navigation owned by this presentation, independent of its parent stack.
+    public var node: RouterNode<R>
 
     public init(
         id: UUID = UUID(),
         route: R,
         style: RouterPresentationStyle,
-        options: RouterPresentationOptions = .init()
+        options: RouterPresentationOptions = .init(),
+        node: RouterNode<R> = .stack()
     ) {
         self.id = id
         self.route = route
         self.style = style
         self.options = options
+        self.node = node
     }
 }
 
@@ -192,6 +111,7 @@ extension RouterPresentation: Codable where R: Codable {
         case route
         case style
         case options
+        case node
     }
 
     public init(from decoder: any Decoder) throws {
@@ -203,6 +123,7 @@ extension RouterPresentation: Codable where R: Codable {
             RouterPresentationOptions.self,
             forKey: .options
         ) ?? .init()
+        node = try container.decodeIfPresent(RouterNode<R>.self, forKey: .node) ?? .stack()
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -212,6 +133,10 @@ extension RouterPresentation: Codable where R: Codable {
         try container.encode(style, forKey: .style)
         if options != .init() {
             try container.encode(options, forKey: .options)
+        }
+        // Preserve the legacy leaf representation for an empty child stack.
+        if node != .stack() {
+            try container.encode(node, forKey: .node)
         }
     }
 }
@@ -434,7 +359,7 @@ public struct RouterState<R: Route>: Hashable, Sendable {
     }
 
     /// Returns the node at `path`, or `nil` when any component is missing or
-    /// an intermediate node is not a container.
+    /// an intermediate node does not match the typed boundary.
     public func node(at path: RouterScopePath) -> RouterNode<R>? {
         let domainRoot: RouterNode<R>?
         switch path.domain {
@@ -462,15 +387,26 @@ public struct RouterState<R: Route>: Hashable, Sendable {
     }
 
     private static func node(
-        at components: ArraySlice<RouterScopeID>,
+        at components: ArraySlice<RouterScopeComponent>,
         in node: RouterNode<R>
     ) -> RouterNode<R>? {
         guard let first = components.first else { return node }
-        guard case .container(let container) = node,
-              let branch = container.branches.first(where: { $0.id == first }) else {
-            return nil
+        let child: RouterNode<R>
+        switch first {
+        case .branch(let id):
+            guard case .container(let container) = node,
+                  let branch = container.branches.first(where: { $0.id == id }) else {
+                return nil
+            }
+            child = branch.node
+        case .presentation(let id):
+            guard case .stack(let stack) = node,
+                  let presentation = stack.presentation, presentation.id == id else {
+                return nil
+            }
+            child = presentation.node
         }
-        return Self.node(at: components.dropFirst(), in: branch.node)
+        return Self.node(at: components.dropFirst(), in: child)
     }
 
     private static func validate(
@@ -496,6 +432,7 @@ public struct RouterState<R: Route>: Hashable, Sendable {
         guard presentationIDs.insert(presentation.id).inserted else {
             throw RouterStateValidationError.duplicatePresentation(presentation.id)
         }
+        try validate(node: presentation.node, presentationIDs: &presentationIDs)
         for detent in presentation.options.detents {
             try validate(detent: detent)
         }

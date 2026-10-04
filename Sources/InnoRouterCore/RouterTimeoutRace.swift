@@ -1,11 +1,11 @@
 // MARK: - RouterTimeoutRace.swift
-// InnoRouterSwiftUI - shared timeout/cancellation race
+// InnoRouterCore - shared timeout/cancellation race
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
 
 /// Outcome of racing an operation against a timeout and caller cancellation.
-enum RouterTimeoutRaceResult<Value: Sendable>: Sendable {
+package enum RouterTimeoutRaceResult<Value: Sendable>: Sendable {
     case value(Value)
     case timedOut
     case cancelled
@@ -22,27 +22,49 @@ enum RouterTimeoutRaceResult<Value: Sendable>: Sendable {
 /// `resolve` is the only path that finishes the continuation, and it clears the
 /// stored continuation first, so a timeout firing next to a completing
 /// operation — or next to caller cancellation — still resumes exactly once.
+///
+/// When passed a registry reservation, logical completion cancels the task but
+/// the registry retains its handle until the operation actually exits. The
+/// operation captures this race weakly and cannot deliver a second result.
 @MainActor
-final class RouterTimeoutRace<Value: Sendable> {
+package final class RouterTimeoutRace<Value: Sendable> {
     private var continuation: CheckedContinuation<RouterTimeoutRaceResult<Value>, Never>?
     private var operationTask: Task<Void, Never>?
     private var timeoutTask: Task<Void, Never>?
 
-    func run(
+    private var hasStarted = false
+    private var cancelledBeforeStart = false
+
+    package init() {}
+
+    package func run(
         timeout: Duration?,
         sleep: @escaping @Sendable (Duration) async throws -> Void,
+        reservation: RouterOperationRegistry.Reservation? = nil,
         operation: @escaping @MainActor @Sendable () async -> Value
     ) async -> RouterTimeoutRaceResult<Value> {
-        await withTaskCancellationHandler {
+        precondition(!hasStarted, "A timeout race can only run once")
+        hasStarted = true
+        return await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 self.continuation = continuation
-                guard !Task.isCancelled else {
+                guard !Task.isCancelled, !cancelledBeforeStart else {
+                    reservation?.abandonBeforeStart()
                     resolve(.cancelled)
                     return
                 }
-                operationTask = Task { @MainActor [weak self] in
+                let perform: @MainActor @Sendable () async -> Void = { [weak self] in
+                    guard !Task.isCancelled else {
+                        self?.resolve(.cancelled)
+                        return
+                    }
                     let value = await operation()
                     self?.resolve(.value(value))
+                }
+                if let reservation {
+                    operationTask = reservation.start(perform)
+                } else {
+                    operationTask = Task { @MainActor in await perform() }
                 }
                 if let timeout {
                     timeoutTask = Task { @MainActor [weak self] in
@@ -57,13 +79,14 @@ final class RouterTimeoutRace<Value: Sendable> {
             }
         } onCancel: {
             Task { @MainActor [weak self] in
-                self?.resolve(.cancelled)
+                self?.cancel()
             }
         }
     }
 
     /// Resolves the race as cancelled if it has not already finished.
-    func cancel() {
+    package func cancel() {
+        if !hasStarted { cancelledBeforeStart = true }
         resolve(.cancelled)
     }
 

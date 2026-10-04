@@ -12,12 +12,19 @@ enum RouterPolicyPreparation {
     case deferred(RouterDeferredTransition)
 }
 
+private enum RouterPolicyOperationResult {
+    case decision(RouterPolicyDecision)
+    case rejected(RouterRejectionReason)
+}
+
 extension RouterStore {
     func prepare(
         for transition: RouterTransition<R>,
         bypassesPolicies: Bool,
         startingAt startingPolicyIndex: Int,
         requestSemantics: RouterRequestSemantics<R>,
+        authorization: RouterRequestAuthorization<R>?,
+        lifetimeMutation: RouterScopeLifetimeMutation,
         requestRootID: RouterTransitionID,
         executionPrecondition: RouterRequestPrecondition<R>?,
         deferredResumePreparation: RouterDeferredResumePreparationBuilder<R>?
@@ -34,7 +41,7 @@ extension RouterStore {
             }
             let preparation = await prepare(policy, transition: transition)
             switch preparation {
-            case .value(let decision):
+            case .decision(let decision):
                 emit(.policyPrepared(
                     transitionID: transition.id,
                     policy: policy.name,
@@ -64,16 +71,15 @@ extension RouterStore {
                         policy: policy,
                         policyIndex: index,
                         requestSemantics: requestSemantics,
+                        authorization: authorization,
+                        lifetimeMutation: lifetimeMutation,
                         requestRootID: requestRootID,
                         executionPrecondition: executionPrecondition,
                         resumePreparation: deferredResumePreparation
                     )
                 }
-            case .timedOut:
-                return .rejected(.policyTimedOut(name: policy.name))
-            case .cancelled:
-                _ = requestCancellationIsPending(transition.id)
-                return .rejected(.cancelled)
+            case .rejected(let reason):
+                return .rejected(reason)
             }
         }
         return .allowed
@@ -82,18 +88,38 @@ extension RouterStore {
     private func prepare(
         _ policy: RouterPolicy<R>,
         transition: RouterTransition<R>
-    ) async -> RouterTimeoutRaceResult<RouterPolicyDecision> {
-        if let policyTimeout, policyTimeout <= .zero { return .timedOut }
-
+    ) async -> RouterPolicyOperationResult {
+        if let policyTimeout, policyTimeout <= .zero {
+            return .rejected(.policyTimedOut(name: policy.name))
+        }
+        let reservation: RouterOperationRegistry.Reservation
+        switch policyOperations.reserve() {
+        case .success(let admitted):
+            reservation = admitted
+        case .failure(let capacity):
+            return .rejected(.policyCapacityExceeded(limit: capacity.limit))
+        }
         let race = RouterTimeoutRace<RouterPolicyDecision>()
         activePolicyRaces[transition.id] = race
-        let result = await race.run(timeout: policyTimeout, sleep: runtimeDependencies.sleep) {
+        let result = await race.run(
+            timeout: policyTimeout,
+            sleep: runtimeDependencies.sleep,
+            reservation: reservation
+        ) {
             await policy.prepare(transition)
         }
         if activePolicyRaces[transition.id] === race {
             activePolicyRaces.removeValue(forKey: transition.id)
         }
-        return result
+        switch result {
+        case .value(let decision):
+            return .decision(decision)
+        case .timedOut:
+            return .rejected(.policyTimedOut(name: policy.name))
+        case .cancelled:
+            _ = requestCancellationIsPending(transition.id)
+            return .rejected(.cancelled)
+        }
     }
 
     private func deferTransition(
@@ -102,6 +128,8 @@ extension RouterStore {
         policy: RouterPolicy<R>,
         policyIndex: Int,
         requestSemantics: RouterRequestSemantics<R>,
+        authorization: RouterRequestAuthorization<R>?,
+        lifetimeMutation: RouterScopeLifetimeMutation,
         requestRootID: RouterTransitionID,
         executionPrecondition: RouterRequestPrecondition<R>?,
         resumePreparation: RouterDeferredResumePreparationBuilder<R>?
@@ -127,6 +155,8 @@ extension RouterStore {
             action: transition.action,
             context: transition.context,
             semantics: requestSemantics,
+            authorization: authorization,
+            lifetimeMutation: lifetimeMutation,
             initialRevision: transition.initialRevision,
             nextPolicyIndex: policies.index(after: policyIndex),
             executionPrecondition: executionPrecondition,

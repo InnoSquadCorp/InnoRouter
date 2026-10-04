@@ -611,10 +611,14 @@ struct RouterLinkPipelineTests {
             slot: restoredSlot,
             storage: RouterFilePendingLinkStorage(fileURL: fileURL)
         )
-        #expect(try await restoredDriver.restore() == .restored(.stored(link)))
-        #expect(restoredSlot.pending == link)
+        let durableLink = PendingRouterLink(
+            url: link.url, gatedRoute: link.gatedRoute, plan: link.plan,
+            matchedRoute: link.matchedRoute, requiresRevalidation: true
+        )
+        #expect(try await restoredDriver.restore() == .restored(.stored(durableLink)))
+        #expect(restoredSlot.pending == durableLink)
 
-        #expect(try await restoredDriver.cancel() == link)
+        #expect(try await restoredDriver.cancel() == durableLink)
         #expect(!FileManager.default.fileExists(atPath: fileURL.path))
     }
 
@@ -831,8 +835,12 @@ struct RouterLinkPipelineTests {
             storage: storage
         )
         storage.unblock()
-        #expect(try await verificationDriver.restore() == .restored(.stored(newer)))
-        #expect(verificationSlot.pending == newer)
+        let durableNewer = PendingRouterLink(
+            url: newer.url, gatedRoute: newer.gatedRoute, plan: newer.plan,
+            matchedRoute: newer.matchedRoute, requiresRevalidation: true
+        )
+        #expect(try await verificationDriver.restore() == .restored(.stored(durableNewer)))
+        #expect(verificationSlot.pending == durableNewer)
     }
 
     @Test("Malformed pending-link storage preserves the live slot")

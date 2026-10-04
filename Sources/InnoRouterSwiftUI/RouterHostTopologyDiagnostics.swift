@@ -9,7 +9,7 @@ extension RouterScopePath {
     /// container it renders. A same-named branch of that root is then neither
     /// shown nor written, and every navigation from the content is rejected.
     static var unresolvable: RouterScopePath {
-        RouterScopePath([RouterScopeID(rawValue: "")])
+        RouterScopePath([.branch(RouterScopeID(rawValue: ""))])
     }
 }
 

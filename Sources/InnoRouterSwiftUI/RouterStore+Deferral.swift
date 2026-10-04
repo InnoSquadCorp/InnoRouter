@@ -71,6 +71,8 @@ public extension RouterStore {
                 transitionID: transitionID,
                 requestRootID: request.rootID,
                 requestSemantics: request.semantics,
+                    authorization: request.authorization,
+                lifetimeMutation: request.lifetimeMutation,
                 executionPrecondition: request.executionPrecondition,
                 executionPreparation: executionPreparation,
                 deferredResumePreparation: request.resumePreparation

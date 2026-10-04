@@ -181,6 +181,8 @@ public struct RouterRequestObservation<R: Route>: Hashable, Sendable {
     /// State revision that must still be current when this request executes.
     public let expectedRevision: UInt64?
     package let semantics: RouterRequestSemantics<R>
+    /// Stable diagnostic code only; runtime ownership tokens are never exposed.
+    package let replayLimitationCode: String?
 
     public init(
         id: RouterTransitionID,
@@ -193,6 +195,7 @@ public struct RouterRequestObservation<R: Route>: Hashable, Sendable {
         self.context = context
         self.expectedRevision = expectedRevision
         self.semantics = .action
+        self.replayLimitationCode = nil
     }
 
     package init(
@@ -200,13 +203,15 @@ public struct RouterRequestObservation<R: Route>: Hashable, Sendable {
         action: RouterAction<R>,
         context: RouterTransitionContext,
         expectedRevision: UInt64?,
-        semantics: RouterRequestSemantics<R>
+        semantics: RouterRequestSemantics<R>,
+        replayLimitationCode: String? = nil
     ) {
         self.id = id
         self.action = action
         self.context = context
         self.expectedRevision = expectedRevision
         self.semantics = semantics
+        self.replayLimitationCode = replayLimitationCode
     }
 }
 
@@ -265,11 +270,14 @@ public enum RouterRejectionReason: Hashable, Sendable {
     case mutation(RouterMutationError)
     case featureProjection(RouterFeatureProjectionError)
     case policy(name: String, message: String)
+    case authorization(RouterAuthorizationFailure)
     case busy(activeTransition: RouterTransitionID)
     case coalesced(existingTransition: RouterTransitionID)
     case superseded(replacementTransition: RouterTransitionID)
     case queueOverflow(limit: Int)
     case policyTimedOut(name: String)
+    /// No task was created because still-running policy work reached its bound.
+    case policyCapacityExceeded(limit: Int)
     case deferralConflict(RouterDeferralID)
     case deferralNotFound(RouterDeferralID)
     case deferralCapacityExceeded(limit: Int)

@@ -165,12 +165,12 @@ struct RouterTwelfthReviewRegressionTests {
             Issue.record("Expected the window to open")
             return
         }
-        guard case .rejected(_, _, _, .mutation(.windowNotFound(let rejectedID))) =
+        guard case .rejected(_, _, _, .mutation(.expiredScope(let rejectedPath))) =
             await staleAction.value else {
             Issue.record("Expected the missing scope to remain expired")
             return
         }
-        #expect(rejectedID == windowID)
+        #expect(rejectedPath == .window(windowID))
         #expect(store.revision == 1)
         #expect(store.state.node(at: .window(windowID)) == .stack(path: [.sibling]))
     }

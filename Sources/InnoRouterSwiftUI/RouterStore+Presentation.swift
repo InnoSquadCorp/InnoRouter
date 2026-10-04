@@ -40,6 +40,7 @@ public extension RouterStore {
             style: style,
             options: options
         )
+        let ownerLifetime = scopeLifetimePrecondition(at: path)
         let waiter = RouterPresentationWaiter<Value>()
         presentationWaiters[presentation.id] = AnyRouterPresentationWaiter(
             prepareValue: { value, owner in
@@ -56,14 +57,19 @@ public extension RouterStore {
                 waiter.finishAfterDismissal(ownedBy: owner)
             },
             finishCancelled: { waiter.finish(.cancelled) },
-            finishRejected: { waiter.finish(.rejected($0)) }
+            finishRejected: { waiter.finish(.rejected($0)) },
+            lifetimeIsCurrent: { [weak self] in
+                guard let self else { return false }
+                return ownerLifetime(self.state) == nil
+            }
         )
+        let waiterIdentity = presentationWaiters[presentation.id]!.identity
         let presentationIsPending: RouterRequestPrecondition<R> = { [weak self] state in
             guard let self,
                   self.presentationWaiters[presentation.id] != nil else {
                 return .cancelled
             }
-            return executionPrecondition?(state)
+            return ownerLifetime(state) ?? executionPrecondition?(state)
         }
         let transitionID = reserveTransitionID()
         registerPresentationRequest(presentation.id, transitionID: transitionID)
@@ -100,7 +106,8 @@ public extension RouterStore {
             Task { @MainActor [weak self] in
                 await self?.cancelPresentation(
                     id: presentation.id,
-                    at: path
+                    at: path,
+                    waiterIdentity: waiterIdentity
                 )
             }
         }
@@ -165,7 +172,7 @@ public extension RouterStore {
             transitionID: transitionID,
             requestSemantics: requestSemantics,
             executionPrecondition: Self.combinePresentationPreconditions(
-                Self.presentationIdentityPrecondition(id: presentationID, at: path),
+                presentationLifetimePrecondition(id: presentationID, at: path),
                 executionPrecondition
             )
         )
@@ -262,16 +269,14 @@ extension RouterStore {
     }
 
     func finishDismissedPresentations(
-        before: RouterState<R>,
-        after: RouterState<R>,
+        ids: Set<UUID>,
         transitionID: RouterTransitionID,
         context: RouterTransitionContext
     ) {
         let owner = context.resumedDeferral.map {
             RouterPresentationCompletionOwner.deferral($0)
         } ?? .transition(transitionID)
-        let dismissed = presentationIDs(in: before).subtracting(presentationIDs(in: after))
-        for id in dismissed {
+        for id in ids {
             let waiter = presentationWaiters.removeValue(forKey: id)
             waiter?.finishAfterDismissal(owner)
         }
@@ -289,35 +294,9 @@ extension RouterStore {
         return stack.presentation?.id
     }
 
-    private func presentationIDs(in state: RouterState<R>) -> Set<UUID> {
-        var ids: Set<UUID> = []
-        collectPresentationIDs(in: state.root, into: &ids)
-        for window in state.windows {
-            collectPresentationIDs(in: window.node, into: &ids)
-        }
-        if let immersiveSpace = state.immersiveSpace {
-            collectPresentationIDs(in: immersiveSpace.node, into: &ids)
-        }
-        return ids
-    }
-
-    private func collectPresentationIDs(
-        in node: RouterNode<R>,
-        into ids: inout Set<UUID>
-    ) {
-        switch node {
-        case .stack(let stack):
-            if let id = stack.presentation?.id {
-                ids.insert(id)
-            }
-        case .container(let container):
-            for branch in container.branches {
-                collectPresentationIDs(in: branch.node, into: &ids)
-            }
-        }
-    }
-
-    private func cancelPresentation(id: UUID, at path: RouterScopePath) async {
+    func cancelPresentation(id: UUID, at path: RouterScopePath, waiterIdentity: UUID) async {
+        guard presentationWaiters[id]?.identity == waiterIdentity else { return }
+        let lifetimePrecondition = presentationLifetimePrecondition(id: id, at: path)
         let waiter = presentationWaiters.removeValue(forKey: id)
         let requestIDs = presentationRequestIDs[id] ?? []
         for requestID in requestIDs {
@@ -335,13 +314,13 @@ extension RouterStore {
             _ = await cancelDeferred(deferralID)
         }
         waiter?.finishCancelled()
-        guard presentationID(at: path) == id else { return }
+        guard presentationID(at: path) == id, lifetimePrecondition(state) == nil else { return }
         _ = await perform(
             RouterAction.dismissPresentation.inScope(path),
             context: .init(),
             expectedRevision: nil,
             bypassesPolicies: false,
-            executionPrecondition: Self.presentationIdentityPrecondition(id: id, at: path)
+            executionPrecondition: lifetimePrecondition
         )
     }
 
@@ -360,6 +339,15 @@ extension RouterStore {
         if presentationRequestIDs[presentationID]?.isEmpty == true {
             presentationRequestIDs.removeValue(forKey: presentationID)
         }
+    }
+
+    func presentationLifetimePrecondition(
+        id: UUID,
+        at path: RouterScopePath
+    ) -> RouterRequestPrecondition<R> {
+        let lifetime = scopeLifetimePrecondition(at: path.appendingPresentation(id))
+        let identity = Self.presentationIdentityPrecondition(id: id, at: path)
+        return { state in identity(state) ?? lifetime(state) }
     }
 
     static func presentationIdentityPrecondition(
@@ -397,6 +385,8 @@ extension RouterStore {
             return .dismiss(path)
         case .scoped(let scope, let child):
             return deferredPresentationTarget(in: child, path: path.appending(scope))
+        case .presentationScoped(let id, let child):
+            return deferredPresentationTarget(in: child, path: path.appendingPresentation(id))
         case .windowScoped(let id, let child):
             return deferredPresentationTarget(in: child, path: .window(id))
         case .immersiveSpaceScoped(let id, let child):

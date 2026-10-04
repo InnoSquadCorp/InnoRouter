@@ -59,6 +59,8 @@ public indirect enum RouterAction<R: Route>: Hashable, Sendable {
     case setSplitVisibility(RouterSplitVisibility)
     case setPreferredCompactColumn(RouterSplitColumn)
     case scoped(RouterScopeID, RouterAction<R>)
+    /// Targets the child node owned by one exact active presentation.
+    case presentationScoped(UUID, RouterAction<R>)
     case windowScoped(UUID, RouterAction<R>)
     case immersiveSpaceScoped(String, RouterAction<R>)
     case openWindow(RouterWindow<R>)
@@ -74,8 +76,11 @@ public indirect enum RouterAction<R: Route>: Hashable, Sendable {
 
     /// Targets this action at a complete nested scope path.
     public func inScope(_ path: RouterScopePath) -> RouterAction<R> {
-        let nested = path.components.reversed().reduce(self) { action, scope in
-            .scoped(scope, action)
+        let nested = path.components.reversed().reduce(self) { action, component in
+            switch component {
+            case .branch(let scope): .scoped(scope, action)
+            case .presentation(let id): .presentationScoped(id, action)
+            }
         }
         switch path.domain {
         case .application:
@@ -116,4 +121,6 @@ public enum RouterMutationError: Error, Hashable, Sendable {
     case scopedGlobalAction(RouterScopePath)
     case invalidTargetState(RouterStateValidationError)
     case incompatibleNavigationTopology(RouterScopePath)
+    /// The captured execution lifetime ended or the scope never existed.
+    case expiredScope(RouterScopePath)
 }

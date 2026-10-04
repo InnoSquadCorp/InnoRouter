@@ -135,6 +135,7 @@ private extension RouterAction {
         case .setSplitVisibility: "setSplitVisibility"
         case .setPreferredCompactColumn: "setPreferredCompactColumn"
         case .scoped(_, let action): "scoped.\(action.inspectorName)"
+        case .presentationScoped(_, let action): "presentationScoped.\(action.inspectorName)"
         case .windowScoped(_, let action): "windowScoped.\(action.inspectorName)"
         case .immersiveSpaceScoped(_, let action):
             "immersiveSpaceScoped.\(action.inspectorName)"
@@ -157,7 +158,10 @@ private extension RouterState {
             case .stack(let stack):
                 stackCount += 1
                 routeCount += stack.path.count
-                presentationCount += stack.presentation == nil ? 0 : 1
+                if let presentation = stack.presentation {
+                    presentationCount += 1
+                    visit(presentation.node)
+                }
             case .container(let container):
                 for branch in container.branches {
                     visit(branch.node)
@@ -181,6 +185,7 @@ private extension RouterRejectionReason {
         case .mutation: "mutation"
         case .featureProjection: "feature-projection"
         case .policy: "policy"
+        case .authorization: "authorization"
         case .busy: "busy"
         case .coalesced: "coalesced"
         case .superseded: "superseded"

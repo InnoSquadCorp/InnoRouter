@@ -193,12 +193,14 @@ public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
     /// still thrown without rolling back an already committed navigation.
     public func resume(
         on store: RouterStore<R>,
+        using pipeline: RouterLinkPipeline<R>? = nil,
         source: RouterTransitionSource = .deepLink,
         consuming policy: RouterPendingLinkConsumptionPolicy = .onAcceptance
     ) async throws -> RouterLinkExecution<R>? {
         let operationBeforeResume = operationGeneration
         let execution = await slot.resume(
             on: store,
+            using: pipeline,
             source: source,
             consuming: policy
         )

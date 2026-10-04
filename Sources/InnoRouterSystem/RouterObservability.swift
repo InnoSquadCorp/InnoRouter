@@ -225,7 +225,7 @@ public struct RouterObservability<R: Route>: Sendable {
     ) -> RouterDiagnosticEventKind {
         switch reason {
         case .mutation, .featureProjection: .rejectedMutation
-        case .policy: .rejectedPolicy
+        case .policy, .policyCapacityExceeded, .authorization: .rejectedPolicy
         case .busy: .rejectedBusy
         case .coalesced: .rejectedCoalesced
         case .superseded: .rejectedSuperseded

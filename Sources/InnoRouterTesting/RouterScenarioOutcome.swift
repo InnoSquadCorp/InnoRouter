@@ -47,12 +47,13 @@ public extension RouterScenarioRejectionKind {
         self = switch reason {
         case .mutation: .mutation
         case .featureProjection: .featureProjection
-        case .policy: .policy
+        case .policy, .authorization: Self.policyKind(reason)
         case .busy: .busy
         case .coalesced: .coalesced
         case .superseded: .superseded
         case .queueOverflow: .queueOverflow
         case .policyTimedOut: .policyTimedOut
+        case .policyCapacityExceeded: .policyCapacityExceeded
         case .deferralConflict: .deferralConflict
         case .deferralNotFound: .deferralNotFound
         case .deferralCapacityExceeded: .deferralCapacityExceeded
@@ -62,5 +63,10 @@ public extension RouterScenarioRejectionKind {
         case .cancelled: .cancelled
         case .missingAuthority: .missingAuthority
         }
+    }
+
+    private static func policyKind(_ reason: RouterRejectionReason) -> Self {
+        if case .authorization = reason { return .authorization }
+        return .policy
     }
 }

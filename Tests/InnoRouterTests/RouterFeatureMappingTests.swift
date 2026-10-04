@@ -275,11 +275,11 @@ struct RouterFeatureMappingTests {
 
         let replaced = try state.replacingNode(
             .stack(path: [.feature(.detail(2))]),
-            at: [featureID]
+            at: [.branch(featureID)]
         )
 
-        #expect(replaced.node(at: [featureID]) == .stack(path: [.feature(.detail(2))]))
-        #expect(replaced.node(at: [siblingID]) == .stack(path: [.sibling]))
+        #expect(replaced.node(at: [.branch(featureID)]) == .stack(path: [.feature(.detail(2))]))
+        #expect(replaced.node(at: [.branch(siblingID)]) == .stack(path: [.sibling]))
         #expect(replaced.windows.map(\.id) == [windowID])
     }
 
@@ -319,7 +319,7 @@ struct RouterFeatureMappingTests {
             ])
         )
         let feature = RouterFeatureScope(
-            parent: store.scope(at: [featureID]),
+            parent: store.scope(at: [.branch(featureID)]),
             mapping: mapping
         )
 
@@ -329,7 +329,7 @@ struct RouterFeatureMappingTests {
             Issue.record("Expected feature plan deferral")
             return
         }
-        _ = await store.perform(.push(.sibling).inScope([siblingID]))
+        _ = await store.perform(.push(.sibling).inScope([.branch(siblingID)]))
         let windowID = UUID()
         _ = await store.perform(.openWindow(.init(id: windowID, route: .sibling)))
 
@@ -341,8 +341,8 @@ struct RouterFeatureMappingTests {
             return
         }
 
-        #expect(store.state.node(at: [featureID]) == .stack(path: [.feature(.detail(7))]))
-        #expect(store.state.node(at: [siblingID]) == .stack(path: [.sibling, .sibling]))
+        #expect(store.state.node(at: [.branch(featureID)]) == .stack(path: [.feature(.detail(7))]))
+        #expect(store.state.node(at: [.branch(siblingID)]) == .stack(path: [.sibling, .sibling]))
         #expect(store.state.windows.map(\.id) == [windowID])
     }
 
@@ -373,7 +373,7 @@ struct RouterFeatureMappingTests {
             ])
         )
         let feature = RouterFeatureScope(
-            parent: store.scope(at: [featureID]),
+            parent: store.scope(at: [.branch(featureID)]),
             mapping: mapping
         )
         guard case .deferred = await feature.perform(
@@ -382,15 +382,15 @@ struct RouterFeatureMappingTests {
             Issue.record("Expected feature deferral")
             return
         }
-        _ = await store.perform(.push(.sibling).inScope([siblingID]))
+        _ = await store.perform(.push(.sibling).inScope([.branch(siblingID)]))
 
         guard case .rejected(_, _, _, .staleState(expectedRevision: 0, actualRevision: 1)) =
                 await store.resumeDeferred(deferralID) else {
             Issue.record("Expected strict resume to reject the stale feature plan")
             return
         }
-        #expect(store.state.node(at: [featureID]) == .stack(path: [.feature(.home)]))
-        #expect(store.state.node(at: [siblingID]) == .stack(path: [.sibling, .sibling]))
+        #expect(store.state.node(at: [.branch(featureID)]) == .stack(path: [.feature(.home)]))
+        #expect(store.state.node(at: [.branch(siblingID)]) == .stack(path: [.sibling, .sibling]))
     }
 
     @Test("A rebased feature plan rejects a subtree now owned by another feature")

@@ -223,7 +223,7 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
                 let tab = descriptor.tab
                 let scopeID = tab.routerScopeID
                 let scope = store.scope(
-                    at: resolvesBranches(of: rootScope) ? RouterScopePath([scopeID]) : .unresolvable
+                    at: resolvesBranches(of: rootScope) ? RouterScopePath([.branch(scopeID)]) : .unresolvable
                 )
                 let selectedImage = displayedSelection(for: selectedScope(in: rootScope)) == scopeID
                     ? tab.selectedSystemImage ?? tab.systemImage

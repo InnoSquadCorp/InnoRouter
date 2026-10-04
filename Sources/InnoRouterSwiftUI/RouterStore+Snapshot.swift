@@ -45,12 +45,15 @@ public extension RouterStore {
         using codec: RouterSnapshotCodec<R>,
         expectedRevision: UInt64? = nil
     ) async throws -> RouterOutcome<R> where R: Codable {
+        let executionPrecondition = authorizationPrecondition(request: nil, existing: nil)
         let restored = try await RouterSnapshotCodecExecutor(codec: codec).decode(data)
         return await perform(
             .apply(RouterPlan(state: restored)),
             context: .init(source: .restoration),
             expectedRevision: expectedRevision,
-            bypassesPolicies: false
+            bypassesPolicies: false,
+            lifetimeMutation: .replaceAll,
+            executionPrecondition: executionPrecondition
         )
     }
 
@@ -90,13 +93,16 @@ public extension RouterStore {
         expectedRevision: UInt64? = nil
     ) async throws -> RouterOutcome<R> where R: Codable {
         let capturedRevision = expectedRevision ?? revision
+        let executionPrecondition = authorizationPrecondition(request: nil, existing: nil)
         let restored = try await RouterSnapshotCodecExecutor(codec: codec).decode(data)
         let prepared = try tabTopology.reconciling(restored)
         return await perform(
             .apply(RouterPlan(state: prepared)),
             context: .init(source: .restoration),
             expectedRevision: capturedRevision,
-            bypassesPolicies: false
+            bypassesPolicies: false,
+            lifetimeMutation: .replaceAll,
+            executionPrecondition: executionPrecondition
         )
     }
 
@@ -134,6 +140,7 @@ public extension RouterStore {
         tabTopology: RouterTabRestorationTopology? = nil,
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async throws -> RouterRestorationOutcome<R> where R: Codable {
+        let executionPrecondition = authorizationPrecondition(request: nil, existing: executionPrecondition)
         let decoding = try await RouterSnapshotCodecExecutor(codec: codec).decode(
             data,
             recovery: recovery
@@ -179,6 +186,7 @@ public extension RouterStore {
             bypassesPolicies: false,
             transitionID: transitionID,
             requestRootID: requestRootID,
+            lifetimeMutation: .replaceAll,
             executionPrecondition: executionPrecondition
         )
         return RouterRestorationOutcome(

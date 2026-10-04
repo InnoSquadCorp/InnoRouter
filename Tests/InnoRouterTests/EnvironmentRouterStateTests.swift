@@ -143,7 +143,7 @@ struct EnvironmentRouterStateTests {
         for index in 0..<500 {
             weak var released: RouterScope<EnvironmentStateRoute>?
             do {
-                let scope = store.scope(at: [RouterScopeID("temporary-\(index)")])
+                let scope = store.scope(at: [.branch(RouterScopeID("temporary-\(index)"))])
                 released = scope
             }
             #expect(released == nil)

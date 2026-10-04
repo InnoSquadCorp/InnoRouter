@@ -92,6 +92,21 @@ public enum RouterReducer {
             return
         }
 
+        if case .presentationScoped(let id, let childAction) = action {
+            guard case .stack(var stack) = node else {
+                throw RouterMutationError.expectedStack(path)
+            }
+            guard var presentation = stack.presentation, presentation.id == id else {
+                throw RouterMutationError.presentationIdentityMismatch(
+                    scope: path, expected: id, actual: stack.presentation?.id
+                )
+            }
+            try apply(childAction, to: &presentation.node, path: path.appendingPresentation(id))
+            stack.presentation = presentation
+            node = .stack(stack)
+            return
+        }
+
         switch action {
         case .select, .setBadge, .clearAllBadges,
              .setSplitVisibility, .setPreferredCompactColumn:
@@ -100,7 +115,7 @@ public enum RouterReducer {
              .pushMany, .pop, .popTo, .popToRoot, .replaceStack,
              .present, .dismissPresentation, .setPresentationDetent:
             try applyStackAction(action, to: &node, path: path)
-        case .scoped:
+        case .scoped, .presentationScoped:
             preconditionFailure("handled above")
         case .windowScoped, .immersiveSpaceScoped,
              .openWindow, .dismissWindow, .enterImmersiveSpace,
@@ -330,6 +345,7 @@ public enum RouterReducer {
                         path: path,
                         presentation: presentation
                     )
+                    visit(presentation.node, at: path.appendingPresentation(presentation.id))
                 }
             case .container(let container):
                 for branch in container.branches {

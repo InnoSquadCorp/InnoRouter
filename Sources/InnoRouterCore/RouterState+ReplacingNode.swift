@@ -48,7 +48,7 @@ public extension RouterState {
 
     private static func replaceNode(
         node: inout RouterNode<R>,
-        components: ArraySlice<RouterScopeID>,
+        components: ArraySlice<RouterScopeComponent>,
         replacement: RouterNode<R>,
         parentPath: RouterScopePath
     ) throws {
@@ -56,18 +56,38 @@ public extension RouterState {
             node = replacement
             return
         }
-        guard case .container(var container) = node else {
-            throw RouterMutationError.expectedContainer(parentPath)
+        switch first {
+        case .branch(let id):
+            guard case .container(var container) = node else {
+                throw RouterMutationError.expectedContainer(parentPath)
+            }
+            guard let index = container.branches.firstIndex(where: { $0.id == id }) else {
+                throw RouterMutationError.missingScope(id, parent: parentPath)
+            }
+            try replaceNode(
+                node: &container.branches[index].node,
+                components: components.dropFirst(),
+                replacement: replacement,
+                parentPath: parentPath.appending(id)
+            )
+            node = .container(container)
+        case .presentation(let id):
+            guard case .stack(var stack) = node else {
+                throw RouterMutationError.expectedStack(parentPath)
+            }
+            guard var presentation = stack.presentation, presentation.id == id else {
+                throw RouterMutationError.presentationIdentityMismatch(
+                    scope: parentPath, expected: id, actual: stack.presentation?.id
+                )
+            }
+            try replaceNode(
+                node: &presentation.node,
+                components: components.dropFirst(),
+                replacement: replacement,
+                parentPath: parentPath.appendingPresentation(id)
+            )
+            stack.presentation = presentation
+            node = .stack(stack)
         }
-        guard let index = container.branches.firstIndex(where: { $0.id == first }) else {
-            throw RouterMutationError.missingScope(first, parent: parentPath)
-        }
-        try replaceNode(
-            node: &container.branches[index].node,
-            components: components.dropFirst(),
-            replacement: replacement,
-            parentPath: parentPath.appending(first)
-        )
-        node = .container(container)
     }
 }
