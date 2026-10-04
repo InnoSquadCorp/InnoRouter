@@ -184,5 +184,4 @@ struct RouterLinkTargetPreservationTests {
         _ = await pipeline.decide(for: try #require(URL(string: "router://app/home")))
         #expect(inspected.withLock { $0 } == [.home])
     }
-
 }

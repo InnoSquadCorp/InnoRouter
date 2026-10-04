@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-import InnoRouter
+import InnoRouterCore
 @testable import InnoRouterInspector
 
 @Suite("Inspector diagnostic bundle import")
@@ -93,7 +93,7 @@ struct RouterInspectorDiagnosticBundleTests {
         let recorder = RouterInspectorRecorder()
         recorder.record(domain: .router, description: .init(name: "existing"))
         let entry = recorder.entries[0]
-        let data = try recorder.encodedDiagnosticBundle()
+        let data = try recorder.encodedDiagnosticBundle(platform: .macOS)
         #expect(throws: RouterInspectorImportError.duplicateEntryID(entry.id)) {
             try recorder.importDiagnosticBundle(from: data, policy: .append)
         }

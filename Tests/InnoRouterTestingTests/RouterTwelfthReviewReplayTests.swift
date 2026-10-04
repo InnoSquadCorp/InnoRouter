@@ -24,7 +24,47 @@ private let replayLeafMapping = RouterFeatureMapping<ReplayChild, ReplayLeaf>(
 
 @Suite @MainActor
 struct RouterTwelfthReviewReplayTests {
-    @Test func ordinaryFeatureActionMustReplayOwnership() async throws {
+    @Test("Authored declarative feature scenarios retain resolver and generation contracts")
+    func authoredFeatureScenarioUsesExplicitResolver() async throws {
+        let initial: RouterState<ReplayRoot> = .rootStack(path: [.feature(.home)])
+        let expected: RouterState<ReplayRoot> = .rootStack(path: [.feature(.home), .feature(.detail)])
+        let entry = RouterFeatureCatalogEntry(
+            id: replayMapping.id, namespace: replayMapping.namespace,
+            childRouteTypeName: String(describing: ReplayChild.self)
+        )
+        let fixture = RouterScenarioFixture(initialState: initial, steps: [
+            RouterScenarioStep(
+                action: RouterAction<ReplayRoot>.push(.feature(.detail)),
+                context: .init(),
+                requestSemantics: .featureAction(scope: .root, lifetime: .application, features: [entry]),
+                observedState: expected, observedRevision: 1, observedTerminal: .applied,
+                expectation: .init(state: expected, revision: 1, terminal: .applied)
+            ),
+        ])
+        #expect(throws: RouterScenarioSourceGenerationError.missingFeatureResolversFactory) {
+            _ = try RouterScenarioSourceGenerator.generate(fixture, routeTypeName: "ReplayRoot")
+        }
+        _ = try RouterScenarioSourceGenerator.generateFiles(
+            fixture, routeTypeName: "ReplayRoot", featureResolversFactory: "makeReplayResolvers"
+        )
+        let target = RouterTestStore(initialState: initial, exhaustivity: .off)
+        await #expect(throws: RouterScenarioReplayError.missingFeatureResolver(namespaces: [replayMapping.namespace])) {
+            _ = try await RouterScenarioRunner.replay(fixture, on: target)
+        }
+        await #expect(throws: RouterScenarioReplayError.duplicateFeatureResolver(namespaces: [replayMapping.namespace])) {
+            _ = try await RouterScenarioRunner.replay(
+                fixture, on: target, featureResolvers: [.init(replayMapping), .init(replayMapping)]
+            )
+        }
+        #expect(target.state == initial)
+        #expect(target.revision == 0)
+        _ = try await RouterScenarioRunner.replay(fixture, on: target, featureResolvers: [.init(replayMapping)])
+        #expect(target.state == expected)
+        #expect(target.revision == 1)
+        await target.finish()
+    }
+
+    @Test func ordinaryFeatureActionRecordsUnsupportedRuntimeOwnership() async throws {
         let initial: RouterState<ReplayRoot> = .rootStack(path: [.feature(.home)])
         let deferralID = RouterDeferralID()
         let config = RouterStoreConfiguration<ReplayRoot>(policies: [RouterPolicy(name: "approval") { transition in
@@ -53,29 +93,11 @@ struct RouterTwelfthReviewReplayTests {
             .init(state: $0.observedState, revision: $0.observedRevision, terminal: $0.observedTerminal, rejection: $0.observedRejection)
         })
         let decoded = try RouterScenarioFixture<ReplayRoot>.decode(from: JSONEncoder().encode(fixture))
-        let missingResolverTarget = RouterTestStore(
-            initialState: initial,
-            configuration: config,
-            exhaustivity: .off
-        )
-        await #expect(throws: (any Error).self) {
-            _ = try await RouterScenarioRunner.replay(decoded, on: missingResolverTarget)
-        }
-        #expect(missingResolverTarget.state == initial)
-        await missingResolverTarget.finish()
-
-        let target = RouterTestStore(initialState: initial, configuration: config, exhaustivity: .off)
-        do {
-            _ = try await RouterScenarioRunner.replay(decoded, on: target, featureResolvers: [.init(replayMapping)])
-        } catch {
-            Issue.record("Valid feature action capture cannot replay: \(error); state: \(target.state)")
-        }
-        #expect(target.state == .rootStack(path: [.sibling]))
-        target.skipReceivedEvents()
-        await target.finish()
+        #expect(source.state == .rootStack(path: [.sibling]))
+        try await assertCapturedReplayUnsupported(decoded, code: .runtimeExecutionPrecondition)
     }
 
-    @Test func featurePresentationAndCompletionRoundTripOwnership() async throws {
+    @Test func featurePresentationAndCompletionRecordRuntimeAuthority() async throws {
         let initial: RouterState<ReplayRoot> = .rootStack(path: [.feature(.home)])
         let source = RouterStore(initialState: initial)
         let recorder = RouterScenarioRecorder(store: source)
@@ -104,18 +126,8 @@ struct RouterTwelfthReviewReplayTests {
                 rejection: $0.observedRejection
             )
         })
-        let target = RouterTestStore<ReplayRoot>(
-            initialState: initial,
-            exhaustivity: .off
-        )
-        _ = try await RouterScenarioRunner.replay(
-            fixture,
-            on: target,
-            featureResolvers: [.init(replayMapping)]
-        )
-        #expect(target.state == initial)
-        target.skipReceivedEvents()
-        await target.finish()
+        #expect(source.state == initial)
+        try await assertCapturedReplayUnsupported(fixture, code: .runtimeExecutionPrecondition)
     }
 
     @Test func formatSixFeatureSemanticsAreRejectedBeforeReplay() async throws {
@@ -146,13 +158,13 @@ struct RouterTwelfthReviewReplayTests {
         let fixture = RouterScenarioFixture(initialState: initial, steps: [step])
         let encoded = try JSONEncoder().encode(fixture)
         let text = try #require(String(data: encoded, encoding: .utf8))
-            .replacingOccurrences(of: "\"formatVersion\":7", with: "\"formatVersion\":6")
+            .replacingOccurrences(of: "\"formatVersion\":8", with: "\"formatVersion\":6")
         #expect(throws: RouterScenarioFixtureError.self) {
             _ = try RouterScenarioFixture<ReplayRoot>.decode(from: Data(text.utf8))
         }
     }
 
-    @Test func expiredWindowLifetimeRoundTripsWithoutAuthorizingReplacement() async throws {
+    @Test func expiredWindowProjectionRejectsBeforeStoreCapture() async throws {
         let windowID = UUID()
         let first = try RouterState<ReplayRoot>(windows: [.init(
             id: windowID,
@@ -173,41 +185,24 @@ struct RouterTwelfthReviewReplayTests {
         let replacement = source.state
         let recorder = RouterScenarioRecorder(store: source)
         let live = await staleFeature.perform(.push(.detail))
-        guard case .rejected = live else {
-            Issue.record("Expected the stale Scene request to reject")
+        guard case .rejected(_, _, _, .featureProjection) = live else {
+            Issue.record("Expected the stale feature projection to reject before Store submission")
             return
         }
-        #expect(await recorder.waitUntilCaptured(1))
+        // An inert projection rejects before reaching the Store. Capture must
+        // not fabricate a submission; its unmatched rejection stays incomplete.
         let captured = recorder.stop()
-        guard case .featureAction(_, .expiredScene, _) = captured.steps.first?.requestSemantics else {
-            Issue.record("Expected an expired logical Scene lifetime")
-            return
+        #expect(captured.steps.isEmpty)
+        #expect(!captured.completeness.isComplete)
+        #expect(captured.completeness.unpairedRequestCount == 1)
+        #expect(throws: RouterScenarioSourceGenerationError.incomplete(captured.completeness)) {
+            _ = try RouterScenarioSourceGenerator.generate(captured, routeTypeName: "ReplayRoot")
         }
-        let fixture = try captured.settingExpectations(captured.steps.map {
-            .init(
-                state: $0.observedState,
-                revision: $0.observedRevision,
-                terminal: $0.observedTerminal,
-                rejection: $0.observedRejection
-            )
-        })
-        let target = RouterTestStore<ReplayRoot>(
-            initialState: replacement,
-            exhaustivity: .off
-        )
-        let outcomes = try await RouterScenarioRunner.replay(
-            fixture,
-            on: target,
-            featureResolvers: [.init(replayMapping)]
-        )
-        #expect(outcomes.count == 1)
-        #expect(target.state == replacement)
-        #expect(target.revision == 0)
-        target.skipReceivedEvents()
-        await target.finish()
+        #expect(source.state == replacement)
+        #expect(source.revision == captured.initialRevision)
     }
 
-    @Test func nestedFeatureMustReplayOuterOwnerFailure() async throws {
+    @Test func nestedFeatureCapturesOuterOwnerFailureWithoutReplayingTokens() async throws {
         let initial: RouterState<ReplayRoot> = .rootStack(path: [.feature(.leaf(.home))])
         let deferralID = RouterDeferralID()
         let config = RouterStoreConfiguration<ReplayRoot>(policies: [RouterPolicy(name: "approval") { transition in
@@ -226,15 +221,7 @@ struct RouterTwelfthReviewReplayTests {
         let fixture = try captured.settingExpectations(captured.steps.map {
             .init(state: $0.observedState, revision: $0.observedRevision, terminal: $0.observedTerminal, rejection: $0.observedRejection)
         })
-        let target = RouterTestStore(initialState: initial, configuration: config, exhaustivity: .off)
-        do {
-            _ = try await RouterScenarioRunner.replay(fixture, on: target, featureResolvers: [
-                RouterScenarioFeatureProjection(replayMapping).appending(replayLeafMapping).eraseToResolver()
-            ])
-        } catch {
-            Issue.record("Valid outer-owner rejection cannot replay: \(error)")
-        }
-        target.skipReceivedEvents()
-        await target.finish()
+        #expect(source.state == .rootStack(path: [.sibling]))
+        try await assertCapturedReplayUnsupported(fixture, code: .runtimeOwnershipReplacement)
     }
 }

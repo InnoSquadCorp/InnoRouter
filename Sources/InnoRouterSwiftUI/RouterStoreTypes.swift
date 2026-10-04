@@ -182,6 +182,18 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
     /// Cancellation is cooperative; synchronous MainActor work cannot be
     /// preempted by this limit or a timeout.
     public var maximumActivePolicyOperationCount: Int?
+    /// Maximum partial-restoration planners that may remain alive for this
+    /// Store, shared with history validation. One operation includes the whole
+    /// sequential validation/fallback plan, even after timeout or cancellation.
+    /// Its slot is returned only when application work actually terminates.
+    /// This is a separate budget from policy/authorization operations.
+    ///
+    /// Zero prevents planning; negative values normalize to zero. `nil`
+    /// explicitly opts out. The default of 8 is provisional and uncalibrated
+    /// for 7.0; workload and memory calibration remains a release gate.
+    /// Cancellation is cooperative. Neither this bound nor a timeout can
+    /// preempt synchronous MainActor application work.
+    public var maximumActiveRestorationOperationCount: Int?
     public var deferrals: RouterDeferralConfiguration
     public var eventBufferingPolicy: EventBufferingPolicy
     public var onEvent: (@MainActor @Sendable (RouterEvent<R>) -> Void)?
@@ -195,6 +207,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
         requestOverflowStrategy: RouterRequestOverflowStrategy = .rejectNewest,
         policyTimeout: Duration? = nil,
         maximumActivePolicyOperationCount: Int? = 64,
+        maximumActiveRestorationOperationCount: Int? = 8,
         deferrals: RouterDeferralConfiguration = .init(),
         eventBufferingPolicy: EventBufferingPolicy = .default,
         onEvent: (@MainActor @Sendable (RouterEvent<R>) -> Void)? = nil
@@ -206,6 +219,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
         self.requestOverflowStrategy = requestOverflowStrategy
         self.policyTimeout = policyTimeout
         self.maximumActivePolicyOperationCount = maximumActivePolicyOperationCount
+        self.maximumActiveRestorationOperationCount = maximumActiveRestorationOperationCount
         self.deferrals = deferrals
         self.eventBufferingPolicy = eventBufferingPolicy
         self.onEvent = onEvent

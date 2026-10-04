@@ -1,4 +1,5 @@
 import Foundation
+import InnoRouterCore
 
 /// Scans only envelope structure before decoding potentially large entry trees.
 /// Escaped keys are recognized and duplicate envelope members fail closed.
@@ -8,7 +9,7 @@ enum RouterInspectorImportPreflight {
         limits: RouterInspectorImportLimits,
         diagnosticBundle: Bool = false
     ) throws {
-        try validateByteCount(data, limits: limits)
+        try validateJSON(data, limits: limits)
         let bytes = Array(data)
         let snapshotStart: Int
         if diagnosticBundle {
@@ -30,8 +31,30 @@ enum RouterInspectorImportPreflight {
     /// Shared by the native file importer so a bundle never falls back to an
     /// unversioned snapshot after a version or validation failure.
     static func isDiagnosticBundle(_ data: Data, limits: RouterInspectorImportLimits) throws -> Bool {
-        try validateByteCount(data, limits: limits)
+        try validateJSON(data, limits: limits)
         return try member("formatVersion", in: Array(data), startingAt: 0) != nil
+    }
+
+    // Reject excessive nesting and token counts throughout the document, including
+    // unknown fields, before any entry tree reaches Foundation's decoder.
+    private static func validateJSON(_ data: Data, limits: RouterInspectorImportLimits) throws {
+        try validateByteCount(data, limits: limits)
+        do {
+            try RouterJSONPreflight.validate(
+                data, maximumBytes: limits.maximumEncodedByteCount,
+                maximumDepth: limits.maximumJSONDepth,
+                maximumTokens: limits.maximumJSONTokens, byteName: "encodedBytes"
+            )
+        } catch let error as RouterJSONPreflightError {
+            switch error {
+            case .limitExceeded("jsonDepth", let actual, let maximum):
+                throw RouterInspectorImportError.jsonDepthExceeded(actualDepth: actual, maximumDepth: maximum)
+            case .limitExceeded("jsonTokens", let actual, let maximum):
+                throw RouterInspectorImportError.jsonTokenLimitExceeded(actualCount: actual, maximumCount: maximum)
+            case .malformedJSON, .duplicateJSONKey, .limitExceeded:
+                throw RouterInspectorImportError.malformedSnapshotEnvelope
+            }
+        }
     }
 
     private static func validateByteCount(_ data: Data, limits: RouterInspectorImportLimits) throws {

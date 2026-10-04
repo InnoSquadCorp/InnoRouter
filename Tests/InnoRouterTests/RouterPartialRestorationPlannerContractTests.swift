@@ -30,7 +30,7 @@ private func makePlan(
     _ state: RouterState<PlannerRoute>,
     validator: RouterPartialRestorationValidator<PlannerRoute>
 ) async throws -> (RouterState<PlannerRoute>, RouterPartialRestorationReport) {
-    try await preparePartialRestoration(state, validator: validator, timeout: nil, sleep: { _ in })
+    try await preparePartialRestoration(state, validator: validator, operations: .init(maximumCount: 8), timeout: nil, sleep: { _ in })
 }
 
 @Suite("Production partial-restoration planner contracts", .serialized, .timeLimit(.minutes(1)))
@@ -381,7 +381,7 @@ struct RouterPartialRestorationRaceContractTests {
                 if route == .step(0) { return .replace(with: .step(10), reason: "migrated") }
                 if route == .step(1) { await validation.suspend() }
                 return .keep
-            }, timeout: .seconds(30), sleep: { _ in await timer.suspend() })
+            }, operations: .init(maximumCount: 8), timeout: .seconds(30), sleep: { _ in await timer.suspend() })
             successCount += 1
             return result
         }

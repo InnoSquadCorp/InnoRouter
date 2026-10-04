@@ -137,7 +137,6 @@ struct RouterPlanLinkAdmissionTests {
         #expect(store.revision == 0)
         #expect(store.state == .rootStack)
     }
-
 }
 
 @MainActor

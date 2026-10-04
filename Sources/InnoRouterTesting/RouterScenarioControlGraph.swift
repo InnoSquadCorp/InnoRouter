@@ -10,6 +10,7 @@ enum RouterScenarioControlGraph {
         _ fixture: RouterScenarioFixture<R>,
         featureResolvers: RouterScenarioFeatureResolverRegistry<R>? = nil
     ) throws {
+        try RouterScenarioReplayLimitation.validate(fixture.steps)
         let indexedSteps = fixture.steps.enumerated().map { ($0.element.requestID, $0.offset) }
         guard Dictionary(indexedSteps, uniquingKeysWith: { first, _ in first }).count
                 == fixture.steps.count else {

@@ -1,5 +1,4 @@
 import InnoRouterCore
-import InnoRouterSwiftUI
 
 func redactedRouterFormatter<R: Route>() -> RouterInspectorFormatter<RouterEvent<R>> {
     RouterInspectorFormatter { event in
@@ -191,6 +190,7 @@ private extension RouterRejectionReason {
         case .superseded: "superseded"
         case .queueOverflow: "queueOverflow"
         case .policyTimedOut: "policyTimedOut"
+        case .policyCapacityExceeded: "policyCapacityExceeded"
         case .deferralConflict: "deferralConflict"
         case .deferralNotFound: "deferralNotFound"
         case .deferralCapacityExceeded: "deferralCapacityExceeded"

@@ -32,9 +32,13 @@ executes storage operations off the main actor. Replacing the catalog requires
 ending the old driver's ownership and creating a new driver with the new
 topology; changing a view's catalog alone does not reconfigure a driver.
 
-Select finite byte limits for untrusted or externally replaceable files. Use
-the encoded limit for both `RouterFileSnapshotStorage` and the codec, and set a
-payload limit that fits the application's route state:
+The legacy `RouterSnapshotCodec` now defaults to finite provisional limits:
+4 MiB encoded, 2 MiB payload, 128 JSON object/array levels, and 262,144 tokens
+(including punctuation). `RouterFileSnapshotStorage` defaults to the same
+4 MiB encoded limit. These values have not been calibrated against every app;
+measure representative snapshots before choosing larger finite overrides.
+Use the encoded limit for both storage and the codec, and set a payload limit
+that fits the application's route state:
 
 ```swift compile
 import InnoRouter
@@ -56,10 +60,19 @@ let storage = try RouterFileSnapshotStorage(
 )
 ```
 
-The storage limit prevents a complete oversized file allocation. The codec
-also rejects oversized envelopes before JSON decoding and checks the payload
-after envelope decoding and after each migration. The numeric values above are
-examples, not framework defaults. Existing initializers remain unbounded.
+The storage limit prevents a complete oversized file allocation. Before typed
+JSON decoding, the codec screens the envelope and payload for byte, depth and
+token limits and duplicate keys. It screens each migration output before the
+next migration or final state decoder can consume it. The numeric values in the
+example are application-selected overrides. Explicit `limits: nil` opts out of
+the codec's byte limits and JSON preflight, so it does not provide the bounded
+decoding guarantee. Selecting nil on the file adapter separately opts out of
+its file bound. Keep original bytes and validate real legacy migration fixtures;
+finite defaults alone do not establish application-specific compatibility.
+
+Existing byte-limit error cases remain available. Complexity and duplicate-key
+failures use `RouterSnapshotError.preflight` with extensible, payload-free codes
+and details; handle unknown codes with a fallback. Recovery remains explicit.
 
 In the PR54 groundwork carried into InnoRouter 7, a file over the storage limit reaches the driver's
 `RouterSnapshotRecoveryPolicy` exactly like an envelope the codec rejects. The

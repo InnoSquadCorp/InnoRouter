@@ -229,11 +229,11 @@ struct RouterSplitHostTests {
             branches: [RouterBranch(id: "sidebar"), RouterBranch(id: "detail")]
         )))
         #expect(throws: RouterMutationError.incompatibleNavigationTopology(.root)) {
-            try splitHostLinkPlan(.detail(id: "link"), tabs, detailScopeID: "detail")
+            try splitHostLinkPlan(.detail(id: "link"), tabs)
         }
 
         let split = try makeSplitStore(threeColumn: false).state
-        let plan = try splitHostLinkPlan(.detail(id: "link"), split, detailScopeID: "detail")
+        let plan = try splitHostLinkPlan(.detail(id: "link"), split)
         #expect(plan.state.node(at: ["detail"]) == .stack(path: [.detail(id: "link")]))
     }
 

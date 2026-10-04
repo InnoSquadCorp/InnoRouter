@@ -60,6 +60,7 @@ private enum ScenarioControllerFailure: Error {
 private final class ScenarioCancellationProbe {
     var entered = false
     var cancelled = false
+    private var cancellationWaiter: CheckedContinuation<Bool, Never>?
 
     func wait() async -> RouterPolicyDecision {
         entered = true
@@ -67,8 +68,23 @@ private final class ScenarioCancellationProbe {
             try await Task.sleep(for: .seconds(30))
         } catch {
             cancelled = true
+            cancellationWaiter?.resume(returning: true)
+            cancellationWaiter = nil
         }
         return .allow
+    }
+
+    func waitUntilCancelled() async -> Bool {
+        await withTaskCancellationHandler {
+            guard !Task.isCancelled else { return false }
+            if cancelled { return true }
+            return await withCheckedContinuation { cancellationWaiter = $0 }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.cancellationWaiter?.resume(returning: false)
+                self?.cancellationWaiter = nil
+            }
+        }
     }
 }
 
@@ -108,7 +124,7 @@ private final class ImmediateCancellationTaskBox {
 @Suite("Router scenario capture")
 @MainActor
 struct RouterScenarioCaptureTests {
-    @Test("Scoped feature-plan semantics survive capture, encoding, generation, and replay")
+    @Test("Scoped feature plans preserve observations and declare replacement replay limits")
     func featurePlanSemanticsRoundTrip() async throws {
         let featureID: RouterScopeID = "feature"
         let siblingID: RouterScopeID = "sibling"
@@ -132,7 +148,7 @@ struct RouterScenarioCaptureTests {
         let source = RouterStore(initialState: initialState, configuration: configuration)
         let recorder = RouterScenarioRecorder(store: source)
         let feature = RouterFeatureScope(
-            parent: source.scope(at: [featureID]),
+            parent: source.scope(at: [.branch(featureID)]),
             mapping: capturedFeatureMapping
         )
 
@@ -142,7 +158,7 @@ struct RouterScenarioCaptureTests {
             Issue.record("Expected captured feature deferral")
             return
         }
-        _ = await source.perform(.push(.sibling).inScope([siblingID]))
+        _ = await source.perform(.push(.sibling).inScope([.branch(siblingID)]))
         let windowID = UUID()
         _ = await source.perform(.openWindow(.init(id: windowID, route: .window)))
         _ = await recorder.resolveDeferred(
@@ -158,7 +174,7 @@ struct RouterScenarioCaptureTests {
             Issue.record("Expected serializable scoped feature semantics")
             return
         }
-        #expect(scope == [featureID])
+        #expect(scope == [.branch(featureID)])
         #expect(features.map(\.namespace) == [capturedFeatureMapping.namespace])
         let fixture = try RouterScenarioFixture<CapturedParentRoute>.decode(
             from: JSONEncoder().encode(captured)
@@ -170,77 +186,13 @@ struct RouterScenarioCaptureTests {
                 rejection: $0.observedRejection
             )
         })
-        #expect(throws: RouterScenarioSourceGenerationError.missingFeatureResolversFactory) {
-            _ = try RouterScenarioSourceGenerator.generate(
-                fixture,
-                routeTypeName: "CapturedParentRoute"
-            )
-        }
-        _ = try RouterScenarioSourceGenerator.generate(
-            fixture,
-            routeTypeName: "CapturedParentRoute",
-            featureResolversFactory: "makeCapturedFeatureResolvers"
-        )
-
-        let unresolved = RouterTestStore(
-            initialState: initialState,
-            configuration: configuration,
-            exhaustivity: .off
-        )
-        await #expect(throws: RouterScenarioReplayError.missingFeatureResolver(
-            namespaces: [capturedFeatureMapping.namespace]
-        )) {
-            _ = try await RouterScenarioRunner.replay(fixture, on: unresolved)
-        }
-        #expect(unresolved.state == initialState)
-        #expect(unresolved.revision == 0)
-        unresolved.skipReceivedEvents()
-        await unresolved.finish()
-
-        let duplicate = RouterTestStore(
-            initialState: initialState,
-            configuration: configuration,
-            exhaustivity: .off
-        )
-        await #expect(throws: RouterScenarioReplayError.duplicateFeatureResolver(
-            namespaces: [capturedFeatureMapping.namespace]
-        )) {
-            _ = try await RouterScenarioRunner.replay(
-                fixture,
-                on: duplicate,
-                featureResolvers: [
-                    .init(capturedFeatureMapping),
-                    .init(capturedFeatureMapping),
-                ]
-            )
-        }
-        #expect(duplicate.state == initialState)
-        #expect(duplicate.revision == 0)
-        duplicate.skipReceivedEvents()
-        await duplicate.finish()
-
-        let target = RouterTestStore(
-            initialState: initialState,
-            configuration: configuration,
-            exhaustivity: .off
-        )
-        let outcomes = try await RouterScenarioRunner.replay(
-            fixture,
-            on: target,
-            featureResolvers: [.init(capturedFeatureMapping)]
-        )
-
-        #expect(outcomes.map(RouterScenarioTerminal.init) == [
-            .deferred, .applied, .applied, .applied,
-        ])
-        #expect(target.state.node(at: [featureID]) == .stack(path: [.feature(.detail(9))]))
-        #expect(target.state.node(at: [siblingID]) == .stack(path: [.sibling, .sibling]))
-        #expect(target.state.windows.map(\.id) == [windowID])
-        target.skipReceivedEvents()
-        await target.finish()
+        #expect(source.state.node(at: [.branch(featureID)]) == .stack(path: [.feature(.detail(9))]))
+        #expect(source.state.node(at: [.branch(siblingID)]) == .stack(path: [.sibling, .sibling]))
+        #expect(source.state.windows.map(\.id) == [windowID])
+        try await assertCapturedReplayUnsupported(fixture, code: .runtimeOwnershipReplacement)
     }
 
-    @Test("Feature-plan replay rejects a replaced feature owner")
+    @Test("Replaced feature owners reject live work and captured replay remains unsupported")
     func featurePlanReplayRejectsReplacedOwner() async throws {
         let featureID: RouterScopeID = "feature"
         let initialState = try RouterState<CapturedParentRoute>(root: .container(
@@ -263,7 +215,7 @@ struct RouterScenarioCaptureTests {
         let source = RouterStore(initialState: initialState, configuration: configuration)
         let recorder = RouterScenarioRecorder(store: source)
         let feature = RouterFeatureScope(
-            parent: source.scope(at: [featureID]),
+            parent: source.scope(at: [.branch(featureID)]),
             mapping: capturedFeatureMapping
         )
 
@@ -274,7 +226,7 @@ struct RouterScenarioCaptureTests {
             return
         }
         guard case .applied = await source.perform(
-            .replaceStack([.sibling]).inScope([featureID])
+            .replaceStack([.sibling]).inScope([.branch(featureID)])
         ) else {
             Issue.record("Expected replacement owner to apply")
             return
@@ -302,27 +254,12 @@ struct RouterScenarioCaptureTests {
                 rejection: $0.observedRejection
             )
         })
-        let target = RouterTestStore(
-            initialState: initialState,
-            configuration: configuration,
-            exhaustivity: .off
-        )
-        let outcomes = try await RouterScenarioRunner.replay(
-            fixture,
-            on: target,
-            featureResolvers: [.init(capturedFeatureMapping)]
-        )
-
-        #expect(outcomes.map(RouterScenarioTerminal.init) == [
-            .deferred, .applied, .rejected,
-        ])
-        #expect(target.state.node(at: [featureID]) == .stack(path: [.sibling]))
-        #expect(target.revision == 1)
-        target.skipReceivedEvents()
-        await target.finish()
+        #expect(source.state.node(at: [.branch(featureID)]) == .stack(path: [.sibling]))
+        #expect(source.revision == 1)
+        try await assertCapturedReplayUnsupported(fixture, code: .runtimeOwnershipReplacement)
     }
 
-    @Test("Nested feature mappings round-trip as one ownership resolver chain")
+    @Test("Nested feature metadata round-trips without claiming runtime ownership replay")
     func nestedFeaturePlanResolverRoundTrip() async throws {
         let initial: RouterState<CapturedParentRoute> = .rootStack(
             path: [.feature(.leaf(.home))]
@@ -357,21 +294,9 @@ struct RouterScenarioCaptureTests {
                 rejection: $0.observedRejection
             )
         })
-        let resolver = RouterScenarioFeatureProjection(capturedFeatureMapping)
-            .appending(capturedLeafMapping)
-            .eraseToResolver()
-        let target = RouterTestStore(initialState: initial, exhaustivity: .off)
-
-        _ = try await RouterScenarioRunner.replay(
-            fixture,
-            on: target,
-            featureResolvers: [resolver]
-        )
-
-        #expect(target.state == .rootStack(path: [.feature(.leaf(.detail))]))
-        #expect(target.revision == 1)
-        target.skipReceivedEvents()
-        await target.finish()
+        #expect(source.state == .rootStack(path: [.feature(.leaf(.detail))]))
+        #expect(source.revision == 1)
+        try await assertCapturedReplayUnsupported(fixture, code: .runtimeOwnershipReplacement)
     }
 
     @Test(
@@ -677,16 +602,16 @@ struct RouterScenarioCaptureTests {
 
         let futureFormat = try #require(
             String(data: encoded, encoding: .utf8)?.replacingOccurrences(
-                of: "\"formatVersion\":7",
-                with: "\"formatVersion\":8"
+                of: "\"formatVersion\":8",
+                with: "\"formatVersion\":9"
             ).data(using: .utf8)
         )
-        #expect(throws: RouterScenarioFixtureError.unsupportedFormatVersion(8)) {
+        #expect(throws: RouterScenarioFixtureError.unsupportedFormatVersion(9)) {
             _ = try RouterScenarioFixture<CapturedRoute>.decode(from: futureFormat)
         }
         let legacyFormat = try #require(
             String(data: encoded, encoding: .utf8)?.replacingOccurrences(
-                of: "\"formatVersion\":7",
+                of: "\"formatVersion\":8",
                 with: "\"formatVersion\":4"
             ).data(using: .utf8)
         )
@@ -705,7 +630,7 @@ struct RouterScenarioCaptureTests {
         #expect(throws: DecodingError.self) {
             _ = try RouterScenarioFixture<CapturedRoute>.decode(from: missingSemantics)
         }
-        for requiredKey in ["expectedRevision", "cancellationOrigin"] {
+        for requiredKey in ["expectedRevision", "cancellationOrigin", "replayLimitation"] {
             var missingFieldObject = try #require(
                 JSONSerialization.jsonObject(with: encoded) as? [String: Any]
             )
@@ -2154,7 +2079,7 @@ struct RouterScenarioCaptureTests {
         await store.finish()
     }
 
-    @Test("Cancelling replay propagates to the active production request")
+    @Test("Cancelling replay propagates to the active production request", .timeLimit(.minutes(1)))
     func replayCancellationCleansUpOwnedRequests() async {
         let requestID = RouterTransitionID()
         let fixture = RouterScenarioFixture<CapturedRoute>(
@@ -2193,7 +2118,8 @@ struct RouterScenarioCaptureTests {
         let replay = Task { @MainActor in
             try await RouterScenarioRunner.replay(fixture, on: store)
         }
-        while !probe.entered { await Task.yield() }
+        defer { replay.cancel() }
+        while !probe.entered, !Task.isCancelled { await Task.yield() }
 
         replay.cancel()
         do {
@@ -2204,7 +2130,9 @@ struct RouterScenarioCaptureTests {
         } catch {
             Issue.record("Expected CancellationError, got \(error)")
         }
-        #expect(probe.cancelled)
+        // Request terminal and policy-task exit are intentionally distinct.
+        // Wait for the observed cancellation rather than relying on task order.
+        #expect(await probe.waitUntilCancelled())
         #expect(store.state == .rootStack)
         #expect(store.revision == 0)
         store.skipReceivedEvents()

@@ -205,8 +205,10 @@ a later activation cannot be modified by their delayed completion.
 
 The byte limits above are application-selected examples. File storage rejects
 oversized input while reading, and the codec independently bounds the encoded
-envelope, decoded payload, and every migration result. Existing initializers
-remain unbounded for source and behavior compatibility. In the PR54 groundwork carried into 7.0, a file
+envelope, decoded payload, and every migration result. The provisional 7.0
+defaults are 4 MiB encoded/file bytes and 2 MiB decoded payload, with JSON depth
+128 and 262,144 tokens. Explicit nil opts out; actual-app calibration remains
+a release gate. In the PR54 groundwork carried into 7.0, a file
 over the storage limit reaches the driver's recovery policy exactly like an
 envelope the codec rejects: the default `.fail` fails activation and preserves
 the file, while `.use` restores the application's fallback through normal

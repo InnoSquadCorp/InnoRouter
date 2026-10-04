@@ -64,36 +64,6 @@ public struct RouterGraphSnapshotLimits: Hashable, Sendable {
     public static let provisional = try! Self()
 }
 
-/// Redacted failures: application codec/migration error descriptions and route
-/// payloads are deliberately excluded from diagnostic values.
-public enum RouterGraphSnapshotError: Error, Hashable, Sendable {
-    case invalidLimit(name: String, value: Int)
-    case limitExceeded(name: String, actual: Int, maximum: Int)
-    case malformedJSON
-    case duplicateJSONKey
-    case invalidEnvelope
-    case unsupportedFormat(snapshot: Int, current: Int)
-    case invalidSchema
-    case schemaMismatch
-    case futureSchema(snapshot: Int, current: Int)
-    case invalidMigration(from: Int, to: Int)
-    case duplicateMigration(Int)
-    case missingMigration(from: Int, current: Int)
-    case migrationFailed(from: Int, to: Int)
-    case invalidGraph
-    case duplicateRecord(kind: String)
-    case danglingReference(kind: String)
-    case multipleOwners(kind: String)
-    case orphanRecord(kind: String)
-    case cycle
-    case unknownRouteKey
-    case unsupportedRoutePayloadVersion
-    case routeEncodingFailed
-    case routeDecodingFailed
-    case encodingFailed
-    case invalidState
-}
-
 /// An app-owned stable key/version and opaque payload. No enum case name is
 /// inferred. Payload bytes are not necessarily JSON; the application owns them.
 public struct RouterGraphRoutePayload: Codable, Hashable, Sendable {

@@ -24,8 +24,12 @@ Version 6.1.0 adds explicit tab-topology restoration for apps whose tab
 catalog changes between launches. `RouterTabRestorationTopology` adds missing
 current scopes while preserving saved paths and orphaned branches. Partial
 restoration reports describe structural changes through `topologyChanges`.
-It also adds opt-in snapshot byte limits, automatic partial validation,
-and explicit `@TabItem` identifiers. Existing 6.0 initialization defaults remain unchanged.
+It also added opt-in snapshot byte limits, automatic partial validation,
+and explicit `@TabItem` identifiers while preserving the 6.0 defaults at that
+time. In 7.0, legacy snapshot codecs and file storage have finite provisional
+defaults. Codec JSON depth, token and duplicate-key preflight also runs before
+typed decoding and after every migration. Use measured finite overrides when
+needed; an explicit nil opt-out is excluded from the bounded-decoding guarantee.
 
 Read <doc:Restoring-Tab-Navigation> for catalog ownership, outcome handling,
 and a complete, compiled example with file persistence.

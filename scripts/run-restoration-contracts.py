@@ -12,6 +12,8 @@ import json
 import os
 import platform
 import re
+import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
 
@@ -21,13 +23,23 @@ parser.add_argument('--filter')
 parser.add_argument('--jobs', type=int, default=1)
 parser.add_argument('--configuration', choices=['debug', 'release'], default='debug')
 parser.add_argument('--warnings-as-errors', action='store_true')
-parser.add_argument('--mutation', choices=['skip-presentation-children', 'extend-replacement-bound', 'drop-orphans'])
+parser.add_argument('--mutation', choices=['skip-presentation-children', 'extend-replacement-bound', 'drop-orphans', 'bypass-validator-admission'])
 args = parser.parse_args()
 repo = Path(__file__).resolve().parent.parent
 scratch = args.scratch.resolve()
 if scratch == repo or (repo in scratch.parents and '.build' not in scratch.parts):
     raise SystemExit('Use an external scratch directory or a path below .build')
 scratch.mkdir(parents=True, exist_ok=True)
+# Preserve every attempt, including negative controls, before restaging.
+if (scratch / 'provenance.json').exists() or (scratch / 'test.log').exists():
+    archive = scratch / 'runs' / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    archive.mkdir(parents=True)
+    for name in ['provenance.json', 'test.log', 'Package.swift']:
+        if (scratch / name).exists():
+            shutil.copy2(scratch / name, archive / name)
+    for name in ['Sources', 'Tests']:
+        if (scratch / name).exists():
+            shutil.copytree(scratch / name, archive / name)
 manifest = {
     'scope': 'production Foundation/Core partial-restoration planning and topology only',
     'platform': platform.platform(),
@@ -35,7 +47,7 @@ manifest = {
     'source_revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip(),
     'working_tree_status': subprocess.check_output(['git', 'status', '--short'], cwd=repo, text=True),
     'excluded': ['Store.apply and revision/policy/authorization integration', 'catalog adapters',
-                 'native presentation lifetime/waiters', 'SwiftUI', 'validator admission/resource bounds',
+                 'native presentation lifetime/waiters', 'SwiftUI',
                  'full package', 'minimum Swift toolchain', 'release'],
     'mutation': args.mutation,
     'files': [], 'substitutions': [],
@@ -63,6 +75,22 @@ def stage(source, destination):
         'extend-replacement-bound': ('RouterPartialRestoration.swift',
             b'private static var maximumReplacementCount: Int { 8 }',
             b'private static var maximumReplacementCount: Int { 9 }'),
+        'bypass-validator-admission': ('RouterPartialRestoration.swift',
+            b'''    guard !Task.isCancelled else { throw RouterPartialRestorationError.cancelled }
+    let reservation: RouterOperationRegistry.Reservation
+    switch operations.reserve() {
+    case .success(let admitted):
+        reservation = admitted
+    case .failure(let capacity):
+        throw RouterPartialRestorationError.operation(.capacityExceeded(
+            maximumCount: capacity.limit,
+            activeCount: operations.activeCount
+        ))
+    }
+    let race = RouterTimeoutRace<PartialRestorationPlanResult<R>>()
+    let result = await race.run(timeout: timeout, sleep: sleep, reservation: reservation) {''',
+            b'''    let race = RouterTimeoutRace<PartialRestorationPlanResult<R>>()
+    let result = await race.run(timeout: timeout, sleep: sleep) {'''),
         'drop-orphans': ('RouterTabRestorationTopology.swift',
             b'branches: current + orphans,', b'branches: current + Array(orphans.prefix(0)),')
     }
@@ -94,9 +122,9 @@ for directory in [core, planner, tests]:
         old.unlink()
 for source in sorted((repo / 'Sources/InnoRouterCore').glob('*.swift')):
     stage(source, core / source.name)
-for name in ['RouterPartialRestoration.swift', 'RouterTabRestorationTopology.swift']:
+for name in ['RouterPartialRestoration.swift', 'RouterRestorationOperationFailure.swift', 'RouterTabRestorationTopology.swift']:
     stage(repo / 'Sources/InnoRouterSwiftUI' / name, planner / name)
-for name in ['RouterPartialRestorationPlannerContractTests.swift', 'RouterTabRestorationTopologyContractTests.swift']:
+for name in ['RouterPartialRestorationPlannerContractTests.swift', 'RouterTabRestorationTopologyContractTests.swift', 'RouterRestorationOperationBudgetContractTests.swift']:
     source = repo / 'Tests/InnoRouterTests' / name
     stage(source, tests / source.name)
 if not list(tests.glob('*.swift')):

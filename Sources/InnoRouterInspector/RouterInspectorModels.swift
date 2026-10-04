@@ -7,6 +7,7 @@ func routerInspectorLocalized(_ key: String, locale: Locale? = nil) -> String {
     if let catalog = RouterInspectorLocalization.sourceCatalog {
         return catalog.localized(key, preferredLanguages: locale.map { [$0.identifier] } ?? Locale.preferredLanguages)
     }
+    #if canImport(Darwin)
     guard let locale else {
         return String(localized: String.LocalizationValue(key), bundle: .module)
     }
@@ -21,6 +22,11 @@ func routerInspectorLocalized(_ key: String, locale: Locale? = nil) -> String {
     guard language != "en" else { return key }
     let bundle = RouterInspectorLocalization.bundles[language] ?? .module
     return String(localized: String.LocalizationValue(key), bundle: bundle, locale: locale)
+    #else
+    // Corelibs Foundation has no String.LocalizationValue. The source catalog
+    // above remains the primary path for unchanged SwiftPM resources.
+    return Bundle.module.localizedString(forKey: key, value: key, table: nil)
+    #endif
 }
 
 enum RouterInspectorLocalization {
@@ -213,17 +219,39 @@ public enum RouterInspectorImportPolicy: Sendable, Hashable {
     case append
 }
 
+/// Limits the encoded bytes returned by the recorder's export methods.
+///
+/// This is independent of import limits and timeline entry capacity. The
+/// provisional 8 MiB default is not a measured memory budget. Validation takes
+/// place after JSONEncoder finishes: it bounds returned/persistable bytes, not
+/// the encoder's transient allocations or the recorder's retained state.
+public struct RouterInspectorExportLimits: Sendable, Hashable {
+    public let maximumEncodedByteCount: Int
+
+    public init(maximumEncodedByteCount: Int = 8 * 1_024 * 1_024) {
+        self.maximumEncodedByteCount = max(1, maximumEncodedByteCount)
+    }
+
+    public static let `default` = Self()
+}
+
 /// Resource limits applied before an imported session is decoded.
 public struct RouterInspectorImportLimits: Sendable, Hashable {
     public var maximumEncodedByteCount: Int
     public var maximumEntryCount: Int
+    public var maximumJSONDepth: Int
+    public var maximumJSONTokens: Int
 
     public init(
         maximumEncodedByteCount: Int = 8 * 1_024 * 1_024,
-        maximumEntryCount: Int = 5_000
+        maximumEntryCount: Int = 5_000,
+        maximumJSONDepth: Int = 64,
+        maximumJSONTokens: Int = 524_288
     ) {
         self.maximumEncodedByteCount = max(1, maximumEncodedByteCount)
         self.maximumEntryCount = max(1, maximumEntryCount)
+        self.maximumJSONDepth = max(1, maximumJSONDepth)
+        self.maximumJSONTokens = max(1, maximumJSONTokens)
     }
 
     public static let `default` = Self()
@@ -234,6 +262,8 @@ public enum RouterInspectorImportError: Error, Sendable, Hashable {
     case duplicateEntryID(UUID)
     case encodedDataTooLarge(actualByteCount: Int, maximumByteCount: Int)
     case tooManyEntries(actualCount: Int, maximumCount: Int)
+    case jsonDepthExceeded(actualDepth: Int, maximumDepth: Int)
+    case jsonTokenLimitExceeded(actualCount: Int, maximumCount: Int)
     case malformedSnapshotEnvelope
 }
 

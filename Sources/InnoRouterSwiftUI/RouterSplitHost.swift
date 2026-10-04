@@ -86,8 +86,6 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
 
     @State private var ownedStore: RouterStore<R>?
     private let suppliedStore: RouterStore<R>?
-    private let sidebarScopeID: RouterScopeID
-    private let detailScopeID: RouterScopeID
     private let linkHandling: RouterLinkHandling<R>?
     private let sidebarRoot: () -> SidebarRoot
     private let detailRoot: () -> DetailRoot
@@ -111,8 +109,6 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
                 RouterBranch(id: layout.detailScopeID, node: .stack(path: initialPath)),
             ]
         )
-        self.sidebarScopeID = layout.sidebarScopeID
-        self.detailScopeID = layout.detailScopeID
         self.linkHandling = linkHandling
         self.sidebarRoot = sidebar
         self.detailRoot = root
@@ -131,9 +127,6 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
         @ViewBuilder sidebar: @escaping () -> SidebarRoot,
         @ViewBuilder root: @escaping () -> DetailRoot
     ) {
-        let columns = Self.columnScopeIDs(in: store)
-        self.sidebarScopeID = columns.sidebar
-        self.detailScopeID = columns.detail
         self.linkHandling = linkHandling
         self.sidebarRoot = sidebar
         self.detailRoot = root
@@ -155,11 +148,12 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
     ) -> some View {
         // A same-named branch of another root shape belongs to that container,
         // so the columns bind to an unresolvable scope that neither shows nor
-        // writes it. The container style is observed on its own and re-renders
-        // this host when the root changes shape, such as a later split restore.
+        // writes it. Observe both style and split metadata here so the same
+        // mounted host follows restores that change shape or column mapping.
         let resolvesColumns = rootScope.observedContainerStyle == .split
-        let sidebarScope = store.scope(at: resolvesColumns ? [sidebarScopeID] : .unresolvable)
-        let detailScope = store.scope(at: resolvesColumns ? [detailScopeID] : .unresolvable)
+        let columns = Self.columnScopeIDs(in: rootScope.observedSplitState)
+        let sidebarScope = store.scope(at: resolvesColumns ? [columns.sidebar] : .unresolvable)
+        let detailScope = store.scope(at: resolvesColumns ? [columns.detail] : .unresolvable)
 
         return NavigationSplitView(
             columnVisibility: splitVisibilityBinding(rootScope),
@@ -185,23 +179,22 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
             scope: rootScope,
             handling: linkHandling
         ) { route, state in
-            try splitHostLinkPlan(route, state, detailScopeID: detailScopeID)
+            try splitHostLinkPlan(route, state)
         }
     }
 
-    /// Resolves the columns this host renders from a supplied store.
+    /// Resolves the columns this host renders from the current split metadata.
     ///
     /// Exact restoration can replace the root with any valid decoded shape,
-    /// and this `View` initializer re-runs on every parent body pass, so a
-    /// mismatch renders rather than traps. A three-column split keeps its
+    /// so each body evaluation follows the current mapping and a mismatch
+    /// renders rather than traps. A three-column split keeps its
     /// sidebar and detail and leaves its content branch unused. Any other root
     /// falls back to the standard scope IDs, and while the root is not a split
     /// container the columns render their roots over an unresolvable scope,
     /// so the host neither shows nor writes a same-named branch of that root.
     private static func columnScopeIDs(
-        in store: RouterStore<R>
+        in split: RouterSplitState?
     ) -> (sidebar: RouterScopeID, detail: RouterScopeID) {
-        let split = rootSplitState(of: store.state)
         if split == nil || split?.content != nil {
             RouterHostTopologyDiagnostics.reportMismatch(
                 host: "RouterSplitHost",
@@ -241,9 +234,6 @@ public struct RouterThreeColumnSplitHost<
 >: View {
     @State private var ownedStore: RouterStore<R>?
     private let suppliedStore: RouterStore<R>?
-    private let sidebarScopeID: RouterScopeID
-    private let contentScopeID: RouterScopeID
-    private let detailScopeID: RouterScopeID
     private let linkHandling: RouterLinkHandling<R>?
     private let sidebarRoot: () -> SidebarRoot
     private let contentRoot: () -> ContentRoot
@@ -271,9 +261,6 @@ public struct RouterThreeColumnSplitHost<
                 RouterBranch(id: layout.detailScopeID, node: .stack(path: initialDetailPath)),
             ]
         )
-        self.sidebarScopeID = layout.sidebarScopeID
-        self.contentScopeID = layout.contentScopeID
-        self.detailScopeID = layout.detailScopeID
         self.linkHandling = linkHandling
         self.sidebarRoot = sidebar
         self.contentRoot = content
@@ -294,10 +281,6 @@ public struct RouterThreeColumnSplitHost<
         @ViewBuilder content: @escaping () -> ContentRoot,
         @ViewBuilder detail: @escaping () -> DetailRoot
     ) {
-        let columns = Self.columnScopeIDs(in: store)
-        self.sidebarScopeID = columns.sidebar
-        self.contentScopeID = columns.content
-        self.detailScopeID = columns.detail
         self.linkHandling = linkHandling
         self.sidebarRoot = sidebar
         self.contentRoot = content
@@ -321,9 +304,10 @@ public struct RouterThreeColumnSplitHost<
         // Columns resolve only over a split root, for the same reason as
         // ``RouterSplitHost``.
         let resolvesColumns = rootScope.observedContainerStyle == .split
-        let sidebarScope = store.scope(at: resolvesColumns ? [sidebarScopeID] : .unresolvable)
-        let contentScope = store.scope(at: resolvesColumns ? [contentScopeID] : .unresolvable)
-        let detailScope = store.scope(at: resolvesColumns ? [detailScopeID] : .unresolvable)
+        let columns = Self.columnScopeIDs(in: rootScope.observedSplitState)
+        let sidebarScope = store.scope(at: resolvesColumns ? [columns.sidebar] : .unresolvable)
+        let contentScope = store.scope(at: resolvesColumns ? [columns.content] : .unresolvable)
+        let detailScope = store.scope(at: resolvesColumns ? [columns.detail] : .unresolvable)
 
         return NavigationSplitView(
             columnVisibility: splitVisibilityBinding(rootScope),
@@ -356,7 +340,7 @@ public struct RouterThreeColumnSplitHost<
             scope: rootScope,
             handling: linkHandling
         ) { route, state in
-            try splitHostLinkPlan(route, state, detailScopeID: detailScopeID)
+            try splitHostLinkPlan(route, state)
         }
     }
 
@@ -367,16 +351,16 @@ public struct RouterThreeColumnSplitHost<
         makeSplitHostInitialState(split: split, branches: branches, hostName: "three-column")
     }
 
-    /// Resolves the columns this host renders from a supplied store.
+    /// Resolves the columns this host renders from the current split metadata.
     ///
-    /// A mismatched root renders rather than traps, for the same reason as
+    /// Each body evaluation follows the current mapping. A mismatched root
+    /// renders rather than traps, for the same reason as
     /// ``RouterSplitHost``. A two-column split keeps its sidebar and detail,
     /// and every column the root does not describe falls back to the standard
     /// layout's scope ID.
     private static func columnScopeIDs(
-        in store: RouterStore<R>
+        in split: RouterSplitState?
     ) -> (sidebar: RouterScopeID, content: RouterScopeID, detail: RouterScopeID) {
-        let split = rootSplitState(of: store.state)
         if split?.content == nil {
             RouterHostTopologyDiagnostics.reportMismatch(
                 host: "RouterThreeColumnSplitHost",
@@ -439,16 +423,16 @@ func rootSplitState<R: Route>(of state: RouterState<R>) -> RouterSplitState? {
 ///
 /// A root of another shape can carry a branch named like the detail column.
 /// The host renders over such a root without owning its topology, so a link
-/// must not push into that branch.
+/// must not push into that branch. Derive the detail mapping from this exact
+/// state, since a restore can commit before the host renders its new columns.
 func splitHostLinkPlan<R: Route>(
     _ route: R,
-    _ state: RouterState<R>,
-    detailScopeID: RouterScopeID
+    _ state: RouterState<R>
 ) throws -> RouterPlan<R> {
-    guard rootSplitState(of: state) != nil else {
+    guard let split = rootSplitState(of: state) else {
         throw RouterMutationError.incompatibleNavigationTopology(.root)
     }
-    let action = RouterAction<R>.push(route).inScope(detailScopeID)
+    let action = RouterAction<R>.push(route).inScope(split.detail)
     return RouterPlan(state: try RouterReducer.reduce(action, from: state))
 }
 

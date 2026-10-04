@@ -85,7 +85,8 @@ def stage(source, destination):
     })
 
 
-modules = ['InnoRouterCore', 'InnoRouterDeepLink', 'InnoRouterSwiftUI']
+modules = ['InnoRouterCore', 'InnoRouterDeepLink', 'InnoRouterSwiftUI', 'InnoRouterSystem']
+system_sources = {'RouterObservability.swift', 'RouterSignpostTracker.swift'}
 for module in modules:
     directory = scratch / 'Sources' / module
     directory.mkdir(parents=True, exist_ok=True)
@@ -97,6 +98,8 @@ for module in modules:
     else:
         sources = sorted((repo / 'Sources' / module).glob('*.swift'))
     for source in sources:
+        if module == 'InnoRouterSystem' and source.name not in system_sources:
+            continue
         if module == 'InnoRouterSwiftUI':
             if source.name == 'RouterTabRestorationTopology+Catalog.swift':
                 continue
@@ -132,7 +135,7 @@ manifest['substitutions'].append({
 umbrella_source = repo / 'Sources/InnoRouterUmbrella/InnoRouter.swift'
 umbrella_data = umbrella_source.read_bytes()
 umbrella_original = hashlib.sha256(umbrella_data).hexdigest()
-for excluded_module in ['InnoRouterMacros', 'InnoRouterSystem']:
+for excluded_module in ['InnoRouterMacros']:
     marker = ('@_exported import ' + excluded_module + '\n').encode()
     if umbrella_data.count(marker) != 1:
         raise SystemExit('Umbrella adapter export boundary changed')
@@ -144,23 +147,54 @@ manifest['files'].append({'path': str(umbrella_source.relative_to(repo)),
     'original_sha256': umbrella_original,
     'compiled_sha256': hashlib.sha256(umbrella_data).hexdigest()})
 manifest['substitutions'].append({'file': str(umbrella_source.relative_to(repo)),
-    'reason': 'Exclude InnoRouterMacros and native InnoRouterSystem exports from reader-only portable umbrella; full product unverified'})
+    'reason': 'Exclude Macros from the actual umbrella; System target contains only pure diagnostics/tracker, with native factories excluded; full product unverified'})
 tests = scratch / 'Tests/StoreEngineContracts'
 tests.mkdir(parents=True, exist_ok=True)
 for old in tests.glob('*.swift'):
     old.unlink()
 selected_tests = [
     'RouterPolicyOperationBudgetTests.swift',
+    'RouterRestorationOperationBudgetContractTests.swift',
+    'RouterRestorationOperationBudgetTests.swift',
     'RouterPolicyOperationDefaultBoundRegressionTests.swift',
-    'ManualRuntimeDependencies.swift', 'RouterRuntimeDependencyTests.swift',
-    'RouterFeatureMappingTests.swift', 'RouterHistoryTests.swift',
-    'RouterPlanLinkAdmissionTests.swift', 'RouterLinkPipelineTests.swift',
-    'RouterStoreTests.swift', 'RouterTestEventWaiting.swift',
-    'RouterPartialRestorationTests.swift', 'RouterRestorationBoundaryRegressionTests.swift',
-    'RouterRestorationStorageCancellationTests.swift', 'RouterSnapshotLimitTests.swift',
-    'RouterTabRestorationTopologyTests.swift', 'RouterTwelfthReviewRegressionTests.swift',
-    'RouterPartialRestorationPlannerContractTests.swift', 'RouterTabRestorationTopologyContractTests.swift',
-    'RouterFileStorageContractTests.swift', 'RouterDurabilityStorageContractTests.swift',
+    'ManualRuntimeDependencies.swift',
+    'RouterRuntimeDependencyTests.swift',
+    'RouterFeatureMappingTests.swift',
+    'RouterHistoryTests.swift',
+    'RouterPlanLinkAdmissionTests.swift',
+    'RouterLinkPipelineTests.swift',
+    'RouterStoreTests.swift',
+    'RouterTestEventWaiting.swift',
+    'RouterPartialRestorationTests.swift',
+    'RouterRestorationBoundaryRegressionTests.swift',
+    'RouterRestorationStorageCancellationTests.swift',
+    'RouterSnapshotLimitTests.swift',
+    'RouterTabRestorationTopologyTests.swift',
+    'RouterTwelfthReviewRegressionTests.swift',
+    'RouterPartialRestorationPlannerContractTests.swift',
+    'RouterTabRestorationTopologyContractTests.swift',
+    'RouterFileStorageContractTests.swift',
+    'RouterDurabilityStorageContractTests.swift',
+    'RouterAuthorizationContractTests.swift',
+    'RouterLinkTargetPreservationTests.swift',
+    'RouterSignpostTrackerTests.swift',
+    'RouterObservabilityTests.swift',
+    'RouterPlatformCapabilitiesTests.swift',
+    'TestTags.swift',
+    'RouterEighteenthReviewRegressionTests.swift',
+    'RouterNineteenthReviewRegressionTests.swift',
+    'RouterStateRestorationTests.swift',
+    'RouterTwentyFourthReviewRestorationTests.swift',
+    'RouterTwentySecondReviewRegressionTests.swift',
+    'RouterRestorationDriverPartialTests.swift',
+    'RouterTwentyThirdReviewRestorationTests.swift',
+    'RouterScopeLifetimeRegressionTests.swift',
+    'RouterScopeLifetimeContractTests.swift',
+    'EnvironmentRouterStateTests.swift',
+    'RouterScopeProjectionReentrancyTests.swift',
+    'RouterScopeSceneMetadataReentrancyTests.swift',
+    'RouterDiagnosticFutureCodeTests.swift',
+    'RouterPartialRestoreLifetimeRecoveryTests.swift',
 ]
 if args.only_test_file:
     selected_tests = []
@@ -178,8 +212,9 @@ let package = Package(name: "InnoRouterStoreEngineContracts", targets: [
     .target(name: "InnoRouterCore"),
     .target(name: "InnoRouterDeepLink", dependencies: ["InnoRouterCore", "OSLog"]),
     .target(name: "InnoRouterSwiftUI", dependencies: ["InnoRouterCore", "InnoRouterDeepLink", "OSLog"]),
-    .target(name: "InnoRouter", dependencies: ["InnoRouterCore", "InnoRouterDeepLink", "InnoRouterSwiftUI"]),
-    .testTarget(name: "StoreEngineContracts", dependencies: ["InnoRouterCore", "InnoRouterDeepLink", "InnoRouterSwiftUI", "InnoRouter"])
+    .target(name: "InnoRouterSystem", dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"]),
+    .target(name: "InnoRouter", dependencies: ["InnoRouterCore", "InnoRouterDeepLink", "InnoRouterSwiftUI", "InnoRouterSystem"]),
+    .testTarget(name: "StoreEngineContracts", dependencies: ["InnoRouterCore", "InnoRouterDeepLink", "InnoRouterSwiftUI", "InnoRouterSystem", "InnoRouter"])
 ])
 """)
 manifest['toolchain'] = subprocess.check_output(['swift', '--version'], text=True).strip()

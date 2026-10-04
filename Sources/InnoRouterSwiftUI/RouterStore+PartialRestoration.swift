@@ -88,6 +88,7 @@ public extension RouterStore where R: Codable {
         let planned = try await preparePartialRestoration(
             candidate,
             validator: validator,
+            operations: restorationOperations,
             timeout: validationTimeout,
             sleep: runtimeDependencies.sleep
         )
@@ -98,6 +99,7 @@ public extension RouterStore where R: Codable {
             bypassesPolicies: false,
             transitionID: transitionID,
             requestRootID: requestRootID,
+            lifetimeMutation: .replaceAll,
             executionPrecondition: executionPrecondition
         )
         let report = RouterPartialRestorationReport(

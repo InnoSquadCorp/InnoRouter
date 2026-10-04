@@ -128,7 +128,7 @@ struct RouterTabRestorationTopologyContractTests {
         let planned = try await preparePartialRestoration(reconciled, validator: .init { _, location in
             locations.append(location)
             return .keep
-        }, timeout: nil, sleep: { _ in })
+        }, operations: .init(maximumCount: 8), timeout: nil, sleep: { _ in })
         #expect(planned.0 == reconciled)
         #expect(locations == [
             .init(scope: ["main"], role: .path, index: 0),

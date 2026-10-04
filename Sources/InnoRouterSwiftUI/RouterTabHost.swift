@@ -311,7 +311,16 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         guard let state = rootScope.state, Self.hasTabsRoot(state) else { return }
         rootScope.dispatchRoot(
             .select(selection),
-            context: .init(source: .system)
+            context: .init(source: .system),
+            executionPrecondition: { state in
+                // The root can change after this binding callback, while its
+                // request is queued or deferred. Recheck at execution rather
+                // than letting a tab tap select a split/custom branch.
+                guard Self.hasTabsRoot(state) else {
+                    return .mutation(.incompatibleNavigationTopology(.root))
+                }
+                return nil
+            }
         )
     }
 

@@ -18,18 +18,30 @@ public struct RouterSnapshotEnvelope: Codable, Equatable, Sendable {
     }
 }
 
-/// Application-selected byte limits for one encoded router snapshot.
+/// Finite limits for the legacy recursive JSON snapshot format.
 ///
-/// Limits are opt-in so existing snapshot callers preserve their 6.0 behavior.
-/// Use a matching limit on ``RouterFileSnapshotStorage`` to reject an oversized
-/// file before allocating its complete contents.
+/// The default values are provisional and remain subject to application and
+/// release calibration. JSON depth counts objects/arrays, including the root;
+/// tokens count scalars and every structural punctuation byte. The payload cap
+/// leaves room for base64 expansion inside the encoded envelope. Use a matching
+/// file-storage limit to reject an oversized file before allocating its contents.
 public struct RouterSnapshotLimits: Hashable, Sendable {
     public let maximumEncodedByteCount: Int
     public let maximumPayloadByteCount: Int
+    public let maximumJSONDepth: Int
+    public let maximumJSONTokens: Int
+
+    /// Uncalibrated starting values, not a measured app-compatibility guarantee.
+    public static let provisional = try! Self(
+        maximumEncodedByteCount: 4 * 1_024 * 1_024,
+        maximumPayloadByteCount: 2 * 1_024 * 1_024
+    )
 
     public init(
         maximumEncodedByteCount: Int,
-        maximumPayloadByteCount: Int
+        maximumPayloadByteCount: Int,
+        maximumJSONDepth: Int = 128,
+        maximumJSONTokens: Int = 262_144
     ) throws {
         guard maximumEncodedByteCount > 0 else {
             throw RouterSnapshotError.invalidByteLimit(
@@ -43,8 +55,18 @@ public struct RouterSnapshotLimits: Hashable, Sendable {
                 value: maximumPayloadByteCount
             )
         }
+        for (name, value) in [
+            ("maximumJSONDepth", maximumJSONDepth),
+            ("maximumJSONTokens", maximumJSONTokens),
+        ] where value <= 0 {
+            throw RouterSnapshotError.preflight(.init(
+                code: .invalidLimit, details: .init(field: name, value: value)
+            ))
+        }
         self.maximumEncodedByteCount = maximumEncodedByteCount
         self.maximumPayloadByteCount = maximumPayloadByteCount
+        self.maximumJSONDepth = maximumJSONDepth
+        self.maximumJSONTokens = maximumJSONTokens
     }
 }
 
@@ -99,6 +121,7 @@ public enum RouterSnapshotError: Error, Hashable, Sendable {
     case invalidByteLimit(name: String, value: Int)
     case encodedDataTooLarge(actualByteCount: Int, maximumByteCount: Int)
     case payloadTooLarge(actualByteCount: Int, maximumByteCount: Int)
+    case preflight(RouterSnapshotPreflightError)
     case invalidCurrentVersion(Int)
     case invalidSnapshotVersion(Int)
     case invalidMigration(from: Int, to: Int)
@@ -162,27 +185,15 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
     private let migrations: [Int: RouterSnapshotMigration]
     private let limits: RouterSnapshotLimits?
 
-    public init(
-        currentVersion: Int,
-        migrations: [RouterSnapshotMigration] = []
-    ) throws {
-        try self.init(currentVersion: currentVersion, migrations: migrations, limits: nil)
-    }
-
-    /// Creates a codec that rejects encoded envelopes and route payloads over
-    /// application-selected byte limits.
+    /// Creates a codec with finite provisional byte and JSON-complexity limits.
+    ///
+    /// Pass larger finite limits after measuring the application's snapshots.
+    /// Explicit `nil` opts out of the library's byte limits and JSON preflight;
+    /// that configuration is excluded from the bounded-decoding guarantee.
     public init(
         currentVersion: Int,
         migrations: [RouterSnapshotMigration] = [],
-        limits: RouterSnapshotLimits
-    ) throws {
-        try self.init(currentVersion: currentVersion, migrations: migrations, limits: .some(limits))
-    }
-
-    private init(
-        currentVersion: Int,
-        migrations: [RouterSnapshotMigration],
-        limits: RouterSnapshotLimits?
+        limits: RouterSnapshotLimits? = .provisional
     ) throws {
         guard currentVersion > 0 else {
             throw RouterSnapshotError.invalidCurrentVersion(currentVersion)
@@ -224,6 +235,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
             throw RouterSnapshotError.encodePayload(String(describing: error))
         }
         try validatePayloadSize(payload)
+        try validateJSON(payload, isEnvelope: false, version: currentVersion)
 
         do {
             let encoded = try Self.encoder().encode(
@@ -233,6 +245,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
                 )
             )
             try validateEncodedSize(encoded)
+            try validateJSON(encoded, isEnvelope: true)
             return encoded
         } catch let error as RouterSnapshotError {
             throw error
@@ -244,6 +257,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
     /// Migrates and decodes a snapshot, then validates the resulting tree.
     public func decode(_ data: Data) throws -> RouterState<R> {
         try validateEncodedSize(data)
+        try validateJSON(data, isEnvelope: true)
         var envelope: RouterSnapshotEnvelope
         do {
             envelope = try JSONDecoder().decode(RouterSnapshotEnvelope.self, from: data)
@@ -261,6 +275,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
             )
         }
         try validatePayloadSize(envelope.payload)
+        try validateJSON(envelope.payload, isEnvelope: false, version: envelope.schemaVersion)
 
         while envelope.schemaVersion < currentVersion {
             guard let migration = migrations[envelope.schemaVersion] else {
@@ -278,10 +293,11 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
                     message: String(describing: error)
                 )
             }
-            // Application migration failures keep the 6.0 error contract
-            // above. A limit failure originates in the codec itself, so it
-            // remains a distinct typed error for callers that opt into limits.
+            // Application failures keep their existing contract. Codec bounds
+            // remain distinct and run after every hop, before another migration
+            // (including its typed JSONDecoder) can consume the output.
             try validatePayloadSize(envelope.payload)
+            try validateJSON(envelope.payload, isEnvelope: false, version: migration.toVersion)
             envelope.schemaVersion = migration.toVersion
         }
 
@@ -344,5 +360,35 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
             actualByteCount: data.count,
             maximumByteCount: limit
         )
+    }
+
+    private func validateJSON(_ data: Data, isEnvelope: Bool, version: Int? = nil) throws {
+        guard let limits else { return }
+        do {
+            try RouterJSONPreflight.validate(
+                data,
+                maximumBytes: isEnvelope ? limits.maximumEncodedByteCount : limits.maximumPayloadByteCount,
+                maximumDepth: limits.maximumJSONDepth,
+                maximumTokens: limits.maximumJSONTokens,
+                byteName: isEnvelope ? "encodedBytes" : "payloadBytes"
+            )
+        } catch let error as RouterJSONPreflightError {
+            let stage = isEnvelope ? "envelope" : "payload"
+            switch error {
+            case .malformedJSON:
+                // Keep the legacy error boundary without retaining input text.
+                if isEnvelope { throw RouterSnapshotError.decodeEnvelope("Malformed JSON") }
+                throw RouterSnapshotError.decodePayload(version: version ?? currentVersion, message: "Malformed JSON")
+            case .duplicateJSONKey:
+                throw RouterSnapshotError.preflight(.init(
+                    code: .duplicateJSONKey, details: .init(stage: stage, version: version)
+                ))
+            case .limitExceeded(let field, let actual, let maximum):
+                throw RouterSnapshotError.preflight(.init(
+                    code: .limitExceeded,
+                    details: .init(stage: stage, version: version, field: field, actual: actual, maximum: maximum)
+                ))
+            }
+        }
     }
 }

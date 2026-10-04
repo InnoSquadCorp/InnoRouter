@@ -4,7 +4,7 @@ import InnoRouterCore
 
 public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Codable {
     /// The only fixture format this build can encode and decode.
-    public static var currentFormatVersion: Int { 7 }
+    public static var currentFormatVersion: Int { 8 }
 
     public let formatVersion: Int
     public let initialState: RouterState<R>
@@ -65,6 +65,7 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
                 action: step.action,
                 context: step.context,
                 requestSemantics: step.requestSemantics,
+                replayLimitation: step.replayLimitation,
                 expectedRevision: step.expectedRevision,
                 cancellationOrigin: step.cancellationOrigin,
                 observedState: step.observedState,
@@ -90,12 +91,15 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
         )
     }
 
-    /// Decodes a fixture only after bounded-size checks and validates its
-    /// format and step count before replay.
+    /// Screens bytes, complete JSON complexity, duplicate keys, and the steps
+    /// envelope before decoding any route payload. Defaults are provisional,
+    /// finite development limits, not calibrated release recommendations.
     public static func decode(
         from data: Data,
         maximumByteCount: Int = 2 * 1_024 * 1_024,
-        maximumStepCount: Int = 2_000
+        maximumStepCount: Int = 2_000,
+        maximumJSONDepth: Int = 64,
+        maximumJSONTokens: Int = 131_072
     ) throws -> Self {
         guard data.count <= max(1, maximumByteCount) else {
             throw RouterScenarioFixtureError.encodedDataTooLarge(
@@ -103,6 +107,13 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
                 maximum: max(1, maximumByteCount)
             )
         }
+        try RouterScenarioImportPreflight.validate(
+            data,
+            maximumBytes: max(1, maximumByteCount),
+            maximumSteps: max(1, maximumStepCount),
+            maximumDepth: max(1, maximumJSONDepth),
+            maximumTokens: max(1, maximumJSONTokens)
+        )
         let fixture = try JSONDecoder().decode(Self.self, from: data)
         guard fixture.steps.count <= max(1, maximumStepCount) else {
             throw RouterScenarioFixtureError.tooManySteps(
@@ -165,4 +176,7 @@ public enum RouterScenarioFixtureError: Error, Hashable, Sendable {
     case unsupportedFormatVersion(Int)
     case encodedDataTooLarge(actual: Int, maximum: Int)
     case tooManySteps(actual: Int, maximum: Int)
+    case jsonDepthExceeded(actual: Int, maximum: Int)
+    case jsonTokenLimitExceeded(actual: Int, maximum: Int)
+    case malformedFixtureEnvelope
 }

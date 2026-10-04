@@ -174,7 +174,8 @@ snapshot load 중 들어온 최신 navigation을 덮지 않습니다. 중단된 
 
 위 바이트 한도는 앱이 선택한 예시입니다. 파일 저장소는 읽는 동안 크기를 제한하고,
 codec은 encoded envelope·decoded payload·각 migration 결과를 별도로 제한합니다.
-기존 initializer는 source와 동작 호환성을 위해 제한 없는 의미를 유지합니다.
+7.0의 잠정 기본값은 encoded/file 4 MiB, decoded payload 2 MiB, JSON 깊이 128,
+token 262,144개입니다. 명시적 nil은 제한을 해제하며 실제 앱 기반 보정은 출시 gate로 남아 있습니다.
 7.0으로 이어지는 PR54 변경부터 저장소 한도를 넘은 파일은 codec이 거부한 envelope와 똑같이 driver의
 recovery policy로 전달됩니다. 기본값 `.fail`은 activation을 실패시키고 파일을
 보존하며, `.use`는 앱이 정한 fallback을 일반 policy를 거쳐 복원하므로 다른 복원과

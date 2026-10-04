@@ -87,6 +87,7 @@ struct RouterPlatformCapabilitiesTests {
         #expect(adaptedEvents == [adaptation])
     }
 
+    #if canImport(SwiftUI)
     @Test("Current capabilities match the compiling Apple platform")
     func currentPlatform() {
 #if targetEnvironment(macCatalyst)
@@ -109,4 +110,5 @@ struct RouterPlatformCapabilitiesTests {
         #expect(RouterPlatformCapabilities.current.supports(.immersiveSpace))
 #endif
     }
+    #endif
 }

@@ -8,34 +8,6 @@ import Observation
 import InnoRouterCore
 import InnoRouterDeepLink
 
-/// Application-selected transport for one encoded pending router link.
-public protocol RouterPendingLinkStorage: Sendable {
-    func load() throws -> Data?
-    func save(_ data: Data) throws
-    func remove() throws
-}
-
-/// Atomic file-backed pending-link storage at an application-owned URL.
-public struct RouterFilePendingLinkStorage: RouterPendingLinkStorage, Sendable {
-    public let fileURL: URL
-
-    public init(fileURL: URL) {
-        self.fileURL = fileURL
-    }
-
-    public func load() throws -> Data? {
-        try RouterAtomicFileStore(fileURL: fileURL).load()
-    }
-
-    public func save(_ data: Data) throws {
-        try RouterAtomicFileStore(fileURL: fileURL).save(data)
-    }
-
-    public func remove() throws {
-        try RouterAtomicFileStore(fileURL: fileURL).remove()
-    }
-}
-
 /// Observable lifecycle of pending-link persistence.
 public enum RouterPendingLinkPersistenceStatus: Sendable, Hashable {
     case inactive

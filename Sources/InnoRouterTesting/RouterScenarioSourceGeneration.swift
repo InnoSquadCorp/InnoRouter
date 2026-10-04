@@ -8,6 +8,7 @@ public enum RouterScenarioSourceGenerationError: Error, Hashable, Sendable {
     case invalidExpectedRevision(step: Int)
     case missingCancellationProvenance(step: Int)
     case unsupportedHistoryLifetime(step: Int)
+    case unsupportedRequestSemantics(step: Int, code: RouterScenarioReplayLimitation)
     case invalidSwiftIdentifier(String)
     case encodingFailed
     case invalidFixtureFileName(String)
@@ -159,6 +160,8 @@ public enum RouterScenarioSourceGenerator {
         }
         do {
             try RouterScenarioControlGraph.validate(fixture)
+        } catch RouterScenarioReplayError.unsupportedRequestSemantics(let step, let code) {
+            throw RouterScenarioSourceGenerationError.unsupportedRequestSemantics(step: step, code: code)
         } catch RouterScenarioReplayError.unsupportedHistoryLifetime(let step) {
             throw RouterScenarioSourceGenerationError.unsupportedHistoryLifetime(step: step)
         } catch RouterScenarioReplayError.invalidExpectedRevision(let step) {

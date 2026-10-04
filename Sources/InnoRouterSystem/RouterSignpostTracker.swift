@@ -54,6 +54,9 @@ final class RouterSignpostTracker<Interval> {
             }
         case .policyAllowed, .policyDeferred, .policyRejected, .platformAdapted:
             point(.lifecycle, activeIntervals[event.transitionID])
+        default:
+            // Unknown future codes do not fabricate a terminal event.
+            point(.lifecycle, activeIntervals[event.transitionID])
         }
     }
 }

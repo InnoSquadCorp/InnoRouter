@@ -7,6 +7,7 @@ public enum RouterScenarioReplayError: Error, Hashable, Sendable {
     case invalidExpectedRevision(step: Int)
     case missingCancellationProvenance(step: Int)
     case unsupportedHistoryLifetime(step: Int)
+    case unsupportedRequestSemantics(step: Int, code: RouterScenarioReplayLimitation)
     case missingExpectation(step: Int)
     case stateMismatch(step: Int)
     case revisionBeforeCaptureBaseline(step: Int)

@@ -35,10 +35,32 @@ struct RouterInspectorSourceCatalog: Sendable {
     }
 
     func localized(_ key: String, preferredLanguages: [String]) -> String {
+        #if canImport(Darwin)
         let language = Bundle.preferredLocalizations(
             from: languages,
             forPreferences: preferredLanguages + ["en"]
         ).first ?? "en"
+        #else
+        // Corelibs Bundle does not honor the explicit preference list on every
+        // toolchain. Resolve catalog language/script identifiers with Foundation
+        // Locale while retaining Darwin's native bundle matching unchanged.
+        let language = preferredLanguage(preferredLanguages + ["en"])
+        #endif
         return translations[language]?[key] ?? key
     }
+    #if !canImport(Darwin)
+    private func preferredLanguage(_ preferences: [String]) -> String {
+        for preference in preferences {
+            let normalized = preference.replacingOccurrences(of: "_", with: "-")
+            if languages.contains(normalized) { return normalized }
+            let requested = Locale.Language(identifier: normalized)
+            if let match = languages.first(where: { candidate in
+                let available = Locale.Language(identifier: candidate)
+                return available.languageCode == requested.languageCode
+                    && available.script == requested.script
+            }) { return match }
+        }
+        return "en"
+    }
+    #endif
 }

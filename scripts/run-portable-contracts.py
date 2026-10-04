@@ -9,6 +9,9 @@ import argparse
 import hashlib
 import json
 import os
+import re
+import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
 
@@ -17,19 +20,32 @@ parser.add_argument('--scratch', required=True, type=Path)
 parser.add_argument('--source-revision')
 parser.add_argument('--test-revision', help='Read test sources from this commit instead of the working tree')
 parser.add_argument('--filter')
-parser.add_argument('--configuration', choices=['debug', 'release'], default='debug')
 parser.add_argument('--jobs', type=int, default=1)
+parser.add_argument('--only-test-file', action='append', default=[])
+parser.add_argument('--configuration', choices=['debug', 'release'], default='debug')
+parser.add_argument('--strict', action='store_true', help='Enable complete concurrency checking and warnings-as-errors')
 args = parser.parse_args()
 repo = Path(__file__).resolve().parent.parent
 scratch = args.scratch.resolve()
 if scratch == repo or repo in scratch.parents and '.build' not in scratch.parts:
     raise SystemExit('Use an external scratch directory or a path below .build')
 scratch.mkdir(parents=True, exist_ok=True)
+if (scratch / 'provenance.json').exists() or (scratch / 'test.log').exists():
+    archive = scratch / 'runs' / datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    archive.mkdir(parents=True)
+    for name in ['provenance.json', 'test.log', 'Package.swift']:
+        if (scratch / name).exists():
+            shutil.copy2(scratch / name, archive / name)
+    for name in ['Sources', 'Tests']:
+        if (scratch / name).exists():
+            shutil.copytree(scratch / name, archive / name)
+
 revision = args.source_revision or subprocess.check_output(
     ['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
-manifest = {'source_revision': revision, 'scope': 'portable Core/DeepLink contracts only',
+manifest = {'source_revision': revision, 'scope': 'all import-compatible production Core/DeepLink contract fixtures; explicit adapter exclusions recorded',
             'excluded': ['SwiftUI', 'OSLog effects', 'native platforms', 'full package', 'release'],
-            'files': [], 'substitutions': []}
+            'files': [], 'substitutions': [], 'excluded_test_sources': {},
+            'working_tree_status': subprocess.check_output(['git', 'status', '--short'], cwd=repo, text=True)}
 for module in ['InnoRouterCore', 'InnoRouterDeepLink']:
     directory = scratch / 'Sources' / module
     directory.mkdir(parents=True, exist_ok=True)
@@ -94,10 +110,15 @@ else:
     test_paths = [str(p.relative_to(repo)) for p in (repo / 'Tests' / 'InnoRouterTests').glob('*.swift')]
 for relative in sorted(test_paths):
     name = Path(relative).name
-    if name not in selected_tests and not name.endswith('PortableContractTests.swift'):
+    if args.only_test_file and name not in args.only_test_file:
         continue
     data = (subprocess.check_output(['git', 'show', f'{args.test_revision}:{relative}'], cwd=repo)
             if args.test_revision else (repo / relative).read_bytes())
+    imported = set(re.findall(r'^(?:@testable\s+)?import\s+(\w+)', data.decode(), re.M))
+    allowed = {'Foundation', 'Observation', 'Synchronization', 'Testing', 'InnoRouterCore', 'InnoRouterDeepLink'}
+    if imported - allowed:
+        manifest['excluded_test_sources'][relative] = sorted(imported - allowed)
+        continue
     (tests / name).write_bytes(data)
 manifest['test_revision'] = args.test_revision or 'working tree'
 
@@ -118,11 +139,27 @@ if args.filter:
 command += ['--cache-path', str(scratch / 'cache'), '--config-path', str(scratch / 'configuration'), '--security-path', str(scratch / 'security')]
 for name in ['CLANG_MODULE_CACHE_PATH', 'SWIFT_MODULECACHE_PATH', 'SWIFTPM_MODULECACHE_OVERRIDE']:
     os.environ[name] = str(scratch / 'module-cache')
+if args.strict:
+    command += ['-Xswiftc', '-strict-concurrency=complete', '-Xswiftc', '-warnings-as-errors']
 manifest['command'] = command
 (scratch / 'provenance.json').write_text(json.dumps(manifest, indent=2) + '\n')
 with (scratch / 'test.log').open('w') as log:
     result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT)
-manifest['exit_code'] = result.returncode
+counts = [int(value) for value in re.findall(r'Test run with (\d+) tests?', (scratch / 'test.log').read_text())]
+manifest['test_function_count'] = sum(counts)
+exit_code = result.returncode
+if exit_code == 0 and not sum(counts):
+    manifest['failure_reason'] = 'No executed Swift Testing functions were confirmed'
+    exit_code = 1
+manifest['exit_code'] = exit_code
+manifest['staged_sources_still_match'] = None if args.source_revision else all(
+    hashlib.sha256((repo / entry['path']).read_bytes()).hexdigest() == entry['original_sha256']
+    for entry in manifest['files']
+)
+manifest['staged_tests_still_match'] = None if args.test_revision else all(
+    hashlib.sha256((repo / 'Tests/InnoRouterTests' / name).read_bytes()).hexdigest() == digest
+    for name, digest in manifest['test_sources'].items()
+)
 (scratch / 'provenance.json').write_text(json.dumps(manifest, indent=2) + '\n')
 print((scratch / 'test.log').read_text())
-raise SystemExit(result.returncode)
+raise SystemExit(exit_code)

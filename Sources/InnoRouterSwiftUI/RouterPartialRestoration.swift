@@ -128,6 +128,8 @@ public struct RouterPartialRestorationReport: Hashable, Sendable, Codable {
 
 public enum RouterPartialRestorationError: Error, Hashable, Sendable {
     case validationTimedOut
+    /// Admission failed before creating validator or fallback work.
+    case operation(RouterRestorationOperationFailure)
     case cancelled
     case invalidReplacement(RouterStateValidationError)
     case validationFailed(String)
@@ -424,11 +426,23 @@ private struct PartialRestorationPlanner<R: Route> {
 package func preparePartialRestoration<R: Route>(
     _ state: RouterState<R>,
     validator: RouterPartialRestorationValidator<R>,
+    operations: RouterOperationRegistry,
     timeout: Duration?,
     sleep: @escaping @Sendable (Duration) async throws -> Void
 ) async throws -> (RouterState<R>, RouterPartialRestorationReport) {
+    guard !Task.isCancelled else { throw RouterPartialRestorationError.cancelled }
+    let reservation: RouterOperationRegistry.Reservation
+    switch operations.reserve() {
+    case .success(let admitted):
+        reservation = admitted
+    case .failure(let capacity):
+        throw RouterPartialRestorationError.operation(.capacityExceeded(
+            maximumCount: capacity.limit,
+            activeCount: operations.activeCount
+        ))
+    }
     let race = RouterTimeoutRace<PartialRestorationPlanResult<R>>()
-    let result = await race.run(timeout: timeout, sleep: sleep) {
+    let result = await race.run(timeout: timeout, sleep: sleep, reservation: reservation) {
         do {
             let value = try await PartialRestorationPlanner(validator: validator).plan(state)
             return .success(value.0, value.1)

@@ -39,6 +39,8 @@ public final class RouterStore<R: Route> {
     @ObservationIgnored
     let policyOperations: RouterOperationRegistry
     @ObservationIgnored
+    let restorationOperations: RouterOperationRegistry
+    @ObservationIgnored
     let deferralConfiguration: RouterDeferralConfiguration
     @ObservationIgnored
     let runtimeDependencies: RouterRuntimeDependencies
@@ -134,6 +136,9 @@ public final class RouterStore<R: Route> {
         self.policyTimeout = configuration.policyTimeout
         self.policyOperations = RouterOperationRegistry(
             maximumCount: configuration.maximumActivePolicyOperationCount
+        )
+        self.restorationOperations = RouterOperationRegistry(
+            maximumCount: configuration.maximumActiveRestorationOperationCount
         )
         var deferrals = configuration.deferrals
         deferrals.maximumPendingCount = max(0, deferrals.maximumPendingCount)

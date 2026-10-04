@@ -47,6 +47,7 @@ private final class RouterScenarioReplaySession<R: Route & Codable> {
         guard fixture.completeness.isComplete else {
             throw RouterScenarioReplayError.incomplete(fixture.completeness)
         }
+        try RouterScenarioReplayLimitation.validate(fixture.steps)
         let featureResolvers = try RouterScenarioFeatureResolverRegistry(featureResolvers)
         for step in fixture.steps {
             switch step.requestSemantics {

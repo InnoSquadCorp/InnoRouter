@@ -8,7 +8,6 @@ extension EnvironmentValues {
     @Entry var routerDeepLinkContext: RouterDeepLinkContext?
 }
 
-
 @MainActor
 private struct RouterDeepLinkHandlingModifier<R: Route>: ViewModifier {
     @Environment(\.routerDeepLinkContext) private var inheritedContext
@@ -57,7 +56,6 @@ extension View {
     }
 }
 
-
 @MainActor
 private struct RouterPlanLinkHandlingModifier<R: Route>: ViewModifier {
     @Environment(\.routerDeepLinkContext) private var inheritedContext
@@ -90,7 +88,6 @@ private struct RouterPlanLinkHandlingModifier<R: Route>: ViewModifier {
         )
     }
 }
-
 
 extension View {
     /// Applies accepted deep links as complete plans through one router store.

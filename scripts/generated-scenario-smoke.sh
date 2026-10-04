@@ -883,4 +883,4 @@ if ! grep -q "initialStateMismatch" "$initial_state_log"; then
   exit 1
 fi
 
-echo "[generated-scenario-smoke] Generated source and format-7 fixture compiled and ran, including stale history, action/history resume cancellation, history rebase, and macro-generated feature ownership rejection; malformed generation and initial state/state/revision/terminal negatives failed as expected"
+echo "[generated-scenario-smoke] Generated source and format-8 fixture compiled and ran, including stale history, action/history resume cancellation, history rebase, and macro-generated feature ownership rejection; malformed generation and initial state/state/revision/terminal negatives failed as expected"

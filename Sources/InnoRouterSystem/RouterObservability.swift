@@ -3,32 +3,44 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
-import OSLog
 
 import InnoRouterCore
 import InnoRouterSwiftUI
 
-/// Payload-free lifecycle classification for logging and application metrics.
-public enum RouterDiagnosticEventKind: String, Sendable, Hashable, Codable {
-    case started
-    case policyAllowed
-    case policyDeferred
-    case policyRejected
-    case committed
-    case unchanged
-    case deferred
-    case platformAdapted
-    case rejectedMutation
-    case rejectedPolicy
-    case rejectedBusy
-    case rejectedCoalesced
-    case rejectedSuperseded
-    case rejectedQueueOverflow
-    case rejectedPolicyTimeout
-    case rejectedDeferral
-    case rejectedStaleState
-    case rejectedCancelled
-    case rejectedMissingAuthority
+/// Extensible lifecycle code. Existing wire strings are unchanged and unknown
+/// future values are preserved; clients must keep a fallback in code switches.
+public struct RouterDiagnosticEventKind: RawRepresentable, Sendable, Hashable, Codable {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    public init(from decoder: any Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
+    public static let started = Self(rawValue: "started")
+    public static let policyAllowed = Self(rawValue: "policyAllowed")
+    public static let policyDeferred = Self(rawValue: "policyDeferred")
+    public static let policyRejected = Self(rawValue: "policyRejected")
+    public static let committed = Self(rawValue: "committed")
+    public static let unchanged = Self(rawValue: "unchanged")
+    public static let deferred = Self(rawValue: "deferred")
+    public static let platformAdapted = Self(rawValue: "platformAdapted")
+    public static let rejectedMutation = Self(rawValue: "rejectedMutation")
+    public static let rejectedPolicy = Self(rawValue: "rejectedPolicy")
+    public static let rejectedBusy = Self(rawValue: "rejectedBusy")
+    public static let rejectedCoalesced = Self(rawValue: "rejectedCoalesced")
+    public static let rejectedSuperseded = Self(rawValue: "rejectedSuperseded")
+    public static let rejectedQueueOverflow = Self(rawValue: "rejectedQueueOverflow")
+    public static let rejectedPolicyTimeout = Self(rawValue: "rejectedPolicyTimeout")
+    public static let rejectedDeferral = Self(rawValue: "rejectedDeferral")
+    public static let rejectedStaleState = Self(rawValue: "rejectedStaleState")
+    public static let rejectedCancelled = Self(rawValue: "rejectedCancelled")
+    public static let rejectedMissingAuthority = Self(rawValue: "rejectedMissingAuthority")
 }
 
 /// A payload-safe diagnostic value derived from one typed router event.
@@ -81,80 +93,6 @@ public struct RouterObservability<R: Route>: Sendable {
             for adapter in adapters {
                 adapter.emitDiagnostic(diagnostic)
             }
-        }
-    }
-
-    /// Emits structural lifecycle diagnostics to Apple unified logging.
-    public static func osLog(
-        subsystem: String = "io.innosquad.innorouter",
-        category: String = "router"
-    ) -> Self {
-        let logger = Logger(subsystem: subsystem, category: category)
-        return Self { event in
-            let kind = event.kind.rawValue
-            let transitionID = event.transitionID.description
-            let source = event.source?.rawValue ?? "none"
-            let revision = event.revision.map(String.init) ?? "none"
-            switch event.kind {
-            case .committed:
-                logger.info(
-                    "Router \(kind, privacy: .public) id=\(transitionID, privacy: .public) source=\(source, privacy: .public) revision=\(revision, privacy: .public)"
-                )
-            case .rejectedMutation, .rejectedPolicy, .rejectedBusy,
-                 .rejectedCoalesced, .rejectedSuperseded,
-                 .rejectedQueueOverflow, .rejectedPolicyTimeout,
-                 .rejectedDeferral,
-                 .rejectedStaleState, .rejectedCancelled, .rejectedMissingAuthority,
-                 .policyRejected:
-                logger.error(
-                    "Router \(kind, privacy: .public) id=\(transitionID, privacy: .public) source=\(source, privacy: .public) revision=\(revision, privacy: .public)"
-                )
-            case .started, .policyAllowed, .policyDeferred, .unchanged,
-                 .deferred, .platformAdapted:
-                logger.debug(
-                    "Router \(kind, privacy: .public) id=\(transitionID, privacy: .public) source=\(source, privacy: .public) revision=\(revision, privacy: .public)"
-                )
-            }
-        }
-    }
-
-    /// Emits payload-free transition intervals and lifecycle events for
-    /// Instruments' Points of Interest track.
-    ///
-    /// A `started` event begins an interval. Committed, unchanged, deferred,
-    /// and rejected outcomes close it; policy and platform events are emitted
-    /// as points. Releasing the adapter closes any outstanding intervals.
-    /// Route values and policy messages are never included.
-    @MainActor
-    public static func signposts(
-        subsystem: String = "io.innosquad.innorouter",
-        category: String = "router"
-    ) -> Self {
-        let signposter = OSSignposter(subsystem: subsystem, category: category)
-        let tracker = RouterSignpostTracker(
-            begin: {
-                let id = signposter.makeSignpostID()
-                return RouterSignpostInterval(
-                    id: id,
-                    state: signposter.beginInterval("Router Transition", id: id)
-                )
-            },
-            end: { signposter.endInterval("Router Transition", $0.state) },
-            point: { kind, interval in
-                switch kind {
-                case .outcome:
-                    signposter.emitEvent("Router Outcome")
-                case .lifecycle:
-                    if let interval {
-                        signposter.emitEvent("Router Lifecycle", id: interval.id)
-                    } else {
-                        signposter.emitEvent("Router Lifecycle")
-                    }
-                }
-            }
-        )
-        return Self { event in
-            tracker.record(event)
         }
     }
 
@@ -239,11 +177,6 @@ public struct RouterObservability<R: Route>: Sendable {
         case .missingAuthority: .rejectedMissingAuthority
         }
     }
-}
-
-private struct RouterSignpostInterval {
-    let id: OSSignpostID
-    let state: OSSignpostIntervalState
 }
 
 public extension RouterStoreConfiguration {
