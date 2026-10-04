@@ -224,18 +224,7 @@ public enum RouterReducer {
             }
         case .selectPresentationAction(let id, let actionID):
             try mutateStack(&node, at: path) { stack in
-                guard let family = stack.presentationFamily, family.id == id else {
-                    throw RouterMutationError.presentationIdentityMismatch(scope: path, expected: id, actual: stack.presentationFamily?.id)
-                }
-                let transient: RouterTransientPresentation
-                switch family {
-                case .navigation: throw RouterMutationError.expectedTransientPresentation(path)
-                case .alert(let value), .confirmationDialog(let value): transient = value
-                }
-                guard transient.content.actions.contains(where: { $0.id == actionID }) else {
-                    throw RouterMutationError.unknownPresentationAction(path)
-                }
-                stack.presentationFamily = nil
+                try selectTransientPresentationAction(actionID, presentationID: id, in: &stack, at: path)
             }
         case .dismissPresentation:
             try mutateStack(&node, at: path) { stack in
@@ -258,6 +247,28 @@ public enum RouterReducer {
         default:
             preconditionFailure("expected a stack action")
         }
+    }
+
+    private static func selectTransientPresentationAction<R: Route>(
+        _ actionID: RouterPresentationActionID,
+        presentationID: UUID,
+        in stack: inout RouterStackState<R>,
+        at path: RouterScopePath
+    ) throws {
+        guard let family = stack.presentationFamily, family.id == presentationID else {
+            throw RouterMutationError.presentationIdentityMismatch(
+                scope: path, expected: presentationID, actual: stack.presentationFamily?.id
+            )
+        }
+        let transient: RouterTransientPresentation
+        switch family {
+        case .navigation: throw RouterMutationError.expectedTransientPresentation(path)
+        case .alert(let value), .confirmationDialog(let value): transient = value
+        }
+        guard transient.content.actions.contains(where: { $0.id == actionID }) else {
+            throw RouterMutationError.unknownPresentationAction(path)
+        }
+        stack.presentationFamily = nil
     }
 
     private static func applyIdempotentStackAction<R: Route>(

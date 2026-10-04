@@ -31,7 +31,7 @@ public final class RouterStore<R: Route> {
     @ObservationIgnored
     let authorization: RouterAuthorizationConfiguration<R>?
     @ObservationIgnored
-    private let schedulingPolicy: RouterSchedulingPolicy
+    let schedulingPolicy: RouterSchedulingPolicy
     @ObservationIgnored
     let maximumPendingRequestCount: Int
     @ObservationIgnored
@@ -215,144 +215,6 @@ public final class RouterStore<R: Route> {
             startingPolicyIndex: 0,
             transitionID: runtimeDependencies.makeTransitionID()
         )
-    }
-
-    package func perform(
-        _ action: RouterAction<R>,
-        context: RouterTransitionContext,
-        expectedRevision: UInt64?,
-        bypassesPolicies: Bool,
-        startingPolicyIndex: Int = 0,
-        transitionID: RouterTransitionID? = nil,
-        requestRootID: RouterTransitionID? = nil,
-        requestSemantics: RouterRequestSemantics<R> = .action,
-        authorization: RouterRequestAuthorization<R>? = nil,
-        lifetimeMutation: RouterScopeLifetimeMutation = .reconcile,
-        executionPrecondition: RouterRequestPrecondition<R>? = nil,
-        executionPreparation: RouterRequestPreparationBuilder<R>? = nil,
-        deferredResumePreparation: RouterDeferredResumePreparationBuilder<R>? = nil,
-        systemRepairIdentity: RouterSystemRepairIdentity? = nil,
-        presentationResumeAuthority: RouterPresentationResumeAuthority? = nil
-    ) async -> RouterOutcome<R> {
-        let transitionID = transitionID ?? runtimeDependencies.makeTransitionID()
-        let requestRootID = requestRootID ?? transitionID
-        let presentationCompletionOwner: RouterPresentationCompletionOwner
-        if let authority = presentationResumeAuthority {
-            guard authority.store == ObjectIdentifier(self), context.resumedDeferral == authority.id else {
-                return reject(transitionID, reason: .deferralConflict(authority.id), context: context)
-            }
-            presentationCompletionOwner = authority.owner
-        } else {
-            presentationCompletionOwner = .transition(transitionID)
-        }
-        do {
-            try resourceBudget.validateInput(action)
-        } catch {
-            // Do not publish or recursively describe inadmissible input. The
-            // redacted terminal event still reports the attempted request ID.
-            return reject(transitionID, reason: .resourceLimit(error), context: context)
-        }
-        let replayLimitation = replayLimitationCode(
-            action: action,
-            semantics: requestSemantics, authorization: authorization,
-            lifetimeMutation: lifetimeMutation,
-            hasPrecondition: executionPrecondition != nil,
-            hasPreparation: executionPreparation != nil || deferredResumePreparation != nil
-        )
-        let executionPrecondition = isRemovalOnlySystemRepair(action, identity: systemRepairIdentity)
-            ? executionPrecondition
-            : authorizationPrecondition(request: authorization, existing: executionPrecondition)
-        observeRequest(
-            id: transitionID,
-            action: action,
-            context: context,
-            expectedRevision: expectedRevision,
-            semantics: requestSemantics,
-            replayLimitationCode: replayLimitation
-        )
-
-        return await withTaskCancellationHandler {
-            if Task.isCancelled {
-                observeCancellation(transitionID)
-                return reject(
-                    transitionID,
-                    reason: .cancelled,
-                    context: context,
-                    action: action
-                )
-            }
-            if let activeTransitionID {
-                switch schedulingPolicy {
-                case .rejectWhileBusy where !bypassesPolicies:
-                    return reject(
-                        transitionID,
-                        reason: .busy(activeTransition: activeTransitionID),
-                        context: context,
-                        action: action
-                    )
-                case .rejectWhileBusy, .serialize:
-                    return await withCheckedContinuation { continuation in
-                        if requestCancellationIsPending(transitionID) {
-                            cancelledRequestIDs.remove(transitionID)
-                            continuation.resume(
-                                returning: reject(
-                                    transitionID,
-                                    reason: .cancelled,
-                                    context: context,
-                                    action: action
-                                )
-                            )
-                        } else {
-                            enqueue(
-                                QueuedRouterRequest(
-                                    id: transitionID,
-                                    rootID: requestRootID,
-                                    action: action,
-                                    context: context,
-                                    presentationCompletionOwner: presentationCompletionOwner,
-                                    semantics: requestSemantics,
-                                    authorization: authorization,
-                                    lifetimeMutation: lifetimeMutation,
-                                    expectedRevision: expectedRevision,
-                                    bypassesPolicies: bypassesPolicies,
-                                    systemRepairIdentity: systemRepairIdentity,
-                                    startingPolicyIndex: startingPolicyIndex,
-                                    executionPrecondition: executionPrecondition,
-                                    executionPreparation: executionPreparation,
-                                    deferredResumePreparation: deferredResumePreparation,
-                                    continuation: continuation
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            activeTransitionID = transitionID
-            activeRequestRootID = requestRootID
-            activeRequestKey = context.requestKey
-            activeSystemRepairIdentity = systemRepairIdentity
-            return await execute(
-                action,
-                context: context,
-                expectedRevision: expectedRevision,
-                bypassesPolicies: bypassesPolicies,
-                startingPolicyIndex: startingPolicyIndex,
-                transitionID: transitionID,
-                requestRootID: requestRootID,
-                requestSemantics: requestSemantics,
-                authorization: authorization,
-                lifetimeMutation: lifetimeMutation,
-                presentationCompletionOwner: presentationCompletionOwner,
-                executionPrecondition: executionPrecondition,
-                executionPreparation: executionPreparation,
-                deferredResumePreparation: deferredResumePreparation
-            )
-        } onCancel: {
-            Task { @MainActor [weak self] in
-                self?.cancelRequest(transitionID)
-            }
-        }
     }
 
     package func reserveTransitionID() -> RouterTransitionID {
@@ -616,6 +478,24 @@ extension RouterStore {
             executionPrecondition: executionPrecondition,
             deferredResumePreparation: deferredResumePreparation
         )
+        return resolvePreparedTransition(
+            preparation,
+            transition: transition,
+            requestRootID: requestRootID,
+            presentationCompletionOwner: presentationCompletionOwner,
+            lifetimeMutation: lifetimeMutation,
+            executionPrecondition: executionPrecondition
+        )
+    }
+
+    private func resolvePreparedTransition(
+        _ preparation: RouterPolicyPreparation,
+        transition: RouterTransition<R>,
+        requestRootID: RouterTransitionID,
+        presentationCompletionOwner: RouterPresentationCompletionOwner,
+        lifetimeMutation: RouterScopeLifetimeMutation,
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) -> RouterOutcome<R> {
         switch preparation {
         case .allowed:
             return commitPreparedTransition(
@@ -627,24 +507,24 @@ extension RouterStore {
             )
         case .rejected(let reason):
             return reject(
-                transitionID,
+                transition.id,
                 reason: reason,
-                context: context,
-                action: preparedAction
+                context: transition.context,
+                action: transition.action
             )
         case .deferred(let deferral):
             emit(
                 .deferred(
-                    transitionID: transitionID,
+                    transitionID: transition.id,
                     state: state,
                     revision: revision,
                     deferral: deferral,
-                    context: context
+                    context: transition.context
                 )
             )
-            refreshScopes(after: preparedAction, context: context)
+            refreshScopes(after: transition.action, context: transition.context)
             return .deferred(
-                id: transitionID,
+                id: transition.id,
                 state: state,
                 revision: revision,
                 deferral: deferral
