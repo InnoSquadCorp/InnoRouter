@@ -4,7 +4,7 @@
 
 Macro-first, typed navigation for SwiftUI.
 
-InnoRouter 6 turns one `@Router` enum into one navigation model:
+InnoRouter 7 turns one `@Router` enum into one navigation model:
 
 - `RouterState<Route>` is the complete value-semantic source of truth.
 - `RouterAction<Route>` is the only incremental request vocabulary.
@@ -12,11 +12,10 @@ InnoRouter 6 turns one `@Router` enum into one navigation model:
 - `RouterStore<Route>` reduces, prepares policies, and commits atomically.
 - `RouterHost`, `RouterTabHost`, and `RouterSplitHost` render native SwiftUI containers.
 
-> **6.1.1:** Fixes 6.1.0's tab identity, tab link, host, and snapshot recovery
-> defects, and admits swift-syntax 604 for Xcode 27. 6.1.0 added bounded
-> snapshots, automatic partial restoration, explicit tab identity, and safer
-> persistence while preserving the 6.0 public surface. Breaking changes target
-> the next major release.
+> **7.0.0 development:** PR54 groundwork is carried directly into the next major
+> release; there is no separate 6.1.1 release. This checkout is unreleased.
+> Native/platform, full-package and actual-app acceptance gates remain open.
+> See the [7.0 checklist](Docs/7.0.0-release-checklist.md) for the verification boundary.
 
 [한국어](README.ko.md) · [6.0 strategy](Docs/v6-functional-strategy.md) ·
 [5.x migration](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
@@ -31,9 +30,11 @@ InnoRouter 6 turns one `@Router` enum into one navigation model:
 ## Installation
 
 Add the package and its single runtime product:
+The version below is the intended published release. Until it exists, use the
+reviewed local checkout; a version string does not establish publication.
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.1.1")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.0")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -205,7 +206,7 @@ a later activation cannot be modified by their delayed completion.
 The byte limits above are application-selected examples. File storage rejects
 oversized input while reading, and the codec independently bounds the encoded
 envelope, decoded payload, and every migration result. Existing initializers
-remain unbounded for source and behavior compatibility. Since 6.1.1, a file
+remain unbounded for source and behavior compatibility. In the PR54 groundwork carried into 7.0, a file
 over the storage limit reaches the driver's recovery policy exactly like an
 envelope the codec rejects: the default `.fail` fails activation and preserves
 the file, while `.use` restores the application's fallback through normal
@@ -527,7 +528,7 @@ gates pass.
 - [API convergence](Docs/v6-api-convergence-spike.md)
 - [Functional specification](Docs/functional-expansion-spec.md)
 - [Delivery plan](Docs/functional-expansion-technical-plan.md)
-- [6.1.1 release checklist](Docs/6.1.1-release-checklist.md)
+- [7.0.0 release checklist](Docs/7.0.0-release-checklist.md)
 - [6.1.0 release checklist](Docs/6.1.0-release-checklist.md)
 - [6.0.0 release checklist](Docs/6.0.0-release-checklist.md)
 - [Migrating from 5.x](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)

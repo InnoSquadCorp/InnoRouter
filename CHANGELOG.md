@@ -6,6 +6,15 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+Target: **7.0.0**. PR54 work is carried forward without a separate 6.1.1 release.
+Native vision-cancel K1 remains unresolved; portable validation does not close it.
+
+### Breaking
+
+- RouterState is externally read-only; construct validated values with RouterStateDraft.
+- Restoring or replacing owned topology expires prior scope execution lifetimes.
+- Authorization generation and catalog contracts are explicit; inspect the 7.0 guides.
+
 ### Fixed
 
 - Deferred visionOS immersive-space closure restores through the surviving
@@ -13,7 +22,7 @@ are bare semver (no leading `v`).
   SwiftUI context. Driver replacement and stale-open compensation preserve
   the existing canonical lifetime protections.
 
-## 6.1.1 - 2026-09-23
+### PR54 groundwork originally planned for 6.1.1 (not separately released)
 
 ### Fixed
 
@@ -71,7 +80,8 @@ are bare semver (no leading `v`).
 - `Package.swift` admits `swift-syntax` `"603.0.2"..<"605.0.0"`, adding the
   604 line that Xcode 27 / Swift 6.4 pairs with, so an application whose
   other macro packages require 604 resolves InnoRouter. The committed
-  resolution stays on 603.0.2.
+  resolution is 604.0.0 (`050f1a346fbbac0ca2cfb15a95274f7bd1cf0ccf`).
+  603.0.2 is the supported dependency floor, not the current lock pin.
 - A new `xcode-27` CI job runs the package tests with Xcode 27, re-resolves
   the newest admitted swift-syntax, runs both macro suites against it, and
   builds the macro-first consumer with library evolution. It is a forward

@@ -4,7 +4,7 @@
 
 SwiftUI를 위한 macro-first typed navigation 라이브러리입니다.
 
-InnoRouter 6는 하나의 `@Router` enum을 하나의 navigation 모델로 연결합니다.
+InnoRouter 7은 하나의 `@Router` enum을 하나의 navigation 모델로 연결합니다.
 
 - `RouterState<Route>`: 전체 화면 구조를 담는 단일 value source of truth
 - `RouterAction<Route>`: 유일한 점진적 요청 언어
@@ -12,10 +12,10 @@ InnoRouter 6는 하나의 `@Router` enum을 하나의 navigation 모델로 연�
 - `RouterStore<Route>`: reduce, policy prepare, atomic commit의 단일 권한
 - `RouterHost`, `RouterTabHost`, `RouterSplitHost`: native SwiftUI container
 
-> **6.1.1:** 6.1.0의 탭 식별자·탭 링크·host·snapshot 복구 결함을 고치고 Xcode 27용
-> swift-syntax 604를 허용합니다. 6.1.0은 snapshot 크기 제한, 자동 부분 복원, 명시적 탭
-> 식별자와 저장 안정성을 추가하며 6.0 공개 API를 유지합니다. Breaking 변경은 다음 major
-> 릴리스를 대상으로 합니다.
+> **7.0.0 개발 중:** PR54의 유효 변경을 다음 major 릴리스로 직접 이어갑니다.
+> 별도 6.1.1 릴리스는 만들지 않으며 이 checkout은 미출시 상태입니다.
+> native/platform·전체 package·실제 앱 수용 검증은 아직 남아 있습니다.
+> 검증 범위는 [7.0 체크리스트](Docs/7.0.0-release-checklist.md)를 확인하세요.
 
 [English](README.md) · [6.0 전략](Docs/v6-functional-strategy.md) ·
 [5.x 마이그레이션](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
@@ -29,9 +29,11 @@ InnoRouter 6는 하나의 `@Router` enum을 하나의 navigation 모델로 연�
 ## 설치
 
 패키지와 하나의 runtime product를 추가합니다.
+아래 버전은 출시 후 사용할 대상입니다. 출시 전에는 검토한 로컬 checkout을
+사용하세요. 버전 문자열만으로 실제 배포가 완료된 것은 아닙니다.
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.1.1")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.0")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -173,7 +175,7 @@ snapshot load 중 들어온 최신 navigation을 덮지 않습니다. 중단된 
 위 바이트 한도는 앱이 선택한 예시입니다. 파일 저장소는 읽는 동안 크기를 제한하고,
 codec은 encoded envelope·decoded payload·각 migration 결과를 별도로 제한합니다.
 기존 initializer는 source와 동작 호환성을 위해 제한 없는 의미를 유지합니다.
-6.1.1부터 저장소 한도를 넘은 파일은 codec이 거부한 envelope와 똑같이 driver의
+7.0으로 이어지는 PR54 변경부터 저장소 한도를 넘은 파일은 codec이 거부한 envelope와 똑같이 driver의
 recovery policy로 전달됩니다. 기본값 `.fail`은 activation을 실패시키고 파일을
 보존하며, `.use`는 앱이 정한 fallback을 일반 policy를 거쳐 복원하므로 다른 복원과
 마찬가지로 activation의 `transition`을 확인해야 합니다.
@@ -430,7 +432,7 @@ consumer 게이트를 모두 통과한 뒤에만 게시합니다.
 - [API 수렴](Docs/v6-api-convergence-spike.md)
 - [기능 명세](Docs/functional-expansion-spec.md)
 - [구현 계획](Docs/functional-expansion-technical-plan.md)
-- [6.1.1 릴리스 체크리스트](Docs/6.1.1-release-checklist.md)
+- [7.0.0 릴리스 체크리스트](Docs/7.0.0-release-checklist.md)
 - [6.1.0 릴리스 체크리스트](Docs/6.1.0-release-checklist.md)
 - [6.0.0 릴리스 체크리스트](Docs/6.0.0-release-checklist.md)
 - [5.x에서 이전](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)

@@ -10,7 +10,7 @@ consumers, packaging versioned DocC/notes/checksums without creating a tag or
 Release or publishing Pages. A local identity check is:
 
 ```bash
-python3 scripts/validate-release-candidate.py --version 6.1.1 --commit-sha <full-sha>
+python3 scripts/validate-release-candidate.py --version 7.0.0 --commit-sha <full-sha>
 ```
 
 Once the owner approves the same version/SHA, the approved bare SemVer tag is
@@ -105,12 +105,12 @@ graph still count).
   documented as incorrect (call this out in CHANGELOG `[Fixed]`).
 - Doc-only changes.
 
-Before 6.1.1 this list allowed new cases on a non-`@frozen` public enum.
+Before the PR54 groundwork this list allowed new cases on a non-`@frozen` public enum.
 That was wrong for a source package, and 6.1.0 shipped under it: its three
 new `RouterSnapshotError` cases (`invalidByteLimit`, `encodedDataTooLarge`,
 `payloadTooLarge`) break a client's exhaustive `switch` over that error.
 Removing them again would break 6.1.0 clients a second time, so they stay,
-and the 6.1.1 changelog records the source impact.
+and the PR54 carry-forward changelog records the source impact.
 
 ### Toolchain pin
 
