@@ -41,6 +41,7 @@ import FeatureAlpha
 import FeatureBeta
 
 enum AppRoute: Route { case alpha(AlphaRoute), beta(BetaRoute) }
+struct OpaqueResult: Sendable { let operation: @Sendable () -> Int }
 @main struct ExternalFeatureConsumer {
     @MainActor static func main() async throws {
         let root = try RouterContainerState<AppRoute>(style: .tabs, selection: "alpha", branches: [
@@ -72,6 +73,20 @@ enum AppRoute: Route { case alpha(AlphaRoute), beta(BetaRoute) }
         precondition(store.state.node(at: ["alpha"]) == .stack(path: [.alpha(.home), .alpha(.detail)]))
         precondition(store.state.node(at: ["beta"]) == .stack(path: [.beta(.home), .beta(.detail)]))
         precondition(store.revision == 5)
+        let declaration = RouterTransientPresentationRequest<OpaqueResult>.confirmationDialog(
+            title: "Confirm", actions: [.init(id: "accept", label: "Accept", role: .cancel,
+                                             value: OpaqueResult(operation: { 42 }))]
+        )
+        var events = store.events.makeAsyncIterator()
+        let result = Task { @MainActor in await fresh.present(declaration) }
+        while let event = await events.next() { if case .committed = event { break } }
+        guard let handle = fresh.presentationHandle() else { fatalError("Missing typed presentation handle") }
+        guard case .applied = await fresh.selectPresentationAction("accept", using: handle) else {
+            fatalError("External feature selection rejected")
+        }
+        guard case .value(let value) = await result.value else { fatalError("Missing opaque typed result") }
+        precondition(value.operation() == 42 && store.revision == 7)
+        precondition(store.state.node(at: ["beta"]) == .stack(path: [.beta(.home), .beta(.detail)]))
         let empty = RouterStore<AlphaRoute>()
         precondition(empty.revision == 0 && empty.state == .rootStack)
         let budget = RouterResourceBudget(snapshot: try .init(maximumStackPath: 1))
@@ -88,7 +103,7 @@ enum AppRoute: Route { case alpha(AlphaRoute), beta(BetaRoute) }
         guard case .applied = await bounded.perform(.pop(count: 1)) else { fatalError("Capacity was not released") }
         guard case .applied = await bounded.perform(.push(.detail)) else { fatalError("Released capacity was not reusable") }
         precondition(bounded.revision == 2)
-        print("PASS external two-feature consumer: isolation, one-store revisions, replacement expiry, sibling continuity, reacquisition")
+        print("PASS external two-feature consumer: isolation, one-store revisions, replacement expiry, sibling continuity, reacquisition, opaque typed transient result")
     }
 }
 '''
