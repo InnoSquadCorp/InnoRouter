@@ -26,7 +26,7 @@ extension RouterObservability {
                  .rejectedCoalesced, .rejectedSuperseded,
                  .rejectedQueueOverflow, .rejectedPolicyTimeout,
                  .rejectedDeferral,
-                 .rejectedStaleState, .rejectedCancelled, .rejectedMissingAuthority,
+                 .rejectedStaleState, .rejectedCancelled, .rejectedMissingAuthority, .rejectedPendingLinkLifetime, .rejectedResourceLimit,
                  .policyRejected:
                 logger.error(
                     "Router \(kind, privacy: .public) id=\(transitionID, privacy: .public) source=\(source, privacy: .public) revision=\(revision, privacy: .public)"

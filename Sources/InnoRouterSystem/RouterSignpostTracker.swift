@@ -46,7 +46,7 @@ final class RouterSignpostTracker<Interval> {
              .rejectedCoalesced, .rejectedSuperseded,
              .rejectedQueueOverflow, .rejectedPolicyTimeout,
              .rejectedDeferral, .rejectedStaleState,
-             .rejectedCancelled, .rejectedMissingAuthority:
+             .rejectedCancelled, .rejectedMissingAuthority, .rejectedPendingLinkLifetime, .rejectedResourceLimit:
             if let active = activeIntervals.removeValue(forKey: event.transitionID) {
                 end(active)
             } else {

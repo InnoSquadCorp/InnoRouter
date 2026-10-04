@@ -125,10 +125,16 @@ public enum RouterInspectorReplay {
     public static func preview<R: Route>(
         _ transition: RouterTransition<R>
     ) -> RouterInspectorReplayPreview {
+        preview(transition, resourceBudget: .provisional)
+    }
+
+    public static func preview<R: Route>(
+        _ transition: RouterTransition<R>, resourceBudget: RouterResourceBudget
+    ) -> RouterInspectorReplayPreview {
         do {
             let state = try RouterReducer.reduce(
                 transition.action,
-                from: transition.initialState
+                from: transition.initialState, resourceBudget: resourceBudget
             )
             return .init(
                 status: state == transition.proposedState

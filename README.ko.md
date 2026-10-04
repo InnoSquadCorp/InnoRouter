@@ -96,6 +96,11 @@ let outcome = await store.perform(.push(.detail(id: "42")))
 let snapshot = try await store.snapshot(using: RouterSnapshotCodec(currentVersion: 1))
 ```
 
+7.0에서도 `RouterStore()`와 `AppRoute.makeRouterStore()`는 `try` 없이 사용합니다.
+`initialState`, `initialPath`, `configuration`을 전달할 때는 `try`가 필요합니다.
+구조·scene catalog·자원 한도를 위반한 초기 입력은 중단이나 자동 잘림 대신 오류로
+반환합니다. [생성 계약](Docs/7.0.0-store-initialization-contract.md)을 참고하세요.
+
 모든 요청은 `reduce → prepare → commit`을 거칩니다. 정책 거절, 취소, stale
 prepare, 잘못된 action은 기존 상태를 바꾸지 않습니다. 성공할 때만 완성된
 `RouterState` 하나를 대입하고 revision을 한 번 올립니다.
@@ -245,8 +250,12 @@ enum AppRoute {
     var destination: some View { /* exhaustive switch */ }
 }
 
-RouterTabHost(AppRoute.self, initial: .home)
+let tabHost = try RouterTabHost(AppRoute.self, initial: .home)
 ```
+
+입력이 있는 host는 오류를 처리할 수 있는 초기 설정 단계에서 만듭니다.
+SwiftUI `body`는 nonthrowing으로 유지합니다. tab·split host는 전체 topology를
+보존하고 잘못되거나 한도를 넘은 초기 입력을 오류로 반환합니다.
 
 `id:`를 생략하면 case 이름이 저장되는 scope ID입니다. tab case 이름을 바꾸기 전에
 명시 ID를 추가하면 저장된 branch를 계속 찾을 수 있습니다. 이 ID는 tab scope만

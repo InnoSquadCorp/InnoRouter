@@ -50,6 +50,8 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
         parent.node.flatMap { try? mapping.project($0) }
     }
 
+    var resourceBudget: RouterResourceBudget? { parent.resourceBudget }
+
     public var state: RouterState<Child>? {
         node.flatMap { try? RouterState(root: $0) }
     }
@@ -130,7 +132,11 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
             )
         }
 
+        guard let resourceBudget else {
+            return projectionRejection(.routeMismatch(namespace: mapping.namespace))
+        }
         do {
+            try resourceBudget.validateInput(action)
             let embedded = try mapping.embed(action)
             let path = parent.outcomeScopePath
             let mapping = self.mapping
@@ -150,6 +156,8 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
                     executionPrecondition: parentPrecondition
                 )
             )
+        } catch let failure as RouterResourceLimitFailure {
+            return map(parent.reject(.resourceLimit(failure)))
         } catch let error as RouterFeatureProjectionError {
             return projectionRejection(error)
         } catch {
@@ -175,7 +183,11 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
         guard node != nil else {
             return projectionRejection(.routeMismatch(namespace: mapping.namespace))
         }
+        guard let resourceBudget else {
+            return projectionRejection(.routeMismatch(namespace: mapping.namespace))
+        }
         do {
+            try resourceBudget.validateInput(action)
             let embedded = try mapping.embed(action)
             return map(
                 await parent.performFeatureAction(
@@ -186,6 +198,8 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
                     executionPrecondition: parentPrecondition(childPrecondition)
                 )
             )
+        } catch let failure as RouterResourceLimitFailure {
+            return map(parent.reject(.resourceLimit(failure)))
         } catch let error as RouterFeatureProjectionError {
             return projectionRejection(error)
         } catch {
@@ -203,8 +217,11 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
         guard self.node != nil else {
             return projectionRejection(.routeMismatch(namespace: mapping.namespace))
         }
+        guard let resourceBudget else {
+            return projectionRejection(.routeMismatch(namespace: mapping.namespace))
+        }
         do {
-            let state = try RouterState(root: node)
+            let state = try RouterStateDraft(root: node).build(resourceBudget: resourceBudget)
             let embedded = try mapping.embedPlanRoot(RouterPlan(state: state))
             let path = parent.outcomeScopePath
             let mapping = self.mapping
@@ -224,6 +241,8 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
                     executionPrecondition: parentPrecondition
                 )
             )
+        } catch let failure as RouterResourceLimitFailure {
+            return map(parent.reject(.resourceLimit(failure)))
         } catch let error as RouterFeatureProjectionError {
             return projectionRejection(error)
         } catch {

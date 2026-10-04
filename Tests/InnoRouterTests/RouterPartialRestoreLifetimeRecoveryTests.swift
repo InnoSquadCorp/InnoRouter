@@ -11,7 +11,7 @@ struct RouterPartialRestoreLifetimeRecoveryTests {
     func partialRestoreExpiresCapturedScope(changed: Bool) async throws {
         let initial = RouterState<R>.rootStack(path: [.home])
         let target = changed ? RouterState<R>.rootStack(path: [.restored]) : initial
-        let store = RouterStore<R>(initialState: initial)
+        let store = try RouterStore<R>(initialState: initial)
         let old = store.scope()
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let outcome = try await store.restorePartially(
@@ -49,7 +49,7 @@ struct RouterPartialRestoreLifetimeRecoveryTests {
     @Test("A rejected partial restore retains the prior owner and value")
     func rejectedRestoreRetainsOwnership() async throws {
         let initial = RouterState<R>.rootStack(path: [.home])
-        let store = RouterStore<R>(initialState: initial, configuration: .init(
+        let store = try RouterStore<R>(initialState: initial, configuration: .init(
             policies: [.init(name: "reject-restore") { _ in .reject("control") }]
         ))
         let old = store.scope()

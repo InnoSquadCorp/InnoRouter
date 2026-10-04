@@ -177,7 +177,7 @@ struct RouterSceneLifecycleTests {
         let state = try RouterState<SceneLifecycleRoute>(
             windows: [.init(id: windowID, route: .editor)]
         )
-        let store = RouterStore(initialState: state)
+        let store = try RouterStore(initialState: state)
 
         _ = RouterWindowHost(id: windowID, store: store).body
         let outcome = await store.perform(
@@ -198,7 +198,7 @@ struct RouterSceneLifecycleTests {
         let state = try RouterState(
             windows: [RouterWindow(id: windowID, route: SceneLifecycleRoute.editor)]
         )
-        let store = RouterStore(initialState: state)
+        let store = try RouterStore(initialState: state)
         var events = store.events.makeAsyncIterator()
 
         let outcome = await synchronizeRouterWindowDisappearance(
@@ -229,7 +229,7 @@ struct RouterSceneLifecycleTests {
                 route: SceneLifecycleRoute.theater
             )
         )
-        let store = RouterStore(initialState: state)
+        let store = try RouterStore(initialState: state)
         var events = store.events.makeAsyncIterator()
 
         let unrelated = await synchronizeRouterImmersiveSpaceDisappearance(
@@ -269,7 +269,7 @@ struct RouterSceneLifecycleTests {
         let replacementState = try RouterState<PlainSceneLifecycleRoute>(
             immersiveSpace: .init(id: "replacement", route: .replacement)
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: initialState,
             configuration: .init(
                 policies: [
@@ -316,7 +316,7 @@ struct RouterSceneLifecycleTests {
         let replacementState = try RouterState<PlainSceneLifecycleRoute>(
             immersiveSpace: .init(id: "replacement", route: .replacement)
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: initialState,
             configuration: .init(
                 policies: [
@@ -358,7 +358,7 @@ struct RouterSceneLifecycleTests {
         let initialState = try RouterState<PlainSceneLifecycleRoute>(
             immersiveSpace: .init(id: "shared", route: .old)
         )
-        let store = RouterStore(initialState: initialState)
+        let store = try RouterStore(initialState: initialState)
         let previousToken = try #require(store.immersiveSpaceLifecycleToken)
 
         guard case .applied = await store.perform(
@@ -390,7 +390,7 @@ struct RouterSceneLifecycleTests {
         let state = try RouterState<PlainSceneLifecycleRoute>(
             immersiveSpace: .init(id: "protected", route: .old)
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: state,
             configuration: .init(
                 policies: [
@@ -421,7 +421,7 @@ struct RouterSceneLifecycleTests {
         let state = try RouterState(
             windows: [RouterWindow(id: windowID, route: SceneLifecycleRoute.editor)]
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: state,
             configuration: .init(
                 policies: [
@@ -455,7 +455,7 @@ struct RouterSceneLifecycleTests {
         let state = try RouterState(
             windows: [RouterWindow(id: windowID, route: SceneLifecycleRoute.editor)]
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: state,
             configuration: .init(policies: [
                 RouterPolicy(name: "confirm-close") { transition in
@@ -578,7 +578,7 @@ struct RouterSceneLifecycleTests {
         let state = try RouterState<PlainSceneLifecycleRoute>(
             immersiveSpace: .init(id: "shared", route: .old)
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: state,
             configuration: .init(policies: [
                 RouterPolicy(name: "application-policy") { _ in .reject("keep") },
@@ -616,7 +616,7 @@ struct RouterSceneLifecycleTests {
         let state = try RouterState<PlainSceneLifecycleRoute>(
             immersiveSpace: .init(id: "shared", route: .old)
         )
-        let store = RouterStore(initialState: state)
+        let store = try RouterStore(initialState: state)
         let token = try #require(store.immersiveSpaceLifecycleToken)
         let ticket = try #require(
             store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
@@ -646,7 +646,7 @@ struct RouterSceneLifecycleTests {
         let state = try RouterState<PlainSceneLifecycleRoute>(
             immersiveSpace: .init(id: "shared", route: .old)
         )
-        let store = RouterStore(initialState: state)
+        let store = try RouterStore(initialState: state)
         let token = try #require(store.immersiveSpaceLifecycleToken)
         let ticket = try #require(
             store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
@@ -699,7 +699,7 @@ struct RouterSceneLifecycleTests {
         let state = try RouterState<PlainSceneLifecycleRoute>(
             immersiveSpace: .init(id: "shared", route: .old)
         )
-        let store = RouterStore(initialState: state)
+        let store = try RouterStore(initialState: state)
         let token = try #require(store.immersiveSpaceLifecycleToken)
         let ticket = try #require(
             store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
@@ -737,7 +737,7 @@ struct RouterSceneLifecycleTests {
         let initial = try RouterState<PlainSceneLifecycleRoute>(
             immersiveSpace: .init(id: "shared", route: .old)
         )
-        let store = RouterStore(initialState: initial)
+        let store = try RouterStore(initialState: initial)
         let oldToken = try #require(store.immersiveSpaceLifecycleToken)
         let ticket = try #require(
             store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
@@ -778,7 +778,7 @@ struct RouterSceneLifecycleTests {
             immersiveSpace: .init(id: "shared", route: .old)
         )
         let gate = SceneLifecyclePolicyGate()
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: initial,
             configuration: .init(policies: [
                 RouterPolicy(name: "unrelated-update") { transition in
@@ -830,7 +830,7 @@ struct RouterSceneLifecycleTests {
         let state = try RouterState(
             windows: [RouterWindow(id: windowID, route: SceneLifecycleRoute.editor)]
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: state,
             configuration: .init(
                 policies: [

@@ -86,7 +86,7 @@ struct RouterFifteenthReviewRegressionTests {
     @Test("A checkpoint completion cannot overwrite a newer history commit")
     func checkpointCompletionPreservesFollowupCommit() async throws {
         let hook = FifteenthReviewHistoryCommitHook()
-        let store = RouterStore<FifteenthReviewRoute>(configuration: .init(
+        let store = try RouterStore<FifteenthReviewRoute>(configuration: .init(
             onEvent: { hook.observe($0) }
         ))
         hook.store = store
@@ -164,7 +164,7 @@ struct RouterFifteenthReviewRegressionTests {
         }
         try await waitForEvent("blocked", from: gate.events)
 
-        let store = RouterStore(initialState: try RouterState<FifteenthReviewSceneRoute>(
+        let store = try RouterStore(initialState: try RouterState<FifteenthReviewSceneRoute>(
             windows: [.init(route: .window)],
             immersiveSpace: .init(id: "review-immersive", route: .immersive)
         ))

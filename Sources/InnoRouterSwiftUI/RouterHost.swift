@@ -36,15 +36,9 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
     private let root: () -> Root
     private let linkHandling: RouterLinkHandling<R>?
 
-    /// Creates a locally owned router for `routeType`.
-    ///
-    /// `initialPath` and `configuration` are captured when SwiftUI creates this
-    /// host's state for the first time. Later input changes do not replace the
-    /// existing store.
+    /// Creates a safe empty root-stack host with default resource limits.
     public init(
         _ routeType: R.Type,
-        initialPath: [R] = [],
-        configuration: RouterStoreConfiguration<R> = .init(),
         linkHandling: RouterLinkHandling<R>? = nil,
         @ViewBuilder root: @escaping () -> Root
     ) {
@@ -52,11 +46,42 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
         self.root = root
         self.linkHandling = linkHandling
         self.suppliedStore = nil
+        self._ownedStore = State(initialValue: R.makeRouterStore())
+    }
+
+    /// Creates a locally owned router for `routeType`.
+    ///
+    /// `initialPath` and `configuration` are captured when SwiftUI creates this
+    /// host's state for the first time. Later input changes do not replace the
+    /// existing store.
+    public init(
+        _ routeType: R.Type,
+        initialPath: [R],
+        configuration: RouterStoreConfiguration<R> = .init(),
+        linkHandling: RouterLinkHandling<R>? = nil,
+        @ViewBuilder root: @escaping () -> Root
+    ) throws {
+        _ = routeType
+        self.root = root
+        self.linkHandling = linkHandling
+        self.suppliedStore = nil
         self._ownedStore = State(
-            initialValue: R.makeRouterStore(
-                initialState: .rootStack(path: initialPath),
+            initialValue: try RouterStore(
+                initialPath: initialPath,
                 configuration: configuration
             )
+        )
+    }
+
+    public init(
+        _ routeType: R.Type,
+        configuration: RouterStoreConfiguration<R>,
+        linkHandling: RouterLinkHandling<R>? = nil,
+        @ViewBuilder root: @escaping () -> Root
+    ) throws {
+        try self.init(
+            routeType, initialPath: [], configuration: configuration,
+            linkHandling: linkHandling, root: root
         )
     }
 
@@ -85,7 +110,7 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
                 scope: scope,
                 handling: linkHandling
             ) { route, state in
-                let target = try state.replacingNode(.stack(path: [route]), at: .root)
+                let target = try state.replacingNode(.stack(path: [route]), at: .root, resourceBudget: store.resourceBudget)
                 return RouterPlan(state: target)
             }
     }

@@ -106,7 +106,7 @@ struct RouterScopeSceneMetadataReentrancyTests {
     @Test("Equal restore retains native scene identity while replacing runtime ownership", arguments: [false, true])
     func retainedSceneIdentity(immersive: Bool) async throws {
         let target = try state(immersive: immersive)
-        let store = RouterStore(initialState: target)
+        let store = try RouterStore(initialState: target)
         let scenePath = path(immersive: immersive)
         let old = store.scope(at: scenePath)
         let nativeLifetime = old.sceneLifetime
@@ -134,7 +134,7 @@ struct RouterScopeSceneMetadataReentrancyTests {
 
     @Test("Removed scenes keep expired metadata when their IDs are recreated", arguments: [false, true])
     func expiredSceneDoesNotRetarget(immersive: Bool) async throws {
-        let store = RouterStore(initialState: try state(immersive: immersive))
+        let store = try RouterStore(initialState: try state(immersive: immersive))
         let scenePath = path(immersive: immersive)
         let old = store.scope(at: scenePath)
         let oldLifetime = try #require(old.sceneLifetime)
@@ -170,7 +170,7 @@ struct RouterScopeSceneMetadataReentrancyTests {
                 .init(id: "right", node: .stack()),
             ]
         )))
-        let store = RouterStore(initialState: target)
+        let store = try RouterStore(initialState: target)
         let root = store.scope(), left = store.scope(at: ["left"]), right = store.scope(at: ["right"])
         _ = await left.perform(.push(.detail))
         _ = await store.perform(.openWindow(.init(id: windowID, route: .home)))

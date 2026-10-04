@@ -165,7 +165,7 @@ struct RouterPartialRestorationTests {
     func policyCanRejectValidatedRestoration() async throws {
         let codec = try RouterSnapshotCodec<RouteFixture>(currentVersion: 1)
         let data = try codec.encode(.rootStack(path: [.home]))
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "restoration-lock") { transition in

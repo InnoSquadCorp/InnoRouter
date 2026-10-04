@@ -259,7 +259,7 @@ struct RouterSnapshotLimitTests {
                 maximumPayloadByteCount: encoded.count
             )
         )
-        let store = RouterStore(initialState: RouterState<R>.rootStack(path: [.home]))
+        let store = try RouterStore(initialState: RouterState<R>.rootStack(path: [.home]))
         let initial = store.state
 
         await #expect(throws: RouterSnapshotError.encodedDataTooLarge(
@@ -368,7 +368,7 @@ struct RouterSnapshotLimitTests {
     @Test("An untyped storage failure never reaches the recovery policy")
     @MainActor
     func untypedStorageFailureSkipsRecoveryPolicy() async throws {
-        let store = RouterStore(initialState: RouterState<R>.rootStack(path: [.detail]))
+        let store = try RouterStore(initialState: RouterState<R>.rootStack(path: [.detail]))
         let initial = store.state
         let driver = RouterRestorationDriver(
             store: store,

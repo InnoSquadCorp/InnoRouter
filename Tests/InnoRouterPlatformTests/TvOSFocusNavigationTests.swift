@@ -23,8 +23,8 @@ struct TvOSFocusNavigationTests {
     }
 
     @Test("over-pop is rejected without changing focus history")
-    func invalidPop() async {
-        let store = RouterStore<FocusRoute>(initialPath: [.grid, .detail(1)])
+    func invalidPop() async throws {
+        let store = try RouterStore<FocusRoute>(initialPath: [.grid, .detail(1)])
 
         let result = await store.perform(.pop(count: 99))
 

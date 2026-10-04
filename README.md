@@ -100,6 +100,11 @@ let outcome = await store.perform(.push(.detail(id: "42")))
 let snapshot = try await store.snapshot(using: RouterSnapshotCodec(currentVersion: 1))
 ```
 
+In 7.0, `RouterStore()` and `AppRoute.makeRouterStore()` remain nonthrowing.
+Supplying `initialState`, `initialPath`, or `configuration` requires `try`:
+initial admission rejects structural, scene-catalog, and resource errors instead
+of trapping or truncating. See the [initialization contract](Docs/7.0.0-store-initialization-contract.md).
+
 Each request follows `reduce → prepare → commit`. A policy rejection,
 cancellation, stale preparation, or invalid action leaves committed state
 unchanged. Successful requests assign one complete `RouterState` value and
@@ -287,13 +292,17 @@ enum AppRoute {
     var destination: some View { /* exhaustive switch */ }
 }
 
+let tabHost = try RouterTabHost(AppRoute.self, initial: .home)
+```
+
 Without `id:`, the case name remains the persisted scope identity. Add an
 explicit ID before renaming a tab case to keep its saved branch reachable.
 This stabilizes the tab scope only; changing a Codable route case used inside a
 saved path still requires a snapshot migration. Effective IDs must be unique.
 
-RouterTabHost(AppRoute.self, initial: .home)
-```
+Create input-bearing hosts in a throwing setup boundary and handle failures
+there; SwiftUI `body` stays nonthrowing. Tab and split hosts preserve their full
+topology and reject invalid or oversized initialization instead of trapping.
 
 The macro generates stable case-name scope identifiers, so localization or tab
 reordering does not corrupt restored branch history. `@TabItem` can also define

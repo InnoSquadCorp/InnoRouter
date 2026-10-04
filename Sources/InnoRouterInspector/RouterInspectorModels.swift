@@ -241,17 +241,23 @@ public struct RouterInspectorImportLimits: Sendable, Hashable {
     public var maximumEntryCount: Int
     public var maximumJSONDepth: Int
     public var maximumJSONTokens: Int
+    public var maximumJSONWorkUnits: Int?
+    public var maximumJSONKeyDecodes: Int?
 
     public init(
         maximumEncodedByteCount: Int = 8 * 1_024 * 1_024,
         maximumEntryCount: Int = 5_000,
         maximumJSONDepth: Int = 64,
-        maximumJSONTokens: Int = 524_288
+        maximumJSONTokens: Int = 524_288,
+        maximumJSONWorkUnits: Int? = nil,
+        maximumJSONKeyDecodes: Int? = nil
     ) {
         self.maximumEncodedByteCount = max(1, maximumEncodedByteCount)
         self.maximumEntryCount = max(1, maximumEntryCount)
         self.maximumJSONDepth = max(1, maximumJSONDepth)
         self.maximumJSONTokens = max(1, maximumJSONTokens)
+        self.maximumJSONWorkUnits = maximumJSONWorkUnits.map { max(0, $0) }
+        self.maximumJSONKeyDecodes = maximumJSONKeyDecodes.map { max(0, $0) }
     }
 
     public static let `default` = Self()
@@ -264,6 +270,7 @@ public enum RouterInspectorImportError: Error, Sendable, Hashable {
     case tooManyEntries(actualCount: Int, maximumCount: Int)
     case jsonDepthExceeded(actualDepth: Int, maximumDepth: Int)
     case jsonTokenLimitExceeded(actualCount: Int, maximumCount: Int)
+    case resourceLimit(RouterResourceLimitFailure)
     case malformedSnapshotEnvelope
 }
 

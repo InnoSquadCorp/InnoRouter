@@ -292,7 +292,7 @@ struct RouterTabHostTests {
     // than in the hidden branch, and it selects that tab in the same plan.
     @Test("A link under an orphaned restored selection lands in the displayed tab")
     func orphanedSelectionLinkTargetsDisplayedTab() async throws {
-        let store = RouterStore<RouterTabLinkRoute>(
+        let store = try RouterStore<RouterTabLinkRoute>(
             initialState: try RouterState(root: .container(.init(
                 style: .tabs,
                 selection: "legacy",
@@ -342,7 +342,7 @@ struct RouterTabHostTests {
             branches: [RouterBranch(id: "home"), RouterBranch(id: "inbox")],
             split: split
         )))
-        let store = RouterStore(initialState: restored)
+        let store = try RouterStore(initialState: restored)
         let host = RouterTabHost(store: store)
 
         #expect(throws: RouterMutationError.incompatibleNavigationTopology(.root)) {
@@ -367,7 +367,7 @@ struct RouterTabHostTests {
     @Test("RouterTabHost renders its catalog over a store whose root is not tabs")
     func nonTabRootDoesNotAbort() async throws {
         let restored = RouterState<RouterTabHostRoute>.rootStack(path: [.settings])
-        let store = RouterStore(initialState: restored)
+        let store = try RouterStore(initialState: restored)
         let recorder = RouterTabHostRecorder()
         let host = RouterTabHost(store: store)
             .environment(recorder)
@@ -423,7 +423,7 @@ private func makeTabStore(
         branches: tabs.map { RouterBranch(id: $0.tab.routerScopeID) },
         badges: Dictionary(uniqueKeysWithValues: pairs)
     )
-    return RouterStore(initialState: try RouterState(root: .container(container)))
+    return try RouterStore(initialState: try RouterState(root: .container(container)))
 }
 
 @MainActor

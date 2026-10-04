@@ -14,9 +14,9 @@ struct RouterPolicyOperationDefaultBoundRegressionTests {
     private enum R: Route { case detail }
 
     @Test("Repeated logical cancellation cannot admit unlimited actual policy work")
-    func repeatedCancellationPreservesDefaultBound() async {
+    func repeatedCancellationPreservesDefaultBound() async throws {
         let gate = DefaultPolicyBudgetGate()
-        let store = RouterStore<R>(configuration: .init(policies: [
+        let store = try RouterStore<R>(configuration: .init(policies: [
             RouterPolicy(name: "remote") { _ in
                 await gate.enter()
                 return .allow

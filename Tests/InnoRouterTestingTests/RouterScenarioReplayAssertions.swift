@@ -21,7 +21,7 @@ func assertCapturedReplayUnsupported<R: Route & Codable>(
     #expect(throws: RouterScenarioSourceGenerationError.unsupportedRequestSemantics(step: 0, code: code)) {
         _ = try RouterScenarioSourceGenerator.generateFiles(decoded, routeTypeName: "AuthoredRoute")
     }
-    let target = RouterTestStore<R>(initialState: decoded.initialState, exhaustivity: .off)
+    let target = try RouterTestStore<R>(initialState: decoded.initialState, exhaustivity: .off)
     await #expect(throws: RouterScenarioReplayError.unsupportedRequestSemantics(step: 0, code: code)) {
         _ = try await RouterScenarioRunner.replay(decoded, on: target)
     }

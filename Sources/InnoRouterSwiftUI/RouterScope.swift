@@ -38,6 +38,7 @@ public final class RouterScope<R: Route> {
     /// This is read-only and is primarily useful for deriving an atomic
     /// ``RouterPlan`` from the current tree at a host boundary.
     public var state: RouterState<R>? { matchesCurrentLifetime ? store?.state : nil }
+    var resourceBudget: RouterResourceBudget? { matchesCurrentLifetime ? store?.resourceBudget : nil }
 
     var authorityRevision: UInt64 { store?.revision ?? 0 }
 
@@ -206,8 +207,9 @@ public final class RouterScope<R: Route> {
     ) async -> RouterOutcome<R> {
         guard let store else { return Self.missingAuthorityOutcome() }
         let path = path
+        let resourceBudget = store.resourceBudget
         let preparation: RouterRequestPreparationBuilder<R> = { state in
-            prepareRouterFeaturePlan(node: node, at: path, in: state)
+            prepareRouterFeaturePlan(node: node, at: path, in: state, resourceBudget: resourceBudget)
         }
         let submittedAction: RouterAction<R> = switch preparation(store.state) {
         case .action(let action): action

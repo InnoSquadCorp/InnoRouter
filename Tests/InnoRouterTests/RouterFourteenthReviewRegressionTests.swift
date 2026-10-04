@@ -107,7 +107,7 @@ struct RouterFourteenthReviewRegressionTests {
         let deferralID = RouterDeferralID()
         let codec = try RouterSnapshotCodec<FourteenthReviewRoute>(currentVersion: 1)
         let saved = try codec.encode(RouterState(root: .stack(path: [.first])))
-        let store = RouterStore<FourteenthReviewRoute>(configuration: .init(
+        let store = try RouterStore<FourteenthReviewRoute>(configuration: .init(
             policies: [RouterPolicy(name: "defer") { transition in
                 .deferRequest(
                     transition.context.source == .restoration
@@ -191,7 +191,7 @@ struct RouterFourteenthReviewRegressionTests {
 
     @Test("An obsolete immersive reopen is compensated before the queue advances")
     func obsoleteImmersiveRestoreClosesSuccessfulNativeOpen() async throws {
-        let store = RouterStore(initialState: try RouterState<FourteenthReviewRoute>(
+        let store = try RouterStore(initialState: try RouterState<FourteenthReviewRoute>(
             immersiveSpace: .init(id: "theater", route: .first)
         ))
         let lifetime = try #require(store.immersiveSpaceLifecycleToken)
@@ -224,7 +224,7 @@ struct RouterFourteenthReviewRegressionTests {
 
     @Test("Immersive effect serialization cleans an obsolete open before replacement")
     func obsoleteImmersiveCleanupPrecedesReplacementOpen() async throws {
-        let store = RouterStore(initialState: try RouterState<FourteenthReviewRoute>(
+        let store = try RouterStore(initialState: try RouterState<FourteenthReviewRoute>(
             immersiveSpace: .init(id: "theater", route: .first)
         ))
         let lifetime = try #require(store.immersiveSpaceLifecycleToken)
@@ -297,7 +297,7 @@ struct RouterFourteenthReviewRegressionTests {
 
     @Test("A matching immersive appearance consumes its ticket without closing the space")
     func matchingImmersiveAppearanceKeepsSuccessfulNativeOpen() async throws {
-        let store = RouterStore(initialState: try RouterState<FourteenthReviewRoute>(
+        let store = try RouterStore(initialState: try RouterState<FourteenthReviewRoute>(
             immersiveSpace: .init(id: "theater", route: .first)
         ))
         let lifetime = try #require(store.immersiveSpaceLifecycleToken)
@@ -336,7 +336,7 @@ struct RouterFourteenthReviewRegressionTests {
     func incompleteReconciliationDoesNotReopenUnaffectedWindow() async throws {
         let first = RouterWindow(id: UUID(), route: FourteenthReviewSceneRoute.supported)
         let second = RouterWindow(id: UUID(), route: FourteenthReviewSceneRoute.unsupported)
-        let store = RouterStore(initialState: try RouterState(windows: [first, second]))
+        let store = try RouterStore(initialState: try RouterState(windows: [first, second]))
         let catalog = try RouterSceneCatalog<FourteenthReviewSceneRoute>([
             .init(route: .supported, id: "supported", style: .window),
         ])

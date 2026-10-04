@@ -77,7 +77,7 @@ struct RouterRestorationBoundaryRegressionTests {
     @Test("A tab missing from a snapshot does not reintroduce unvalidated routes")
     @MainActor
     func missingTabDoesNotReintroduceUnvalidatedRoutes() async throws {
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try Self.tabs(
                 selection: "home",
                 [
@@ -124,7 +124,7 @@ struct RouterRestorationBoundaryRegressionTests {
     func missingTabDoesNotRetainInitialPresentations() async throws {
         let initialPresentation = UUID(uuidString: "00000000-0000-0000-0000-00000000000A")!
         let snapshotPresentation = UUID(uuidString: "00000000-0000-0000-0000-00000000000B")!
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try Self.tabs(
                 selection: "home",
                 [
@@ -179,7 +179,7 @@ struct RouterRestorationBoundaryRegressionTests {
     @Test("Exact restore round-trips a root that changed from tabs to a stack")
     @MainActor
     func exactRestoreRoundTripsAfterTabsBecomeStack() async throws {
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try Self.tabs(
                 selection: "home",
                 [
@@ -211,7 +211,7 @@ struct RouterRestorationBoundaryRegressionTests {
     @Test("Exact restore round-trips a catalog that removed a tab")
     @MainActor
     func exactRestoreRoundTripsAfterTabRemoval() async throws {
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try Self.tabs(
                 selection: "home",
                 [
@@ -246,7 +246,7 @@ struct RouterRestorationBoundaryRegressionTests {
     @Test("An application recovery fallback is applied exactly as returned")
     @MainActor
     func recoveryFallbackIsAppliedWithoutReconciliation() async throws {
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try Self.tabs(
                 selection: "home",
                 [
@@ -283,7 +283,7 @@ struct RouterRestorationBoundaryRegressionTests {
     @Test("A tab added since the snapshot was written becomes navigable")
     @MainActor
     func tabAddedSinceSnapshotBecomesNavigable() async throws {
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try Self.tabs(
                 selection: "home",
                 [

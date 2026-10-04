@@ -30,6 +30,8 @@ public struct RouterSnapshotLimits: Hashable, Sendable {
     public let maximumPayloadByteCount: Int
     public let maximumJSONDepth: Int
     public let maximumJSONTokens: Int
+    public let maximumJSONWorkUnits: Int?
+    public let maximumJSONKeyDecodes: Int?
 
     /// Uncalibrated starting values, not a measured app-compatibility guarantee.
     public static let provisional = try! Self(
@@ -41,7 +43,9 @@ public struct RouterSnapshotLimits: Hashable, Sendable {
         maximumEncodedByteCount: Int,
         maximumPayloadByteCount: Int,
         maximumJSONDepth: Int = 128,
-        maximumJSONTokens: Int = 262_144
+        maximumJSONTokens: Int = 262_144,
+        maximumJSONWorkUnits: Int? = nil,
+        maximumJSONKeyDecodes: Int? = nil
     ) throws {
         guard maximumEncodedByteCount > 0 else {
             throw RouterSnapshotError.invalidByteLimit(
@@ -63,10 +67,17 @@ public struct RouterSnapshotLimits: Hashable, Sendable {
                 code: .invalidLimit, details: .init(field: name, value: value)
             ))
         }
+        for (name, value) in [("maximumJSONWorkUnits", maximumJSONWorkUnits), ("maximumJSONKeyDecodes", maximumJSONKeyDecodes)] {
+            if let value, value < 0 {
+                throw RouterSnapshotError.preflight(.init(code: .invalidLimit, details: .init(field: name, value: value)))
+            }
+        }
         self.maximumEncodedByteCount = maximumEncodedByteCount
         self.maximumPayloadByteCount = maximumPayloadByteCount
         self.maximumJSONDepth = maximumJSONDepth
         self.maximumJSONTokens = maximumJSONTokens
+        self.maximumJSONWorkUnits = maximumJSONWorkUnits
+        self.maximumJSONKeyDecodes = maximumJSONKeyDecodes
     }
 }
 
@@ -182,8 +193,9 @@ public enum RouterSnapshotDecodingResult<R: Route>: Hashable, Sendable {
 /// snapshots.
 public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
     public let currentVersion: Int
-    private let migrations: [Int: RouterSnapshotMigration]
-    private let limits: RouterSnapshotLimits?
+    package let migrations: [Int: RouterSnapshotMigration]
+    package let limits: RouterSnapshotLimits?
+    package var resourceLimits: RouterGraphSnapshotLimits?
 
     /// Creates a codec with finite provisional byte and JSON-complexity limits.
     ///
@@ -218,10 +230,18 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
         self.currentVersion = currentVersion
         self.migrations = indexed
         self.limits = limits
+        self.resourceLimits = try limits.map {
+            try RouterGraphSnapshotLimits(maximumEncodedBytes: $0.maximumEncodedByteCount,
+                                          maximumPayloadBytes: $0.maximumPayloadByteCount,
+                                          maximumJSONTokens: $0.maximumJSONTokens)
+        }
     }
 
     /// Encodes the current state with stable JSON key ordering.
     public func encode(_ state: RouterState<R>) throws -> Data {
+        try validateResources(state, stage: "encodingState")
+        var work = makeJSONWorkBudget()
+        try chargeJSON(1, stage: "encodingState", work: &work)
         do {
             try state.validate()
         } catch let error as RouterStateValidationError {
@@ -235,9 +255,11 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
             throw RouterSnapshotError.encodePayload(String(describing: error))
         }
         try validatePayloadSize(payload)
-        try validateJSON(payload, isEnvelope: false, version: currentVersion)
+        try validateJSON(payload, isEnvelope: false, version: currentVersion, work: &work)
+        try validateRoutePayloads(payload, version: currentVersion, work: &work)
 
         do {
+            try chargeJSON(1, stage: "encodingEnvelope", work: &work)
             let encoded = try Self.encoder().encode(
                 RouterSnapshotEnvelope(
                     schemaVersion: currentVersion,
@@ -245,7 +267,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
                 )
             )
             try validateEncodedSize(encoded)
-            try validateJSON(encoded, isEnvelope: true)
+            try validateJSON(encoded, isEnvelope: true, work: &work)
             return encoded
         } catch let error as RouterSnapshotError {
             throw error
@@ -256,8 +278,14 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
 
     /// Migrates and decodes a snapshot, then validates the resulting tree.
     public func decode(_ data: Data) throws -> RouterState<R> {
+        var work = makeJSONWorkBudget()
+        return try decode(data, work: &work)
+    }
+
+    private func decode(_ data: Data, work: inout RouterJSONWorkBudget?) throws -> RouterState<R> {
         try validateEncodedSize(data)
-        try validateJSON(data, isEnvelope: true)
+        try validateJSON(data, isEnvelope: true, work: &work)
+        try chargeJSON(data.count, stage: "envelope", work: &work)
         var envelope: RouterSnapshotEnvelope
         do {
             envelope = try JSONDecoder().decode(RouterSnapshotEnvelope.self, from: data)
@@ -275,7 +303,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
             )
         }
         try validatePayloadSize(envelope.payload)
-        try validateJSON(envelope.payload, isEnvelope: false, version: envelope.schemaVersion)
+        try validateJSON(envelope.payload, isEnvelope: false, version: envelope.schemaVersion, work: &work)
 
         while envelope.schemaVersion < currentVersion {
             guard let migration = migrations[envelope.schemaVersion] else {
@@ -284,6 +312,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
                     current: currentVersion
                 )
             }
+            try chargeJSON(envelope.payload.count, stage: "migration", work: &work)
             do {
                 envelope.payload = try migration.transform(envelope.payload)
             } catch {
@@ -297,10 +326,12 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
             // remain distinct and run after every hop, before another migration
             // (including its typed JSONDecoder) can consume the output.
             try validatePayloadSize(envelope.payload)
-            try validateJSON(envelope.payload, isEnvelope: false, version: migration.toVersion)
+            try validateJSON(envelope.payload, isEnvelope: false, version: migration.toVersion, work: &work)
             envelope.schemaVersion = migration.toVersion
         }
 
+        try validateRoutePayloads(envelope.payload, version: envelope.schemaVersion, work: &work)
+        try chargeJSON(envelope.payload.count, stage: "payload", work: &work)
         let state: RouterState<R>
         do {
             state = try JSONDecoder().decode(RouterState<R>.self, from: envelope.payload)
@@ -362,16 +393,121 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
         )
     }
 
+    private func validateRoutePayloads(_ data: Data, version: Int, work: inout RouterJSONWorkBudget?) throws {
+        if let resourceLimits {
+            try chargeJSON(data.count, stage: "structuralPayload", work: &work)
+            do {
+                guard let admittedWork = work else {
+                    throw RouterSnapshotError.preflight(.init(code: .invalidLimit, details: .init(
+                        stage: "payload", field: "missingWorkBudget"
+                    )))
+                }
+                let admission = try RouterLegacyRouteAdmission(
+                    validatedJSON: data, limits: resourceLimits, work: admittedWork
+                )
+                let decoder = JSONDecoder()
+                decoder.userInfo[RouterLegacyRouteAdmission.key] = admission
+                let shape = try decoder.decode(RouterState<RouterLegacyRouteShape>.self, from: data)
+                work = admission.work
+                try validateResources(shape, stage: "payload")
+            } catch let error as RouterStateValidationError { throw RouterSnapshotError.invalidState(error) }
+            catch let error as RouterSnapshotError { throw error }
+            catch RouterJSONPreflightError.limitExceeded(let field, let actual, let maximum) {
+                throw RouterSnapshotError.preflight(.init(code: .limitExceeded, details: .init(
+                    stage: "payload", field: field, actual: actual, maximum: maximum
+                )))
+            } catch { throw RouterSnapshotError.decodePayload(version: version, message: "Invalid state structure") }
+        }
+    }
+
+    package mutating func setResourceLimits(_ configured: RouterGraphSnapshotLimits) {
+        resourceLimits = configured
+    }
+
+    private func validateResources<StateRoute: Route>(_ state: RouterState<StateRoute>, stage: String) throws {
+        guard let resourceLimits else { return }
+        do { try RouterResourceBudget(snapshot: resourceLimits).validate(state) }
+        catch let failure {
+            throw RouterSnapshotError.preflight(.init(code: .limitExceeded, details: .init(
+                stage: stage, field: failure.resource, actual: failure.actual, maximum: failure.maximum
+            )))
+        }
+    }
+
+    private func jsonWorkLimits(_ limits: RouterSnapshotLimits) -> RouterJSONWorkLimits {
+        let derived = RouterJSONWorkLimits.derived(maximumBytes: limits.maximumEncodedByteCount, maximumTokens: limits.maximumJSONTokens)
+        return .init(maximumWorkUnits: limits.maximumJSONWorkUnits ?? derived.maximumWorkUnits,
+                     maximumKeyDecodes: limits.maximumJSONKeyDecodes ?? derived.maximumKeyDecodes)
+    }
+
+    private func makeJSONWorkBudget() -> RouterJSONWorkBudget? {
+        limits.map { RouterJSONWorkBudget(limits: jsonWorkLimits($0)) }
+    }
+
+    private func chargeJSON(_ count: Int, stage: String, work: inout RouterJSONWorkBudget?) throws {
+        do { try work?.charge(count) }
+        catch RouterJSONPreflightError.limitExceeded(let field, let actual, let maximum) {
+            throw RouterSnapshotError.preflight(.init(code: .limitExceeded, details: .init(
+                stage: stage, field: field, actual: actual, maximum: maximum
+            )))
+        }
+    }
+
+    package func decodeForGraphMigration(_ data: Data, work: inout RouterJSONWorkBudget) throws -> RouterState<R> {
+        let prior = work.result
+        let local = limits.map(jsonWorkLimits) ?? work.limits
+        let admitted = RouterJSONWorkLimits(
+            maximumWorkUnits: min(local.maximumWorkUnits, work.limits.maximumWorkUnits - prior.workUnits),
+            maximumKeyDecodes: min(local.maximumKeyDecodes, work.limits.maximumKeyDecodes - prior.keyDecodes)
+        )
+        var nested: RouterJSONWorkBudget? = .init(limits: admitted)
+        let state = try decode(data, work: &nested)
+        if let used = nested?.result {
+            // Each local count was admitted against the remaining outer count.
+            work = try RouterJSONWorkBudget(limits: work.limits, consumed: .init(
+                workUnits: prior.workUnits + used.workUnits, keyDecodes: prior.keyDecodes + used.keyDecodes
+            ))
+        }
+        return state
+    }
+
+    /// A graph migration never inherits an unbounded legacy parser. Preserve
+    /// stricter app limits while bounding every original migration output.
+    package func boundedForGraphMigration(_ graph: RouterGraphSnapshotLimits, maximumLegacyJSONDepth: Int? = nil) throws -> Self {
+        let baseline = limits ?? .provisional
+        let bounded = try RouterSnapshotLimits(
+            maximumEncodedByteCount: min(baseline.maximumEncodedByteCount, graph.maximumEncodedBytes),
+            maximumPayloadByteCount: min(baseline.maximumPayloadByteCount, graph.maximumPayloadBytes),
+            maximumJSONDepth: min(baseline.maximumJSONDepth, maximumLegacyJSONDepth ?? max(RouterSnapshotLimits.provisional.maximumJSONDepth, graph.maximumJSONDepth)),
+            maximumJSONTokens: min(baseline.maximumJSONTokens, graph.maximumJSONTokens),
+            maximumJSONWorkUnits: baseline.maximumJSONWorkUnits,
+            maximumJSONKeyDecodes: baseline.maximumJSONKeyDecodes
+        )
+        var adapted = try Self(currentVersion: currentVersion, migrations: Array(migrations.values), limits: bounded)
+        adapted.setResourceLimits(try resourceLimits?.intersecting(graph) ?? graph)
+        return adapted
+    }
+
     private func validateJSON(_ data: Data, isEnvelope: Bool, version: Int? = nil) throws {
+        var work = makeJSONWorkBudget()
+        try validateJSON(data, isEnvelope: isEnvelope, version: version, work: &work)
+    }
+
+    private func validateJSON(
+        _ data: Data, isEnvelope: Bool, version: Int? = nil, work: inout RouterJSONWorkBudget?
+    ) throws {
         guard let limits else { return }
         do {
-            try RouterJSONPreflight.validate(
+            let selected = work?.limits ?? jsonWorkLimits(limits)
+            let used = try RouterJSONPreflight.validate(
                 data,
                 maximumBytes: isEnvelope ? limits.maximumEncodedByteCount : limits.maximumPayloadByteCount,
                 maximumDepth: limits.maximumJSONDepth,
                 maximumTokens: limits.maximumJSONTokens,
-                byteName: isEnvelope ? "encodedBytes" : "payloadBytes"
+                byteName: isEnvelope ? "encodedBytes" : "payloadBytes",
+                workLimits: selected, consumedWork: work?.result
             )
+            work = try RouterJSONWorkBudget(limits: selected, consumed: used)
         } catch let error as RouterJSONPreflightError {
             let stage = isEnvelope ? "envelope" : "payload"
             switch error {

@@ -15,7 +15,7 @@ struct RouterRestorationOperationBudgetTests {
         let timer = RestorationBudgetGate()
         var configuration = RouterStoreConfiguration<R>(maximumActiveRestorationOperationCount: 1)
         configuration.runtimeDependencies.sleep = { _ in await timer.suspend() }
-        let store = RouterStore<R>(configuration: configuration)
+        let store = try RouterStore<R>(configuration: configuration)
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let data = try codec.encode(.rootStack(path: [.step(1)]))
         let task = Task { @MainActor in
@@ -69,7 +69,7 @@ struct RouterRestorationOperationBudgetTests {
     func defaultAndUnboundedConfiguration(useDefault: Bool) async throws {
         #expect(RouterStoreConfiguration<R>().maximumActiveRestorationOperationCount == 8)
         let configuration = useDefault ? RouterStoreConfiguration<R>() : .init(maximumActiveRestorationOperationCount: nil)
-        let store = RouterStore<R>(configuration: configuration)
+        let store = try RouterStore<R>(configuration: configuration)
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let data = try codec.encode(.rootStack(path: [.step(0)]))
         let count = useDefault ? 8 : 10
@@ -101,9 +101,9 @@ struct RouterRestorationOperationBudgetTests {
         #expect(store.restorationOperations.activeCount == 0)
     }
 
-    @Test("Zero and negative capacity reject before callbacks without blocking policy-free navigation", arguments: [0, -1])
-    func zeroAndNegativeCapacity(limit: Int) async throws {
-        let store = RouterStore<R>(configuration: .init(maximumActiveRestorationOperationCount: limit))
+    @Test("Zero capacity rejects before callbacks without blocking policy-free navigation", arguments: [0])
+    func zeroCapacity(limit: Int) async throws {
+        let store = try RouterStore<R>(configuration: .init(maximumActiveRestorationOperationCount: limit))
         var calls = 0
         await #expect(throws: RouterPartialRestorationError.operation(
             .capacityExceeded(maximumCount: 0, activeCount: 0)
@@ -126,7 +126,7 @@ struct RouterRestorationOperationBudgetTests {
 
     @Test("History validation shares the Store bound, then recovers after actual exit")
     func historySharesStoreCapacity() async throws {
-        let store = RouterStore<R>(initialPath: [.step(0)], configuration: .init(maximumActiveRestorationOperationCount: 1))
+        let store = try RouterStore<R>(initialPath: [.step(0)], configuration: .init(maximumActiveRestorationOperationCount: 1))
         var historyCalls = 0
         let history = RouterHistory(store: store, validator: .init { _, _ in historyCalls += 1; return .keep })
         _ = await store.perform(.push(.step(1)))
@@ -167,7 +167,7 @@ struct RouterRestorationOperationBudgetTests {
 
     @Test("A cancelled validator retains its registry without retaining its Store")
     func operationDoesNotRetainStore() async throws {
-        var store: RouterStore<R>? = RouterStore(configuration: .init(maximumActiveRestorationOperationCount: 1))
+        var store: RouterStore<R>? = try RouterStore(configuration: .init(maximumActiveRestorationOperationCount: 1))
         let weakStore = RestorationBudgetWeakReference(store)
         let weakRegistry = RestorationBudgetWeakReference(store?.restorationOperations)
         let gate = RestorationBudgetGate()

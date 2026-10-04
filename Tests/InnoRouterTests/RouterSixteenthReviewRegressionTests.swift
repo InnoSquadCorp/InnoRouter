@@ -301,7 +301,7 @@ struct RouterSixteenthReviewRegressionTests {
 
     private func verifyQueuedHistoryResolution(
         _ resolution: SixteenthReviewHistoryHook.Resolution
-    ) async {
+    ) async throws {
         let gate = SixteenthReviewHistoryGate()
         var events = gate.events.makeAsyncIterator()
         let hook = SixteenthReviewHistoryHook()
@@ -322,7 +322,7 @@ struct RouterSixteenthReviewRegressionTests {
         configuration.runtimeDependencies.didQueueRequest = { _ in
             gate.continuation.yield("queued")
         }
-        let store = RouterStore<SixteenthReviewRoute>(configuration: configuration)
+        let store = try RouterStore<SixteenthReviewRoute>(configuration: configuration)
         hook.store = store
         let history = RouterHistory(store: store)
         _ = history.createCheckpoint(named: "empty")

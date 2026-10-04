@@ -9,48 +9,75 @@ enum RouterInspectorImportPreflight {
         limits: RouterInspectorImportLimits,
         diagnosticBundle: Bool = false
     ) throws {
-        try validateJSON(data, limits: limits)
-        let bytes = Array(data)
+        try withJSONBudget(data, limits: limits) { bytes, work in
+            try validateContents(bytes, limits: limits, diagnosticBundle: diagnosticBundle, work: &work)
+            try work.charge(data.count)
+        }
+    }
+
+    /// One UI import admission across format detection, content checks and the
+    /// final typed decoder. The classification phase cannot reset its ledger.
+    static func classifyAndValidate(_ data: Data, limits: RouterInspectorImportLimits) throws -> Bool {
+        try withJSONBudget(data, limits: limits) { bytes, work in
+            let diagnostic = try member("formatVersion", in: bytes, startingAt: 0, work: &work) != nil
+            try validateContents(bytes, limits: limits, diagnosticBundle: diagnostic, work: &work)
+            try work.charge(data.count)
+            return diagnostic
+        }
+    }
+
+    private static func validateContents(
+        _ bytes: [UInt8], limits: RouterInspectorImportLimits,
+        diagnosticBundle: Bool, work: inout RouterJSONWorkBudget
+    ) throws {
         let snapshotStart: Int
         if diagnosticBundle {
-            _ = try requiredMember("formatVersion", in: bytes, startingAt: 0)
-            snapshotStart = try requiredMember("snapshot", in: bytes, startingAt: 0)
-        } else {
-            snapshotStart = 0
-        }
-        let entriesStart = try requiredMember("entries", in: bytes, startingAt: snapshotStart)
-        let count = try countArrayElements(in: bytes, startingAt: entriesStart)
+            _ = try requiredMember("formatVersion", in: bytes, startingAt: 0, work: &work)
+            snapshotStart = try requiredMember("snapshot", in: bytes, startingAt: 0, work: &work)
+        } else { snapshotStart = 0 }
+        let entriesStart = try requiredMember("entries", in: bytes, startingAt: snapshotStart, work: &work)
+        let count = try countArrayElements(in: bytes, startingAt: entriesStart, work: &work)
         guard count <= limits.maximumEntryCount else {
-            throw RouterInspectorImportError.tooManyEntries(
-                actualCount: count,
-                maximumCount: limits.maximumEntryCount
-            )
+            throw RouterInspectorImportError.tooManyEntries(actualCount: count, maximumCount: limits.maximumEntryCount)
         }
     }
 
-    /// Shared by the native file importer so a bundle never falls back to an
-    /// unversioned snapshot after a version or validation failure.
+    /// Classification also guards its extra escaped-key decoder; a malformed
+    /// graph/bundle marker cannot force a second format through fallback.
     static func isDiagnosticBundle(_ data: Data, limits: RouterInspectorImportLimits) throws -> Bool {
-        try validateJSON(data, limits: limits)
-        return try member("formatVersion", in: Array(data), startingAt: 0) != nil
+        try withJSONBudget(data, limits: limits) { bytes, work in
+            try member("formatVersion", in: bytes, startingAt: 0, work: &work) != nil
+        }
     }
 
-    // Reject excessive nesting and token counts throughout the document, including
-    // unknown fields, before any entry tree reaches Foundation's decoder.
-    private static func validateJSON(_ data: Data, limits: RouterInspectorImportLimits) throws {
+    private static func withJSONBudget<Value>(
+        _ data: Data, limits: RouterInspectorImportLimits,
+        operation: ([UInt8], inout RouterJSONWorkBudget) throws -> Value
+    ) throws -> Value {
         try validateByteCount(data, limits: limits)
         do {
-            try RouterJSONPreflight.validate(
+            let derived = RouterJSONWorkLimits.derived(maximumBytes: limits.maximumEncodedByteCount, maximumTokens: limits.maximumJSONTokens)
+            let workLimits = RouterJSONWorkLimits(
+                maximumWorkUnits: limits.maximumJSONWorkUnits ?? derived.maximumWorkUnits,
+                maximumKeyDecodes: limits.maximumJSONKeyDecodes ?? derived.maximumKeyDecodes
+            )
+            let used = try RouterJSONPreflight.validate(
                 data, maximumBytes: limits.maximumEncodedByteCount,
                 maximumDepth: limits.maximumJSONDepth,
-                maximumTokens: limits.maximumJSONTokens, byteName: "encodedBytes"
+                maximumTokens: limits.maximumJSONTokens, byteName: "encodedBytes",
+                workLimits: workLimits
             )
+            var work = try RouterJSONWorkBudget(limits: workLimits, consumed: used)
+            try work.charge(data.count)
+            return try operation(Array(data), &work)
         } catch let error as RouterJSONPreflightError {
             switch error {
             case .limitExceeded("jsonDepth", let actual, let maximum):
                 throw RouterInspectorImportError.jsonDepthExceeded(actualDepth: actual, maximumDepth: maximum)
             case .limitExceeded("jsonTokens", let actual, let maximum):
                 throw RouterInspectorImportError.jsonTokenLimitExceeded(actualCount: actual, maximumCount: maximum)
+            case .limitExceeded(let field, let actual, let maximum) where field == "jsonWorkUnits" || field == "jsonKeyDecodes":
+                throw RouterInspectorImportError.resourceLimit(.init(resource: field, actual: actual, maximum: maximum))
             case .malformedJSON, .duplicateJSONKey, .limitExceeded:
                 throw RouterInspectorImportError.malformedSnapshotEnvelope
             }
@@ -66,16 +93,18 @@ enum RouterInspectorImportPreflight {
         }
     }
 
-    private static func requiredMember(_ key: String, in bytes: [UInt8], startingAt start: Int) throws -> Int {
-        guard let index = try member(key, in: bytes, startingAt: start) else {
+    private static func requiredMember(_ key: String, in bytes: [UInt8], startingAt start: Int, work: inout RouterJSONWorkBudget) throws -> Int {
+        guard let index = try member(key, in: bytes, startingAt: start, work: &work) else {
             throw RouterInspectorImportError.malformedSnapshotEnvelope
         }
         return index
     }
 
-    private static func member(_ key: String, in bytes: [UInt8], startingAt start: Int) throws -> Int? {
+    private static func member(_ key: String, in bytes: [UInt8], startingAt start: Int, work: inout RouterJSONWorkBudget) throws -> Int? {
+        guard start >= 0, start <= bytes.count else { throw RouterInspectorImportError.malformedSnapshotEnvelope }
+        try work.charge(bytes.count - start)
         var index = start
-        skipWhitespace(in: bytes, index: &index)
+        try skipWhitespace(in: bytes, index: &index, work: &work)
         guard index < bytes.count, bytes[index] == 0x7B else {
             throw RouterInspectorImportError.malformedSnapshotEnvelope
         }
@@ -89,14 +118,14 @@ enum RouterInspectorImportPreflight {
                 index = try endOfString(in: bytes, startingAt: index)
                 if objectDepth == 1, arrayDepth == 0 {
                     var valueStart = index + 1
-                    skipWhitespace(in: bytes, index: &valueStart)
+                    try skipWhitespace(in: bytes, index: &valueStart, work: &work)
                     if valueStart < bytes.count, bytes[valueStart] == 0x3A,
-                       try matchesKey(key, bytes: bytes, range: stringStart...index) {
+                       try matchesKey(key, bytes: bytes, range: stringStart...index, work: &work) {
                         guard result == nil else {
                             throw RouterInspectorImportError.malformedSnapshotEnvelope
                         }
                         valueStart += 1
-                        skipWhitespace(in: bytes, index: &valueStart)
+                        try skipWhitespace(in: bytes, index: &valueStart, work: &work)
                         result = valueStart
                     }
                 }
@@ -125,15 +154,21 @@ enum RouterInspectorImportPreflight {
         throw RouterInspectorImportError.malformedSnapshotEnvelope
     }
 
-    private static func matchesKey(_ key: String, bytes: [UInt8], range: ClosedRange<Int>) throws -> Bool {
+    private static func matchesKey(_ key: String, bytes: [UInt8], range: ClosedRange<Int>, work: inout RouterJSONWorkBudget) throws -> Bool {
+        try work.charge(range.count)
+        try work.charge(range.count)
         let contents = bytes[(range.lowerBound + 1)..<range.upperBound]
         if !contents.contains(0x5C) {
             return contents.elementsEqual(key.utf8)
         }
-        return try JSONDecoder().decode(String.self, from: Data(bytes[range])) == key
+        return try work.withKeyDecode(byteCount: range.count) {
+            try JSONDecoder().decode(String.self, from: Data(bytes[range])) == key
+        }
     }
 
-    private static func countArrayElements(in bytes: [UInt8], startingAt start: Int) throws -> Int {
+    private static func countArrayElements(in bytes: [UInt8], startingAt start: Int, work: inout RouterJSONWorkBudget) throws -> Int {
+        guard start >= 0, start <= bytes.count else { throw RouterInspectorImportError.malformedSnapshotEnvelope }
+        try work.charge(bytes.count - start)
         guard start < bytes.count, bytes[start] == 0x5B else {
             throw RouterInspectorImportError.malformedSnapshotEnvelope
         }
@@ -196,8 +231,9 @@ enum RouterInspectorImportPreflight {
         throw RouterInspectorImportError.malformedSnapshotEnvelope
     }
 
-    private static func skipWhitespace(in bytes: [UInt8], index: inout Int) {
+    private static func skipWhitespace(in bytes: [UInt8], index: inout Int, work: inout RouterJSONWorkBudget) throws {
         while index < bytes.count, isWhitespace(bytes[index]) {
+            try work.charge(1)
             index += 1
         }
     }

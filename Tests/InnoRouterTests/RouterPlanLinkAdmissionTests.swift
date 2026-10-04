@@ -22,7 +22,7 @@ struct RouterPlanLinkAdmissionTests {
             branches: [RouterBranch(id: "home"), RouterBranch(id: "account")]
         )))
         let target = RouterPlan(state: try RouterReducer.reduce(.select("account"), from: initial))
-        let store = RouterStore(initialState: initial)
+        let store = try RouterStore(initialState: initial)
         let arbiter = RouterDeepLinkArbiter()
         let winningMatches = Mutex(0)
         let winningAuthentications = Mutex(0)
@@ -104,7 +104,7 @@ struct RouterPlanLinkAdmissionTests {
     @Test("Host arbitration does not transfer old-account intent into a new generation")
     func hostSubmissionCapturesGeneration() async throws {
         let session = HostAuthorizationSession()
-        let store = RouterStore<Destination>(configuration: .init(authorization: .init(
+        let store = try RouterStore<Destination>(configuration: .init(authorization: .init(
             generation: { session.generation }, requiresAuthorization: { $0 == .account },
             authorize: { session.authenticationCalls += 1; return true }
         )))

@@ -63,9 +63,9 @@ struct PlatformCapabilityRuntimeTests {
     }
 
     @Test("Platform adaptation events are emitted once per exact occurrence")
-    func adaptationEvents() {
+    func adaptationEvents() throws {
         var events: [RouterEvent<PlatformRuntimeRoute>] = []
-        let store = RouterStore<PlatformRuntimeRoute>(
+        let store = try RouterStore<PlatformRuntimeRoute>(
             configuration: .init { events.append($0) }
         )
         let adaptation = RouterPlatformAdaptation.tabBadgeVisualUnavailable(

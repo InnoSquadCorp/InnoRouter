@@ -1,7 +1,7 @@
 import Foundation
 
 /// Structural validation never invokes an application route codec.
-struct RouterGraphSnapshotIndex {
+struct RouterGraphSnapshotIndex: Sendable {
     let nodes: [String: RouterGraphNodeRecord]
     let presentations: [UUID: RouterGraphPresentationRecord]
     let postorder: [String]
@@ -52,7 +52,10 @@ extension RouterGraphSnapshot {
         for route in routes {
             try RouterGraphJSONPreflight.check(route.payload.data.count, maximum: limits.maximumRoutePayloadBytes, name: "routePayloadBytes")
             let (total, overflow) = totalPayloadBytes.addingReportingOverflow(route.payload.data.count)
-            try RouterGraphJSONPreflight.check(overflow ? Int.max : total, maximum: limits.maximumPayloadBytes, name: "totalRoutePayloadBytes")
+            guard !overflow else {
+                throw RouterGraphSnapshotError.limitExceeded(name: "totalRoutePayloadBytes", actual: .max, maximum: limits.maximumPayloadBytes)
+            }
+            try RouterGraphJSONPreflight.check(total, maximum: limits.maximumPayloadBytes, name: "totalRoutePayloadBytes")
             totalPayloadBytes = total
         }
     }

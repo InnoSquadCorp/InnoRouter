@@ -14,7 +14,7 @@ public extension RouterInspectorRecorder {
         attach(
             to: store.events,
             domain: .router,
-            formatter: formatter ?? redactedRouterFormatter()
+            formatter: formatter ?? redactedRouterFormatter(resourceBudget: store.resourceBudget)
         )
     }
 }

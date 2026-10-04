@@ -11,6 +11,18 @@ public extension RouterState {
         _ replacement: RouterNode<R>,
         at path: RouterScopePath
     ) throws -> RouterState<R> {
+        try replacingNode(replacement, at: path, resourceBudget: .provisional)
+    }
+
+    /// Bounds the source, replacement input, scope path, and complete candidate
+    /// before recursive structural validation. Ownership remains with the Store.
+    func replacingNode(
+        _ replacement: RouterNode<R>,
+        at path: RouterScopePath,
+        resourceBudget: RouterResourceBudget
+    ) throws -> RouterState<R> {
+        try resourceBudget.validate(self)
+        try resourceBudget.validateReplacement(replacement, at: path)
         var result = self
         switch path.domain {
         case .application:
@@ -42,6 +54,7 @@ public extension RouterState {
             )
             result.immersiveSpace = space
         }
+        try resourceBudget.validate(result)
         try result.validate()
         return result
     }

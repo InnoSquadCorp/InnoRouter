@@ -320,11 +320,7 @@ public struct RouterInspectorView: View {
                     }
                     return try Data(contentsOf: url, options: .mappedIfSafe)
                 }.value
-                if try RouterInspectorImportPreflight.isDiagnosticBundle(data, limits: recorder.importLimits) {
-                    try recorder.importDiagnosticBundle(from: data)
-                } else {
-                    try recorder.importSnapshot(from: data)
-                }
+                try recorder.importDetectedData(from: data)
                 timeline.updateEntries(recorder.entries)
                 timeline.selection = filteredEntries.first?.id
                 comparisonEntryID = nil

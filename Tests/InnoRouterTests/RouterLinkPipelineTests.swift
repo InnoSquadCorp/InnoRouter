@@ -229,7 +229,7 @@ struct RouterLinkPipelineTests {
             slot.submit(second) == .replaced(previous: first, current: second)
         )
 
-        let rejectingStore = RouterStore<RouteFixture>(
+        let rejectingStore = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [RouterPolicy(name: "blocked") { _ in .reject("not ready") }]
             )
@@ -252,7 +252,7 @@ struct RouterLinkPipelineTests {
             plan: RouterPlan(state: .rootStack(path: [.detail("protected")]))
         )
         let (gate, continuation) = AsyncStream<Void>.makeStream()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "gate") { _ in
@@ -293,7 +293,7 @@ struct RouterLinkPipelineTests {
             plan: RouterPlan(state: .rootStack(path: [.detail("protected")]))
         )
         let gate = FirstResumePolicyGate()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(policies: [
                 RouterPolicy(name: "non-cooperative-first") { _ in
                     await gate.decide()
@@ -335,7 +335,7 @@ struct RouterLinkPipelineTests {
             plan: RouterPlan(state: .rootStack(path: [.detail("driver-cancel")]))
         )
         let gate = FirstResumePolicyGate()
-        let store = RouterStore<RouteFixture>(configuration: .init(policies: [
+        let store = try RouterStore<RouteFixture>(configuration: .init(policies: [
             RouterPolicy(name: "non-cooperative-first") { _ in
                 await gate.decide()
             },
@@ -384,7 +384,7 @@ struct RouterLinkPipelineTests {
             plan: RouterPlan(state: .rootStack(path: [.detail("caller-cancel")]))
         )
         let gate = FirstResumePolicyGate()
-        let store = RouterStore<RouteFixture>(configuration: .init(policies: [
+        let store = try RouterStore<RouteFixture>(configuration: .init(policies: [
             RouterPolicy(name: "non-cooperative-first") { _ in
                 await gate.decide()
             },
@@ -424,7 +424,7 @@ struct RouterLinkPipelineTests {
             gatedRoute: .detail("deferred"),
             plan: RouterPlan(state: .rootStack(path: [.detail("deferred")]))
         )
-        let store = RouterStore<RouteFixture>(configuration: .init(policies: [
+        let store = try RouterStore<RouteFixture>(configuration: .init(policies: [
             RouterPolicy(name: "approval") { transition in
                 transition.context.resumedDeferral == nil
                     ? .deferRequest(deferralID)
@@ -461,7 +461,7 @@ struct RouterLinkPipelineTests {
             gatedRoute: .detail("repeated"),
             plan: RouterPlan(state: .rootStack(path: [.detail("repeated")]))
         )
-        let store = RouterStore<RouteFixture>(configuration: .init(policies: [
+        let store = try RouterStore<RouteFixture>(configuration: .init(policies: [
             RouterPolicy(name: "first") { _ in .deferRequest(first) },
             RouterPolicy(name: "second") { _ in .deferRequest(second) },
             RouterPolicy(name: "third") { _ in .deferRequest(third) },
@@ -492,7 +492,7 @@ struct RouterLinkPipelineTests {
             plan: RouterPlan(state: .rootStack(path: [.detail("resumed-policy")]))
         )
         let gate = FirstResumePolicyGate()
-        let store = RouterStore<RouteFixture>(configuration: .init(policies: [
+        let store = try RouterStore<RouteFixture>(configuration: .init(policies: [
             RouterPolicy(name: "approval") { transition in
                 guard transition.context.resumedDeferral == nil,
                       case .apply = transition.action else { return .allow }
@@ -537,7 +537,7 @@ struct RouterLinkPipelineTests {
             gatedRoute: .detail("keep"),
             plan: RouterPlan(state: .rootStack(path: [.detail("keep")]))
         )
-        let store = RouterStore<RouteFixture>(configuration: .init(policies: [
+        let store = try RouterStore<RouteFixture>(configuration: .init(policies: [
             RouterPolicy(name: "first") { _ in .deferRequest(first) },
             RouterPolicy(name: "second") { _ in .deferRequest(second) },
         ]))
@@ -568,7 +568,7 @@ struct RouterLinkPipelineTests {
             plan: RouterPlan(state: .rootStack(path: [.detail("deferred-lifetime")]))
         )
         let slot = RouterPendingLinkSlot(link)
-        var store: RouterStore<RouteFixture>? = RouterStore(configuration: .init(policies: [
+        var store: RouterStore<RouteFixture>? = try RouterStore(configuration: .init(policies: [
             RouterPolicy(name: "approval") { _ in .deferRequest(deferralID) },
         ]))
         let released = WeakStoreReference(try #require(store))
@@ -635,7 +635,7 @@ struct RouterLinkPipelineTests {
             plan: RouterPlan(state: .rootStack(path: [.home, .detail("42")]))
         )
         let (policyGate, policyContinuation) = AsyncStream<Void>.makeStream()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "resume-gate") { _ in

@@ -63,7 +63,7 @@ struct RouterRestorationStorageCancellationTests {
         var configuration = RouterStoreConfiguration<R>()
         configuration.runtimeDependencies.willEnqueueRestorationSave = { didEnqueue.yield(()) }
         configuration.runtimeDependencies.didFinishRestorationSave = { didFinish.yield(()) }
-        let store = RouterStore<R>(configuration: configuration)
+        let store = try RouterStore<R>(configuration: configuration)
         let driver = RouterRestorationDriver(
             store: store, codec: codec, storage: storage,
             saveDebounce: lifecycle ? .seconds(3_600) : .zero
@@ -82,7 +82,7 @@ struct RouterRestorationStorageCancellationTests {
         #expect(storage.writeCount == 0)
 
         if detach { driver.detach(attachment) } else { driver.stop() }
-        let replacement = RouterStore(initialState: RouterState<R>.rootStack(path: [.replacement]))
+        let replacement = try RouterStore(initialState: RouterState<R>.rootStack(path: [.replacement]))
         let replacementDriver = RouterRestorationDriver(
             store: replacement, codec: codec, storage: RouterFileSnapshotStorage(fileURL: url)
         )
@@ -112,7 +112,7 @@ struct RouterRestorationStorageCancellationTests {
         let (enqueued, didEnqueue) = AsyncStream<Void>.makeStream()
         var configuration = RouterStoreConfiguration<R>()
         configuration.runtimeDependencies.willEnqueueRestorationSave = { didEnqueue.yield(()) }
-        let store = RouterStore(initialState: RouterState<R>.rootStack(path: [.current]), configuration: configuration)
+        let store = try RouterStore(initialState: RouterState<R>.rootStack(path: [.current]), configuration: configuration)
         let driver = RouterRestorationDriver(store: store, codec: codec, storage: storage)
         let activation = Task { try await driver.activate() }
         var saving: Task<Void, any Error>?
@@ -145,7 +145,7 @@ struct RouterRestorationStorageCancellationTests {
         var configuration = RouterStoreConfiguration<R>()
         configuration.runtimeDependencies.willEnqueueRestorationSave = { didEnqueue.yield(()) }
         configuration.runtimeDependencies.didFinishRestorationSave = { didFinish.yield(()) }
-        let store = RouterStore<R>(configuration: configuration)
+        let store = try RouterStore<R>(configuration: configuration)
         let driver = RouterRestorationDriver(store: store, codec: codec, storage: storage, saveDebounce: .zero)
         let activation = Task { try await driver.activate() }
         var next: Task<Void, any Error>?

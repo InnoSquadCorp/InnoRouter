@@ -153,7 +153,7 @@ public struct RouterDeferralConfiguration: Sendable {
 
     public init(
         maximumPendingCount: Int = 64,
-        timeToLive: Duration? = nil,
+        timeToLive: Duration? = .seconds(15 * 60),
         overflowStrategy: RouterDeferralOverflowStrategy = .rejectNewest
     ) {
         self.maximumPendingCount = maximumPendingCount
@@ -164,6 +164,32 @@ public struct RouterDeferralConfiguration: Sendable {
 
 /// Configuration captured when a ``RouterStore`` is created.
 public struct RouterStoreConfiguration<R: Route>: Sendable {
+    private var baseResourceBudget: RouterResourceBudget
+    /// Shared structural and execution limits. Replacing the budget also updates
+    /// legacy execution fields; editing those fields is reflected in this value.
+    /// Existing overflow strategies are retained when limits are replaced.
+    public var resourceBudget: RouterResourceBudget {
+        get {
+            baseResourceBudget.replacingStoreLimits(
+                maximumPendingRequests: maximumPendingRequestCount,
+                maximumDeferrals: deferrals.maximumPendingCount,
+                maximumActivePolicyOperations: maximumActivePolicyOperationCount,
+                maximumActiveRestorationOperations: maximumActiveRestorationOperationCount,
+                policyTimeout: policyTimeout,
+                deferralLifetime: deferrals.timeToLive
+            )
+        }
+        set {
+            baseResourceBudget = newValue
+            maximumPendingRequestCount = newValue.maximumPendingRequests
+            deferrals.maximumPendingCount = newValue.maximumDeferrals
+            maximumActivePolicyOperationCount = newValue.maximumActivePolicyOperations
+            maximumActiveRestorationOperationCount = newValue.maximumActiveRestorationOperations
+            policyTimeout = newValue.policyTimeout
+            deferrals.timeToLive = newValue.deferralLifetime
+        }
+    }
+
     public var policies: [RouterPolicy<R>]
     /// Optional authoritative app authorization for every Store application.
     public var authorization: RouterAuthorizationConfiguration<R>?
@@ -175,7 +201,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
     public var policyTimeout: Duration?
     /// Shared maximum of policy and authorization operations that may remain alive, including operations
     /// whose requests timed out or were cancelled. Zero prevents policy work;
-    /// negative values normalize to zero. `nil` explicitly opts out of the bound.
+    /// negative values are rejected by Store initialization. `nil` explicitly opts out of the bound.
     ///
     /// The default of 64 is provisional and uncalibrated for the 7.0 development
     /// cycle. Workload and memory calibration is a required release gate.
@@ -188,7 +214,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
     /// Its slot is returned only when application work actually terminates.
     /// This is a separate budget from policy/authorization operations.
     ///
-    /// Zero prevents planning; negative values normalize to zero. `nil`
+    /// Zero prevents planning; negative values are rejected by Store initialization. `nil`
     /// explicitly opts out. The default of 8 is provisional and uncalibrated
     /// for 7.0; workload and memory calibration remains a release gate.
     /// Cancellation is cooperative. Neither this bound nor a timeout can
@@ -205,13 +231,14 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
         schedulingPolicy: RouterSchedulingPolicy = .serialize,
         maximumPendingRequestCount: Int = 256,
         requestOverflowStrategy: RouterRequestOverflowStrategy = .rejectNewest,
-        policyTimeout: Duration? = nil,
+        policyTimeout: Duration? = .seconds(30),
         maximumActivePolicyOperationCount: Int? = 64,
         maximumActiveRestorationOperationCount: Int? = 8,
         deferrals: RouterDeferralConfiguration = .init(),
         eventBufferingPolicy: EventBufferingPolicy = .default,
         onEvent: (@MainActor @Sendable (RouterEvent<R>) -> Void)? = nil
     ) {
+        self.baseResourceBudget = .provisional
         self.policies = policies
         self.authorization = authorization
         self.schedulingPolicy = schedulingPolicy
@@ -224,6 +251,30 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
         self.eventBufferingPolicy = eventBufferingPolicy
         self.onEvent = onEvent
         self.runtimeDependencies = .live
+    }
+
+    /// Configures every shared limit from one explicit budget. Individual
+    /// execution fields remain mutable compatibility aliases afterward.
+    public init(
+        resourceBudget: RouterResourceBudget,
+        policies: [RouterPolicy<R>] = [],
+        authorization: RouterAuthorizationConfiguration<R>? = nil,
+        schedulingPolicy: RouterSchedulingPolicy = .serialize,
+        requestOverflowStrategy: RouterRequestOverflowStrategy = .rejectNewest,
+        deferralOverflowStrategy: RouterDeferralOverflowStrategy = .rejectNewest,
+        eventBufferingPolicy: EventBufferingPolicy = .default,
+        onEvent: (@MainActor @Sendable (RouterEvent<R>) -> Void)? = nil
+    ) {
+        self.init(
+            policies: policies,
+            authorization: authorization,
+            schedulingPolicy: schedulingPolicy,
+            requestOverflowStrategy: requestOverflowStrategy,
+            deferrals: .init(overflowStrategy: deferralOverflowStrategy),
+            eventBufferingPolicy: eventBufferingPolicy,
+            onEvent: onEvent
+        )
+        self.resourceBudget = resourceBudget
     }
 }
 

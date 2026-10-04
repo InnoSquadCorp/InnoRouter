@@ -99,11 +99,12 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
         linkHandling: RouterLinkHandling<R>? = nil,
         @ViewBuilder sidebar: @escaping () -> SidebarRoot,
         @ViewBuilder root: @escaping () -> DetailRoot
-    ) {
+    ) throws {
         _ = routeType
         let splitState = layout.splitState
-        let initialState = Self.makeInitialState(
+        let initialState = try Self.makeInitialState(
             split: splitState,
+            resourceBudget: configuration.resourceBudget,
             branches: [
                 RouterBranch(id: layout.sidebarScopeID, node: .stack(path: initialSidebarPath)),
                 RouterBranch(id: layout.detailScopeID, node: .stack(path: initialPath)),
@@ -114,7 +115,7 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
         self.detailRoot = root
         self.suppliedStore = nil
         self._ownedStore = State(
-            initialValue: R.makeRouterStore(
+            initialValue: try R.makeRouterStore(
                 initialState: initialState,
                 configuration: configuration
             )
@@ -179,7 +180,7 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
             scope: rootScope,
             handling: linkHandling
         ) { route, state in
-            try splitHostLinkPlan(route, state)
+            try splitHostLinkPlan(route, state, resourceBudget: store.resourceBudget)
         }
     }
 
@@ -217,9 +218,10 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
 
     private static func makeInitialState(
         split: RouterSplitState,
+        resourceBudget: RouterResourceBudget,
         branches: [RouterBranch<R>]
-    ) -> RouterState<R> {
-        makeSplitHostInitialState(split: split, branches: branches, hostName: "two-column")
+    ) throws -> RouterState<R> {
+        try makeSplitHostInitialState(split: split, branches: branches, resourceBudget: resourceBudget)
     }
 }
 
@@ -250,11 +252,12 @@ public struct RouterThreeColumnSplitHost<
         @ViewBuilder sidebar: @escaping () -> SidebarRoot,
         @ViewBuilder content: @escaping () -> ContentRoot,
         @ViewBuilder detail: @escaping () -> DetailRoot
-    ) {
+    ) throws {
         _ = routeType
         let split = layout.splitState
-        let initialState = Self.makeInitialState(
+        let initialState = try Self.makeInitialState(
             split: split,
+            resourceBudget: configuration.resourceBudget,
             branches: [
                 RouterBranch(id: layout.sidebarScopeID, node: .stack(path: initialSidebarPath)),
                 RouterBranch(id: layout.contentScopeID, node: .stack(path: initialContentPath)),
@@ -267,7 +270,7 @@ public struct RouterThreeColumnSplitHost<
         self.detailRoot = detail
         self.suppliedStore = nil
         self._ownedStore = State(
-            initialValue: R.makeRouterStore(
+            initialValue: try R.makeRouterStore(
                 initialState: initialState,
                 configuration: configuration
             )
@@ -340,15 +343,16 @@ public struct RouterThreeColumnSplitHost<
             scope: rootScope,
             handling: linkHandling
         ) { route, state in
-            try splitHostLinkPlan(route, state)
+            try splitHostLinkPlan(route, state, resourceBudget: store.resourceBudget)
         }
     }
 
     private static func makeInitialState(
         split: RouterSplitState,
+        resourceBudget: RouterResourceBudget,
         branches: [RouterBranch<R>]
-    ) -> RouterState<R> {
-        makeSplitHostInitialState(split: split, branches: branches, hostName: "three-column")
+    ) throws -> RouterState<R> {
+        try makeSplitHostInitialState(split: split, branches: branches, resourceBudget: resourceBudget)
     }
 
     /// Resolves the columns this host renders from the current split metadata.
@@ -395,19 +399,15 @@ public struct RouterThreeColumnSplitHost<
 func makeSplitHostInitialState<R: Route>(
     split: RouterSplitState,
     branches: [RouterBranch<R>],
-    hostName: String
-) -> RouterState<R> {
-    do {
-        let container = try RouterContainerState<R>(
-            style: .split,
-            selection: split.detail,
-            branches: branches,
-            split: split
-        )
-        return try RouterState(root: .container(container))
-    } catch {
-        preconditionFailure("Validated \(hostName) layout produced invalid state: \(error)")
-    }
+    resourceBudget: RouterResourceBudget = .provisional
+) throws -> RouterState<R> {
+    let container = try RouterContainerState<R>(
+        style: .split,
+        selection: split.detail,
+        branches: branches,
+        split: split
+    )
+    return try RouterStateDraft(root: .container(container)).build(resourceBudget: resourceBudget)
 }
 
 /// The root split state of `state`, or nil when its root is another shape.
@@ -427,13 +427,14 @@ func rootSplitState<R: Route>(of state: RouterState<R>) -> RouterSplitState? {
 /// state, since a restore can commit before the host renders its new columns.
 func splitHostLinkPlan<R: Route>(
     _ route: R,
-    _ state: RouterState<R>
+    _ state: RouterState<R>,
+    resourceBudget: RouterResourceBudget = .provisional
 ) throws -> RouterPlan<R> {
     guard let split = rootSplitState(of: state) else {
         throw RouterMutationError.incompatibleNavigationTopology(.root)
     }
     let action = RouterAction<R>.push(route).inScope(split.detail)
-    return RouterPlan(state: try RouterReducer.reduce(action, from: state))
+    return RouterPlan(state: try RouterReducer.reduce(action, from: state, resourceBudget: resourceBudget))
 }
 
 /// Resolves whichever store a split host ended up owning. Every initializer

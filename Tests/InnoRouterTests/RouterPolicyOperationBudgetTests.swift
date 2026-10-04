@@ -28,7 +28,7 @@ struct RouterPolicyOperationBudgetTests {
     }
 
     @Test("Timed-out policy work saturates before invoking further policies")
-    func timedOutWorkStaysBounded() async {
+    func timedOutWorkStaysBounded() async throws {
         let gates = [PolicyBudgetGate(), PolicyBudgetGate()]
         let sleeper = ManualRuntimeSleeper()
         var registrations = sleeper.registrations.makeAsyncIterator()
@@ -45,7 +45,7 @@ struct RouterPolicyOperationBudgetTests {
             onEvent: recorder.record
         )
         configuration.runtimeDependencies.sleep = { try await sleeper.sleep(for: $0) }
-        let store = RouterStore<R>(configuration: configuration)
+        let store = try RouterStore<R>(configuration: configuration)
         var timedOutIDs: [RouterTransitionID] = []
         for index in gates.indices {
             let request = store.dispatch(.push(.detail(index)))
@@ -97,10 +97,10 @@ struct RouterPolicyOperationBudgetTests {
     }
 
     @Test("Caller cancellation releases the lane but keeps live policy capacity occupied")
-    func cancelledWorkStaysBounded() async {
+    func cancelledWorkStaysBounded() async throws {
         let gate = PolicyBudgetGate()
         let recorder = Recorder()
-        let store = RouterStore<R>(configuration: .init(
+        let store = try RouterStore<R>(configuration: .init(
             policies: [RouterPolicy(name: "remote") { _ in
                 recorder.calls += 1
                 if recorder.calls == 1 { await gate.wait() }
@@ -140,13 +140,13 @@ struct RouterPolicyOperationBudgetTests {
     }
 
     @Test("Configuration preserves timeout defaults and handles zero capacity without policy calls")
-    func configurationBoundaries() async {
+    func configurationBoundaries() async throws {
         let defaults = RouterStoreConfiguration<R>()
         #expect(defaults.maximumActivePolicyOperationCount == 64)
-        #expect(defaults.policyTimeout == nil)
-        for limit in [-1, 0] {
+        #expect(defaults.policyTimeout == .seconds(30))
+        for limit in [0] {
             let recorder = Recorder()
-            let store = RouterStore<R>(configuration: .init(
+            let store = try RouterStore<R>(configuration: .init(
                 policies: [RouterPolicy(name: "must not run") { _ in
                     recorder.calls += 1
                     return .allow
@@ -154,19 +154,19 @@ struct RouterPolicyOperationBudgetTests {
                 maximumActivePolicyOperationCount: limit
             ))
             guard case .rejected(_, _, _, .policyCapacityExceeded(limit: 0)) = await store.perform(.push(.detail(0))) else {
-                Issue.record("Expected normalized zero-capacity rejection")
+                Issue.record("Expected zero-capacity rejection")
                 return
             }
             #expect(recorder.calls == 0)
             #expect(store.policyOperations.activeCount == 0)
             #expect(store.revision == 0)
         }
-        let noPolicies = RouterStore<R>(configuration: .init(maximumActivePolicyOperationCount: 0))
+        let noPolicies = try RouterStore<R>(configuration: .init(maximumActivePolicyOperationCount: 0))
         guard case .applied = await noPolicies.perform(.push(.detail(0))) else {
             Issue.record("A zero policy bound must not block policy-free transitions")
             return
         }
-        let immediateTimeout = RouterStore<R>(configuration: .init(
+        let immediateTimeout = try RouterStore<R>(configuration: .init(
             policies: [RouterPolicy(name: "expired") { _ in
                 Issue.record("An expired timeout must not invoke policy work")
                 return .allow
@@ -182,9 +182,9 @@ struct RouterPolicyOperationBudgetTests {
     }
 
     @Test("Sequential policies reuse the same capacity slot")
-    func sequentialPoliciesReuseCapacity() async {
+    func sequentialPoliciesReuseCapacity() async throws {
         let recorder = Recorder()
-        let store = RouterStore<R>(configuration: .init(
+        let store = try RouterStore<R>(configuration: .init(
             policies: (0..<3).map { index in
                 RouterPolicy(name: "policy-\(index)") { _ in
                     recorder.calls += 1
@@ -203,9 +203,9 @@ struct RouterPolicyOperationBudgetTests {
     }
 
     @Test("A live cancelled operation retains its registry without retaining the Store")
-    func operationDoesNotRetainStore() async {
+    func operationDoesNotRetainStore() async throws {
         let gate = PolicyBudgetGate()
-        var store: RouterStore<R>? = RouterStore(configuration: .init(
+        var store: RouterStore<R>? = try RouterStore(configuration: .init(
             policies: [RouterPolicy(name: "remote") { _ in
                 await gate.wait()
                 return .allow

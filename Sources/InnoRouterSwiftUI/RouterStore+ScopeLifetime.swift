@@ -142,8 +142,9 @@ public extension RouterStore {
         with node: RouterNode<R>,
         context: RouterTransitionContext = .init()
     ) async -> RouterOutcome<R> {
+        let resourceBudget = self.resourceBudget
         let preparation: RouterRequestPreparationBuilder<R> = { state in
-            prepareRouterFeaturePlan(node: node, at: path, in: state)
+            prepareRouterFeaturePlan(node: node, at: path, in: state, resourceBudget: resourceBudget)
         }
         let submittedAction: RouterAction<R> = switch preparation(state) {
         case .action(let action): action
@@ -159,5 +160,24 @@ public extension RouterStore {
             executionPreparation: preparation,
             deferredResumePreparation: { state, _ in preparation(state) }
         )
+    }
+}
+
+extension RouterStore {
+    /// Returns the stable read-only projection for `path`.
+    public func scope(at path: RouterScopePath = .root) -> RouterScope<R> {
+        compactDeadScopes()
+        let token = observesScopeLifetime(at: path)
+        if let scope = scopes[path]?.value, scope.matchesCapturedLifetime(token) {
+            return scope
+        }
+        let scope = RouterScope(
+            path: path,
+            node: state.node(at: path),
+            store: self,
+            lifetimeToken: token
+        )
+        scopes[path] = WeakRouterScope(scope)
+        return scope
     }
 }

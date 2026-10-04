@@ -13,6 +13,8 @@ public enum RouterScenarioTerminal: String, Hashable, Sendable, Codable {
 /// Stable rejection categories that can be compared across independent runs
 /// without serializing transition IDs or application messages.
 public enum RouterScenarioRejectionKind: String, Hashable, Sendable, Codable {
+    case resourceLimit
+    case pendingLinkLifetime
     case mutation, featureProjection, policy, authorization, busy, coalesced, superseded
     case queueOverflow, policyTimedOut, policyCapacityExceeded, deferralConflict, deferralNotFound
     case deferralCapacityExceeded, deferralExpired, deferralEvicted, staleState

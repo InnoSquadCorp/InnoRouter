@@ -62,7 +62,7 @@ public extension RouterStore where R: Codable {
     ) async throws -> RouterPartialRestorationOutcome<R> {
         let capturedRevision = expectedRevision ?? revision
         let executionPrecondition = authorizationPrecondition(request: nil, existing: nil)
-        let decoded = try await RouterSnapshotCodecExecutor(codec: codec).decode(data)
+        let decoded = try await RouterSnapshotCodecExecutor(codec: codec, resourceBudget: resourceBudget).decode(data)
         return try await restorePartially(
             decoded: decoded,
             validator: validator,
@@ -72,7 +72,9 @@ public extension RouterStore where R: Codable {
             executionPrecondition: executionPrecondition
         )
     }
+}
 
+public extension RouterStore {
     package func restorePartially(
         decoded: RouterState<R>,
         validator: RouterPartialRestorationValidator<R>,

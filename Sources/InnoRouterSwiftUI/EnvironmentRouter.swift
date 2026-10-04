@@ -175,8 +175,10 @@ public struct RouterActions<R: Route>: Sendable {
         guard let authority = routerAuthority(action: "transaction(_:)") else {
             return missingAuthorityTask()
         }
-        guard let state = authority.state else { return missingAuthorityTask() }
-        let plan = try RouterPlan(from: state, build)
+        guard let state = authority.state, let resourceBudget = authority.resourceBudget else {
+            return missingAuthorityTask()
+        }
+        let plan = try RouterPlan(from: state, resourceBudget: resourceBudget, build)
         return Task { @MainActor in
             await authority.performRoot(
                 .apply(plan),

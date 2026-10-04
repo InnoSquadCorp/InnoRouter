@@ -20,7 +20,7 @@ private enum DeveloperToolsSmokeRoute: String, Route, Codable, DeepLinkRoute {
 enum DeveloperToolsSmokeConsumer {
     static func exercise() async throws {
         let diagnostics = RouterObservability<DeveloperToolsSmokeRoute> { _ in }
-        let runtime = RouterStore<DeveloperToolsSmokeRoute>(
+        let runtime = try RouterStore<DeveloperToolsSmokeRoute>(
             configuration: RouterStoreConfiguration().observing(diagnostics)
         )
         let reader = RouterStateReader(scope: runtime.scope())

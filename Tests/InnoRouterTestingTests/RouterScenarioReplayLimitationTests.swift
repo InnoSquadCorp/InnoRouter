@@ -20,7 +20,7 @@ struct RouterScenarioReplayLimitationTests {
         let fixture = try complete(recorder.stop())
         #expect(fixture.steps.count == 1)
         #expect(fixture.steps[0].replayLimitation == nil)
-        let target = RouterTestStore<LimitationRoute>(exhaustivity: .off)
+        let target = try RouterTestStore<LimitationRoute>(exhaustivity: .off)
         _ = try await RouterScenarioRunner.replay(fixture, on: target)
         #expect(target.revision == 0)
         await target.finish()
@@ -51,7 +51,7 @@ struct RouterScenarioReplayLimitationTests {
 
     @Test("Configured runtime authorization is explicit in replay limitations")
     func authorizationFailsClosed() async throws {
-        let source = RouterStore<LimitationRoute>(configuration: .init(
+        let source = try RouterStore<LimitationRoute>(configuration: .init(
             authorization: .init(requiresAuthorization: { _ in true }, authorize: { true })
         ))
         let recorder = RouterScenarioRecorder(store: source)
@@ -123,7 +123,7 @@ struct RouterScenarioReplayLimitationTests {
         #expect(throws: RouterScenarioSourceGenerationError.unsupportedRequestSemantics(step: 0, code: code)) {
             _ = try RouterScenarioSourceGenerator.generateFiles(decoded, routeTypeName: "LimitationRoute")
         }
-        let target = RouterTestStore<LimitationRoute>(initialState: fixture.initialState, exhaustivity: .off)
+        let target = try RouterTestStore<LimitationRoute>(initialState: fixture.initialState, exhaustivity: .off)
         await #expect(throws: RouterScenarioReplayError.unsupportedRequestSemantics(step: 0, code: code)) {
             _ = try await RouterScenarioRunner.replay(decoded, on: target)
         }

@@ -1,6 +1,6 @@
 import InnoRouterCore
 
-func redactedRouterFormatter<R: Route>() -> RouterInspectorFormatter<RouterEvent<R>> {
+func redactedRouterFormatter<R: Route>(resourceBudget: RouterResourceBudget = .provisional) -> RouterInspectorFormatter<RouterEvent<R>> {
     RouterInspectorFormatter { event in
         switch event {
         case .started(let transition):
@@ -13,7 +13,7 @@ func redactedRouterFormatter<R: Route>() -> RouterInspectorFormatter<RouterEvent
                     "transitionID": transition.id.description,
                 ],
                 state: RouterInspectorProjection.tree(from: transition.initialState),
-                replay: RouterInspectorReplay.preview(transition)
+                replay: RouterInspectorReplay.preview(transition, resourceBudget: resourceBudget)
             )
         case .policyPrepared(let id, let policy, let decision):
             let outcome: RouterInspectorOutcome
@@ -185,6 +185,8 @@ private extension RouterRejectionReason {
         case .featureProjection: "feature-projection"
         case .policy: "policy"
         case .authorization: "authorization"
+        case .pendingLinkLifetime: "pendingLinkLifetime"
+        case .resourceLimit: "resourceLimit"
         case .busy: "busy"
         case .coalesced: "coalesced"
         case .superseded: "superseded"

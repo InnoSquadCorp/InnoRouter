@@ -46,6 +46,8 @@ public extension RouterScenarioTerminal {
 public extension RouterScenarioRejectionKind {
     init(_ reason: RouterRejectionReason) {
         self = switch reason {
+        case .pendingLinkLifetime: .pendingLinkLifetime
+        case .resourceLimit: .resourceLimit
         case .mutation: .mutation
         case .featureProjection: .featureProjection
         case .policy, .authorization: Self.policyKind(reason)
@@ -55,15 +57,20 @@ public extension RouterScenarioRejectionKind {
         case .queueOverflow: .queueOverflow
         case .policyTimedOut: .policyTimedOut
         case .policyCapacityExceeded: .policyCapacityExceeded
-        case .deferralConflict: .deferralConflict
-        case .deferralNotFound: .deferralNotFound
-        case .deferralCapacityExceeded: .deferralCapacityExceeded
-        case .deferralExpired: .deferralExpired
-        case .deferralEvicted: .deferralEvicted
+        case .deferralConflict, .deferralNotFound, .deferralCapacityExceeded,
+             .deferralExpired, .deferralEvicted: Self.deferralKind(reason)
         case .staleState: .staleState
         case .cancelled: .cancelled
         case .missingAuthority: .missingAuthority
         }
+    }
+
+    private static func deferralKind(_ reason: RouterRejectionReason) -> Self {
+        if case .deferralConflict = reason { return .deferralConflict }
+        if case .deferralNotFound = reason { return .deferralNotFound }
+        if case .deferralCapacityExceeded = reason { return .deferralCapacityExceeded }
+        if case .deferralExpired = reason { return .deferralExpired }
+        return .deferralEvicted
     }
 
     private static func policyKind(_ reason: RouterRejectionReason) -> Self {

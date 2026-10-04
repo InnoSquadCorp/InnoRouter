@@ -79,7 +79,7 @@ for source in sorted((repo / 'Sources/InnoRouterCore').glob('*.swift')):
     stage(source, core / source.name)
 for name in ['RouterInspectorModels.swift', 'RouterInspectorSourceCatalog.swift',
              'RouterInspectorImportPreflight.swift', 'RouterInspectorRecorder.swift',
-             'RouterInspectorExportFailure.swift',
+             'RouterInspectorExportFailure.swift', 'RouterInspectorResourceBudget.swift',
              'RouterInspectorRedaction.swift', 'RouterInspectorState.swift',
              'RouterInspectorTimeline.swift', 'RouterInspectorScenarioController.swift',
              'Localizable.xcstrings']:

@@ -102,5 +102,6 @@ struct AppRoot: View {
 
 ## Migration
 
+- <doc:Migrating-To-InnoRouter-7>
 - <doc:Migrating-To-InnoRouter-6>
 - <doc:Restoring-Tab-Navigation>

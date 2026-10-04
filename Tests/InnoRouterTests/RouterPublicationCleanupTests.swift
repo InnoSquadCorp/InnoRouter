@@ -42,7 +42,7 @@ struct RouterPublicationCleanupTests {
         configuration.runtimeDependencies.didFinishRestorationWorker = {
             finishes.withLock { $0 += 1 }
         }
-        let store = RouterStore(configuration: configuration)
+        let store = try RouterStore(configuration: configuration)
         let driver = RouterRestorationDriver(
             store: store, codec: try .init(currentVersion: 1), storage: PublicationCleanupStorage()
         )

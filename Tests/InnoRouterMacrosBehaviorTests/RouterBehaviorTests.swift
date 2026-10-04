@@ -340,7 +340,7 @@ struct RouterBehaviorTests {
             ]
         )
         var observedActions: [RouterAction<FeatureParentRoute>] = []
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState(root: .container(root)),
             configuration: .init(
                 policies: [
@@ -418,7 +418,7 @@ struct RouterBehaviorTests {
     @Test("Feature presentation results reuse the parent store waiter exactly once")
     @MainActor
     func featurePresentationResult() async throws {
-        let store = RouterStore<FeatureParentRoute>(
+        let store = try RouterStore<FeatureParentRoute>(
             initialState: .rootStack(path: [.account(.home)])
         )
         let feature = RouterFeatureScope(
@@ -482,6 +482,28 @@ struct RouterBehaviorTests {
         }
     }
 
+    @Test("Generated factory keeps default construction nonthrowing and rejects oversized input")
+    @MainActor
+    func generatedFactoryInputAdmission() throws {
+        let make: @MainActor () -> RouterStore<BehaviorRouterRoute> = BehaviorRouterRoute.makeRouterStore
+        #expect(make().state == .rootStack)
+        let maximum = RouterResourceBudget.provisional.snapshot.maximumStackPath
+        let state = RouterState<BehaviorRouterRoute>.rootStack(
+            path: Array(repeating: .settings, count: maximum + 1)
+        )
+        #expect(throws: RouterResourceLimitFailure(
+            resource: "state.stackPath", actual: maximum + 1, maximum: maximum
+        )) {
+            _ = try BehaviorRouterRoute.makeRouterStore(initialState: state)
+        }
+        let admitted = try BehaviorRouterRoute.makeRouterStore(
+            initialState: state, configuration: .init(resourceBudget: .unlimited)
+        )
+        #expect(admitted.state == state)
+        let configured = try BehaviorRouterRoute.makeRouterStore(configuration: .init())
+        #expect(configured.state == .rootStack)
+    }
+
     @Test("Generated route conformance works with RouterStore")
     @MainActor
     func generatedRouteConformance() async {
@@ -534,7 +556,7 @@ struct RouterBehaviorTests {
 
     @Test("Tab metadata expands and composes with RouterTabHost")
     @MainActor
-    func generatedRouterTabAndHost() {
+    func generatedRouterTabAndHost() throws {
         #expect(BehaviorRouterTab.Tab.allCases == [.home, .settings])
         #expect(BehaviorRouterTab.Tab.home.title.key == "Home")
         #expect(BehaviorRouterTab.Tab.settings.systemImage == "gear")
@@ -546,7 +568,7 @@ struct RouterBehaviorTests {
         #expect(BehaviorRouterTab.Tab.settings.routerScopeID == "settings-stable")
         #expect(BehaviorRouterTab.routerTabs.map(\.root) == [.home, .settings])
 
-        let host = RouterTabHost(BehaviorRouterTab.self, initial: .home)
+        let host = try RouterTabHost(BehaviorRouterTab.self, initial: .home)
         _ = host.body
     }
 
@@ -581,12 +603,31 @@ struct RouterBehaviorTests {
 
     @Test("One router can declare tab roots and pushed destinations")
     @MainActor
-    func mixedTabAndDestinationRouter() {
+    func mixedTabAndDestinationRouter() throws {
         #expect(MixedBehaviorRouter.Tab.allCases == [.home, .settings])
         #expect(MixedBehaviorRouter.routerTabs.map(\.root) == [.home, .settings])
-        let host = RouterTabHost(MixedBehaviorRouter.self, initial: .home)
+        let host = try RouterTabHost(MixedBehaviorRouter.self, initial: .home)
 
         _ = host.body
+    }
+
+    @Test("Generated scene catalogs reject invalid initial scene routes through throwing factory")
+    @MainActor
+    func generatedFactorySceneAdmission() throws {
+        let invalidWindow = try RouterState<SceneBehaviorRouter>(windows: [
+            .init(route: .detail(id: "not-a-window")),
+        ])
+        #expect(throws: RouterMutationError.self) {
+            _ = try SceneBehaviorRouter.makeRouterStore(initialState: invalidWindow)
+        }
+        let invalidSpace = try RouterState<SceneBehaviorRouter>(immersiveSpace: .init(
+            id: "wrong-id", route: .studio
+        ))
+        #expect(throws: RouterMutationError.sceneIdentifierMismatch(expected: "studio", actual: "wrong-id")) {
+            _ = try SceneBehaviorRouter.makeRouterStore(initialState: invalidSpace)
+        }
+        let valid = try RouterState<SceneBehaviorRouter>(windows: [.init(route: .editor)])
+        #expect(try SceneBehaviorRouter.makeRouterStore(initialState: valid).state == valid)
     }
 
     @Test("Scene metadata forms a partial macro-first route catalog")

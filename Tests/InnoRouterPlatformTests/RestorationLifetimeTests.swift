@@ -164,7 +164,7 @@ struct RestorationLifetimeTests {
         var completedFlushes = 0
         var configuration = RouterStoreConfiguration<LifetimeRoute>()
         configuration.runtimeDependencies.didFinishSceneLifecycleSave = { completedFlushes += 1 }
-        let store = RouterStore<LifetimeRoute>(configuration: configuration)
+        let store = try RouterStore<LifetimeRoute>(configuration: configuration)
         let driver = RouterRestorationDriver(
             store: store,
             codec: try RouterSnapshotCodec(currentVersion: 1),
@@ -301,7 +301,7 @@ struct RestorationLifetimeTests {
         var configuration = RouterStoreConfiguration<LifetimeRoute>()
         configuration.runtimeDependencies.beforeRestorationWorker = { await gate.wait() }
         configuration.runtimeDependencies.didFinishRestorationWorker = { gate.didFinish() }
-        let store = RouterStore(configuration: configuration)
+        let store = try RouterStore(configuration: configuration)
         let driver = RouterRestorationDriver(
             store: store, codec: codec, storage: storage, saveDebounce: .seconds(3_600)
         )
@@ -371,7 +371,7 @@ struct MountedImmersiveLifetimeTests {
         dependencies.didFinishImmersiveDisappearance = { observation.finished += 1 }
         var configuration = RouterStoreConfiguration<ImmersiveLifetimeRoute>()
         configuration.runtimeDependencies = dependencies
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState<ImmersiveLifetimeRoute>(
                 immersiveSpace: .init(id: "theater", route: .theater)
             ),

@@ -41,6 +41,8 @@ public struct RouterDiagnosticEventKind: RawRepresentable, Sendable, Hashable, C
     public static let rejectedStaleState = Self(rawValue: "rejectedStaleState")
     public static let rejectedCancelled = Self(rawValue: "rejectedCancelled")
     public static let rejectedMissingAuthority = Self(rawValue: "rejectedMissingAuthority")
+    public static let rejectedResourceLimit = Self(rawValue: "rejectedResourceLimit")
+    public static let rejectedPendingLinkLifetime = Self(rawValue: "rejectedPendingLinkLifetime")
 }
 
 /// A payload-safe diagnostic value derived from one typed router event.
@@ -175,6 +177,8 @@ public struct RouterObservability<R: Route>: Sendable {
         case .staleState: .rejectedStaleState
         case .cancelled: .rejectedCancelled
         case .missingAuthority: .rejectedMissingAuthority
+        case .pendingLinkLifetime: .rejectedPendingLinkLifetime
+        case .resourceLimit: .rejectedResourceLimit
         }
     }
 }

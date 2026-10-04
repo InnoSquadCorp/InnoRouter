@@ -21,19 +21,13 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         badges: [R.Tab: Int] = [:],
         configuration: RouterStoreConfiguration<R> = .init(),
         linkHandling: RouterLinkHandling<R>? = nil
-    ) {
+    ) throws {
         _ = routeType
-        let catalog: RouterTabCatalog<R>
-        do {
-            catalog = try RouterTabCatalog(R.routerTabs)
-        } catch {
-            preconditionFailure("@Router generated an invalid tab catalog: \(error)")
-        }
+        let catalog = try RouterTabCatalog(R.routerTabs)
         let tabs = catalog.descriptors
-        precondition(
-            catalog.descriptor(for: initial) != nil,
-            "@Router initial tab must belong to its generated catalog"
-        )
+        guard catalog.descriptor(for: initial) != nil else {
+            throw RouterTabCatalogError.initialTabNotInCatalog
+        }
         let branches = tabs.map { descriptor in
             RouterBranch<R>(id: descriptor.tab.routerScopeID)
         }
@@ -44,18 +38,19 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         let badgeState = Dictionary<RouterScopeID, Int>(
             uniqueKeysWithValues: badgePairs
         )
-        let container = try! RouterContainerState(
+        let container = try RouterContainerState(
             style: .tabs,
             selection: initial.routerScopeID,
             branches: branches,
             badges: badgeState
         )
-        let initialState = try! RouterState<R>(root: .container(container))
+        let initialState = try RouterStateDraft<R>(root: .container(container))
+            .build(resourceBudget: configuration.resourceBudget)
         self.tabs = tabs
         self.linkHandling = linkHandling
         self.suppliedStore = nil
         self._ownedStore = State(
-            initialValue: R.makeRouterStore(
+            initialValue: try R.makeRouterStore(
                 initialState: initialState,
                 configuration: configuration
             )
@@ -91,12 +86,13 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
             branches: branches,
             badges: badgeState
         )
-        let initialState = try RouterState<R>(root: .container(container))
+        let initialState = try RouterStateDraft<R>(root: .container(container))
+            .build(resourceBudget: configuration.resourceBudget)
         self.tabs = tabs
         self.linkHandling = linkHandling
         self.suppliedStore = nil
         self._ownedStore = State(
-            initialValue: R.makeRouterStore(
+            initialValue: try R.makeRouterStore(
                 initialState: initialState,
                 configuration: configuration
             )
@@ -270,7 +266,7 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
             throw RouterMutationError.incompatibleNavigationTopology(.root)
         }
         if let tab = tabs.first(where: { $0.root == route })?.tab {
-            return RouterPlan(state: try RouterReducer.reduce(.select(tab.routerScopeID), from: state))
+            return RouterPlan(state: try RouterReducer.reduce(.select(tab.routerScopeID), from: state, resourceBudget: store.resourceBudget))
         }
         // Push into the tab on screen. When a restored selection names a
         // branch this catalog dropped, the host displays its first tab, and
@@ -280,9 +276,9 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         let target = displayedSelection(for: container.selection)
         var prepared = state
         if container.selection != target {
-            prepared = try RouterReducer.reduce(.select(target), from: prepared)
+            prepared = try RouterReducer.reduce(.select(target), from: prepared, resourceBudget: store.resourceBudget)
         }
-        return RouterPlan(state: try RouterReducer.reduce(.scoped(target, .push(route)), from: prepared))
+        return RouterPlan(state: try RouterReducer.reduce(.scoped(target, .push(route)), from: prepared, resourceBudget: store.resourceBudget))
     }
 
     /// The tab the host displays for a stored `selection`.

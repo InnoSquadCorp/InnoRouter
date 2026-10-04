@@ -51,7 +51,7 @@ struct RouterTestStoreTests {
         let never = AsyncStream<Void> { _ in }
         let codec = try RouterSnapshotCodec<CanonicalTestRoute>(currentVersion: 1)
         let data = try codec.encode(.rootStack(path: [.home]))
-        let store = RouterTestStore<CanonicalTestRoute>(runtime: runtime)
+        let store = try RouterTestStore<CanonicalTestRoute>(runtime: runtime)
         let validator = RouterPartialRestorationValidator<CanonicalTestRoute> { _, _ in
             for await _ in never { break }
             return .keep
@@ -81,10 +81,10 @@ struct RouterTestStoreTests {
 
     @Test("Virtual time drives a production policy timeout")
     @MainActor
-    func virtualPolicyTimeout() async {
+    func virtualPolicyTimeout() async throws {
         let runtime = RouterTestRuntime(transitionIDSeed: 7)
         let never = AsyncStream<Void> { _ in }
-        let store = RouterTestStore<CanonicalTestRoute>(
+        let store = try RouterTestStore<CanonicalTestRoute>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "slow") { _ in
@@ -118,7 +118,7 @@ struct RouterTestStoreTests {
 
     @Test("Finishing one store never cancels another store's shared-clock timer")
     @MainActor
-    func sharedRuntimeTimerOwnership() async {
+    func sharedRuntimeTimerOwnership() async throws {
         let runtime = RouterTestRuntime()
         let (firstGate, firstContinuation) = AsyncStream<Void>.makeStream()
         let (secondGate, secondContinuation) = AsyncStream<Void>.makeStream()
@@ -132,12 +132,12 @@ struct RouterTestStoreTests {
             ],
             policyTimeout: .seconds(30)
         )
-        var firstStore: RouterTestStore<CanonicalTestRoute>? = RouterTestStore(
+        var firstStore: RouterTestStore<CanonicalTestRoute>? = try RouterTestStore(
             configuration: configuration,
             exhaustivity: .off,
             runtime: runtime
         )
-        let secondStore = RouterTestStore<CanonicalTestRoute>(
+        let secondStore = try RouterTestStore<CanonicalTestRoute>(
             configuration: configuration,
             exhaustivity: .off,
             runtime: runtime
@@ -170,7 +170,7 @@ struct RouterTestStoreTests {
 
     @Test("A store timer barrier ignores another owner on the shared clock")
     @MainActor
-    func ownTimerBarrierDoesNotUseOtherStore() async {
+    func ownTimerBarrierDoesNotUseOtherStore() async throws {
         let runtime = RouterTestRuntime()
         let (gate, continuation) = AsyncStream<Void>.makeStream()
         let configuration = RouterStoreConfiguration<CanonicalTestRoute>(
@@ -180,12 +180,12 @@ struct RouterTestStoreTests {
             }],
             policyTimeout: .seconds(30)
         )
-        let first = RouterTestStore<CanonicalTestRoute>(
+        let first = try RouterTestStore<CanonicalTestRoute>(
             configuration: configuration,
             exhaustivity: .off,
             runtime: runtime
         )
-        let second = RouterTestStore<CanonicalTestRoute>(
+        let second = try RouterTestStore<CanonicalTestRoute>(
             exhaustivity: .off,
             runtime: runtime
         )
@@ -207,8 +207,8 @@ struct RouterTestStoreTests {
 
     @Test("Finish reports then clears owned deferrals")
     @MainActor
-    func finishClearsOwnedDeferrals() async {
-        let store = RouterTestStore<CanonicalTestRoute>(
+    func finishClearsOwnedDeferrals() async throws {
+        let store = try RouterTestStore<CanonicalTestRoute>(
             configuration: .init(policies: [
                 RouterPolicy(name: "approval") { _ in
                     .deferRequest(RouterDeferralID())
@@ -231,9 +231,9 @@ struct RouterTestStoreTests {
 
     @Test("A queued request can be cancelled before it starts")
     @MainActor
-    func queuedCancellationBarrier() async {
+    func queuedCancellationBarrier() async throws {
         let (gate, gateContinuation) = AsyncStream<Void>.makeStream()
-        let store = RouterTestStore<CanonicalTestRoute>(
+        let store = try RouterTestStore<CanonicalTestRoute>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "gate") { _ in
@@ -267,10 +267,10 @@ struct RouterTestStoreTests {
 
     @Test("A queued request keeps cancellation ownership after it becomes active")
     @MainActor
-    func activeQueuedRequestCancellation() async {
+    func activeQueuedRequestCancellation() async throws {
         let (firstGate, firstContinuation) = AsyncStream<Void>.makeStream()
         let cancellationGate = CancellationAwareGate()
-        let store = RouterTestStore<CanonicalTestRoute>(
+        let store = try RouterTestStore<CanonicalTestRoute>(
             configuration: .init(policies: [
                 RouterPolicy(name: "gate") { transition in
                     if transition.action == .push(.home) {
@@ -313,14 +313,14 @@ struct RouterTestStoreTests {
 
     @Test("Virtual time expires a deferred request and clears pending work")
     @MainActor
-    func virtualDeferralExpiry() async {
+    func virtualDeferralExpiry() async throws {
         let runtime = RouterTestRuntime(
             clock: RouterTestClock(now: Date(timeIntervalSince1970: 1_000))
         )
         let deferralID = RouterDeferralID(
             rawValue: UUID(uuidString: "D0000000-0000-0000-0000-000000000001")!
         )
-        let store = RouterTestStore<CanonicalTestRoute>(
+        let store = try RouterTestStore<CanonicalTestRoute>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "approval") { _ in
@@ -400,8 +400,8 @@ struct RouterTestStoreTests {
 
     @Test("Production policy rejection is injected without a second fake reducer")
     @MainActor
-    func policyFailure() async {
-        let store = RouterTestStore<CanonicalTestRoute>(
+    func policyFailure() async throws {
+        let store = try RouterTestStore<CanonicalTestRoute>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "authorization") { transition in
@@ -459,7 +459,7 @@ struct RouterTestStoreTests {
     @MainActor
     func snapshotHelpers() async throws {
         let codec = try RouterSnapshotCodec<CanonicalTestRoute>(currentVersion: 1)
-        let source = RouterTestStore<CanonicalTestRoute>(initialPath: [.home])
+        let source = try RouterTestStore<CanonicalTestRoute>(initialPath: [.home])
         let data = try await source.snapshot(using: codec)
         await source.finish()
 

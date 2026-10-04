@@ -31,8 +31,8 @@ public enum ComposedAppRoute {
 }
 
 @MainActor
-public func exerciseFeatureComposition() async -> RouterState<ComposedAppRoute> {
-    let store = ComposedAppRoute.makeRouterStore(
+public func exerciseFeatureComposition() async throws -> RouterState<ComposedAppRoute> {
+    let store = try ComposedAppRoute.makeRouterStore(
         initialState: .rootStack(path: [.account(.overview)])
     )
     let feature = RouterFeatureScope(
@@ -68,7 +68,7 @@ public struct FeatureWindowIntegrationResult: Sendable {
 public func exerciseFeatureWindowIntegration() async throws -> FeatureWindowIntegrationResult {
     let accountWindowID = UUID()
     let searchWindowID = UUID()
-    let store = ComposedAppRoute.makeRouterStore(initialState: try RouterState(windows: [
+    let store = try ComposedAppRoute.makeRouterStore(initialState: try RouterState(windows: [
         .init(id: accountWindowID, route: .account(.overview)),
         .init(id: searchWindowID, route: .search(.results(query: "swift"))),
     ]))

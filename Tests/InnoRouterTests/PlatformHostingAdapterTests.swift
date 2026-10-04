@@ -18,8 +18,8 @@ private enum BridgeRoute: DestinationRoute {
 @MainActor
 struct PlatformHostingAdapterTests {
     @Test("AppKit controller and view retain the canonical router host")
-    func appKitFactories() {
-        let store = RouterStore<BridgeRoute>(initialPath: [.detail])
+    func appKitFactories() throws {
+        let store = try RouterStore<BridgeRoute>(initialPath: [.detail])
 
         let controller = RouterAppKitBridge.hostingController(store: store) {
             Text(verbatim: "Root")

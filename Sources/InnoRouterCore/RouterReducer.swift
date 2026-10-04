@@ -11,9 +11,22 @@ public enum RouterReducer {
         _ action: RouterAction<R>,
         from state: RouterState<R>
     ) throws -> RouterState<R> {
+        try reduce(action, from: state, resourceBudget: .provisional)
+    }
+
+    /// Resource admission precedes recursive dispatch and complete candidate
+    /// validation. Larger limits and unbounded operation require explicit opt-in.
+    public static func reduce<R: Route>(
+        _ action: RouterAction<R>,
+        from state: RouterState<R>,
+        resourceBudget: RouterResourceBudget
+    ) throws -> RouterState<R> {
+        try resourceBudget.validate(state)
+        try resourceBudget.validateInput(action)
         var next = state
         do {
             try apply(action, to: &next, path: .root)
+            try resourceBudget.validate(next)
             try next.validate()
             try validatePresentationIdentityContinuity(from: state, to: next)
             try validateWindowIdentityContinuity(from: state, to: next)

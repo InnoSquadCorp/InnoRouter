@@ -96,8 +96,8 @@ private final class RouterSplitEventRecorder {
 @MainActor
 struct RouterSplitHostTests {
     @Test("Macro-first split host owns a split container and detail scope")
-    func construction() {
-        let host = RouterSplitHost(
+    func construction() throws {
+        let host = try RouterSplitHost(
             RouterSplitHostRoute.self,
             initialPath: [.detail(id: "initial")]
         ) {
@@ -145,7 +145,7 @@ struct RouterSplitHostTests {
             ],
             split: splitState
         )
-        let store = RouterStore<RouterSplitHostRoute>(
+        let store = try RouterStore<RouterSplitHostRoute>(
             initialState: try RouterState(root: .container(split)),
             configuration: .init { recorder.events.append($0) }
         )
@@ -178,8 +178,8 @@ struct RouterSplitHostTests {
     }
 
     @Test("Three-column split host constructs independent column scopes")
-    func threeColumnConstruction() {
-        let host = RouterThreeColumnSplitHost(
+    func threeColumnConstruction() throws {
+        let host = try RouterThreeColumnSplitHost(
             RouterSplitHostRoute.self,
             initialSidebarPath: [.detail(id: "sidebar")],
             initialContentPath: [.detail(id: "content")],
@@ -201,7 +201,7 @@ struct RouterSplitHostTests {
     @Test("Split hosts render over a store whose root is not a split container")
     func nonSplitRootDoesNotAbort() throws {
         let restored = RouterState<RouterSplitHostRoute>.rootStack(path: [.detail(id: "restored")])
-        let store = RouterStore(initialState: restored)
+        let store = try RouterStore(initialState: restored)
 
         _ = try renderRouterSplitHost(RouterSplitHost(
             store: store,
@@ -246,7 +246,7 @@ struct RouterSplitHostTests {
             selection: "detail",
             branches: [RouterBranch(id: "sidebar"), RouterBranch(id: "detail")]
         )))
-        let store = RouterStore(initialState: restored)
+        let store = try RouterStore(initialState: restored)
         let gate = RouterSplitHostInvocationGate()
 
         _ = try renderRouterSplitHost(RouterSplitHost(
@@ -380,7 +380,7 @@ private func makeSplitStore(
         branches: branches,
         split: split
     )
-    return RouterStore(initialState: try RouterState(root: .container(container)))
+    return try RouterStore(initialState: try RouterState(root: .container(container)))
 }
 
 #if canImport(AppKit)

@@ -99,7 +99,7 @@ inspector_sources = {
     'RouterInspectorImportPreflight.swift', 'RouterInspectorRecorder.swift',
     'RouterInspectorRedaction.swift', 'RouterInspectorState.swift',
     'RouterInspectorTimeline.swift', 'RouterInspectorScenarioController.swift',
-    'RouterInspectorStoreAdapter.swift', 'RouterInspectorExportFailure.swift',
+    'RouterInspectorStoreAdapter.swift', 'RouterInspectorExportFailure.swift', 'RouterInspectorResourceBudget.swift',
 }
 modules = ['InnoRouterCore', 'InnoRouterDeepLink', 'InnoRouterSwiftUI',
            'InnoRouterInspector', 'InnoRouterTesting']

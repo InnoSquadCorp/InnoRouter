@@ -63,30 +63,7 @@ extension RouterHistory {
     nonisolated package static func navigationProjection(
         _ state: RouterState<R>
     ) -> RouterState<R> {
-        var result = RouterStateDraft(state)
-        result.root = project(state.root)
-        result.windows = state.windows.map {
-            RouterWindow(id: $0.id, route: $0.route, node: project($0.node))
-        }
-        result.immersiveSpace = state.immersiveSpace.map {
-            RouterImmersiveSpace(id: $0.id, route: $0.route, node: project($0.node))
-        }
-        // Removing presentations and badges cannot invalidate a valid tree.
-        return try! result.build()
-    }
-
-    nonisolated private static func project(_ node: RouterNode<R>) -> RouterNode<R> {
-        switch node {
-        case .stack(let stack):
-            return .stack(path: stack.path)
-        case .container(let container):
-            var projected = container
-            projected.branches = container.branches.map {
-                RouterBranch(id: $0.id, node: project($0.node))
-            }
-            projected.badges = [:]
-            return .container(projected)
-        }
+        state.navigationHistoryProjection()
     }
 
     nonisolated package static func hasSameNavigation(

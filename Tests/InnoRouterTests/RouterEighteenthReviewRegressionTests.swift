@@ -350,7 +350,7 @@ struct RouterEighteenthReviewRegressionTests {
             sleep: { duration in try await signals.sleep(duration) },
             makeTransitionID: RouterTransitionID.init
         )
-        let store = RouterStore<EighteenthReviewRoute>(configuration: configuration)
+        let store = try RouterStore<EighteenthReviewRoute>(configuration: configuration)
         let history = RouterHistory(store: store)
         observed.history = nil
         defer { history.stop() }

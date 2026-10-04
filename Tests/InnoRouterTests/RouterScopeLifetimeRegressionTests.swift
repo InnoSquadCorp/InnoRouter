@@ -47,7 +47,7 @@ struct RouterScopeLifetimeRegressionTests {
     @Test("Closed and recreated scene cannot revive root forwarding")
     func closedSceneRootEscape() async throws {
         let id = UUID()
-        let store = RouterStore<R>(initialState: try RouterState(windows: [.init(id: id, route: .home)]))
+        let store = try RouterStore<R>(initialState: try RouterState(windows: [.init(id: id, route: .home)]))
         let old = store.scope(at: .window(id))
         _ = await store.perform(.dismissWindow(id))
         _ = await store.perform(.openWindow(.init(id: id, route: .home)))
@@ -62,7 +62,7 @@ struct RouterScopeLifetimeRegressionTests {
     @Test("Same persisted scene UUID after restore gets new runtime authority without native reopening")
     func restoredSameSceneIdentity() async throws {
         let id = UUID()
-        let store = RouterStore<R>(initialState: try RouterState(windows: [.init(id: id, route: .home)]))
+        let store = try RouterStore<R>(initialState: try RouterState(windows: [.init(id: id, route: .home)]))
         let old = store.scope(at: .window(id))
         let nativeToken = store.windowLifecycleTokens[id]
         let replacement = try RouterState<R>(windows: [.init(id: id, route: .home, node: .stack(path: [.replacement]))])
@@ -90,7 +90,7 @@ struct RouterScopeLifetimeRegressionTests {
     @Test("Removed and recreated branch rejects old callbacks with its reused declaration ID")
     func branchRemoveRecreate() async throws {
         let state = try tabs()
-        let store = RouterStore(initialState: state)
+        let store = try RouterStore(initialState: state)
         let old = store.scope(at: ["left"])
         let reduced = try RouterState<R>(root: .container(RouterContainerState(
             style: .tabs, selection: "right", branches: [.init(id: "right", node: .stack(path: [.home]))]
@@ -105,7 +105,7 @@ struct RouterScopeLifetimeRegressionTests {
     @Test("Equal exact restore checks policies and rotates ownership without state revision")
     func equalRestore() async throws {
         var policyCalls = 0
-        let store = RouterStore<R>(configuration: .init(policies: [
+        let store = try RouterStore<R>(configuration: .init(policies: [
             .init(name: "restore-authorization") { _ in policyCalls += 1; return .allow },
         ]))
         let old = store.scope()
@@ -123,7 +123,7 @@ struct RouterScopeLifetimeRegressionTests {
 
     @Test("Rejected equal restore preserves all previous ownership")
     func rejectedEqualRestore() async throws {
-        let store = RouterStore<R>(configuration: .init(policies: [
+        let store = try RouterStore<R>(configuration: .init(policies: [
             .init(name: "deny-restore") { _ in .reject("denied") },
         ]))
         let scope = store.scope()
@@ -149,7 +149,7 @@ struct RouterScopeLifetimeRegressionTests {
             },
         ])
         configuration.runtimeDependencies.didQueueRequest = { _ in queuedContinuation.yield(()) }
-        let store = RouterStore(initialState: try tabs(), configuration: configuration)
+        let store = try RouterStore(initialState: try tabs(), configuration: configuration)
         let oldRoot = store.scope()
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let data = try codec.encode(store.state)
@@ -183,7 +183,7 @@ struct RouterScopeLifetimeRegressionTests {
     @Test("Rebased deferral retains original runtime authority after same-ID restore")
     func deferredRebaseAfterRestore() async throws {
         let id = RouterDeferralID()
-        let store = RouterStore<R>(configuration: .init(policies: [
+        let store = try RouterStore<R>(configuration: .init(policies: [
             .init(name: "approval") { transition in
                 if case .push = transition.action, transition.context.resumedDeferral == nil {
                     return .deferRequest(id)
@@ -249,7 +249,7 @@ struct RouterScopeLifetimeRegressionTests {
 
     @Test("Ordinary push pop selection badge and apply preserve retained sibling and root identities")
     func ordinaryReconciliationControl() async throws {
-        let store = RouterStore(initialState: try tabs())
+        let store = try RouterStore(initialState: try tabs())
         let left = store.scope(at: ["left"]), right = store.scope(at: ["right"]), root = store.scope()
         _ = await right.perform(.push(.detail))
         _ = await right.perform(.pop(count: 1))

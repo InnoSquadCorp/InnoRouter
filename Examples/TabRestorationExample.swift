@@ -85,7 +85,7 @@ final class TabRestorationExampleSession {
             maximumPayloadByteCount: 1 * 1_024 * 1_024
         )
         let writer = RouterRestorationDriver(
-            store: RouterStore(initialState: state),
+            store: try RouterStore(initialState: state),
             codec: try RouterSnapshotCodec(currentVersion: 1, limits: limits),
             storage: try RouterFileSnapshotStorage(
                 fileURL: snapshotURL,

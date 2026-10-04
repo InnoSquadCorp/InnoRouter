@@ -16,7 +16,7 @@ struct RouterFeatureMappingTests {
             .init(id: firstID, route: .feature(.home)),
             .init(id: secondID, route: .feature(.home)),
         ])
-        let store = RouterStore(initialState: state)
+        let store = try RouterStore(initialState: state)
         let first = RouterFeatureScope(
             parent: store.scope(at: .window(firstID)),
             mapping: mapping
@@ -92,9 +92,9 @@ struct RouterFeatureMappingTests {
 
     @Test("A nested feature plan rejects when only its nearest owner is replaced")
     @MainActor
-    func nestedFeaturePlanRejectsReplacedAncestor() async {
+    func nestedFeaturePlanRejectsReplacedAncestor() async throws {
         let deferralID = RouterDeferralID()
-        let store = RouterStore<Parent>(
+        let store = try RouterStore<Parent>(
             initialState: .rootStack(path: [.feature(.nested(.home))]),
             configuration: .init(policies: [
                 RouterPolicy(name: "approve-nested-plan") { transition in
@@ -132,9 +132,9 @@ struct RouterFeatureMappingTests {
 
     @Test("A queued feature request is rejected before mutation when its feature disappears")
     @MainActor
-    func queuedFeatureRejectsBeforeMutation() async {
+    func queuedFeatureRejectsBeforeMutation() async throws {
         let (gate, gateContinuation) = AsyncStream<Void>.makeStream()
-        let store = RouterStore<Parent>(
+        let store = try RouterStore<Parent>(
             initialState: .rootStack(path: [.feature(.home)]),
             configuration: .init(
                 policies: [
@@ -182,7 +182,7 @@ struct RouterFeatureMappingTests {
     @MainActor
     func queuedTypedFeaturePresentationRejectsBeforeMutation() async throws {
         let (gate, continuation) = AsyncStream<Void>.makeStream()
-        let store = RouterStore<Parent>(
+        let store = try RouterStore<Parent>(
             initialState: .rootStack(path: [.feature(.home)]),
             configuration: .init(policies: [
                 RouterPolicy(name: "replace-feature") { transition in
@@ -308,7 +308,7 @@ struct RouterFeatureMappingTests {
             ]
         )
         let deferralID = RouterDeferralID()
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState(root: .container(root)),
             configuration: .init(policies: [
                 RouterPolicy(name: "approve-feature-plan") { transition in
@@ -360,7 +360,7 @@ struct RouterFeatureMappingTests {
             ]
         )
         let deferralID = RouterDeferralID()
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState(root: .container(root)),
             configuration: .init(policies: [
                 RouterPolicy(name: "approval") { transition in
@@ -395,9 +395,9 @@ struct RouterFeatureMappingTests {
 
     @Test("A rebased feature plan rejects a subtree now owned by another feature")
     @MainActor
-    func rebasedFeaturePlanRejectsReplacedOwner() async {
+    func rebasedFeaturePlanRejectsReplacedOwner() async throws {
         let deferralID = RouterDeferralID()
-        let store = RouterStore<Parent>(
+        let store = try RouterStore<Parent>(
             initialState: .rootStack(path: [.feature(.home)]),
             configuration: .init(policies: [
                 RouterPolicy(name: "approval") { transition in
@@ -435,7 +435,7 @@ struct RouterFeatureMappingTests {
     func featureRebaseAndPendingLinkCancellationAreIsolated() async throws {
         let featureDeferral = RouterDeferralID()
         let linkDeferral = RouterDeferralID()
-        let store = RouterStore<Parent>(
+        let store = try RouterStore<Parent>(
             initialState: .rootStack(path: [.feature(.home)]),
             configuration: .init(policies: [
                 RouterPolicy(name: "separate-request-families") { transition in

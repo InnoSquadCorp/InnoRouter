@@ -99,7 +99,9 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
         maximumByteCount: Int = 2 * 1_024 * 1_024,
         maximumStepCount: Int = 2_000,
         maximumJSONDepth: Int = 64,
-        maximumJSONTokens: Int = 131_072
+        maximumJSONTokens: Int = 131_072,
+        maximumJSONWorkUnits: Int? = nil,
+        maximumJSONKeyDecodes: Int? = nil
     ) throws -> Self {
         guard data.count <= max(1, maximumByteCount) else {
             throw RouterScenarioFixtureError.encodedDataTooLarge(
@@ -112,7 +114,9 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
             maximumBytes: max(1, maximumByteCount),
             maximumSteps: max(1, maximumStepCount),
             maximumDepth: max(1, maximumJSONDepth),
-            maximumTokens: max(1, maximumJSONTokens)
+            maximumTokens: max(1, maximumJSONTokens),
+            maximumWorkUnits: maximumJSONWorkUnits,
+            maximumKeyDecodes: maximumJSONKeyDecodes
         )
         let fixture = try JSONDecoder().decode(Self.self, from: data)
         guard fixture.steps.count <= max(1, maximumStepCount) else {
@@ -178,5 +182,6 @@ public enum RouterScenarioFixtureError: Error, Hashable, Sendable {
     case tooManySteps(actual: Int, maximum: Int)
     case jsonDepthExceeded(actual: Int, maximum: Int)
     case jsonTokenLimitExceeded(actual: Int, maximum: Int)
+    case resourceLimit(RouterResourceLimitFailure)
     case malformedFixtureEnvelope
 }

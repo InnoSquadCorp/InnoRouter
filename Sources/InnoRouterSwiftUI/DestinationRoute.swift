@@ -37,16 +37,25 @@ public protocol DestinationRoute: Route {
 }
 
 public extension DestinationRoute {
-    /// Creates the canonical store unlocked by `@Router`'s generated
-    /// `DestinationRoute` conformance.
+    /// Creates a safe empty root-stack Store with finite default limits.
+    @MainActor
+    static func makeRouterStore() -> RouterStore<Self> {
+        RouterStore()
+    }
+
+    /// Creates the canonical Store after validating supplied input.
     @MainActor
     static func makeRouterStore(
-        initialState: RouterState<Self> = .rootStack,
+        initialState: RouterState<Self>,
         configuration: RouterStoreConfiguration<Self> = .init()
-    ) -> RouterStore<Self> {
-        RouterStore(
-            initialState: initialState,
-            configuration: configuration
-        )
+    ) throws -> RouterStore<Self> {
+        try RouterStore(initialState: initialState, configuration: configuration)
+    }
+
+    @MainActor
+    static func makeRouterStore(
+        configuration: RouterStoreConfiguration<Self>
+    ) throws -> RouterStore<Self> {
+        try RouterStore(configuration: configuration)
     }
 }

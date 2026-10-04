@@ -102,7 +102,7 @@ struct NativeHostRuntimeTests {
             selection: "home",
             branches: [RouterBranch(id: "home"), RouterBranch(id: "settings")]
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState(root: .container(container))
         )
         let controller = UIHostingController(

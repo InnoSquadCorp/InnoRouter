@@ -80,7 +80,7 @@ private final class TabSelectionRaceFixture {
         configuration.runtimeDependencies.didQueueRequest = { id in
             didQueue.yield(id)
         }
-        let store = RouterStore(initialState: try Self.state(), configuration: configuration)
+        let store = try RouterStore(initialState: try Self.state(), configuration: configuration)
         self.store = store
         self.scope = store.scope()
         self.host = RouterTabHost(store: store)

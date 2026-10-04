@@ -85,7 +85,7 @@ struct RouterAuthorizationContractTests {
         session.catalog = tabCatalog()
         let initial = try tabs()
         let target = try tabs(selection: "account")
-        let store = RouterStore(initialState: initial, configuration: .init(authorization: session.configuration()))
+        let store = try RouterStore(initialState: initial, configuration: .init(authorization: session.configuration()))
         expectRejection(await store.perform(.apply(.init(state: target))), .denied)
         #expect(store.state == initial)
         #expect(store.revision == 0)
@@ -104,7 +104,7 @@ struct RouterAuthorizationContractTests {
     func unknownRootFailsClosed() async throws {
         let session = Session()
         let target = RouterPlan(state: try tabs(selection: "account"))
-        let store = RouterStore<R>(configuration: .init(authorization: session.configuration()))
+        let store = try RouterStore<R>(configuration: .init(authorization: session.configuration()))
         expectRejection(await store.perform(.apply(target)), .unresolvedRoot)
         #expect(session.calls == 0)
         #expect(store.revision == 0)
@@ -121,7 +121,7 @@ struct RouterAuthorizationContractTests {
         let session = Session()
         session.catalog = tabCatalog()
         let clean = try tabs()
-        let store = RouterStore<R>(configuration: .init(authorization: session.configuration()))
+        let store = try RouterStore<R>(configuration: .init(authorization: session.configuration()))
         guard case .applied = await store.perform(.apply(.init(state: clean))) else {
             Issue.record("Inactive account catalog entry must not demand login")
             return
@@ -139,7 +139,7 @@ struct RouterAuthorizationContractTests {
         let matches = AuthorizationCounter()
         let target = RouterPlan<R>(state: .rootStack(path: [.home]))
         let link = pipeline(target: target, matches: matches)
-        let store = RouterStore<R>(configuration: .init(authorization: session.configuration()))
+        let store = try RouterStore<R>(configuration: .init(authorization: session.configuration()))
         guard case .pending(let pending) = await store.handle(url, using: link) else {
             Issue.record("Protected match removed by custom planner must remain pending")
             return
@@ -163,7 +163,7 @@ struct RouterAuthorizationContractTests {
             split: .init()
         ))))
         let scene = RouterPlan<R>(state: try .init(windows: [.init(route: .scene)]))
-        let store = RouterStore<R>(configuration: .init(authorization: session.configuration()))
+        let store = try RouterStore<R>(configuration: .init(authorization: session.configuration()))
         expectRejection(await store.perform(.apply(split)), .denied)
         expectRejection(await store.perform(.apply(scene)), .denied)
         #expect(store.revision == 0)
@@ -171,13 +171,13 @@ struct RouterAuthorizationContractTests {
     }
 
     @Test("Logout during asynchronous authorization rejects before policy or commit")
-    func logoutDuringAuthorization() async {
+    func logoutDuringAuthorization() async throws {
         let session = Session()
         session.allowed = true
         let gate = AuthorizationGate()
         session.gate = gate
         var policyCalls = 0
-        let store = RouterStore<R>(configuration: .init(
+        let store = try RouterStore<R>(configuration: .init(
             policies: [.init(name: "later") { _ in policyCalls += 1; return .allow }],
             authorization: session.configuration()
         ))
@@ -192,11 +192,11 @@ struct RouterAuthorizationContractTests {
     }
 
     @Test("Account change during policy invalidates an earlier successful authorization")
-    func accountChangeDuringPolicy() async {
+    func accountChangeDuringPolicy() async throws {
         let session = Session()
         session.allowed = true
         let gate = AuthorizationGate()
-        let store = RouterStore<R>(configuration: .init(
+        let store = try RouterStore<R>(configuration: .init(
             policies: [.init(name: "approval") { _ in await gate.wait(); return .allow }],
             authorization: session.configuration()
         ))
@@ -210,12 +210,12 @@ struct RouterAuthorizationContractTests {
     }
 
     @Test("A queued old-account request cannot acquire the new account's generation")
-    func queuedGeneration() async {
+    func queuedGeneration() async throws {
         let session = Session()
         session.allowed = true
         let gate = AuthorizationGate()
         var first = true
-        let store = RouterStore<R>(configuration: .init(
+        let store = try RouterStore<R>(configuration: .init(
             policies: [.init(name: "queue blocker") { _ in
                 if first { first = false; await gate.wait() }
                 return .allow
@@ -318,7 +318,7 @@ struct RouterAuthorizationContractTests {
     }
 
     @Test("Timed-out noncooperative authentication remains counted until actual exit")
-    func timedOutAuthBudget() async {
+    func timedOutAuthBudget() async throws {
         let gate = AuthorizationGate()
         let session = Session()
         session.gate = gate
@@ -329,7 +329,7 @@ struct RouterAuthorizationContractTests {
             maximumActivePolicyOperationCount: 1
         )
         configuration.runtimeDependencies.sleep = { try await sleeper.sleep(for: $0) }
-        let store = RouterStore<R>(configuration: configuration)
+        let store = try RouterStore<R>(configuration: configuration)
         let request = store.dispatch(.push(.account))
         await gate.waitUntilEntered()
         #expect(await registrations.next() == .seconds(30))
@@ -363,7 +363,7 @@ struct RouterAuthorizationContractTests {
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let protected = RouterState<R>.rootStack(path: [.account])
         let data = try codec.encode(protected)
-        let store = RouterStore<R>(configuration: .init(authorization: session.configuration()))
+        let store = try RouterStore<R>(configuration: .init(authorization: session.configuration()))
         expectRejection(try await store.restore(from: data, using: codec), .denied)
         expectRejection(await store.perform(
             .apply(.init(state: protected)), context: .init(),
@@ -374,11 +374,11 @@ struct RouterAuthorizationContractTests {
     }
 
     @Test("Policy deferral preserves the submitted generation across explicit continuation")
-    func policyDeferralGeneration() async {
+    func policyDeferralGeneration() async throws {
         let session = Session()
         session.allowed = true
         let id = RouterDeferralID()
-        let store = RouterStore<R>(configuration: .init(
+        let store = try RouterStore<R>(configuration: .init(
             policies: [.init(name: "approval") { _ in .deferRequest(id) }],
             authorization: session.configuration()
         ))
@@ -394,12 +394,12 @@ struct RouterAuthorizationContractTests {
     }
 
     @Test("Cancelling authorization releases its waiter but retains the live operation")
-    func cancellationAndLateAuth() async {
+    func cancellationAndLateAuth() async throws {
         let session = Session()
         let gate = AuthorizationGate()
         session.gate = gate
         var terminalCount = 0
-        let store = RouterStore<R>(configuration: .init(
+        let store = try RouterStore<R>(configuration: .init(
             authorization: session.configuration(), maximumActivePolicyOperationCount: 1,
             onEvent: { event in
                 if case .rejected = event { terminalCount += 1 }
@@ -424,10 +424,10 @@ struct RouterAuthorizationContractTests {
     }
 
     @Test("One thousand cooperative authorization callbacks return every registry slot")
-    func cooperativeAuthCleanup() async {
+    func cooperativeAuthCleanup() async throws {
         let session = Session()
         session.allowed = true
-        let store = RouterStore<R>(configuration: .init(
+        let store = try RouterStore<R>(configuration: .init(
             authorization: session.configuration(), maximumActivePolicyOperationCount: 1
         ))
         for index in 0..<1_000 {
@@ -448,7 +448,7 @@ struct RouterAuthorizationContractTests {
         let session = Session()
         let window = RouterWindow<R>(route: .scene)
         let initial = try RouterState<R>(root: .stack(path: [.account]), windows: [window])
-        let store = RouterStore(initialState: initial, configuration: .init(authorization: session.configuration()))
+        let store = try RouterStore(initialState: initial, configuration: .init(authorization: session.configuration()))
         expectRejection(await store.perform(.dismissWindow(window.id)), .denied)
         session.generation += 1
         guard case .applied = await store.reconcileSceneSystemFailure(.dismissWindow(window.id)) else {
@@ -468,7 +468,7 @@ struct RouterAuthorizationContractTests {
         let gate = AuthorizationGate()
         let window = RouterWindow<R>(route: .scene)
         let initial = try RouterState<R>(root: .stack(path: [.account]), windows: [window])
-        let store = RouterStore(initialState: initial, configuration: .init(
+        let store = try RouterStore(initialState: initial, configuration: .init(
             policies: [.init(name: "block") { _ in await gate.wait(); return .allow }],
             authorization: session.configuration()
         ))

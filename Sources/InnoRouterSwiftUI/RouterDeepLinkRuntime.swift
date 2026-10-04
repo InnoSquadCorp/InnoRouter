@@ -185,6 +185,30 @@ public final class RouterPendingLinkSlot<R: Route> {
     public private(set) var pending: PendingRouterLink<R>?
     @ObservationIgnored private var generation: UInt64
     @ObservationIgnored private var ownedResumes: [UUID: OwnedResume] = [:]
+    @ObservationIgnored package var durableLifetime: RouterPendingLinkLifetimeState?
+    @ObservationIgnored private var durableClock: (@Sendable () -> Date)?
+    @ObservationIgnored private var durableMaximumAge: Duration?
+
+    package func configureDurableLifetime(lifetime: Duration?, now: @escaping @Sendable () -> Date) {
+        durableClock = now
+        durableMaximumAge = lifetime
+        if let current = durableLifetime {
+            durableLifetime = .init(originatedAt: current.originatedAt, lastObservedAt: current.lastObservedAt, lifetime: lifetime, now: now)
+        } else if pending != nil {
+            startDurableLifetime()
+        }
+    }
+
+    package func restoreDurableLifetime(originatedAt: Date, lastObservedAt: Date) {
+        guard let durableClock else { return }
+        durableLifetime = .init(originatedAt: originatedAt, lastObservedAt: lastObservedAt, lifetime: durableMaximumAge, now: durableClock)
+    }
+
+    private func startDurableLifetime() {
+        guard let durableClock else { durableLifetime = nil; return }
+        let origin = durableClock()
+        durableLifetime = .init(originatedAt: origin, lastObservedAt: origin, lifetime: durableMaximumAge, now: durableClock)
+    }
 
     package var mutationGeneration: UInt64 { generation }
 
@@ -201,6 +225,7 @@ public final class RouterPendingLinkSlot<R: Route> {
         compactOwnedResumes()
         guard let current = pending else {
             pending = link
+            startDurableLifetime()
             generation &+= 1
             return .stored(link)
         }
@@ -209,6 +234,7 @@ public final class RouterPendingLinkSlot<R: Route> {
             return .keptExisting(current)
         case .replaceExisting:
             pending = link
+            startDurableLifetime()
             generation &+= 1
             return .replaced(previous: current, current: link)
         }
@@ -237,6 +263,17 @@ public final class RouterPendingLinkSlot<R: Route> {
     ) async -> RouterLinkExecution<R>? {
         compactOwnedResumes()
         guard let link = pending else { return nil }
+        let retainedLifetime = durableLifetime
+        if let retainedLifetime {
+            do { _ = try retainedLifetime.validate(link: link) }
+            catch let failure as RouterPendingLinkLifetimeFailure {
+                let outcome = store.reject(store.reserveTransitionID(), reason: .pendingLinkLifetime(failure), context: .init(source: source), action: .apply(link.plan))
+                return .completed(plan: link.plan, outcome: outcome)
+            } catch {
+                let outcome = store.reject(store.reserveTransitionID(), reason: .pendingLinkLifetime(.init(code: .invalidTimestamp)), context: .init(source: source), action: .apply(link.plan))
+                return .completed(plan: link.plan, outcome: outcome)
+            }
+        }
         let resumedGeneration = generation
         let operationID = UUID()
         let transitionID = store.reserveTransitionID()
@@ -253,6 +290,11 @@ public final class RouterPendingLinkSlot<R: Route> {
             executionPrecondition: { [weak self] _ in
                 guard self?.ownedResumes[operationID] != nil else {
                     return .cancelled
+                }
+                if let retainedLifetime {
+                    do { _ = try retainedLifetime.validate(link: link) }
+                    catch let failure as RouterPendingLinkLifetimeFailure { return .pendingLinkLifetime(failure) }
+                    catch { return .pendingLinkLifetime(.init(code: .invalidTimestamp)) }
                 }
                 return nil
             }
@@ -278,6 +320,7 @@ public final class RouterPendingLinkSlot<R: Route> {
 
     private func clearPending() {
         pending = nil
+        durableLifetime = nil
         generation &+= 1
     }
 

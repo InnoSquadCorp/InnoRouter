@@ -174,7 +174,7 @@ struct RouterTabRestorationTopologyTests {
     @Test("Partial restoration validates the reconciled candidate")
     @MainActor
     func partialRestorationValidatesTheReconciledCandidate() async throws {
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try Self.tabs(
                 selection: "home",
                 [.init(id: "home", node: .stack(path: [.settings]))]
@@ -215,7 +215,7 @@ struct RouterTabRestorationTopologyTests {
     @Test("A recovery fallback is applied exactly even with a topology")
     @MainActor
     func recoveryFallbackIsNotReconciled() async throws {
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try Self.tabs(
                 selection: "home",
                 [.init(id: "home", node: .stack())]
@@ -243,7 +243,7 @@ struct RouterTabRestorationTopologyTests {
     @MainActor
     func equivalentSnapshotIsUnchanged() async throws {
         let topology = try RouterTabRestorationTopology(scopeIDs: ["home", "profile"])
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try Self.tabs(
                 selection: "home",
                 [
@@ -283,7 +283,7 @@ struct RouterTabRestorationTopologyTests {
                 )
             )
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try Self.tabs(
                 selection: "home",
                 [.init(id: "home", node: .stack())]
@@ -330,7 +330,7 @@ struct RouterTabRestorationTopologyTests {
             [.init(id: "home", node: .stack(path: [.detail]))]
         )
         let storage = StaticStorage(data: try codec.encode(snapshot))
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try Self.tabs(
                 selection: "home",
                 [

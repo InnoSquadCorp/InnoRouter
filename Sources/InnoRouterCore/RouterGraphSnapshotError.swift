@@ -3,6 +3,8 @@
 public struct RouterGraphSnapshotErrorCode: RawRepresentable, Hashable, Sendable, Codable {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
+    public static let legacySnapshotRejected = Self(rawValue: "innorouter.snapshot.graph.legacySnapshotRejected")
+    public static let legacyRouteMappingFailed = Self(rawValue: "innorouter.snapshot.graph.legacyRouteMappingFailed")
     public static let invalidLimit = Self(rawValue: "innorouter.snapshot.graph.invalidLimit")
     public static let limitExceeded = Self(rawValue: "innorouter.snapshot.graph.limitExceeded")
     public static let malformedJSON = Self(rawValue: "innorouter.snapshot.graph.malformedJSON")
@@ -82,6 +84,8 @@ public struct RouterGraphSnapshotError: Error, Hashable, Sendable, Codable, Cust
 
     public var description: String { code.rawValue }
 
+    public static let legacySnapshotRejected = Self(code: .legacySnapshotRejected)
+    public static let legacyRouteMappingFailed = Self(code: .legacyRouteMappingFailed)
     public static func invalidLimit(name: String, value: Int) -> Self {
         Self(code: .invalidLimit, details: .init(name: name, value: value))
     }

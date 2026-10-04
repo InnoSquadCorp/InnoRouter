@@ -170,7 +170,7 @@ struct RouterInspectorTests {
     @Test("Deep-link preview is pure and explicit execution uses store policies")
     func deepLinkPreviewAndExecutionBoundary() async throws {
         let url = try #require(URL(string: "example://app/items/42"))
-        let lockedStore = RouterStore<InspectorDeepLinkRoute>(configuration: .init(
+        let lockedStore = try RouterStore<InspectorDeepLinkRoute>(configuration: .init(
             policies: [RouterPolicy(name: "inspector-lock") { transition in
                 transition.context.source == .inspector ? .reject("locked") : .allow
             }]
@@ -415,11 +415,11 @@ struct RouterInspectorTests {
     }
 
     @Test("Policy deferral does not trigger a rejection breakpoint")
-    func deferralIsNotRejection() async {
+    func deferralIsNotRejection() async throws {
         let recorder = RouterInspectorRecorder()
         recorder.setPauseOnRejection(true)
         let deferralID = RouterDeferralID()
-        let store = RouterStore<InspectorRoute>(
+        let store = try RouterStore<InspectorRoute>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "approval") { _ in

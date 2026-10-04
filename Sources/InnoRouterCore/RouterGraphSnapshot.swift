@@ -103,7 +103,7 @@ public struct RouterGraphRouteCodec<R: Route>: Sendable {
         decodeRoute = decode
     }
 
-    func validate(_ payload: RouterGraphRoutePayload) throws {
+    package func validate(_ payload: RouterGraphRoutePayload) throws {
         guard let version = supportedPayloadVersions[payload.stableKey] else {
             throw RouterGraphSnapshotError.unknownRouteKey
         }
@@ -112,7 +112,7 @@ public struct RouterGraphRouteCodec<R: Route>: Sendable {
         }
     }
 
-    func encode(_ route: R) throws -> RouterGraphRoutePayload {
+    package func encode(_ route: R) throws -> RouterGraphRoutePayload {
         let payload: RouterGraphRoutePayload
         do { payload = try encodeRoute(route) }
         catch { throw RouterGraphSnapshotError.routeEncodingFailed }
@@ -120,7 +120,7 @@ public struct RouterGraphRouteCodec<R: Route>: Sendable {
         return payload
     }
 
-    func decode(_ payload: RouterGraphRoutePayload) throws -> R {
+    package func decode(_ payload: RouterGraphRoutePayload) throws -> R {
         try validate(payload)
         do { return try decodeRoute(payload) }
         catch { throw RouterGraphSnapshotError.routeDecodingFailed }

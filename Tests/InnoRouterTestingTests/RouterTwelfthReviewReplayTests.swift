@@ -47,7 +47,7 @@ struct RouterTwelfthReviewReplayTests {
         _ = try RouterScenarioSourceGenerator.generateFiles(
             fixture, routeTypeName: "ReplayRoot", featureResolversFactory: "makeReplayResolvers"
         )
-        let target = RouterTestStore(initialState: initial, exhaustivity: .off)
+        let target = try RouterTestStore(initialState: initial, exhaustivity: .off)
         await #expect(throws: RouterScenarioReplayError.missingFeatureResolver(namespaces: [replayMapping.namespace])) {
             _ = try await RouterScenarioRunner.replay(fixture, on: target)
         }
@@ -71,7 +71,7 @@ struct RouterTwelfthReviewReplayTests {
             if case .push = transition.action, transition.context.resumedDeferral == nil { return .deferRequest(deferralID) }
             return .allow
         }])
-        let source = RouterStore(initialState: initial, configuration: config)
+        let source = try RouterStore(initialState: initial, configuration: config)
         let recorder = RouterScenarioRecorder(store: source)
         let feature = RouterFeatureScope(parent: source.scope(), mapping: replayMapping)
         _ = await feature.perform(.push(.detail))
@@ -99,7 +99,7 @@ struct RouterTwelfthReviewReplayTests {
 
     @Test func featurePresentationAndCompletionRecordRuntimeAuthority() async throws {
         let initial: RouterState<ReplayRoot> = .rootStack(path: [.feature(.home)])
-        let source = RouterStore(initialState: initial)
+        let source = try RouterStore(initialState: initial)
         let recorder = RouterScenarioRecorder(store: source)
         let feature = RouterFeatureScope(parent: source.scope(), mapping: replayMapping)
         let result = Task { @MainActor in
@@ -171,7 +171,7 @@ struct RouterTwelfthReviewReplayTests {
             route: .feature(.home),
             node: .stack(path: [.feature(.home)])
         )])
-        let source = RouterStore(initialState: first)
+        let source = try RouterStore(initialState: first)
         let staleFeature = RouterFeatureScope(
             parent: source.scope(at: .window(windowID)),
             mapping: replayMapping
@@ -209,7 +209,7 @@ struct RouterTwelfthReviewReplayTests {
             if case .apply = transition.action, transition.context.resumedDeferral == nil { return .deferRequest(deferralID) }
             return .allow
         }])
-        let source = RouterStore(initialState: initial, configuration: config)
+        let source = try RouterStore(initialState: initial, configuration: config)
         let recorder = RouterScenarioRecorder(store: source)
         let feature = RouterFeatureScope(parent: source.scope(), mapping: replayMapping)
         let leaf = RouterFeatureScope(parent: feature, mapping: replayLeafMapping)

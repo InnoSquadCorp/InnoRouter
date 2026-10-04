@@ -83,19 +83,31 @@ public extension RouterPlan {
         from base: RouterState<R> = .rootStack,
         @RouterPlanBuilder<R> _ build: () -> [RouterPlanStep<R>]
     ) throws {
+        try self.init(from: base, resourceBudget: .provisional, build)
+    }
+
+    /// Constructs a plan under an explicit budget. Use the owning Store's
+    /// budget when it intentionally differs from the provisional defaults.
+    init(
+        from base: RouterState<R> = .rootStack,
+        resourceBudget: RouterResourceBudget,
+        @RouterPlanBuilder<R> _ build: () -> [RouterPlanStep<R>]
+    ) throws {
+        try resourceBudget.validate(base)
         var target = base
         for step in build() {
             switch step {
             case .root(let root):
                 target.root = root
             case .action(let action):
-                target = try RouterReducer.reduce(action, from: target)
+                target = try RouterReducer.reduce(action, from: target, resourceBudget: resourceBudget)
             case .windows(let windows):
                 target.windows = windows
             case .immersiveSpace(let immersiveSpace):
                 target.immersiveSpace = immersiveSpace
             }
         }
+        try resourceBudget.validate(target)
         try target.validate()
         self.init(state: target)
     }

@@ -49,9 +49,9 @@ struct RouterStoreTests {
 
     @Test("One action commits one complete observable state")
     @MainActor
-    func commitsAtomically() async {
+    func commitsAtomically() async throws {
         let recorder = EventRecorder()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init { event in
                 recorder.events.append(event)
             }
@@ -80,8 +80,8 @@ struct RouterStoreTests {
 
     @Test("Policy rejection leaves state and revision untouched")
     @MainActor
-    func policyRejection() async {
-        let store = RouterStore<RouteFixture>(
+    func policyRejection() async throws {
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "authentication") { _ in
@@ -109,9 +109,9 @@ struct RouterStoreTests {
 
     @Test("Concurrent requests serialize in FIFO order by default", arguments: 0..<100)
     @MainActor
-    func serializedRequests(_: Int) async {
+    func serializedRequests(_: Int) async throws {
         let (gate, continuation) = AsyncStream<Void>.makeStream()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "gate") { _ in
@@ -149,9 +149,9 @@ struct RouterStoreTests {
 
     @Test("A bounded queue rejects the newest request by default", arguments: 0..<100)
     @MainActor
-    func queueRejectsNewestOverflow(_: Int) async {
+    func queueRejectsNewestOverflow(_: Int) async throws {
         let (gate, continuation) = AsyncStream<Void>.makeStream()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "gate") { _ in
@@ -190,9 +190,9 @@ struct RouterStoreTests {
 
     @Test("A bounded queue can discard its oldest pending request", arguments: 0..<100)
     @MainActor
-    func queueDiscardsOldestOverflow(_: Int) async {
+    func queueDiscardsOldestOverflow(_: Int) async throws {
         let (gate, continuation) = AsyncStream<Void>.makeStream()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "gate") { _ in
@@ -235,9 +235,9 @@ struct RouterStoreTests {
 
     @Test("Latest keyed request replaces only an older pending duplicate", arguments: 0..<100)
     @MainActor
-    func replacePendingRequest(_: Int) async {
+    func replacePendingRequest(_: Int) async throws {
         let (gate, continuation) = AsyncStream<Void>.makeStream()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "gate") { _ in
@@ -285,13 +285,13 @@ struct RouterStoreTests {
 
     @Test("Keep-first coalescing rejects a duplicate of the active request", arguments: 0..<100)
     @MainActor
-    func keepFirstRequest(_: Int) async {
+    func keepFirstRequest(_: Int) async throws {
         let (gate, continuation) = AsyncStream<Void>.makeStream()
         let context = RouterTransitionContext(
             requestKey: "primary-action",
             coalescing: .keepFirst
         )
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "gate") { _ in
@@ -327,10 +327,10 @@ struct RouterStoreTests {
 
     @Test("Deferred guard releases the lane and resumes through remaining policies")
     @MainActor
-    func deferredGuardResume() async {
+    func deferredGuardResume() async throws {
         let deferralID = RouterDeferralID()
         let recorder = EventRecorder()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "confirmation") { transition in
@@ -377,9 +377,9 @@ struct RouterStoreTests {
 
     @Test("Deferred guard requires unchanged canonical state by default", arguments: 0..<100)
     @MainActor
-    func deferredGuardStaleState(_: Int) async {
+    func deferredGuardStaleState(_: Int) async throws {
         let deferralID = RouterDeferralID()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "confirmation") { transition in
@@ -406,10 +406,10 @@ struct RouterStoreTests {
 
     @Test("The deferral registry rejects overflow and cancels retained work")
     @MainActor
-    func boundedDeferrals() async {
+    func boundedDeferrals() async throws {
         let detailID = RouterDeferralID()
         let settingsID = RouterDeferralID()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "approval") { transition in
@@ -446,10 +446,10 @@ struct RouterStoreTests {
 
     @Test("Deferral overflow can cancel the oldest unresolved request")
     @MainActor
-    func deferralCancelsOldest() async {
+    func deferralCancelsOldest() async throws {
         let detailID = RouterDeferralID()
         let settingsID = RouterDeferralID()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "approval") { transition in
@@ -484,7 +484,7 @@ struct RouterStoreTests {
     @MainActor
     func deferredPresentationResult() async throws {
         let deferralID = RouterDeferralID()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "confirmation") { transition in
@@ -517,7 +517,7 @@ struct RouterStoreTests {
         let firstDeferralID = RouterDeferralID()
         let secondDeferralID = RouterDeferralID()
         let (commits, commitContinuation) = AsyncStream<String>.makeStream()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "first-confirmation") { transition in
@@ -569,9 +569,9 @@ struct RouterStoreTests {
 
     @Test("Rejecting a deferred presentation completes its awaiting caller")
     @MainActor
-    func rejectedDeferredPresentation() async {
+    func rejectedDeferredPresentation() async throws {
         let deferralID = RouterDeferralID()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "confirmation") { transition in
@@ -601,9 +601,9 @@ struct RouterStoreTests {
 
     @Test("Busy rejection remains an explicit scheduling policy", arguments: 0..<100)
     @MainActor
-    func busyRejection(_: Int) async {
+    func busyRejection(_: Int) async throws {
         let (gate, continuation) = AsyncStream<Void>.makeStream()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "gate") { _ in
@@ -639,8 +639,8 @@ struct RouterStoreTests {
 
     @Test("Cancelling a suspended request never commits its candidate")
     @MainActor
-    func cancellation() async {
-        let store = RouterStore<RouteFixture>(
+    func cancellation() async throws {
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "slow") { _ in
@@ -673,9 +673,9 @@ struct RouterStoreTests {
 
     @Test("Cancellation wins over a non-cooperative policy timeout", arguments: 0..<100)
     @MainActor
-    func cancellationBeforePolicyTimeout(_: Int) async {
+    func cancellationBeforePolicyTimeout(_: Int) async throws {
         let gate = NonCooperativePolicyGate()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "non-cooperative") { _ in
@@ -773,7 +773,7 @@ struct RouterStoreTests {
     @MainActor
     func presentationCompletionUsesExactIdentity() async throws {
         let gate = NonCooperativePolicyGate()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "replacement-gate") { transition in
@@ -834,7 +834,7 @@ struct RouterStoreTests {
     @MainActor
     func presentationCancellationUsesExactIdentity() async throws {
         let gate = NonCooperativePolicyGate()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "replacement-gate") { transition in
@@ -888,10 +888,10 @@ struct RouterStoreTests {
 
     @Test("A cancelled presentation cannot commit while its deferral is resuming")
     @MainActor
-    func cancelledPresentationCannotCommitWhileResuming() async {
+    func cancelledPresentationCannotCommitWhileResuming() async throws {
         let gate = NonCooperativePolicyGate()
         let deferralID = RouterDeferralID()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "approval") { transition in
@@ -936,10 +936,10 @@ struct RouterStoreTests {
 
     @Test("Presentation cancellation releases an active resumed policy lane")
     @MainActor
-    func presentationCancellationReleasesResumedPolicyLane() async {
+    func presentationCancellationReleasesResumedPolicyLane() async throws {
         let gate = NonCooperativePolicyGate()
         let deferralID = RouterDeferralID()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "approval") { transition in
@@ -989,11 +989,11 @@ struct RouterStoreTests {
 
     @Test("A late policy deferral cannot revive a cancelled presentation")
     @MainActor
-    func cancelledPresentationCannotBeRedeferred() async {
+    func cancelledPresentationCannotBeRedeferred() async throws {
         let gate = NonCooperativePolicyGate()
         let firstDeferralID = RouterDeferralID()
         let secondDeferralID = RouterDeferralID()
-        let store = RouterStore<RouteFixture>(configuration: .init(policies: [
+        let store = try RouterStore<RouteFixture>(configuration: .init(policies: [
             RouterPolicy(name: "first") { transition in
                 transition.context.resumedDeferral == nil
                     ? .deferRequest(firstDeferralID)
@@ -1035,7 +1035,7 @@ struct RouterStoreTests {
     @MainActor
     func nativeDismissalUsesExactPresentationIdentity() async throws {
         let gate = NonCooperativePolicyGate()
-        let store = RouterStore<RouteFixture>(configuration: .init(policies: [
+        let store = try RouterStore<RouteFixture>(configuration: .init(policies: [
             RouterPolicy(name: "replacement-gate") { transition in
                 guard case .apply = transition.action else { return .allow }
                 await gate.wait()
@@ -1111,7 +1111,7 @@ struct RouterStoreTests {
                 )
             }
         }
-        let store = RouterStore(initialState: try state(original))
+        let store = try RouterStore(initialState: try state(original))
         let binding = makeRouterPresentationBinding(scope: store.scope(at: path), style: .sheet)
         let replacementState = try state(replacement)
         guard case .applied = await store.perform(.apply(.init(state: replacementState))) else {
@@ -1148,7 +1148,7 @@ struct RouterStoreTests {
         ] {
             let original = RouterPresentation<RouteFixture>(route: .home, style: style)
             let replacement = RouterPresentation<RouteFixture>(route: .detail, style: style)
-            let store = RouterStore(
+            let store = try RouterStore(
                 initialState: try RouterState<RouteFixture>(
                     root: .stack(presentation: original)
                 )
@@ -1182,7 +1182,7 @@ struct RouterStoreTests {
     @MainActor
     func deferredNativeDismissalUsesExactIdentity() async throws {
         let deferralID = RouterDeferralID()
-        let store = RouterStore<RouteFixture>(configuration: .init(policies: [
+        let store = try RouterStore<RouteFixture>(configuration: .init(policies: [
             RouterPolicy(name: "native-dismissal") { transition in
                 transition.action == .dismissPresentation
                     && transition.context.source == .system
@@ -1265,7 +1265,7 @@ struct RouterStoreTests {
             style: .sheet,
             options: options
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState<RouteFixture>(
                 root: .stack(presentation: original)
             )
@@ -1296,7 +1296,7 @@ struct RouterStoreTests {
     @MainActor
     func nativeDismissalPolicyRejectionReconcilesBinding() async throws {
         let original = RouterPresentation<RouteFixture>(route: .home, style: .sheet)
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState<RouteFixture>(
                 root: .stack(presentation: original)
             ),
@@ -1329,7 +1329,7 @@ struct RouterStoreTests {
     @MainActor
     func nativeDismissalCommitsMatchingPresentation() async throws {
         let original = RouterPresentation<RouteFixture>(route: .home, style: .sheet)
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState<RouteFixture>(
                 root: .stack(presentation: original)
             )
@@ -1353,10 +1353,10 @@ struct RouterStoreTests {
 
     @Test("Presentation cancellation follows ownership across repeated deferrals")
     @MainActor
-    func cancelledPresentationAfterRepeatedDeferral() async {
+    func cancelledPresentationAfterRepeatedDeferral() async throws {
         let firstDeferralID = RouterDeferralID()
         let secondDeferralID = RouterDeferralID()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "first-confirmation") { transition in
@@ -1411,7 +1411,7 @@ struct RouterStoreTests {
     @MainActor
     func duplicatePresentationCompletionIsRejected() async throws {
         let gate = NonCooperativePolicyGate()
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "dismissal-gate") { transition in
@@ -1479,8 +1479,8 @@ struct RouterStoreTests {
 
     @Test("Cancellation during presentation policy never commits or leaks a waiter")
     @MainActor
-    func presentationCancellationDuringPolicy() async {
-        let store = RouterStore<RouteFixture>(
+    func presentationCancellationDuringPolicy() async throws {
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "slow") { _ in
@@ -1533,7 +1533,7 @@ struct RouterStoreTests {
     @MainActor
     func snapshotRestoration() async throws {
         let codec = try RouterSnapshotCodec<RouteFixture>(currentVersion: 1)
-        let source = RouterStore<RouteFixture>(initialPath: [.detail, .settings])
+        let source = try RouterStore<RouteFixture>(initialPath: [.detail, .settings])
         let data = try await source.snapshot(using: codec)
         let restored = RouterStore<RouteFixture>()
 
@@ -1550,13 +1550,13 @@ struct RouterStoreTests {
 
     @Test("Transition context reaches policies and correlated events unchanged")
     @MainActor
-    func transitionContextPropagation() async {
+    func transitionContextPropagation() async throws {
         let recorder = EventRecorder()
         let expected = RouterTransitionContext(
             source: .inspector,
             animation: .spring(duration: 0.25, bounce: 0.1)
         )
-        let store = RouterStore<RouteFixture>(
+        let store = try RouterStore<RouteFixture>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "context") { transition in

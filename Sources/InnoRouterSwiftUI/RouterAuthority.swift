@@ -29,6 +29,7 @@ protocol RouterAuthorityProtocol<R>: AnyObject, Sendable {
     var path: RouterScopePath { get }
     var node: RouterNode<R>? { get }
     var state: RouterState<R>? { get }
+    var resourceBudget: RouterResourceBudget? { get }
     var observedPath: [R] { get }
     var observedSceneRootRoute: R? { get }
     var observedPresentation: RouterPresentation<R>? { get }
@@ -128,11 +129,16 @@ protocol RouterAuthorityProtocol<R>: AnyObject, Sendable {
 package func prepareRouterFeaturePlan<R: Route>(
     node: RouterNode<R>,
     at path: RouterScopePath,
-    in state: RouterState<R>
+    in state: RouterState<R>,
+    resourceBudget: RouterResourceBudget = .provisional
 ) -> RouterDeferredResumePreparation<R> {
     do {
-        let target = try state.replacingNode(node, at: path)
+        let target = try state.replacingNode(node, at: path, resourceBudget: resourceBudget)
         return .action(.apply(RouterPlan(state: target)))
+    } catch let failure as RouterResourceLimitFailure {
+        return .rejected(.resourceLimit(failure))
+    } catch let error as RouterStateValidationError {
+        return .rejected(.mutation(.invalidTargetState(error)))
     } catch let error as RouterMutationError {
         return .rejected(.mutation(error))
     } catch {

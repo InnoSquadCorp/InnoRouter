@@ -190,6 +190,22 @@ public final class RouterInspectorRecorder {
         return bundle
     }
 
+    /// Native file imports use one classification/decoding admission. No state
+    /// or bookmark changes occur until the complete document is accepted.
+    @discardableResult
+    package func importDetectedData(
+        from data: Data,
+        policy: RouterInspectorImportPolicy = .replace,
+        decoder: JSONDecoder = JSONDecoder()
+    ) throws -> RouterInspectorSnapshot {
+        let diagnostic = try RouterInspectorImportPreflight.classifyAndValidate(data, limits: importLimits)
+        let snapshot: RouterInspectorSnapshot
+        if diagnostic { snapshot = try decoder.decode(RouterInspectorDiagnosticBundle.self, from: data).snapshot }
+        else { snapshot = try decoder.decode(RouterInspectorSnapshot.self, from: data) }
+        try importSnapshot(snapshot, policy: policy)
+        return snapshot
+    }
+
     /// Subscribes to any typed event stream with an explicit safe formatter.
     @discardableResult
     public func attach<Event: Sendable>(

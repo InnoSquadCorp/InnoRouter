@@ -339,6 +339,14 @@ public struct RouterState<R: Route>: Hashable, Sendable {
         try validate()
     }
 
+    /// Known-valid stack construction has no structural failure path. This
+    /// private initializer cannot be used to skip validation of a supplied tree.
+    private init(rootStackPath: [R]) {
+        self.root = .stack(path: rootStackPath)
+        self.windows = []
+        self.immersiveSpace = nil
+    }
+
     /// Validates stable identifiers and selections throughout the state tree.
     public func validate() throws {
         var presentationIDs: Set<UUID> = []
@@ -526,13 +534,13 @@ public struct RouterState<R: Route>: Hashable, Sendable {
 public extension RouterState {
     /// A valid empty root-stack state used by macro-first hosts.
     static var rootStack: RouterState<R> {
-        try! RouterState()
+        RouterState(rootStackPath: [])
     }
 
     /// Creates a valid root-stack state without exposing tree construction at
     /// ordinary call sites.
     static func rootStack(path: [R]) -> RouterState<R> {
-        try! RouterState(root: .stack(path: path))
+        RouterState(rootStackPath: path)
     }
 }
 

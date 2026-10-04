@@ -22,7 +22,7 @@ struct RouterScopeLifetimeContractTests {
 
     @Test("Same-shaped explicit replacement expires only its subtree and not sibling observations")
     func scopedReplacementAndObservation() async throws {
-        let store = RouterStore(initialState: try state())
+        let store = try RouterStore(initialState: try state())
         let left = store.scope(at: ["left"]), right = store.scope(at: ["right"]), root = store.scope()
         let leftUpdates = Mutex(0), rightUpdates = Mutex(0), rootUpdates = Mutex(0), stateUpdates = Mutex(0)
         withObservationTracking { _ = store.scope(at: ["left"]) } onChange: { leftUpdates.withLock { $0 += 1 } }
@@ -50,7 +50,7 @@ struct RouterScopeLifetimeContractTests {
 
     @Test("Feature plans replace only the explicitly mapped owner lifetime")
     func featurePlanReplacement() async throws {
-        let store = RouterStore(initialState: try state())
+        let store = try RouterStore(initialState: try state())
         let left = store.scope(at: ["left"]), right = store.scope(at: ["right"])
         let mapping = RouterFeatureMapping<R, R>(id: "identity", namespace: "identity", route: .init(embed: { $0 }, extract: { $0 }))
         let feature = RouterFeatureScope(parent: left, mapping: mapping)
@@ -66,7 +66,7 @@ struct RouterScopeLifetimeContractTests {
     @Test("Replacement intent remains deferred until policy allow and survives rebase")
     func deferredReplacement() async throws {
         let id = RouterDeferralID()
-        let store = RouterStore(initialState: try state(), configuration: .init(policies: [
+        let store = try RouterStore(initialState: try state(), configuration: .init(policies: [
             .init(name: "hold-replacement") { transition in
                 if case .apply = transition.action, transition.context.resumedDeferral == nil { return .deferRequest(id) }
                 return .allow
@@ -89,7 +89,7 @@ struct RouterScopeLifetimeContractTests {
 
     @Test("Expired queued feature ownership is checked before replacement preparation")
     func stalePreparation() async throws {
-        let store = RouterStore(initialState: try state())
+        let store = try RouterStore(initialState: try state())
         let precondition = store.scopeLifetimePrecondition(at: ["left"])
         _ = await store.replaceSubtree(at: ["left"], with: .stack(path: [.home]))
         var preparations = 0
@@ -107,7 +107,7 @@ struct RouterScopeLifetimeContractTests {
     func identityConflictDoesNotRotate(useRestore: Bool) async throws {
         let id = UUID()
         let initial = try RouterState<R>(root: .stack(presentation: .init(id: id, route: .home, style: .sheet)))
-        let store = RouterStore(initialState: initial)
+        let store = try RouterStore(initialState: initial)
         let scope = store.scope(), child = store.scope(at: .root.appendingPresentation(id))
         for replacement in [RouterPresentation<R>(id: id, route: .detail, style: .sheet), .init(id: id, route: .home, style: .popover)] {
             let outcome: RouterOutcome<R>
@@ -148,7 +148,7 @@ struct RouterScopeLifetimeContractTests {
     @Test("Deferred old typed completion cannot return its value into a restored presentation")
     func deferredCompletionOwnership() async throws {
         let deferral = RouterDeferralID()
-        let store = RouterStore<R>(configuration: .init(policies: [
+        let store = try RouterStore<R>(configuration: .init(policies: [
             .init(name: "hold-finish") { transition in
                 if case .dismissPresentation = transition.action, transition.context.resumedDeferral == nil { return .deferRequest(deferral) }
                 return .allow
@@ -174,7 +174,7 @@ struct RouterScopeLifetimeContractTests {
     @Test("Restore terminates a pending presentation whose owner disappeared before it committed")
     func pendingWaiterOwnership() async throws {
         let deferral = RouterDeferralID()
-        let store = RouterStore<R>(configuration: .init(policies: [
+        let store = try RouterStore<R>(configuration: .init(policies: [
             .init(name: "hold-present") { transition in
                 if case .present = transition.action { return .deferRequest(deferral) }
                 return .allow
@@ -197,7 +197,7 @@ struct RouterScopeLifetimeContractTests {
     @Test("Deferred owning-Store replacement does not retarget a replaced subtree")
     func owningReplacementRebaseOwnership() async throws {
         let deferral = RouterDeferralID()
-        let store = RouterStore(initialState: try state(), configuration: .init(policies: [
+        let store = try RouterStore(initialState: try state(), configuration: .init(policies: [
             .init(name: "hold-replacement") { transition in
                 if transition.context.source == .application, transition.context.resumedDeferral == nil {
                     return .deferRequest(deferral)
@@ -270,7 +270,7 @@ struct RouterScopeLifetimeContractTests {
     func sceneCallbackOwnership() async throws {
         let id = UUID()
         let initial = try RouterState<R>(windows: [.init(id: id, route: .home)], immersiveSpace: .init(id: "space", route: .home))
-        let store = RouterStore(initialState: initial)
+        let store = try RouterStore(initialState: initial)
         let windowNative = try #require(store.windowLifecycleTokens[id])
         let immersiveNative = try #require(store.immersiveSpaceLifecycleToken)
         let oldWindow = store.scopeLifetimePrecondition(at: .window(id))

@@ -43,7 +43,7 @@ struct RouterScopeProjectionReentrancyTests {
     @Test("Equal replacement exposes expired projections before synchronous terminal listeners reacquire", arguments: [false, true])
     func equalReplacementTerminalReacquisition(useRestore: Bool) async throws {
         let capture = Capture()
-        let store = RouterStore(initialState: try state(), configuration: .init(onEvent: { event in
+        let store = try RouterStore(initialState: try state(), configuration: .init(onEvent: { event in
             guard case .unchanged = event, let store = capture.store, let old = capture.old else { return }
             capture.terminalCount += 1
             expectExpired(old)
@@ -87,7 +87,7 @@ struct RouterScopeProjectionReentrancyTests {
 
     @Test("State and revision observation can reacquire before changed replacement refresh", arguments: [false, true])
     func changedReplacementObservationReacquisition(observeRevision: Bool) async throws {
-        let store = RouterStore(initialState: try state())
+        let store = try RouterStore(initialState: try state())
         let old = store.scope(at: ["left"])
         let sibling = store.scope(at: ["right"])
         let capture = Capture()
@@ -111,7 +111,7 @@ struct RouterScopeProjectionReentrancyTests {
 
     @Test("Cross-scope lifetime observers cannot strand either retired projection")
     func lifetimeObservationReacquisition() async throws {
-        let store = RouterStore(initialState: try state())
+        let store = try RouterStore(initialState: try state())
         let left = store.scope(at: ["left"]), right = store.scope(at: ["right"])
         let capture = Capture()
         // Observation runs on willSet. Whichever lifetime slot changes second
@@ -136,7 +136,7 @@ struct RouterScopeProjectionReentrancyTests {
 
     @Test("Same-path lifetime observation acquires the canonical new authority")
     func samePathLifetimeObservationReacquisition() async throws {
-        let store = RouterStore(initialState: try state())
+        let store = try RouterStore(initialState: try state())
         let old = store.scope(at: ["left"])
         let capture = Capture()
         withObservationTracking { _ = store.scope(at: ["left"]) } onChange: {
@@ -157,7 +157,7 @@ struct RouterScopeProjectionReentrancyTests {
 
     @Test("System replacement refreshes retained and reacquired scopes at most once", arguments: [false, true])
     func systemReconciliationIsDeduplicated(changesState: Bool) async throws {
-        let store = RouterStore(initialState: try state())
+        let store = try RouterStore(initialState: try state())
         let left = store.scope(at: ["left"]), right = store.scope(at: ["right"])
         let capture = Capture()
         if changesState {
@@ -177,7 +177,7 @@ struct RouterScopeProjectionReentrancyTests {
     @Test("Ordinary equal apply and rejected replacement retain current projections", arguments: [false, true])
     func nonretiringControls(rejectReplacement: Bool) async throws {
         let capture = Capture()
-        let store = RouterStore(initialState: try state(), configuration: .init(
+        let store = try RouterStore(initialState: try state(), configuration: .init(
             policies: rejectReplacement ? [.init(name: "deny") { _ in .reject("denied") }] : [],
             onEvent: { event in
                 switch event {

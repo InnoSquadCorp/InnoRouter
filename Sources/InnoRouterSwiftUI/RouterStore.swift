@@ -25,6 +25,8 @@ public final class RouterStore<R: Route> {
     public package(set) var deferredTransitions: [RouterDeferredTransition] = []
 
     @ObservationIgnored
+    public let resourceBudget: RouterResourceBudget
+    @ObservationIgnored
     let policies: [RouterPolicy<R>]
     @ObservationIgnored
     let authorization: RouterAuthorizationConfiguration<R>?
@@ -108,40 +110,56 @@ public final class RouterStore<R: Route> {
         broadcaster.stream()
     }
 
-    /// Opt-in stream of every request before scheduling or reduction.
+    /// Opt-in stream of resource-admitted requests before scheduling or reduction.
+    /// Oversized inputs produce only a payload-safe terminal rejection event.
     public var requestObservations: AsyncStream<RouterRequestObservation<R>> {
         requestBroadcaster.stream()
     }
 
-    public init(
+    /// Creates an empty root stack with the library's finite default budget.
+    /// This overload has no external state or configuration to validate.
+    public convenience init() {
+        self.init(validatedState: .rootStack, configuration: .init())
+    }
+
+    /// Validates resource, structural, and scene-catalog invariants before
+    /// creating any scopes or retaining the supplied state.
+    public convenience init(
         initialState: RouterState<R>,
         configuration: RouterStoreConfiguration<R> = .init()
-    ) {
-        do {
-            try initialState.validate()
-        } catch {
-            preconditionFailure("RouterStore requires a valid initial state: \(error)")
-        }
+    ) throws {
+        try configuration.validate()
+        try configuration.resourceBudget.validate(initialState)
+        try initialState.validate()
         if let error = Self.sceneCatalogValidationError(in: initialState) {
-            preconditionFailure("RouterStore requires scene-catalog-valid initial state: \(error)")
+            throw error
         }
+        self.init(validatedState: initialState, configuration: configuration)
+    }
+
+    private init(
+        validatedState initialState: RouterState<R>,
+        configuration: RouterStoreConfiguration<R>
+    ) {
+        self.resourceBudget = configuration.resourceBudget
         self.state = initialState
         self.revision = 0
         self.scopeLifetimes = Self.makeScopeLifetimes(in: initialState)
         self.policies = configuration.policies
         self.authorization = configuration.authorization
         self.schedulingPolicy = configuration.schedulingPolicy
-        self.maximumPendingRequestCount = max(0, configuration.maximumPendingRequestCount)
+        self.maximumPendingRequestCount = resourceBudget.maximumPendingRequests
         self.requestOverflowStrategy = configuration.requestOverflowStrategy
-        self.policyTimeout = configuration.policyTimeout
+        self.policyTimeout = resourceBudget.policyTimeout
         self.policyOperations = RouterOperationRegistry(
-            maximumCount: configuration.maximumActivePolicyOperationCount
+            maximumCount: resourceBudget.maximumActivePolicyOperations
         )
         self.restorationOperations = RouterOperationRegistry(
-            maximumCount: configuration.maximumActiveRestorationOperationCount
+            maximumCount: resourceBudget.maximumActiveRestorationOperations
         )
         var deferrals = configuration.deferrals
-        deferrals.maximumPendingCount = max(0, deferrals.maximumPendingCount)
+        deferrals.maximumPendingCount = resourceBudget.maximumDeferrals
+        deferrals.timeToLive = resourceBudget.deferralLifetime
         self.deferralConfiguration = deferrals
         self.runtimeDependencies = configuration.runtimeDependencies
         self.broadcaster = EventBroadcaster(
@@ -157,31 +175,21 @@ public final class RouterStore<R: Route> {
         self.immersiveSpaceLifecycleToken = initialState.immersiveSpace.map { _ in UUID() }
     }
 
-    /// Creates a root-stack router and rejects an invalid initial state.
+    /// Creates a root stack after resource admission of its supplied path.
     public convenience init(
-        initialPath: [R] = [],
+        initialPath: [R],
         configuration: RouterStoreConfiguration<R> = .init()
-    ) {
-        // This construction is structurally valid by definition.
-        let state = try! RouterState<R>(root: .stack(path: initialPath))
-        self.init(initialState: state, configuration: configuration)
+    ) throws {
+        try configuration.validate()
+        let state = try RouterStateDraft<R>(root: .stack(path: initialPath))
+            .build(resourceBudget: configuration.resourceBudget)
+        try self.init(initialState: state, configuration: configuration)
     }
 
-    /// Returns the stable read-only projection for `path`.
-    public func scope(at path: RouterScopePath = .root) -> RouterScope<R> {
-        compactDeadScopes()
-        let token = observesScopeLifetime(at: path)
-        if let scope = scopes[path]?.value, scope.matchesCapturedLifetime(token) {
-            return scope
-        }
-        let scope = RouterScope(
-            path: path,
-            node: state.node(at: path),
-            store: self,
-            lifetimeToken: token
-        )
-        scopes[path] = WeakRouterScope(scope)
-        return scope
+    /// Even an empty configured Store uses throwing input admission. A future
+    /// configuration can narrow its resources without hiding initialization errors.
+    public convenience init(configuration: RouterStoreConfiguration<R>) throws {
+        try self.init(initialState: .rootStack, configuration: configuration)
     }
 
     /// Performs one request through reduce, prepare, stale-check, and commit.
@@ -221,6 +229,13 @@ public final class RouterStore<R: Route> {
     ) async -> RouterOutcome<R> {
         let transitionID = transitionID ?? runtimeDependencies.makeTransitionID()
         let requestRootID = requestRootID ?? transitionID
+        do {
+            try resourceBudget.validateInput(action)
+        } catch {
+            // Do not publish or recursively describe inadmissible input. The
+            // redacted terminal event still reports the attempted request ID.
+            return reject(transitionID, reason: .resourceLimit(error), context: context)
+        }
         let replayLimitation = replayLimitationCode(
             semantics: requestSemantics, authorization: authorization,
             lifetimeMutation: lifetimeMutation,
@@ -390,7 +405,7 @@ public final class RouterStore<R: Route> {
         _ action: RouterAction<R>,
         from initialState: RouterState<R>
     ) throws -> RouterState<R> {
-        let proposedState = try RouterReducer.reduce(action, from: initialState)
+        let proposedState = try RouterReducer.reduce(action, from: initialState, resourceBudget: resourceBudget)
         if let error = Self.sceneCatalogValidationError(in: proposedState) {
             throw error
         }
@@ -496,6 +511,8 @@ extension RouterStore {
         let proposedState: RouterState<R>
         do {
             proposedState = try makeProposedState(preparedAction, from: initialState)
+        } catch let failure as RouterResourceLimitFailure {
+            return reject(transitionID, reason: .resourceLimit(failure), context: context)
         } catch let error as RouterMutationError {
             return reject(
                 transitionID,

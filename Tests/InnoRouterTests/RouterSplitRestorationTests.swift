@@ -53,7 +53,7 @@ struct RouterSplitRestorationTests {
     @Test("Default links follow new column IDs and reassigned roles", arguments: [false, true])
     func currentDetailLink(threeColumn: Bool) async throws {
         let initial = try restoredSplitState(threeColumn: threeColumn, generation: "initial")
-        let store = RouterStore(initialState: initial)
+        let store = try RouterStore(initialState: initial)
         let codec = try RouterSnapshotCodec<RestoredSplitRoute>(currentVersion: 1)
         for swapped in [false, true] {
             let target = try restoredSplitState(threeColumn: threeColumn, swapped: swapped)
@@ -108,7 +108,7 @@ struct RouterSplitRestorationTests {
     @Test("Each host body observes split mapping even when the root style is unchanged", arguments: [false, true])
     func bodyObservesCurrentMapping(threeColumn: Bool) async throws {
         let initial = try restoredSplitState(threeColumn: threeColumn, generation: "initial")
-        let store = RouterStore(initialState: initial)
+        let store = try RouterStore(initialState: initial)
         let target = try restoredSplitState(threeColumn: threeColumn)
         if threeColumn {
             try await requireMappingObservation(
@@ -140,7 +140,7 @@ struct RouterSplitRestorationTests {
         let initial: RouterState<RestoredSplitRoute> = startsAsSplit
             ? try restoredSplitState(threeColumn: threeColumn, generation: "initial")
             : .rootStack
-        let store = RouterStore(initialState: initial)
+        let store = try RouterStore(initialState: initial)
         let codec = try RouterSnapshotCodec<RestoredSplitRoute>(currentVersion: 1)
         let recorder = RestoredSplitRecorder()
         let view: AnyView

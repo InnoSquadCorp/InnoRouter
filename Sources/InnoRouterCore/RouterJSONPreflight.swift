@@ -1,8 +1,10 @@
 import Foundation
 
 /// Iterative syntax/complexity screening before a Foundation graph decode.
-/// Only after the complete document passes the byte/depth/token checks do we
+/// Only after the complete document passes syntax/byte/depth/token checks do we
 /// decode isolated string keys, to reject duplicates even with escaped spelling.
+/// Cumulative logical work and decoder-invocation guards are new hardening, not
+/// wall-clock or memory bounds on Foundation or application decoders.
 package enum RouterJSONPreflight {
     private struct Frame {
         var kind: UInt8
@@ -12,43 +14,65 @@ package enum RouterJSONPreflight {
         var rootMemberKey: Range<Int>?
     }
 
+    @discardableResult
     package static func validate(
         _ data: Data, maximumBytes: Int, maximumDepth: Int, maximumTokens: Int, byteName: String,
-        requiredRootArrayLimits: [String: Int] = [:]
-    ) throws {
+        requiredRootArrayLimits: [String: Int] = [:],
+        workLimits: RouterJSONWorkLimits? = nil,
+        consumedWork: RouterJSONWorkResult? = nil
+    ) throws -> RouterJSONWorkResult {
         try check(data.count, maximum: maximumBytes, name: byteName)
-        var parser = Parser(bytes: Array(data), maximumDepth: maximumDepth, maximumTokens: maximumTokens)
+        var work = try RouterJSONWorkBudget(
+            limits: workLimits ?? .derived(maximumBytes: maximumBytes, maximumTokens: maximumTokens),
+            consumed: consumedWork ?? .init(workUnits: 0, keyDecodes: 0)
+        )
+        try work.charge(data.count) // Reserve the byte copy before allocating it.
+        try work.charge(data.count) // Reserve the full forward-only syntax scan.
+        var parser = Parser(bytes: Array(data), maximumDepth: maximumDepth, maximumTokens: maximumTokens, work: work)
         try parser.run()
+        try parser.work.charge(data.count)
         guard String(data: data, encoding: .utf8) != nil else { throw RouterJSONPreflightError.malformedJSON }
         // Only bounded scalar strings are decoded, after the whole document's
         // byte/depth/token checks have passed. Escaped aliases are duplicates.
         let decoder = JSONDecoder()
+        let bytes = parser.bytes
         for group in parser.keyGroups {
             var keys: Set<String> = []
             for range in group {
-                guard let key = try? decoder.decode(String.self, from: Data(parser.bytes[range])) else {
-                    throw RouterJSONPreflightError.malformedJSON
+                let key = try parser.work.withKeyDecode(byteCount: range.count) {
+                    guard let key = try? decoder.decode(String.self, from: Data(bytes[range])) else {
+                        throw RouterJSONPreflightError.malformedJSON
+                    }
+                    return key
                 }
                 guard keys.insert(key).inserted else { throw RouterJSONPreflightError.duplicateJSONKey }
             }
         }
         // Envelope array sizes are checked before any application's Decodable
         // implementation or Foundation's complete object decoder is invoked.
+        try parser.work.charge(requiredRootArrayLimits.count)
+        for key in requiredRootArrayLimits.keys {
+            try parser.work.charge(key.utf8.count)
+        }
         var remaining = Set(requiredRootArrayLimits.keys)
         for (range, count) in parser.rootArrayCounts {
-            let key = try decoder.decode(String.self, from: Data(parser.bytes[range]))
+            let key = try parser.work.withKeyDecode(byteCount: range.count) {
+                try decoder.decode(String.self, from: Data(bytes[range]))
+            }
             if let maximum = requiredRootArrayLimits[key] {
                 try check(count, maximum: maximum, name: key)
                 remaining.remove(key)
             }
         }
         guard remaining.isEmpty else { throw RouterJSONPreflightError.malformedJSON }
+        return parser.work.result
     }
 
     private struct Parser {
         let bytes: [UInt8]
         let maximumDepth: Int
         let maximumTokens: Int
+        var work: RouterJSONWorkBudget
         var index = 0
         var tokens = 0
         var frames: [Frame] = []
@@ -64,6 +88,7 @@ package enum RouterJSONPreflight {
                 }
                 tokens += 1
                 try check(tokens, maximum: maximumTokens, name: "jsonTokens")
+                try work.charge(1)
                 let start = index
                 let token = try nextToken()
                 if !frames.isEmpty {
@@ -99,17 +124,22 @@ package enum RouterJSONPreflight {
             switch state {
             case 0, 4:
                 if token == 125 && state == 0 {
+                    try work.charge(1)
                     keyGroups.append(frames.removeLast().keys)
                     return true
                 }
                 guard token == 34 else { throw RouterJSONPreflightError.malformedJSON }
+                try work.charge(1)
                 frames[position].keys.append(range)
                 frames[position].state = 1
             case 1:
                 guard token == 58 else { throw RouterJSONPreflightError.malformedJSON }
                 frames[position].state = 2
             case 3:
-                if token == 125 { keyGroups.append(frames.removeLast().keys) }
+                if token == 125 {
+                    try work.charge(1)
+                    keyGroups.append(frames.removeLast().keys)
+                }
                 else if token == 44 { frames[position].state = 4 }
                 else { throw RouterJSONPreflightError.malformedJSON }
             default: return false
@@ -120,21 +150,22 @@ package enum RouterJSONPreflight {
         mutating func consumeArray(_ token: UInt8) throws -> Bool {
             let position = frames.count - 1
             if frames[position].state == 1 {
-                if token == 93 { finishArray() }
+                if token == 93 { try finishArray() }
                 else if token == 44 { frames[position].state = 2 }
                 else { throw RouterJSONPreflightError.malformedJSON }
                 return true
             }
             if token == 93 && frames[position].state == 0 {
-                finishArray()
+                try finishArray()
                 return true
             }
             return false
         }
 
-        mutating func finishArray() {
+        mutating func finishArray() throws {
             let frame = frames.removeLast()
             if let key = frame.rootMemberKey {
+                try work.charge(1)
                 rootArrayCounts.append((key, frame.elementCount))
             }
         }
@@ -153,6 +184,7 @@ package enum RouterJSONPreflight {
             }
             if token == 123 || token == 91 {
                 try check(frames.count + 1, maximum: maximumDepth, name: "jsonDepth")
+                try work.charge(1)
                 frames.append(Frame(kind: token, rootMemberKey: rootMemberKey))
             }
         }

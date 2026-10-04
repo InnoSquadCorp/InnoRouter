@@ -194,7 +194,7 @@ selected_tests = [
     'RouterScopeProjectionReentrancyTests.swift',
     'RouterScopeSceneMetadataReentrancyTests.swift',
     'RouterDiagnosticFutureCodeTests.swift',
-    'RouterPartialRestoreLifetimeRecoveryTests.swift',
+    'RouterPartialRestoreLifetimeRecoveryTests.swift', 'RouterGraphPersistenceContractTests.swift', 'RouterPendingLinkGraphPersistenceTests.swift', 'RouterStoreInitializationContractTests.swift', 'RouterPersistenceOwnerBudgetTests.swift', 'RouterAdmissionAuditRegressionTests.swift',
 ]
 if args.only_test_file:
     selected_tests = []

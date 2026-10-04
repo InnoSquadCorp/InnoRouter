@@ -24,7 +24,7 @@ struct RouterObservabilityTests {
         }
         let configuration = RouterStoreConfiguration<SystemRoute>()
             .observing(observability)
-        let store = RouterStore<SystemRoute>(configuration: configuration)
+        let store = try RouterStore<SystemRoute>(configuration: configuration)
 
         _ = await store.perform(.push(.detail("never-log-this")))
         _ = await store.perform(
@@ -61,7 +61,7 @@ struct RouterObservabilityTests {
 
     @Test("Policy deferral is diagnostic information, not a rejection")
     @MainActor
-    func deferredPolicyDiagnostic() async {
+    func deferredPolicyDiagnostic() async throws {
         let recorder = RouterDiagnosticRecorder()
         let deferralID = RouterDeferralID()
         let observability = RouterObservability<SystemRoute> { event in
@@ -74,7 +74,7 @@ struct RouterObservabilityTests {
                 }
             ]
         ).observing(observability)
-        let store = RouterStore<SystemRoute>(configuration: configuration)
+        let store = try RouterStore<SystemRoute>(configuration: configuration)
 
         _ = await store.perform(.push(.home))
 
