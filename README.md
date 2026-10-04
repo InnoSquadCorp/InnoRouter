@@ -488,7 +488,7 @@ transition intervals for Instruments, including cleanup when the adapter ends.
 `RouterScenarioRecorder` synchronously captures bounded request, start,
 cancellation, and terminal boundaries, including requests rejected before
 reduction, so stopping immediately after a completed request cannot lose it.
-Fixture format v7 stores the route schema, replay environment,
+Fixture format v8 stores the route schema, replay environment,
 dependency/effect capabilities, initial revision, each request's relative
 revision precondition and cancellation origin, logical
 submit/wait/cancel/terminal controls, virtual-time advances, explicit deferral

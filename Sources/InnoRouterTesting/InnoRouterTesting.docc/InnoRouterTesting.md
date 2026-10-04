@@ -87,7 +87,7 @@ revision, every request's relative `expectedRevision`, its
 ``RouterScenarioRequestSemantics``, and logical submit, wait, cancel,
 virtual-time, deferral-resolution, and terminal controls. This preserves
 history navigation-only rebasing and stale-state checks through queued and
-repeatedly deferred requests. Format v7 records the complete feature mapping
+repeatedly deferred requests. Format v8 records the complete feature mapping
 path for ordinary feature actions, presentation mutations, completions, and
 feature plans. Scene-local requests bind ownership to the logical Scene
 lifetime created by the replay sequence rather than serializing process-local
@@ -150,3 +150,9 @@ import boundary.
 - ``RouterScenarioGeneratedFiles``
 - ``RouterScenarioSourceGenerator``
 - ``RouterScenarioRunner``
+
+Format v8 also carries explicit replay limitations for runtime ownership and
+authorization state that portable fixtures cannot safely recreate. Unsupported
+continuity is rejected before replay mutates a Store; capture is not a grant
+to replay session identity or reconstruct native host ownership. Earlier fixture
+versions require recapture rather than an inferred migration.
