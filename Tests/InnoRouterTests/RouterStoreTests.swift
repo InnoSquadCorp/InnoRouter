@@ -825,7 +825,7 @@ struct RouterStoreTests {
         ) {
             try await completion.value
         }
-        #expect(await awaiting.value == .dismissed)
+        #expect(await awaiting.value == .cancelled)
         #expect(store.state == replacementState)
         #expect(store.revision == 2)
     }

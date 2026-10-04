@@ -227,7 +227,7 @@ struct RouterScopeLifetimeRegressionTests {
         if store.presentationWaiters[presentation.id] != nil {
             try await store.finishPresentation(returning: "replacement-result")
         }
-        #expect(await awaiter.value == .dismissed)
+        #expect(await awaiter.value == .cancelled)
     }
 
     @Test("Removing an outer presentation terminates its nested awaited result exactly once")
@@ -242,7 +242,7 @@ struct RouterScopeLifetimeRegressionTests {
         _ = await store.perform(.dismissPresentation)
         #expect(store.presentationWaiters.isEmpty)
         if !store.presentationWaiters.isEmpty { awaiter.cancel() }
-        #expect(await awaiter.value == .dismissed)
+        #expect(await awaiter.value == .cancelled)
         #expect(store.state == .rootStack)
         #expect(store.presentationWaiters.isEmpty)
     }

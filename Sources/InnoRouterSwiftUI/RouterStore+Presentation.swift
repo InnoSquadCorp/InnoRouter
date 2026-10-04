@@ -270,15 +270,27 @@ extension RouterStore {
 
     func finishDismissedPresentations(
         ids: Set<UUID>,
+        before: RouterState<R>,
+        action: RouterAction<R>,
         transitionID: RouterTransitionID,
         context: RouterTransitionContext
     ) {
+        let directTarget: UUID?
+        if case .dismiss(let path) = deferredPresentationTarget(in: action) {
+            directTarget = Self.presentationID(in: before, at: path)
+        } else {
+            directTarget = nil
+        }
         let owner = context.resumedDeferral.map {
             RouterPresentationCompletionOwner.deferral($0)
         } ?? .transition(transitionID)
         for id in ids {
             let waiter = presentationWaiters.removeValue(forKey: id)
-            waiter?.finishAfterDismissal(owner)
+            if id == directTarget {
+                waiter?.finishAfterDismissal(owner)
+            } else {
+                waiter?.finishCancelled()
+            }
         }
     }
 

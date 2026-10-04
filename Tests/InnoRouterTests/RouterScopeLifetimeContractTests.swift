@@ -138,7 +138,7 @@ struct RouterScopeLifetimeContractTests {
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let target = store.state
         _ = try await store.restore(from: codec.encode(target), using: codec)
-        #expect(await awaiter.value == .dismissed)
+        #expect(await awaiter.value == .cancelled)
         await store.cancelPresentation(id: id, at: .root, waiterIdentity: oldIdentity)
         #expect(store.state == target)
         #expect(store.revision == 1)
@@ -162,7 +162,7 @@ struct RouterScopeLifetimeContractTests {
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let target = store.state
         _ = try await store.restore(from: codec.encode(target), using: codec)
-        #expect(await awaiter.value == .dismissed)
+        #expect(await awaiter.value == .cancelled)
         guard case .rejected = await store.resumeDeferred(deferral, strategy: .rebaseOnCurrentState) else {
             Issue.record("Old completion must not dismiss replacement"); return
         }
@@ -185,7 +185,7 @@ struct RouterScopeLifetimeContractTests {
         while let event = await events.next() { if case .deferred = event { break } }
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         _ = try await store.restore(from: codec.encode(store.state), using: codec)
-        #expect(await awaiter.value == .dismissed)
+        #expect(await awaiter.value == .cancelled)
         #expect(store.presentationWaiters.isEmpty)
         guard case .rejected = await store.resumeDeferred(deferral, strategy: .rebaseOnCurrentState) else {
             Issue.record("Pending presentation must not attach to new owner"); return

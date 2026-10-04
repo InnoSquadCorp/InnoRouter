@@ -189,6 +189,7 @@ selected_tests = [
     'RouterRestorationDriverPartialTests.swift',
     'RouterTwentyThirdReviewRestorationTests.swift',
     'RouterScopeLifetimeRegressionTests.swift',
+    'RouterPresentationTerminalOwnershipTests.swift',
     'RouterScopeLifetimeContractTests.swift',
     'EnvironmentRouterStateTests.swift',
     'RouterScopeProjectionReentrancyTests.swift',

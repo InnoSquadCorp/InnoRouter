@@ -74,3 +74,17 @@ link planners pass the owner's selected budget through plan construction.
 Standalone plan builders and reducers use provisional finite defaults and
 provide explicit budget overloads. Resource rejection does not run policies,
 assign state, or increment revision.
+
+## Distinguish direct dismissal from removed ownership
+
+A directly dismissed presentation finishes its awaiting result as `.dismissed`.
+A successful typed completion returns `.value` only to that presentation's
+waiter. Removing its parent cancels descendant waiters; it does not report that
+each descendant was independently dismissed. Exact restoration and explicit
+replacement also cancel the retired waiter, including replacement that reuses
+the logical presentation UUID.
+
+A rejected or deferred dismissal keeps the active state and waiters until an
+accepted transition removes them. A child result that committed before parent
+removal remains its completed value; a parent removed first cancels that child
+and cannot deliver a late child result.

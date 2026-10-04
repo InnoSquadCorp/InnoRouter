@@ -384,7 +384,10 @@ public final class RouterStore<R: Route> {
         if transition.proposedState == transition.initialState {
             let previousScopes = Array(scopes.values)
             let retired = updateScopeLifetimes(after: state, mutation: lifetimeMutation)
-            finishDismissedPresentations(ids: retired, transitionID: transition.id, context: transition.context)
+            finishDismissedPresentations(
+                ids: retired, before: transition.initialState, action: transition.action,
+                transitionID: transition.id, context: transition.context
+            )
             return unchangedOutcome(
                 id: transition.id, state: state, revision: revision,
                 action: transition.action, context: transition.context,
@@ -446,6 +449,8 @@ public final class RouterStore<R: Route> {
         refreshScopes(after: action, context: context, including: previousScopes)
         finishDismissedPresentations(
             ids: retired,
+            before: before,
+            action: action,
             transitionID: id,
             context: context
         )
