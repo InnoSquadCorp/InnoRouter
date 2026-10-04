@@ -45,9 +45,19 @@ let config = RouterAuthorizationConfiguration<R>(generation: { 0 }, requiresAuth
     'store_setter_negative': (base + 'import InnoRouterSwiftUI\n@MainActor func probe(_ store: RouterStore<R>) { store.state = .rootStack }\n', r"'state'.*(?:inaccessible|immutable)|cannot assign.*'state'"),
     'scope_setter_negative': (base + 'import InnoRouterSwiftUI\n@MainActor func probe(_ scope: RouterScope<R>) { scope.node = .stack() }\n', r"'node'.*(?:inaccessible|immutable)|cannot assign.*'node'"),
 }
+runtime = base + 'import InnoRouterSwiftUI\n'
+fixtures.update({
+    'empty_store_nonthrowing_positive': (runtime + '@MainActor func empty() -> RouterStore<R> { RouterStore<R>() }\n', None),
+    'input_store_throwing_positive': (runtime + '@MainActor func configured() throws { _ = try RouterStore<R>(initialPath: [.home]); _ = try RouterStore<R>(initialState: .rootStack); _ = try RouterStore<R>(configuration: .init(resourceBudget: .provisional)) }\n', None),
+    'initial_path_requires_try_negative': (runtime + '@MainActor func unsafe() { _ = RouterStore<R>(initialPath: [.home]) }\n', r'call can throw.*not marked|errors thrown.*not handled'),
+    'initial_state_requires_try_negative': (runtime + '@MainActor func unsafe() { _ = RouterStore<R>(initialState: .rootStack) }\n', r'call can throw.*not marked|errors thrown.*not handled'),
+    'configuration_requires_try_negative': (runtime + '@MainActor func unsafe() { _ = RouterStore<R>(configuration: .init()) }\n', r'call can throw.*not marked|errors thrown.*not handled'),
+    'store_budget_setter_negative': (runtime + '@MainActor func mutate(_ store: RouterStore<R>) { store.resourceBudget = .unlimited }\n', r"'resourceBudget'.*(?:constant|immutable|inaccessible)|cannot assign.*'resourceBudget'"),
+    'owner_codec_adapter_negative': (base + 'func probe(_ codec: RouterGraphSnapshotCodec<R>) throws { _ = try codec.constrained(to: .provisional) }\n', r"'constrained'.*inaccessible|package.*protection"),
+})
 record = {
     'scope': 'external module typechecking against reduced actual-source Linux engine',
-    'excluded': ['shipped public product graph', 'SwiftUI', 'ABI/API baseline', 'Apple SDK', 'Swift 6.3 floor'],
+    'excluded': ['shipped public product graph', 'SwiftUI', 'ABI/API baseline', 'Apple SDK/full compiler matrix'],
     'build_provenance_sha256': hashlib.sha256(args.build_provenance.read_bytes()).hexdigest(),
     'build_provenance': json.loads(args.build_provenance.read_text()),
     'toolchain': subprocess.check_output(['swiftc', '--version'], text=True).strip(),

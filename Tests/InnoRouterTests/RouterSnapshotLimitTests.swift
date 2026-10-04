@@ -207,7 +207,7 @@ struct RouterSnapshotLimitTests {
             actualByteCount: maximum + 1,
             maximumByteCount: maximum
         )) {
-            try RouterByteStoreTestSupport.$afterBoundedFileMetadataRead.withValue({
+            try RouterByteStoreTestSupport.withBoundedFileMetadataReadHook({
                 try oversized.write(to: url, options: .atomic)
             }) {
                 try storage.load()
@@ -215,7 +215,7 @@ struct RouterSnapshotLimitTests {
         }
 
         try exact.write(to: url, options: .atomic)
-        let loaded = try RouterByteStoreTestSupport.$afterBoundedFileMetadataRead.withValue({
+        let loaded = try RouterByteStoreTestSupport.withBoundedFileMetadataReadHook({
             try smaller.write(to: url, options: .atomic)
         }) {
             try storage.load()

@@ -14,9 +14,10 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--modules',required=True,type=Path)
 p.add_argument('--build-provenance',required=True,type=Path)
 p.add_argument('--scratch',required=True,type=Path)
+p.add_argument('--objects-root',type=Path,help='SwiftPM per-target object root for non-aggregate layouts')
 a=p.parse_args(); a.scratch.mkdir(parents=True,exist_ok=True)
 record={'scope':'two independent external feature modules, manual mappings, real one-Store runtime',
-        'excluded':['shipped package products','native SwiftUI','generated @FeatureRoute runtime','Apple ABI','Swift 6.3 floor'],
+        'excluded':['shipped package products','native SwiftUI','generated @FeatureRoute runtime','Apple ABI/full compiler matrix'],
         'build_provenance':json.loads(a.build_provenance.read_text()),'commands':[],'files':{}}
 common=['swiftc','-swift-version','6','-strict-concurrency=complete','-warnings-as-errors',
         '-module-cache-path',str(a.scratch/'module-cache'),'-I',str(a.modules),'-I',str(a.scratch)]
@@ -45,7 +46,7 @@ enum AppRoute: Route { case alpha(AlphaRoute), beta(BetaRoute) }
         let root = try RouterContainerState<AppRoute>(style: .tabs, selection: "alpha", branches: [
             RouterBranch(id: "alpha"), RouterBranch(id: "beta")
         ])
-        let store = RouterStore(initialState: try RouterState(root: .container(root)))
+        let store = try RouterStore(initialState: try RouterState(root: .container(root)))
         let alphaMap = RouterFeatureMapping<AppRoute, AlphaRoute>(id: "alpha", namespace: "consumer.alpha", route: .init(
             embed: AppRoute.alpha, extract: { if case .alpha(let route) = $0 { route } else { nil } }
         ))
@@ -71,13 +72,32 @@ enum AppRoute: Route { case alpha(AlphaRoute), beta(BetaRoute) }
         precondition(store.state.node(at: ["alpha"]) == .stack(path: [.alpha(.home), .alpha(.detail)]))
         precondition(store.state.node(at: ["beta"]) == .stack(path: [.beta(.home), .beta(.detail)]))
         precondition(store.revision == 5)
+        let empty = RouterStore<AlphaRoute>()
+        precondition(empty.revision == 0 && empty.state == .rootStack)
+        let budget = RouterResourceBudget(snapshot: try .init(maximumStackPath: 1))
+        let configuration = RouterStoreConfiguration<AlphaRoute>(resourceBudget: budget)
+        do {
+            _ = try RouterStore(initialPath: [AlphaRoute.home, .detail], configuration: configuration)
+            fatalError("Oversized external initialization was accepted")
+        } catch is RouterResourceLimitFailure {}
+        let bounded = try RouterStore(initialPath: [AlphaRoute.home], configuration: configuration)
+        guard case .rejected(_, _, _, .resourceLimit) = await bounded.perform(.push(.detail)) else {
+            fatalError("External action bypassed the owner budget")
+        }
+        precondition(bounded.state == .rootStack(path: [.home]) && bounded.revision == 0)
+        guard case .applied = await bounded.perform(.pop(count: 1)) else { fatalError("Capacity was not released") }
+        guard case .applied = await bounded.perform(.push(.detail)) else { fatalError("Released capacity was not reusable") }
+        precondition(bounded.revision == 2)
         print("PASS external two-feature consumer: isolation, one-store revisions, replacement expiry, sibling continuity, reacquisition")
     }
 }
 '''
 path=a.scratch/'Consumer.swift';path.write_text(source)
 record['files'][path.name]=hashlib.sha256(path.read_bytes()).hexdigest()
-objects=[a.modules/(module+'.o') for module in ['InnoRouterCore','InnoRouterDeepLink','InnoRouterSwiftUI','OSLog']]
+modules=['InnoRouterCore','InnoRouterDeepLink','InnoRouterSwiftUI','OSLog']
+objects=([obj for module in modules for obj in sorted((a.objects_root/(module+'.build')).glob('*.o'))]
+         if a.objects_root else [a.modules/(module+'.o') for module in modules])
+if not objects: raise SystemExit('No engine object files found')
 objects += [a.scratch/'FeatureAlpha.o', a.scratch/'FeatureBeta.o']
 for obj in objects: record['files'][str(obj)]=hashlib.sha256(obj.read_bytes()).hexdigest()
 binary=a.scratch/'ExternalFeatureConsumer'

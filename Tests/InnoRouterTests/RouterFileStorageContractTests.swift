@@ -179,7 +179,7 @@ extension RouterFileStorageContractTests {
         defer { fixture.remove() }
         try kind.save(Data(repeating: 0x46, count: 129), at: fixture.url, limit: nil)
         let hookWasCalled = Mutex(false)
-        RouterByteStoreTestSupport.$afterBoundedFileMetadataRead.withValue({
+        RouterByteStoreTestSupport.withBoundedFileMetadataReadHook({
             hookWasCalled.withLock { $0 = true }
         }) {
             #expect(throws: RouterSnapshotError.encodedDataTooLarge(actualByteCount: 129, maximumByteCount: 128)) {
@@ -197,7 +197,7 @@ extension RouterFileStorageContractTests {
         try kind.save(Data([0x47]), at: fixture.url, limit: limit)
         let grown = Data(repeating: 0x48, count: limit * 2)
         let hookWasCalled = Mutex(false)
-        RouterByteStoreTestSupport.$afterBoundedFileMetadataRead.withValue({
+        try RouterByteStoreTestSupport.withBoundedFileMetadataReadHook({
             hookWasCalled.withLock { $0 = true }
             try grown.write(to: fixture.url, options: .atomic)
         }) {
@@ -217,7 +217,7 @@ extension RouterFileStorageContractTests {
         defer { fixture.remove() }
         try kind.save(Data(repeating: 0x49, count: 128), at: fixture.url, limit: 128)
         let shortened = Data([0x50])
-        let loaded = try RouterByteStoreTestSupport.$afterBoundedFileMetadataRead.withValue({
+        let loaded = try RouterByteStoreTestSupport.withBoundedFileMetadataReadHook({
             try shortened.write(to: fixture.url, options: .atomic)
         }) {
             try kind.load(fixture.url, limit: 128)
@@ -267,7 +267,7 @@ extension RouterFileStorageContractTests {
         try handle.truncate(atOffset: UInt64(size))
         try handle.close()
         let hookWasCalled = Mutex(false)
-        RouterByteStoreTestSupport.$afterBoundedFileMetadataRead.withValue({
+        RouterByteStoreTestSupport.withBoundedFileMetadataReadHook({
             hookWasCalled.withLock { $0 = true }
         }) {
             #expect(throws: RouterSnapshotError.encodedDataTooLarge(actualByteCount: size, maximumByteCount: 4 * 1_024 * 1_024)) {
