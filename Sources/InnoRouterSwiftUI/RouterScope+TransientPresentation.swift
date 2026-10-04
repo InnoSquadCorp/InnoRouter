@@ -6,6 +6,7 @@ extension RouterScope {
         _ request: RouterTransientPresentationRequest<Value>
     ) async -> RouterPresentationOutcome<Value> {
         guard let store else { return .cancelled }
+        if let rejection = resourceAdmissionRejection { return .rejected(rejection) }
         return await store.present(request, at: path, executionPrecondition: combinedExecutionPrecondition(nil))
     }
 
@@ -15,6 +16,7 @@ extension RouterScope {
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async -> RouterPresentationOutcome<Value> {
         guard let store else { return .cancelled }
+        if let rejection = resourceAdmissionRejection { return .rejected(rejection) }
         return await store.present(
             request, at: path, executionPrecondition: combinedExecutionPrecondition(executionPrecondition),
             requestSemantics: .featureAction(scope: path, lifetime: sceneLifetime, features: features)
@@ -47,6 +49,9 @@ extension RouterScope {
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async -> RouterOutcome<R> {
         guard let store else { return reject(.mutation(.expiredScope(path))) }
+        if let rejection = resourceAdmissionRejection {
+            return store.rejectRequest(reason: rejection, context: context)
+        }
         guard handle.scope == path else {
             return reject(.mutation(.presentationIdentityMismatch(scope: path, expected: handle.id, actual: presentationFamily?.id)))
         }

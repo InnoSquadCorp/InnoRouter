@@ -183,7 +183,17 @@ public extension RouterStore {
 
 extension RouterStore {
     /// Returns the stable read-only projection for `path`.
+    ///
+    /// Paths outside this Store's resource budget return an uncached, permanently
+    /// invalid projection. Requests through it report the resource limit failure.
     public func scope(at path: RouterScopePath = .root) -> RouterScope<R> {
+        // Count depth and built-in identifier bytes before hashing caller input
+        // into either lifetime registry or retaining a cache key. The empty node
+        // shares the existing bounded path admission without creating a new API.
+        do { try resourceBudget.validateReplacement(RouterNode<R>.stack(), at: path) }
+        catch {
+            return RouterScope(path: path, node: nil, store: self, lifetimeToken: nil, admissionFailure: error)
+        }
         compactDeadScopes()
         let token = observesScopeLifetime(at: path)
         if let scope = scopes[path]?.value, scope.matchesCapturedLifetime(token) {

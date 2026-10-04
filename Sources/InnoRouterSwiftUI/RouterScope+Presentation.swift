@@ -27,6 +27,7 @@ extension RouterScope {
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async -> RouterPresentationOutcome<Value> {
         guard let store else { return .cancelled }
+        if let rejection = resourceAdmissionRejection { return .rejected(rejection) }
         return await store.present(
             route,
             style: style,
@@ -46,6 +47,7 @@ extension RouterScope {
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async -> RouterPresentationOutcome<Value> {
         guard let store else { return .cancelled }
+        if let rejection = resourceAdmissionRejection { return .rejected(rejection) }
         return await store.present(
             route,
             style: style,
@@ -87,6 +89,9 @@ extension RouterScope {
         guard let store else {
             throw RouterPresentationCompletionError.noActivePresentation(scope: path)
         }
+        if let rejection = resourceAdmissionRejection {
+            throw RouterPresentationCompletionError.dismissalRejected(rejection)
+        }
         try await store.finishPresentation(
             at: path,
             returning: value,
@@ -114,6 +119,9 @@ extension RouterScope {
         guard let store else {
             throw RouterPresentationCompletionError.noActivePresentation(scope: path)
         }
+        if let rejection = resourceAdmissionRejection {
+            throw RouterPresentationCompletionError.dismissalRejected(rejection)
+        }
         try await store.finishPresentation(
             request,
             at: path,
@@ -129,6 +137,9 @@ extension RouterScope {
     ) async throws {
         guard let store else {
             throw RouterPresentationCompletionError.noActivePresentation(scope: path)
+        }
+        if let rejection = resourceAdmissionRejection {
+            throw RouterPresentationCompletionError.dismissalRejected(rejection)
         }
         try await store.finishPresentation(
             at: path,
@@ -150,6 +161,9 @@ extension RouterScope {
     ) async throws {
         guard let store else {
             throw RouterPresentationCompletionError.noActivePresentation(scope: path)
+        }
+        if let rejection = resourceAdmissionRejection {
+            throw RouterPresentationCompletionError.dismissalRejected(rejection)
         }
         try await store.finishPresentation(
             request,

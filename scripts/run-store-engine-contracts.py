@@ -206,6 +206,7 @@ selected_tests = [
     'RouterTransientPendingPersistenceContractTests.swift',
     'RouterTransientHistoryContractTests.swift',
     'RouterScopeLifetimeContractTests.swift',
+    'RouterScopeResourceAdmissionTests.swift',
     'EnvironmentRouterStateTests.swift',
     'RouterScopeProjectionReentrancyTests.swift',
     'RouterScopeSceneMetadataReentrancyTests.swift',

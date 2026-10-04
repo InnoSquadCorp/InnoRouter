@@ -12,7 +12,12 @@ final class WeakRouterScope<R: Route> {
 extension RouterStore {
     func compactDeadScopes() {
         scopes = scopes.filter { $0.value.value != nil }
-        scopeLifetimeObservations = scopeLifetimeObservations.filter { scopes[$0.key] != nil }
+        // An observation dependency can outlive the temporary projection that
+        // registered it. Keep current graph owners independently of weak scopes;
+        // retained missing captures also keep their precise appearance signal.
+        scopeLifetimeObservations = scopeLifetimeObservations.filter {
+            scopeLifetimes[$0.key] != nil || scopes[$0.key] != nil
+        }
     }
 
     package var cachedScopeCount: Int {

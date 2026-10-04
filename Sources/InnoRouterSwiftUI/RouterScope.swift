@@ -56,29 +56,37 @@ public final class RouterScope<R: Route> {
     private(set) var sceneLifetime: RouterSceneRequestLifetime?
     @ObservationIgnored
     private let lifetimeToken: UUID?
+    @ObservationIgnored
+    private let admissionFailure: RouterResourceLimitFailure?
+
+    var resourceAdmissionRejection: RouterRejectionReason? {
+        admissionFailure.map(RouterRejectionReason.resourceLimit)
+    }
 
     init(
         path: RouterScopePath,
         node: RouterNode<R>?,
         store: RouterStore<R>,
-        lifetimeToken: UUID?
+        lifetimeToken: UUID?,
+        admissionFailure: RouterResourceLimitFailure? = nil
     ) {
         let projection = Self.projection(from: node)
         self.path = path
         self.node = node
         self.observedPath = projection.path
-        self.observedSceneRootRoute = store.state.sceneRootRoute(at: path)
+        self.observedSceneRootRoute = admissionFailure == nil ? store.state.sceneRootRoute(at: path) : nil
         self.observedPresentation = projection.presentation
         self.observedPresentationFamily = projection.family
         self.observedSelection = projection.selection
         self.observedBadges = projection.badges
         self.observedSplitState = projection.split
         self.observedContainerStyle = Self.containerStyle(of: node)
-        self.observedWindows = store.state.windows
-        self.observedImmersiveSpace = store.state.immersiveSpace
+        self.observedWindows = admissionFailure == nil ? store.state.windows : []
+        self.observedImmersiveSpace = admissionFailure == nil ? store.state.immersiveSpace : nil
         self.store = store
         self.lifetimeToken = lifetimeToken
-        self.sceneLifetime = store.sceneRequestLifetime(at: path)
+        self.admissionFailure = admissionFailure
+        self.sceneLifetime = admissionFailure == nil ? store.sceneRequestLifetime(at: path) : nil
     }
 
     /// Cache identity is distinct from mutation authority: a missing capture
@@ -126,6 +134,9 @@ public final class RouterScope<R: Route> {
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async -> RouterOutcome<R> {
         guard let store else { return Self.missingAuthorityOutcome() }
+        if let rejection = resourceAdmissionRejection {
+            return store.rejectRequest(reason: rejection, context: context)
+        }
         return await store.perform(
             action.inScope(path),
             context: context,
@@ -167,6 +178,9 @@ public final class RouterScope<R: Route> {
         authorization: RouterRequestAuthorization<R>? = nil
     ) async -> RouterOutcome<R> {
         guard let store else { return Self.missingAuthorityOutcome() }
+        if let rejection = resourceAdmissionRejection {
+            return store.rejectRequest(reason: rejection, context: context)
+        }
         return await store.perform(
             action,
             context: context,
@@ -180,7 +194,8 @@ public final class RouterScope<R: Route> {
     func captureLinkAuthorizationPrecondition(
         request: RouterRequestAuthorization<R>?
     ) -> RouterRequestPrecondition<R>? {
-        store?.authorizationPrecondition(request: request, existing: combinedExecutionPrecondition(nil))
+        if let rejection = resourceAdmissionRejection { return { _ in rejection } }
+        return store?.authorizationPrecondition(request: request, existing: combinedExecutionPrecondition(nil))
     }
 
     func performFeatureAction(
@@ -191,6 +206,9 @@ public final class RouterScope<R: Route> {
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async -> RouterOutcome<R> {
         guard let store else { return Self.missingAuthorityOutcome() }
+        if let rejection = resourceAdmissionRejection {
+            return store.rejectRequest(reason: rejection, context: context)
+        }
         return await store.perform(
             action.inScope(path),
             context: context,
@@ -213,6 +231,9 @@ public final class RouterScope<R: Route> {
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async -> RouterOutcome<R> {
         guard let store else { return Self.missingAuthorityOutcome() }
+        if let rejection = resourceAdmissionRejection {
+            return store.rejectRequest(reason: rejection, context: context)
+        }
         let path = path
         let resourceBudget = store.resourceBudget
         let preparation: RouterRequestPreparationBuilder<R> = { state in
@@ -341,7 +362,7 @@ public final class RouterScope<R: Route> {
 
     func reject(_ reason: RouterRejectionReason) -> RouterOutcome<R> {
         guard let store else { return Self.missingAuthorityOutcome() }
-        return store.rejectRequest(reason: reason)
+        return store.rejectRequest(reason: resourceAdmissionRejection ?? reason)
     }
 
     func reportPlatformAdaptation(_ adaptation: RouterPlatformAdaptation) {
@@ -374,6 +395,7 @@ public final class RouterScope<R: Route> {
     }
 
     func presentationLifetimePrecondition(id: UUID) -> RouterRequestPrecondition<R> {
+        if let rejection = resourceAdmissionRejection { return { _ in rejection } }
         let owner = combinedExecutionPrecondition(nil)
         let presentation = store?.presentationRuntimePrecondition(id: id, at: path)
         let path = path
@@ -396,6 +418,7 @@ public final class RouterScope<R: Route> {
     func combinedExecutionPrecondition(
         _ supplied: RouterRequestPrecondition<R>?
     ) -> RouterRequestPrecondition<R>? {
+        if let rejection = resourceAdmissionRejection { return { _ in rejection } }
         let token = lifetimeToken
         let path = path
         return { [weak store] state in
