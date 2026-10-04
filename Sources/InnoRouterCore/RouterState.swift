@@ -393,11 +393,15 @@ public struct RouterImmersiveSpace<R: Route>: Identifiable, Hashable, Sendable {
 
 extension RouterImmersiveSpace: Codable where R: Codable {}
 
-/// The single value-semantic source of truth owned by ``RouterStore``.
+/// The validated, value-semantic source of truth owned by ``RouterStore``.
+///
+/// State is read-only outside the core module. Use ``RouterStateDraft`` to
+/// assemble or edit a complete value, then validate it with
+/// ``RouterStateDraft/build()``. Incremental navigation uses ``RouterAction``.
 public struct RouterState<R: Route>: Hashable, Sendable {
-    public var root: RouterNode<R>
-    public var windows: [RouterWindow<R>]
-    public var immersiveSpace: RouterImmersiveSpace<R>?
+    public internal(set) var root: RouterNode<R>
+    public internal(set) var windows: [RouterWindow<R>]
+    public internal(set) var immersiveSpace: RouterImmersiveSpace<R>?
 
     public init(
         root: RouterNode<R> = .stack(),

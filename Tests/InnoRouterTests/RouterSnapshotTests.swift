@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-import InnoRouterCore
+@testable import InnoRouterCore
 
 @Suite("RouterSnapshot")
 struct RouterSnapshotTests {
@@ -164,6 +164,8 @@ struct RouterSnapshotTests {
 
     @Test("A recovery fallback is validated before it is returned")
     func invalidRecoveryFallback() throws {
+        // Internal corruption fixture: public state construction cannot create
+        // this value, but recovery must retain its defensive validation.
         var fallback = RouterState<RouteFixture>.rootStack
         let duplicateID = UUID()
         fallback.windows = [
@@ -180,6 +182,7 @@ struct RouterSnapshotTests {
 
     @Test("Invalid state is rejected before encoding and after payload decoding")
     func invalidState() throws {
+        // Internal corruption fixture for the codec's defense-in-depth checks.
         var state = RouterState<RouteFixture>.rootStack
         let duplicateID = UUID()
         state.windows = [

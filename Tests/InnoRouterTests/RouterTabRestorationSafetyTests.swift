@@ -4,6 +4,7 @@ import SwiftUI
 import Testing
 
 import InnoRouter
+@testable import InnoRouterCore
 @testable import InnoRouterSwiftUI
 
 private struct TabSafetyStorage: RouterSnapshotStorage {
@@ -192,8 +193,10 @@ struct RouterTabRestorationSafetyTests {
         #expect(store.revision == 0)
     }
 
-    @Test("Mutable invalid state produces a typed failure instead of a Dictionary trap")
+    @Test("Internally corrupted state produces a typed failure instead of a Dictionary trap")
     func invalidMutableState() throws {
+        // Deliberately bypass the public boundary to retain restoration's
+        // defense-in-depth coverage for malformed internal input.
         var state = try tabs([.init(id: "home")])
         guard case .container(var container) = state.root else { return }
         container.branches.append(.init(id: "home"))

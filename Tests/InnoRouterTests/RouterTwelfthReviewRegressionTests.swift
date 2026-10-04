@@ -287,8 +287,10 @@ struct RouterTwelfthReviewRegressionTests {
             Issue.record("Expected a root stack")
             return
         }
-        var replacement = store.state
-        replacement.root = .stack(path: [.sibling], presentation: root.presentation)
+        let replacement = try store.state.replacingNode(
+            .stack(path: [.sibling], presentation: root.presentation),
+            at: .root
+        )
         guard case .applied = await store.perform(.apply(.init(state: replacement))) else {
             presented.cancel()
             Issue.record("Expected the feature owner to be replaced without dismissing its presentation")

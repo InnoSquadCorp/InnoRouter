@@ -85,9 +85,7 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
                 scope: scope,
                 handling: linkHandling
             ) { route, state in
-                var target = state
-                target.root = .stack(path: [route])
-                try target.validate()
+                let target = try state.replacingNode(.stack(path: [route]), at: .root)
                 return RouterPlan(state: target)
             }
     }
