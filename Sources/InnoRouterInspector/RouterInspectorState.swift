@@ -255,6 +255,8 @@ public enum RouterInspectorProjection {
             case .alert(let transient), .confirmationDialog(let transient):
                 details["presentation"] = stack.presentationFamily?.kind.rawValue
                 details["presentationActions"] = "\(transient.content.actions.count)"
+                details["presentationCancelActions"] = "\(transient.content.actions.reduce(into: 0) { if $1.role == .cancel { $0 += 1 } })"
+                details["presentationDestructiveActions"] = "\(transient.content.actions.reduce(into: 0) { if $1.role == .destructive { $0 += 1 } })"
             }
             return .init(
                 id: path.description,

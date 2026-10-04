@@ -406,7 +406,7 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
         ))
     }
 
-    private func map(_ outcome: RouterOutcome<Parent>) -> RouterOutcome<Child> {
+    func map(_ outcome: RouterOutcome<Parent>) -> RouterOutcome<Child> {
         switch outcome {
         case .applied(let id, let before, let after, let revision):
             guard let before = project(before), let after = project(after) else {

@@ -10,18 +10,22 @@ import InnoRouterCore
 @MainActor
 public struct RouterStateReader<R: Route>: Sendable {
     private let authority: (any RouterAuthorityProtocol<R>)?
+    private let enclosingPresentation: RouterEnclosingPresentationEndpoint<R>?
 
     /// Creates a reader for an explicitly retained scope.
     public init(scope: RouterScope<R>) {
         self.authority = scope
+        self.enclosingPresentation = nil
     }
 
-    init(authority: some RouterAuthorityProtocol<R>) {
+    init(authority: some RouterAuthorityProtocol<R>, enclosingPresentation: RouterEnclosingPresentationEndpoint<R>? = nil) {
         self.authority = authority
+        self.enclosingPresentation = enclosingPresentation
     }
 
     init() {
         self.authority = nil
+        self.enclosingPresentation = nil
     }
 
     /// Whether a matching router authority is available in this view tree.
@@ -55,11 +59,17 @@ public struct RouterStateReader<R: Route>: Sendable {
         authority?.observedPresentation
     }
 
+    /// The exclusive navigation, alert, or confirmation-dialog family.
+    public var presentationFamily: RouterPresentationFamily<R>? {
+        authority?.observedPresentationFamily
+    }
+
     /// Whether a scoped pop request can remove at least one route.
     public var canGoBack: Bool { !path.isEmpty }
 
-    /// Whether the current stack owns an active presentation.
-    public var canDismissPresentation: Bool { presentation != nil }
+    /// Whether this context can dismiss an owned or enclosing presentation.
+    /// An explicit scope reader has no inherited enclosing context.
+    public var canDismissPresentation: Bool { presentationFamily != nil || enclosingPresentation?.isCurrent == true }
 
     /// Selected branch when the current node is a container.
     public var selection: RouterScopeID? {

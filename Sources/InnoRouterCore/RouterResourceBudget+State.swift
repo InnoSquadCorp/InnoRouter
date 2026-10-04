@@ -114,6 +114,22 @@ public extension RouterResourceBudget {
         }
     }
 
+    /// Bounds a typed declaration before allocating descriptor or result maps.
+    /// Opaque Value storage is application-owned and is not measured here.
+    package func validateTransientRequest<Value: Sendable>(
+        _ request: RouterTransientPresentationRequest<Value>
+    ) throws(RouterResourceLimitFailure) {
+        try validateConfiguration()
+        var metadata = RouterStateMetadataBudget(limits: snapshot)
+        try metadata.chargeElements(request.actions.count)
+        try metadata.charge(request.title)
+        if let message = request.message { try metadata.charge(message) }
+        for action in request.actions {
+            try metadata.charge(action.descriptor.id.rawValue)
+            try metadata.charge(action.descriptor.label)
+        }
+    }
+
     /// Bounds the request's own structure before recursive dispatch. This is not
     /// candidate admission: the owner must validate the current and complete next
     /// state, with the next check occurring before recursive structural validation.

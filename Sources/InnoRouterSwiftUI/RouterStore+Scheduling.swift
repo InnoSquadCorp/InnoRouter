@@ -230,6 +230,7 @@ extension RouterStore {
                     requestSemantics: request.semantics,
                     authorization: request.authorization,
                     lifetimeMutation: request.lifetimeMutation,
+                    presentationCompletionOwner: request.presentationCompletionOwner,
                     executionPrecondition: request.executionPrecondition,
                     executionPreparation: request.executionPreparation,
                     deferredResumePreparation: request.deferredResumePreparation

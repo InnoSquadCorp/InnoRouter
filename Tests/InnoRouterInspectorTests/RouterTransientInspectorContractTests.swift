@@ -21,6 +21,8 @@ struct RouterTransientInspectorContractTests {
         let tree = RouterInspectorProjection.tree(from: state)
         #expect(tree.root.details["presentation"] == (dialog ? "confirmationDialog" : "alert"))
         #expect(tree.root.details["presentationActions"] == "1")
+        #expect(tree.root.details["presentationCancelActions"] == "0")
+        #expect(tree.root.details["presentationDestructiveActions"] == "1")
         #expect(tree.root.children.isEmpty)
         #expect(tree.flattenedNodes.count == 1)
         let encoded = String(decoding: try JSONEncoder().encode(tree), as: UTF8.self)

@@ -20,6 +20,12 @@ public final class RouterScope<R: Route> {
     var observedPath: [R]
     var observedSceneRootRoute: R?
     var observedPresentation: RouterPresentation<R>?
+    var observedPresentationFamily: RouterPresentationFamily<R>?
+
+    /// The read-only canonical presentation family owned by this live scope.
+    public var presentationFamily: RouterPresentationFamily<R>? {
+        matchesCurrentLifetime ? observedPresentationFamily : nil
+    }
     var observedSelection: RouterScopeID?
     var observedBadges: [RouterScopeID: Int]
     var observedSplitState: RouterSplitState?
@@ -63,6 +69,7 @@ public final class RouterScope<R: Route> {
         self.observedPath = projection.path
         self.observedSceneRootRoute = store.state.sceneRootRoute(at: path)
         self.observedPresentation = projection.presentation
+        self.observedPresentationFamily = projection.family
         self.observedSelection = projection.selection
         self.observedBadges = projection.badges
         self.observedSplitState = projection.split
@@ -311,6 +318,9 @@ public final class RouterScope<R: Route> {
         if observedPresentation != projection.presentation {
             observedPresentation = projection.presentation
         }
+        if observedPresentationFamily != projection.family {
+            observedPresentationFamily = projection.family
+        }
         if observedSelection != projection.selection {
             observedSelection = projection.selection
         }
@@ -348,30 +358,29 @@ public final class RouterScope<R: Route> {
     ) -> (
         path: [R],
         presentation: RouterPresentation<R>?,
+        family: RouterPresentationFamily<R>?,
         selection: RouterScopeID?,
         badges: [RouterScopeID: Int],
         split: RouterSplitState?
     ) {
         switch node {
         case .some(.stack(let stack)):
-            return (stack.path, stack.presentation, nil, [:], nil)
+            return (stack.path, stack.presentation, stack.presentationFamily, nil, [:], nil)
         case .some(.container(let container)):
-            return ([], nil, container.selection, container.badges, container.split)
+            return ([], nil, nil, container.selection, container.badges, container.split)
         case nil:
-            return ([], nil, nil, [:], nil)
+            return ([], nil, nil, nil, [:], nil)
         }
     }
 
     func presentationLifetimePrecondition(id: UUID) -> RouterRequestPrecondition<R> {
-        let childPath = path.appendingPresentation(id)
-        let childToken = store?.scopeLifetimeToken(at: childPath)
-        let identity = RouterStore<R>.presentationIdentityPrecondition(id: id, at: path)
-        return { [weak store] state in
-            if let rejection = identity(state) { return rejection }
-            guard let childToken, store?.scopeLifetimeToken(at: childPath) == childToken else {
-                return .mutation(.expiredScope(childPath))
-            }
-            return nil
+        let owner = combinedExecutionPrecondition(nil)
+        let presentation = store?.presentationRuntimePrecondition(id: id, at: path)
+        let path = path
+        return { state in
+            if let rejection = owner?(state) { return rejection }
+            guard let presentation else { return .mutation(.expiredPresentation(id, scope: path)) }
+            return presentation(state)
         }
     }
 

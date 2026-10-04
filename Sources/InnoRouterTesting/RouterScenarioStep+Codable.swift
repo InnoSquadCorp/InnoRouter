@@ -28,7 +28,7 @@ extension RouterScenarioStep {
             throw DecodingError.keyNotFound(
                 CodingKeys.replayLimitation,
                 .init(codingPath: decoder.codingPath,
-                      debugDescription: "Scenario format 8 requires replayLimitation, including null.")
+                      debugDescription: "Scenario formats 8 and 9 require replayLimitation, including null.")
             )
         }
         self.replayLimitation = try container.decodeIfPresent(
@@ -39,7 +39,7 @@ extension RouterScenarioStep {
                 CodingKeys.expectedRevision,
                 .init(
                     codingPath: decoder.codingPath,
-                    debugDescription: "Scenario format 8 requires expectedRevision, including null."
+                    debugDescription: "Scenario formats 8 and 9 require expectedRevision, including null."
                 )
             )
         }

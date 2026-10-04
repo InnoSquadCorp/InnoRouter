@@ -497,15 +497,18 @@ transition intervals for Instruments, including cleanup when the adapter ends.
 `RouterScenarioRecorder` synchronously captures bounded request, start,
 cancellation, and terminal boundaries, including requests rejected before
 reduction, so stopping immediately after a completed request cannot lose it.
-Fixture format v8 stores the route schema, replay environment,
+Fixture format v9 stores the route schema, replay environment,
 dependency/effect capabilities, initial revision, each request's relative
 revision precondition and cancellation origin, logical
 submit/wait/cancel/terminal controls, virtual-time advances, explicit deferral
 decisions, and serializable execution semantics. History navigation therefore
 replays through the production navigation-only merge with its original stale
-state constraint even after queueing or repeated deferral rebases. Earlier
-and unknown versions are rejected and must be recaptured because those
-execution conditions cannot be inferred safely.
+state constraint even after queueing or repeated deferral rebases. Format v9
+also carries transient display descriptors through the bounded fixture codec;
+it never reconstructs live typed result authority. Navigation-only v8 fixtures
+remain supported. Versions before v8 and unknown future versions are rejected
+and must be recaptured because missing execution conditions cannot be inferred
+safely.
 Replay checks metadata and the complete initial
 state before submitting its first request, remaps recorded deferral IDs to fresh
 runtime IDs, and cancels and drains only its owned work before a failure or

@@ -602,16 +602,16 @@ struct RouterScenarioCaptureTests {
 
         let futureFormat = try #require(
             String(data: encoded, encoding: .utf8)?.replacingOccurrences(
-                of: "\"formatVersion\":8",
-                with: "\"formatVersion\":9"
+                of: "\"formatVersion\":9",
+                with: "\"formatVersion\":10"
             ).data(using: .utf8)
         )
-        #expect(throws: RouterScenarioFixtureError.unsupportedFormatVersion(9)) {
+        #expect(throws: RouterScenarioFixtureError.unsupportedFormatVersion(10)) {
             _ = try RouterScenarioFixture<CapturedRoute>.decode(from: futureFormat)
         }
         let legacyFormat = try #require(
             String(data: encoded, encoding: .utf8)?.replacingOccurrences(
-                of: "\"formatVersion\":8",
+                of: "\"formatVersion\":9",
                 with: "\"formatVersion\":4"
             ).data(using: .utf8)
         )

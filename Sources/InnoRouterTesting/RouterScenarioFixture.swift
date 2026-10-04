@@ -3,8 +3,9 @@ import Foundation
 import InnoRouterCore
 
 public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Codable {
-    /// The only fixture format this build can encode and decode.
-    public static var currentFormatVersion: Int { 8 }
+    /// Format nine adds inert transient descriptor transport. Navigation-only
+    /// format-eight fixtures remain readable and are upgraded on re-export.
+    public static var currentFormatVersion: Int { 9 }
 
     public let formatVersion: Int
     public let initialState: RouterState<R>
@@ -109,7 +110,7 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
                 maximum: max(1, maximumByteCount)
             )
         }
-        try RouterScenarioImportPreflight.validate(
+        let formatVersion = try RouterScenarioImportPreflight.validate(
             data,
             maximumBytes: max(1, maximumByteCount),
             maximumSteps: max(1, maximumStepCount),
@@ -118,7 +119,8 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
             maximumWorkUnits: maximumJSONWorkUnits,
             maximumKeyDecodes: maximumJSONKeyDecodes
         )
-        let fixture = try JSONDecoder().decode(Self.self, from: data)
+        let fixture = try RouterTransientDescriptorTransport.decoder(formatVersion: formatVersion)
+            .decode(Self.self, from: data)
         guard fixture.steps.count <= max(1, maximumStepCount) else {
             throw RouterScenarioFixtureError.tooManySteps(
                 actual: fixture.steps.count,
@@ -141,7 +143,7 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let formatVersion = try container.decode(Int.self, forKey: .formatVersion)
-        guard formatVersion == Self.currentFormatVersion else {
+        guard formatVersion == Self.currentFormatVersion || formatVersion == 8 else {
             throw RouterScenarioFixtureError.unsupportedFormatVersion(formatVersion)
         }
         let initialState = try container.decode(RouterState<R>.self, forKey: .initialState)

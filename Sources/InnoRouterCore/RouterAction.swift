@@ -113,6 +113,7 @@ public enum RouterMutationError: Error, Hashable, Sendable {
     case expectedTransientPresentation(RouterScopePath)
     case expectedNavigationPresentation(RouterScopePath)
     case unknownPresentationAction(RouterScopePath)
+    case presentationCompletionPending(UUID)
     case presentationIdentityMismatch(
         scope: RouterScopePath,
         expected: UUID,
@@ -130,4 +131,5 @@ public enum RouterMutationError: Error, Hashable, Sendable {
     case incompatibleNavigationTopology(RouterScopePath)
     /// The captured execution lifetime ended or the scope never existed.
     case expiredScope(RouterScopePath)
+    case expiredPresentation(UUID, scope: RouterScopePath)
 }

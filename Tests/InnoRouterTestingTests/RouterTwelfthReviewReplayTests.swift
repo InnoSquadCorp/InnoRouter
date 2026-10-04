@@ -127,7 +127,7 @@ struct RouterTwelfthReviewReplayTests {
             )
         })
         #expect(source.state == initial)
-        try await assertCapturedReplayUnsupported(fixture, code: .runtimeExecutionPrecondition)
+        try await assertCapturedReplayUnsupported(fixture, code: .runtimeResultAuthority)
     }
 
     @Test func formatSixFeatureSemanticsAreRejectedBeforeReplay() async throws {
@@ -158,7 +158,7 @@ struct RouterTwelfthReviewReplayTests {
         let fixture = RouterScenarioFixture(initialState: initial, steps: [step])
         let encoded = try JSONEncoder().encode(fixture)
         let text = try #require(String(data: encoded, encoding: .utf8))
-            .replacingOccurrences(of: "\"formatVersion\":8", with: "\"formatVersion\":6")
+            .replacingOccurrences(of: "\"formatVersion\":9", with: "\"formatVersion\":6")
         #expect(throws: RouterScenarioFixtureError.self) {
             _ = try RouterScenarioFixture<ReplayRoot>.decode(from: Data(text.utf8))
         }

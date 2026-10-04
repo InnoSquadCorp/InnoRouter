@@ -91,6 +91,10 @@ public final class RouterStore<R: Route> {
     @ObservationIgnored
     var scopeLifetimes: [RouterScopePath: RouterScopeRuntimeLifetime<R>]
     @ObservationIgnored
+    var presentationLifetimes: [UUID: RouterPresentationRuntimeLifetime]
+    @ObservationIgnored
+    var presentationLifetimeObservations: [RouterScopePath: RouterPresentationLifetimeObservation] = [:]
+    @ObservationIgnored
     var scopeLifetimeObservations: [RouterScopePath: RouterScopeLifetimeObservation] = [:]
     @ObservationIgnored
     var presentationWaiters: [UUID: AnyRouterPresentationWaiter] = [:]
@@ -144,7 +148,9 @@ public final class RouterStore<R: Route> {
         self.resourceBudget = configuration.resourceBudget
         self.state = initialState
         self.revision = 0
-        self.scopeLifetimes = Self.makeScopeLifetimes(in: initialState)
+        let scopeLifetimes = Self.makeScopeLifetimes(in: initialState)
+        self.scopeLifetimes = scopeLifetimes
+        self.presentationLifetimes = Self.makePresentationLifetimes(in: initialState, scopes: scopeLifetimes)
         self.policies = configuration.policies
         self.authorization = configuration.authorization
         self.schedulingPolicy = configuration.schedulingPolicy
@@ -225,10 +231,20 @@ public final class RouterStore<R: Route> {
         executionPrecondition: RouterRequestPrecondition<R>? = nil,
         executionPreparation: RouterRequestPreparationBuilder<R>? = nil,
         deferredResumePreparation: RouterDeferredResumePreparationBuilder<R>? = nil,
-        systemRepairIdentity: RouterSystemRepairIdentity? = nil
+        systemRepairIdentity: RouterSystemRepairIdentity? = nil,
+        presentationResumeAuthority: RouterPresentationResumeAuthority? = nil
     ) async -> RouterOutcome<R> {
         let transitionID = transitionID ?? runtimeDependencies.makeTransitionID()
         let requestRootID = requestRootID ?? transitionID
+        let presentationCompletionOwner: RouterPresentationCompletionOwner
+        if let authority = presentationResumeAuthority {
+            guard authority.store == ObjectIdentifier(self), context.resumedDeferral == authority.id else {
+                return reject(transitionID, reason: .deferralConflict(authority.id), context: context)
+            }
+            presentationCompletionOwner = authority.owner
+        } else {
+            presentationCompletionOwner = .transition(transitionID)
+        }
         do {
             try resourceBudget.validateInput(action)
         } catch {
@@ -237,6 +253,7 @@ public final class RouterStore<R: Route> {
             return reject(transitionID, reason: .resourceLimit(error), context: context)
         }
         let replayLimitation = replayLimitationCode(
+            action: action,
             semantics: requestSemantics, authorization: authorization,
             lifetimeMutation: lifetimeMutation,
             hasPrecondition: executionPrecondition != nil,
@@ -292,6 +309,7 @@ public final class RouterStore<R: Route> {
                                     rootID: requestRootID,
                                     action: action,
                                     context: context,
+                                    presentationCompletionOwner: presentationCompletionOwner,
                                     semantics: requestSemantics,
                                     authorization: authorization,
                                     lifetimeMutation: lifetimeMutation,
@@ -325,6 +343,7 @@ public final class RouterStore<R: Route> {
                 requestSemantics: requestSemantics,
                 authorization: authorization,
                 lifetimeMutation: lifetimeMutation,
+                presentationCompletionOwner: presentationCompletionOwner,
                 executionPrecondition: executionPrecondition,
                 executionPreparation: executionPreparation,
                 deferredResumePreparation: deferredResumePreparation
@@ -342,6 +361,8 @@ public final class RouterStore<R: Route> {
 
     private func commitPreparedTransition(
         _ transition: RouterTransition<R>,
+        requestRootID: RouterTransitionID,
+        presentationCompletionOwner: RouterPresentationCompletionOwner,
         lifetimeMutation: RouterScopeLifetimeMutation,
         executionPrecondition: RouterRequestPrecondition<R>?
     ) -> RouterOutcome<R> {
@@ -383,10 +404,10 @@ public final class RouterStore<R: Route> {
 
         if transition.proposedState == transition.initialState {
             let previousScopes = Array(scopes.values)
-            let retired = updateScopeLifetimes(after: state, mutation: lifetimeMutation)
+            let retired = updateScopeLifetimes(after: state, mutation: lifetimeMutation, requestRootID: requestRootID)
             finishDismissedPresentations(
                 ids: retired, before: transition.initialState, action: transition.action,
-                transitionID: transition.id, context: transition.context
+                owner: presentationCompletionOwner
             )
             return unchangedOutcome(
                 id: transition.id, state: state, revision: revision,
@@ -396,11 +417,13 @@ public final class RouterStore<R: Route> {
         }
         return commitOutcome(
             id: transition.id,
+            requestRootID: requestRootID,
             before: transition.initialState,
             after: transition.proposedState,
             action: transition.action,
             context: transition.context,
-            lifetimeMutation: lifetimeMutation
+            lifetimeMutation: lifetimeMutation,
+            presentationCompletionOwner: presentationCompletionOwner
         )
     }
 
@@ -435,14 +458,16 @@ public final class RouterStore<R: Route> {
 
     private func commitOutcome(
         id: RouterTransitionID,
+        requestRootID: RouterTransitionID,
         before: RouterState<R>,
         after: RouterState<R>,
         action: RouterAction<R>,
         context: RouterTransitionContext,
-        lifetimeMutation: RouterScopeLifetimeMutation
+        lifetimeMutation: RouterScopeLifetimeMutation,
+        presentationCompletionOwner: RouterPresentationCompletionOwner
     ) -> RouterOutcome<R> {
         let previousScopes = Array(scopes.values)
-        let retired = updateScopeLifetimes(after: after, mutation: lifetimeMutation)
+        let retired = updateScopeLifetimes(after: after, mutation: lifetimeMutation, requestRootID: requestRootID)
         updateSceneLifecycleTokens(before: before, after: after)
         commit(after, animation: context.animation)
         revision &+= 1
@@ -451,8 +476,7 @@ public final class RouterStore<R: Route> {
             ids: retired,
             before: before,
             action: action,
-            transitionID: id,
-            context: context
+            owner: presentationCompletionOwner
         )
         emit(.committed(
             transitionID: id,
@@ -491,6 +515,7 @@ extension RouterStore {
         requestSemantics: RouterRequestSemantics<R>,
         authorization: RouterRequestAuthorization<R>?,
         lifetimeMutation: RouterScopeLifetimeMutation,
+        presentationCompletionOwner: RouterPresentationCompletionOwner,
         executionPrecondition: RouterRequestPrecondition<R>?,
         executionPreparation: RouterRequestPreparationBuilder<R>?,
         deferredResumePreparation: RouterDeferredResumePreparationBuilder<R>?
@@ -529,6 +554,29 @@ extension RouterStore {
             preconditionFailure("RouterReducer surfaced an undocumented error: \(error)")
         }
 
+        // A pending typed show reserves its ID for its own request lineage.
+        // Descriptor-only or restore requests cannot acquire its result waiter.
+        if let id = pendingPresentationConflict(in: proposedState, requestRootID: requestRootID) {
+            return reject(transitionID, reason: .mutation(.presentationIdentityConflict(id)),
+                          context: context, action: preparedAction)
+        }
+
+        let selection: RouterTransientSelectionPreparation<R>?
+        switch prepareTransientSelection(for: preparedAction, owner: presentationCompletionOwner) {
+        case .none: selection = nil
+        case .ready(let prepared): selection = prepared
+        case .rejected(let reason):
+            return reject(transitionID, reason: reason, context: context, action: preparedAction)
+        }
+        defer { selection?.clear() }
+        let originalPrecondition = executionPrecondition
+        let executionPrecondition: RouterRequestPrecondition<R>? = if let selectedPrecondition = selection?.precondition {
+            { state in originalPrecondition?(state) ?? selectedPrecondition(state) }
+        } else { originalPrecondition }
+        if let reason = executionPrecondition?(state) {
+            return reject(transitionID, reason: reason, context: context, action: preparedAction)
+        }
+
         if proposedState == initialState && !lifetimeMutation.replacesOwnership
             && self.authorization == nil && authorization?.configuration == nil {
             return unchangedOutcome(
@@ -564,6 +612,7 @@ extension RouterStore {
             authorization: authorization,
             lifetimeMutation: lifetimeMutation,
             requestRootID: requestRootID,
+            presentationCompletionOwner: presentationCompletionOwner,
             executionPrecondition: executionPrecondition,
             deferredResumePreparation: deferredResumePreparation
         )
@@ -571,6 +620,8 @@ extension RouterStore {
         case .allowed:
             return commitPreparedTransition(
                 transition,
+                requestRootID: requestRootID,
+                presentationCompletionOwner: presentationCompletionOwner,
                 lifetimeMutation: lifetimeMutation,
                 executionPrecondition: executionPrecondition
             )

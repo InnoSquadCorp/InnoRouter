@@ -178,24 +178,49 @@ extension RouterStackState: Codable where R: Codable {
         case path, presentation, presentationFamily, alert, confirmationDialog
     }
 
+    private enum FamilyKeys: String, CodingKey { case kind, descriptor }
+
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        guard !container.contains(.presentationFamily), !container.contains(.alert),
-              !container.contains(.confirmationDialog) else {
+        guard !container.contains(.alert), !container.contains(.confirmationDialog) else {
             throw RouterTransientPresentationPersistenceFailure.unsupportedRestoration
         }
-        path = try container.decode([R].self, forKey: .path)
-        presentationFamily = try container.decodeIfPresent(RouterPresentation<R>.self, forKey: .presentation)
-            .map(RouterPresentationFamily.navigation)
+        if container.contains(.presentationFamily) {
+            guard RouterTransientDescriptorTransport.isEnabled(decoder.userInfo),
+                  !container.contains(.presentation) else {
+                throw RouterTransientPresentationPersistenceFailure.unsupportedRestoration
+            }
+            let family = try container.nestedContainer(keyedBy: FamilyKeys.self, forKey: .presentationFamily)
+            let kind = try family.decode(RouterPresentationFamilyKind.self, forKey: .kind)
+            // Navigation keeps its legacy field. No second spelling is admitted.
+            guard kind != .navigation else {
+                throw RouterTransientPresentationPersistenceFailure.unsupportedRestoration
+            }
+            let descriptor = try family.decode(RouterTransientPresentation.self, forKey: .descriptor)
+            presentationFamily = kind == .alert ? .alert(descriptor) : .confirmationDialog(descriptor)
+            path = try container.decode([R].self, forKey: .path)
+        } else {
+            path = try container.decode([R].self, forKey: .path)
+            presentationFamily = try container.decodeIfPresent(RouterPresentation<R>.self, forKey: .presentation)
+                .map(RouterPresentationFamily.navigation)
+        }
     }
 
     public func encode(to encoder: any Encoder) throws {
-        if let presentationFamily, presentationFamily.kind != .navigation {
+        if let presentationFamily, presentationFamily.kind != .navigation,
+           !RouterTransientDescriptorTransport.isEnabled(encoder.userInfo) {
             throw RouterTransientPresentationPersistenceFailure.transientPresent
         }
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(path, forKey: .path)
-        try container.encodeIfPresent(presentation, forKey: .presentation)
+        switch presentationFamily {
+        case .alert(let descriptor), .confirmationDialog(let descriptor):
+            var family = container.nestedContainer(keyedBy: FamilyKeys.self, forKey: .presentationFamily)
+            try family.encode(presentationFamily?.kind, forKey: .kind)
+            try family.encode(descriptor, forKey: .descriptor)
+        case .navigation, .none:
+            try container.encodeIfPresent(presentation, forKey: .presentation)
+        }
     }
 }
 
@@ -614,7 +639,9 @@ extension RouterState: Codable where R: Codable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        try rejectTransientPresentations(.transientPresent)
+        if !RouterTransientDescriptorTransport.isEnabled(encoder.userInfo) {
+            try rejectTransientPresentations(.transientPresent)
+        }
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(root, forKey: .root)
         try container.encode(windows, forKey: .windows)

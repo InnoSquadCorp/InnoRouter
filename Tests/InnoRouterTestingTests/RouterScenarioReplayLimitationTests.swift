@@ -75,7 +75,7 @@ struct RouterScenarioReplayLimitationTests {
         try await assertUnsupported(.init(initialState: state, steps: [step]), code: code)
     }
 
-    @Test("Format eight requires an explicit limitation field, including null")
+    @Test("Known formats require an explicit limitation field, including null")
     func missingFieldAndOldFormatFailClosed() async throws {
         let source = RouterStore<LimitationRoute>()
         let recorder = RouterScenarioRecorder(store: source)

@@ -26,6 +26,7 @@ extension RouterStore {
         authorization: RouterRequestAuthorization<R>?,
         lifetimeMutation: RouterScopeLifetimeMutation,
         requestRootID: RouterTransitionID,
+        presentationCompletionOwner: RouterPresentationCompletionOwner,
         executionPrecondition: RouterRequestPrecondition<R>?,
         deferredResumePreparation: RouterDeferredResumePreparationBuilder<R>?
     ) async -> RouterPolicyPreparation {
@@ -74,6 +75,7 @@ extension RouterStore {
                         authorization: authorization,
                         lifetimeMutation: lifetimeMutation,
                         requestRootID: requestRootID,
+                        presentationCompletionOwner: presentationCompletionOwner,
                         executionPrecondition: executionPrecondition,
                         resumePreparation: deferredResumePreparation
                     )
@@ -131,6 +133,7 @@ extension RouterStore {
         authorization: RouterRequestAuthorization<R>?,
         lifetimeMutation: RouterScopeLifetimeMutation,
         requestRootID: RouterTransitionID,
+        presentationCompletionOwner: RouterPresentationCompletionOwner,
         executionPrecondition: RouterRequestPrecondition<R>?,
         resumePreparation: RouterDeferredResumePreparationBuilder<R>?
     ) -> RouterPolicyPreparation {
@@ -150,10 +153,12 @@ extension RouterStore {
             createdAt: createdAt,
             expiresAt: expiresAt
         )
+        let nextPresentationOwner = RouterPresentationCompletionOwner.deferral(id, incarnation: UUID())
         let request = DeferredRouterRequest(
             rootID: requestRootID,
             action: transition.action,
             context: transition.context,
+            presentationCompletionOwner: nextPresentationOwner,
             semantics: requestSemantics,
             authorization: authorization,
             lifetimeMutation: lifetimeMutation,
@@ -168,9 +173,8 @@ extension RouterStore {
         }
         continueDeferredPresentationCompletion(
             for: transition.action,
-            transitionID: transition.id,
-            context: transition.context,
-            deferralID: id
+            owner: presentationCompletionOwner,
+            nextOwner: nextPresentationOwner
         )
         return .deferred(metadata)
     }

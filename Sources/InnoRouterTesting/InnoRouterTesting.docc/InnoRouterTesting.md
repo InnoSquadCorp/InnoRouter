@@ -95,7 +95,7 @@ UUID tokens. Replay requires a
 ``RouterScenarioFeatureResolver`` built from the same macro-generated mapping;
 use ``RouterScenarioFeatureProjection`` to compose nested mappings. Missing,
 duplicate, or tampered resolver paths fail before the first production request.
-Format v6 and earlier, plus unknown future versions, are rejected
+Format v7 and earlier, plus unknown future versions, are rejected
 instead of guessing execution conditions. Use the recorder's `resolveDeferred` and
 `advanceTime` operations when
 capturing those decisions so replay never invents unavailable scheduling data.
@@ -151,8 +151,22 @@ import boundary.
 - ``RouterScenarioSourceGenerator``
 - ``RouterScenarioRunner``
 
-Format v8 also carries explicit replay limitations for runtime ownership and
-authorization state that portable fixtures cannot safely recreate. Unsupported
-continuity is rejected before replay mutates a Store; capture is not a grant
-to replay session identity or reconstruct native host ownership. Earlier fixture
+Format v9 adds inert alert and confirmation-dialog descriptors. Export with
+`try fixture.encode(resourceBudget: .provisional)` and import with
+`RouterScenarioFixture.decode(from:)` or `decode(from:resourceBudget:)`.
+The dedicated encoder admits complete original states and actions before
+application route encoding, then checks scenario byte/depth/token/step and
+logical-work limits. Import screens syntax, descriptor kinds, action IDs and
+state identities before application route decoding. Bare `JSONEncoder` remains
+navigation-only; scenario descriptor bytes are never valid restoration input.
+Navigation-only v8 fixtures remain readable and are upgraded to v9 on export.
+A v8 document carrying new transient descriptors is rejected. Other fixture
 versions require recapture rather than an inferred migration.
+
+Both formats carry explicit replay limitations for runtime ownership and
+authorization state that portable fixtures cannot safely recreate. The
+`presentation.runtimeResultAuthority` limitation identifies captured typed-result
+or callback authority. Unknown limitations are preserved and rejected before
+replay mutates a Store. Authored descriptor-only actions may present, select and
+dismiss in an isolated test Store, but cannot recreate typed values, waiters,
+application tasks or native host ownership.

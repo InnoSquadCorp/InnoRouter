@@ -116,3 +116,43 @@ Typed legacy migration conveniences screen the known `RouterState` and
 and output wrappers remain the application's schema responsibility. Explicit
 `limits: nil` retains historical raw migration formats; it does not claim
 bounded parsing, and the final transformed state must still decode and validate.
+
+## Await a typed transient response
+
+`RouterTransientPresentationRequest<Value>` declares display metadata and the
+value associated with each button. `Value` only needs `Sendable`; it is not
+serialized, hashed, or invoked by the router. A cancel-role button returns its
+declared value. Dismissing without a selected button returns `.dismissed`, while
+caller cancellation or owner replacement returns `.cancelled`.
+
+```swift
+let confirmation = RouterTransientPresentationRequest<Bool>.confirmationDialog(
+    title: "Remove item?",
+    actions: [
+        .init(id: "remove", label: "Remove", role: .destructive, value: true),
+        .init(id: "keep", label: "Keep", role: .cancel, value: false),
+    ]
+)
+let result = await store.present(confirmation)
+```
+
+Reusing a declaration creates a fresh presentation ID and independent waiter.
+Each scope still has one exclusive presentation family. Result delivery retains
+the original scope, feature projection, and configured authorization generation
+through queueing, policy suspension, and deferral. An application without a
+generation provider cannot ask the router to infer account/session changes.
+
+A renderer captures `presentationHandle()` and forwards a selected button with
+`selectPresentationAction(_:using:)`. The handle expires on ownership replacement,
+even when the logical ID and state value are unchanged. `dismissPresentation(using:)`
+uses the same captured authority. Raw selection actions still pass through the
+same result ownership and policy checks. Public transition-context metadata does
+not grant authority to complete a deferred result.
+
+Scenario fixtures use a separate bounded descriptor transport:
+`RouterScenarioFixture.encode(resourceBudget:outputFormatting:)` and the bounded
+fixture decoding APIs. Format 9 transports display descriptors and declared
+button IDs, not live waiters or values. Navigation-only format 8 inputs remain
+supported. A replay limitation identifies operations that require live result
+authority; importing descriptors does not recreate it. Snapshot, pending-link,
+and restoration codecs remain isolated from this Testing-only transport.

@@ -52,9 +52,7 @@ public enum RouterScenarioSourceGenerator {
         guard isSafeFixtureFileName(fixtureFileName) else {
             throw RouterScenarioSourceGenerationError.invalidFixtureFileName(fixtureFileName)
         }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let data = try? encoder.encode(fixture) else {
+        guard let data = try? fixture.encode(outputFormatting: [.prettyPrinted, .sortedKeys]) else {
             throw RouterScenarioSourceGenerationError.encodingFailed
         }
         let source = """
@@ -113,9 +111,7 @@ public enum RouterScenarioSourceGenerator {
             storeFactory: storeFactory,
             featureResolversFactory: featureResolversFactory
         )
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        guard let data = try? encoder.encode(fixture) else {
+        guard let data = try? fixture.encode() else {
             throw RouterScenarioSourceGenerationError.encodingFailed
         }
         let encoded = data.base64EncodedString()

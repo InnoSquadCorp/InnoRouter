@@ -25,7 +25,7 @@ public enum RouterPresentationCompletionError: Error, Hashable, Sendable {
 
 enum RouterPresentationCompletionOwner: Hashable, Sendable {
     case transition(RouterTransitionID)
-    case deferral(RouterDeferralID)
+    case deferral(RouterDeferralID, incarnation: UUID)
 }
 
 enum RouterPresentationValuePreparation {
@@ -51,9 +51,10 @@ public struct RouterRestorationOutcome<R: Route>: Hashable, Sendable {
 
 @MainActor
 final class RouterPresentationWaiter<Value: Sendable> {
+    var activatedPresentationToken: UUID?
     private var terminal: RouterPresentationOutcome<Value>?
     private var continuation: CheckedContinuation<RouterPresentationOutcome<Value>, Never>?
-    private var pendingValue: (owner: RouterPresentationCompletionOwner, value: Value)?
+    private var pendingValue: (owner: RouterPresentationCompletionOwner, value: Value, actionID: RouterPresentationActionID?)?
 
     func wait() async -> RouterPresentationOutcome<Value> {
         if let terminal {
@@ -66,10 +67,15 @@ final class RouterPresentationWaiter<Value: Sendable> {
 
     func prepare(
         _ value: Value,
-        owner: RouterPresentationCompletionOwner
+        owner: RouterPresentationCompletionOwner,
+        actionID: RouterPresentationActionID? = nil
     ) -> RouterPresentationValuePreparation {
-        guard pendingValue == nil else { return .alreadyPending }
-        pendingValue = (owner, value)
+        guard terminal == nil else { return .alreadyPending }
+        if let pendingValue {
+            return actionID != nil && pendingValue.owner == owner && pendingValue.actionID == actionID
+                ? .prepared : .alreadyPending
+        }
+        pendingValue = (owner, value, actionID)
         return .prepared
     }
 
@@ -78,7 +84,7 @@ final class RouterPresentationWaiter<Value: Sendable> {
         to nextOwner: RouterPresentationCompletionOwner
     ) {
         guard let pendingValue, pendingValue.owner == currentOwner else { return }
-        self.pendingValue = (nextOwner, pendingValue.value)
+        self.pendingValue = (nextOwner, pendingValue.value, pendingValue.actionID)
     }
 
     func clearPreparedValue(ownedBy owner: RouterPresentationCompletionOwner) {
@@ -106,7 +112,13 @@ final class RouterPresentationWaiter<Value: Sendable> {
 @MainActor
 struct AnyRouterPresentationWaiter {
     let identity = UUID()
+    let ownerPath: RouterScopePath
+    let showRequestRootID: RouterTransitionID
+    let activatedToken: () -> UUID?
+    let activate: (UUID) -> Void
     let prepareValue: (Any, RouterPresentationCompletionOwner) -> RouterPresentationValuePreparation
+    let prepareAction: ((RouterPresentationActionID, RouterPresentationCompletionOwner) -> RouterPresentationValuePreparation)?
+    let resultPrecondition: @MainActor @Sendable () -> RouterRejectionReason?
     let movePreparedValue: (
         RouterPresentationCompletionOwner,
         RouterPresentationCompletionOwner
@@ -289,6 +301,7 @@ struct QueuedRouterRequest<R: Route> {
     let rootID: RouterTransitionID
     let action: RouterAction<R>
     let context: RouterTransitionContext
+    let presentationCompletionOwner: RouterPresentationCompletionOwner
     let semantics: RouterRequestSemantics<R>
     let authorization: RouterRequestAuthorization<R>?
     let lifetimeMutation: RouterScopeLifetimeMutation
@@ -308,6 +321,7 @@ struct DeferredRouterRequest<R: Route> {
     let rootID: RouterTransitionID
     let action: RouterAction<R>
     let context: RouterTransitionContext
+    let presentationCompletionOwner: RouterPresentationCompletionOwner
     let semantics: RouterRequestSemantics<R>
     let authorization: RouterRequestAuthorization<R>?
     let lifetimeMutation: RouterScopeLifetimeMutation

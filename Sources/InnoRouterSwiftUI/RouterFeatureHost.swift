@@ -27,7 +27,7 @@ public struct RouterFeatureHost<Parent: Route, Child: Route, Content: View>: Vie
             content()
                 .transformEnvironment(\.routerEnvironment) { environment in
                     var resolved = environment ?? RouterEnvironment()
-                    resolved.register(RouterAuthority(base: feature), for: Child.self)
+                    resolved.register(RouterAuthority(base: feature, enclosingPresentation: parent.enclosingPresentation?.projected(using: mapping)), for: Child.self)
                     environment = resolved
                 }
         } else {

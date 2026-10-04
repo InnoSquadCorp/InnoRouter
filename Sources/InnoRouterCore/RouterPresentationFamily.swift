@@ -74,12 +74,26 @@ public struct RouterTransientPresentation: Identifiable, Hashable, Sendable, Cod
 
     /// Descriptor transport requires an explicit bounded Testing owner. Bare
     /// Codable actions cannot accidentally become restoration payloads.
+    private enum CodingKeys: String, CodingKey { case id, content }
+
     public init(from decoder: any Decoder) throws {
-        throw RouterTransientPresentationPersistenceFailure.unsupportedRestoration
+        guard RouterTransientDescriptorTransport.isEnabled(decoder.userInfo) else {
+            throw RouterTransientPresentationPersistenceFailure.unsupportedRestoration
+        }
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        content = try container.decode(RouterTransientPresentationContent.self, forKey: .content)
+        try content.validate()
     }
 
     public func encode(to encoder: any Encoder) throws {
-        throw RouterTransientPresentationPersistenceFailure.transientPresent
+        guard RouterTransientDescriptorTransport.isEnabled(encoder.userInfo) else {
+            throw RouterTransientPresentationPersistenceFailure.transientPresent
+        }
+        try content.validate()
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(content, forKey: .content)
     }
 }
 
@@ -90,7 +104,7 @@ public enum RouterTransientPresentationValidationFailure: String, Error, Hashabl
 }
 
 package extension RouterTransientPresentationContent {
-    func validate() throws {
+    func validate() throws(RouterStateValidationError) {
         guard !actions.isEmpty else {
             throw RouterStateValidationError.invalidTransientPresentation(.emptyActions)
         }

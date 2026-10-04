@@ -33,6 +33,7 @@ protocol RouterAuthorityProtocol<R>: AnyObject, Sendable {
     var observedPath: [R] { get }
     var observedSceneRootRoute: R? { get }
     var observedPresentation: RouterPresentation<R>? { get }
+    var observedPresentationFamily: RouterPresentationFamily<R>? { get }
     var observedSelection: RouterScopeID? { get }
     var observedBadges: [RouterScopeID: Int] { get }
     var observedSplitState: RouterSplitState? { get }
@@ -97,6 +98,17 @@ protocol RouterAuthorityProtocol<R>: AnyObject, Sendable {
         features: [RouterFeatureCatalogEntry],
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async -> RouterPresentationOutcome<Value>
+    func presentFeature<Value: Sendable>(
+        _ request: RouterTransientPresentationRequest<Value>,
+        features: [RouterFeatureCatalogEntry],
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async -> RouterPresentationOutcome<Value>
+    func presentationHandle() -> RouterPresentationHandle?
+    func performPresentationAction(
+        _ action: RouterAction<R>, using handle: RouterPresentationHandle,
+        context: RouterTransitionContext, features: [RouterFeatureCatalogEntry],
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async -> RouterOutcome<R>
     func finishPresentation<Value: Sendable>(returning value: Value) async throws
     func finishPresentation<Value: Sendable>(
         returning value: Value,
@@ -124,6 +136,9 @@ protocol RouterAuthorityProtocol<R>: AnyObject, Sendable {
     ) async throws
     func reject(_ reason: RouterRejectionReason) -> RouterOutcome<R>
     func reportPlatformAdaptation(_ adaptation: RouterPlatformAdaptation)
+    func rebased<Root: Route>(
+        replacing owner: RouterScope<Root>, with replacement: RouterAuthority<Root>
+    ) -> RouterAuthority<R>?
 }
 
 package func prepareRouterFeaturePlan<R: Route>(
@@ -149,27 +164,56 @@ package func prepareRouterFeaturePlan<R: Route>(
 /// The one canonical authority published for a route type.
 struct RouterAuthority<R: Route>: Sendable {
     let base: any RouterAuthorityProtocol<R>
+    let enclosingPresentation: RouterEnclosingPresentationEndpoint<R>?
 
-    init(scope: RouterScope<R>) {
+    init(scope: RouterScope<R>, enclosingPresentation: RouterEnclosingPresentationEndpoint<R>? = nil) {
         self.base = scope
+        self.enclosingPresentation = enclosingPresentation
     }
 
-    init(base: some RouterAuthorityProtocol<R>) {
+    init(base: some RouterAuthorityProtocol<R>, enclosingPresentation: RouterEnclosingPresentationEndpoint<R>? = nil) {
         self.base = base
+        self.enclosingPresentation = enclosingPresentation
+    }
+}
+
+@MainActor
+private protocol RouterAuthorityRebaseBox: Sendable {
+    func rebased<Root: Route>(
+        replacing owner: RouterScope<Root>, with replacement: RouterAuthority<Root>
+    ) -> ErasedRouterAuthority?
+}
+
+@MainActor
+private final class TypedRouterAuthorityRebaseBox<R: Route>: RouterAuthorityRebaseBox {
+    let authority: RouterAuthority<R>
+    init(_ authority: RouterAuthority<R>) { self.authority = authority }
+    func rebased<Root: Route>(
+        replacing owner: RouterScope<Root>, with replacement: RouterAuthority<Root>
+    ) -> ErasedRouterAuthority? {
+        authority.base.rebased(replacing: owner, with: replacement).map(ErasedRouterAuthority.init)
     }
 }
 
 @MainActor
 private final class ErasedRouterAuthority: Sendable {
     private let value: Any
+    private let rebaseBox: any RouterAuthorityRebaseBox
 
     init<R: Route>(_ authority: RouterAuthority<R>) {
         value = authority
+        rebaseBox = TypedRouterAuthorityRebaseBox(authority)
     }
 
     func authority<R: Route>(for routeType: R.Type) -> RouterAuthority<R>? {
         _ = routeType
         return value as? RouterAuthority<R>
+    }
+
+    func rebased<Root: Route>(
+        replacing owner: RouterScope<Root>, with replacement: RouterAuthority<Root>
+    ) -> ErasedRouterAuthority? {
+        rebaseBox.rebased(replacing: owner, with: replacement)
     }
 }
 
@@ -190,6 +234,24 @@ struct RouterEnvironment: Sendable {
                 authorities.removeValue(forKey: key)
             }
         }
+    }
+
+    /// Rebuilds the existing finite feature-parent chains over a new rendered
+    /// scope. The native host route type itself becomes the direct replacement,
+    /// just like ordinary host environment registration; other route types keep
+    /// their feature chains. Unrelated Stores/scopes remain untouched; no type dependency graph
+    /// or fresh Store is inferred from the navigation value.
+    @MainActor
+    mutating func rebase<Root: Route>(
+        replacing owner: RouterScope<Root>, with replacement: RouterAuthority<Root>
+    ) {
+        let rootKey = ObjectIdentifier(Root.self)
+        for (key, authority) in authorities where key != rootKey {
+            if let rebased = authority.rebased(replacing: owner, with: replacement) {
+                authorities[key] = rebased
+            }
+        }
+        authorities[rootKey] = ErasedRouterAuthority(replacement)
     }
 
     @MainActor

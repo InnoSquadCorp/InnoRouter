@@ -74,18 +74,36 @@ extension RouterStore {
     /// whose old result ownership ended, including same-ID replacements.
     func updateScopeLifetimes(
         after state: RouterState<R>,
-        mutation: RouterScopeLifetimeMutation
+        mutation: RouterScopeLifetimeMutation,
+        requestRootID: RouterTransitionID
     ) -> Set<UUID> {
-        let previous = scopeLifetimes
-        scopeLifetimes = Self.makeScopeLifetimes(in: state, previous: previous, mutation: mutation)
-        var retired = Set(previous.compactMap { path, lifetime -> UUID? in
-            guard scopeLifetimes[path]?.token != lifetime.token,
-                  case .presentation(let id) = path.components.last else { return nil }
-            return id
+        let previousScopes = scopeLifetimes
+        let previousPresentations = presentationLifetimes
+        let nextScopes = Self.makeScopeLifetimes(
+            in: state, previous: previousScopes, mutation: mutation
+        )
+        let nextPresentations = Self.makePresentationLifetimes(
+            in: state, scopes: nextScopes, previous: previousPresentations
+        )
+        // Install both maps before publishing any observable lifetime slot.
+        // Synchronous observers may capture either kind of authority in willSet.
+        scopeLifetimes = nextScopes
+        presentationLifetimes = nextPresentations
+        // Only the request lineage that registered a typed waiter can activate
+        // it. Install this private authority before any observable publication.
+        for (id, waiter) in presentationWaiters where waiter.activatedToken() == nil {
+            if waiter.showRequestRootID == requestRootID,
+               let lifetime = nextPresentations[id], lifetime.scope == waiter.ownerPath {
+                waiter.activate(lifetime.token)
+            }
+        }
+        var retired = Set(previousPresentations.compactMap { id, lifetime -> UUID? in
+            nextPresentations[id]?.token == lifetime.token ? nil : id
         })
         for (id, waiter) in presentationWaiters where !waiter.lifetimeIsCurrent() {
             retired.insert(id)
         }
+        updatePresentationLifetimeObservations()
         for (path, observation) in scopeLifetimeObservations {
             let current = scopeLifetimeToken(at: path)
             if observation.token != current { observation.token = current }

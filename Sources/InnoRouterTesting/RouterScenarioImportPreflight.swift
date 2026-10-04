@@ -2,6 +2,22 @@ import Foundation
 import InnoRouterCore
 
 enum RouterScenarioImportPreflight {
+    private struct Header: Decodable { let formatVersion: Int }
+
+    /// The shared baseline covered the original import passes. Classification,
+    /// opaque shape and descriptor validation add three reserved byte passes.
+    /// Explicit user limits are never raised. Overflow keeps a finite cap.
+    static func derivedWorkLimits(maximumBytes: Int, maximumTokens: Int) -> RouterJSONWorkLimits {
+        let baseline = RouterJSONWorkLimits.derived(maximumBytes: maximumBytes, maximumTokens: maximumTokens)
+        let extra = max(0, maximumBytes).multipliedReportingOverflow(by: 3)
+        let total = baseline.maximumWorkUnits.addingReportingOverflow(extra.partialValue)
+        return .init(
+            maximumWorkUnits: extra.overflow || total.overflow ? Int.max : total.partialValue,
+            maximumKeyDecodes: baseline.maximumKeyDecodes
+        )
+    }
+
+    @discardableResult
     static func validate(
         _ data: Data,
         maximumBytes: Int,
@@ -9,10 +25,11 @@ enum RouterScenarioImportPreflight {
         maximumDepth: Int,
         maximumTokens: Int,
         maximumWorkUnits: Int? = nil,
-        maximumKeyDecodes: Int? = nil
-    ) throws {
+        maximumKeyDecodes: Int? = nil,
+        consumedWork: RouterJSONWorkResult? = nil
+    ) throws -> Int {
         do {
-            let derived = RouterJSONWorkLimits.derived(maximumBytes: maximumBytes, maximumTokens: maximumTokens)
+            let derived = derivedWorkLimits(maximumBytes: maximumBytes, maximumTokens: maximumTokens)
             let limits = RouterJSONWorkLimits(
                 maximumWorkUnits: maximumWorkUnits ?? derived.maximumWorkUnits,
                 maximumKeyDecodes: maximumKeyDecodes ?? derived.maximumKeyDecodes
@@ -20,10 +37,24 @@ enum RouterScenarioImportPreflight {
             let usage = try RouterJSONPreflight.validate(
                 data, maximumBytes: maximumBytes, maximumDepth: maximumDepth,
                 maximumTokens: maximumTokens, byteName: "encodedBytes",
-                requiredRootArrayLimits: ["steps": maximumSteps], workLimits: limits
+                requiredRootArrayLimits: ["steps": maximumSteps], workLimits: limits,
+                consumedWork: consumedWork
             )
             var work = try RouterJSONWorkBudget(limits: limits, consumed: usage)
-            try work.charge(data.count) // Reserve the final typed decoder pass before app routes.
+            // Every additional Foundation pass is reserved against the same
+            // ledger. The opaque route never invokes application Decodable.
+            try work.charge(data.count)
+            let header = try JSONDecoder().decode(Header.self, from: data)
+            guard header.formatVersion == 8 || header.formatVersion == 9 else {
+                throw RouterScenarioFixtureError.unsupportedFormatVersion(header.formatVersion)
+            }
+            try work.charge(data.count)
+            let shape = try RouterTransientDescriptorTransport.decoder(formatVersion: header.formatVersion)
+                .decode(RouterScenarioFixture<RouterTransientOpaqueRoute>.self, from: data)
+            try work.charge(data.count) // Reserve structural descriptor validation.
+            try shape.validateTransportStructure()
+            try work.charge(data.count) // Reserve final typed decode before app routes.
+            return header.formatVersion
 
         } catch let error as RouterJSONPreflightError {
             switch error {

@@ -412,9 +412,12 @@ SwiftUI locale 변경을 반영하며, 미지원 언어는 영어로 표시합�
 
 `RouterScenarioRecorder`는 reduction 전 거절과 unchanged를 포함해 요청·시작·terminal
 경계를 같은 actor에서 동기적으로 기록하므로 완료 직후 stop해도 기록을 놓치지
-않습니다. fixture v8은 route schema, 실행 환경, 의존성/효과 capability, 시작 revision,
+않습니다. fixture v9은 route schema, 실행 환경, 의존성/효과 capability, 시작 revision,
 논리 요청별 submit/wait/cancel/terminal, 가상 시간 이동, 명시적 deferral 결정을
-저장합니다. 첫 요청 전에 metadata와 전체 initial state 호환성을 검사하고 캡처 deferral
+저장합니다. v9의 bounded fixture codec은 alert/dialog 표시 descriptor도 전송하지만
+실행 중인 typed result 권한은 복원하지 않습니다. 탐색 전용 v8 fixture는 계속 읽을 수 있고,
+v8 이전 및 알 수 없는 미래 버전은 거절합니다.
+첫 요청 전에 metadata와 전체 initial state 호환성을 검사하고 캡처 deferral
 ID를 새 실행 ID에 매핑합니다. 실패나 취소가 반환되기 전에 replay가 소유한 요청과
 deferral만 취소하고 terminal을 회수합니다. deferral은 recorder의
 `resolveDeferred`를 통해 결정해야 하며, 누락된 제어 사건·용량 초과·미종료 요청은

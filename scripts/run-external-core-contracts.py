@@ -55,6 +55,27 @@ fixtures.update({
     'store_budget_setter_negative': (runtime + '@MainActor func mutate(_ store: RouterStore<R>) { store.resourceBudget = .unlimited }\n', r"'resourceBudget'.*(?:constant|immutable|inaccessible)|cannot assign.*'resourceBudget'"),
     'owner_codec_adapter_negative': (base + 'func probe(_ codec: RouterGraphSnapshotCodec<R>) throws { _ = try codec.constrained(to: .provisional) }\n', r"'constrained'.*inaccessible|package.*protection"),
 })
+fixtures.update({
+    'transient_sendable_value_positive': (runtime + """
+struct Opaque: Sendable { let operation: @Sendable () -> Int }
+@MainActor func probe(_ store: RouterStore<R>, _ scope: RouterScope<R>, _ actions: RouterActions<R>) async {
+    let request = RouterTransientPresentationRequest<Opaque>.alert(title: "Title", actions: [
+        .init(id: "choose", label: "Choose", role: .cancel, value: Opaque(operation: { 42 }))
+    ])
+    _ = await store.present(request)
+    _ = await scope.present(request)
+    _ = await actions.present(request)
+    if let handle = store.presentationHandle() {
+        _ = await store.selectPresentationAction("choose", using: handle)
+        _ = await store.dismissPresentation(using: handle)
+    }
+}
+""", None),
+    'presentation_handle_constructor_negative': (runtime + 'let handle = RouterPresentationHandle(id: UUID(), scope: .root, token: UUID())\n', r"inaccessible|no accessible initializers|extra arguments"),
+    'presentation_handle_codable_negative': (runtime + 'func persist(_ handle: RouterPresentationHandle) throws { _ = try JSONEncoder().encode(handle) }\n', r"requires.*conform.*Encodable|does not conform.*Encodable"),
+    'presentation_resume_authority_negative': (runtime + 'let owner = RouterPresentationResumeAuthority()\n', r"cannot find|inaccessible|protection level"),
+    'transient_transport_capability_negative': (base + 'let encoder = RouterTransientDescriptorTransport.encoder()\n', r"cannot find|inaccessible|protection level"),
+})
 record = {
     'scope': 'external module typechecking against reduced actual-source Linux engine',
     'excluded': ['shipped public product graph', 'SwiftUI', 'ABI/API baseline', 'Apple SDK/full compiler matrix'],

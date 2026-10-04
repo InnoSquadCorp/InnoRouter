@@ -9,12 +9,14 @@ extension RouterStore {
     /// Reject exact replay claims when runtime semantics are absent from the
     /// portable request representation. Never persist an incarnation or grant.
     func replayLimitationCode(
+        action: RouterAction<R>,
         semantics: RouterRequestSemantics<R>,
         authorization requestAuthorization: RouterRequestAuthorization<R>?,
         lifetimeMutation: RouterScopeLifetimeMutation,
         hasPrecondition: Bool,
         hasPreparation: Bool
     ) -> String? {
+        if hasPresentationResultAuthority(in: action) { return "presentation.runtimeResultAuthority" }
         if lifetimeMutation.replacesOwnership { return "runtime.ownershipReplacement" }
         if authorization != nil || requestAuthorization != nil { return "runtime.authorization" }
         switch semantics {
@@ -22,6 +24,28 @@ extension RouterStore {
             return hasPrecondition || hasPreparation ? "runtime.executionPrecondition" : nil
         case .historyNavigation:
             return nil
+        }
+    }
+
+    private func hasPresentationResultAuthority(in action: RouterAction<R>) -> Bool {
+        switch deferredPresentationTarget(in: action) {
+        case .present(let id): return presentationWaiters[id] != nil
+        case .dismiss(let path):
+            guard case .stack(let stack) = state.node(at: path), let family = stack.presentationFamily else { return false }
+            if presentationWaiters[family.id] != nil { return true }
+            guard case .navigation = family else { return false }
+            let child = path.appendingPresentation(family.id)
+            return presentationWaiters.values.contains { waiter in
+                waiter.ownerPath.domain == child.domain && waiter.ownerPath.components.starts(with: child.components)
+            }
+        case nil: break
+        }
+        switch action {
+        case .apply: return !presentationWaiters.isEmpty
+        case .dismissWindow(let id): return presentationWaiters.values.contains { $0.ownerPath.domain == .window(id) }
+        case .dismissImmersiveSpace:
+            return presentationWaiters.values.contains { if case .immersiveSpace = $0.ownerPath.domain { return true }; return false }
+        default: return false
         }
     }
 

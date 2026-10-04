@@ -34,6 +34,6 @@ public struct EnvironmentRouterState<R: Route>: DynamicProperty {
             }
             return RouterStateReader()
         }
-        return RouterStateReader(authority: authority.base)
+        return RouterStateReader(authority: authority.base, enclosingPresentation: authority.enclosingPresentation)
     }
 }
