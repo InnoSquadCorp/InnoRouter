@@ -111,7 +111,7 @@ public enum RouterReducer {
             }
             guard var presentation = stack.presentation, presentation.id == id else {
                 throw RouterMutationError.presentationIdentityMismatch(
-                    scope: path, expected: id, actual: stack.presentation?.id
+                    scope: path, expected: id, actual: stack.presentationFamily?.id
                 )
             }
             try apply(childAction, to: &presentation.node, path: path.appendingPresentation(id))
@@ -126,7 +126,8 @@ public enum RouterReducer {
             try applyContainerAction(action, to: &node, path: path)
         case .push, .pushIfNeeded, .backOrPush, .replaceTop,
              .pushMany, .pop, .popTo, .popToRoot, .replaceStack,
-             .present, .dismissPresentation, .setPresentationDetent:
+             .present, .presentAlert, .presentConfirmationDialog, .selectPresentationAction,
+             .dismissPresentation, .setPresentationDetent:
             try applyStackAction(action, to: &node, path: path)
         case .scoped, .presentationScoped:
             preconditionFailure("handled above")
@@ -208,18 +209,42 @@ public enum RouterReducer {
             }
         case .present(let presentation):
             try mutateStack(&node, at: path) { stack in
-                guard stack.presentation == nil else {
+                guard stack.presentationFamily == nil else {
                     throw RouterMutationError.presentationAlreadyActive(path)
                 }
                 stack.presentation = presentation
             }
+        case .presentAlert(let presentation), .presentConfirmationDialog(let presentation):
+            try mutateStack(&node, at: path) { stack in
+                guard stack.presentationFamily == nil else {
+                    throw RouterMutationError.presentationAlreadyActive(path)
+                }
+                if case .presentAlert = action { stack.presentationFamily = .alert(presentation) }
+                else { stack.presentationFamily = .confirmationDialog(presentation) }
+            }
+        case .selectPresentationAction(let id, let actionID):
+            try mutateStack(&node, at: path) { stack in
+                guard let family = stack.presentationFamily, family.id == id else {
+                    throw RouterMutationError.presentationIdentityMismatch(scope: path, expected: id, actual: stack.presentationFamily?.id)
+                }
+                let transient: RouterTransientPresentation
+                switch family {
+                case .navigation: throw RouterMutationError.expectedTransientPresentation(path)
+                case .alert(let value), .confirmationDialog(let value): transient = value
+                }
+                guard transient.content.actions.contains(where: { $0.id == actionID }) else {
+                    throw RouterMutationError.unknownPresentationAction(path)
+                }
+                stack.presentationFamily = nil
+            }
         case .dismissPresentation:
             try mutateStack(&node, at: path) { stack in
-                stack.presentation = nil
+                stack.presentationFamily = nil
             }
         case .setPresentationDetent(let detent):
             try mutateStack(&node, at: path) { stack in
                 guard var presentation = stack.presentation else {
+                    if stack.presentationFamily != nil { throw RouterMutationError.expectedNavigationPresentation(path) }
                     throw RouterMutationError.presentationNotActive(path)
                 }
                 guard presentation.options.detents.isEmpty
@@ -308,7 +333,7 @@ public enum RouterReducer {
         _ stack: RouterStackState<R>,
         at path: RouterScopePath
     ) throws {
-        guard stack.presentation == nil else {
+        guard stack.presentationFamily == nil else {
             throw RouterMutationError.blockedByPresentation(path)
         }
     }
@@ -333,9 +358,17 @@ public enum RouterReducer {
     }
 
     private static func presentationIdentityIsContinuous<R: Route>(
-        _ current: RouterPresentation<R>,
-        _ proposed: RouterPresentation<R>
+        _ currentFamily: RouterPresentationFamily<R>,
+        _ proposedFamily: RouterPresentationFamily<R>
     ) -> Bool {
+        switch (currentFamily, proposedFamily) {
+        case (.alert(let current), .alert(let proposed)), (.confirmationDialog(let current), .confirmationDialog(let proposed)):
+            return current.content == proposed.content
+        case (.navigation, .navigation): break
+        default: return false
+        }
+        guard case .navigation(let current) = currentFamily,
+              case .navigation(let proposed) = proposedFamily else { return false }
         var currentOptions = current.options
         var proposedOptions = proposed.options
         currentOptions.selectedDetent = nil
@@ -353,12 +386,11 @@ public enum RouterReducer {
         func visit(_ node: RouterNode<R>, at path: RouterScopePath) {
             switch node {
             case .stack(let stack):
-                if let presentation = stack.presentation {
-                    result[presentation.id] = LocatedRouterPresentation(
-                        path: path,
-                        presentation: presentation
-                    )
-                    visit(presentation.node, at: path.appendingPresentation(presentation.id))
+                if let family = stack.presentationFamily {
+                    result[family.id] = LocatedRouterPresentation(path: path, presentation: family)
+                    if case .navigation(let presentation) = family {
+                        visit(presentation.node, at: path.appendingPresentation(presentation.id))
+                    }
                 }
             case .container(let container):
                 for branch in container.branches {
@@ -398,5 +430,5 @@ public enum RouterReducer {
 
 private struct LocatedRouterPresentation<R: Route> {
     let path: RouterScopePath
-    let presentation: RouterPresentation<R>
+    let presentation: RouterPresentationFamily<R>
 }

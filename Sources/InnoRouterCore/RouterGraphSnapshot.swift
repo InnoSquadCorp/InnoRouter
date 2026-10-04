@@ -195,6 +195,15 @@ public struct RouterGraphStackRecord: Codable, Hashable, Sendable {
         self.routeIDs = routeIDs
         self.presentationID = presentationID
     }
+
+    private enum CodingKeys: String, CodingKey { case routeIDs, presentationID }
+
+    public init(from decoder: any Decoder) throws {
+        try RouterTransientRestorationScreen.rejectReservedKeys(decoder)
+        let fields = try decoder.container(keyedBy: CodingKeys.self)
+        routeIDs = try fields.decode([String].self, forKey: .routeIDs)
+        presentationID = try fields.decodeIfPresent(UUID.self, forKey: .presentationID)
+    }
 }
 
 public struct RouterGraphBranchRecord: Codable, Hashable, Sendable {
@@ -265,6 +274,18 @@ public struct RouterGraphPresentationRecord: Codable, Hashable, Sendable {
         self.nodeID = nodeID
         self.style = style
         self.options = options
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, routeID, nodeID, style, options }
+
+    public init(from decoder: any Decoder) throws {
+        try RouterTransientRestorationScreen.rejectReservedKeys(decoder)
+        let fields = try decoder.container(keyedBy: CodingKeys.self)
+        id = try fields.decode(UUID.self, forKey: .id)
+        routeID = try fields.decode(String.self, forKey: .routeID)
+        nodeID = try fields.decode(String.self, forKey: .nodeID)
+        style = try fields.decode(RouterPresentationStyle.self, forKey: .style)
+        options = try fields.decode(RouterPresentationOptions.self, forKey: .options)
     }
 }
 

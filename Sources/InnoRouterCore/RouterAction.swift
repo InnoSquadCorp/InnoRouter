@@ -14,6 +14,7 @@ public enum RouterStateValidationError: Error, Hashable, Sendable {
     case unknownBadgeScope(RouterScopeID)
     case invalidBadgeCount(scope: RouterScopeID, count: Int)
     case duplicatePresentation(UUID)
+    case invalidTransientPresentation(RouterTransientPresentationValidationFailure)
     case invalidPresentationDetent(RouterPresentationDetent)
     case undeclaredSelectedDetent(RouterPresentationDetent)
     case undeclaredBackgroundInteractionDetent(RouterPresentationDetent)
@@ -51,6 +52,9 @@ public indirect enum RouterAction<R: Route>: Hashable, Sendable {
     case popToRoot
     case replaceStack([R])
     case present(RouterPresentation<R>)
+    case presentAlert(RouterTransientPresentation)
+    case presentConfirmationDialog(RouterTransientPresentation)
+    case selectPresentationAction(presentationID: UUID, actionID: RouterPresentationActionID)
     case dismissPresentation
     case setPresentationDetent(RouterPresentationDetent)
     case select(RouterScopeID)
@@ -106,6 +110,9 @@ public enum RouterMutationError: Error, Hashable, Sendable {
     case blockedByPresentation(RouterScopePath)
     case presentationAlreadyActive(RouterScopePath)
     case presentationNotActive(RouterScopePath)
+    case expectedTransientPresentation(RouterScopePath)
+    case expectedNavigationPresentation(RouterScopePath)
+    case unknownPresentationAction(RouterScopePath)
     case presentationIdentityMismatch(
         scope: RouterScopePath,
         expected: UUID,

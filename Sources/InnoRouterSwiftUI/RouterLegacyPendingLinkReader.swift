@@ -38,6 +38,8 @@ public struct RouterLegacyPendingLinkReader<R: Route>: Sendable {
             do { transformed = try transform(decoded.link) }
             catch { throw RouterPendingLinkPersistenceError.legacyMappingFailed }
             try RouterResourceBudget(snapshot: limits).validate(transformed.plan.state, additionalRouteCount: transformed.matchedRoute == nil ? 1 : 2)
+            do { try transformed.plan.state.rejectTransientPresentations(.unsupportedRestoration) }
+            catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterPendingLinkPersistenceError.transientPresentation(failure) }
             return .init(link: .init(
                 url: transformed.url, gatedRoute: transformed.gatedRoute, plan: transformed.plan,
                 matchedRoute: transformed.matchedRoute, requiresRevalidation: true
@@ -58,6 +60,7 @@ public struct RouterLegacyPendingLinkReader<R: Route>: Sendable {
     decoder.userInfo[RouterLegacyRouteAdmission.key] = routeBudget
     let shape: RouterLegacyPendingLinkEnvelope<RouterLegacyRouteShape>
     do { shape = try decoder.decode(RouterLegacyPendingLinkEnvelope<RouterLegacyRouteShape>.self, from: data) }
+    catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterPendingLinkPersistenceError.transientPresentation(failure) }
     catch let error as RouterPendingLinkPersistenceError { throw error }
     catch let error as RouterJSONPreflightError {
         switch error {

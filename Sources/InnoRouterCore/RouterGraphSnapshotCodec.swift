@@ -12,6 +12,7 @@ public struct RouterGraphSnapshotCodec<R: Route>: Sendable {
     public let schemaID: String
     public let schemaVersion: Int
     public let limits: RouterGraphSnapshotLimits
+    public let transientPresentations: RouterTransientPresentationPersistencePolicy
     package let routes: RouterGraphRouteCodec<R>
     package let legacyAdapter: RouterLegacySnapshotAdapter<R>?
     package let jsonWorkLimits: RouterJSONWorkLimits
@@ -25,7 +26,8 @@ public struct RouterGraphSnapshotCodec<R: Route>: Sendable {
         migrations: [RouterGraphSnapshotMigration] = [],
         legacyAdapter: RouterLegacySnapshotAdapter<R>? = nil,
         maximumJSONWorkUnits: Int? = nil,
-        maximumJSONKeyDecodes: Int? = nil
+        maximumJSONKeyDecodes: Int? = nil,
+        transientPresentations: RouterTransientPresentationPersistencePolicy = .reject
     ) throws {
         for (name, value) in [("maximumJSONWorkUnits", maximumJSONWorkUnits), ("maximumJSONKeyDecodes", maximumJSONKeyDecodes)] {
             if let value, value < 0 { throw RouterGraphSnapshotError.invalidLimit(name: name, value: value) }
@@ -45,6 +47,7 @@ public struct RouterGraphSnapshotCodec<R: Route>: Sendable {
         self.schemaVersion = schemaVersion
         self.routes = routes
         self.limits = limits
+        self.transientPresentations = transientPresentations
         self.migrations = indexed
         self.legacyAdapter = legacyAdapter
         let derived = RouterJSONWorkLimits.derived(maximumBytes: limits.maximumEncodedBytes, maximumTokens: limits.maximumJSONTokens)
@@ -82,12 +85,17 @@ public struct RouterGraphSnapshotCodec<R: Route>: Sendable {
         _ state: RouterState<R>, additionalRoutes: [R], work: inout RouterJSONWorkBudget
     ) throws -> (plan: Data, payloads: [RouterGraphRoutePayload]) {
         try RouterGraphJSONPreflight.check(schemaID.utf8.count, maximum: limits.maximumEncodedBytes, name: "schemaIDBytes")
-        do { try RouterResourceBudget(snapshot: limits).validate(state) }
+        do { try RouterResourceBudget(snapshot: limits).validate(state, additionalRouteCount: additionalRoutes.count) }
         catch let failure {
             let field = failure.resource.hasPrefix("state.") ? String(failure.resource.dropFirst(6)) : failure.resource
             throw RouterGraphSnapshotError.limitExceeded(name: field, actual: failure.actual, maximum: failure.maximum)
         }
-        var (graph, values) = try flatten(state)
+        let projected: RouterState<R>
+        do { projected = try state.preparingTransientPersistence(transientPresentations) }
+        catch let failure as RouterTransientPresentationPersistenceFailure {
+            throw RouterGraphSnapshotError.transientPresentation(failure)
+        }
+        var (graph, values) = try flatten(projected)
         let index = try graph.validatedIndex(limits: limits)
         try graph.validateRuntimeStructure(index: index)
         let (routeCount, countOverflow) = values.count.addingReportingOverflow(additionalRoutes.count)
@@ -259,6 +267,7 @@ public struct RouterGraphSnapshotCodec<R: Route>: Sendable {
         let graph: RouterGraphSnapshot
         try RouterGraphJSONPreflight.charge(payload.count, work: &work)
         do { graph = try JSONDecoder().decode(RouterGraphSnapshot.self, from: payload) }
+        catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterGraphSnapshotError.transientPresentation(failure) }
         catch { throw RouterGraphSnapshotError.invalidGraph }
         let index = try graph.validatedIndex(limits: limits)
         try graph.validateRuntimeStructure(index: index)

@@ -126,6 +126,9 @@ private extension RouterAction {
         case .popToRoot: "popToRoot"
         case .replaceStack: "replaceStack"
         case .present: "present"
+        case .presentAlert: "presentAlert"
+        case .presentConfirmationDialog: "presentConfirmationDialog"
+        case .selectPresentationAction: "selectPresentationAction"
         case .dismissPresentation: "dismissPresentation"
         case .setPresentationDetent: "setPresentationDetent"
         case .select: "select"
@@ -157,9 +160,9 @@ private extension RouterState {
             case .stack(let stack):
                 stackCount += 1
                 routeCount += stack.path.count
-                if let presentation = stack.presentation {
+                if let family = stack.presentationFamily {
                     presentationCount += 1
-                    visit(presentation.node)
+                    if case .navigation(let presentation) = family { visit(presentation.node) }
                 }
             case .container(let container):
                 for branch in container.branches {

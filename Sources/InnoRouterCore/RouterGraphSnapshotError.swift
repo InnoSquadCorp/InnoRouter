@@ -29,12 +29,14 @@ public struct RouterGraphSnapshotErrorCode: RawRepresentable, Hashable, Sendable
     public static let routeEncodingFailed = Self(rawValue: "innorouter.snapshot.graph.routeEncodingFailed")
     public static let routeDecodingFailed = Self(rawValue: "innorouter.snapshot.graph.routeDecodingFailed")
     public static let encodingFailed = Self(rawValue: "innorouter.snapshot.graph.encodingFailed")
+    public static let transientPresentation = Self(rawValue: "innorouter.snapshot.graph.transientPresentation")
     public static let invalidState = Self(rawValue: "innorouter.snapshot.graph.invalidState")
 }
 
 /// Library-created details contain numeric limits/versions and structural field
 /// names, never route payload, app codec errors, or original URL text.
 public struct RouterGraphSnapshotErrorDetails: Hashable, Sendable, Codable {
+    public let transientPresentation: RouterTransientPresentationPersistenceFailure?
     public let name: String?
     public let kind: String?
     public let value: Int?
@@ -56,8 +58,10 @@ public struct RouterGraphSnapshotErrorDetails: Hashable, Sendable, Codable {
         current: Int? = nil,
         from: Int? = nil,
         to: Int? = nil,
-        version: Int? = nil
+        version: Int? = nil,
+        transientPresentation: RouterTransientPresentationPersistenceFailure? = nil
     ) {
+        self.transientPresentation = transientPresentation
         self.name = name
         self.kind = kind
         self.value = value
@@ -134,5 +138,8 @@ public struct RouterGraphSnapshotError: Error, Hashable, Sendable, Codable, Cust
     public static let routeEncodingFailed = Self(code: .routeEncodingFailed)
     public static let routeDecodingFailed = Self(code: .routeDecodingFailed)
     public static let encodingFailed = Self(code: .encodingFailed)
+    public static func transientPresentation(_ failure: RouterTransientPresentationPersistenceFailure) -> Self {
+        Self(code: .transientPresentation, details: .init(transientPresentation: failure))
+    }
     public static let invalidState = Self(code: .invalidState)
 }

@@ -90,7 +90,7 @@ public extension RouterState {
             }
             guard var presentation = stack.presentation, presentation.id == id else {
                 throw RouterMutationError.presentationIdentityMismatch(
-                    scope: parentPath, expected: id, actual: stack.presentation?.id
+                    scope: parentPath, expected: id, actual: stack.presentationFamily?.id
                 )
             }
             try replaceNode(

@@ -24,6 +24,16 @@ package final class RouterLegacyRouteAdmission: Sendable {
         self.spans = spans
     }
 
+    /// An inert marker pass over library-owned slots, including historical
+    /// migration documents. Malformed unrelated structure cannot end traversal
+    /// before a later known slot. Route payloads are never inspected.
+    package static func rejectTransientMarkers(in data: Data, stateKey: String? = nil, work: inout RouterJSONWorkBudget?) throws {
+        var admitted = work ?? .init(limits: .init(maximumWorkUnits: .max, maximumKeyDecodes: .max))
+        let spans = try RouterJSONValueSpans(validatedJSON: data, work: &admitted, permitsDuplicateKeys: work == nil)
+        try spans.rejectTransientState(stateKey: stateKey, work: &admitted)
+        if work != nil { work = admitted }
+    }
+
     package func admit(path: [any CodingKey]) throws {
         try ledger.withLock { state in
             try state.work.charge(1)
@@ -69,11 +79,13 @@ private struct RouterJSONValueSpans: Sendable {
         var key: String?
     }
     private let entries: [Entry]
+    private let duplicateMembers: [Int: [String: [Int]]]
 
-    init(validatedJSON data: Data, work: inout RouterJSONWorkBudget) throws {
+    init(validatedJSON data: Data, work: inout RouterJSONWorkBudget, permitsDuplicateKeys: Bool = false) throws {
         try work.charge(data.count)
         let bytes = Array(data)
         var entries: [Entry] = []
+        var duplicateMembers: [Int: [String: [Int]]] = [:]
         var frames: [Frame] = []
         let decoder = JSONDecoder()
         var cursor = 0
@@ -114,8 +126,12 @@ private struct RouterJSONValueSpans: Sendable {
             if let last = frames.indices.last {
                 let parent = frames[last].id
                 if frames[last].object {
-                    guard let key = frames[last].key, entries[parent].members?[key] == nil else {
-                        throw RouterJSONPreflightError.malformedJSON
+                    guard let key = frames[last].key else { throw RouterJSONPreflightError.malformedJSON }
+                    if let existing = entries[parent].members?[key] {
+                        guard permitsDuplicateKeys else { throw RouterJSONPreflightError.malformedJSON }
+                        var values = duplicateMembers[parent]?[key] ?? [existing]
+                        values.append(id)
+                        duplicateMembers[parent, default: [:]][key] = values
                     }
                     entries[parent].members?[key] = id
                     frames[last].key = nil
@@ -125,6 +141,7 @@ private struct RouterJSONValueSpans: Sendable {
         }
         guard !entries.isEmpty, frames.isEmpty else { throw RouterJSONPreflightError.malformedJSON }
         self.entries = entries
+        self.duplicateMembers = duplicateMembers
     }
 
     func range(at path: [any CodingKey], work: inout RouterJSONWorkBudget) throws -> Range<Int> {
@@ -141,6 +158,55 @@ private struct RouterJSONValueSpans: Sendable {
             } else { throw RouterJSONPreflightError.malformedJSON }
         }
         return entries[current].range
+    }
+
+    /// Walk the known state topology iteratively. An old application's other
+    /// schema fields are its migration's responsibility, never route decoders.
+    func rejectTransientState(stateKey: String?, work: inout RouterJSONWorkBudget) throws {
+        func members(_ ids: [Int], _ name: String, work: inout RouterJSONWorkBudget) throws -> [Int] {
+            var result: [Int] = []
+            for id in ids {
+                try work.charge(name.utf8.count + 1)
+                if let duplicates = duplicateMembers[id]?[name] {
+                    try work.charge(duplicates.count)
+                    result.append(contentsOf: duplicates)
+                } else if let child = entries[id].members?[name] { result.append(child) }
+            }
+            return result
+        }
+        func elements(_ ids: [Int], work: inout RouterJSONWorkBudget) throws -> [Int] {
+            var result: [Int] = []
+            for id in ids {
+                guard let values = entries[id].elements else { continue }
+                try work.charge(values.count)
+                result.append(contentsOf: values)
+            }
+            return result
+        }
+        let roots = try stateKey.map { try members([0], $0, work: &work) } ?? [0]
+        var nodes = try members(roots, "root", work: &work)
+        let windowFields = try members(roots, "windows", work: &work)
+        let windows = try elements(windowFields, work: &work)
+        nodes.append(contentsOf: try members(windows, "node", work: &work))
+        let spaces = try members(roots, "immersiveSpace", work: &work)
+        nodes.append(contentsOf: try members(spaces, "node", work: &work))
+        while let node = nodes.popLast() {
+            try work.charge(1)
+            let stackWrappers = try members([node], "stack", work: &work)
+            let stacks = try members(stackWrappers, "_0", work: &work)
+            for key in ["presentationFamily", "alert", "confirmationDialog"] {
+                if try !members(stacks, key, work: &work).isEmpty {
+                    throw RouterTransientPresentationPersistenceFailure.unsupportedRestoration
+                }
+            }
+            let presentations = try members(stacks, "presentation", work: &work)
+            nodes.append(contentsOf: try members(presentations, "node", work: &work))
+            let containerWrappers = try members([node], "container", work: &work)
+            let containers = try members(containerWrappers, "_0", work: &work)
+            let branchFields = try members(containers, "branches", work: &work)
+            let branches = try elements(branchFields, work: &work)
+            nodes.append(contentsOf: try members(branches, "node", work: &work))
+        }
     }
 
     private static func advanceScalar(_ bytes: [UInt8], cursor: inout Int, work: inout RouterJSONWorkBudget) throws {

@@ -249,7 +249,13 @@ public enum RouterInspectorProjection {
         switch value {
         case .stack(let stack):
             var details = ["routes": "\(stack.path.count)"]
-            details["presentation"] = stack.presentation?.style.rawValue ?? "none"
+            switch stack.presentationFamily {
+            case .none: details["presentation"] = "none"
+            case .navigation(let presentation): details["presentation"] = presentation.style.rawValue
+            case .alert(let transient), .confirmationDialog(let transient):
+                details["presentation"] = stack.presentationFamily?.kind.rawValue
+                details["presentationActions"] = "\(transient.content.actions.count)"
+            }
             return .init(
                 id: path.description,
                 label: label,

@@ -71,8 +71,16 @@ public extension RouterResourceBudget {
             case .stack(let stack):
                 try check(stack.path.count, maximum: limits.maximumStackPath, resource: "state.stackPath")
                 routes = try sum(routes, stack.path.count, maximum: limits.maximumRoutes, resource: "state.routes")
-                if let presentation = stack.presentation {
+                if let family = stack.presentationFamily {
                     presentations = try sum(presentations, 1, maximum: limits.maximumPresentations, resource: "state.presentations")
+                    let modalDepth = try sum(entry.presentations, 1, maximum: limits.maximumPresentationDepth, resource: "state.presentationDepth")
+                    guard case .navigation(let presentation) = family else {
+                        switch family {
+                        case .alert(let transient), .confirmationDialog(let transient): try metadata.charge(transient.content)
+                        case .navigation: break
+                        }
+                        continue
+                    }
                     routes = try sum(routes, 1, maximum: limits.maximumRoutes, resource: "state.routes")
                     try metadata.chargeElements(presentation.options.detents.count)
                     if presentation.options.selectedDetent != nil { try metadata.chargeElements(1) }
@@ -81,7 +89,7 @@ public extension RouterResourceBudget {
                     }
                     try enqueue(presentation.node,
                                 depth: try sum(entry.depth, 1, maximum: limits.maximumGraphDepth, resource: "state.graphDepth"),
-                                modalDepth: try sum(entry.presentations, 1, maximum: limits.maximumPresentationDepth, resource: "state.presentationDepth"))
+                                modalDepth: modalDepth)
                 }
             case .container(let container):
                 // Reject oversized collections before iterating their members or
@@ -150,6 +158,12 @@ public extension RouterResourceBudget {
             case .present(let presentation):
                 try validateStructure(root: RouterNode<R>.stack(presentation: presentation), metadata: &metadata)
                 return
+            case .presentAlert(let presentation), .presentConfirmationDialog(let presentation):
+                try validateStructure(root: RouterNode<R>.stack(presentationFamily: .alert(presentation)), metadata: &metadata)
+                return
+            case .selectPresentationAction(_, let actionID):
+                try metadata.charge(actionID.rawValue)
+                return
             case .openWindow(let window):
                 // Include the scene route and the unavoidable application root.
                 try validateStructure(root: RouterNode<R>.stack(), windows: [window], metadata: &metadata)
@@ -209,6 +223,16 @@ private struct RouterStateMetadataBudget {
             bytes = try RouterResourceBudget.addingResourceCount(
                 bytes, 1, maximum: limits.maximumPayloadBytes, resource: "state.metadataBytes"
             )
+        }
+    }
+
+    mutating func charge(_ content: RouterTransientPresentationContent) throws(RouterResourceLimitFailure) {
+        try chargeElements(content.actions.count)
+        try charge(content.title)
+        if let message = content.message { try charge(message) }
+        for action in content.actions {
+            try charge(action.id.rawValue)
+            try charge(action.label)
         }
     }
 

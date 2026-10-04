@@ -80,8 +80,8 @@ public struct RouterFeatureMapping<Parent: Route, Child: Route>: Sendable {
         switch node {
         case .stack(let stack):
             let path = try stack.path.map(extract)
-            let presentation = try stack.presentation.map(project)
-            return .stack(path: path, presentation: presentation)
+            let family = try stack.presentationFamily.map(project)
+            return .stack(path: path, presentationFamily: family)
         case .container(let container):
             let branches = try container.branches.map { branch in
                 RouterBranch<Child>(id: branch.id, node: try project(branch.node))
@@ -104,7 +104,7 @@ public struct RouterFeatureMapping<Parent: Route, Child: Route>: Sendable {
         case .stack(let stack):
             return .stack(
                 path: stack.path.map(route.embed),
-                presentation: try stack.presentation.map(embed)
+                presentationFamily: try stack.presentationFamily.map(embed)
             )
         case .container(let container):
             let branches = try container.branches.map { branch in
@@ -167,6 +167,22 @@ public struct RouterFeatureMapping<Parent: Route, Child: Route>: Sendable {
         .globalActionNotAllowed(namespace: namespace, action: action)
     }
 
+    private func project(_ family: RouterPresentationFamily<Parent>) throws -> RouterPresentationFamily<Child> {
+        switch family {
+        case .navigation(let value): .navigation(try project(value))
+        case .alert(let value): .alert(value)
+        case .confirmationDialog(let value): .confirmationDialog(value)
+        }
+    }
+
+    private func embed(_ family: RouterPresentationFamily<Child>) throws -> RouterPresentationFamily<Parent> {
+        switch family {
+        case .navigation(let value): .navigation(try embed(value))
+        case .alert(let value): .alert(value)
+        case .confirmationDialog(let value): .confirmationDialog(value)
+        }
+    }
+
     private func embedRouteBearingAction(
         _ action: RouterAction<Child>
     ) throws -> RouterAction<Parent>? {
@@ -187,6 +203,9 @@ public struct RouterFeatureMapping<Parent: Route, Child: Route>: Sendable {
         _ action: RouterAction<Child>
     ) -> RouterAction<Parent>? {
         switch action {
+        case .presentAlert(let value): .presentAlert(value)
+        case .presentConfirmationDialog(let value): .presentConfirmationDialog(value)
+        case .selectPresentationAction(let id, let actionID): .selectPresentationAction(presentationID: id, actionID: actionID)
         case .pop(let count): .pop(count: count)
         case .popToRoot: .popToRoot
         case .dismissPresentation: .dismissPresentation

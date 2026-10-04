@@ -127,6 +127,7 @@ public struct RouterPartialRestorationReport: Hashable, Sendable, Codable {
 }
 
 public enum RouterPartialRestorationError: Error, Hashable, Sendable {
+    case transientPresentation(RouterTransientPresentationPersistenceFailure)
     case validationTimedOut
     /// Admission failed before creating validator or fallback work.
     case operation(RouterRestorationOperationFailure)
@@ -431,6 +432,8 @@ package func preparePartialRestoration<R: Route>(
     sleep: @escaping @Sendable (Duration) async throws -> Void
 ) async throws -> (RouterState<R>, RouterPartialRestorationReport) {
     guard !Task.isCancelled else { throw RouterPartialRestorationError.cancelled }
+    do { try state.rejectTransientPresentations(.unsupportedRestoration) }
+    catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterPartialRestorationError.transientPresentation(failure) }
     let reservation: RouterOperationRegistry.Reservation
     switch operations.reserve() {
     case .success(let admitted):

@@ -22,14 +22,16 @@ public extension RouterPendingLinkCodec {
     /// guessed. A malformed shared configuration is rejected at construction.
     init(
         resourceBudget: RouterResourceBudget,
-        legacyTimestampPolicy: RouterLegacyPendingLinkTimestampPolicy = .rejectMissingTimestamp
+        legacyTimestampPolicy: RouterLegacyPendingLinkTimestampPolicy = .rejectMissingTimestamp,
+        transientPresentations: RouterTransientPresentationPersistencePolicy = .reject
     ) throws where R: Codable {
         try resourceBudget.validateConfiguration()
         self.init(
             legacyTimestampPolicy: legacyTimestampPolicy, limits: try resourceBudget.snapshot.limitingJSONDepth(to: resourceBudget.legacyJSONDepth),
             lifetime: resourceBudget.durablePendingLifetime,
             maximumJSONWorkUnits: resourceBudget.maximumJSONWorkUnits,
-            maximumJSONKeyDecodes: resourceBudget.maximumJSONKeyDecodes
+            maximumJSONKeyDecodes: resourceBudget.maximumJSONKeyDecodes,
+            transientPresentations: transientPresentations
         )
     }
 }

@@ -144,18 +144,60 @@ extension RouterPresentation: Codable where R: Codable {
 /// Push and presentation state for one native navigation stack.
 public struct RouterStackState<R: Route>: Hashable, Sendable {
     public var path: [R]
-    public var presentation: RouterPresentation<R>?
+    /// The sole presentation slot. Navigation, alert and dialog are exclusive.
+    public var presentationFamily: RouterPresentationFamily<R>?
+
+    /// Navigation-only compatibility view. Clearing it does not clear a transient.
+    public var presentation: RouterPresentation<R>? {
+        get {
+            guard case .navigation(let value) = presentationFamily else { return nil }
+            return value
+        }
+        set {
+            if let newValue { presentationFamily = .navigation(newValue) }
+            else if case .navigation = presentationFamily { presentationFamily = nil }
+        }
+    }
 
     public init(
         path: [R] = [],
         presentation: RouterPresentation<R>? = nil
     ) {
         self.path = path
-        self.presentation = presentation
+        self.presentationFamily = presentation.map(RouterPresentationFamily.navigation)
+    }
+
+    public init(path: [R] = [], presentationFamily: RouterPresentationFamily<R>?) {
+        self.path = path
+        self.presentationFamily = presentationFamily
     }
 }
 
-extension RouterStackState: Codable where R: Codable {}
+extension RouterStackState: Codable where R: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case path, presentation, presentationFamily, alert, confirmationDialog
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard !container.contains(.presentationFamily), !container.contains(.alert),
+              !container.contains(.confirmationDialog) else {
+            throw RouterTransientPresentationPersistenceFailure.unsupportedRestoration
+        }
+        path = try container.decode([R].self, forKey: .path)
+        presentationFamily = try container.decodeIfPresent(RouterPresentation<R>.self, forKey: .presentation)
+            .map(RouterPresentationFamily.navigation)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        if let presentationFamily, presentationFamily.kind != .navigation {
+            throw RouterTransientPresentationPersistenceFailure.transientPresent
+        }
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(path, forKey: .path)
+        try container.encodeIfPresent(presentation, forKey: .presentation)
+    }
+}
 
 /// The native layout semantics of a router container node.
 public enum RouterContainerStyle: Hashable, Sendable {
@@ -275,6 +317,12 @@ public indirect enum RouterNode<R: Route>: Hashable, Sendable {
         presentation: RouterPresentation<R>? = nil
     ) -> RouterNode<R> {
         .stack(RouterStackState(path: path, presentation: presentation))
+    }
+
+    public static func stack(
+        path: [R] = [], presentationFamily: RouterPresentationFamily<R>?
+    ) -> RouterNode<R> {
+        .stack(RouterStackState(path: path, presentationFamily: presentationFamily))
     }
 }
 
@@ -423,10 +471,16 @@ public struct RouterState<R: Route>: Hashable, Sendable {
     ) throws {
         switch node {
         case .stack(let stack):
-            try validate(
-                presentation: stack.presentation,
-                presentationIDs: &presentationIDs
-            )
+            guard let family = stack.presentationFamily else { return }
+            guard presentationIDs.insert(family.id).inserted else {
+                throw RouterStateValidationError.duplicatePresentation(family.id)
+            }
+            switch family {
+            case .navigation(let presentation):
+                try validate(presentation: presentation, presentationIDs: &presentationIDs)
+            case .alert(let transient), .confirmationDialog(let transient):
+                try transient.content.validate()
+            }
         case .container(let container):
             try validate(container: container, presentationIDs: &presentationIDs)
         }
@@ -437,9 +491,6 @@ public struct RouterState<R: Route>: Hashable, Sendable {
         presentationIDs: inout Set<UUID>
     ) throws {
         guard let presentation else { return }
-        guard presentationIDs.insert(presentation.id).inserted else {
-            throw RouterStateValidationError.duplicatePresentation(presentation.id)
-        }
         try validate(node: presentation.node, presentationIDs: &presentationIDs)
         for detent in presentation.options.detents {
             try validate(detent: detent)
@@ -563,6 +614,7 @@ extension RouterState: Codable where R: Codable {
     }
 
     public func encode(to encoder: any Encoder) throws {
+        try rejectTransientPresentations(.transientPresent)
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(root, forKey: .root)
         try container.encode(windows, forKey: .windows)

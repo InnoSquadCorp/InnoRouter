@@ -88,3 +88,31 @@ A rejected or deferred dismissal keeps the active state and waiters until an
 accepted transition removes them. A child result that committed before parent
 removal remains its completed value; a parent removed first cancels that child
 and cannot deliver a late child result.
+
+## Keep transient presentations out of restoration
+
+A stack has one `presentationFamily`: navigation, alert, or confirmation dialog.
+The existing `presentation` property remains a navigation-only compatibility
+view. Assigning `nil` to that view does not clear an alert or dialog; use the
+canonical dismissal action.
+
+Transient display descriptors contain no route, child navigation node, task,
+callback, or typed result. An alert ID therefore cannot address a child scope.
+The pure reducer validates button IDs and removes exactly the selected family.
+
+Snapshot and pending-link codecs reject transient families before invoking app
+route encoders by default. Choose `transientPresentations: .omit` explicitly to
+save navigation while dropping transient leaves from the encoded copy. The
+original complete state still has to fit its configured resource budget. Live
+state and awaiting callers are unaffected by that encoding projection.
+
+Omission is encode-only. Decoding, migration admission, fallback, and partial
+restoration reject transient UI rather than recreating an action or result
+waiter. Bare Codable export of transient state or present actions also fails;
+it is not a supported persistence workaround.
+
+Typed legacy migration conveniences screen the known `RouterState` and
+`RouterPlan` input shapes before app route decoding. Arbitrary app-owned input
+and output wrappers remain the application's schema responsibility. Explicit
+`limits: nil` retains historical raw migration formats; it does not claim
+bounded parsing, and the final transformed state must still decode and validate.

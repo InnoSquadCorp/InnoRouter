@@ -190,6 +190,8 @@ selected_tests = [
     'RouterTwentyThirdReviewRestorationTests.swift',
     'RouterScopeLifetimeRegressionTests.swift',
     'RouterPresentationTerminalOwnershipTests.swift',
+    'RouterTransientPendingPersistenceContractTests.swift',
+    'RouterTransientHistoryContractTests.swift',
     'RouterScopeLifetimeContractTests.swift',
     'EnvironmentRouterStateTests.swift',
     'RouterScopeProjectionReentrancyTests.swift',

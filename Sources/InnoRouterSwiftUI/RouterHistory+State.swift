@@ -147,12 +147,12 @@ extension RouterHistory {
     ) throws -> RouterNode<R> {
         switch (target, current) {
         case (.stack(let targetStack), .stack(let currentStack)):
-            if targetStack.path != currentStack.path, currentStack.presentation != nil {
+            if targetStack.path != currentStack.path, currentStack.presentationFamily != nil {
                 throw RouterHistoryFailure.activePresentation(path)
             }
             return .stack(
                 path: targetStack.path,
-                presentation: currentStack.presentation
+                presentationFamily: currentStack.presentationFamily
             )
         case (.container(let targetContainer), .container(let currentContainer)):
             let targetIDs = targetContainer.branches.map(\.id)

@@ -24,7 +24,7 @@ package extension PendingRouterLink {
     private static func sameNode(_ old: RouterNode<R>, _ new: RouterNode<R>) -> Bool {
         switch (old, new) {
         case (.stack(let old), .stack(let new)):
-            return old.path == new.path && samePresentation(old.presentation, new.presentation)
+            return old.path == new.path && samePresentation(old.presentationFamily, new.presentationFamily)
         case (.container(let old), .container(let new)):
             guard old.style == new.style, old.selection == new.selection,
                   old.badges == new.badges, old.split == new.split,
@@ -34,10 +34,12 @@ package extension PendingRouterLink {
         }
     }
 
-    private static func samePresentation(_ old: RouterPresentation<R>?, _ new: RouterPresentation<R>?) -> Bool {
+    private static func samePresentation(_ old: RouterPresentationFamily<R>?, _ new: RouterPresentationFamily<R>?) -> Bool {
         switch (old, new) {
         case (.none, .none): return true
-        case (.some(let old), .some(let new)):
+        case (.alert(let old), .alert(let new)), (.confirmationDialog(let old), .confirmationDialog(let new)):
+            return old.content == new.content
+        case (.navigation(let old), .navigation(let new)):
             return old.route == new.route && old.style == new.style
                 && old.options == new.options && sameNode(old.node, new.node)
         default: return false

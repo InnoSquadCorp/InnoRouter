@@ -9,14 +9,16 @@ public extension RouterGraphSnapshotCodec {
         routes: RouterGraphRouteCodec<R>,
         resourceBudget: RouterResourceBudget,
         migrations: [RouterGraphSnapshotMigration] = [],
-        legacyAdapter: RouterLegacySnapshotAdapter<R>? = nil
+        legacyAdapter: RouterLegacySnapshotAdapter<R>? = nil,
+        transientPresentations: RouterTransientPresentationPersistencePolicy = .reject
     ) throws {
         try resourceBudget.validateConfiguration()
         try self.init(
             schemaID: schemaID, schemaVersion: schemaVersion, routes: routes,
             limits: resourceBudget.snapshot, migrations: migrations, legacyAdapter: legacyAdapter,
             maximumJSONWorkUnits: resourceBudget.maximumJSONWorkUnits,
-            maximumJSONKeyDecodes: resourceBudget.maximumJSONKeyDecodes
+            maximumJSONKeyDecodes: resourceBudget.maximumJSONKeyDecodes,
+            transientPresentations: transientPresentations
         )
     }
 }
@@ -37,7 +39,8 @@ public extension RouterSnapshotCodec {
     init(
         currentVersion: Int,
         migrations: [RouterSnapshotMigration] = [],
-        resourceBudget: RouterResourceBudget
+        resourceBudget: RouterResourceBudget,
+        transientPresentations: RouterTransientPresentationPersistencePolicy = .reject
     ) throws {
         try resourceBudget.validateConfiguration()
         try self.init(currentVersion: currentVersion, migrations: migrations, limits: .init(
@@ -47,7 +50,7 @@ public extension RouterSnapshotCodec {
             maximumJSONTokens: resourceBudget.snapshot.maximumJSONTokens,
             maximumJSONWorkUnits: resourceBudget.maximumJSONWorkUnits,
             maximumJSONKeyDecodes: resourceBudget.maximumJSONKeyDecodes
-        ))
+        ), transientPresentations: transientPresentations)
         setResourceLimits(resourceBudget.snapshot)
     }
 }

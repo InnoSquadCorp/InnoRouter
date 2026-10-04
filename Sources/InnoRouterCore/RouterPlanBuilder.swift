@@ -38,6 +38,19 @@ public enum RouterPlanStep<R: Route>: Hashable, Sendable {
     ) -> Self {
         .action(RouterAction.present(presentation).inScope(scope))
     }
+
+    public static func presentationFamily(
+        _ family: RouterPresentationFamily<R>,
+        at scope: RouterScopePath = .root
+    ) -> Self {
+        let action: RouterAction<R>
+        switch family {
+        case .navigation(let value): action = .present(value)
+        case .alert(let value): action = .presentAlert(value)
+        case .confirmationDialog(let value): action = .presentConfirmationDialog(value)
+        }
+        return .action(action.inScope(scope))
+    }
 }
 
 /// Result builder for validated, exact-state router transactions.

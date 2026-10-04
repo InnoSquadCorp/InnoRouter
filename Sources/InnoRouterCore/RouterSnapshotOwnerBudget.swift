@@ -13,7 +13,8 @@ package extension RouterGraphSnapshotCodec {
             schemaID: schemaID, schemaVersion: schemaVersion, routes: routes,
             limits: limits, migrations: Array(migrations.values), legacyAdapter: legacyAdapter?.constrained(to: budget),
             maximumJSONWorkUnits: min(jsonWorkLimits.maximumWorkUnits, ownerWork.maximumWorkUnits),
-            maximumJSONKeyDecodes: min(jsonWorkLimits.maximumKeyDecodes, ownerWork.maximumKeyDecodes)
+            maximumJSONKeyDecodes: min(jsonWorkLimits.maximumKeyDecodes, ownerWork.maximumKeyDecodes),
+            transientPresentations: transientPresentations
         )
     }
 }
@@ -36,7 +37,7 @@ package extension RouterSnapshotCodec {
             maximumJSONWorkUnits: min(limits?.maximumJSONWorkUnits ?? ownWork?.maximumWorkUnits ?? .max, ownerWork.maximumWorkUnits),
             maximumJSONKeyDecodes: min(limits?.maximumJSONKeyDecodes ?? ownWork?.maximumKeyDecodes ?? .max, ownerWork.maximumKeyDecodes)
         )
-        var codec = try Self(currentVersion: currentVersion, migrations: Array(migrations.values), limits: bounded)
+        var codec = try Self(currentVersion: currentVersion, migrations: Array(migrations.values), limits: bounded, transientPresentations: transientPresentations)
         codec.setResourceLimits(graph)
         return codec
     }

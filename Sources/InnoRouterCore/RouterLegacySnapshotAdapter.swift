@@ -16,10 +16,15 @@ public struct RouterLegacySnapshotAdapter<R: Route>: Sendable {
         operation = { data, graphLimits, legacyDepth, work in
             let decoded: RouterState<Legacy>
             do { decoded = try codec.boundedForGraphMigration(graphLimits, maximumLegacyJSONDepth: legacyDepth).decodeForGraphMigration(data, work: &work) }
+            catch RouterSnapshotError.transientPresentation(let failure) { throw RouterGraphSnapshotError.transientPresentation(failure) }
             catch { throw RouterGraphSnapshotError.legacySnapshotRejected }
             try RouterGraphJSONPreflight.charge(1, work: &work)
-            do { return try transform(decoded) }
+            let transformed: RouterState<R>
+            do { transformed = try transform(decoded) }
             catch { throw RouterGraphSnapshotError.legacyRouteMappingFailed }
+            do { try transformed.rejectTransientPresentations(.unsupportedRestoration) }
+            catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterGraphSnapshotError.transientPresentation(failure) }
+            return transformed
         }
     }
 

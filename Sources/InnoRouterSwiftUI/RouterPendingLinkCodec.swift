@@ -34,6 +34,7 @@ public enum RouterPendingLinkPersistenceError: Error, Sendable, Hashable {
     case legacyReaderRequired
     case legacyMappingFailed
     case encodingFailed
+    case transientPresentation(RouterTransientPresentationPersistenceFailure)
     case invalidMigration(from: Int, to: Int)
     case duplicateMigration(Int)
     case missingMigration(from: Int, current: Int)
@@ -51,6 +52,7 @@ public enum RouterPendingLinkPersistenceError: Error, Sendable, Hashable {
 public struct RouterPendingLinkCodec<R: Route>: Sendable {
     public static var formatVersion: Int { 1 }
     public let limits: RouterGraphSnapshotLimits
+    public let transientPresentations: RouterTransientPresentationPersistencePolicy
     /// Provisional 24-hour lifetime. Explicit `nil` opts out of age expiry;
     /// malformed timestamps and clock reversal still fail closed.
     public let lifetime: Duration?
@@ -82,6 +84,7 @@ public struct RouterPendingLinkCodec<R: Route>: Sendable {
         let limits = graphCodec.limits
         let workLimits = Self.workLimits(limits, units: maximumJSONWorkUnits, keys: maximumJSONKeyDecodes)
         self.limits = limits
+        self.transientPresentations = graphCodec.transientPresentations
         self.lifetime = lifetime
         let lifetime = self.lifetime
         encodeOperation = { record in
@@ -162,9 +165,11 @@ public struct RouterPendingLinkCodec<R: Route>: Sendable {
         limits: RouterGraphSnapshotLimits = .provisional,
         lifetime: Duration? = .seconds(24 * 60 * 60),
         maximumJSONWorkUnits: Int? = nil,
-        maximumJSONKeyDecodes: Int? = nil
+        maximumJSONKeyDecodes: Int? = nil,
+        transientPresentations: RouterTransientPresentationPersistencePolicy = .reject
     ) where R: Codable {
         self.limits = limits
+        self.transientPresentations = transientPresentations
         self.lifetime = lifetime
         let lifetime = self.lifetime
         let workLimits = Self.workLimits(limits, units: maximumJSONWorkUnits, keys: maximumJSONKeyDecodes)
@@ -178,10 +183,15 @@ public struct RouterPendingLinkCodec<R: Route>: Sendable {
             try configuration.get()
             try Self.validateLifetime(record, now: record.lastObservedAt, lifetime: lifetime)
             try RouterResourceBudget(snapshot: limits).validate(record.link.plan.state, additionalRouteCount: record.link.matchedRoute == nil ? 1 : 2)
+            let projected = try record.link.plan.state.preparingTransientPersistence(transientPresentations)
+            let link = PendingRouterLink(
+                url: record.link.url, gatedRoute: record.link.gatedRoute, plan: RouterPlan(state: projected),
+                matchedRoute: record.link.matchedRoute, requiresRevalidation: record.link.requiresRevalidation
+            )
             var work = RouterJSONWorkBudget(limits: workLimits)
             let data = try Self.json(RouterLegacyPendingLinkEnvelope(
                 schemaVersion: 1, originatedAt: record.originatedAt,
-                lastObservedAt: record.lastObservedAt, link: record.link
+                lastObservedAt: record.lastObservedAt, link: link
             ), work: &work)
             try Self.preflight(data, maximum: limits.maximumEncodedBytes, name: "encodedBytes", limits: limits, work: &work)
             try RouterLegacyPendingLinkReader<R>.validateEncodedShape(data, limits: limits, work: &work)
@@ -194,8 +204,22 @@ public struct RouterPendingLinkCodec<R: Route>: Sendable {
         }
     }
 
-    public func encode(_ record: RouterDurablePendingLink<R>) throws -> Data { try encodeOperation(record) }
-    public func decode(_ data: Data, now: Date = Date()) throws -> RouterDurablePendingLink<R> { try decodeOperation(data, now) }
+    public func encode(_ record: RouterDurablePendingLink<R>) throws -> Data {
+        do { return try encodeOperation(record) }
+        catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterPendingLinkPersistenceError.transientPresentation(failure) }
+        catch let error as RouterGraphSnapshotError {
+            if let failure = error.details.transientPresentation { throw RouterPendingLinkPersistenceError.transientPresentation(failure) }
+            throw error
+        }
+    }
+    public func decode(_ data: Data, now: Date = Date()) throws -> RouterDurablePendingLink<R> {
+        do { return try decodeOperation(data, now) }
+        catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterPendingLinkPersistenceError.transientPresentation(failure) }
+        catch let error as RouterGraphSnapshotError {
+            if let failure = error.details.transientPresentation { throw RouterPendingLinkPersistenceError.transientPresentation(failure) }
+            throw error
+        }
+    }
 
     package func validateLifetime(_ record: RouterDurablePendingLink<R>, now: Date) throws {
         try Self.validateLifetime(record, now: now, lifetime: lifetime)
@@ -264,12 +288,14 @@ public struct RouterPendingLinkCodec<R: Route>: Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         do { return try encoder.encode(value) }
+        catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterPendingLinkPersistenceError.transientPresentation(failure) }
         catch { throw RouterPendingLinkPersistenceError.encodingFailed }
     }
 
     package static func read<Value: Decodable>(_ data: Data, work: inout RouterJSONWorkBudget) throws -> Value {
         try charge(data.count, work: &work)
         do { return try JSONDecoder().decode(Value.self, from: data) }
+        catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterPendingLinkPersistenceError.transientPresentation(failure) }
         catch { throw RouterPendingLinkPersistenceError.invalidEnvelope }
     }
 
