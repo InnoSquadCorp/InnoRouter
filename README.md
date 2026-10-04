@@ -517,10 +517,11 @@ separate explicit export actions.
 
 ## OSS release and SemVer contract
 
-The published 5.x line is source-stable within its major. InnoRouter 6.0.0 is a
+The published 5.x line is source-stable within its major. The 6.0.0 architecture introduced a
 deliberate breaking reset: old independent stores, intents, plans, coordinator
 handoffs, and granular runtime products are no longer externally importable.
-Pre-release tags such as `6.0.0-rc.1` use GitHub's `prerelease=true`; a bare
+The current unreleased 7.0 development cycle retains that architecture.
+Pre-release tags such as `7.0.0-rc.1` use GitHub's `prerelease=true`; a bare
 semantic tag is published only after package, docs, platform, API, and consumer
 gates pass.
 

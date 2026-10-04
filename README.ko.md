@@ -422,8 +422,8 @@ Swift Testing 소스를 만들며, `RouterScenarioRunner`, 실제
 ## OSS 릴리즈 및 SemVer 계약
 
 공개된 5.x line은 같은 major 안에서 source stability를 유지합니다. InnoRouter
-6.0.0은 의도적인 breaking reset입니다. 독립 store·intent·plan·coordinator handoff와
-세분화 product는 외부 import 대상에서 제거됩니다. `6.0.0-rc.1` 같은 prerelease는
+6.0.0 아키텍처는 의도적인 breaking reset으로 도입됐습니다. 독립 store·intent·plan·coordinator handoff와
+세분화 product는 외부 import 대상에서 제거됩니다. 현재 미출시 7.0 개발 주기도 이 구조를 유지합니다. `7.0.0-rc.1` 같은 prerelease는
 GitHub `prerelease=true`로 게시하며, bare SemVer 태그는 package·문서·platform·API·
 consumer 게이트를 모두 통과한 뒤에만 게시합니다.
 
