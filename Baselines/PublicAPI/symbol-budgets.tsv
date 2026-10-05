@@ -1,4 +1,6 @@
 # product<TAB>maximum public symbols
-InnoRouter	1193
-InnoRouterInspector	207
-InnoRouterTesting	252
+# Unreleased 7.0 candidate, extracted with Xcode 27.0 (27A266a).
+# Exact reviewed surface; no allowance for additional symbols.
+InnoRouter	1825
+InnoRouterInspector	236
+InnoRouterTesting	275

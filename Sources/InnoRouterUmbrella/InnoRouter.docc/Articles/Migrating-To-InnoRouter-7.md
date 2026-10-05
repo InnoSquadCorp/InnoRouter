@@ -190,15 +190,20 @@ serialized, hashed, or invoked by the router. A cancel-role button returns its
 declared value. Dismissing without a selected button returns `.dismissed`, while
 caller cancellation or owner replacement returns `.cancelled`.
 
-```swift
-let confirmation = RouterTransientPresentationRequest<Bool>.confirmationDialog(
-    title: "Remove item?",
-    actions: [
-        .init(id: "remove", label: "Remove", role: .destructive, value: true),
-        .init(id: "keep", label: "Keep", role: .cancel, value: false),
-    ]
-)
-let result = await store.present(confirmation)
+```swift compile
+import InnoRouter
+
+@MainActor
+func confirmRemoval<R: Route>(using store: RouterStore<R>) async -> RouterPresentationOutcome<Bool> {
+    let confirmation = RouterTransientPresentationRequest<Bool>.confirmationDialog(
+        title: "Remove item?",
+        actions: [
+            .init(id: "remove", label: "Remove", role: .destructive, value: true),
+            .init(id: "keep", label: "Keep", role: .cancel, value: false),
+        ]
+    )
+    return await store.present(confirmation)
+}
 ```
 
 Reusing a declaration creates a fresh presentation ID and independent waiter.
