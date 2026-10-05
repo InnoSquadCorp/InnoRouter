@@ -140,6 +140,105 @@ final class Router7HostUITests: XCTestCase {
         capture(app, "snapshot-restored-after-process-relaunch")
     }
 
+    func testRejectedNativeSelectionReappearsAndCanBeAccepted() {
+        let app = launch()
+        tap("host.reject-next", app)
+        tap("host.alert", app)
+        tap("Accept alert", app)
+        backgroundLabel("host.policy", "Selections 1 · rejected", app)
+        XCTAssertTrue(app.alerts["Router alert"].waitForExistence(timeout: 5))
+        capture(app, "alert-selection-rejected-and-redisplayed")
+        tap("Accept alert", app)
+        label("host.transient-result", "Alert value true", app)
+        label("host.policy", "Selections 2 · allowed", app)
+    }
+
+    func testDeferredNativeSelectionAllow() { deferredSelection("allow") }
+    func testDeferredNativeSelectionReject() { deferredSelection("reject") }
+    func testDeferredNativeSelectionCancel() { deferredSelection("cancel") }
+
+    func testNativeTransientCapturedCallbackDuplicateStaleAndRemoval() {
+        let app = launch()
+        tap("host.alert", app)
+        signal("capture")
+        backgroundLabel("host.status", "Transient captured", app)
+        tap("Accept alert", app)
+        label("host.transient-result", "Alert value true", app)
+        signal("replay")
+        label("host.status", "Old transient 1: rejected; unchanged true", app)
+        capture(app, "duplicate-transient-callback-rejected")
+        tap("host.alert", app)
+        signal("replay")
+        backgroundLabel("host.status", "Old transient 2: rejected; unchanged true", app)
+        XCTAssertTrue(app.alerts["Router alert"].waitForExistence(timeout: 5))
+        capture(app, "stale-transient-callback-keeps-new-alert")
+        signal("remove")
+        label("host.transient-result", "Alert dismissed", app)
+        label("host.status", "Transient removed: applied", app)
+        XCTAssertFalse(app.alerts["Router alert"].exists)
+        capture(app, "canonical-transient-removal-dismisses-native-alert")
+        tap("host.alert", app)
+        tap("Accept alert", app)
+        label("host.transient-result", "Alert value true", app)
+    }
+
+    func testDialogOutsideDismissAndReentry() {
+        let app = launch()
+        tap("host.dialog", app)
+        XCTAssertTrue(app.buttons["Accept dialog"].waitForExistence(timeout: 5))
+        capture(app, "dialog-before-outside-dismiss")
+        // Derive the outside point from the known owner control's hierarchy.
+        app.buttons["host.tabs"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        capture(app, "dialog-after-outside-dismiss")
+        label("host.transient-result", "Dialog dismissed", app)
+        tap("host.dialog", app)
+        tap("Accept dialog", app)
+        label("host.transient-result", "Dialog value true", app)
+        capture(app, "dialog-dismissed-and-reentered")
+    }
+
+    func testDialogWithoutDeclaredCancelOutsideDismiss() {
+        let app = launch()
+        tap("host.dialog-no-cancel", app)
+        XCTAssertTrue(app.buttons["Accept only"].waitForExistence(timeout: 5))
+        capture(app, "dialog-without-cancel-before-outside-dismiss")
+        app.buttons["host.tabs"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        capture(app, "dialog-without-cancel-after-outside-dismiss")
+        label("host.transient-result", "Dialog no cancel dismissed", app)
+        capture(app, "dialog-without-cancel-dismissed")
+    }
+
+    private func deferredSelection(_ resolution: String) {
+        let app = launch()
+        tap("host.defer-next", app)
+        tap("host.alert", app)
+        tap("Accept alert", app)
+        backgroundLabel("host.policy", "Selections 1 · deferred", app)
+        XCTAssertTrue(app.alerts["Router alert"].waitForExistence(timeout: 5))
+        capture(app, "alert-selection-deferred-\(resolution)")
+        signal(resolution)
+        if resolution == "allow" {
+            label("host.transient-result", "Alert value true", app)
+            label("host.status", "Deferred allow: applied", app)
+        } else {
+            backgroundLabel("host.status", "Deferred \(resolution): rejected", app)
+            XCTAssertTrue(app.alerts["Router alert"].waitForExistence(timeout: 5))
+            tap("Accept alert", app)
+            label("host.transient-result", "Alert value true", app)
+        }
+        capture(app, "alert-deferred-\(resolution)-resolved")
+    }
+
+    private func signal(_ value: String) {
+        let name = CFNotificationName("com.innosquad.router7.ui.resolve.\(value)" as CFString)
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(), name, nil, nil, true)
+    }
+
+    private func backgroundLabel(_ identifier: String, _ expected: String, _ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let element = app.staticTexts.matching(identifier: identifier).matching(NSPredicate(format: "label == %@", expected)).firstMatch
+        XCTAssertTrue(element.waitForExistence(timeout: 8), "Expected observed \(identifier): \(expected)", file: file, line: line)
+    }
+
     private func launch() -> XCUIApplication {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .landscapeLeft
@@ -175,7 +274,9 @@ final class Router7HostUITests: XCTestCase {
         let predicate = NSPredicate { _, _ in
             MainActor.assumeIsolated { candidates.allElementsBoundByIndex.contains { $0.isHittable } }
         }
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: nil)], timeout: 8), .completed, "Expected visible \(identifier): \(expected)", file: file, line: line)
+        let result = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: nil)], timeout: 8)
+        if result != .completed { capture(app, "unexpected-\(identifier)") }
+        XCTAssertEqual(result, .completed, "Expected visible \(identifier): \(expected)", file: file, line: line)
     }
 
     private func capture(_ app: XCUIApplication, _ name: String) {

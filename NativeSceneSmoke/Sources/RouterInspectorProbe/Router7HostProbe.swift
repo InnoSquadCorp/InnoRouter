@@ -23,10 +23,68 @@ enum HostProbeRoute: Codable {
 }
 
 @MainActor @Observable
+final class HostProbeSelectionPolicy {
+    var next = "allow"
+    var count = 0
+    var result = "idle"
+    var pending: RouterDeferralID?
+
+    func makePolicy() -> RouterPolicy<HostProbeRoute> {
+        .init(name: "native-ui-selection") { [weak self] transition in
+            guard let self, Self.isSelection(transition.action) else { return .allow }
+            count += 1
+            let choice = next
+            next = "allow"
+            switch choice {
+            case "reject":
+                result = "rejected"
+                return .reject("Native UI probe rejected this selection")
+            case "defer":
+                let id = RouterDeferralID()
+                pending = id
+                result = "deferred"
+                return .deferRequest(id)
+            default:
+                result = "allowed"
+                return .allow
+            }
+        }
+    }
+
+    private static func isSelection(_ action: RouterAction<HostProbeRoute>) -> Bool {
+        switch action {
+        case .selectPresentationAction: true
+        case .scoped(_, let child), .presentationScoped(_, let child),
+             .windowScoped(_, let child), .immersiveSpaceScoped(_, let child): isSelection(child)
+        default: false
+        }
+    }
+}
+
+// Test-only signals let XCUITest resolve a pending policy while a real native
+// alert covers the app. The signal carries no navigation state or result value.
+@MainActor
+private enum HostProbeSignalBridge {
+    static var model: HostProbeModel?
+    static func install(_ model: HostProbeModel) {
+        self.model = model
+        for choice in ["allow", "reject", "cancel", "capture", "replay", "remove"] {
+            let name = "com.innosquad.router7.ui.resolve.\(choice)"
+            CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), nil, { _, _, name, _, _ in
+                guard let name else { return }
+                let choice = (name.rawValue as String).split(separator: ".").last.map(String.init) ?? ""
+                Task { @MainActor in await HostProbeSignalBridge.model?.receiveSignal(choice) }
+            }, name as CFString, nil, .deliverImmediately)
+        }
+    }
+}
+
+@MainActor @Observable
 final class HostProbeModel {
     let store: RouterStore<HostProbeRoute>
     let catalog: RouterTabCatalog<HostProbeRoute>
     let codec: RouterSnapshotCodec<HostProbeRoute>
+    let selectionPolicy: HostProbeSelectionPolicy
     var mode = "tabs"
     var status = "Ready"
     var outerResult = "Outer idle"
@@ -35,11 +93,16 @@ final class HostProbeModel {
     @ObservationIgnored var savedActions: RouterActions<HostProbeRoute>?
     @ObservationIgnored var savedModalActions: RouterActions<HostProbeRoute>?
     @ObservationIgnored var outerTask: Task<Void, Never>?
+    @ObservationIgnored var capturedTransient: RouterPresentationHandle?
+    @ObservationIgnored var transientReplayCount = 0
 
     init() throws {
         catalog = try RouterTabCatalog(HostProbeRoute.routerTabs)
         codec = try RouterSnapshotCodec(currentVersion: 1)
-        store = try HostProbeRoute.makeRouterStore(initialState: Self.tabsState(), configuration: .init(hostDescriptor: catalog.hostDescriptor()))
+        let policy = HostProbeSelectionPolicy()
+        selectionPolicy = policy
+        store = try HostProbeRoute.makeRouterStore(initialState: Self.tabsState(), configuration: .init(hostDescriptor: catalog.hostDescriptor(), policies: [policy.makePolicy()]))
+        HostProbeSignalBridge.install(self)
     }
 
     static func tabsState() throws -> RouterState<HostProbeRoute> {
@@ -110,6 +173,38 @@ final class HostProbeModel {
         report("Old callback: \(Self.describe(outcome)); unchanged \(before == store.state && revision == store.revision)")
     }
 
+    func resolveSelection(_ choice: String) async {
+        guard let id = selectionPolicy.pending else { report("ERROR no pending selection"); return }
+        selectionPolicy.pending = nil
+        let outcome: RouterOutcome<HostProbeRoute>
+        switch choice {
+        case "allow": outcome = await store.resolveDeferred(id, with: .allow)
+        case "reject": outcome = await store.resolveDeferred(id, with: .reject("Native UI probe kept alert"))
+        default: outcome = await store.cancelDeferred(id)
+        }
+        report("Deferred \(choice): \(Self.describe(outcome))")
+    }
+
+    func receiveSignal(_ choice: String) async {
+        switch choice {
+        case "capture":
+            capturedTransient = store.presentationHandle(at: .root.appending("home"))
+            report(capturedTransient == nil ? "ERROR no transient" : "Transient captured")
+        case "replay":
+            guard let capturedTransient else { report("ERROR no captured transient"); return }
+            let before = store.state
+            let revision = store.revision
+            let outcome = await store.selectPresentationAction("accept", using: capturedTransient)
+            transientReplayCount += 1
+            report("Old transient \(transientReplayCount): \(Self.describe(outcome)); unchanged \(before == store.state && revision == store.revision)")
+        case "remove":
+            guard let handle = store.presentationHandle(at: .root.appending("home")) else { report("ERROR no current transient"); return }
+            let outcome = await store.dismissPresentation(using: handle)
+            report("Transient removed: \(Self.describe(outcome))")
+        default: await resolveSelection(choice)
+        }
+    }
+
     func report(_ value: String) { status = value; print("ROUTER7_UI \(value) revision=\(store.revision)") }
 
     static func describe(_ outcome: RouterOutcome<HostProbeRoute>) -> String {
@@ -168,6 +263,11 @@ private struct HostProbeOwnerControls: View {
                 Button("Old scope") { Task { await model.replayOldScope() } }.accessibilityIdentifier("host.old-scope")
             }
             .buttonStyle(.bordered)
+            HStack {
+                Button("Reject next selection") { model.selectionPolicy.next = "reject" }.accessibilityIdentifier("host.reject-next")
+                Button("Defer next selection") { model.selectionPolicy.next = "defer" }.accessibilityIdentifier("host.defer-next")
+                Text("Selections \(model.selectionPolicy.count) · \(model.selectionPolicy.result)").accessibilityIdentifier("host.policy")
+            }
             Text(model.status).accessibilityIdentifier("host.status")
             Text(model.outerResult).accessibilityIdentifier("host.outer-result")
         }
@@ -258,6 +358,13 @@ private struct HostProbeTransientControls: View {
                     model.transientResult = "Dialog \(HostProbeModel.describe(await router.present(.confirmationDialog(title: "Router dialog", actions: [.init(id: "accept", label: "Accept dialog", value: true), .init(id: "cancel", label: "Cancel dialog", role: .cancel, value: false)]))))"
                 }
             }.accessibilityIdentifier("\(scopeID).dialog")
+            if scopeID == "host" {
+                Button("Dialog without cancel") {
+                    Task {
+                        model.transientResult = "Dialog no cancel \(HostProbeModel.describe(await router.present(.confirmationDialog(title: "Router dialog without cancel", actions: [.init(id: "accept", label: "Accept only", value: true)]))))"
+                    }
+                }.accessibilityIdentifier("host.dialog-no-cancel")
+            }
             Text(model.transientResult).accessibilityIdentifier("\(scopeID).transient-result")
         }
     }
