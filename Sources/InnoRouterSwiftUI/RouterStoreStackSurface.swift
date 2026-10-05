@@ -27,6 +27,13 @@ struct RouterStoreStackSurface<R: Route, Destination: View, Root: View>: View {
                 root()
                     .navigationDestination(for: R.self, destination: destination)
             }
+#if canImport(UIKit) && !os(watchOS)
+            .background(RouterUIKitTransientPresenter(presentation: .init(owner: scope)))
+#elseif os(macOS)
+            .background(RouterAppKitTransientPresenter(presentation: .init(owner: scope)))
+#elseif os(watchOS)
+            .background(RouterWatchTransientPresenter(presentation: .init(owner: scope)))
+#endif
         }
     }
 
