@@ -310,6 +310,7 @@ struct QueuedRouterRequest<R: Route> {
     let context: RouterTransitionContext
     let presentationCompletionOwner: RouterPresentationCompletionOwner
     let semantics: RouterRequestSemantics<R>
+    let replayLimitationCode: String?
     let authorization: RouterRequestAuthorization<R>?
     let lifetimeMutation: RouterScopeLifetimeMutation
     let hostReplacement: RouterHostReplacement<R>?
@@ -331,6 +332,7 @@ struct DeferredRouterRequest<R: Route> {
     let context: RouterTransitionContext
     let presentationCompletionOwner: RouterPresentationCompletionOwner
     let semantics: RouterRequestSemantics<R>
+    let replayLimitationCode: String?
     let authorization: RouterRequestAuthorization<R>?
     let lifetimeMutation: RouterScopeLifetimeMutation
     let hostReplacement: RouterHostReplacement<R>?

@@ -31,12 +31,15 @@ extension RouterStore {
             return reject(transitionID, reason: rejection, context: context)
         }
         let presentationCompletionOwner = presentationResumeAuthority?.owner ?? .transition(transitionID)
+        // Resumes carry the original admission classification. Internal host,
+        // lifetime, and authorization fences must not reclassify a portable
+        // request, while original runtime limitations must never be erased.
         let replayLimitation = replayLimitationCode(
-            action: action,
-            semantics: requestSemantics, authorization: authorization,
+            action: action, semantics: requestSemantics, authorization: authorization,
             lifetimeMutation: lifetimeMutation,
             hasPrecondition: executionPrecondition != nil,
-            hasPreparation: executionPreparation != nil || deferredResumePreparation != nil
+            hasPreparation: executionPreparation != nil || deferredResumePreparation != nil,
+            resumeAuthority: presentationResumeAuthority
         )
         let executionPrecondition = requestExecutionPrecondition(
             action: action, authorization: authorization, existing: executionPrecondition,
@@ -91,6 +94,7 @@ extension RouterStore {
                                     context: context,
                                     presentationCompletionOwner: presentationCompletionOwner,
                                     semantics: requestSemantics,
+                                    replayLimitationCode: replayLimitation,
                                     authorization: authorization,
                                     lifetimeMutation: lifetimeMutation,
                                     hostReplacement: hostReplacement,
@@ -109,10 +113,8 @@ extension RouterStore {
                 }
             }
 
-            activeTransitionID = transitionID
-            activeRequestRootID = requestRootID
-            activeRequestKey = context.requestKey
-            activeSystemRepairIdentity = systemRepairIdentity
+            beginExecution(transitionID, rootID: requestRootID,
+                           requestKey: context.requestKey, systemRepairIdentity: systemRepairIdentity)
             return await execute(
                 action,
                 context: context,
@@ -122,6 +124,7 @@ extension RouterStore {
                 transitionID: transitionID,
                 requestRootID: requestRootID,
                 requestSemantics: requestSemantics,
+                replayLimitationCode: replayLimitation,
                 authorization: authorization,
                 lifetimeMutation: lifetimeMutation,
                 hostReplacement: hostReplacement,

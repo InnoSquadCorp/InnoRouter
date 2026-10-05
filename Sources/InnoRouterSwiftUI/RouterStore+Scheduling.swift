@@ -6,6 +6,15 @@ import InnoRouterCore
 
 @MainActor
 extension RouterStore {
+    /// Publishes the same active-lane ownership for immediate and queued requests.
+    func beginExecution(_ id: RouterTransitionID, rootID: RouterTransitionID,
+                        requestKey: RouterRequestKey?, systemRepairIdentity: RouterSystemRepairIdentity?) {
+        activeTransitionID = id
+        activeRequestRootID = rootID
+        activeRequestKey = requestKey
+        activeSystemRepairIdentity = systemRepairIdentity
+    }
+
     func cancelRequest(_ id: RouterTransitionID) {
         if activeTransitionID == id {
             if cancelledRequestIDs.insert(id).inserted {
@@ -213,10 +222,8 @@ extension RouterStore {
                 )
                 continue
             }
-            activeTransitionID = request.id
-            activeRequestRootID = request.rootID
-            activeRequestKey = request.context.requestKey
-            activeSystemRepairIdentity = request.systemRepairIdentity
+            beginExecution(request.id, rootID: request.rootID,
+                           requestKey: request.context.requestKey, systemRepairIdentity: request.systemRepairIdentity)
             let task = Task { @MainActor [weak self] in
                 guard let self else { return }
                 let outcome = await self.execute(
@@ -228,6 +235,7 @@ extension RouterStore {
                     transitionID: request.id,
                     requestRootID: request.rootID,
                     requestSemantics: request.semantics,
+                    replayLimitationCode: request.replayLimitationCode,
                     authorization: request.authorization,
                     lifetimeMutation: request.lifetimeMutation,
                     hostReplacement: request.hostReplacement,

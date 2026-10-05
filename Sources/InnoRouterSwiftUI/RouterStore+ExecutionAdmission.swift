@@ -14,7 +14,8 @@ extension RouterStore {
         authorization requestAuthorization: RouterRequestAuthorization<R>?,
         lifetimeMutation: RouterScopeLifetimeMutation,
         hasPrecondition: Bool,
-        hasPreparation: Bool
+        hasPreparation: Bool,
+        resumeAuthority: RouterPresentationResumeAuthority? = nil
     ) -> String? {
         if hostDescriptor != nil { return "runtime.hostContract" }
         if hasPresentationResultAuthority(in: action) { return "presentation.runtimeResultAuthority" }
@@ -22,9 +23,10 @@ extension RouterStore {
         if authorization != nil || requestAuthorization != nil { return "runtime.authorization" }
         switch semantics {
         case .action, .featureAction, .featurePlan:
+            if let resumeAuthority { return resumeAuthority.replayLimitationCode }
             return hasPrecondition || hasPreparation ? "runtime.executionPrecondition" : nil
         case .historyNavigation:
-            return nil
+            return resumeAuthority?.replayLimitationCode
         }
     }
 

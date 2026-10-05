@@ -49,6 +49,39 @@ struct RouterScenarioReplayLimitationTests {
         try await assertUnsupported(complete(recorder.stop()), code: .runtimeExecutionPrecondition)
     }
 
+    @Test("Repeated deferrals preserve original replay classification without exposing internal fences",
+          arguments: [false, true], [RouterDeferralResumeStrategy.requireUnchangedState, .rebaseOnCurrentState])
+    func deferredClassification(scoped: Bool, strategy: RouterDeferralResumeStrategy) async throws {
+        let first = RouterDeferralID(), second = RouterDeferralID()
+        let configuration = RouterStoreConfiguration<LimitationRoute>(policies: [
+            .init(name: "first") { _ in .deferRequest(first) },
+            .init(name: "second") { _ in .deferRequest(second) },
+        ])
+        let source = try RouterStore<LimitationRoute>(configuration: configuration)
+        let recorder = RouterScenarioRecorder(store: source)
+        let initial = scoped ? await source.scope().perform(.push(.detail)) : await source.perform(.push(.detail))
+        guard case .deferred = initial else { Issue.record("Expected first deferral"); return }
+        guard case .deferred = await recorder.resolveDeferred(first, with: .allow, resumeStrategy: strategy) else {
+            Issue.record("Expected second deferral"); return
+        }
+        guard case .applied = await recorder.resolveDeferred(second, with: .allow, resumeStrategy: strategy) else {
+            Issue.record("Expected final application"); return
+        }
+        #expect(await recorder.waitUntilCaptured(3))
+        let fixture = try complete(recorder.stop())
+        #expect(fixture.steps.count == 3)
+        #expect(fixture.steps.allSatisfy { $0.replayLimitation == (scoped ? .runtimeExecutionPrecondition : nil) })
+        if scoped {
+            try await assertUnsupported(fixture, code: .runtimeExecutionPrecondition)
+        } else {
+            let target = try RouterTestStore<LimitationRoute>(configuration: configuration, exhaustivity: .off)
+            _ = try await RouterScenarioRunner.replay(fixture, on: target)
+            #expect(target.state == source.state)
+            #expect(target.revision == source.revision)
+            await target.finish()
+        }
+    }
+
     @Test("Configured runtime authorization is explicit in replay limitations")
     func authorizationFailsClosed() async throws {
         let source = try RouterStore<LimitationRoute>(configuration: .init(

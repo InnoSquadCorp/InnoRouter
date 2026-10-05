@@ -77,7 +77,7 @@ public extension RouterStore {
                 executionPrecondition: request.executionPrecondition,
                 executionPreparation: executionPreparation,
                 deferredResumePreparation: request.resumePreparation,
-                presentationResumeAuthority: .init(id: id, store: ObjectIdentifier(self), owner: request.presentationCompletionOwner)
+                presentationResumeAuthority: .init(id: id, store: ObjectIdentifier(self), owner: request.presentationCompletionOwner, replayLimitationCode: request.replayLimitationCode)
             )
             if let presentationID {
                 unregisterPresentationRequest(presentationID, transitionID: transitionID)
@@ -106,7 +106,8 @@ public extension RouterStore {
                 id: transitionID,
                 action: request.action,
                 context: context,
-                semantics: request.semantics
+                semantics: request.semantics,
+                replayLimitationCode: request.replayLimitationCode
             )
             return reject(
                 transitionID,
@@ -165,7 +166,8 @@ extension RouterStore {
             id: transitionID,
             action: request.action,
             context: context,
-            semantics: request.semantics
+            semantics: request.semantics,
+                replayLimitationCode: request.replayLimitationCode
         )
         return reject(
             transitionID,
@@ -285,10 +287,12 @@ package struct RouterPresentationResumeAuthority: Sendable {
     let id: RouterDeferralID
     let store: ObjectIdentifier
     let owner: RouterPresentationCompletionOwner
+    let replayLimitationCode: String?
 
-    fileprivate init(id: RouterDeferralID, store: ObjectIdentifier, owner: RouterPresentationCompletionOwner) {
+    fileprivate init(id: RouterDeferralID, store: ObjectIdentifier, owner: RouterPresentationCompletionOwner, replayLimitationCode: String?) {
         self.id = id
         self.store = store
         self.owner = owner
+        self.replayLimitationCode = replayLimitationCode
     }
 }
