@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import signal
 import subprocess
+import sys
 import uuid
 
 
@@ -73,8 +74,15 @@ def main():
             ["xcrun", "simctl", "spawn", device, "log", "stream", "--style", "ndjson",
              "--predicate", predicate], stdout=subprocess.PIPE, stderr=stderr, text=True,
         ) as stream:
+            stop_requested = False
+
             def stop(_signum, _frame):
-                stream.terminate()
+                nonlocal stop_requested
+                # A late cleanup signal must not conceal an earlier stream failure.
+                if stream.poll() is None:
+                    stop_requested = True
+                    stream.terminate()
+
             signal.signal(signal.SIGTERM, stop)
             signal.signal(signal.SIGINT, stop)
             seen = set()
@@ -83,8 +91,13 @@ def main():
             return_code = stream.wait()
     (args.output / "observer.json").write_text(json.dumps({
         "device": device, "observed_app_pids": sorted(seen), "stream_exit_code": return_code,
+        "stream_stop_requested": stop_requested,
         "note": "No trigger is not proof of a responsive app; UI test results remain authoritative.",
     }, indent=2) + "\n")
+    if return_code != 0 and not stop_requested:
+        print(f"::warning::simctl log stream exited with {return_code}; "
+              "Inspector hang diagnostics may be incomplete. See log-stream-stderr.log.",
+              file=sys.stderr)
 
 
 if __name__ == "__main__":
