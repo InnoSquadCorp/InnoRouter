@@ -20,6 +20,8 @@ final class VisionProbeModel {
     var didRun = false
     var completedOpenings = 0
     var completedDismissals = 0
+    @ObservationIgnored private var nativeCloseInFlight = false
+    @ObservationIgnored private var lifecycleTrace: [String] = []
     @ObservationIgnored lazy var store = makeStore()
 
     private func makeStore() -> RouterStore<VisionProbeRoute> {
@@ -29,6 +31,7 @@ final class VisionProbeModel {
             )), policies: [
                 RouterPolicy(name: "confirm-native-close") { [weak self] transition in
                     if case .dismissImmersiveSpace = transition.action, let self, let id = self.requestedDeferral {
+                        self.trace("policy.defer")
                         self.policyEntries += 1
                         return .deferRequest(id)
                     }
@@ -41,8 +44,27 @@ final class VisionProbeModel {
     }
 
     func log(_ value: String) {
+        trace(value)
         status = value
         FileHandle.standardOutput.write(Data((value + "\n").utf8))
+    }
+
+    // Probe-only observation: no output or suspension in native callbacks.
+    // Canonical state at each callback distinguishes a late appearance from a
+    // queued repair that removes an already observed space. Wall time permits
+    // correlation with the Simulator's system log when native open fails.
+    func trace(_ event: String) {
+        guard lifecycleTrace.count < 256 else { return }
+        lifecycleTrace.append(
+            "TRACE \(lifecycleTrace.count) time=\(Date().timeIntervalSince1970) "
+                + "revision=\(store.revision) canonical=\(store.state.immersiveSpace != nil) "
+                + "presented=\(isPresented) appearances=\(appeared) "
+                + "closeInFlight=\(nativeCloseInFlight) event=\(event)"
+        )
+    }
+
+    private func flushTrace() {
+        FileHandle.standardOutput.write(Data((lifecycleTrace.joined(separator: "\n") + "\n").utf8))
     }
 
     func until(_ label: String, _ condition: () -> Bool) async throws {
@@ -82,8 +104,11 @@ final class VisionProbeModel {
                 requestedDeferral = deferralID
                 let previousEntries = policyEntries
                 let previousAppearances = appeared
+                nativeCloseInFlight = true
                 log("NATIVE_CLOSE " + resolution)
                 await closeNative()
+                nativeCloseInFlight = false
+                trace("native.close.return")
                 try await until("native closure enters policy") { policyEntries > previousEntries }
                 try await until("canonical immersive space reopens") { isPresented && appeared > previousAppearances }
                 guard store.state.immersiveSpace?.id == "theater" else {
@@ -118,9 +143,11 @@ final class VisionProbeModel {
                 log("PASS " + resolution)
             }
             log("PASS native visionOS " + resolutions.joined(separator: "/"))
+            flushTrace()
             exit(0)
         } catch {
             log("FAIL " + String(describing: error))
+            flushTrace()
             exit(1)
         }
     }
@@ -150,11 +177,20 @@ struct VisionProbeApp: App {
                 if case .openedImmersiveSpace = event { model.completedOpenings += 1 }
                 if case .dismissedImmersiveSpace = event { model.completedDismissals += 1 }
             }) { VisionProbeController(model: model) }
+                .onAppear { model.trace("driver.boundary.appear") }
+                .onDisappear { model.trace("driver.boundary.disappear") }
         }
         ImmersiveSpace(id: "theater") {
             RouterImmersiveSpaceHost(id: "theater", store: model.store)
-                .onAppear { model.appeared += 1; model.isPresented = true }
-                .onDisappear { model.isPresented = false }
+                .onAppear {
+                    model.appeared += 1
+                    model.isPresented = true
+                    model.trace("native.appear")
+                }
+                .onDisappear {
+                    model.isPresented = false
+                    model.trace("native.disappear")
+                }
         }
     }
 }
