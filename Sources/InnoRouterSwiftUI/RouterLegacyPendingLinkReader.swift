@@ -42,7 +42,7 @@ public struct RouterLegacyPendingLinkReader<R: Route>: Sendable {
             catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterPendingLinkPersistenceError.transientPresentation(failure) }
             return .init(link: .init(
                 url: transformed.url, gatedRoute: transformed.gatedRoute, plan: transformed.plan,
-                matchedRoute: transformed.matchedRoute, requiresRevalidation: true
+                matchedRoute: transformed.matchedRoute, isRevalidationRequired: true
             ), originatedAt: origin, lastObservedAt: now)
         }
     }

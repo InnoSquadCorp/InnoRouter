@@ -150,10 +150,10 @@ relationship | memberOf | EventBufferingPolicy.unbounded | EventBufferingPolicy 
 relationship | memberOf | InnoRouterVersion.current | InnoRouterVersion |  |
 relationship | memberOf | PendingRouterLink.gatedRoute | PendingRouterLink |  |
 relationship | memberOf | PendingRouterLink.init(from:) | PendingRouterLink |  |
-relationship | memberOf | PendingRouterLink.init(url:gatedRoute:plan:matchedRoute:requiresRevalidation:) | PendingRouterLink |  |
+relationship | memberOf | PendingRouterLink.init(url:gatedRoute:plan:matchedRoute:isRevalidationRequired:) | PendingRouterLink |  |
+relationship | memberOf | PendingRouterLink.isRevalidationRequired | PendingRouterLink |  |
 relationship | memberOf | PendingRouterLink.matchedRoute | PendingRouterLink |  |
 relationship | memberOf | PendingRouterLink.plan | PendingRouterLink |  |
-relationship | memberOf | PendingRouterLink.requiresRevalidation | PendingRouterLink |  |
 relationship | memberOf | PendingRouterLink.resume(on:using:source:) | PendingRouterLink |  |
 relationship | memberOf | PendingRouterLink.url | PendingRouterLink |  |
 relationship | memberOf | RouterAction.apply(_:) | RouterAction |  |
@@ -2086,7 +2086,7 @@ symbol | swift.init | DeepLinkURLParameter.init(name:value:) | init(name:value:)
 symbol | swift.init | EnvironmentRouter.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
 symbol | swift.init | EnvironmentRouterState.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
 symbol | swift.init | PendingRouterLink.init(from:) | init(from:) | init(from decoder: any Decoder) throws | []
-symbol | swift.init | PendingRouterLink.init(url:gatedRoute:plan:matchedRoute:requiresRevalidation:) | init(url:gatedRoute:plan:matchedRoute:requiresRevalidation:) | init(url: URL, gatedRoute: R, plan: RouterPlan<R>, matchedRoute: R? = nil, requiresRevalidation: Bool = false) | []
+symbol | swift.init | PendingRouterLink.init(url:gatedRoute:plan:matchedRoute:isRevalidationRequired:) | init(url:gatedRoute:plan:matchedRoute:isRevalidationRequired:) | init(url: URL, gatedRoute: R, plan: RouterPlan<R>, matchedRoute: R? = nil, isRevalidationRequired: Bool = false) | []
 symbol | swift.init | RouterAuthorizationCatalog.init(roots:) | init(roots:) | init(roots: [RouterAuthorizationRootDescriptor : R] = [:]) | []
 symbol | swift.init | RouterAuthorizationConfiguration.init(generation:requiresAuthorization:authorize:catalog:) | init(generation:requiresAuthorization:authorize:catalog:) | init(generation: (@MainActor () -> UInt64)? = nil, requiresAuthorization: @escaping (R) -> Bool, authorize: @escaping @MainActor () async -> Bool, catalog: @escaping @MainActor () -> RouterAuthorizationCatalog<R> = { .init() }) | []
 symbol | swift.init | RouterAuthorizationFailure.Code.init(rawValue:) | init(rawValue:) | init(rawValue: String) | []
@@ -2539,9 +2539,9 @@ symbol | swift.property | EnvironmentRouter.wrappedValue | wrappedValue | @MainA
 symbol | swift.property | EnvironmentRouterState.wrappedValue | wrappedValue | @MainActor var wrappedValue: RouterStateReader<R> { get } | []
 symbol | swift.property | EnvironmentValues.innoRouterEnvironmentMissingPolicy | innoRouterEnvironmentMissingPolicy | var innoRouterEnvironmentMissingPolicy: EnvironmentMissingPolicy { get set } | []
 symbol | swift.property | PendingRouterLink.gatedRoute | gatedRoute | let gatedRoute: R | []
+symbol | swift.property | PendingRouterLink.isRevalidationRequired | isRevalidationRequired | let isRevalidationRequired: Bool | []
 symbol | swift.property | PendingRouterLink.matchedRoute | matchedRoute | let matchedRoute: R? | []
 symbol | swift.property | PendingRouterLink.plan | plan | let plan: RouterPlan<R> | []
-symbol | swift.property | PendingRouterLink.requiresRevalidation | requiresRevalidation | let requiresRevalidation: Bool | []
 symbol | swift.property | PendingRouterLink.url | url | let url: URL | []
 symbol | swift.property | RouterAuthorizationFailure.Code.rawValue | rawValue | let rawValue: String | []
 symbol | swift.property | RouterAuthorizationFailure.code | code | let code: RouterAuthorizationFailure.Code | []

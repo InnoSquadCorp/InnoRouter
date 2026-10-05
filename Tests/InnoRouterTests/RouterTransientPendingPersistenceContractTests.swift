@@ -107,7 +107,7 @@ struct RouterTransientPendingPersistenceContractTests {
             #expect(restored.link.plan.state == expected)
             #expect(restored.link.gatedRoute == original.link.gatedRoute)
             #expect(restored.link.matchedRoute == original.link.matchedRoute)
-            #expect(restored.link.requiresRevalidation)
+            #expect(restored.link.isRevalidationRequired)
         }
         #expect(original.link.plan.state != expected)
         let limits = try RouterGraphSnapshotLimits(maximumPayloadBytes: 32)

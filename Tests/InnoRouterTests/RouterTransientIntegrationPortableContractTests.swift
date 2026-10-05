@@ -50,7 +50,7 @@ struct RouterTransientIntegrationPortableContractTests {
         let pending = PendingRouterLink(
             url: URL(string: "https://example.com/item")!, gatedRoute: R.home,
             plan: .init(state: try state(original, in: domain)), matchedRoute: .home,
-            requiresRevalidation: true
+            isRevalidationRequired: true
         )
         func matches(_ family: RouterPresentationFamily<R>?) throws -> Bool {
             pending.matchesIntent(of: .init(plan: .init(state: try state(family, in: domain)), matchedRoute: .home))

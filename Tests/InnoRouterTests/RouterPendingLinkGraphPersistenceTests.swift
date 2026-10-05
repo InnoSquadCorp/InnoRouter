@@ -111,7 +111,7 @@ struct RouterPendingLinkGraphPersistenceTests {
             storage: RouterFilePendingLinkStorage(fileURL: url), codec: codec, now: { clock.date })
         _ = try await restored.restore()
         #expect(slot.pending?.gatedRoute == .detail("42"))
-        #expect(slot.pending?.requiresRevalidation == true)
+        #expect(slot.pending?.isRevalidationRequired == true)
         let store = RouterStore<Destination>()
         guard case .completed(_, .rejected(_, _, _, .authorization(let failure))) = await slot.resume(on: store) else {
             Issue.record("Restored intent must not resume without fresh URL and authorization admission"); return
@@ -464,7 +464,7 @@ struct RouterPendingLinkGraphPersistenceTests {
         #expect(migrated.link.gatedRoute == .detail("42"))
         #expect(migrated.link.matchedRoute == .detail("42"))
         #expect(migrated.link.plan == link().plan)
-        #expect(migrated.link.requiresRevalidation)
+        #expect(migrated.link.isRevalidationRequired)
         #expect(migrated.originatedAt == origin)
     }
 

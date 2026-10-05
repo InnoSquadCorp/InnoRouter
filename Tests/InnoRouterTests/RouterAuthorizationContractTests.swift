@@ -255,7 +255,7 @@ struct RouterAuthorizationContractTests {
         #expect(!text.contains("generation"))
         #expect(!text.contains("authorize"))
         let restored = try JSONDecoder().decode(PendingRouterLink<R>.self, from: encoded)
-        #expect(restored.requiresRevalidation)
+        #expect(restored.isRevalidationRequired)
         guard case .completed(_, let unsafe) = await restored.resume(on: store) else {
             Issue.record("Missing current pipeline must reject")
             return
@@ -493,7 +493,7 @@ struct RouterAuthorizationContractTests {
     func pendingSurfaceAndInstanceIdentity() async throws {
         let oldWindow = RouterPlan<R>(state: try .init(windows: [.init(route: .account)]))
         let newWindow = RouterPlan<R>(state: try .init(windows: [.init(route: .account)]))
-        let pending = PendingRouterLink(url: url, gatedRoute: .account, plan: oldWindow, matchedRoute: .account, requiresRevalidation: true)
+        let pending = PendingRouterLink(url: url, gatedRoute: .account, plan: oldWindow, matchedRoute: .account, isRevalidationRequired: true)
         #expect(pending.matchesIntent(of: .init(plan: newWindow, matchedRoute: .account)))
         let movedToStack = RouterPlan<R>(state: .rootStack(path: [.account]))
         #expect(!pending.matchesIntent(of: .init(plan: movedToStack, matchedRoute: .account)))
@@ -503,7 +503,7 @@ struct RouterAuthorizationContractTests {
         let newPresentation = RouterPlan<R>(state: try .init(root: .stack(.init(
             presentation: .init(route: .account, style: .sheet)
         ))))
-        let modal = PendingRouterLink(url: url, gatedRoute: .account, plan: oldPresentation, matchedRoute: .account, requiresRevalidation: true)
+        let modal = PendingRouterLink(url: url, gatedRoute: .account, plan: oldPresentation, matchedRoute: .account, isRevalidationRequired: true)
         #expect(modal.matchesIntent(of: .init(plan: newPresentation, matchedRoute: .account)))
         #expect(!modal.matchesIntent(of: .init(plan: newWindow, matchedRoute: .account)))
     }

@@ -47,19 +47,22 @@ public struct PendingRouterLink<R: Route>: Sendable, Equatable {
     /// Original matched intent, even when a planner removes it from the state.
     public let matchedRoute: R?
     /// Persisted links and authenticated admission require fresh URL admission.
-    public let requiresRevalidation: Bool
+    public let isRevalidationRequired: Bool
 
-    public init(url: URL, gatedRoute: R, plan: RouterPlan<R>, matchedRoute: R? = nil, requiresRevalidation: Bool = false) {
+    public init(url: URL, gatedRoute: R, plan: RouterPlan<R>, matchedRoute: R? = nil, isRevalidationRequired: Bool = false) {
         self.url = url
         self.gatedRoute = gatedRoute
         self.plan = plan
         self.matchedRoute = matchedRoute
-        self.requiresRevalidation = requiresRevalidation
+        self.isRevalidationRequired = isRevalidationRequired
     }
 }
 
 extension PendingRouterLink: Codable where R: Codable {
-    private enum CodingKeys: String, CodingKey { case url, gatedRoute, plan, matchedRoute, requiresRevalidation }
+    private enum CodingKeys: String, CodingKey {
+        case url, gatedRoute, plan, matchedRoute
+        case isRevalidationRequired = "requiresRevalidation"
+    }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -68,7 +71,7 @@ extension PendingRouterLink: Codable where R: Codable {
         plan = try container.decode(RouterPlan<R>.self, forKey: .plan)
         matchedRoute = try container.decodeIfPresent(R.self, forKey: .matchedRoute)
         // Stored input is intent, never proof of prior admission or authority.
-        requiresRevalidation = true
+        isRevalidationRequired = true
     }
 }
 
@@ -244,7 +247,7 @@ public struct RouterLinkPipeline<R: Route>: Sendable {
         guard authorized else {
             return .pending(PendingRouterLink(
                 url: url, gatedRoute: gated, plan: request.plan,
-                matchedRoute: request.matchedRoute, requiresRevalidation: true
+                matchedRoute: request.matchedRoute, isRevalidationRequired: true
             ))
         }
         return .plan(request.plan)

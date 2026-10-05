@@ -70,7 +70,7 @@ public enum RouterScenarioSourceGenerator {
             let fixture = try RouterScenarioFixture<\(routeTypeName)>.decode(
                 from: Data(contentsOf: fixtureURL)
             )
-            let store = \(storeFactory)(fixture.initialState)
+            let store = try \(storeFactory)(fixture.initialState)
             let environment = \(environmentFactory)()
             \(featureResolversDeclaration(factory: featureResolversFactory))
             do {
@@ -126,7 +126,7 @@ public enum RouterScenarioSourceGenerator {
         func \(testName)() async throws {
             let data = try #require(Data(base64Encoded: "\(encoded)"))
             let fixture = try RouterScenarioFixture<\(routeTypeName)>.decode(from: data)
-            let store = \(storeFactory)(fixture.initialState)
+            let store = try \(storeFactory)(fixture.initialState)
             \(featureResolversDeclaration(factory: featureResolversFactory))
             do {
                 _ = try await RouterScenarioRunner.replay(

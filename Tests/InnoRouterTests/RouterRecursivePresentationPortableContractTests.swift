@@ -295,7 +295,7 @@ struct RouterRecursivePresentationPortableContractTests {
                     )
                 )
                 #expect(await pipeline.decide(for: url) == .pending(.init(
-                    url: url, gatedRoute: protectedRoute, plan: plan, requiresRevalidation: true
+                    url: url, gatedRoute: protectedRoute, plan: plan, isRevalidationRequired: true
                 )))
             }
         }

@@ -153,7 +153,7 @@ public struct RouterPendingLinkCodec<R: Route>: Sendable {
             let matched = try payload.matchedRoute.map { try graphCodec.routes.decode($0) }
             return .init(link: .init(
                 url: payload.url, gatedRoute: gated, plan: .init(state: state),
-                matchedRoute: matched, requiresRevalidation: true
+                matchedRoute: matched, isRevalidationRequired: true
             ), originatedAt: envelope.originatedAt, lastObservedAt: max(now, envelope.lastObservedAt))
         }
     }
@@ -186,7 +186,7 @@ public struct RouterPendingLinkCodec<R: Route>: Sendable {
             let projected = try record.link.plan.state.preparingTransientPersistence(transientPresentations)
             let link = PendingRouterLink(
                 url: record.link.url, gatedRoute: record.link.gatedRoute, plan: RouterPlan(state: projected),
-                matchedRoute: record.link.matchedRoute, requiresRevalidation: record.link.requiresRevalidation
+                matchedRoute: record.link.matchedRoute, isRevalidationRequired: record.link.isRevalidationRequired
             )
             var work = RouterJSONWorkBudget(limits: workLimits)
             let data = try Self.json(RouterLegacyPendingLinkEnvelope(

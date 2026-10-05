@@ -40,7 +40,7 @@ struct RouterLinkTargetPreservationTests {
         )
         let url = try #require(URL(string: "router://app/account"))
         #expect(await pipeline.decide(for: url) == .pending(
-            PendingRouterLink(url: url, gatedRoute: .account, plan: target, matchedRoute: .account, requiresRevalidation: true)
+            PendingRouterLink(url: url, gatedRoute: .account, plan: target, matchedRoute: .account, isRevalidationRequired: true)
         ))
     }
 
@@ -160,7 +160,7 @@ struct RouterLinkTargetPreservationTests {
         #expect(request.matchedRoute == .account)
         #expect(request.plan == target)
         #expect(await pipeline.authenticatedDecision(for: url, request: request) == .pending(
-            PendingRouterLink(url: url, gatedRoute: .account, plan: target, matchedRoute: .account, requiresRevalidation: true)
+            PendingRouterLink(url: url, gatedRoute: .account, plan: target, matchedRoute: .account, isRevalidationRequired: true)
         ))
         #expect(matches.withLock { $0 } == 1)
     }

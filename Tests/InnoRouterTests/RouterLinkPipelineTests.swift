@@ -613,7 +613,7 @@ struct RouterLinkPipelineTests {
         )
         let durableLink = PendingRouterLink(
             url: link.url, gatedRoute: link.gatedRoute, plan: link.plan,
-            matchedRoute: link.matchedRoute, requiresRevalidation: true
+            matchedRoute: link.matchedRoute, isRevalidationRequired: true
         )
         #expect(try await restoredDriver.restore() == .restored(.stored(durableLink)))
         #expect(restoredSlot.pending == durableLink)
@@ -837,7 +837,7 @@ struct RouterLinkPipelineTests {
         storage.unblock()
         let durableNewer = PendingRouterLink(
             url: newer.url, gatedRoute: newer.gatedRoute, plan: newer.plan,
-            matchedRoute: newer.matchedRoute, requiresRevalidation: true
+            matchedRoute: newer.matchedRoute, isRevalidationRequired: true
         )
         #expect(try await verificationDriver.restore() == .restored(.stored(durableNewer)))
         #expect(verificationSlot.pending == durableNewer)

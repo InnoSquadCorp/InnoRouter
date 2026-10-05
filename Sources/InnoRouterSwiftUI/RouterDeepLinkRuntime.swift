@@ -365,7 +365,7 @@ public extension RouterStore {
         case .rejected(let reason): return .rejected(url: url, reason: reason)
         case .unhandled: return .unhandled(url: url)
         case .matched(let request):
-            if expectedPending?.requiresRevalidation == true,
+            if expectedPending?.isRevalidationRequired == true,
                authorization == nil, pipeline.authorizationConfiguration == nil {
                 return .rejected(url: url, reason: .authorization(.init(code: .revalidationRequired)))
             }
@@ -391,7 +391,7 @@ public extension RouterStore {
                let gated = authorization.deniedRoute {
                 return .pending(.init(
                     url: url, gatedRoute: gated, plan: request.plan,
-                    matchedRoute: request.matchedRoute, requiresRevalidation: true
+                    matchedRoute: request.matchedRoute, isRevalidationRequired: true
                 ))
             }
             return .completed(plan: request.plan, outcome: outcome)
@@ -418,7 +418,7 @@ public extension RouterStore {
         if let pipeline {
             return await handle(pending.url, using: pipeline, source: source, transitionID: transitionID, executionPrecondition: executionPrecondition, expectedPending: pending)
         }
-        guard !pending.requiresRevalidation && authorization == nil else {
+        guard !pending.isRevalidationRequired && authorization == nil else {
             let outcome = reject(
                 transitionID, reason: .authorization(.init(code: .revalidationRequired)),
                 context: .init(source: source), action: .apply(pending.plan)
@@ -534,7 +534,7 @@ func submitRouterPlanLink<R: Route>(
                    let gated = authorization?.deniedRoute {
                     handling?.onEvent(.pending(.init(
                         url: url, gatedRoute: gated, plan: request.plan,
-                        matchedRoute: request.matchedRoute, requiresRevalidation: true
+                        matchedRoute: request.matchedRoute, isRevalidationRequired: true
                     )))
                 } else {
                     handling?.onEvent(.completed(plan: request.plan, outcome: outcome))
