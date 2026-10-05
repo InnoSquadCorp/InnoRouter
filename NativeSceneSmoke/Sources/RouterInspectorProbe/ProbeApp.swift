@@ -34,7 +34,12 @@ final class InspectorProbeModel {
             if holdsExecution { try? await Task.sleep(for: .seconds(300)) }
             return .allow
         }
-        return RouterStore(configuration: .init(policies: [policy]))
+        do {
+            return try RouterStore(configuration: .init(policies: [policy]))
+        } catch {
+            // The UI fixture's fixed policy configuration must be valid.
+            preconditionFailure("Invalid Inspector probe configuration: \(error)")
+        }
     }
 
     func start() {
@@ -148,7 +153,11 @@ private struct InspectorProbeControls: View {
 struct InspectorProbeApp: App {
     @State private var model = InspectorProbeModel()
     var body: some Scene {
-        WindowGroup("Router Inspector Probe") { InspectorProbeRoot(model: model) }
+        WindowGroup("Router Inspector Probe") {
+            if ProcessInfo.processInfo.arguments.contains("--router7-host-probe") {
+                Router7HostProbe()
+            } else { InspectorProbeRoot(model: model) }
+        }
             #if os(macOS)
             .restorationBehavior(.disabled)
             #endif

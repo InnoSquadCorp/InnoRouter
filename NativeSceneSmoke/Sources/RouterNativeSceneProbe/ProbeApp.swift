@@ -18,16 +18,24 @@ final class ProbeModel {
     var policyEntries = 0
     var didRun = false
     var appeared: [UUID: Int] = [:]
-    @ObservationIgnored lazy var store = RouterStore<ProbeRoute>(configuration: .init(policies: [
-        RouterPolicy(name: "confirm-native-close") { [weak self] transition in
-            if case .dismissWindow = transition.action, let self, let id = self.requestedDeferral {
-                self.policyEntries += 1
-                self.log("POLICY native close " + String(self.policyEntries))
-                return .deferRequest(id)
-            }
-            return .allow
+    @ObservationIgnored lazy var store = makeStore()
+
+    private func makeStore() -> RouterStore<ProbeRoute> {
+        do {
+            return try ProbeRoute.makeRouterStore(configuration: .init(hostDescriptor: .init(root: .stack, windows: .stack), policies: [
+                RouterPolicy(name: "confirm-native-close") { [weak self] transition in
+                    if case .dismissWindow = transition.action, let self, let id = self.requestedDeferral {
+                        self.policyEntries += 1
+                        self.log("POLICY native close " + String(self.policyEntries))
+                        return .deferRequest(id)
+                    }
+                    return .allow
+                }
+            ]))
+        } catch {
+            preconditionFailure("Invalid native scene probe configuration: \(error)")
         }
-    ]))
+    }
 
     func log(_ value: String) {
         status = value

@@ -37,7 +37,7 @@
         A00000000000000000000041 = { isa = PBXNativeTarget; buildConfigurationList = A00000000000000000000047; buildPhases = (A00000000000000000000044, A00000000000000000000045, A00000000000000000000046); buildRules = (); dependencies = (); name = RouterInspectorProbe; packageProductDependencies = (A00000000000000000000021, A0000000000000000000004C, A0000000000000000000004D); productName = RouterInspectorProbe; productReference = A00000000000000000000043; productType = "com.apple.product-type.application"; };
         A00000000000000000000042 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/RouterInspectorProbe/ProbeApp.swift; sourceTree = "<group>"; };
         A00000000000000000000043 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RouterInspectorProbe.app; sourceTree = BUILT_PRODUCTS_DIR; };
-        A00000000000000000000044 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000004A); runOnlyForDeploymentPostprocessing = 0; };
+        A00000000000000000000044 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000004A, B70000000000000000000002); runOnlyForDeploymentPostprocessing = 0; };
         A00000000000000000000045 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000004B, A0000000000000000000004E, A0000000000000000000004F); runOnlyForDeploymentPostprocessing = 0; };
         A00000000000000000000046 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
         A00000000000000000000047 = { isa = XCConfigurationList; buildConfigurations = (A00000000000000000000048, A00000000000000000000049); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
@@ -52,7 +52,7 @@
         A00000000000000000000051 = { isa = PBXNativeTarget; buildConfigurationList = A00000000000000000000057; buildPhases = (A00000000000000000000054, A00000000000000000000055); buildRules = (); dependencies = (A0000000000000000000005C); name = RouterInspectorUITests; productName = RouterInspectorUITests; productReference = A00000000000000000000053; productType = "com.apple.product-type.bundle.ui-testing"; };
         A00000000000000000000052 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorUITests/InspectorUITests.swift; sourceTree = SOURCE_ROOT; };
         A00000000000000000000053 = { isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RouterInspectorUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-        A00000000000000000000054 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000005A); runOnlyForDeploymentPostprocessing = 0; };
+        A00000000000000000000054 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A0000000000000000000005A, B70000000000000000000004); runOnlyForDeploymentPostprocessing = 0; };
         A00000000000000000000055 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
         A00000000000000000000057 = { isa = XCConfigurationList; buildConfigurations = (A00000000000000000000058, A00000000000000000000059); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
         A00000000000000000000058 = { isa = XCBuildConfiguration; buildSettings = { PRODUCT_NAME = "$(TARGET_NAME)"; PRODUCT_BUNDLE_IDENTIFIER = com.innosquad.router.inspector-uitests; SDKROOT = iphoneos; SUPPORTED_PLATFORMS = iphonesimulator; IPHONEOS_DEPLOYMENT_TARGET = 18.0; TARGETED_DEVICE_FAMILY = "1,2"; GENERATE_INFOPLIST_FILE = YES; TEST_TARGET_NAME = RouterInspectorProbe; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks"; }; name = Debug; };
@@ -91,6 +91,10 @@
         A00000000000000000000094 = { isa = PBXBuildFile; fileRef = A00000000000000000000084; };
         A00000000000000000000085 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ../Tests/InnoRouterPlatformTests/WatchOSCrownNavigationTests.swift; sourceTree = SOURCE_ROOT; };
         A00000000000000000000095 = { isa = PBXBuildFile; fileRef = A00000000000000000000085; };
+        B70000000000000000000001 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/RouterInspectorProbe/Router7HostProbe.swift; sourceTree = SOURCE_ROOT; };
+        B70000000000000000000002 = { isa = PBXBuildFile; fileRef = B70000000000000000000001; };
+        B70000000000000000000003 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InspectorUITests/Router7HostUITests.swift; sourceTree = SOURCE_ROOT; };
+        B70000000000000000000004 = { isa = PBXBuildFile; fileRef = B70000000000000000000003; };
     };
     rootObject = A00000000000000000000001;
 }
