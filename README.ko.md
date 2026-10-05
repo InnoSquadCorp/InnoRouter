@@ -12,13 +12,16 @@ InnoRouter 7은 하나의 `@Router` enum을 하나의 navigation 모델로 연�
 - `RouterStore<Route>`: reduce, policy prepare, atomic commit의 단일 권한
 - `RouterHost`, `RouterTabHost`, `RouterSplitHost`: native SwiftUI container
 
-> **7.0.0 개발 중:** PR54의 유효 변경을 다음 major 릴리스로 직접 이어갑니다.
+> **7.0.0 출시 준비 중:** PR54의 유효 변경을 다음 major 릴리스로 직접 이어갑니다.
 > 별도 6.1.1 릴리스는 만들지 않으며 이 checkout은 미출시 상태입니다.
-> native/platform·전체 package·실제 앱 수용 검증은 아직 남아 있습니다.
+> [Apple·native 검증](Docs/7.0.0-xcode27-validation.ko.md)은 검토한 후보 SHA에
+> 기록했습니다. 정확한 main의 출시 후보 검증, 최소 OS·실기기 검증과
+> 실제 적용 앱 수용은 별도 조건으로 남아 있습니다.
 > 검증 범위는 [7.0 체크리스트](Docs/7.0.0-release-checklist.md)를 확인하세요.
 
 [English](README.md) · [6.0 전략](Docs/v6-functional-strategy.md) ·
-[5.x 마이그레이션](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
+[6.x→7 마이그레이션](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md) ·
+[5.x→6 마이그레이션](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
 
 ## 요구 사항
 

@@ -1,6 +1,21 @@
-# Migrating initialization to InnoRouter 7
+# Migrating to InnoRouter 7
 
-Handle external initial state and resource configuration at a throwing setup boundary.
+Move 6.x consumers to validated state construction, explicit host declarations,
+and lifetime-bound presentation results. Handle external initial state and
+resource configuration at a throwing setup boundary.
+
+## Build validated state from editable input
+
+`RouterState` is externally read-only in 7.0. Copy a state into
+`RouterStateDraft(existingState)` and edit the draft's root, windows, or immersive
+space. Call `try draft.build(resourceBudget:)` with the intended budget to produce
+a complete validated state, then construct a `RouterPlan(state:)` for the owning
+Store. `build()` without arguments uses finite provisional limits.
+
+Editing a draft leaves the original state unchanged. Building validates structure
+and resources; it does not authorize execution or bypass the Store's configured
+host contract. Use the explicit host-replacement path described below when a plan
+changes topology or root meaning.
 
 ## Keep the empty convenience
 
