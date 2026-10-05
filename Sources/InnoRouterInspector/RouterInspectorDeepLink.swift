@@ -229,6 +229,7 @@ public struct RouterInspectorDeepLinkView<R: DeepLinkRoute>: View {
                 .disabled(input.isEmpty || executionTask != nil)
                 if executionTask != nil {
                     Button(role: .cancel) {
+                        RouterInspectorExecutionTrace.shared.record("cancel.action")
                         executionTask?.cancel()
                     } label: {
                         Label(routerInspectorLocalized("Cancel", locale: locale), systemImage: "xmark")
@@ -243,7 +244,11 @@ public struct RouterInspectorDeepLinkView<R: DeepLinkRoute>: View {
                     .padding(8)
             }
         }
+        .onAppear {
+            RouterInspectorExecutionTrace.shared.record("view.appear")
+        }
         .onDisappear {
+            RouterInspectorExecutionTrace.shared.record("view.disappear")
             executionTask?.cancel()
             executionTask = nil
         }
@@ -283,23 +288,40 @@ public struct RouterInspectorDeepLinkView<R: DeepLinkRoute>: View {
     }
 
     private func execute() {
-        guard let store, let url = URL(string: input) else { return }
+        let trace = RouterInspectorExecutionTrace.shared
+        let run = trace.begin()
+        guard let store, let url = URL(string: input) else {
+            trace.record("execute.invalid-input", run: run)
+            return
+        }
         executionStatus = nil
         executionTask = Task { @MainActor in
-            defer { executionTask = nil }
+            trace.record("task.enter", run: run)
+            defer {
+                executionTask = nil
+                trace.record("task.exit", run: run, status: executionStatus)
+            }
             guard !Task.isCancelled else {
+                trace.record("task.cancelled-before-submit", run: run)
                 executionStatus = .cancelled
                 return
             }
             guard let outcome = await RouterInspectorDeepLinkAnalyzer.execute(
                 url,
                 on: store,
-                action: action
+                action: { route in
+                    let request = action(route)
+                    trace.record("store.submit", run: run)
+                    return request
+                }
             ) else {
+                trace.record("route.unresolved", run: run)
                 executionStatus = Task.isCancelled ? .cancelled : .unresolved
                 return
             }
+            trace.record("store.return", run: run)
             guard !Task.isCancelled else {
+                trace.record("task.cancelled-after-submit", run: run)
                 executionStatus = .cancelled
                 return
             }
@@ -311,5 +333,6 @@ public struct RouterInspectorDeepLinkView<R: DeepLinkRoute>: View {
             case .rejected: .rejected
             }
         }
+        trace.record("task.created", run: run)
     }
 }

@@ -26,12 +26,28 @@ final class InspectorProbeModel {
     @ObservationIgnored var subscription: RouterInspectorSubscription?
     @ObservationIgnored lazy var store = makeStore()
     @ObservationIgnored lazy var scenario = RouterInspectorScenarioController.routerScenario(store: store)
+    @ObservationIgnored private var traceCount = 0
+
+    func trace(_ event: StaticString, displayedCounters: String? = nil) {
+        #if DEBUG
+        guard ProcessInfo.processInfo.environment["INNOROUTER_INSPECTOR_TRACE"] == "1",
+              traceCount < 256 else { return }
+        traceCount += 1
+        let message = traceCount == 256 ? "event=trace.limit" :
+            "event=\(event) policy=\(policyEntries) revision=\(store.revision) "
+                + "display=\(displayedCounters ?? "-") cancelled=\(Task.isCancelled)"
+        let line = "INSPECTOR_PROBE pid=\(ProcessInfo.processInfo.processIdentifier) seq=\(traceCount) \(message)\n"
+        FileHandle.standardError.write(Data(line.utf8))
+        #endif
+    }
 
     private func makeStore() -> RouterStore<InspectorProbeRoute> {
         let policy = RouterPolicy<InspectorProbeRoute>(name: "probe-policy") { [weak self] _ in
             guard let self else { return .allow }
             policyEntries += 1
+            trace("policy.enter")
             if holdsExecution { try? await Task.sleep(for: .seconds(300)) }
+            trace("policy.return")
             return .allow
         }
         do {
@@ -45,6 +61,7 @@ final class InspectorProbeModel {
     func start() {
         guard subscription == nil else { return }
         subscription = recorder.attach(to: store)
+        trace("probe.started")
     }
 
     func checkRedaction() {
@@ -131,13 +148,23 @@ private struct InspectorProbeControls: View {
     @Bindable var model: InspectorProbeModel
 
     var body: some View {
+        let counters = "Revision \(model.store.revision) · Policy \(model.policyEntries)"
         VStack(alignment: .leading, spacing: 8) {
-            Text("Revision \(model.store.revision) · Policy \(model.policyEntries)")
+            Text(counters)
                 .accessibilityIdentifier("probe.revision-policy")
+                .onChange(of: counters, initial: true) { _, value in
+                    model.trace("counters.view-value", displayedCounters: value)
+                }
             HStack {
-                Button("Hold execution") { model.holdsExecution = true }
+                Button("Hold execution") {
+                    model.holdsExecution = true
+                    model.trace("hold.action")
+                }
                     .accessibilityIdentifier("probe.execution.hold")
-                Button("Resume execution") { model.holdsExecution = false }
+                Button("Resume execution") {
+                    model.holdsExecution = false
+                    model.trace("resume.action")
+                }
                     .accessibilityIdentifier("probe.execution.resume")
                 Text(model.holdsExecution ? "Execution held" : "Execution ready")
                     .accessibilityIdentifier("probe.execution.state")
