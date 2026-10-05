@@ -17,6 +17,14 @@ Native vision-cancel K1 remains unresolved; portable validation does not close i
 
 ### Fixed
 
+- Native stack and recursive child hosts now render typed alerts and
+  confirmation dialogs through UIKit, AppKit, and WatchKit adapters. Captured
+  lifetime handles fence stale callbacks; rejection/deferral re-presents a fresh
+  attempt, explicit cancel returns its declared value, and iPad outside dismissal
+  remains distinct. See the Xcode 27 validation report for executed coverage.
+- Generated scenario tests call throwing Store factories correctly. The new
+  pending-link flag is named `isRevalidationRequired`; its existing transport key
+  remains `requiresRevalidation`.
 - Deferred visionOS immersive-space closure restores through the surviving
   scene driver, avoiding open requests from the disappearing scene's invalid
   SwiftUI context. Driver replacement and stale-open compensation preserve
