@@ -156,7 +156,10 @@ feature payload에는 부모 route의 `Self`를 사용할 수 있습니다. 연�
 
 ```swift skip app-lifecycle-fragment
 let store = try AppRoute.makeRouterStore(
-    configuration: .init(hostDescriptor: .init(root: .stack))
+    configuration: .init(hostDescriptor: .init(
+        root: .stack,
+        rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+    ))
 )
 let driver = RouterRestorationDriver(
     store: store,
@@ -227,7 +230,7 @@ snapshot에 있는 scope는 path·presentation·badge를 그대로 유지합니�
 현재 scope 뒤에 orphan으로 보존해 이후 catalog가 다시 도달할 수 있게 합니다. 이런
 store는 `RouterTabHost(store:catalog:orphanPolicy: .preserveDormant)`로 렌더링하고,
 Store의 `configuration.hostDescriptor`에도
-`RouterHostDescriptor(root: catalog.hostShape(orphanPolicy: .preserveDormant))`를
+`catalog.hostDescriptor(orphanPolicy: .preserveDormant)`를
 설정해야 합니다. Store와 renderer의 선언은 같아야 합니다. topology에 없는 selection은 첫 번째 scope로 대체됩니다. 같은 parameter가
 `restorePartially`에도 있으며, 이 경로에서는 보정이 검증보다 먼저 실행되어 앱이 실제로
 적용될 후보를 그대로 검증합니다. `RouterRestorationDriver.init`에도 있으며 topology는
@@ -276,7 +279,22 @@ content까지 포함한 세 개의 독립 history를 유지합니다. visibility
 선호도는 `RouterSplitState`에 들어가며 같은 system-origin pipeline으로 동기화됩니다.
 사용자 정의 column ID는 throwing `RouterTwoColumnSplitLayout` 또는
 `RouterThreeColumnSplitLayout`으로 구성하므로, 중복·빈 값·존재하지 않는 column
-topology는 host를 만들기 전에 거절됩니다.
+topology는 host를 만들기 전에 거절됩니다. 임의의 column closure에는 안정적인
+`sidebarDeclarationID`, `detailDeclarationID`를 지정하고, 3열이면
+`contentDeclarationID`도 지정합니다. 외부 Store의 descriptor는
+`layout.hostRootDeclarations(for:...)`에 같은 ID를 전달합니다. 라벨·번역·스타일
+변경만으로 의미 ID를 바꾸지 않습니다.
+
+외부 tab Store는 `catalog.hostDescriptor()`로 구성합니다. 이 선언은 shape와
+각 scope의 root Route 값을 함께 고정합니다. 같은 tab ID에 다른 root Route를
+연결하려면 Store 소유자가 `replaceHost(with:descriptor:context:)`로 전체 상태와
+선언을 원자적으로 교체한 뒤 일치하는 renderer를 만들어야 합니다. shape만 있는
+선언으로는 native tab catalog를 렌더링할 수 없습니다.
+
+기본 `RouterHost`와 bridge의 외부 Store descriptor는 root에
+`.declarationID("router.root")`를 선언합니다. 앱에서 다른 의미 ID를 사용한다면
+host 또는 bridge의 `rootDeclarationID`에도 같은 값을 전달합니다. 기존
+nonthrowing API는 유지되며 불일치는 `validationFailure`와 복구 UI로 알립니다.
 
 ## 명시적인 플랫폼 adaptation
 

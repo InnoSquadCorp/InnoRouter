@@ -154,6 +154,8 @@ for old in tests.glob('*.swift'):
     old.unlink()
 selected_tests = [
     'RouterStoreHostContractTests.swift',
+    'RouterSceneHostAdmissionTests.swift',
+    'RouterNavigationPresentationCaptureTests.swift',
     'RouterHostAdmissionOrderTests.swift',
     'RouterPolicyOperationBudgetTests.swift',
     'RouterRestorationOperationBudgetContractTests.swift',

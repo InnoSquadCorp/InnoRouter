@@ -34,6 +34,8 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
     @State private var ownedStore: RouterStore<R>
     private let suppliedStore: RouterStore<R>?
     private let root: () -> Root
+    private let rootDeclarations: [RouterHostRootDeclaration<R>]
+    private let presentations: RouterPresentationViewCatalog<R>
     private let linkHandling: RouterLinkHandling<R>?
 
     /// Creates a safe empty root-stack host with default resource limits.
@@ -44,6 +46,8 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
     ) {
         _ = routeType
         self.root = root
+        self.rootDeclarations = [.init(meaning: .declarationID("router.root"))]
+        self.presentations = .stack
         self.linkHandling = linkHandling
         self.suppliedStore = nil
         self._ownedStore = State(initialValue: RouterStore<R>.makeDefaultHostedStack())
@@ -53,22 +57,29 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
     ///
     /// `initialPath` and `configuration` are captured when SwiftUI creates this
     /// host's state for the first time. Later input changes do not replace the
-    /// existing store.
+    /// existing store. Changing the opaque root's meaning requires a new
+    /// `rootDeclarationID` and the owner's atomic `replaceHost` operation.
     public init(
         _ routeType: R.Type,
         initialPath: [R],
         configuration: RouterStoreConfiguration<R> = .init(),
+        rootDeclarationID: String = "router.root",
+        presentations: RouterPresentationViewCatalog<R> = .stack,
         linkHandling: RouterLinkHandling<R>? = nil,
         @ViewBuilder root: @escaping () -> Root
     ) throws {
         _ = routeType
+        let rootDeclarations: [RouterHostRootDeclaration<R>] = [.init(meaning: .declarationID(rootDeclarationID))]
         var configuration = configuration
         if configuration.hostDescriptor == nil {
-            configuration.hostDescriptor = RouterHostDescriptor(root: .stack)
+            configuration.hostDescriptor = RouterHostDescriptor(root: .stack, rootDeclarations: rootDeclarations)
         }
         let store = try RouterStore(initialPath: initialPath, configuration: configuration)
-        try store.validateHostRenderer(shape: .stack, at: .root)
+        try store.validateHostRenderer(shape: .stack, at: .root, rootDeclarations: rootDeclarations)
+        try presentations.validate(for: store)
         self.root = root
+        self.rootDeclarations = rootDeclarations
+        self.presentations = presentations
         self.linkHandling = linkHandling
         self.suppliedStore = nil
         self._ownedStore = State(initialValue: store)
@@ -77,11 +88,14 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
     public init(
         _ routeType: R.Type,
         configuration: RouterStoreConfiguration<R>,
+        rootDeclarationID: String = "router.root",
+        presentations: RouterPresentationViewCatalog<R> = .stack,
         linkHandling: RouterLinkHandling<R>? = nil,
         @ViewBuilder root: @escaping () -> Root
     ) throws {
         try self.init(
             routeType, initialPath: [], configuration: configuration,
+            rootDeclarationID: rootDeclarationID, presentations: presentations,
             linkHandling: linkHandling, root: root
         )
     }
@@ -93,10 +107,14 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
     /// visible recovery UI. Supply a configured Store to render its state.
     public init(
         store: RouterStore<R>,
+        rootDeclarationID: String = "router.root",
+        presentations: RouterPresentationViewCatalog<R> = .stack,
         linkHandling: RouterLinkHandling<R>? = nil,
         @ViewBuilder root: @escaping () -> Root
     ) {
         self.root = root
+        self.rootDeclarations = [.init(meaning: .declarationID(rootDeclarationID))]
+        self.presentations = presentations
         self.linkHandling = linkHandling
         self.suppliedStore = store
         self._ownedStore = State(initialValue: store)
@@ -106,7 +124,8 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
     /// Reading this value never installs a contract or changes navigation state.
     public var validationFailure: RouterHostValidationFailure? {
         do {
-            try store.validateHostRenderer(shape: .stack, at: .root)
+            try store.validateHostRenderer(shape: .stack, at: .root, rootDeclarations: rootDeclarations)
+            try presentations.validate(for: store)
             return nil
         } catch {
             return error
@@ -114,7 +133,7 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
     }
 
     public var body: some View {
-        RouterValidatedHostSurface(store: store, shape: .stack, path: .root) { scope in
+        RouterValidatedHostSurface(store: store, shape: .stack, rootDeclarations: rootDeclarations, presentations: presentations, path: .root) { scope in
             RouterStoreStackSurface(
                 scope: scope,
                 destination: R.destination(for:),

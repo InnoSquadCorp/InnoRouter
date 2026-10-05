@@ -77,7 +77,7 @@ private final class TabSelectionRaceFixture {
                 break
             }
         })
-        configuration.hostDescriptor = .init(root: try RouterTabCatalog(TabSelectionRaceRoute.routerTabs).hostShape())
+        configuration.hostDescriptor = try RouterTabCatalog(TabSelectionRaceRoute.routerTabs).hostDescriptor()
         configuration.runtimeDependencies.didQueueRequest = { id in
             didQueue.yield(id)
         }

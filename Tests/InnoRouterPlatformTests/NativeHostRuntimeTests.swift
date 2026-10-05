@@ -47,9 +47,26 @@ private enum NativeHostRoute: DestinationRoute, RouterTabRoute {
 @Suite("Native host runtime", .tags(.unit))
 @MainActor
 struct NativeHostRuntimeTests {
+    @Test("Nonthrowing stack hosts report a root declaration mismatch without mutation")
+    func opaqueStackRootMeaning() throws {
+        let store = try RouterStore<NativeHostRoute>(configuration: .init(hostDescriptor: .init(
+            root: .stack, rootDeclarations: [.init(meaning: .declarationID("app.home"))]
+        )))
+        let matching = RouterHost(store: store, rootDeclarationID: "app.home") { Text("Home") }
+        let localized = RouterHost(store: store, rootDeclarationID: "app.home") { Text("홈") }
+        let changed = RouterHost(store: store, rootDeclarationID: "app.other") { Text("Other feature") }
+        #expect(matching.validationFailure == nil)
+        #expect(localized.validationFailure == nil)
+        #expect(changed.validationFailure?.code == .rendererMismatch)
+        #expect(store.state == .rootStack)
+        #expect(store.revision == 0)
+    }
+
     @Test("Stack, tab, and presentation hosts evaluate on the running platform")
     func nativeHostBodies() async throws {
-        let stackStore = try RouterStore<NativeHostRoute>(configuration: .init(hostDescriptor: .init(root: .stack)))
+        let stackStore = try RouterStore<NativeHostRoute>(configuration: .init(hostDescriptor: .init(
+            root: .stack, rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+        )))
         let stackHost = RouterHost(store: stackStore) {
             Text(verbatim: "Root")
         }
@@ -79,7 +96,9 @@ struct NativeHostRuntimeTests {
 #if canImport(UIKit) && !os(watchOS)
     @Test("UIHostingController mounts the canonical stack host")
     func uiKitStackMount() async throws {
-        let store = try RouterStore<NativeHostRoute>(configuration: .init(hostDescriptor: .init(root: .stack)))
+        let store = try RouterStore<NativeHostRoute>(configuration: .init(hostDescriptor: .init(
+            root: .stack, rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+        )))
         let controller = UIHostingController(
             rootView: RouterHost(store: store) {
                 Text(verbatim: "Root")
@@ -105,7 +124,7 @@ struct NativeHostRuntimeTests {
         )
         let store = try RouterStore(
             initialState: try RouterState(root: .container(container)),
-            configuration: .init(hostDescriptor: .init(root: catalog.hostShape()))
+            configuration: .init(hostDescriptor: catalog.hostDescriptor())
         )
         let controller = UIHostingController(
             rootView: try RouterTabHost(store: store, catalog: catalog)

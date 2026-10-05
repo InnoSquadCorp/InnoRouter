@@ -29,7 +29,9 @@ struct RouterStoreHostContractTests {
     @Test("The default native stack convenience has an admitted fixed descriptor")
     func safeDefaultHost() throws {
         let store = RouterStore<R>.makeDefaultHostedStack()
-        try store.validateHostRenderer(shape: .stack, at: .root)
+        try store.validateHostRenderer(shape: .stack, at: .root, rootDeclarations: [
+            .init(path: [], meaning: .declarationID("router.root")),
+        ])
         #expect(store.state == .rootStack)
         #expect(store.revision == 0)
     }

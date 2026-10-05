@@ -222,9 +222,7 @@ struct RouterTabRestorationSafetyTests {
         #expect(store.state == initial)
         #expect(store.revision == 0)
         let catalog = try RouterTabCatalog(R.routerTabs)
-        let configuration = RouterStoreConfiguration<R>(hostDescriptor: .init(
-            root: catalog.hostShape(orphanPolicy: .preserveDormant)
-        ))
+        let configuration = RouterStoreConfiguration<R>(hostDescriptor: catalog.hostDescriptor(orphanPolicy: .preserveDormant))
         expectSafetyHostFailure(.kindMismatch, scope: ["settings"]) {
             _ = try RouterStore(initialState: snapshot, configuration: configuration)
         }
@@ -239,9 +237,7 @@ struct RouterTabRestorationSafetyTests {
             .init(id: "home"), .init(id: "settings"), .init(id: "legacy", node: .container(nested)),
         ], selection: "legacy")
         let catalog = try RouterTabCatalog(R.routerTabs)
-        let configuration = RouterStoreConfiguration<R>(hostDescriptor: .init(
-            root: catalog.hostShape(orphanPolicy: .preserveDormant)
-        ))
+        let configuration = RouterStoreConfiguration<R>(hostDescriptor: catalog.hostDescriptor(orphanPolicy: .preserveDormant))
         expectSafetyHostFailure(.selectionNotRendered) {
             _ = try RouterStore(initialState: snapshot, configuration: configuration)
         }

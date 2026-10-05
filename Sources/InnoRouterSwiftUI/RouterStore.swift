@@ -134,7 +134,9 @@ public final class RouterStore<R: Route> {
     /// No application state, declaration or configuration is accepted here.
     /// Keeps the empty native stack convenience nonthrowing without a trap.
     package static func makeDefaultHostedStack() -> RouterStore<R> {
-        RouterStore(validatedState: .rootStack, configuration: .init(hostDescriptor: .init(root: .stack)))
+        RouterStore(validatedState: .rootStack, configuration: .init(hostDescriptor: .init(
+            root: .stack, rootDeclarations: [.init(path: [], meaning: .declarationID("router.root"))]
+        )))
     }
 
     /// Validates resource, structural, and scene-catalog invariants before

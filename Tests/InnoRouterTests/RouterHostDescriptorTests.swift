@@ -189,7 +189,7 @@ struct RouterHostDescriptorTests {
     @Test("Descriptor node counts accumulate across all otherwise small catalog entries")
     func cumulativeDescriptorNodes() throws {
         let budget = RouterResourceBudget(snapshot: try .init(maximumNodes: 3))
-        let entries: [RouterHostCatalogEntry] = [.init("a", shape: .stack), .init("b", shape: .stack)]
+        let entries: [RouterHostCatalogEntry<R>] = [.init("a", shape: .stack), .init("b", shape: .stack)]
         let catalog = RouterHostCatalog<R>(entries: entries, declaration: { _ in "a" })
         try Descriptor(root: .stack, presentations: .none, windows: catalog).validate(.rootStack, resourceBudget: budget)
         let over = Descriptor(root: .stack, windows: catalog)

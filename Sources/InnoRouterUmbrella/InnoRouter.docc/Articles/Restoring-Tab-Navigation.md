@@ -18,7 +18,7 @@ by the package; its session is exercised by integration tests.
 
 Create a `RouterTabCatalog` from the enum's generated `routerTabs`. Use that
 same catalog for `RouterTabRestorationTopology(catalog:)`, the Store's
-`RouterHostDescriptor(root: catalog.hostShape(orphanPolicy: .preserveDormant))`,
+`catalog.hostDescriptor(orphanPolicy: .preserveDormant)`,
 and the host. Create the initial current-tab state explicitly; the empty
 `makeRouterStore()` convenience remains a root stack. Retain
 the store and driver across view updates, as the example does with a session
@@ -102,11 +102,19 @@ Its current catalog contains `home` and the newly introduced `settings` tab.
 
 Render this state with
 `try RouterTabHost(store: store, catalog: catalog, orphanPolicy: .preserveDormant)`.
-Set the Store's `configuration.hostDescriptor` to the same catalog shape and
-orphan policy during setup. Both supplied-store overloads throw. Their default
+Set the Store's `configuration.hostDescriptor` to
+`catalog.hostDescriptor(orphanPolicy: .preserveDormant)` during setup. This
+freezes the catalog's root Route values as well as its shape and orphan policy. Both supplied-store overloads throw. Their default
 policy is `.reject`; it must match the Store declaration. Preservation still
 rejects a non-stack current scope or a selection outside the rendered catalog.
 Construction never registers a contract, reconciles state, or invents a scope.
+
+Keeping a scope ID while changing its root Route is a semantic contract change,
+even when every branch still has the same shape. Use the owner's explicit
+`replaceHost(with:descriptor:context:)` to atomically replace the state plan and
+new catalog descriptor, then mount its matching host. The prior scopes lose
+authority. Changing a label, localized title, or icon alone does not change the
+root Route mapping.
 
 Topology reconciliation is not a payload migration or a tab-renaming map.
 Labels and order do not change identity. Before renaming a tab route case, add

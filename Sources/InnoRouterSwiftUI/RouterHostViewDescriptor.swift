@@ -11,19 +11,31 @@ import InnoRouterCore
 @MainActor
 public struct RouterHostViewDescriptor<R: DestinationRoute> {
     public let shape: RouterHostShape
+    public let rootDeclarations: [RouterHostRootDeclaration<R>]
     private let renderContent: (RouterScope<R>) -> AnyView
 
-    private init(shape: RouterHostShape, render: @escaping (RouterScope<R>) -> AnyView) {
+    private init(shape: RouterHostShape, rootDeclarations: [RouterHostRootDeclaration<R>], render: @escaping (RouterScope<R>) -> AnyView) {
         self.shape = shape
+        self.rootDeclarations = rootDeclarations
         self.renderContent = render
     }
 
     public static func stack<Root: View>(
+        declarationID: String,
         @ViewBuilder root: @escaping (RouterScope<R>) -> Root
     ) -> Self {
-        Self(shape: .stack) { scope in
+        Self(shape: .stack, rootDeclarations: [.init(meaning: .declarationID(declarationID))]) { scope in
             AnyView(RouterStoreStackSurface(
                 scope: scope, destination: R.destination(for:), root: { root(scope) }
+            ).routerAuthority(scope, for: R.self))
+        }
+    }
+
+    /// A typed route root binds its exact value to the renderer declaration.
+    public static func route(_ root: R) -> Self {
+        Self(shape: .stack, rootDeclarations: [.init(meaning: .route(root))]) { scope in
+            AnyView(RouterStoreStackSurface(
+                scope: scope, destination: R.destination(for:), root: { R.destination(for: root) }
             ).routerAuthority(scope, for: R.self))
         }
     }
@@ -35,7 +47,9 @@ public struct RouterHostViewDescriptor<R: DestinationRoute> {
         Self(shape: .tabs(
             branches: tabs.map { .init($0.id, shape: $0.content.shape) },
             extras: orphanPolicy
-        )) { scope in
+        ), rootDeclarations: tabs.flatMap { tab in
+            tab.content.rootDeclarations.map { .init(path: [tab.id] + $0.path, meaning: $0.meaning) }
+        }) { scope in
             AnyView(RouterDescriptorTabsSurface(scope: scope, tabs: tabs))
         }
     }
@@ -48,7 +62,7 @@ public struct RouterHostViewDescriptor<R: DestinationRoute> {
         Self(shape: .splitTwo(
             sidebar: .init(sidebar.id, shape: sidebar.content.shape),
             detail: .init(detail.id, shape: detail.content.shape)
-        )) { scope in
+        ), rootDeclarations: [sidebar, detail].flatMap(\.rootDeclarations)) { scope in
             AnyView(NavigationSplitView(
                 columnVisibility: splitVisibilityBinding(scope),
                 preferredCompactColumn: preferredCompactColumnBinding(scope)
@@ -69,7 +83,7 @@ public struct RouterHostViewDescriptor<R: DestinationRoute> {
             sidebar: .init(sidebar.id, shape: sidebar.content.shape),
             content: .init(content.id, shape: content.content.shape),
             detail: .init(detail.id, shape: detail.content.shape)
-        )) { scope in
+        ), rootDeclarations: [sidebar, content, detail].flatMap(\.rootDeclarations)) { scope in
             AnyView(NavigationSplitView(
                 columnVisibility: splitVisibilityBinding(scope),
                 preferredCompactColumn: preferredCompactColumnBinding(scope)
@@ -96,7 +110,7 @@ public struct RouterHostViewDescriptor<R: DestinationRoute> {
             declarationID: declarationID,
             branches: branches.map { .init($0.id, shape: $0.content.shape) },
             extras: orphanPolicy
-        )) { scope in
+        ), rootDeclarations: branches.flatMap(\.rootDeclarations)) { scope in
             guard let store = scope.store, scope.matchesCurrentLifetime else {
                 return AnyView(RouterHostRecoveryView(failure: .init(code: .stale, scope: scope.path)))
             }
@@ -133,6 +147,10 @@ public struct RouterHostViewBranch<R: DestinationRoute>: Identifiable {
     public init(_ id: RouterScopeID, content: RouterHostViewDescriptor<R>) {
         self.id = id
         self.content = content
+    }
+
+    var rootDeclarations: [RouterHostRootDeclaration<R>] {
+        content.rootDeclarations.map { .init(path: [id] + $0.path, meaning: $0.meaning) }
     }
 
     @ViewBuilder
@@ -191,17 +209,21 @@ public struct RouterHostRenderedBranch<R: DestinationRoute>: View, Identifiable 
 public struct RouterScopedHost<R: DestinationRoute>: View {
     private let scope: RouterScope<R>
     private let rendering: RouterHostViewDescriptor<R>
+    private let presentations: RouterPresentationViewCatalog<R>
 
     public init(
         scope: RouterScope<R>,
-        rendering: RouterHostViewDescriptor<R>
+        rendering: RouterHostViewDescriptor<R>,
+        presentations: RouterPresentationViewCatalog<R> = .stack
     ) throws(RouterHostValidationFailure) {
         guard let store = scope.store, scope.matchesCurrentLifetime else {
             throw .init(code: .stale, scope: scope.path)
         }
-        try store.validateHostRenderer(shape: rendering.shape, at: scope.path)
+        try store.validateHostRenderer(shape: rendering.shape, at: scope.path, rootDeclarations: rendering.rootDeclarations)
+        try presentations.validate(for: store)
         self.scope = scope
         self.rendering = rendering
+        self.presentations = presentations
     }
 
     private var isCurrent: Bool {
@@ -212,7 +234,7 @@ public struct RouterScopedHost<R: DestinationRoute>: View {
 
     public var body: some View {
         if isCurrent, let store = scope.store {
-            RouterValidatedHostSurface(store: store, shape: rendering.shape, path: scope.path) { _ in
+            RouterValidatedHostSurface(store: store, shape: rendering.shape, rootDeclarations: rendering.rootDeclarations, presentations: presentations, path: scope.path) { _ in
                 rendering.render(scope)
             }
         } else {
@@ -247,6 +269,8 @@ public struct RouterHostRecoveryView: View {
 struct RouterValidatedHostSurface<R: Route, Content: View>: View {
     let store: RouterStore<R>
     let shape: RouterHostShape
+    var rootDeclarations: [RouterHostRootDeclaration<R>] = []
+    var presentations: RouterPresentationViewCatalog<R> = .stack
     let path: RouterScopePath
     @ViewBuilder let content: (RouterScope<R>) -> Content
 
@@ -254,13 +278,14 @@ struct RouterValidatedHostSurface<R: Route, Content: View>: View {
         if let failure = failure {
             RouterHostRecoveryView(failure: failure)
         } else {
-            content(store.scope(at: path))
+            content(store.scope(at: path)).routerPresentationCatalog(presentations)
         }
     }
 
     private var failure: RouterHostValidationFailure? {
         do {
-            try store.validateHostRenderer(shape: shape, at: path)
+            try store.validateHostRenderer(shape: shape, at: path, rootDeclarations: rootDeclarations)
+            try presentations.validate(for: store)
             return nil
         } catch {
             return error

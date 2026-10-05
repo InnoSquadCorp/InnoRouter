@@ -119,9 +119,7 @@ struct RouterRestoredTabHostTests {
         let initial = try RouterState<R>(root: .container(.init(
             style: .tabs, selection: "home", branches: [.init(id: "home"), .init(id: "settings")]
         )))
-        let configuration = RouterStoreConfiguration<R>(hostDescriptor: .init(
-            root: catalog.hostShape(orphanPolicy: .preserveDormant)
-        ))
+        let configuration = RouterStoreConfiguration<R>(hostDescriptor: catalog.hostDescriptor(orphanPolicy: .preserveDormant))
         let store = try RouterStore(initialState: initial, configuration: configuration)
         _ = try await store.restore(from: codec.encode(legacy), using: codec, tabTopology: topology)
         let host = try RouterTabHost(store: store, catalog: catalog, orphanPolicy: .preserveDormant)

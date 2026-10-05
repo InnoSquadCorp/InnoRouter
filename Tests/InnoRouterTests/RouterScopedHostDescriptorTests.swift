@@ -16,7 +16,7 @@ struct RouterScopedHostDescriptorTests {
     private typealias R = ScopedHostDescriptorRoute
 
     private func stack() -> RouterHostViewDescriptor<R> {
-        .stack { scope in Text(scope.path.description) }
+        .stack(declarationID: "scoped.root") { scope in Text(scope.path.description) }
     }
 
     private func state() throws -> RouterState<R> {
@@ -52,7 +52,7 @@ struct RouterScopedHostDescriptorTests {
         let child = tabs()
         let renderer = root(child)
         var configuration = RouterStoreConfiguration<R>()
-        configuration.hostDescriptor = RouterHostDescriptor(root: renderer.shape)
+        configuration.hostDescriptor = RouterHostDescriptor(root: renderer.shape, rootDeclarations: renderer.rootDeclarations)
         let store = try RouterStore(initialState: state(), configuration: configuration)
         let before = store.state
         let scope = store.scope(at: ["feature"])
@@ -85,7 +85,7 @@ struct RouterScopedHostDescriptorTests {
     func rendererMismatch() throws {
         let renderer = root(tabs())
         var configuration = RouterStoreConfiguration<R>()
-        configuration.hostDescriptor = RouterHostDescriptor(root: renderer.shape)
+        configuration.hostDescriptor = RouterHostDescriptor(root: renderer.shape, rootDeclarations: renderer.rootDeclarations)
         let store = try RouterStore(initialState: state(), configuration: configuration)
         let before = store.state
         do {
@@ -95,6 +95,54 @@ struct RouterScopedHostDescriptorTests {
             #expect(error.code == .rendererMismatch)
             #expect(error.scope == ["feature"])
         }
+        #expect(store.state == before)
+        #expect(store.revision == 0)
+    }
+
+    @Test("Equal nested shapes cannot substitute a different opaque root declaration")
+    func nestedRootMeaningMismatch() throws {
+        let original = root(tabs())
+        let changedStack = RouterHostViewDescriptor<R>.stack(declarationID: "scoped.replacement") { _ in
+            Text("Different feature")
+        }
+        let changedTabs = RouterHostViewDescriptor<R>.tabs([
+            .init("home", content: changedStack) { _ in Text("Home") },
+            .init("inbox", content: stack()) { _ in Text("Inbox") },
+        ])
+        #expect(original.shape == root(changedTabs).shape)
+        let store = try RouterStore(initialState: state(), configuration: .init(hostDescriptor: .init(
+            root: original.shape, rootDeclarations: original.rootDeclarations
+        )))
+        let before = store.state
+        _ = try RouterScopedHost(scope: store.scope(at: ["feature"]), rendering: tabs())
+        do {
+            _ = try RouterScopedHost(scope: store.scope(at: ["feature"]), rendering: changedTabs)
+            Issue.record("Identical scope IDs and shapes must not hide changed root meaning")
+        } catch {
+            #expect(error.code == .rendererMismatch)
+            #expect(error.scope == ["feature"])
+        }
+        _ = try RouterScopedHost(scope: store.scope(at: ["feature"]), rendering: tabs())
+        #expect(store.state == before)
+        #expect(store.revision == 0)
+    }
+
+    @Test("Localized labels and root presentation changes preserve declared semantics")
+    func labelsDoNotChangeRootMeaning() throws {
+        let original = root(tabs())
+        let localizedStack = RouterHostViewDescriptor<R>.stack(declarationID: "scoped.root") { _ in
+            Text("선택한 화면")
+        }
+        let localizedTabs = RouterHostViewDescriptor<R>.tabs([
+            .init("home", content: localizedStack) { _ in Label("홈", systemImage: "house.fill") },
+            .init("inbox", content: localizedStack) { _ in Label("받은 편지함", systemImage: "tray.fill") },
+        ])
+        let store = try RouterStore(initialState: state(), configuration: .init(hostDescriptor: .init(
+            root: original.shape, rootDeclarations: original.rootDeclarations
+        )))
+        let before = store.state
+        _ = try RouterScopedHost(scope: store.scope(at: ["feature"]), rendering: localizedTabs)
+        _ = try RouterScopedHost(scope: store.scope(), rendering: root(localizedTabs))
         #expect(store.state == before)
         #expect(store.revision == 0)
     }
@@ -114,7 +162,7 @@ struct RouterScopedHostDescriptorTests {
             return EmptyView()
         }
         var configuration = RouterStoreConfiguration<R>()
-        configuration.hostDescriptor = RouterHostDescriptor(root: renderer.shape)
+        configuration.hostDescriptor = RouterHostDescriptor(root: renderer.shape, rootDeclarations: renderer.rootDeclarations)
         let store = try RouterStore(initialState: state(), configuration: configuration)
         let scope = store.scope()
         _ = renderer.render(scope)
@@ -136,7 +184,7 @@ struct RouterScopedHostDescriptorTests {
             ]
         )))
         var configuration = RouterStoreConfiguration<R>()
-        configuration.hostDescriptor = RouterHostDescriptor(root: renderer.shape)
+        configuration.hostDescriptor = RouterHostDescriptor(root: renderer.shape, rootDeclarations: renderer.rootDeclarations)
         let store = try RouterStore(initialState: state, configuration: configuration)
         _ = try RouterScopedHost(scope: store.scope(), rendering: renderer)
         guard case .rejected = await store.perform(.select("old")) else {
@@ -150,7 +198,7 @@ struct RouterScopedHostDescriptorTests {
     @Test("Same-shape owner replacement expires captured scoped hosts")
     func replacementExpiresScope() async throws {
         let renderer = stack()
-        let descriptor = RouterHostDescriptor<R>(root: renderer.shape)
+        let descriptor = RouterHostDescriptor<R>(root: renderer.shape, rootDeclarations: renderer.rootDeclarations)
         var configuration = RouterStoreConfiguration<R>()
         configuration.hostDescriptor = descriptor
         let store = try RouterStore(configuration: configuration)

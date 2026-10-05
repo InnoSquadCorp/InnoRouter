@@ -52,9 +52,7 @@ final class TabRestorationExampleSession {
         )))
         let store = try RestorableTabRoute.makeRouterStore(
             initialState: initialState,
-            configuration: .init(hostDescriptor: .init(
-                root: catalog.hostShape(orphanPolicy: .preserveDormant)
-            ))
+            configuration: .init(hostDescriptor: catalog.hostDescriptor(orphanPolicy: .preserveDormant))
         )
         let limits = try RouterSnapshotLimits(
             maximumEncodedByteCount: 2 * 1_024 * 1_024,

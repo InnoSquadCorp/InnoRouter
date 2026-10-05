@@ -204,7 +204,10 @@ public enum MacroFirstConsumerProbe {
         }.body
 
 #if !os(watchOS)
-        _ = try RouterSplitHost(ExternalRoute.self) {
+        _ = try RouterSplitHost(
+            ExternalRoute.self,
+            sidebarDeclarationID: "split.sidebar", detailDeclarationID: "split.detail"
+        ) {
             Text("Sidebar")
         } root: {
             ExternalActions()

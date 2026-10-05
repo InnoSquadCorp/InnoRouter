@@ -85,7 +85,10 @@ struct MacroFirstSplitExample: View {
 
     init() {
         do {
-            host = .success(try RouterSplitHost(MacroFirstRoute.self) {
+            host = .success(try RouterSplitHost(
+                MacroFirstRoute.self,
+                sidebarDeclarationID: "split.sidebar", detailDeclarationID: "split.detail"
+            ) {
                 MacroFirstSplitSidebar()
             } root: {
                 Text("Select a product")

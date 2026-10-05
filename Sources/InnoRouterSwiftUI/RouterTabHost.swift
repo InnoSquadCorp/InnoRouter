@@ -3,6 +3,22 @@ import SwiftUI
 import InnoRouterCore
 
 public extension RouterTabCatalog {
+    /// Freezes tab root values independently of localized labels and icons.
+    func hostRootDeclarations() -> [RouterHostRootDeclaration<R>] {
+        descriptors.map { .init(path: [$0.tab.routerScopeID], meaning: .route($0.root)) }
+    }
+
+    /// Uses the same frozen root mapping for rendering and Store admission.
+    func hostDescriptor(
+        orphanPolicy: RouterHostOrphanPolicy = .reject,
+        presentations: RouterHostCatalog<R> = .stack,
+        windows: RouterHostCatalog<R> = .none,
+        immersiveSpaces: RouterHostCatalog<R> = .none
+    ) -> RouterHostDescriptor<R> {
+        .init(root: hostShape(orphanPolicy: orphanPolicy), rootDeclarations: hostRootDeclarations(),
+              presentations: presentations, windows: windows, immersiveSpaces: immersiveSpaces)
+    }
+
     /// The frozen, ordered stack renderers declared by this tab catalog.
     func hostShape(orphanPolicy: RouterHostOrphanPolicy = .reject) -> RouterHostShape {
         .tabs(
@@ -23,6 +39,8 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
     private let suppliedStore: RouterStore<R>?
     private let tabs: [RouterTabDescriptor<R, R.Tab>]
     private let shape: RouterHostShape
+    private let rootDeclarations: [RouterHostRootDeclaration<R>]
+    private let presentations: RouterPresentationViewCatalog<R>
     private let linkHandling: RouterLinkHandling<R>?
 
     public init(
@@ -30,11 +48,12 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         initial: R.Tab,
         badges: [R.Tab: Int] = [:],
         configuration: RouterStoreConfiguration<R> = .init(),
+        presentations: RouterPresentationViewCatalog<R> = .stack,
         linkHandling: RouterLinkHandling<R>? = nil
     ) throws {
         try self.init(
             routeType, catalog: RouterTabCatalog(R.routerTabs), initial: initial,
-            badges: badges, configuration: configuration, linkHandling: linkHandling
+            badges: badges, configuration: configuration, presentations: presentations, linkHandling: linkHandling
         )
     }
 
@@ -44,6 +63,7 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         initial: R.Tab,
         badges: [R.Tab: Int] = [:],
         configuration: RouterStoreConfiguration<R> = .init(),
+        presentations: RouterPresentationViewCatalog<R> = .stack,
         linkHandling: RouterLinkHandling<R>? = nil
     ) throws {
         _ = routeType
@@ -53,7 +73,7 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         let shape = catalog.hostShape()
         var configuration = configuration
         if configuration.hostDescriptor == nil {
-            configuration.hostDescriptor = RouterHostDescriptor(root: shape)
+            configuration.hostDescriptor = catalog.hostDescriptor()
         }
         let container = try RouterContainerState(
             style: .tabs,
@@ -67,9 +87,12 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         let state = try RouterStateDraft<R>(root: .container(container))
             .build(resourceBudget: configuration.resourceBudget)
         let store = try R.makeRouterStore(initialState: state, configuration: configuration)
-        try store.validateHostRenderer(shape: shape, at: .root)
+        try store.validateHostRenderer(shape: shape, at: .root, rootDeclarations: catalog.hostRootDeclarations())
+        try presentations.validate(for: store)
+        self.presentations = presentations
         self.tabs = catalog.descriptors
         self.shape = shape
+        self.rootDeclarations = catalog.hostRootDeclarations()
         self.linkHandling = linkHandling
         self.suppliedStore = nil
         self._ownedStore = State(initialValue: store)
@@ -78,11 +101,12 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
     public init(
         store: RouterStore<R>,
         orphanPolicy: RouterHostOrphanPolicy = .reject,
+        presentations: RouterPresentationViewCatalog<R> = .stack,
         linkHandling: RouterLinkHandling<R>? = nil
     ) throws {
         try self.init(
             store: store, catalog: RouterTabCatalog(R.routerTabs),
-            orphanPolicy: orphanPolicy, linkHandling: linkHandling
+            orphanPolicy: orphanPolicy, presentations: presentations, linkHandling: linkHandling
         )
     }
 
@@ -92,19 +116,23 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         store: RouterStore<R>,
         catalog: RouterTabCatalog<R>,
         orphanPolicy: RouterHostOrphanPolicy = .reject,
+        presentations: RouterPresentationViewCatalog<R> = .stack,
         linkHandling: RouterLinkHandling<R>? = nil
     ) throws(RouterHostValidationFailure) {
         let shape = catalog.hostShape(orphanPolicy: orphanPolicy)
-        try store.validateHostRenderer(shape: shape, at: .root)
+        try store.validateHostRenderer(shape: shape, at: .root, rootDeclarations: catalog.hostRootDeclarations())
+        try presentations.validate(for: store)
+        self.presentations = presentations
         self.tabs = catalog.descriptors
         self.shape = shape
+        self.rootDeclarations = catalog.hostRootDeclarations()
         self.linkHandling = linkHandling
         self.suppliedStore = store
         self._ownedStore = State(initialValue: store)
     }
 
     public var body: some View {
-        RouterValidatedHostSurface(store: store, shape: shape, path: .root) { rootScope in
+        RouterValidatedHostSurface(store: store, shape: shape, rootDeclarations: rootDeclarations, presentations: presentations, path: .root) { rootScope in
             tabView(rootScope)
         }
     }

@@ -39,9 +39,7 @@ struct TabRestorationConsumerTests {
         let initial = try RouterState<R>(root: .container(.init(
             style: .tabs, selection: "home", branches: [.init(id: "home"), .init(id: "settings")]
         )))
-        let configuration = RouterStoreConfiguration<R>(hostDescriptor: .init(
-            root: catalog.hostShape(orphanPolicy: .preserveDormant)
-        ))
+        let configuration = RouterStoreConfiguration<R>(hostDescriptor: catalog.hostDescriptor(orphanPolicy: .preserveDormant))
         let store = try R.makeRouterStore(initialState: initial, configuration: configuration)
         guard case .applied = try await store.restore(from: data, using: codec, tabTopology: topology) else {
             Issue.record("Expected the external explicit restoration to apply")

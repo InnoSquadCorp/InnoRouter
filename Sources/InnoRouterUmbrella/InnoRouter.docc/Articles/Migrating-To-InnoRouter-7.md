@@ -28,12 +28,18 @@ enum AppRoute {
 
 @MainActor
 func makeConfiguredStore() throws -> RouterStore<AppRoute> {
-    try AppRoute.makeRouterStore(configuration: .init(hostDescriptor: .init(root: .stack)))
+    try AppRoute.makeRouterStore(configuration: .init(hostDescriptor: .init(
+        root: .stack,
+        rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+    )))
 }
 
 @MainActor
 func makePopulatedStore() throws -> RouterStore<AppRoute> {
-    try RouterStore(initialPath: [AppRoute.settings], configuration: .init(hostDescriptor: .init(root: .stack)))
+    try RouterStore(initialPath: [AppRoute.settings], configuration: .init(hostDescriptor: .init(
+        root: .stack,
+        rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+    )))
 }
 ```
 
@@ -54,22 +60,47 @@ setup result and render either its host or an explicit error view.
 
 ## Declare the renderer before mounting it
 
-A stack renderer uses `RouterHostDescriptor(root: .stack)`. A tab renderer
-uses `RouterTabCatalog.hostShape(orphanPolicy:)`; a split renderer uses its
-`RouterTwoColumnSplitLayout.hostShape` or `RouterThreeColumnSplitLayout.hostShape`.
-The configured initial state and the renderer must match that declaration,
-including ordered tabs, child node kinds, split role IDs, and orphan policy.
-Pass the same explicit split layout to the supplied-store host.
+A native renderer freezes both its shape and its root meanings. A configured
+stack uses `RouterHostDescriptor(root: .stack, rootDeclarations:
+[.init(meaning: .declarationID("router.root"))])` for the default stack host and
+platform bridge factories. Their additive `rootDeclarationID` parameter lets
+an application choose another stable semantic ID without changing the existing
+nonthrowing signatures.
+
+A tab renderer uses `catalog.hostDescriptor(orphanPolicy:)`, which freezes
+each scope ID's root Route value. `catalog.hostShape(orphanPolicy:)` alone is
+insufficient for native tab rendering. A catalog with the same IDs, ordering,
+and node kinds but different root routes is rejected as `.rendererMismatch`.
+
+A split renderer combines `layout.hostShape` with
+`layout.hostRootDeclarations(for:sidebarDeclarationID:detailDeclarationID:)`
+(or the three-column overload including `contentDeclarationID`). Pass the same
+layout and semantic declaration IDs to the supplied-store host. Arbitrary
+column closures require these IDs explicitly; change an ID when the root's
+meaning changes. For typed route roots, compose recursive split branches with
+`RouterHostViewDescriptor.route(_:)`, which freezes the actual Route values.
+
+`RouterHostViewDescriptor.stack(declarationID:)` also requires a stable ID for
+its root closure. Recursive tab/split/custom descriptors prefix the child root
+mappings automatically. Configure their Store with both `rendering.shape` and
+`rendering.rootDeclarations`; child scopes validate their relative subtree.
+Labels, localization, icons, and styling are presentation metadata, not root
+meaning. Opaque closure semantics are an application declaration: the library
+compares the supplied IDs and does not inspect a closure's implementation.
+
+The configured initial state and renderer must match the complete declaration,
+including ordered tabs, child node kinds, split role IDs, root meanings, and
+orphan policy.
 
 Replace `allowingOrphanedBranches: true` with `orphanPolicy: .preserveDormant`
-in both the tab shape declaration and the host. Preserved branches retain their
+in both the catalog descriptor and the host. Preserved branches retain their
 state and remain structurally validated; they cannot be selected or rendered.
 Use `RouterTabRestorationTopology` explicitly before admission to add current
 tabs and move selection away from retired branches. A missing or incompatible
 shape produces `RouterHostValidationFailure`, never an empty fallback scope.
 
 Ordinary actions, links, transactions, and restoration retain the declared host
-contract. To intentionally change topology, call the owning Store's
+contract. To intentionally change topology or root meaning, call the owning Store's
 `replaceHost(with:descriptor:context:)` with the complete state plan and the new
 independent declaration, then construct its matching renderer. This uses the
 normal policy pipeline and commits state and declaration atomically. Rejected

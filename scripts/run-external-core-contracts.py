@@ -104,6 +104,23 @@ let failures: Set<RouterHostValidationFailure> = [failure, required]
     'host_catalog_resolver_negative': (base + 'let catalog = RouterHostCatalog<R>.stack\n_ = catalog.declaration(.home)\n', r"'declaration'.*inaccessible|package.*protection"),
     'host_failure_detail_negative': (base + 'let failure = RouterHostValidationFailure(code: .required)\n_ = failure.detail\n', r"'detail'.*inaccessible|package.*protection"),
 })
+fixtures.update({
+    'host_root_meaning_positive': (base + """
+let roots: [RouterHostRootDeclaration<R>] = [.init(path: [], meaning: .route(.home))]
+let descriptor = RouterHostDescriptor<R>(root: .stack, rootDeclarations: roots)
+try descriptor.validateRenderer(.stack, rootDeclarations: roots, at: .root, in: .rootStack)
+let entry = RouterHostCatalogEntry<R>("detail", shape: .stack, rootDeclarations: [.init(meaning: .declarationID("detail.root"))])
+let catalog = RouterHostCatalog<R>(entries: [entry], declaration: { _ in "detail" })
+""", None),
+    'host_root_declarations_immutable_negative': (base + 'var descriptor = RouterHostDescriptor<R>(root: .stack)\ndescriptor.rootDeclarations = []\n', r"cannot assign.*'rootDeclarations'|immutable|let.constant"),
+    'host_root_path_immutable_negative': (base + 'var root = RouterHostRootDeclaration<R>(meaning: .route(.home))\nroot.path = ["other"]\n', r"cannot assign.*'path'|immutable|let.constant"),
+    'host_presentation_lookup_private_negative': (base + 'let descriptor = RouterHostDescriptor<R>(root: .stack)\n_ = try descriptor.presentationDeclaration(at: .root, in: .rootStack)\n', r"'presentationDeclaration'.*inaccessible|package.*protection"),
+    'host_owner_replace_positive': (runtime + '@MainActor func replace(_ store: RouterStore<R>) async { _ = await store.replaceHost(with: .init(state: .rootStack), descriptor: .init(root: .stack)) }\n', None),
+    'host_descriptor_setter_negative': (runtime + '@MainActor func mutate(_ store: RouterStore<R>) { store.hostDescriptor = .init(root: .stack) }\n', r"cannot assign.*'hostDescriptor'|get.only|setter is inaccessible"),
+    'host_generation_private_negative': (runtime + '@MainActor func access(_ store: RouterStore<R>) { _ = store.committedValue }\n', r"'committedValue'.*inaccessible|internal.*protection"),
+    'scope_replace_host_negative': (runtime + '@MainActor func replace(_ scope: RouterScope<R>) async { _ = await scope.replaceHost(with: .init(state: .rootStack), descriptor: .init(root: .stack)) }\n', r"has no member 'replaceHost'"),
+})
+
 if args.only_fixture:
     unknown = set(args.only_fixture) - fixtures.keys()
     if unknown:

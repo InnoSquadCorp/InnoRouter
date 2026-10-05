@@ -53,15 +53,32 @@ public extension RouterStore {
 
 @MainActor
 extension RouterStore {
+    /// Scene-host absence is a lifecycle state only after its supplied path is
+    /// admitted. Invalid paths must never request native missing-scene repair.
+    package func admittedSceneHostScope(
+        at path: RouterScopePath
+    ) throws(RouterHostValidationFailure) -> RouterScope<R>? {
+        do { try resourceBudget.validateReplacement(RouterNode<R>.stack(), at: path) }
+        catch { throw .init(code: .resourceLimit, resourceLimit: error) }
+        try RouterHostShape.stack.validateScope(path)
+        guard path.components.isEmpty else { throw .init(code: .invalidScope, scope: path) }
+        if case .application = path.domain { throw .init(code: .invalidScope, scope: path) }
+        guard state.sceneRootRoute(at: path) != nil else { return nil }
+        return scope(at: path)
+    }
+
     /// Read-only native-host admission. Host construction never installs a new
     /// contract or implicitly reconciles an incompatible application graph.
     package func validateHostRenderer(
-        shape: RouterHostShape, at path: RouterScopePath
+        shape: RouterHostShape, at path: RouterScopePath,
+        rootDeclarations: [RouterHostRootDeclaration<R>] = []
     ) throws(RouterHostValidationFailure) {
         guard let hostDescriptor else {
             throw .init(code: .required, scope: path)
         }
-        try hostDescriptor.validateRenderer(shape, at: path, in: state, resourceBudget: resourceBudget)
+        try hostDescriptor.validateRenderer(
+            shape, rootDeclarations: rootDeclarations, at: path, in: state, resourceBudget: resourceBudget
+        )
     }
 
     func requestExecutionPrecondition(

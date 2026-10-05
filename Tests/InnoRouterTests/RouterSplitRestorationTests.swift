@@ -136,11 +136,13 @@ struct RouterSplitRestorationTests {
             if threeColumn {
                 _ = try RouterThreeColumnSplitHost(
                     store: store, layout: restoredThreeColumnLayout(swapped: swapped),
+                    sidebarDeclarationID: "split.sidebar", contentDeclarationID: "split.content", detailDeclarationID: "split.detail",
                     sidebar: { EmptyView() }, content: { EmptyView() }, detail: { EmptyView() }
                 )
             } else {
                 _ = try RouterSplitHost(
                     store: store, layout: restoredTwoColumnLayout(swapped: swapped),
+                    sidebarDeclarationID: "split.sidebar", detailDeclarationID: "split.detail",
                     sidebar: { EmptyView() }, root: { EmptyView() }
                 )
             }
@@ -270,7 +272,15 @@ private func restoredSplitDescriptor(
     let shape = threeColumn
         ? try restoredThreeColumnLayout(generation: generation, swapped: swapped).hostShape
         : try restoredTwoColumnLayout(generation: generation, swapped: swapped).hostShape
-    return .init(root: shape)
+    let roots = threeColumn
+        ? try restoredThreeColumnLayout(generation: generation, swapped: swapped).hostRootDeclarations(
+            for: RestoredSplitRoute.self, sidebarDeclarationID: "split.sidebar",
+            contentDeclarationID: "split.content", detailDeclarationID: "split.detail"
+        )
+        : try restoredTwoColumnLayout(generation: generation, swapped: swapped).hostRootDeclarations(
+            for: RestoredSplitRoute.self, sidebarDeclarationID: "split.sidebar", detailDeclarationID: "split.detail"
+        )
+    return .init(root: shape, rootDeclarations: roots)
 }
 
 #if canImport(AppKit)
@@ -281,6 +291,7 @@ private func restoredSplitView(
     if threeColumn {
         return AnyView(try RouterThreeColumnSplitHost(
             store: store, layout: restoredThreeColumnLayout(),
+            sidebarDeclarationID: "split.sidebar", contentDeclarationID: "split.content", detailDeclarationID: "split.detail",
             sidebar: { RestoredSplitProbe(column: .sidebar, recorder: recorder) },
             content: { RestoredSplitProbe(column: .content, recorder: recorder) },
             detail: { RestoredSplitProbe(column: .detail, recorder: recorder) }
@@ -288,6 +299,7 @@ private func restoredSplitView(
     }
     return AnyView(try RouterSplitHost(
         store: store, layout: restoredTwoColumnLayout(),
+        sidebarDeclarationID: "split.sidebar", detailDeclarationID: "split.detail",
         sidebar: { RestoredSplitProbe(column: .sidebar, recorder: recorder) },
         root: { RestoredSplitProbe(column: .detail, recorder: recorder) }
     ))

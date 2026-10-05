@@ -8,6 +8,7 @@ import InnoRouterCore
 
 @MainActor
 struct RouterStoreStackSurface<R: Route, Destination: View, Root: View>: View {
+    @Environment(\.routerPresentationRendering) private var rendering
     let scope: RouterScope<R>
     let destination: (R) -> Destination
     let root: () -> Root
@@ -19,7 +20,8 @@ struct RouterStoreStackSurface<R: Route, Destination: View, Root: View>: View {
     private func content(reconciliationRevision _: UInt64) -> some View {
         RouterStoreModalSurface(
             scope: scope,
-            destination: destination
+            destination: destination,
+            presentations: rendering[R.self]?.catalog ?? .stack
         ) {
             NavigationStack(path: pathBinding) {
                 root()
@@ -45,6 +47,7 @@ struct RouterStoreStackSurface<R: Route, Destination: View, Root: View>: View {
 private struct RouterStoreModalSurface<R: Route, Destination: View, Content: View>: View {
     let scope: RouterScope<R>
     let destination: (R) -> Destination
+    let presentations: RouterPresentationViewCatalog<R>
     let content: () -> Content
 
     var body: some View {
@@ -77,31 +80,48 @@ private struct RouterStoreModalSurface<R: Route, Destination: View, Content: Vie
     }
 
     @ViewBuilder
-    private func presentedDestination(_ presentation: RouterPresentation<R>) -> some View {
-        destination(presentation.route)
-            .interactiveDismissDisabled(presentation.options.isInteractiveDismissDisabled)
-            .onAppear {
-                for adaptation in RouterPlatformCapabilities.current.adaptations(
-                    for: presentation
-                ) {
-                    scope.reportPlatformAdaptation(adaptation)
+    private func presentedDestination(_ capture: RouterNavigationPresentationCapture<R>) -> some View {
+        if let presentation = capture.presentation {
+            recursiveDestination(capture)
+                .routerNavigationPresentation(capture, catalog: presentations)
+                .interactiveDismissDisabled(presentation.options.isInteractiveDismissDisabled)
+                .onAppear {
+                    guard capture.isCurrent else { return }
+                    for adaptation in RouterPlatformCapabilities.current.adaptations(for: presentation) {
+                        capture.owner.reportPlatformAdaptation(adaptation)
+                    }
                 }
-            }
 #if os(iOS)
-            .routerPresentationOptions(
-                presentation.options,
-                selection: presentationDetentBinding(for: presentation)
-            )
+                .routerPresentationOptions(
+                    presentation.options,
+                    selection: presentationDetentBinding(for: capture, presentation: presentation)
+                )
 #endif
+        } else {
+            RouterHostRecoveryView(failure: .init(code: .stale, scope: capture.child.path))
+        }
+    }
+
+    private func recursiveDestination(_ capture: RouterNavigationPresentationCapture<R>) -> AnyView {
+        do {
+            return try presentations.resolve(capture).render(capture: capture, destination: destination)
+        } catch {
+            return AnyView(RouterHostRecoveryView(failure: error))
+        }
     }
 
 #if os(iOS)
     private func presentationDetentBinding(
-        for presentation: RouterPresentation<R>
+        for capture: RouterNavigationPresentationCapture<R>,
+        presentation: RouterPresentation<R>
     ) -> Binding<PresentationDetent> {
-        let canonical = makeRouterPresentationDetentBinding(
-            scope: scope,
-            presentation: presentation
+        let canonical = Binding<RouterPresentationDetent>(
+            get: { capture.presentation?.options.selectedDetent
+                ?? presentation.options.selectedDetent ?? presentation.options.detents.first ?? .large },
+            set: { detent in
+                capture.owner.dispatch(.setPresentationDetent(detent), context: .init(source: .system),
+                                       executionPrecondition: capture.executionPrecondition)
+            }
         )
         return Binding(
             get: {
@@ -120,9 +140,31 @@ private struct RouterStoreModalSurface<R: Route, Destination: View, Content: Vie
 
     private func presentationBinding(
         for style: RouterPresentationStyle?
-    ) -> Binding<RouterPresentation<R>?> {
-        makeRouterPresentationBinding(scope: scope, style: style)
+    ) -> Binding<RouterNavigationPresentationCapture<R>?> {
+        makeRouterNativeNavigationPresentationBinding(scope: scope, style: style)
     }
+}
+
+/// Native identity is the captured incarnation, not its persistable UUID.
+/// Old binding callbacks retain their old fence even when a restored value
+/// reuses the same presentation ID and child path.
+@MainActor
+func makeRouterNativeNavigationPresentationBinding<R: Route>(
+    scope: RouterScope<R>, style: RouterPresentationStyle?
+) -> Binding<RouterNavigationPresentationCapture<R>?> {
+    let capture = RouterNavigationPresentationCapture(owner: scope).flatMap { capture in
+        guard let presentation = capture.presentation,
+              RouterPlatformCapabilities.current.effectivePresentationStyle(for: presentation.style) == style else { return nil as RouterNavigationPresentationCapture<R>? }
+        return capture
+    }
+    return Binding(
+        get: { capture?.isCurrent == true ? capture : nil },
+        set: { value in
+            guard case nil = value, let capture else { return }
+            scope.dispatch(.dismissPresentation, context: .init(source: .system),
+                           executionPrecondition: capture.executionPrecondition)
+        }
+    )
 }
 
 @MainActor

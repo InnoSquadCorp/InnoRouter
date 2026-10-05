@@ -444,9 +444,13 @@ private struct ThirteenthReviewRestorationRoot: View {
 struct RouterThirteenthReviewNativeHostTests {
     @Test("Replacing an externally supplied store updates host authority")
     func externalStoreReplacement() async throws {
-        let first = try RouterStore<ThirteenthReviewRoute>(configuration: .init(hostDescriptor: .init(root: .stack)))
+        let first = try RouterStore<ThirteenthReviewRoute>(configuration: .init(hostDescriptor: .init(
+            root: .stack, rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+        )))
         let second = try RouterStore<ThirteenthReviewRoute>(
-            initialPath: [.second], configuration: .init(hostDescriptor: .init(root: .stack))
+            initialPath: [.second], configuration: .init(hostDescriptor: .init(
+                root: .stack, rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+            ))
         )
         let observations = ThirteenthReviewRenderObservations()
         let host = NSHostingView(rootView: RouterHost(store: first) {

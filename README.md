@@ -187,7 +187,10 @@ For opt-in persistence, combine a versioned codec with app-selected storage:
 
 ```swift skip app-lifecycle-fragment
 let store = try AppRoute.makeRouterStore(
-    configuration: .init(hostDescriptor: .init(root: .stack))
+    configuration: .init(hostDescriptor: .init(
+        root: .stack,
+        rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+    ))
 )
 let driver = RouterRestorationDriver(
     store: store,
@@ -266,7 +269,7 @@ it lacks is created empty — no route or badge is invented for it. A branch the
 topology does not name is kept after the current scopes, so a later catalog can
 still reach it; render such a store with
 `RouterTabHost(store:catalog:orphanPolicy: .preserveDormant)` and configure the
-Store with `RouterHostDescriptor(root: catalog.hostShape(orphanPolicy: .preserveDormant))`.
+Store with `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`.
 The Store and renderer must use the same declaration. A selection the
 topology no longer names falls back to its first scope. The same parameter
 exists on `restorePartially`, where reconciliation runs before validation so
@@ -324,12 +327,27 @@ preferred compact column live in `RouterSplitState` and reconcile through the
 same system-origin transition pipeline. Custom column identifiers use the
 throwing `RouterTwoColumnSplitLayout` and `RouterThreeColumnSplitLayout` values,
 so duplicate, empty, or unavailable column topology is rejected before a host
-is constructed.
+is constructed. Opaque column closures declare stable `sidebarDeclarationID`,
+`detailDeclarationID`, and (for three columns) `contentDeclarationID` values.
+Supply those same IDs through `layout.hostRootDeclarations(for:...)` in an
+application-owned Store descriptor. Labels, localization, and styling do not
+change these semantic IDs.
 
 Macro-generated tab metadata is the default. Advanced integrations that must
 conform `RouterTabRoute` manually can first build a throwing `RouterTabCatalog`
 and use the catalog-taking `RouterTabHost` initializer; duplicate identities,
 scope IDs, root routes, initial tabs, and store topology become typed errors.
+Use `catalog.hostDescriptor()` for an application-owned tab Store: it freezes
+each scope's root Route value as well as its shape. Keeping a tab ID while
+changing its root Route is a contract change and requires the owner's atomic
+`replaceHost(with:descriptor:context:)`, followed by a matching renderer.
+A shape-only descriptor does not authorize a native tab catalog.
+
+A configured stack descriptor declares `.declarationID("router.root")` at its
+root for the default `RouterHost` and bridge factories. An application can
+choose another semantic ID and pass it as `rootDeclarationID` to the host or
+bridge. Existing nonthrowing APIs remain nonthrowing; declaration mismatch is
+reported through `validationFailure` and recovery UI.
 
 ## Explicit platform adaptation
 

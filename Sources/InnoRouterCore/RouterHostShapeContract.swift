@@ -292,6 +292,26 @@ package struct RouterHostDeclarationAdmission {
         }
     }
 
+    /// Root bindings are separate declaration records, cumulatively bounded
+    /// before any relative path or semantic identifier is compared or hashed.
+    mutating func admitRootDeclarations<R: Route>(
+        _ declarations: [RouterHostRootDeclaration<R>], at scope: RouterScopePath
+    ) throws(RouterResourceLimitFailure) {
+        nodes = try RouterResourceBudget.addingResourceCount(
+            nodes, declarations.count, maximum: limits.maximumNodes, resource: "hostShape.nodes"
+        )
+        for declaration in declarations {
+            let depth = try RouterResourceBudget.addingResourceCount(
+                scope.components.count, 1, maximum: limits.maximumGraphDepth, resource: "hostShape.depth"
+            )
+            _ = try RouterResourceBudget.addingResourceCount(
+                depth, declaration.path.count, maximum: limits.maximumGraphDepth, resource: "hostShape.depth"
+            )
+            for id in declaration.path { try charge(id.rawValue) }
+            if case .declarationID(let id) = declaration.meaning { try charge(id) }
+        }
+    }
+
     mutating func admit(_ shape: RouterHostShape, at scope: RouterScopePath) throws(RouterResourceLimitFailure) {
         let rootDepth = try RouterResourceBudget.addingResourceCount(
             scope.components.count, 1, maximum: limits.maximumGraphDepth, resource: "hostShape.depth"
