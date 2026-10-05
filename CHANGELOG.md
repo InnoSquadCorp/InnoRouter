@@ -17,6 +17,9 @@ Native vision-cancel K1 remains unresolved; portable validation does not close i
 
 ### Fixed
 
+- The performance smoke explicitly admits its existing 500-route snapshot
+  workload with a finite budget. Default limits, workload size, iteration counts,
+  and timing thresholds remain unchanged; admission self-tests reject overflow.
 - Native stack and recursive child hosts now render typed alerts and
   confirmation dialogs through UIKit, AppKit, and WatchKit adapters. Captured
   lifetime handles fence stale callbacks; rejection/deferral re-presents a fresh
