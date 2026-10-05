@@ -26,15 +26,23 @@ final class IPadProbeModel {
     var appeared: [UUID: Int] = [:]
     var nativeError: String?
     @ObservationIgnored private var scenes: [UUID: WeakScene] = [:]
-    @ObservationIgnored lazy var store = RouterStore<IPadProbeRoute>(configuration: .init(policies: [
-        RouterPolicy(name: "confirm-native-close") { [weak self] transition in
-            if case .dismissWindow = transition.action, let self, let id = self.requestedDeferral {
-                self.policyEntries += 1
-                return .deferRequest(id)
-            }
-            return .allow
+    @ObservationIgnored lazy var store = makeStore()
+
+    private func makeStore() -> RouterStore<IPadProbeRoute> {
+        do {
+            return try IPadProbeRoute.makeRouterStore(configuration: .init(hostDescriptor: .init(root: .stack, windows: .stack), policies: [
+                RouterPolicy(name: "confirm-native-close") { [weak self] transition in
+                    if case .dismissWindow = transition.action, let self, let id = self.requestedDeferral {
+                        self.policyEntries += 1
+                        return .deferRequest(id)
+                    }
+                    return .allow
+                }
+            ]))
+        } catch {
+            preconditionFailure("Invalid native scene probe configuration: \(error)")
         }
-    ]))
+    }
 
     func attach(_ scene: UIWindowScene, to id: UUID) {
         scenes[id] = WeakScene(scene)

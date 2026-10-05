@@ -71,9 +71,13 @@ public extension RouterStore {
                 transitionID: transitionID,
                 requestRootID: request.rootID,
                 requestSemantics: request.semantics,
+                    authorization: request.authorization,
+                lifetimeMutation: request.lifetimeMutation,
+                hostReplacement: request.hostReplacement,
                 executionPrecondition: request.executionPrecondition,
                 executionPreparation: executionPreparation,
-                deferredResumePreparation: request.resumePreparation
+                deferredResumePreparation: request.resumePreparation,
+                presentationResumeAuthority: .init(id: id, store: ObjectIdentifier(self), owner: request.presentationCompletionOwner, replayLimitationCode: request.replayLimitationCode)
             )
             if let presentationID {
                 unregisterPresentationRequest(presentationID, transitionID: transitionID)
@@ -81,7 +85,7 @@ public extension RouterStore {
             if case .rejected(_, _, _, let reason) = outcome {
                 finishDeferredPresentation(
                     for: request.action,
-                    owner: .deferral(id),
+                    owner: request.presentationCompletionOwner,
                     reason: reason
                 )
             }
@@ -93,7 +97,7 @@ public extension RouterStore {
             )
             finishDeferredPresentation(
                 for: request.action,
-                owner: .deferral(id),
+                owner: request.presentationCompletionOwner,
                 reason: reason
             )
             var context = request.context
@@ -102,7 +106,8 @@ public extension RouterStore {
                 id: transitionID,
                 action: request.action,
                 context: context,
-                semantics: request.semantics
+                semantics: request.semantics,
+                replayLimitationCode: request.replayLimitationCode
             )
             return reject(
                 transitionID,
@@ -152,7 +157,7 @@ extension RouterStore {
     ) -> RouterOutcome<R> {
         finishDeferredPresentation(
             for: request.action,
-            owner: .deferral(id),
+            owner: request.presentationCompletionOwner,
             reason: .cancelled
         )
         var context = request.context
@@ -161,7 +166,8 @@ extension RouterStore {
             id: transitionID,
             action: request.action,
             context: context,
-            semantics: request.semantics
+            semantics: request.semantics,
+                replayLimitationCode: request.replayLimitationCode
         )
         return reject(
             transitionID,
@@ -191,7 +197,7 @@ extension RouterStore {
                 let reason = RouterRejectionReason.deferralEvicted(oldest.id)
                 finishDeferredPresentation(
                     for: evicted.action,
-                    owner: .deferral(oldest.id),
+                    owner: evicted.presentationCompletionOwner,
                     reason: reason
                 )
                 var context = evicted.context
@@ -262,7 +268,7 @@ extension RouterStore {
         let reason = RouterRejectionReason.deferralExpired(id)
         finishDeferredPresentation(
             for: request.action,
-            owner: .deferral(id),
+            owner: request.presentationCompletionOwner,
             reason: reason
         )
         var context = request.context
@@ -272,5 +278,21 @@ extension RouterStore {
             context: context,
             action: request.action
         )
+    }
+}
+
+/// Only the real resolver can mint prepared-result resumption ownership.
+/// Public RouterTransitionContext remains metadata, never a completion grant.
+package struct RouterPresentationResumeAuthority: Sendable {
+    let id: RouterDeferralID
+    let store: ObjectIdentifier
+    let owner: RouterPresentationCompletionOwner
+    let replayLimitationCode: String?
+
+    fileprivate init(id: RouterDeferralID, store: ObjectIdentifier, owner: RouterPresentationCompletionOwner, replayLimitationCode: String?) {
+        self.id = id
+        self.store = store
+        self.owner = owner
+        self.replayLimitationCode = replayLimitationCode
     }
 }

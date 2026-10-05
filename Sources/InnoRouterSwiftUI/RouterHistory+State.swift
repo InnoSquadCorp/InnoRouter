@@ -63,29 +63,7 @@ extension RouterHistory {
     nonisolated package static func navigationProjection(
         _ state: RouterState<R>
     ) -> RouterState<R> {
-        var result = state
-        result.root = project(state.root)
-        result.windows = state.windows.map {
-            RouterWindow(id: $0.id, route: $0.route, node: project($0.node))
-        }
-        result.immersiveSpace = state.immersiveSpace.map {
-            RouterImmersiveSpace(id: $0.id, route: $0.route, node: project($0.node))
-        }
-        return result
-    }
-
-    nonisolated private static func project(_ node: RouterNode<R>) -> RouterNode<R> {
-        switch node {
-        case .stack(let stack):
-            return .stack(path: stack.path)
-        case .container(let container):
-            var projected = container
-            projected.branches = container.branches.map {
-                RouterBranch(id: $0.id, node: project($0.node))
-            }
-            projected.badges = [:]
-            return .container(projected)
-        }
+        state.navigationHistoryProjection()
     }
 
     nonisolated package static func hasSameNavigation(
@@ -169,12 +147,12 @@ extension RouterHistory {
     ) throws -> RouterNode<R> {
         switch (target, current) {
         case (.stack(let targetStack), .stack(let currentStack)):
-            if targetStack.path != currentStack.path, currentStack.presentation != nil {
+            if targetStack.path != currentStack.path, currentStack.presentationFamily != nil {
                 throw RouterHistoryFailure.activePresentation(path)
             }
             return .stack(
                 path: targetStack.path,
-                presentation: currentStack.presentation
+                presentationFamily: currentStack.presentationFamily
             )
         case (.container(let targetContainer), .container(let currentContainer)):
             let targetIDs = targetContainer.branches.map(\.id)

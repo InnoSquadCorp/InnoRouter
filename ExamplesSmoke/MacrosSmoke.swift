@@ -73,14 +73,17 @@ enum MacrosSmokeConsumer {
         }.body
 
 #if !os(watchOS)
-        _ = RouterSplitHost(RouterMacroSmokeRoute.self) {
+        _ = try RouterSplitHost(
+            RouterMacroSmokeRoute.self,
+            sidebarDeclarationID: "split.sidebar", detailDeclarationID: "split.detail"
+        ) {
             Text("Sidebar")
         } root: {
             RouterMacroSmokeActions()
         }.body
 #endif
 
-        _ = RouterTabHost(
+        _ = try RouterTabHost(
             RouterMacroSmokeRoute.self,
             initial: .home,
             badges: [.settings: 1]

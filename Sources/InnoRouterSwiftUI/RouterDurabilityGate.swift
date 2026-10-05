@@ -15,15 +15,18 @@ package struct RouterDurabilityReservation: Sendable, Equatable {
 /// Package-only observation of the synchronous acceptance boundary.
 /// Production runs use the nil default and pay no asynchronous coordination.
 package enum RouterDurabilityTestSupport {
-    @TaskLocal package static var didReserve:
-        (@Sendable (RouterDurabilityReservation) -> Void)?
+    package struct ReservationObserver: Sendable {
+        package let operation: @Sendable (RouterDurabilityReservation) -> Void
+    }
+
+    @TaskLocal package static var didReserve: ReservationObserver?
 
     @MainActor
     package static func withReservationObserver<Value>(
         _ observer: @escaping @Sendable (RouterDurabilityReservation) -> Void,
         operation: @MainActor () async throws -> Value
     ) async rethrows -> Value {
-        try await $didReserve.withValue(observer, operation: operation)
+        try await $didReserve.withValue(.init(operation: observer), operation: operation)
     }
 }
 
@@ -80,7 +83,7 @@ package final class RouterDurabilityGate: Sendable {
             }
             return ticket
         }
-        RouterDurabilityTestSupport.didReserve?(.init(ticket: ticket, command: command))
+        RouterDurabilityTestSupport.didReserve?.operation(.init(ticket: ticket, command: command))
         return ticket
     }
 

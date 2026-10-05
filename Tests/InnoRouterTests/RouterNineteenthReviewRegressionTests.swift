@@ -301,7 +301,7 @@ struct RouterNineteenthReviewDurableOrderingTests {
         // A changed initial restore would legitimately schedule a new automatic
         // save after removal. Keep that independent command out of this test
         // of saves accepted before removal and an explicit save accepted later.
-        let store = RouterStore(initialState: initialState)
+        let store = try RouterStore(initialState: initialState)
         let driver = RouterRestorationDriver(
             store: store,
             codec: codec,

@@ -20,15 +20,25 @@ final class VisionProbeModel {
     var didRun = false
     var completedOpenings = 0
     var completedDismissals = 0
-    @ObservationIgnored lazy var store = RouterStore<VisionProbeRoute>(configuration: .init(policies: [
-        RouterPolicy(name: "confirm-native-close") { [weak self] transition in
-            if case .dismissImmersiveSpace = transition.action, let self, let id = self.requestedDeferral {
-                self.policyEntries += 1
-                return .deferRequest(id)
-            }
-            return .allow
+    @ObservationIgnored lazy var store = makeStore()
+
+    private func makeStore() -> RouterStore<VisionProbeRoute> {
+        do {
+            return try VisionProbeRoute.makeRouterStore(configuration: .init(hostDescriptor: .init(root: .stack, immersiveSpaces: .init(
+                entries: [.init("theater", shape: .stack)], declaration: { _ in "theater" }
+            )), policies: [
+                RouterPolicy(name: "confirm-native-close") { [weak self] transition in
+                    if case .dismissImmersiveSpace = transition.action, let self, let id = self.requestedDeferral {
+                        self.policyEntries += 1
+                        return .deferRequest(id)
+                    }
+                    return .allow
+                }
+            ]))
+        } catch {
+            preconditionFailure("Invalid native scene probe configuration: \(error)")
         }
-    ]))
+    }
 
     func log(_ value: String) {
         status = value

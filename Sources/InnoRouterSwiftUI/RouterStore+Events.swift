@@ -12,14 +12,16 @@ extension RouterStore {
         action: RouterAction<R>,
         context: RouterTransitionContext,
         expectedRevision: UInt64? = nil,
-        semantics: RouterRequestSemantics<R> = .action
+        semantics: RouterRequestSemantics<R> = .action,
+        replayLimitationCode: String? = nil
     ) {
         let observation = RouterRequestObservation(
             id: id,
             action: action,
             context: context,
             expectedRevision: expectedRevision,
-            semantics: semantics
+            semantics: semantics,
+            replayLimitationCode: replayLimitationCode
         )
         Array(synchronousRequestObservers.values).forEach { $0(observation) }
         requestBroadcaster.broadcast(observation)
@@ -118,10 +120,16 @@ extension RouterStore {
 
     func refreshScopes(
         after action: RouterAction<R>?,
-        context: RouterTransitionContext
+        context: RouterTransitionContext,
+        including previousScopes: [WeakRouterScope<R>] = []
     ) {
         compactDeadScopes()
-        let liveScopes = scopes.values.compactMap(\.value)
+        // Synchronous observation may acquire a new incarnation and replace
+        // its weak cache entry while committing. Preserve the old weak entries
+        // across that boundary so retained projections are still invalidated.
+        // Deduplicate identities to reconcile each native binding only once.
+        var refreshed = Set<ObjectIdentifier>()
+        let liveScopes = (previousScopes + Array(scopes.values)).compactMap(\.value)
         let reconciliationTarget: RouterScopePath??
         if context.source == .system {
             reconciliationTarget = .some(action?.systemReconciliationTarget())
@@ -129,6 +137,7 @@ extension RouterStore {
             reconciliationTarget = .none
         }
         for scope in liveScopes {
+            guard refreshed.insert(ObjectIdentifier(scope)).inserted else { continue }
             let shouldReconcile: Bool
             switch reconciliationTarget {
             case .none:
@@ -155,6 +164,8 @@ private extension RouterAction {
         switch self {
         case .scoped(let scope, let action):
             action.systemReconciliationTarget(from: path.appending(scope))
+        case .presentationScoped(let id, let action):
+            action.systemReconciliationTarget(from: path.appendingPresentation(id))
         case .windowScoped(let id, let action):
             action.systemReconciliationTarget(from: .window(id))
         case .immersiveSpaceScoped(let id, let action):

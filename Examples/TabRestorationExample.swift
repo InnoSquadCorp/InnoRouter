@@ -3,7 +3,7 @@ import SwiftUI
 
 import InnoRouter
 
-// Requires InnoRouter 6.1.0 or later. See Examples/README.md.
+// Uses the InnoRouter 7 throwing host and descriptor APIs. See Examples/README.md.
 @Router
 enum RestorableTabRoute: Codable {
     @TabItem("Home", systemImage: "house")
@@ -45,7 +45,15 @@ final class TabRestorationExampleSession {
 
     init(snapshotURL: URL) throws {
         let catalog = try RouterTabCatalog(RestorableTabRoute.routerTabs)
-        let store = RestorableTabRoute.makeRouterStore()
+        let initialState = try RouterState<RestorableTabRoute>(root: .container(.init(
+            style: .tabs,
+            selection: catalog.descriptors.first?.tab.routerScopeID,
+            branches: catalog.descriptors.map { .init(id: $0.tab.routerScopeID) }
+        )))
+        let store = try RestorableTabRoute.makeRouterStore(
+            initialState: initialState,
+            configuration: .init(hostDescriptor: catalog.hostDescriptor(orphanPolicy: .preserveDormant))
+        )
         let limits = try RouterSnapshotLimits(
             maximumEncodedByteCount: 2 * 1_024 * 1_024,
             maximumPayloadByteCount: 1 * 1_024 * 1_024
@@ -85,7 +93,7 @@ final class TabRestorationExampleSession {
             maximumPayloadByteCount: 1 * 1_024 * 1_024
         )
         let writer = RouterRestorationDriver(
-            store: RouterStore(initialState: state),
+            store: try RouterStore(initialState: state),
             codec: try RouterSnapshotCodec(currentVersion: 1, limits: limits),
             storage: try RouterFileSnapshotStorage(
                 fileURL: snapshotURL,
@@ -175,7 +183,7 @@ private struct TabRestorationExampleContent: View {
             try RouterTabHost(
                 store: session.store,
                 catalog: session.catalog,
-                allowingOrphanedBranches: true
+                orphanPolicy: .preserveDormant
             )
         }
         switch host {

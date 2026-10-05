@@ -11,6 +11,7 @@ extension RouterScenarioStep {
         case action
         case context
         case requestSemantics
+        case replayLimitation
         case expectedRevision
         case cancellationOrigin
         case observedState
@@ -23,12 +24,22 @@ extension RouterScenarioStep {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard container.contains(.replayLimitation) else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.replayLimitation,
+                .init(codingPath: decoder.codingPath,
+                      debugDescription: "Scenario formats 8 and 9 require replayLimitation, including null.")
+            )
+        }
+        self.replayLimitation = try container.decodeIfPresent(
+            RouterScenarioReplayLimitation.self, forKey: .replayLimitation
+        )
         guard container.contains(.expectedRevision) else {
             throw DecodingError.keyNotFound(
                 CodingKeys.expectedRevision,
                 .init(
                     codingPath: decoder.codingPath,
-                    debugDescription: "Scenario format 7 requires expectedRevision, including null."
+                    debugDescription: "Scenario formats 8 and 9 require expectedRevision, including null."
                 )
             )
         }
@@ -79,6 +90,7 @@ extension RouterScenarioStep {
         try container.encode(action, forKey: .action)
         try container.encode(context, forKey: .context)
         try container.encode(requestSemantics, forKey: .requestSemantics)
+        try container.encode(replayLimitation, forKey: .replayLimitation)
         try container.encode(expectedRevision, forKey: .expectedRevision)
         try container.encode(cancellationOrigin, forKey: .cancellationOrigin)
         try container.encode(observedState, forKey: .observedState)

@@ -75,10 +75,13 @@ def check(root=ROOT):
         raise ValueError("Dependabot fetch scopes miss a live SwiftPM/Xcode lock; manifest scopes return early")
     if "release-validation" not in swift["labels"] or ecosystems["github-actions"]["directory"] != "/":
         raise ValueError("Swift updates require exhaustive validation; Actions must use root")
-    pin = re.search(r'swift-syntax\.git", \.upToNextMinor\(from: "([0-9.]+)"', (root / "Package.swift").read_text())
-    if not pin:
-        raise ValueError("SwiftSyntax must retain a reviewed release-line constraint")
-    minimum = tuple(map(int, pin[1].split('.')))
+    # These two reviewed SwiftSyntax lines are exercised by the primary and
+    # forward-toolchain macro suites. Arbitrary range expansion stays rejected.
+    manifest = (root / "Package.swift").read_text()
+    requirement = re.search(r'swift-syntax\.git", "([0-9.]+)"\.\.<"([0-9.]+)"', manifest)
+    if not requirement or requirement.groups() != ("603.0.2", "605.0.0"):
+        raise ValueError("SwiftSyntax must retain the reviewed 603.0.2..<605.0.0 range")
+    minimum, maximum = (603, 0, 2), (605, 0, 0)
     resolved = []
     for name in LIVE_LOCKS:
         lock = json.loads((root / name).read_text())
@@ -89,7 +92,7 @@ def check(root=ROOT):
     if any(state != resolved[0] for state in resolved):
         raise ValueError("SwiftSyntax update requires all live consumer locks in the same PR")
     version = tuple(map(int, resolved[0]["version"].split('.')))
-    if version[:2] != minimum[:2] or version < minimum:
+    if not minimum <= version < maximum:
         raise ValueError("SwiftSyntax lock is outside the manifest release line")
     spi = json.loads((root / ".spi.yml").read_text())
     if type(spi.get("version")) is not int or spi != {"version": 1, "external_links": {"documentation": "https://innosquadcorp.github.io/InnoRouter/latest/"}}:

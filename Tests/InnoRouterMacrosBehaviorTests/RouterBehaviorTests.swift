@@ -33,6 +33,16 @@ public enum PublicBehaviorRouterRoute {
     }
 }
 
+// An explicit `get` accessor is the other destination shape the macro accepts.
+@Router
+private enum ExplicitGetterBehaviorRouterRoute {
+    case settings
+
+    var destination: some View {
+        get { Text("Settings") }
+    }
+}
+
 @Router
 private enum GenericBehaviorRouterRoute<Value: Hashable & Sendable> {
     case detail(Value)
@@ -111,6 +121,35 @@ private enum RenamedBehaviorRouterTab: Codable {
     case preferences
 
     case detail
+
+    var destination: some View {
+        Text("Destination")
+    }
+}
+
+// The two routers differ only in whether a sibling tab declares `id:`. That
+// switches `routerScopeID` from `RouterScopeID(rawValue)` to per-case literals,
+// and the backticked case must produce the same identity on both paths.
+@Router
+private enum ImplicitEscapedBehaviorRouterTab {
+    @TabItem("Home", systemImage: "house")
+    case home
+
+    @TabItem("Default", systemImage: "star")
+    case `default`
+
+    var destination: some View {
+        Text("Destination")
+    }
+}
+
+@Router
+private enum ExplicitSiblingEscapedBehaviorRouterTab {
+    @TabItem("Home", systemImage: "house", id: "main")
+    case home
+
+    @TabItem("Default", systemImage: "star")
+    case `default`
 
     var destination: some View {
         Text("Destination")
@@ -301,7 +340,7 @@ struct RouterBehaviorTests {
             ]
         )
         var observedActions: [RouterAction<FeatureParentRoute>] = []
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState(root: .container(root)),
             configuration: .init(
                 policies: [
@@ -312,7 +351,7 @@ struct RouterBehaviorTests {
                 ]
             )
         )
-        let parentScope = store.scope(at: [featureBranch])
+        let parentScope = store.scope(at: [.branch(featureBranch)])
         let feature = RouterFeatureScope(
             parent: parentScope,
             mapping: FeatureParentRoute.Feature.account
@@ -328,14 +367,22 @@ struct RouterBehaviorTests {
         #expect(id == outcome.id)
         #expect(after.root == .stack(path: [.home, .detail(id: "42")]))
         #expect(observedActions == [.push(.account(.detail(id: "42"))).inScope(featureBranch)])
-        #expect(store.state.node(at: [siblingBranch]) == .stack(path: [.settings]))
+        #expect(store.state.node(at: [.branch(siblingBranch)]) == .stack(path: [.settings]))
 
         let replacement = try RouterPlan<FeatureBehaviorRoute> {
             .stack([.detail(id: "replacement")])
         }
-        _ = await feature.perform(.apply(replacement))
-        #expect(feature.node == .stack(path: [.detail(id: "replacement")]))
-        #expect(store.state.node(at: [siblingBranch]) == .stack(path: [.settings]))
+        guard case .applied = await feature.perform(.apply(replacement)) else {
+            Issue.record("Expected the feature plan to replace its mapped owner")
+            return
+        }
+        #expect(feature.node == nil)
+        let replacedFeature = RouterFeatureScope(
+            parent: store.scope(at: [.branch(featureBranch)]),
+            mapping: FeatureParentRoute.Feature.account
+        )
+        #expect(replacedFeature.node == .stack(path: [.detail(id: "replacement")]))
+        #expect(store.state.node(at: [.branch(siblingBranch)]) == .stack(path: [.settings]))
         #expect(FeatureParentRoute.Feature.account.id == "account.primary")
         #expect(FeatureParentRoute.Feature.secondary.id == "account.secondary")
         #expect(FeatureParentRoute.Feature.catalog.id == "catalog")
@@ -379,7 +426,7 @@ struct RouterBehaviorTests {
     @Test("Feature presentation results reuse the parent store waiter exactly once")
     @MainActor
     func featurePresentationResult() async throws {
-        let store = RouterStore<FeatureParentRoute>(
+        let store = try RouterStore<FeatureParentRoute>(
             initialState: .rootStack(path: [.account(.home)])
         )
         let feature = RouterFeatureScope(
@@ -418,6 +465,17 @@ struct RouterBehaviorTests {
         _ = host.body
     }
 
+    @Test("An explicit get accessor composes as the destination")
+    @MainActor
+    func explicitGetterDestinationAndHost() {
+        _ = ExplicitGetterBehaviorRouterRoute.destination(for: .settings)
+
+        let host = RouterHost(ExplicitGetterBehaviorRouterRoute.self) {
+            Text("Root")
+        }
+        _ = host.body
+    }
+
     @Test("Generated route conformance unlocks the canonical store factory")
     @MainActor
     func generatedStoreFactory() async {
@@ -430,6 +488,28 @@ struct RouterBehaviorTests {
             Issue.record("Expected generated router store to apply the action")
             return
         }
+    }
+
+    @Test("Generated factory keeps default construction nonthrowing and rejects oversized input")
+    @MainActor
+    func generatedFactoryInputAdmission() throws {
+        let make: @MainActor () -> RouterStore<BehaviorRouterRoute> = BehaviorRouterRoute.makeRouterStore
+        #expect(make().state == .rootStack)
+        let maximum = RouterResourceBudget.provisional.snapshot.maximumStackPath
+        let state = RouterState<BehaviorRouterRoute>.rootStack(
+            path: Array(repeating: .settings, count: maximum + 1)
+        )
+        #expect(throws: RouterResourceLimitFailure(
+            resource: "state.stackPath", actual: maximum + 1, maximum: maximum
+        )) {
+            _ = try BehaviorRouterRoute.makeRouterStore(initialState: state)
+        }
+        let admitted = try BehaviorRouterRoute.makeRouterStore(
+            initialState: state, configuration: .init(resourceBudget: .unlimited)
+        )
+        #expect(admitted.state == state)
+        let configured = try BehaviorRouterRoute.makeRouterStore(configuration: .init())
+        #expect(configured.state == .rootStack)
     }
 
     @Test("Generated route conformance works with RouterStore")
@@ -484,7 +564,7 @@ struct RouterBehaviorTests {
 
     @Test("Tab metadata expands and composes with RouterTabHost")
     @MainActor
-    func generatedRouterTabAndHost() {
+    func generatedRouterTabAndHost() throws {
         #expect(BehaviorRouterTab.Tab.allCases == [.home, .settings])
         #expect(BehaviorRouterTab.Tab.home.title.key == "Home")
         #expect(BehaviorRouterTab.Tab.settings.systemImage == "gear")
@@ -496,7 +576,7 @@ struct RouterBehaviorTests {
         #expect(BehaviorRouterTab.Tab.settings.routerScopeID == "settings-stable")
         #expect(BehaviorRouterTab.routerTabs.map(\.root) == [.home, .settings])
 
-        let host = RouterTabHost(BehaviorRouterTab.self, initial: .home)
+        let host = try RouterTabHost(BehaviorRouterTab.self, initial: .home)
         _ = host.body
     }
 
@@ -519,14 +599,43 @@ struct RouterBehaviorTests {
         #expect(topology.scopeIDs == ["settings"])
     }
 
+    @Test("A backticked tab keeps its case-name identity when a sibling declares an ID")
+    func escapedTabIdentityIgnoresSiblingExplicitID() {
+        typealias Implicit = ImplicitEscapedBehaviorRouterTab
+        typealias Explicit = ExplicitSiblingEscapedBehaviorRouterTab
+        #expect(Implicit.Tab.default.rawValue == "default")
+        #expect(Implicit.Tab.default.routerScopeID == "default")
+        #expect(Explicit.Tab.default.routerScopeID == "default")
+        #expect(Explicit.Tab.home.routerScopeID == "main")
+    }
+
     @Test("One router can declare tab roots and pushed destinations")
     @MainActor
-    func mixedTabAndDestinationRouter() {
+    func mixedTabAndDestinationRouter() throws {
         #expect(MixedBehaviorRouter.Tab.allCases == [.home, .settings])
         #expect(MixedBehaviorRouter.routerTabs.map(\.root) == [.home, .settings])
-        let host = RouterTabHost(MixedBehaviorRouter.self, initial: .home)
+        let host = try RouterTabHost(MixedBehaviorRouter.self, initial: .home)
 
         _ = host.body
+    }
+
+    @Test("Generated scene catalogs reject invalid initial scene routes through throwing factory")
+    @MainActor
+    func generatedFactorySceneAdmission() throws {
+        let invalidWindow = try RouterState<SceneBehaviorRouter>(windows: [
+            .init(route: .detail(id: "not-a-window")),
+        ])
+        #expect(throws: RouterMutationError.self) {
+            _ = try SceneBehaviorRouter.makeRouterStore(initialState: invalidWindow)
+        }
+        let invalidSpace = try RouterState<SceneBehaviorRouter>(immersiveSpace: .init(
+            id: "wrong-id", route: .studio
+        ))
+        #expect(throws: RouterMutationError.sceneIdentifierMismatch(expected: "studio", actual: "wrong-id")) {
+            _ = try SceneBehaviorRouter.makeRouterStore(initialState: invalidSpace)
+        }
+        let valid = try RouterState<SceneBehaviorRouter>(windows: [.init(route: .editor)])
+        #expect(try SceneBehaviorRouter.makeRouterStore(initialState: valid).state == valid)
     }
 
     @Test("Scene metadata forms a partial macro-first route catalog")

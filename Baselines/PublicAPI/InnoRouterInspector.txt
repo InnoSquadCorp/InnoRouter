@@ -46,6 +46,20 @@ relationship | memberOf | RouterInspectorExecutionStatus.deferred | RouterInspec
 relationship | memberOf | RouterInspectorExecutionStatus.rejected | RouterInspectorExecutionStatus |  |
 relationship | memberOf | RouterInspectorExecutionStatus.unchanged | RouterInspectorExecutionStatus |  |
 relationship | memberOf | RouterInspectorExecutionStatus.unresolved | RouterInspectorExecutionStatus |  |
+relationship | memberOf | RouterInspectorExportFailure.code | RouterInspectorExportFailure |  |
+relationship | memberOf | RouterInspectorExportFailure.description | RouterInspectorExportFailure |  |
+relationship | memberOf | RouterInspectorExportFailure.details | RouterInspectorExportFailure |  |
+relationship | memberOf | RouterInspectorExportFailure.encodedDataTooLarge(actualByteCount:maximumByteCount:) | RouterInspectorExportFailure |  |
+relationship | memberOf | RouterInspectorExportFailure.init(code:details:) | RouterInspectorExportFailure |  |
+relationship | memberOf | RouterInspectorExportFailureCode.encodedDataTooLarge | RouterInspectorExportFailureCode |  |
+relationship | memberOf | RouterInspectorExportFailureCode.init(rawValue:) | RouterInspectorExportFailureCode |  |
+relationship | memberOf | RouterInspectorExportFailureCode.rawValue | RouterInspectorExportFailureCode |  |
+relationship | memberOf | RouterInspectorExportFailureDetails.actualByteCount | RouterInspectorExportFailureDetails |  |
+relationship | memberOf | RouterInspectorExportFailureDetails.init(actualByteCount:maximumByteCount:) | RouterInspectorExportFailureDetails |  |
+relationship | memberOf | RouterInspectorExportFailureDetails.maximumByteCount | RouterInspectorExportFailureDetails |  |
+relationship | memberOf | RouterInspectorExportLimits.default | RouterInspectorExportLimits |  |
+relationship | memberOf | RouterInspectorExportLimits.init(maximumEncodedByteCount:) | RouterInspectorExportLimits |  |
+relationship | memberOf | RouterInspectorExportLimits.maximumEncodedByteCount | RouterInspectorExportLimits |  |
 relationship | memberOf | RouterInspectorFlatNode.depth | RouterInspectorFlatNode |  |
 relationship | memberOf | RouterInspectorFlatNode.id | RouterInspectorFlatNode |  |
 relationship | memberOf | RouterInspectorFlatNode.node | RouterInspectorFlatNode |  |
@@ -53,12 +67,20 @@ relationship | memberOf | RouterInspectorFormatter.callAsFunction(_:) | RouterIn
 relationship | memberOf | RouterInspectorFormatter.init(_:) | RouterInspectorFormatter |  |
 relationship | memberOf | RouterInspectorImportError.duplicateEntryID(_:) | RouterInspectorImportError |  |
 relationship | memberOf | RouterInspectorImportError.encodedDataTooLarge(actualByteCount:maximumByteCount:) | RouterInspectorImportError |  |
+relationship | memberOf | RouterInspectorImportError.jsonDepthExceeded(actualDepth:maximumDepth:) | RouterInspectorImportError |  |
+relationship | memberOf | RouterInspectorImportError.jsonTokenLimitExceeded(actualCount:maximumCount:) | RouterInspectorImportError |  |
 relationship | memberOf | RouterInspectorImportError.malformedSnapshotEnvelope | RouterInspectorImportError |  |
+relationship | memberOf | RouterInspectorImportError.resourceLimit(_:) | RouterInspectorImportError |  |
 relationship | memberOf | RouterInspectorImportError.tooManyEntries(actualCount:maximumCount:) | RouterInspectorImportError |  |
 relationship | memberOf | RouterInspectorImportLimits.default | RouterInspectorImportLimits |  |
-relationship | memberOf | RouterInspectorImportLimits.init(maximumEncodedByteCount:maximumEntryCount:) | RouterInspectorImportLimits |  |
+relationship | memberOf | RouterInspectorImportLimits.init(maximumEncodedByteCount:maximumEntryCount:maximumJSONDepth:maximumJSONTokens:maximumJSONWorkUnits:maximumJSONKeyDecodes:) | RouterInspectorImportLimits |  |
+relationship | memberOf | RouterInspectorImportLimits.init(resourceBudget:) | RouterInspectorImportLimits |  |
 relationship | memberOf | RouterInspectorImportLimits.maximumEncodedByteCount | RouterInspectorImportLimits |  |
 relationship | memberOf | RouterInspectorImportLimits.maximumEntryCount | RouterInspectorImportLimits |  |
+relationship | memberOf | RouterInspectorImportLimits.maximumJSONDepth | RouterInspectorImportLimits |  |
+relationship | memberOf | RouterInspectorImportLimits.maximumJSONKeyDecodes | RouterInspectorImportLimits |  |
+relationship | memberOf | RouterInspectorImportLimits.maximumJSONTokens | RouterInspectorImportLimits |  |
+relationship | memberOf | RouterInspectorImportLimits.maximumJSONWorkUnits | RouterInspectorImportLimits |  |
 relationship | memberOf | RouterInspectorImportPolicy.append | RouterInspectorImportPolicy |  |
 relationship | memberOf | RouterInspectorImportPolicy.replace | RouterInspectorImportPolicy |  |
 relationship | memberOf | RouterInspectorNodeKind.custom | RouterInspectorNodeKind |  |
@@ -95,11 +117,13 @@ relationship | memberOf | RouterInspectorRecorder.diagnosticBundle(platform:fram
 relationship | memberOf | RouterInspectorRecorder.encodedDiagnosticBundle(platform:frameworkVersion:generatedAt:) | RouterInspectorRecorder |  |
 relationship | memberOf | RouterInspectorRecorder.encodedSnapshot(generatedAt:encoder:) | RouterInspectorRecorder |  |
 relationship | memberOf | RouterInspectorRecorder.entries | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.exportLimits | RouterInspectorRecorder |  |
 relationship | memberOf | RouterInspectorRecorder.importDiagnosticBundle(from:policy:decoder:) | RouterInspectorRecorder |  |
 relationship | memberOf | RouterInspectorRecorder.importLimits | RouterInspectorRecorder |  |
 relationship | memberOf | RouterInspectorRecorder.importSnapshot(_:policy:) | RouterInspectorRecorder |  |
 relationship | memberOf | RouterInspectorRecorder.importSnapshot(from:policy:decoder:) | RouterInspectorRecorder |  |
-relationship | memberOf | RouterInspectorRecorder.init(capacity:importLimits:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.init(capacity:importLimits:exportLimits:) | RouterInspectorRecorder |  |
+relationship | memberOf | RouterInspectorRecorder.init(resourceBudget:) | RouterInspectorRecorder |  |
 relationship | memberOf | RouterInspectorRecorder.isBookmarked(_:) | RouterInspectorRecorder |  |
 relationship | memberOf | RouterInspectorRecorder.isPaused | RouterInspectorRecorder |  |
 relationship | memberOf | RouterInspectorRecorder.pause() | RouterInspectorRecorder |  |
@@ -110,6 +134,7 @@ relationship | memberOf | RouterInspectorRecorder.setPauseOnRejection(_:) | Rout
 relationship | memberOf | RouterInspectorRecorder.snapshot(generatedAt:) | RouterInspectorRecorder |  |
 relationship | memberOf | RouterInspectorRecorder.toggleBookmark(_:) | RouterInspectorRecorder |  |
 relationship | memberOf | RouterInspectorReplay.preview(_:) | RouterInspectorReplay |  |
+relationship | memberOf | RouterInspectorReplay.preview(_:resourceBudget:) | RouterInspectorReplay |  |
 relationship | memberOf | RouterInspectorReplayPreview.Status | RouterInspectorReplayPreview |  |
 relationship | memberOf | RouterInspectorReplayPreview.Status.matchedProposal | RouterInspectorReplayPreview.Status |  |
 relationship | memberOf | RouterInspectorReplayPreview.Status.proposalMismatch | RouterInspectorReplayPreview.Status |  |
@@ -200,7 +225,10 @@ symbol | swift.enum.case | RouterInspectorExecutionStatus.unchanged | RouterInsp
 symbol | swift.enum.case | RouterInspectorExecutionStatus.unresolved | RouterInspectorExecutionStatus.unresolved | case unresolved | []
 symbol | swift.enum.case | RouterInspectorImportError.duplicateEntryID(_:) | RouterInspectorImportError.duplicateEntryID(_:) | case duplicateEntryID(UUID) | []
 symbol | swift.enum.case | RouterInspectorImportError.encodedDataTooLarge(actualByteCount:maximumByteCount:) | RouterInspectorImportError.encodedDataTooLarge(actualByteCount:maximumByteCount:) | case encodedDataTooLarge(actualByteCount: Int, maximumByteCount: Int) | []
+symbol | swift.enum.case | RouterInspectorImportError.jsonDepthExceeded(actualDepth:maximumDepth:) | RouterInspectorImportError.jsonDepthExceeded(actualDepth:maximumDepth:) | case jsonDepthExceeded(actualDepth: Int, maximumDepth: Int) | []
+symbol | swift.enum.case | RouterInspectorImportError.jsonTokenLimitExceeded(actualCount:maximumCount:) | RouterInspectorImportError.jsonTokenLimitExceeded(actualCount:maximumCount:) | case jsonTokenLimitExceeded(actualCount: Int, maximumCount: Int) | []
 symbol | swift.enum.case | RouterInspectorImportError.malformedSnapshotEnvelope | RouterInspectorImportError.malformedSnapshotEnvelope | case malformedSnapshotEnvelope | []
+symbol | swift.enum.case | RouterInspectorImportError.resourceLimit(_:) | RouterInspectorImportError.resourceLimit(_:) | case resourceLimit(RouterResourceLimitFailure) | []
 symbol | swift.enum.case | RouterInspectorImportError.tooManyEntries(actualCount:maximumCount:) | RouterInspectorImportError.tooManyEntries(actualCount:maximumCount:) | case tooManyEntries(actualCount: Int, maximumCount: Int) | []
 symbol | swift.enum.case | RouterInspectorImportPolicy.append | RouterInspectorImportPolicy.append | case append | []
 symbol | swift.enum.case | RouterInspectorImportPolicy.replace | RouterInspectorImportPolicy.replace | case replace | []
@@ -232,10 +260,16 @@ symbol | swift.init | RouterInspectorDiagnosticBundle.init(frameworkVersion:plat
 symbol | swift.init | RouterInspectorDiagnosticBundle.init(from:) | init(from:) | init(from decoder: any Decoder) throws | []
 symbol | swift.init | RouterInspectorEntry.init(id:timestamp:domain:name:outcome:metadata:state:diff:replay:) | init(id:timestamp:domain:name:outcome:metadata:state:diff:replay:) | init(id: UUID = UUID(), timestamp: Date = Date(), domain: RouterInspectorDomain, name: String, outcome: RouterInspectorOutcome, metadata: [String : String] = [:], state: RouterInspectorStateTree? = nil, diff: RouterInspectorStateDiff? = nil, replay: RouterInspectorReplayPreview? = nil) | []
 symbol | swift.init | RouterInspectorEventDescription.init(name:outcome:metadata:state:diff:replay:) | init(name:outcome:metadata:state:diff:replay:) | init(name: String, outcome: RouterInspectorOutcome = .informational, metadata: [String : String] = [:], state: RouterInspectorStateTree? = nil, diff: RouterInspectorStateDiff? = nil, replay: RouterInspectorReplayPreview? = nil) | []
+symbol | swift.init | RouterInspectorExportFailure.init(code:details:) | init(code:details:) | init(code: RouterInspectorExportFailureCode, details: RouterInspectorExportFailureDetails = .init()) | []
+symbol | swift.init | RouterInspectorExportFailureCode.init(rawValue:) | init(rawValue:) | init(rawValue: String) | []
+symbol | swift.init | RouterInspectorExportFailureDetails.init(actualByteCount:maximumByteCount:) | init(actualByteCount:maximumByteCount:) | init(actualByteCount: Int? = nil, maximumByteCount: Int? = nil) | []
+symbol | swift.init | RouterInspectorExportLimits.init(maximumEncodedByteCount:) | init(maximumEncodedByteCount:) | init(maximumEncodedByteCount: Int = 8 * 1_024 * 1_024) | []
 symbol | swift.init | RouterInspectorFormatter.init(_:) | init(_:) | init(_ format: @escaping (Event) -> RouterInspectorEventDescription) | []
-symbol | swift.init | RouterInspectorImportLimits.init(maximumEncodedByteCount:maximumEntryCount:) | init(maximumEncodedByteCount:maximumEntryCount:) | init(maximumEncodedByteCount: Int = 8 * 1_024 * 1_024, maximumEntryCount: Int = 5_000) | []
+symbol | swift.init | RouterInspectorImportLimits.init(maximumEncodedByteCount:maximumEntryCount:maximumJSONDepth:maximumJSONTokens:maximumJSONWorkUnits:maximumJSONKeyDecodes:) | init(maximumEncodedByteCount:maximumEntryCount:maximumJSONDepth:maximumJSONTokens:maximumJSONWorkUnits:maximumJSONKeyDecodes:) | init(maximumEncodedByteCount: Int = 8 * 1_024 * 1_024, maximumEntryCount: Int = 5_000, maximumJSONDepth: Int = 64, maximumJSONTokens: Int = 524_288, maximumJSONWorkUnits: Int? = nil, maximumJSONKeyDecodes: Int? = nil) | []
+symbol | swift.init | RouterInspectorImportLimits.init(resourceBudget:) | init(resourceBudget:) | init(resourceBudget: RouterResourceBudget) throws | []
 symbol | swift.init | RouterInspectorPlayback.init(snapshot:startsAtEnd:) | init(snapshot:startsAtEnd:) | @MainActor init(snapshot: RouterInspectorSnapshot, startsAtEnd: Bool = false) | []
-symbol | swift.init | RouterInspectorRecorder.init(capacity:importLimits:) | init(capacity:importLimits:) | @MainActor init(capacity: Int = 500, importLimits: RouterInspectorImportLimits = .default) | []
+symbol | swift.init | RouterInspectorRecorder.init(capacity:importLimits:exportLimits:) | init(capacity:importLimits:exportLimits:) | @MainActor init(capacity: Int = 500, importLimits: RouterInspectorImportLimits = .default, exportLimits: RouterInspectorExportLimits = .default) | []
+symbol | swift.init | RouterInspectorRecorder.init(resourceBudget:) | init(resourceBudget:) | @MainActor convenience init(resourceBudget: RouterResourceBudget) throws | []
 symbol | swift.init | RouterInspectorReplayPreview.init(status:state:error:) | init(status:state:error:) | init(status: RouterInspectorReplayPreview.Status, state: RouterInspectorStateTree?, error: String? = nil) | []
 symbol | swift.init | RouterInspectorScenarioController.init(capacity:start:stop:currentStepCount:importFixture:) | init(capacity:start:stop:currentStepCount:importFixture:) | @MainActor init(capacity: Int, start: @escaping @MainActor () throws -> Void, stop: @escaping @MainActor () throws -> RouterInspectorScenarioStopResult, currentStepCount: @escaping @MainActor () -> Int, importFixture: (@MainActor (Data) throws -> RouterInspectorScenarioStopResult)? = nil) | []
 symbol | swift.init | RouterInspectorScenarioStopResult.init(status:capturedStepCount:summary:rawFixtureData:) | init(status:capturedStepCount:summary:rawFixtureData:) | init(status: RouterInspectorScenarioStatus, capturedStepCount: Int, summary: String, rawFixtureData: Data? = nil) | []
@@ -302,11 +336,22 @@ symbol | swift.property | RouterInspectorEventDescription.name | name | var name
 symbol | swift.property | RouterInspectorEventDescription.outcome | outcome | var outcome: RouterInspectorOutcome | []
 symbol | swift.property | RouterInspectorEventDescription.replay | replay | var replay: RouterInspectorReplayPreview? | []
 symbol | swift.property | RouterInspectorEventDescription.state | state | var state: RouterInspectorStateTree? | []
+symbol | swift.property | RouterInspectorExportFailure.code | code | let code: RouterInspectorExportFailureCode | []
+symbol | swift.property | RouterInspectorExportFailure.description | description | var description: String { get } | []
+symbol | swift.property | RouterInspectorExportFailure.details | details | let details: RouterInspectorExportFailureDetails | []
+symbol | swift.property | RouterInspectorExportFailureCode.rawValue | rawValue | let rawValue: String | []
+symbol | swift.property | RouterInspectorExportFailureDetails.actualByteCount | actualByteCount | let actualByteCount: Int? | []
+symbol | swift.property | RouterInspectorExportFailureDetails.maximumByteCount | maximumByteCount | let maximumByteCount: Int? | []
+symbol | swift.property | RouterInspectorExportLimits.maximumEncodedByteCount | maximumEncodedByteCount | let maximumEncodedByteCount: Int | []
 symbol | swift.property | RouterInspectorFlatNode.depth | depth | let depth: Int | []
 symbol | swift.property | RouterInspectorFlatNode.id | id | var id: String { get } | []
 symbol | swift.property | RouterInspectorFlatNode.node | node | let node: RouterInspectorStateNode | []
 symbol | swift.property | RouterInspectorImportLimits.maximumEncodedByteCount | maximumEncodedByteCount | var maximumEncodedByteCount: Int | []
 symbol | swift.property | RouterInspectorImportLimits.maximumEntryCount | maximumEntryCount | var maximumEntryCount: Int | []
+symbol | swift.property | RouterInspectorImportLimits.maximumJSONDepth | maximumJSONDepth | var maximumJSONDepth: Int | []
+symbol | swift.property | RouterInspectorImportLimits.maximumJSONKeyDecodes | maximumJSONKeyDecodes | var maximumJSONKeyDecodes: Int? | []
+symbol | swift.property | RouterInspectorImportLimits.maximumJSONTokens | maximumJSONTokens | var maximumJSONTokens: Int | []
+symbol | swift.property | RouterInspectorImportLimits.maximumJSONWorkUnits | maximumJSONWorkUnits | var maximumJSONWorkUnits: Int? | []
 symbol | swift.property | RouterInspectorPlayback.canStepBackward | canStepBackward | @MainActor var canStepBackward: Bool { get } | []
 symbol | swift.property | RouterInspectorPlayback.canStepForward | canStepForward | @MainActor var canStepForward: Bool { get } | []
 symbol | swift.property | RouterInspectorPlayback.comparisonEntryID | comparisonEntryID | @MainActor var comparisonEntryID: RouterInspectorEntry.ID? { get set } | []
@@ -318,6 +363,7 @@ symbol | swift.property | RouterInspectorPlayback.snapshot | snapshot | @MainAct
 symbol | swift.property | RouterInspectorRecorder.bookmarkedEntryIDs | bookmarkedEntryIDs | @MainActor var bookmarkedEntryIDs: Set<RouterInspectorEntry.ID> { get set } | []
 symbol | swift.property | RouterInspectorRecorder.capacity | capacity | @MainActor let capacity: Int | []
 symbol | swift.property | RouterInspectorRecorder.entries | entries | @MainActor var entries: [RouterInspectorEntry] { get set } | []
+symbol | swift.property | RouterInspectorRecorder.exportLimits | exportLimits | @MainActor let exportLimits: RouterInspectorExportLimits | []
 symbol | swift.property | RouterInspectorRecorder.importLimits | importLimits | @MainActor let importLimits: RouterInspectorImportLimits | []
 symbol | swift.property | RouterInspectorRecorder.isPaused | isPaused | @MainActor var isPaused: Bool { get set } | []
 symbol | swift.property | RouterInspectorRecorder.pauseOnRejection | pauseOnRejection | @MainActor var pauseOnRejection: Bool { get set } | []
@@ -358,6 +404,10 @@ symbol | swift.struct | RouterInspectorDeepLinkView | RouterInspectorDeepLinkVie
 symbol | swift.struct | RouterInspectorDiagnosticBundle | RouterInspectorDiagnosticBundle | struct RouterInspectorDiagnosticBundle | []
 symbol | swift.struct | RouterInspectorEntry | RouterInspectorEntry | struct RouterInspectorEntry | []
 symbol | swift.struct | RouterInspectorEventDescription | RouterInspectorEventDescription | struct RouterInspectorEventDescription | []
+symbol | swift.struct | RouterInspectorExportFailure | RouterInspectorExportFailure | struct RouterInspectorExportFailure | []
+symbol | swift.struct | RouterInspectorExportFailureCode | RouterInspectorExportFailureCode | struct RouterInspectorExportFailureCode | []
+symbol | swift.struct | RouterInspectorExportFailureDetails | RouterInspectorExportFailureDetails | struct RouterInspectorExportFailureDetails | []
+symbol | swift.struct | RouterInspectorExportLimits | RouterInspectorExportLimits | struct RouterInspectorExportLimits | []
 symbol | swift.struct | RouterInspectorFlatNode | RouterInspectorFlatNode | struct RouterInspectorFlatNode | []
 symbol | swift.struct | RouterInspectorFormatter | RouterInspectorFormatter | struct RouterInspectorFormatter<Event> where Event : Sendable | []
 symbol | swift.struct | RouterInspectorImportLimits | RouterInspectorImportLimits | struct RouterInspectorImportLimits | []
@@ -375,8 +425,12 @@ symbol | swift.type.method | RouterInspectorDeepLinkAnalyzer.analyze(_:as:inputL
 symbol | swift.type.method | RouterInspectorDeepLinkAnalyzer.execute(_:on:action:) | execute(_:on:action:) | @MainActor static func execute<R>(_ url: URL, on store: RouterStore<R>, action: (R) -> RouterAction<R> = RouterAction.push) async -> RouterOutcome<R>? where R : DeepLinkRoute | []
 symbol | swift.type.method | RouterInspectorDeepLinkAnalyzer.preview(_:as:from:action:) | preview(_:as:from:action:) | static func preview<R>(_ url: URL, as routeType: R.Type, from state: RouterState<R>, action: (R) -> RouterAction<R> = RouterAction.push) -> RouterInspectorDeepLinkAnalysis where R : DeepLinkRoute | []
 symbol | swift.type.method | RouterInspectorDeepLinkAnalyzer.shareSummary(_:) | shareSummary(_:) | static func shareSummary(_ analysis: RouterInspectorDeepLinkAnalysis) -> String | []
+symbol | swift.type.method | RouterInspectorExportFailure.encodedDataTooLarge(actualByteCount:maximumByteCount:) | encodedDataTooLarge(actualByteCount:maximumByteCount:) | static func encodedDataTooLarge(actualByteCount: Int, maximumByteCount: Int) -> RouterInspectorExportFailure | []
 symbol | swift.type.method | RouterInspectorProjection.diff(from:to:) | diff(from:to:) | static func diff(from before: RouterInspectorStateTree, to after: RouterInspectorStateTree) -> RouterInspectorStateDiff | []
 symbol | swift.type.method | RouterInspectorProjection.diff(from:to:) | diff(from:to:) | static func diff<R>(from before: RouterState<R>, to after: RouterState<R>) -> RouterInspectorStateDiff where R : Route | []
 symbol | swift.type.method | RouterInspectorProjection.tree(from:) | tree(from:) | static func tree<R>(from state: RouterState<R>) -> RouterInspectorStateTree where R : Route | []
 symbol | swift.type.method | RouterInspectorReplay.preview(_:) | preview(_:) | static func preview<R>(_ transition: RouterTransition<R>) -> RouterInspectorReplayPreview where R : Route | []
+symbol | swift.type.method | RouterInspectorReplay.preview(_:resourceBudget:) | preview(_:resourceBudget:) | static func preview<R>(_ transition: RouterTransition<R>, resourceBudget: RouterResourceBudget) -> RouterInspectorReplayPreview where R : Route | []
+symbol | swift.type.property | RouterInspectorExportFailureCode.encodedDataTooLarge | encodedDataTooLarge | static let encodedDataTooLarge: RouterInspectorExportFailureCode | []
+symbol | swift.type.property | RouterInspectorExportLimits.default | default | static let `default`: RouterInspectorExportLimits | []
 symbol | swift.type.property | RouterInspectorImportLimits.default | default | static let `default`: RouterInspectorImportLimits | []

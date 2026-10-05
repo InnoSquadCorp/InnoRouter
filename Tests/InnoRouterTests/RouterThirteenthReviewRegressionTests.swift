@@ -71,7 +71,7 @@ struct RouterThirteenthReviewRegressionTests {
         let initial = try RouterState<ThirteenthReviewRoute>(
             windows: [.init(id: id, route: .first)]
         )
-        let store = RouterStore(initialState: initial, configuration: .init(policies: [
+        let store = try RouterStore(initialState: initial, configuration: .init(policies: [
             RouterPolicy(name: "native-close") { transition in
                 transition.context.source == .system ? .deferRequest(deferral) : .allow
             },
@@ -105,7 +105,7 @@ struct RouterThirteenthReviewRegressionTests {
     @Test("Stopping history cancels its active request family")
     func historyStopReleasesActivePolicyLane() async throws {
         let gate = ThirteenthReviewPolicyGate()
-        let store = RouterStore<ThirteenthReviewRoute>(configuration: .init(
+        let store = try RouterStore<ThirteenthReviewRoute>(configuration: .init(
             policies: [RouterPolicy(name: "history") { transition in
                 if transition.context.source == .history {
                     await gate.suspend()
@@ -142,7 +142,7 @@ struct RouterThirteenthReviewRegressionTests {
     @Test("Reset returns cancellation while releasing the previous history generation")
     func historyResetReleasesActivePolicyLane() async throws {
         let gate = ThirteenthReviewPolicyGate()
-        let store = RouterStore<ThirteenthReviewRoute>(configuration: .init(
+        let store = try RouterStore<ThirteenthReviewRoute>(configuration: .init(
             policies: [RouterPolicy(name: "history") { transition in
                 if transition.context.source == .history {
                     await gate.suspend()
@@ -178,7 +178,7 @@ struct RouterThirteenthReviewRegressionTests {
     @Test("Cancelling one history caller releases its request family")
     func historyCallerCancellationReleasesActivePolicyLane() async throws {
         let gate = ThirteenthReviewPolicyGate()
-        let store = RouterStore<ThirteenthReviewRoute>(configuration: .init(
+        let store = try RouterStore<ThirteenthReviewRoute>(configuration: .init(
             policies: [RouterPolicy(name: "history") { transition in
                 if transition.context.source == .history {
                     await gate.suspend()
@@ -216,7 +216,7 @@ struct RouterThirteenthReviewRegressionTests {
         let codec = try RouterSnapshotCodec<ThirteenthReviewRoute>(currentVersion: 1)
         let restoreDeferral = RouterDeferralID()
         let nextDeferral = RouterDeferralID()
-        let store = RouterStore<ThirteenthReviewRoute>(configuration: .init(
+        let store = try RouterStore<ThirteenthReviewRoute>(configuration: .init(
             policies: [RouterPolicy(name: "approval") { transition in
                 .deferRequest(
                     transition.context.source == .restoration
@@ -277,7 +277,7 @@ struct RouterThirteenthReviewRegressionTests {
         let codec = try RouterSnapshotCodec<ThirteenthReviewRoute>(currentVersion: 1)
         let firstDeferral = RouterDeferralID()
         let secondDeferral = RouterDeferralID()
-        let store = RouterStore<ThirteenthReviewRoute>(configuration: .init(policies: [
+        let store = try RouterStore<ThirteenthReviewRoute>(configuration: .init(policies: [
             RouterPolicy(name: "first") { transition in
                 transition.context.source == .restoration
                     ? .deferRequest(firstDeferral)
@@ -314,7 +314,7 @@ struct RouterThirteenthReviewRegressionTests {
     func unrelatedRestorationEventDoesNotReleaseActiveRoot() async throws {
         let gate = ThirteenthReviewPolicyGate()
         let codec = try RouterSnapshotCodec<ThirteenthReviewRoute>(currentVersion: 1)
-        let store = RouterStore<ThirteenthReviewRoute>(configuration: .init(
+        let store = try RouterStore<ThirteenthReviewRoute>(configuration: .init(
             policies: [RouterPolicy(name: "restore") { transition in
                 if transition.context.source == .restoration {
                     await gate.suspend()
@@ -444,8 +444,14 @@ private struct ThirteenthReviewRestorationRoot: View {
 struct RouterThirteenthReviewNativeHostTests {
     @Test("Replacing an externally supplied store updates host authority")
     func externalStoreReplacement() async throws {
-        let first = RouterStore<ThirteenthReviewRoute>()
-        let second = RouterStore<ThirteenthReviewRoute>(initialPath: [.second])
+        let first = try RouterStore<ThirteenthReviewRoute>(configuration: .init(hostDescriptor: .init(
+            root: .stack, rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+        )))
+        let second = try RouterStore<ThirteenthReviewRoute>(
+            initialPath: [.second], configuration: .init(hostDescriptor: .init(
+                root: .stack, rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+            ))
+        )
         let observations = ThirteenthReviewRenderObservations()
         let host = NSHostingView(rootView: RouterHost(store: first) {
             ThirteenthReviewRouterReader(generation: 0, observations: observations)
@@ -507,7 +513,7 @@ struct RouterThirteenthReviewNativeHostTests {
     @Test("A scene driver reconciles a replacement store at the same revision")
     func sceneStoreReplacementAtSameRevision() async throws {
         let first = RouterStore<ThirteenthReviewRoute>()
-        let second = RouterStore(
+        let second = try RouterStore(
             initialState: try RouterState<ThirteenthReviewRoute>(
                 windows: [.init(route: .second)]
             )
@@ -539,7 +545,7 @@ struct RouterThirteenthReviewNativeHostTests {
     @Test("A same-ID replacement reconciles both native window lifetimes")
     func sameIDWindowReplacement() async throws {
         let id = UUID()
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState<ThirteenthReviewRoute>(
                 windows: [.init(id: id, route: .first)]
             )

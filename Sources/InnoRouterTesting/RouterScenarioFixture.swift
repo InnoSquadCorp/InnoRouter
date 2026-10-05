@@ -3,8 +3,9 @@ import Foundation
 import InnoRouterCore
 
 public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Codable {
-    /// The only fixture format this build can encode and decode.
-    public static var currentFormatVersion: Int { 7 }
+    /// Format nine adds inert transient descriptor transport. Navigation-only
+    /// format-eight fixtures remain readable and are upgraded on re-export.
+    public static var currentFormatVersion: Int { 9 }
 
     public let formatVersion: Int
     public let initialState: RouterState<R>
@@ -65,6 +66,7 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
                 action: step.action,
                 context: step.context,
                 requestSemantics: step.requestSemantics,
+                replayLimitation: step.replayLimitation,
                 expectedRevision: step.expectedRevision,
                 cancellationOrigin: step.cancellationOrigin,
                 observedState: step.observedState,
@@ -90,12 +92,17 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
         )
     }
 
-    /// Decodes a fixture only after bounded-size checks and validates its
-    /// format and step count before replay.
+    /// Screens bytes, complete JSON complexity, duplicate keys, and the steps
+    /// envelope before decoding any route payload. Defaults are provisional,
+    /// finite development limits, not calibrated release recommendations.
     public static func decode(
         from data: Data,
         maximumByteCount: Int = 2 * 1_024 * 1_024,
-        maximumStepCount: Int = 2_000
+        maximumStepCount: Int = 2_000,
+        maximumJSONDepth: Int = 64,
+        maximumJSONTokens: Int = 131_072,
+        maximumJSONWorkUnits: Int? = nil,
+        maximumJSONKeyDecodes: Int? = nil
     ) throws -> Self {
         guard data.count <= max(1, maximumByteCount) else {
             throw RouterScenarioFixtureError.encodedDataTooLarge(
@@ -103,7 +110,17 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
                 maximum: max(1, maximumByteCount)
             )
         }
-        let fixture = try JSONDecoder().decode(Self.self, from: data)
+        let formatVersion = try RouterScenarioImportPreflight.validate(
+            data,
+            maximumBytes: max(1, maximumByteCount),
+            maximumSteps: max(1, maximumStepCount),
+            maximumDepth: max(1, maximumJSONDepth),
+            maximumTokens: max(1, maximumJSONTokens),
+            maximumWorkUnits: maximumJSONWorkUnits,
+            maximumKeyDecodes: maximumJSONKeyDecodes
+        )
+        let fixture = try RouterTransientDescriptorTransport.decoder(formatVersion: formatVersion)
+            .decode(Self.self, from: data)
         guard fixture.steps.count <= max(1, maximumStepCount) else {
             throw RouterScenarioFixtureError.tooManySteps(
                 actual: fixture.steps.count,
@@ -126,7 +143,7 @@ public struct RouterScenarioFixture<R: Route & Codable>: Hashable, Sendable, Cod
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let formatVersion = try container.decode(Int.self, forKey: .formatVersion)
-        guard formatVersion == Self.currentFormatVersion else {
+        guard formatVersion == Self.currentFormatVersion || formatVersion == 8 else {
             throw RouterScenarioFixtureError.unsupportedFormatVersion(formatVersion)
         }
         let initialState = try container.decode(RouterState<R>.self, forKey: .initialState)
@@ -165,4 +182,8 @@ public enum RouterScenarioFixtureError: Error, Hashable, Sendable {
     case unsupportedFormatVersion(Int)
     case encodedDataTooLarge(actual: Int, maximum: Int)
     case tooManySteps(actual: Int, maximum: Int)
+    case jsonDepthExceeded(actual: Int, maximum: Int)
+    case jsonTokenLimitExceeded(actual: Int, maximum: Int)
+    case resourceLimit(RouterResourceLimitFailure)
+    case malformedFixtureEnvelope
 }

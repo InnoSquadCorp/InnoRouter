@@ -4,6 +4,7 @@ import SwiftUI
 import Testing
 
 import InnoRouter
+@testable import InnoRouterCore
 @testable import InnoRouterSwiftUI
 
 private struct TabSafetyStorage: RouterSnapshotStorage {
@@ -109,7 +110,7 @@ struct RouterTabRestorationSafetyTests {
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let data = try codec.encode(stored)
         let topology = try RouterTabRestorationTopology(of: R.self)
-        let store = RouterStore(initialState: initial)
+        let store = try RouterStore(initialState: initial)
         let gate = TabSnapshotDecodeGate()
         TabSnapshotDecodeGate.active.withLock { $0 = gate }
         defer {
@@ -164,7 +165,7 @@ struct RouterTabRestorationSafetyTests {
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let data = try codec.encode(tabs([.init(id: "home", node: .stack(path: [.storedDetail]))]))
         let topology = try RouterTabRestorationTopology(of: R.self)
-        let store = RouterStore(initialState: initial)
+        let store = try RouterStore(initialState: initial)
         let gate = TabSnapshotDecodeGate()
         TabSnapshotDecodeGate.active.withLock { $0 = gate }
         defer {
@@ -192,8 +193,10 @@ struct RouterTabRestorationSafetyTests {
         #expect(store.revision == 0)
     }
 
-    @Test("Mutable invalid state produces a typed failure instead of a Dictionary trap")
+    @Test("Internally corrupted state produces a typed failure instead of a Dictionary trap")
     func invalidMutableState() throws {
+        // Deliberately bypass the public boundary to retain restoration's
+        // defense-in-depth coverage for malformed internal input.
         var state = try tabs([.init(id: "home")])
         guard case .container(var container) = state.root else { return }
         container.branches.append(.init(id: "home"))
@@ -212,17 +215,19 @@ struct RouterTabRestorationSafetyTests {
         let topology = try RouterTabRestorationTopology(of: R.self)
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let data = try codec.encode(snapshot)
-        let store = RouterStore(initialState: initial)
+        let store = try RouterStore(initialState: initial)
         await #expect(throws: RouterMutationError.expectedStack(["settings"])) {
             _ = try await store.restore(from: data, using: codec, tabTopology: topology)
         }
         #expect(store.state == initial)
         #expect(store.revision == 0)
-        let malformedHostStore = RouterStore(initialState: snapshot)
         let catalog = try RouterTabCatalog(R.routerTabs)
-        #expect(throws: RouterMutationError.expectedStack(["settings"])) {
-            _ = try RouterTabHost(store: malformedHostStore, catalog: catalog, allowingOrphanedBranches: true)
+        let configuration = RouterStoreConfiguration<R>(hostDescriptor: catalog.hostDescriptor(orphanPolicy: .preserveDormant))
+        expectSafetyHostFailure(.kindMismatch, scope: ["settings"]) {
+            _ = try RouterStore(initialState: snapshot, configuration: configuration)
         }
+        let validHostStore = try RouterStore(initialState: initial, configuration: configuration)
+        _ = try RouterTabHost(store: validHostStore, catalog: catalog, orphanPolicy: .preserveDormant)
     }
 
     @Test("Orphan containers are preserved but cannot be the host's selection")
@@ -232,18 +237,22 @@ struct RouterTabRestorationSafetyTests {
             .init(id: "home"), .init(id: "settings"), .init(id: "legacy", node: .container(nested)),
         ], selection: "legacy")
         let catalog = try RouterTabCatalog(R.routerTabs)
-        #expect(throws: RouterTabCatalogError.storeBranchesDoNotMatchCatalog) {
-            _ = try RouterTabHost(store: .init(initialState: snapshot), catalog: catalog, allowingOrphanedBranches: true)
+        let configuration = RouterStoreConfiguration<R>(hostDescriptor: catalog.hostDescriptor(orphanPolicy: .preserveDormant))
+        expectSafetyHostFailure(.selectionNotRendered) {
+            _ = try RouterStore(initialState: snapshot, configuration: configuration)
         }
         let reconciled = try RouterTabRestorationTopology(catalog: catalog).reconciling(snapshot)
         #expect(reconciled.node(at: ["legacy"]) == .container(nested))
-        _ = try RouterTabHost(store: .init(initialState: reconciled), catalog: catalog, allowingOrphanedBranches: true)
+        let store = try RouterStore(initialState: reconciled, configuration: configuration)
+        _ = try RouterTabHost(store: store, catalog: catalog, orphanPolicy: .preserveDormant)
+        #expect(store.state == reconciled)
+        #expect(store.revision == 0)
     }
 
     @Test("Structural reports describe empty tab changes and decode older reports")
     func structuralReport() async throws {
         let snapshot = try tabs([.init(id: "home"), .init(id: "legacy")], selection: "legacy")
-        let store = RouterStore(initialState: try tabs([.init(id: "home"), .init(id: "settings")]))
+        let store = try RouterStore(initialState: try tabs([.init(id: "home"), .init(id: "settings")]))
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let result = try await store.restorePartially(
             from: codec.encode(snapshot), using: codec, validator: .init { _, _ in .keep },
@@ -267,7 +276,7 @@ struct RouterTabRestorationSafetyTests {
         defer { finished.continuation.finish() }
         var configuration = RouterStoreConfiguration<R>()
         configuration.runtimeDependencies.didFinishRestorationWorker = { finished.continuation.yield(()) }
-        let store = RouterStore(initialState: try tabs([.init(id: "home")]), configuration: configuration)
+        let store = try RouterStore(initialState: try tabs([.init(id: "home")]), configuration: configuration)
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let first = RouterRestorationDriver(
             store: store, codec: codec,
@@ -317,7 +326,7 @@ struct RouterTabRestorationSafetyTests {
         let initial = try tabs([.init(id: "home")])
         var configuration = RouterStoreConfiguration<R>()
         configuration.policies = [.init(name: "deny") { _ in .reject("blocked") }]
-        let store = RouterStore(initialState: initial, configuration: configuration)
+        let store = try RouterStore(initialState: initial, configuration: configuration)
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let outcome = try await store.restorePartially(
             from: codec.encode(initial), using: codec, validator: .init { _, _ in .keep },
@@ -327,5 +336,22 @@ struct RouterTabRestorationSafetyTests {
         #expect(outcome.report.topologyChanges.contains(.insertedScope("settings")))
         #expect(store.state == initial)
         #expect(store.revision == 0)
+    }
+}
+
+@MainActor
+private func expectSafetyHostFailure(
+    _ code: RouterHostValidationFailure.Code,
+    scope: RouterScopePath = .root,
+    operation: () throws -> Void
+) {
+    do {
+        try operation()
+        Issue.record("Expected a typed host validation failure")
+    } catch let failure as RouterHostValidationFailure {
+        #expect(failure.code == code)
+        #expect(failure.scope == scope)
+    } catch {
+        Issue.record("Expected host validation failure, received \(type(of: error))")
     }
 }

@@ -3,7 +3,6 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Observation
-import SwiftUI
 
 import InnoRouterCore
 
@@ -50,6 +49,8 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
     public var node: RouterNode<Child>? {
         parent.node.flatMap { try? mapping.project($0) }
     }
+
+    var resourceBudget: RouterResourceBudget? { parent.resourceBudget }
 
     public var state: RouterState<Child>? {
         node.flatMap { try? RouterState(root: $0) }
@@ -131,7 +132,11 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
             )
         }
 
+        guard let resourceBudget else {
+            return projectionRejection(.routeMismatch(namespace: mapping.namespace))
+        }
         do {
+            try resourceBudget.validateInput(action)
             let embedded = try mapping.embed(action)
             let path = parent.outcomeScopePath
             let mapping = self.mapping
@@ -151,6 +156,8 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
                     executionPrecondition: parentPrecondition
                 )
             )
+        } catch let failure as RouterResourceLimitFailure {
+            return map(parent.reject(.resourceLimit(failure)))
         } catch let error as RouterFeatureProjectionError {
             return projectionRejection(error)
         } catch {
@@ -176,7 +183,11 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
         guard node != nil else {
             return projectionRejection(.routeMismatch(namespace: mapping.namespace))
         }
+        guard let resourceBudget else {
+            return projectionRejection(.routeMismatch(namespace: mapping.namespace))
+        }
         do {
+            try resourceBudget.validateInput(action)
             let embedded = try mapping.embed(action)
             return map(
                 await parent.performFeatureAction(
@@ -187,6 +198,8 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
                     executionPrecondition: parentPrecondition(childPrecondition)
                 )
             )
+        } catch let failure as RouterResourceLimitFailure {
+            return map(parent.reject(.resourceLimit(failure)))
         } catch let error as RouterFeatureProjectionError {
             return projectionRejection(error)
         } catch {
@@ -204,8 +217,11 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
         guard self.node != nil else {
             return projectionRejection(.routeMismatch(namespace: mapping.namespace))
         }
+        guard let resourceBudget else {
+            return projectionRejection(.routeMismatch(namespace: mapping.namespace))
+        }
         do {
-            let state = try RouterState(root: node)
+            let state = try RouterStateDraft(root: node).build(resourceBudget: resourceBudget)
             let embedded = try mapping.embedPlanRoot(RouterPlan(state: state))
             let path = parent.outcomeScopePath
             let mapping = self.mapping
@@ -225,6 +241,8 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
                     executionPrecondition: parentPrecondition
                 )
             )
+        } catch let failure as RouterResourceLimitFailure {
+            return map(parent.reject(.resourceLimit(failure)))
         } catch let error as RouterFeatureProjectionError {
             return projectionRejection(error)
         } catch {
@@ -388,7 +406,7 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
         ))
     }
 
-    private func map(_ outcome: RouterOutcome<Parent>) -> RouterOutcome<Child> {
+    func map(_ outcome: RouterOutcome<Parent>) -> RouterOutcome<Child> {
         switch outcome {
         case .applied(let id, let before, let after, let revision):
             guard let before = project(before), let after = project(after) else {
@@ -436,44 +454,3 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
 }
 
 extension RouterFeatureScope: RouterAuthorityProtocol {}
-
-/// Publishes a macro-generated feature mapping to descendants without
-/// creating another navigation store or native host.
-@MainActor
-public struct RouterFeatureHost<Parent: Route, Child: Route, Content: View>: View {
-    @Environment(\.routerEnvironment) private var routerEnvironment
-    @Environment(\.innoRouterEnvironmentMissingPolicy) private var missingPolicy
-
-    private let mapping: RouterFeatureMapping<Parent, Child>
-    private let content: () -> Content
-
-    public init(
-        _ mapping: RouterFeatureMapping<Parent, Child>,
-        @ViewBuilder content: @escaping () -> Content
-    ) {
-        self.mapping = mapping
-        self.content = content
-    }
-
-    @ViewBuilder
-    public var body: some View {
-        if let parent = routerEnvironment?[Parent.self] {
-            let feature = RouterFeatureScope(parent: parent.base, mapping: mapping)
-            content()
-                .transformEnvironment(\.routerEnvironment) { environment in
-                    var resolved = environment ?? RouterEnvironment()
-                    resolved.register(RouterAuthority(base: feature), for: Child.self)
-                    environment = resolved
-                }
-        } else {
-            missingParentContent()
-        }
-    }
-
-    private func missingParentContent() -> Content {
-        handleMissingEnvironment(policy: missingPolicy) {
-            "Parent router authority is missing for \(String(describing: Parent.self)) while composing feature \(mapping.namespace)."
-        }
-        return content()
-    }
-}

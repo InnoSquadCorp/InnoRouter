@@ -14,6 +14,7 @@ public enum RouterStateValidationError: Error, Hashable, Sendable {
     case unknownBadgeScope(RouterScopeID)
     case invalidBadgeCount(scope: RouterScopeID, count: Int)
     case duplicatePresentation(UUID)
+    case invalidTransientPresentation(RouterTransientPresentationValidationFailure)
     case invalidPresentationDetent(RouterPresentationDetent)
     case undeclaredSelectedDetent(RouterPresentationDetent)
     case undeclaredBackgroundInteractionDetent(RouterPresentationDetent)
@@ -51,6 +52,9 @@ public indirect enum RouterAction<R: Route>: Hashable, Sendable {
     case popToRoot
     case replaceStack([R])
     case present(RouterPresentation<R>)
+    case presentAlert(RouterTransientPresentation)
+    case presentConfirmationDialog(RouterTransientPresentation)
+    case selectPresentationAction(presentationID: UUID, actionID: RouterPresentationActionID)
     case dismissPresentation
     case setPresentationDetent(RouterPresentationDetent)
     case select(RouterScopeID)
@@ -59,6 +63,8 @@ public indirect enum RouterAction<R: Route>: Hashable, Sendable {
     case setSplitVisibility(RouterSplitVisibility)
     case setPreferredCompactColumn(RouterSplitColumn)
     case scoped(RouterScopeID, RouterAction<R>)
+    /// Targets the child node owned by one exact active presentation.
+    case presentationScoped(UUID, RouterAction<R>)
     case windowScoped(UUID, RouterAction<R>)
     case immersiveSpaceScoped(String, RouterAction<R>)
     case openWindow(RouterWindow<R>)
@@ -74,8 +80,11 @@ public indirect enum RouterAction<R: Route>: Hashable, Sendable {
 
     /// Targets this action at a complete nested scope path.
     public func inScope(_ path: RouterScopePath) -> RouterAction<R> {
-        let nested = path.components.reversed().reduce(self) { action, scope in
-            .scoped(scope, action)
+        let nested = path.components.reversed().reduce(self) { action, component in
+            switch component {
+            case .branch(let scope): .scoped(scope, action)
+            case .presentation(let id): .presentationScoped(id, action)
+            }
         }
         switch path.domain {
         case .application:
@@ -101,6 +110,10 @@ public enum RouterMutationError: Error, Hashable, Sendable {
     case blockedByPresentation(RouterScopePath)
     case presentationAlreadyActive(RouterScopePath)
     case presentationNotActive(RouterScopePath)
+    case expectedTransientPresentation(RouterScopePath)
+    case expectedNavigationPresentation(RouterScopePath)
+    case unknownPresentationAction(RouterScopePath)
+    case presentationCompletionPending(UUID)
     case presentationIdentityMismatch(
         scope: RouterScopePath,
         expected: UUID,
@@ -116,4 +129,7 @@ public enum RouterMutationError: Error, Hashable, Sendable {
     case scopedGlobalAction(RouterScopePath)
     case invalidTargetState(RouterStateValidationError)
     case incompatibleNavigationTopology(RouterScopePath)
+    /// The captured execution lifetime ended or the scope never existed.
+    case expiredScope(RouterScopePath)
+    case expiredPresentation(UUID, scope: RouterScopePath)
 }

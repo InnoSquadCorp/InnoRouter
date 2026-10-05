@@ -12,7 +12,7 @@ private enum RuntimeDependencyRoute: Route {
 @MainActor
 struct RouterRuntimeDependencyTests {
     @Test("Policy timeout advances without waiting for wall-clock time", arguments: 0..<100)
-    func policyTimeout(_: Int) async {
+    func policyTimeout(_: Int) async throws {
         let sleeper = ManualRuntimeSleeper()
         var registrations = sleeper.registrations.makeAsyncIterator()
         let (gate, gateContinuation) = AsyncStream<Void>.makeStream()
@@ -26,7 +26,7 @@ struct RouterRuntimeDependencyTests {
             policyTimeout: .seconds(30)
         )
         configuration.runtimeDependencies = manualRuntimeDependencies(sleeper: sleeper)
-        let store = RouterStore<RuntimeDependencyRoute>(configuration: configuration)
+        let store = try RouterStore<RuntimeDependencyRoute>(configuration: configuration)
 
         let request = Task { @MainActor in
             await store.perform(.push(.detail))
@@ -46,7 +46,7 @@ struct RouterRuntimeDependencyTests {
     }
 
     @Test("Deferral timestamps and expiration use the same injected clock", arguments: 0..<100)
-    func deferralExpiration(_: Int) async {
+    func deferralExpiration(_: Int) async throws {
         let sleeper = ManualRuntimeSleeper()
         var registrations = sleeper.registrations.makeAsyncIterator()
         let deferralID = RouterDeferralID(
@@ -59,7 +59,7 @@ struct RouterRuntimeDependencyTests {
             deferrals: .init(timeToLive: .seconds(60))
         )
         configuration.runtimeDependencies = manualRuntimeDependencies(sleeper: sleeper)
-        let store = RouterStore<RuntimeDependencyRoute>(configuration: configuration)
+        let store = try RouterStore<RuntimeDependencyRoute>(configuration: configuration)
         let expiryEvents = store.events
 
         guard case .deferred(_, _, _, let deferred) = await store.perform(.push(.detail)) else {

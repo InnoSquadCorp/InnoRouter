@@ -12,8 +12,8 @@ private enum CrownRoute: Route {
 @MainActor
 struct WatchOSCrownNavigationTests {
     @Test("dense crown navigation preserves exact stack depth")
-    func densePush() async {
-        let store = RouterStore<CrownRoute>(initialPath: [.workouts])
+    func densePush() async throws {
+        let store = try RouterStore<CrownRoute>(initialPath: [.workouts])
         for index in 0..<32 {
             _ = await store.perform(.push(.workout(index)))
             guard case .stack(let stack) = store.state.root else { return }

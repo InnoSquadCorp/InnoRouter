@@ -65,6 +65,54 @@ private enum RouterTabHostRoute: String, DestinationRoute, RouterTabRoute {
     }
 }
 
+private enum RouterTabLinkRoute: String, DestinationRoute, RouterTabRoute {
+    case home
+    case inbox
+    case detail
+
+    enum Tab: String, RouterTab {
+        case home
+        case inbox
+
+        var title: LocalizedStringResource { self == .home ? "Home" : "Inbox" }
+        var systemImage: String { self == .home ? "house" : "tray" }
+        var routerScopeID: RouterScopeID { RouterScopeID(rawValue) }
+    }
+
+    static let routerTabs: [RouterTabDescriptor<Self, Tab>] = [
+        .init(tab: .home, root: .home),
+        .init(tab: .inbox, root: .inbox),
+    ]
+
+    static func destination(for route: Self) -> some View {
+        RouterTabLinkDestination(route: route)
+    }
+}
+
+@MainActor
+@Observable
+private final class RouterTabLinkRecorder {
+    var pushAttempts = 0
+}
+
+// A tab root that navigates from its own content once, as an app would.
+@MainActor
+private struct RouterTabLinkDestination: View {
+    @EnvironmentRouter(RouterTabLinkRoute.self) private var router
+    @Environment(RouterTabLinkRecorder.self) private var recorder: RouterTabLinkRecorder?
+
+    let route: RouterTabLinkRoute
+
+    var body: some View {
+        Text(route.rawValue)
+            .onAppear {
+                guard let recorder, route != .detail, recorder.pushAttempts == 0 else { return }
+                recorder.pushAttempts += 1
+                router.go(.detail)
+            }
+    }
+}
+
 @MainActor
 @Observable
 private final class RouterTabHostRecorder {
@@ -139,6 +187,67 @@ struct RouterTabHostTests {
         )
     }
 
+    @Test("Same-ID tab root remapping rejects until the owner replaces the declaration")
+    func sameIDsCannotChangeRootMeaning() async throws {
+        let store = try makeTabStore(initial: .home)
+        let original = try RouterTabCatalog(RouterTabHostRoute.routerTabs)
+        let remapped = try RouterTabCatalog<RouterTabHostRoute>([
+            .init(tab: .home, root: .inbox),
+            .init(tab: .inbox, root: .home),
+            .init(tab: .settings, root: .settings),
+        ])
+        #expect(original.hostShape() == remapped.hostShape())
+        let before = store.state
+        let oldHome = store.scope(at: ["home"])
+        _ = try RouterTabHost(store: store, catalog: original)
+        expectTabHostFailure(.rendererMismatch) {
+            _ = try RouterTabHost(store: store, catalog: remapped)
+        }
+        #expect(store.state == before)
+        #expect(store.revision == 0)
+        _ = try RouterTabHost(store: store, catalog: original)
+
+        guard case .applied = await store.replaceHost(
+            with: .init(state: before), descriptor: remapped.hostDescriptor()
+        ) else {
+            Issue.record("Expected deliberate root-meaning replacement to commit")
+            return
+        }
+        #expect(store.state == before)
+        #expect(store.revision == 1)
+        _ = try RouterTabHost(store: store, catalog: remapped)
+        expectTabHostFailure(.rendererMismatch) {
+            _ = try RouterTabHost(store: store, catalog: original)
+        }
+        guard case .rejected = await oldHome.perform(.push(.settings)) else {
+            Issue.record("A same-ID remapping must retire the old tab authority")
+            return
+        }
+        #expect(store.state == before)
+        #expect(store.revision == 1)
+    }
+
+    @Test("Shape-only tab declarations cannot authorize a root Route mapping")
+    func shapeOnlyCatalogIsInsufficient() throws {
+        let catalog = try RouterTabCatalog(RouterTabHostRoute.routerTabs)
+        let initial = try makeTabStore(initial: .home).state
+        let store = try RouterStore(
+            initialState: initial,
+            configuration: .init(hostDescriptor: .init(root: catalog.hostShape()))
+        )
+        expectTabHostFailure(.rendererMismatch) {
+            _ = try RouterTabHost(store: store, catalog: catalog)
+        }
+        #expect(store.state == initial)
+        #expect(store.revision == 0)
+        let matching = try RouterStore(
+            initialState: initial, configuration: .init(hostDescriptor: catalog.hostDescriptor())
+        )
+        _ = try RouterTabHost(store: matching, catalog: catalog)
+        #expect(matching.state == initial)
+        #expect(matching.revision == 0)
+    }
+
     @Test("RouterStore owns selection and normalized badge state")
     func stateOwnership() async throws {
         let store = try makeTabStore(
@@ -197,46 +306,115 @@ struct RouterTabHostTests {
         #expect(tabContainer(in: store)?.badges == ["settings": 4])
     }
 
-    // A snapshot written before a tab was renamed decodes into a store whose
-    // branches no longer match the catalog. `RouterRestorationDriver` applies it
-    // through `.apply`, which replaces the root wholesale, so the mismatch
-    // reaches a View initializer that SwiftUI re-runs every body pass. That
-    // used to abort the process; the host now renders the catalog and lets the
-    // orphaned branch go unused.
-    @Test("RouterTabHost renders a store whose branches predate a tab rename")
-    func staleRestoredBranchesDoNotAbort() async throws {
-        let store = try makeTabStore(initial: .home)
-
-        // Stand in for a decoded snapshot: "settings" was renamed since it was
-        // written, and it carries the selection.
-        let drifted = try RouterContainerState<RouterTabHostRoute>(
+    @Test("Stale restored branches reject before commit, then explicit reconciliation preserves them")
+    func staleRestoredBranchesRequireReconciliation() async throws {
+        let store = try makeTabStore(initial: .home, orphanPolicy: .preserveDormant)
+        let initial = store.state
+        let catalog = try RouterTabCatalog(RouterTabHostRoute.routerTabs)
+        let drifted = try RouterState<RouterTabHostRoute>(root: .container(.init(
             style: .tabs,
             selection: "legacySettings",
             branches: [
-                RouterBranch(id: "home", node: .stack(path: [])),
-                RouterBranch(id: "inbox", node: .stack(path: [])),
+                RouterBranch(id: "home"),
+                RouterBranch(id: "inbox"),
                 RouterBranch(id: "legacySettings", node: .stack(path: [.settings])),
             ]
-        )
-        let outcome = await store.perform(
-            .apply(RouterPlan(state: try RouterState(root: .container(drifted))))
-        )
-        guard case .applied = outcome else {
-            Issue.record("Expected the drifted snapshot to apply")
+        )))
+        guard case .rejected(_, _, _, .hostContract(let failure)) =
+            await store.perform(.apply(.init(state: drifted))) else {
+            Issue.record("Expected missing current tab to reject before commit")
             return
         }
+        #expect(failure.code == .missingBranch)
+        #expect(failure.scope == ["settings"])
+        #expect(store.state == initial)
+        #expect(store.revision == 0)
 
+        let reconciled = try RouterTabRestorationTopology(catalog: catalog).reconciling(drifted)
+        guard case .applied = await store.perform(.apply(.init(state: reconciled))) else {
+            Issue.record("Expected explicitly reconciled state to apply")
+            return
+        }
         let recorder = RouterTabHostRecorder()
-        let host = RouterTabHost(store: store)
+        let host = try RouterTabHost(store: store, orphanPolicy: .preserveDormant)
             .environment(recorder)
-
         _ = try renderRouterTabHost(host)
         await drainMainActorTasks()
-
-        // The orphaned branch is still in the state; the host simply does not
-        // render it, and the catalog's own tabs remain reachable.
-        #expect(tabContainer(in: store)?.branches.contains { $0.id == "legacySettings" } == true)
+        #expect(store.state.node(at: ["legacySettings"]) == .stack(path: [.settings]))
         #expect(recorder.appearances.contains(.home))
+    }
+
+    @Test("A reconciled orphan selection sends links to the explicitly selected rendered tab")
+    func orphanedSelectionLinkTargetsReconciledTab() async throws {
+        let snapshot = try RouterState<RouterTabLinkRoute>(root: .container(.init(
+            style: .tabs,
+            selection: "legacy",
+            branches: [RouterBranch(id: "home"), RouterBranch(id: "inbox"), RouterBranch(id: "legacy")]
+        )))
+        let catalog = try RouterTabCatalog(RouterTabLinkRoute.routerTabs)
+        let configuration = RouterStoreConfiguration<RouterTabLinkRoute>(hostDescriptor: catalog.hostDescriptor(orphanPolicy: .preserveDormant))
+        expectTabHostFailure(.selectionNotRendered) {
+            _ = try RouterStore(initialState: snapshot, configuration: configuration)
+        }
+        let reconciled = try RouterTabRestorationTopology(catalog: catalog).reconciling(snapshot)
+        let store = try RouterStore(initialState: reconciled, configuration: configuration)
+        let host = try RouterTabHost(store: store, orphanPolicy: .preserveDormant)
+        #expect(host.displayedSelection(for: "home") == "home")
+        #expect(host.displayedSelection(for: nil) == nil)
+        #expect(host.displayedSelection(for: "inbox") == "inbox")
+        let plan = try host.defaultLinkPlan(.detail, store.state)
+        guard case .applied = await store.perform(.apply(plan)) else {
+            Issue.record("Expected the default link plan to apply")
+            return
+        }
+        guard case .container(let container) = store.state.root else {
+            Issue.record("Expected the tabs root to remain")
+            return
+        }
+        #expect(container.selection == "home")
+        #expect(store.state.node(at: ["home"]) == .stack(path: [.detail]))
+        #expect(store.state.node(at: ["legacy"]) == .stack())
+    }
+
+    @Test(
+        "Tab host construction and links explicitly reject another declared root shape",
+        arguments: [RouterContainerStyle.split, .custom("wizard")]
+    )
+    func mismatchedRootRejectsHostWrites(style: RouterContainerStyle) throws {
+        let split: RouterSplitState? = style == .split
+            ? try RouterSplitState(sidebar: "home", detail: "inbox") : nil
+        let restored = try RouterState<RouterTabLinkRoute>(root: .container(.init(
+            style: style, selection: "inbox",
+            branches: [RouterBranch(id: "home"), RouterBranch(id: "inbox")], split: split
+        )))
+        let actualShape: RouterHostShape = style == .split
+            ? .splitTwo(sidebar: .init("home", shape: .stack), detail: .init("inbox", shape: .stack))
+            : .custom(declarationID: "wizard", branches: [
+                .init("home", shape: .stack), .init("inbox", shape: .stack),
+            ], extras: .reject)
+        let store = try RouterStore(initialState: restored, configuration: .init(hostDescriptor: .init(root: actualShape)))
+        expectTabHostFailure(.rendererMismatch) { _ = try RouterTabHost(store: store) }
+
+        // A fully admitted tabs host is a positive control, so link rejection
+        // cannot be caused by missing configuration or a failed constructor.
+        let host = try RouterTabHost(RouterTabLinkRoute.self, initial: .home)
+        expectTabHostFailure(.kindMismatch) { _ = try host.defaultLinkPlan(.detail, restored) }
+        expectTabHostFailure(.kindMismatch) { _ = try host.defaultLinkPlan(.home, restored) }
+        #expect(store.state == restored)
+        #expect(store.revision == 0)
+    }
+
+    @Test("A tab host reports a typed failure for an explicitly declared stack root")
+    func nonTabRootRejectsWithoutMutation() throws {
+        let restored = RouterState<RouterTabHostRoute>.rootStack(path: [.settings])
+        let store = try RouterStore(initialState: restored, configuration: .init(hostDescriptor: .init(
+            root: .stack, rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+        )))
+        expectTabHostFailure(.rendererMismatch) { _ = try RouterTabHost(store: store) }
+        #expect(store.state == restored)
+        #expect(store.revision == 0)
+        let stackHost = RouterHost(store: store) { Text("Stack root") }
+        #expect(stackHost.validationFailure == nil)
     }
 
     @Test("RouterTabHost follows replacement application-owned stores")
@@ -270,7 +448,8 @@ struct RouterTabHostTests {
 @MainActor
 private func makeTabStore(
     initial: RouterTabHostRoute.Tab,
-    badges: [RouterTabHostRoute.Tab: Int] = [:]
+    badges: [RouterTabHostRoute.Tab: Int] = [:],
+    orphanPolicy: RouterHostOrphanPolicy = .reject
 ) throws -> RouterStore<RouterTabHostRoute> {
     let tabs = RouterTabHostRoute.routerTabs
     let pairs: [(RouterScopeID, Int)] = badges.compactMap { tab, count in
@@ -282,7 +461,11 @@ private func makeTabStore(
         branches: tabs.map { RouterBranch(id: $0.tab.routerScopeID) },
         badges: Dictionary(uniqueKeysWithValues: pairs)
     )
-    return RouterStore(initialState: try RouterState(root: .container(container)))
+    let catalog = try RouterTabCatalog(tabs)
+    return try RouterStore(
+        initialState: try RouterState(root: .container(container)),
+        configuration: .init(hostDescriptor: catalog.hostDescriptor(orphanPolicy: orphanPolicy))
+    )
 }
 
 @MainActor
@@ -325,3 +508,18 @@ private func renderRouterTabHost<V: View>(_ view: V) throws {
     throw Skip("RouterTabHost rendering tests require AppKit.")
 }
 #endif
+
+@MainActor
+private func expectTabHostFailure(
+    _ code: RouterHostValidationFailure.Code,
+    operation: () throws -> Void
+) {
+    do {
+        try operation()
+        Issue.record("Expected a typed host validation failure")
+    } catch let failure as RouterHostValidationFailure {
+        #expect(failure.code == code)
+    } catch {
+        Issue.record("Expected host validation failure, received \(type(of: error))")
+    }
+}

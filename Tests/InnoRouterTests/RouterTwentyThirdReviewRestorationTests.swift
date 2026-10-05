@@ -75,7 +75,7 @@ struct RouterTwentyThirdReviewRestorationTests {
     func newerEncodeFailureSurvivesRemoval(active: Bool, removeFails: Bool) async throws {
         let codec = try RouterSnapshotCodec<TwentyThirdStoredRoute>(currentVersion: 1)
         let state = RouterState<TwentyThirdStoredRoute>.rootStack(path: [.broken])
-        let store = RouterStore(initialState: state)
+        let store = try RouterStore(initialState: state)
         let storage = TwentyThirdBlockingStorage(removeFails: removeFails)
         let driver = RouterRestorationDriver(store: store, codec: codec, storage: storage)
         if active { #expect(try await driver.activate() == .noSnapshot) }
@@ -99,7 +99,7 @@ struct RouterTwentyThirdReviewRestorationTests {
     func newerSaveOwnsStatus(removeFails: Bool, saveFails: Bool) async throws {
         let codec = try RouterSnapshotCodec<TwentyThirdStoredRoute>(currentVersion: 1)
         let state = RouterState<TwentyThirdStoredRoute>.rootStack(path: [.good])
-        let store = RouterStore(initialState: state)
+        let store = try RouterStore(initialState: state)
         let storage = TwentyThirdBlockingStorage(removeFails: removeFails, saveFails: saveFails)
         let driver = RouterRestorationDriver(store: store, codec: codec, storage: storage)
         #expect(try await driver.activate() == .noSnapshot)

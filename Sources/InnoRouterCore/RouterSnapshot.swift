@@ -18,18 +18,34 @@ public struct RouterSnapshotEnvelope: Codable, Equatable, Sendable {
     }
 }
 
-/// Application-selected byte limits for one encoded router snapshot.
+/// Finite limits for the legacy recursive JSON snapshot format.
 ///
-/// Limits are opt-in so existing snapshot callers preserve their 6.0 behavior.
-/// Use a matching limit on ``RouterFileSnapshotStorage`` to reject an oversized
-/// file before allocating its complete contents.
+/// The default values are provisional and remain subject to application and
+/// release calibration. JSON depth counts objects/arrays, including the root;
+/// tokens count scalars and every structural punctuation byte. The payload cap
+/// leaves room for base64 expansion inside the encoded envelope. Use a matching
+/// file-storage limit to reject an oversized file before allocating its contents.
 public struct RouterSnapshotLimits: Hashable, Sendable {
     public let maximumEncodedByteCount: Int
     public let maximumPayloadByteCount: Int
+    public let maximumJSONDepth: Int
+    public let maximumJSONTokens: Int
+    public let maximumJSONWorkUnits: Int?
+    public let maximumJSONKeyDecodes: Int?
+
+    /// Uncalibrated starting values, not a measured app-compatibility guarantee.
+    public static let provisional = try! Self(
+        maximumEncodedByteCount: 4 * 1_024 * 1_024,
+        maximumPayloadByteCount: 2 * 1_024 * 1_024
+    )
 
     public init(
         maximumEncodedByteCount: Int,
-        maximumPayloadByteCount: Int
+        maximumPayloadByteCount: Int,
+        maximumJSONDepth: Int = 128,
+        maximumJSONTokens: Int = 262_144,
+        maximumJSONWorkUnits: Int? = nil,
+        maximumJSONKeyDecodes: Int? = nil
     ) throws {
         guard maximumEncodedByteCount > 0 else {
             throw RouterSnapshotError.invalidByteLimit(
@@ -43,8 +59,25 @@ public struct RouterSnapshotLimits: Hashable, Sendable {
                 value: maximumPayloadByteCount
             )
         }
+        for (name, value) in [
+            ("maximumJSONDepth", maximumJSONDepth),
+            ("maximumJSONTokens", maximumJSONTokens),
+        ] where value <= 0 {
+            throw RouterSnapshotError.preflight(.init(
+                code: .invalidLimit, details: .init(field: name, value: value)
+            ))
+        }
+        for (name, value) in [("maximumJSONWorkUnits", maximumJSONWorkUnits), ("maximumJSONKeyDecodes", maximumJSONKeyDecodes)] {
+            if let value, value < 0 {
+                throw RouterSnapshotError.preflight(.init(code: .invalidLimit, details: .init(field: name, value: value)))
+            }
+        }
         self.maximumEncodedByteCount = maximumEncodedByteCount
         self.maximumPayloadByteCount = maximumPayloadByteCount
+        self.maximumJSONDepth = maximumJSONDepth
+        self.maximumJSONTokens = maximumJSONTokens
+        self.maximumJSONWorkUnits = maximumJSONWorkUnits
+        self.maximumJSONKeyDecodes = maximumJSONKeyDecodes
     }
 }
 
@@ -56,6 +89,7 @@ public struct RouterSnapshotMigration: Sendable {
     public let fromVersion: Int
     public let toVersion: Int
     private let transformPayload: @Sendable (Data) throws -> Data
+    fileprivate var transientStateInputKey: String?
 
     public init(
         from fromVersion: Int,
@@ -78,19 +112,27 @@ public extension RouterSnapshotMigration {
     /// `OldPayload` normally mirrors the complete legacy `RouterState` JSON
     /// shape. The transform returns the next version's complete payload, which
     /// makes schema changes compiler-checked instead of byte-string rewrites.
+    /// Canonical RouterState and RouterPlan input slots are screened before
+    /// their route decoders. An arbitrary app-owned wrapper remains the app's
+    /// schema and is not searched recursively for coincidentally named fields.
+    /// App-owned output wrappers likewise own their encoding behavior; return
+    /// canonical RouterState or RouterPlan for library-screened route encoding.
     static func codable<OldPayload: Decodable & Sendable, NewPayload: Encodable & Sendable>(
         from fromVersion: Int,
         to toVersion: Int,
         decoding _: OldPayload.Type,
         transform: @escaping @Sendable (OldPayload) throws -> NewPayload
     ) -> Self {
-        Self(from: fromVersion, to: toVersion) { payload in
+        var migration = Self(from: fromVersion, to: toVersion) { payload in
             let old = try JSONDecoder().decode(OldPayload.self, from: payload)
             let next = try transform(old)
+            try (next as? any RouterTransientPersistenceChecking)?.rejectTransientPersistence()
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.sortedKeys]
             return try encoder.encode(next)
         }
+        migration.transientStateInputKey = (OldPayload.self as? any RouterTransientPersistenceChecking.Type)?.transientMigrationStateKey
+        return migration
     }
 }
 
@@ -99,6 +141,7 @@ public enum RouterSnapshotError: Error, Hashable, Sendable {
     case invalidByteLimit(name: String, value: Int)
     case encodedDataTooLarge(actualByteCount: Int, maximumByteCount: Int)
     case payloadTooLarge(actualByteCount: Int, maximumByteCount: Int)
+    case preflight(RouterSnapshotPreflightError)
     case invalidCurrentVersion(Int)
     case invalidSnapshotVersion(Int)
     case invalidMigration(from: Int, to: Int)
@@ -111,6 +154,7 @@ public enum RouterSnapshotError: Error, Hashable, Sendable {
     case migrationFailed(from: Int, to: Int, message: String)
     case decodePayload(version: Int, message: String)
     case invalidState(RouterStateValidationError)
+    case transientPresentation(RouterTransientPresentationPersistenceFailure)
 }
 
 /// Explicit fallback behavior for an unreadable or unmigratable snapshot.
@@ -119,6 +163,31 @@ public enum RouterSnapshotRecoveryPolicy<R: Route>: Sendable {
     case fail
     /// Produce an application-owned valid fallback state with the typed reason.
     case use(@Sendable (RouterSnapshotError) -> RouterState<R>)
+}
+
+extension RouterSnapshotRecoveryPolicy {
+    /// Applies this policy to a snapshot that could not be read.
+    ///
+    /// Codec decoding and storage that rejects a snapshot before the codec
+    /// reads it, such as a file over its byte limit, share this step, so the
+    /// same typed failure reaches the same validated fallback either way.
+    package func recover(from error: RouterSnapshotError) throws -> RouterSnapshotDecodingResult<R> {
+        switch self {
+        case .fail:
+            throw error
+        case .use(let fallback):
+            let state = fallback(error)
+            do {
+                try state.rejectTransientPresentations(.unsupportedRestoration)
+                try state.validate()
+            } catch let failure as RouterTransientPresentationPersistenceFailure {
+                throw RouterSnapshotError.transientPresentation(failure)
+            } catch let validationError as RouterStateValidationError {
+                throw RouterSnapshotError.invalidState(validationError)
+            }
+            return .recovered(state: state, reason: error)
+        }
+    }
 }
 
 /// Distinguishes a decoded snapshot from an explicitly recovered fallback.
@@ -137,30 +206,21 @@ public enum RouterSnapshotDecodingResult<R: Route>: Hashable, Sendable {
 /// snapshots.
 public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
     public let currentVersion: Int
-    private let migrations: [Int: RouterSnapshotMigration]
-    private let limits: RouterSnapshotLimits?
+    public let transientPresentations: RouterTransientPresentationPersistencePolicy
+    package let migrations: [Int: RouterSnapshotMigration]
+    package let limits: RouterSnapshotLimits?
+    package var resourceLimits: RouterGraphSnapshotLimits?
 
-    public init(
-        currentVersion: Int,
-        migrations: [RouterSnapshotMigration] = []
-    ) throws {
-        try self.init(currentVersion: currentVersion, migrations: migrations, limits: nil)
-    }
-
-    /// Creates a codec that rejects encoded envelopes and route payloads over
-    /// application-selected byte limits.
+    /// Creates a codec with finite provisional byte and JSON-complexity limits.
+    ///
+    /// Pass larger finite limits after measuring the application's snapshots.
+    /// Explicit `nil` opts out of the library's byte limits and JSON preflight;
+    /// that configuration is excluded from the bounded-decoding guarantee.
     public init(
         currentVersion: Int,
         migrations: [RouterSnapshotMigration] = [],
-        limits: RouterSnapshotLimits
-    ) throws {
-        try self.init(currentVersion: currentVersion, migrations: migrations, limits: .some(limits))
-    }
-
-    private init(
-        currentVersion: Int,
-        migrations: [RouterSnapshotMigration],
-        limits: RouterSnapshotLimits?
+        limits: RouterSnapshotLimits? = .provisional,
+        transientPresentations: RouterTransientPresentationPersistencePolicy = .reject
     ) throws {
         guard currentVersion > 0 else {
             throw RouterSnapshotError.invalidCurrentVersion(currentVersion)
@@ -183,12 +243,26 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
         }
 
         self.currentVersion = currentVersion
+        self.transientPresentations = transientPresentations
         self.migrations = indexed
         self.limits = limits
+        self.resourceLimits = try limits.map {
+            try RouterGraphSnapshotLimits(maximumEncodedBytes: $0.maximumEncodedByteCount,
+                                          maximumPayloadBytes: $0.maximumPayloadByteCount,
+                                          maximumJSONTokens: $0.maximumJSONTokens)
+        }
     }
 
     /// Encodes the current state with stable JSON key ordering.
-    public func encode(_ state: RouterState<R>) throws -> Data {
+    public func encode(_ source: RouterState<R>) throws -> Data {
+        try validateResources(source, stage: "encodingState")
+        let state: RouterState<R>
+        do { state = try source.preparingTransientPersistence(transientPresentations) }
+        catch let failure as RouterTransientPresentationPersistenceFailure {
+            throw RouterSnapshotError.transientPresentation(failure)
+        }
+        var work = makeJSONWorkBudget()
+        try chargeJSON(1, stage: "encodingState", work: &work)
         do {
             try state.validate()
         } catch let error as RouterStateValidationError {
@@ -202,8 +276,11 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
             throw RouterSnapshotError.encodePayload(String(describing: error))
         }
         try validatePayloadSize(payload)
+        try validateJSON(payload, isEnvelope: false, version: currentVersion, work: &work)
+        try validateRoutePayloads(payload, version: currentVersion, work: &work)
 
         do {
+            try chargeJSON(1, stage: "encodingEnvelope", work: &work)
             let encoded = try Self.encoder().encode(
                 RouterSnapshotEnvelope(
                     schemaVersion: currentVersion,
@@ -211,6 +288,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
                 )
             )
             try validateEncodedSize(encoded)
+            try validateJSON(encoded, isEnvelope: true, work: &work)
             return encoded
         } catch let error as RouterSnapshotError {
             throw error
@@ -221,7 +299,14 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
 
     /// Migrates and decodes a snapshot, then validates the resulting tree.
     public func decode(_ data: Data) throws -> RouterState<R> {
+        var work = makeJSONWorkBudget()
+        return try decode(data, work: &work)
+    }
+
+    private func decode(_ data: Data, work: inout RouterJSONWorkBudget?) throws -> RouterState<R> {
         try validateEncodedSize(data)
+        try validateJSON(data, isEnvelope: true, work: &work)
+        try chargeJSON(data.count, stage: "envelope", work: &work)
         var envelope: RouterSnapshotEnvelope
         do {
             envelope = try JSONDecoder().decode(RouterSnapshotEnvelope.self, from: data)
@@ -239,6 +324,8 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
             )
         }
         try validatePayloadSize(envelope.payload)
+        try validateJSON(envelope.payload, isEnvelope: false, version: envelope.schemaVersion, work: &work)
+        try screenTransientInput(envelope.payload, version: envelope.schemaVersion, work: &work)
 
         while envelope.schemaVersion < currentVersion {
             guard let migration = migrations[envelope.schemaVersion] else {
@@ -247,8 +334,11 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
                     current: currentVersion
                 )
             }
+            try chargeJSON(envelope.payload.count, stage: "migration", work: &work)
             do {
                 envelope.payload = try migration.transform(envelope.payload)
+            } catch let failure as RouterTransientPresentationPersistenceFailure {
+                throw RouterSnapshotError.transientPresentation(failure)
             } catch {
                 throw RouterSnapshotError.migrationFailed(
                     from: migration.fromVersion,
@@ -256,16 +346,22 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
                     message: String(describing: error)
                 )
             }
-            // Application migration failures keep the 6.0 error contract
-            // above. A limit failure originates in the codec itself, so it
-            // remains a distinct typed error for callers that opt into limits.
+            // Application failures keep their existing contract. Codec bounds
+            // remain distinct and run after every hop, before another migration
+            // (including its typed JSONDecoder) can consume the output.
             try validatePayloadSize(envelope.payload)
+            try validateJSON(envelope.payload, isEnvelope: false, version: migration.toVersion, work: &work)
+            try screenTransientInput(envelope.payload, version: migration.toVersion, work: &work)
             envelope.schemaVersion = migration.toVersion
         }
 
+        try validateRoutePayloads(envelope.payload, version: envelope.schemaVersion, work: &work)
+        try chargeJSON(envelope.payload.count, stage: "payload", work: &work)
         let state: RouterState<R>
         do {
             state = try JSONDecoder().decode(RouterState<R>.self, from: envelope.payload)
+        } catch let failure as RouterTransientPresentationPersistenceFailure {
+            throw RouterSnapshotError.transientPresentation(failure)
         } catch let error as RouterStateValidationError {
             throw RouterSnapshotError.invalidState(error)
         } catch {
@@ -296,18 +392,7 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
         do {
             return .restored(try decode(data))
         } catch let error as RouterSnapshotError {
-            switch recovery {
-            case .fail:
-                throw error
-            case .use(let fallback):
-                let state = fallback(error)
-                do {
-                    try state.validate()
-                } catch let validationError as RouterStateValidationError {
-                    throw RouterSnapshotError.invalidState(validationError)
-                }
-                return .recovered(state: state, reason: error)
-            }
+            return try recovery.recover(from: error)
         }
     }
 
@@ -333,5 +418,170 @@ public struct RouterSnapshotCodec<R: Route & Codable>: Sendable {
             actualByteCount: data.count,
             maximumByteCount: limit
         )
+    }
+
+    private func screenTransientInput(_ data: Data, version: Int, work: inout RouterJSONWorkBudget?) throws {
+        do {
+            try RouterLegacyRouteAdmission.rejectTransientMarkers(
+                in: data, stateKey: migrations[version]?.transientStateInputKey, work: &work
+            )
+        }
+        catch let failure as RouterTransientPresentationPersistenceFailure {
+            throw RouterSnapshotError.transientPresentation(failure)
+        } catch RouterJSONPreflightError.limitExceeded(let field, let actual, let maximum) {
+            throw RouterSnapshotError.preflight(.init(code: .limitExceeded, details: .init(
+                stage: "transientPresentation", version: version, field: field, actual: actual, maximum: maximum
+            )))
+        } catch {
+            // Explicitly unbounded legacy migrations historically accept raw,
+            // non-JSON intermediate schemas. Such bytes have no parseable
+            // library-owned slot. The final inert/state decode still validates
+            // their transformed result; recognized transient markers and work
+            // overflow above are never ignored.
+            if work == nil { return }
+            throw RouterSnapshotError.decodePayload(version: version, message: "Invalid JSON structure")
+        }
+    }
+
+    private func validateRoutePayloads(_ data: Data, version: Int, work: inout RouterJSONWorkBudget?) throws {
+        if resourceLimits == nil {
+            do { _ = try JSONDecoder().decode(RouterState<RouterTransientOpaqueRoute>.self, from: data) }
+            catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterSnapshotError.transientPresentation(failure) }
+            catch let error as RouterStateValidationError { throw RouterSnapshotError.invalidState(error) }
+            catch { throw RouterSnapshotError.decodePayload(version: version, message: "Invalid state structure") }
+        }
+        if let resourceLimits {
+            try chargeJSON(data.count, stage: "structuralPayload", work: &work)
+            do {
+                guard let admittedWork = work else {
+                    throw RouterSnapshotError.preflight(.init(code: .invalidLimit, details: .init(
+                        stage: "payload", field: "missingWorkBudget"
+                    )))
+                }
+                let admission = try RouterLegacyRouteAdmission(
+                    validatedJSON: data, limits: resourceLimits, work: admittedWork
+                )
+                let decoder = JSONDecoder()
+                decoder.userInfo[RouterLegacyRouteAdmission.key] = admission
+                let shape = try decoder.decode(RouterState<RouterLegacyRouteShape>.self, from: data)
+                work = admission.work
+                try validateResources(shape, stage: "payload")
+            } catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterSnapshotError.transientPresentation(failure) }
+            catch let error as RouterStateValidationError { throw RouterSnapshotError.invalidState(error) }
+            catch let error as RouterSnapshotError { throw error }
+            catch RouterJSONPreflightError.limitExceeded(let field, let actual, let maximum) {
+                throw RouterSnapshotError.preflight(.init(code: .limitExceeded, details: .init(
+                    stage: "payload", field: field, actual: actual, maximum: maximum
+                )))
+            } catch { throw RouterSnapshotError.decodePayload(version: version, message: "Invalid state structure") }
+        }
+    }
+
+    package mutating func setResourceLimits(_ configured: RouterGraphSnapshotLimits) {
+        resourceLimits = configured
+    }
+
+    private func validateResources<StateRoute: Route>(_ state: RouterState<StateRoute>, stage: String) throws {
+        guard let resourceLimits else { return }
+        do { try RouterResourceBudget(snapshot: resourceLimits).validate(state) }
+        catch let failure {
+            throw RouterSnapshotError.preflight(.init(code: .limitExceeded, details: .init(
+                stage: stage, field: failure.resource, actual: failure.actual, maximum: failure.maximum
+            )))
+        }
+    }
+
+    private func jsonWorkLimits(_ limits: RouterSnapshotLimits) -> RouterJSONWorkLimits {
+        let derived = RouterJSONWorkLimits.derived(maximumBytes: limits.maximumEncodedByteCount, maximumTokens: limits.maximumJSONTokens)
+        return .init(maximumWorkUnits: limits.maximumJSONWorkUnits ?? derived.maximumWorkUnits,
+                     maximumKeyDecodes: limits.maximumJSONKeyDecodes ?? derived.maximumKeyDecodes)
+    }
+
+    private func makeJSONWorkBudget() -> RouterJSONWorkBudget? {
+        limits.map { RouterJSONWorkBudget(limits: jsonWorkLimits($0)) }
+    }
+
+    private func chargeJSON(_ count: Int, stage: String, work: inout RouterJSONWorkBudget?) throws {
+        do { try work?.charge(count) }
+        catch RouterJSONPreflightError.limitExceeded(let field, let actual, let maximum) {
+            throw RouterSnapshotError.preflight(.init(code: .limitExceeded, details: .init(
+                stage: stage, field: field, actual: actual, maximum: maximum
+            )))
+        }
+    }
+
+    package func decodeForGraphMigration(_ data: Data, work: inout RouterJSONWorkBudget) throws -> RouterState<R> {
+        let prior = work.result
+        let local = limits.map(jsonWorkLimits) ?? work.limits
+        let admitted = RouterJSONWorkLimits(
+            maximumWorkUnits: min(local.maximumWorkUnits, work.limits.maximumWorkUnits - prior.workUnits),
+            maximumKeyDecodes: min(local.maximumKeyDecodes, work.limits.maximumKeyDecodes - prior.keyDecodes)
+        )
+        var nested: RouterJSONWorkBudget? = .init(limits: admitted)
+        let state = try decode(data, work: &nested)
+        if let used = nested?.result {
+            // Each local count was admitted against the remaining outer count.
+            work = try RouterJSONWorkBudget(limits: work.limits, consumed: .init(
+                workUnits: prior.workUnits + used.workUnits, keyDecodes: prior.keyDecodes + used.keyDecodes
+            ))
+        }
+        return state
+    }
+
+    /// A graph migration never inherits an unbounded legacy parser. Preserve
+    /// stricter app limits while bounding every original migration output.
+    package func boundedForGraphMigration(_ graph: RouterGraphSnapshotLimits, maximumLegacyJSONDepth: Int? = nil) throws -> Self {
+        let baseline = limits ?? .provisional
+        let bounded = try RouterSnapshotLimits(
+            maximumEncodedByteCount: min(baseline.maximumEncodedByteCount, graph.maximumEncodedBytes),
+            maximumPayloadByteCount: min(baseline.maximumPayloadByteCount, graph.maximumPayloadBytes),
+            maximumJSONDepth: min(baseline.maximumJSONDepth, maximumLegacyJSONDepth ?? max(RouterSnapshotLimits.provisional.maximumJSONDepth, graph.maximumJSONDepth)),
+            maximumJSONTokens: min(baseline.maximumJSONTokens, graph.maximumJSONTokens),
+            maximumJSONWorkUnits: baseline.maximumJSONWorkUnits,
+            maximumJSONKeyDecodes: baseline.maximumJSONKeyDecodes
+        )
+        var adapted = try Self(currentVersion: currentVersion, migrations: Array(migrations.values), limits: bounded, transientPresentations: transientPresentations)
+        adapted.setResourceLimits(try resourceLimits?.intersecting(graph) ?? graph)
+        return adapted
+    }
+
+    private func validateJSON(_ data: Data, isEnvelope: Bool, version: Int? = nil) throws {
+        var work = makeJSONWorkBudget()
+        try validateJSON(data, isEnvelope: isEnvelope, version: version, work: &work)
+    }
+
+    private func validateJSON(
+        _ data: Data, isEnvelope: Bool, version: Int? = nil, work: inout RouterJSONWorkBudget?
+    ) throws {
+        guard let limits else { return }
+        do {
+            let selected = work?.limits ?? jsonWorkLimits(limits)
+            let used = try RouterJSONPreflight.validate(
+                data,
+                maximumBytes: isEnvelope ? limits.maximumEncodedByteCount : limits.maximumPayloadByteCount,
+                maximumDepth: limits.maximumJSONDepth,
+                maximumTokens: limits.maximumJSONTokens,
+                byteName: isEnvelope ? "encodedBytes" : "payloadBytes",
+                workLimits: selected, consumedWork: work?.result
+            )
+            work = try RouterJSONWorkBudget(limits: selected, consumed: used)
+        } catch let error as RouterJSONPreflightError {
+            let stage = isEnvelope ? "envelope" : "payload"
+            switch error {
+            case .malformedJSON:
+                // Keep the legacy error boundary without retaining input text.
+                if isEnvelope { throw RouterSnapshotError.decodeEnvelope("Malformed JSON") }
+                throw RouterSnapshotError.decodePayload(version: version ?? currentVersion, message: "Malformed JSON")
+            case .duplicateJSONKey:
+                throw RouterSnapshotError.preflight(.init(
+                    code: .duplicateJSONKey, details: .init(stage: stage, version: version)
+                ))
+            case .limitExceeded(let field, let actual, let maximum):
+                throw RouterSnapshotError.preflight(.init(
+                    code: .limitExceeded,
+                    details: .init(stage: stage, version: version, field: field, actual: actual, maximum: maximum)
+                ))
+            }
+        }
     }
 }

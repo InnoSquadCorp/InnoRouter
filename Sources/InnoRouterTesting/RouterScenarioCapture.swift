@@ -13,8 +13,11 @@ public enum RouterScenarioTerminal: String, Hashable, Sendable, Codable {
 /// Stable rejection categories that can be compared across independent runs
 /// without serializing transition IDs or application messages.
 public enum RouterScenarioRejectionKind: String, Hashable, Sendable, Codable {
-    case mutation, featureProjection, policy, busy, coalesced, superseded
-    case queueOverflow, policyTimedOut, deferralConflict, deferralNotFound
+    case resourceLimit
+    case hostContract
+    case pendingLinkLifetime
+    case mutation, featureProjection, policy, authorization, busy, coalesced, superseded
+    case queueOverflow, policyTimedOut, policyCapacityExceeded, deferralConflict, deferralNotFound
     case deferralCapacityExceeded, deferralExpired, deferralEvicted, staleState
     case cancelled, missingAuthority
 }
@@ -87,6 +90,8 @@ public struct RouterScenarioStep<R: Route & Codable>: Hashable, Sendable, Codabl
     public let action: RouterAction<R>
     public let context: RouterTransitionContext
     public let requestSemantics: RouterScenarioRequestSemantics<R>
+    /// Non-nil when capture cannot reproduce runtime-only request authority.
+    public let replayLimitation: RouterScenarioReplayLimitation?
     public let expectedRevision: UInt64?
     public let cancellationOrigin: RouterScenarioCancellationOrigin
     public let observedState: RouterState<R>
@@ -104,6 +109,7 @@ public struct RouterScenarioStep<R: Route & Codable>: Hashable, Sendable, Codabl
         action: RouterAction<R>,
         context: RouterTransitionContext,
         requestSemantics: RouterScenarioRequestSemantics<R>? = nil,
+        replayLimitation: RouterScenarioReplayLimitation? = nil,
         expectedRevision: UInt64? = nil,
         cancellationOrigin: RouterScenarioCancellationOrigin = .none,
         observedState: RouterState<R>,
@@ -123,6 +129,7 @@ public struct RouterScenarioStep<R: Route & Codable>: Hashable, Sendable, Codabl
             action: action,
             context: context
         )
+        self.replayLimitation = replayLimitation
         self.expectedRevision = expectedRevision
         self.cancellationOrigin = cancellationOrigin
         self.observedState = observedState
@@ -545,6 +552,7 @@ public final class RouterScenarioRecorder<R: Route & Codable> {
             action: submitted.observation.action,
             context: submitted.observation.context,
             requestSemantics: submitted.semantics,
+            replayLimitation: submitted.observation.replayLimitationCode.map { .init(rawValue: $0) },
             expectedRevision: submitted.observation.expectedRevision,
             cancellationOrigin: cancellationOrigin,
             observedState: terminal.state,

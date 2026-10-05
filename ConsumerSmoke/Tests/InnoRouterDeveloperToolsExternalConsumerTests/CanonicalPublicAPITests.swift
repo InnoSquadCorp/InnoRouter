@@ -16,8 +16,8 @@ struct CanonicalPublicAPITests {
 
     @Test("Independent feature modules compose through one parent store")
     @MainActor
-    func featureComposition() async {
-        let state = await exerciseFeatureComposition()
+    func featureComposition() async throws {
+        let state = try await exerciseFeatureComposition()
         #expect(
             state.root == .stack(
                 path: [

@@ -16,7 +16,7 @@ on:
       - develop
 
 concurrency:
-  group: docs-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: docs-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}
   cancel-in-progress: true
 
 jobs:

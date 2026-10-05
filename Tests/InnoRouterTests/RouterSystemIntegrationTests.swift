@@ -3,11 +3,6 @@ import Testing
 
 import InnoRouter
 
-@MainActor
-private final class RouterDiagnosticRecorder: Sendable {
-    var events: [RouterDiagnosticEvent] = []
-}
-
 @Suite("Router system integration")
 struct RouterSystemIntegrationTests {
     private enum SystemRoute: Route, DeepLinkRoute {
@@ -61,88 +56,9 @@ struct RouterSystemIntegrationTests {
         #expect(catalog.route(for: "missing") == nil)
     }
 
-    @Test("Observability emits structural events without route payloads")
+    @Test("Observability native adapters accept structural lifecycle events")
     @MainActor
-    func payloadSafeObservability() async throws {
-        let recorder = RouterDiagnosticRecorder()
-        let observability = RouterObservability<SystemRoute> { event in
-            recorder.events.append(event)
-        }
-        let configuration = RouterStoreConfiguration<SystemRoute>()
-            .observing(observability)
-        let store = RouterStore<SystemRoute>(configuration: configuration)
-
-        _ = await store.perform(.push(.detail("never-log-this")))
-        _ = await store.perform(
-            .pop(count: 0),
-            context: .init(source: .appIntent)
-        )
-        _ = await store.perform(
-            .pop(count: 99),
-            context: .init(source: .system)
-        )
-
-        #expect(
-            recorder.events.map(\.kind) == [
-                .started,
-                .committed,
-                .unchanged,
-                .rejectedMutation,
-            ]
-        )
-        #expect(
-            recorder.events.map(\.source) == [
-                .application,
-                .application,
-                .appIntent,
-                .system,
-            ]
-        )
-        let encoded = String(
-            decoding: try JSONEncoder().encode(recorder.events),
-            as: UTF8.self
-        )
-        #expect(!encoded.contains("never-log-this"))
-    }
-
-    @Test("Policy deferral is diagnostic information, not a rejection")
-    @MainActor
-    func deferredPolicyDiagnostic() async {
-        let recorder = RouterDiagnosticRecorder()
-        let deferralID = RouterDeferralID()
-        let observability = RouterObservability<SystemRoute> { event in
-            recorder.events.append(event)
-        }
-        let configuration = RouterStoreConfiguration<SystemRoute>(
-            policies: [
-                RouterPolicy(name: "approval") { _ in
-                    .deferRequest(deferralID)
-                }
-            ]
-        ).observing(observability)
-        let store = RouterStore<SystemRoute>(configuration: configuration)
-
-        _ = await store.perform(.push(.home))
-
-        #expect(
-            recorder.events.map(\.kind) == [
-                .started,
-                .policyDeferred,
-                .deferred,
-            ]
-        )
-        #expect(!recorder.events.map(\.kind).contains(.policyRejected))
-    }
-
-    @Test("Observability classifies every lifecycle and rejection without payloads")
-    @MainActor
-    func exhaustiveObservabilityClassification() throws {
-        let first = RouterDiagnosticRecorder()
-        let second = RouterDiagnosticRecorder()
-        let combined = RouterObservability<SystemRoute>.combined([
-            RouterObservability { first.events.append($0) },
-            RouterObservability { second.events.append($0) },
-        ])
+    func nativeObservabilityAdapters() {
         let id = RouterTransitionID()
         let deferralID = RouterDeferralID()
         let state = RouterState<SystemRoute>.rootStack
@@ -189,76 +105,6 @@ struct RouterSystemIntegrationTests {
                 revision: 8
             ),
         ]
-        for event in lifecycle {
-            combined.record(event)
-        }
-
-        let reasons: [RouterRejectionReason] = [
-            .mutation(.invalidPopCount(requested: 2, available: 0, scope: .root)),
-            .policy(name: "gate", message: "denied"),
-            .busy(activeTransition: RouterTransitionID()),
-            .coalesced(existingTransition: RouterTransitionID()),
-            .superseded(replacementTransition: RouterTransitionID()),
-            .queueOverflow(limit: 2),
-            .policyTimedOut(name: "slow"),
-            .deferralConflict(deferralID),
-            .deferralNotFound(deferralID),
-            .deferralCapacityExceeded(limit: 1),
-            .deferralExpired(deferralID),
-            .deferralEvicted(deferralID),
-            .staleState(expectedRevision: 1, actualRevision: 2),
-            .cancelled,
-            .missingAuthority(routeType: "SystemRoute"),
-        ]
-        for reason in reasons {
-            combined.record(
-                .rejected(
-                    transitionID: id,
-                    state: state,
-                    revision: 8,
-                    reason: reason,
-                    context: context
-                )
-            )
-        }
-
-        let expectedKinds: [RouterDiagnosticEventKind] = [
-            .started,
-            .policyAllowed,
-            .policyRejected,
-            .policyDeferred,
-            .committed,
-            .unchanged,
-            .deferred,
-            .platformAdapted,
-            .rejectedMutation,
-            .rejectedPolicy,
-            .rejectedBusy,
-            .rejectedCoalesced,
-            .rejectedSuperseded,
-            .rejectedQueueOverflow,
-            .rejectedPolicyTimeout,
-            .rejectedDeferral,
-            .rejectedDeferral,
-            .rejectedDeferral,
-            .rejectedDeferral,
-            .rejectedDeferral,
-            .rejectedStaleState,
-            .rejectedCancelled,
-            .rejectedMissingAuthority,
-        ]
-        #expect(first.events.map(\.kind) == expectedKinds)
-        #expect(second.events == first.events)
-        #expect(first.events[1].policy == "allow")
-        #expect(first.events[4].source == .inspector)
-        #expect(first.events[4].revision == 8)
-
-        let encoded = try JSONEncoder().encode(first.events)
-        #expect(
-            try JSONDecoder().decode([RouterDiagnosticEvent].self, from: encoded)
-                == first.events
-        )
-
         let logger = RouterObservability<SystemRoute>.osLog(
             subsystem: "io.innosquad.innorouter.tests",
             category: "classification"

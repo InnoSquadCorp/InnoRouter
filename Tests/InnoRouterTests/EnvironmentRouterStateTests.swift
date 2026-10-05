@@ -50,7 +50,7 @@ struct EnvironmentRouterStateTests {
                 RouterBranch(id: "settings"),
             ]
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState(root: .container(container))
         )
         let reader = RouterStateReader(scope: store.scope())
@@ -96,7 +96,7 @@ struct EnvironmentRouterStateTests {
                 RouterBranch(id: "second"),
             ]
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState(root: .container(container))
         )
         let root = store.scope()
@@ -122,7 +122,7 @@ struct EnvironmentRouterStateTests {
             selection: "first",
             branches: [RouterBranch(id: "first"), RouterBranch(id: "second")]
         )
-        let store = RouterStore(initialState: try RouterState(root: .container(container)))
+        let store = try RouterStore(initialState: try RouterState(root: .container(container)))
         let first = store.scope(at: ["first"])
         let second = store.scope(at: ["second"])
 
@@ -143,7 +143,7 @@ struct EnvironmentRouterStateTests {
         for index in 0..<500 {
             weak var released: RouterScope<EnvironmentStateRoute>?
             do {
-                let scope = store.scope(at: [RouterScopeID("temporary-\(index)")])
+                let scope = store.scope(at: [.branch(RouterScopeID("temporary-\(index)"))])
                 released = scope
             }
             #expect(released == nil)

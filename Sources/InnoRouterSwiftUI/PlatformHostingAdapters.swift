@@ -18,12 +18,16 @@ public enum RouterUIKitBridge {
     @MainActor
     public static func hostingController<R: DestinationRoute, Root: View>(
         store: RouterStore<R>,
+        rootDeclarationID: String = "router.root",
+        presentations: RouterPresentationViewCatalog<R> = .stack,
         linkHandling: RouterLinkHandling<R>? = nil,
         @ViewBuilder root: @escaping () -> Root
     ) -> UIViewController {
         UIHostingController(
             rootView: RouterHost(
                 store: store,
+                rootDeclarationID: rootDeclarationID,
+                presentations: presentations,
                 linkHandling: linkHandling,
                 root: root
             )
@@ -70,12 +74,16 @@ public enum RouterAppKitBridge {
     @MainActor
     public static func hostingController<R: DestinationRoute, Root: View>(
         store: RouterStore<R>,
+        rootDeclarationID: String = "router.root",
+        presentations: RouterPresentationViewCatalog<R> = .stack,
         linkHandling: RouterLinkHandling<R>? = nil,
         @ViewBuilder root: @escaping () -> Root
     ) -> NSViewController {
         NSHostingController(
             rootView: RouterHost(
                 store: store,
+                rootDeclarationID: rootDeclarationID,
+                presentations: presentations,
                 linkHandling: linkHandling,
                 root: root
             )
@@ -85,12 +93,16 @@ public enum RouterAppKitBridge {
     @MainActor
     public static func hostingView<R: DestinationRoute, Root: View>(
         store: RouterStore<R>,
+        rootDeclarationID: String = "router.root",
+        presentations: RouterPresentationViewCatalog<R> = .stack,
         linkHandling: RouterLinkHandling<R>? = nil,
         @ViewBuilder root: @escaping () -> Root
     ) -> NSView {
         NSHostingView(
             rootView: RouterHost(
                 store: store,
+                rootDeclarationID: rootDeclarationID,
+                presentations: presentations,
                 linkHandling: linkHandling,
                 root: root
             )

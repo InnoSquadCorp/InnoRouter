@@ -71,7 +71,7 @@ struct RouterHistoryTests {
     func restorationHistoryDeferralIntegration() async throws {
         let firstApproval = RouterDeferralID()
         let secondApproval = RouterDeferralID()
-        let store = RouterStore<HistoryRoute>(configuration: .init(policies: [
+        let store = try RouterStore<HistoryRoute>(configuration: .init(policies: [
             RouterPolicy(name: "first") { transition in
                 transition.context.source == .history ? .deferRequest(firstApproval) : .allow
             },
@@ -218,8 +218,8 @@ struct RouterHistoryTests {
     }
 
     @Test("Policy rejection preserves state and cursor")
-    func policyFailureDoesNotMoveCursor() async {
-        let store = RouterStore<HistoryRoute>(
+    func policyFailureDoesNotMoveCursor() async throws {
+        let store = try RouterStore<HistoryRoute>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "history-lock") { transition in
@@ -257,7 +257,7 @@ struct RouterHistoryTests {
                 .init(id: "settings"),
             ]
         )
-        let store = RouterStore(initialState: try RouterState(root: .container(tabs)))
+        let store = try RouterStore(initialState: try RouterState(root: .container(tabs)))
         let history = RouterHistory(store: store)
         _ = await store.perform(RouterAction.push(.detail).inScope("main"))
         #expect(await history.waitUntilRecorded(2))
@@ -290,7 +290,7 @@ struct RouterHistoryTests {
         let initial = try RouterState<HistoryRoute>(
             windows: [.init(id: windowID, route: .window, node: .stack(path: [.detail]))]
         )
-        let store = RouterStore(initialState: initial)
+        let store = try RouterStore(initialState: initial)
         let history = RouterHistory(store: store)
         _ = await store.perform(.push(.home))
         #expect(await history.waitUntilRecorded(2))
@@ -314,7 +314,7 @@ struct RouterHistoryTests {
             selection: "main",
             branches: [.init(id: "main"), .init(id: "settings")]
         )
-        let store = RouterStore(initialState: try RouterState(root: .container(tabs)))
+        let store = try RouterStore(initialState: try RouterState(root: .container(tabs)))
         let history = RouterHistory(store: store)
 
         _ = await store.perform(.setBadge(3, for: "settings"))
@@ -340,11 +340,11 @@ struct RouterHistoryTests {
     }
 
     @Test("Deferred moves update the cursor only after their commit")
-    func deferredMoveCompletesCursorOnResume() async {
+    func deferredMoveCompletesCursorOnResume() async throws {
         let deferralID = RouterDeferralID(
             rawValue: UUID(uuidString: "00000000-0000-0000-0000-000000000071")!
         )
-        let store = RouterStore<HistoryRoute>(configuration: .init(policies: [
+        let store = try RouterStore<HistoryRoute>(configuration: .init(policies: [
             RouterPolicy(name: "history-approval") { transition in
                 transition.context.source == .history ? .deferRequest(deferralID) : .allow
             },
@@ -369,10 +369,10 @@ struct RouterHistoryTests {
     }
 
     @Test("A history move remains correlated across repeated deferrals")
-    func historySurvivesSecondDeferral() async {
+    func historySurvivesSecondDeferral() async throws {
         let first = RouterDeferralID()
         let second = RouterDeferralID()
-        let store = RouterStore<HistoryRoute>(configuration: .init(policies: [
+        let store = try RouterStore<HistoryRoute>(configuration: .init(policies: [
             RouterPolicy(name: "first") { transition in
                 transition.context.source == .history ? .deferRequest(first) : .allow
             },
@@ -400,7 +400,7 @@ struct RouterHistoryTests {
     @Test("A rebased history move preserves scenes and rejects a new modal conflict")
     func historyRebasePreservesCurrentLifetimes() async throws {
         let deferralID = RouterDeferralID()
-        let store = RouterStore<HistoryRoute>(configuration: .init(policies: [
+        let store = try RouterStore<HistoryRoute>(configuration: .init(policies: [
             RouterPolicy(name: "history-approval") { transition in
                 transition.context.source == .history && transition.context.resumedDeferral == nil
                     ? .deferRequest(deferralID)
@@ -443,7 +443,7 @@ struct RouterHistoryTests {
             selection: "main",
             branches: [.init(id: "main"), .init(id: "settings")]
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState(root: .container(tabs)),
             configuration: .init(policies: [
                 RouterPolicy(name: "history-approval") { transition in
@@ -485,9 +485,9 @@ struct RouterHistoryTests {
     }
 
     @Test("A safe rebased history move preserves a newly opened window")
-    func safeHistoryRebasePreservesNewWindow() async {
+    func safeHistoryRebasePreservesNewWindow() async throws {
         let deferralID = RouterDeferralID()
-        let store = RouterStore<HistoryRoute>(configuration: .init(policies: [
+        let store = try RouterStore<HistoryRoute>(configuration: .init(policies: [
             RouterPolicy(name: "history-approval") { transition in
                 transition.context.source == .history && transition.context.resumedDeferral == nil
                     ? .deferRequest(deferralID)
@@ -520,7 +520,7 @@ struct RouterHistoryTests {
     }
 
     @Test("A queued history rebase prepares against executor-entry state")
-    func queuedHistoryRebaseUsesExecutorEntryState() async {
+    func queuedHistoryRebaseUsesExecutorEntryState() async throws {
         let deferralID = RouterDeferralID()
         let gate = PolicyGate()
         let queueSignal = QueueSignal()
@@ -539,7 +539,7 @@ struct RouterHistoryTests {
         configuration.runtimeDependencies.didQueueRequest = { _ in
             queueSignal.record()
         }
-        let store = RouterStore<HistoryRoute>(configuration: configuration)
+        let store = try RouterStore<HistoryRoute>(configuration: configuration)
         let history = RouterHistory(store: store)
         _ = await store.perform(.push(.home))
         _ = await store.perform(.push(.detail))
@@ -571,11 +571,11 @@ struct RouterHistoryTests {
     }
 
     @Test("Reset cancels and removes a deferred move from the previous session")
-    func resetInvalidatesDeferredMove() async {
+    func resetInvalidatesDeferredMove() async throws {
         let deferralID = RouterDeferralID(
             rawValue: UUID(uuidString: "00000000-0000-0000-0000-000000000072")!
         )
-        let store = RouterStore<HistoryRoute>(configuration: .init(policies: [
+        let store = try RouterStore<HistoryRoute>(configuration: .init(policies: [
             RouterPolicy(name: "history-approval") { transition in
                 transition.context.source == .history ? .deferRequest(deferralID) : .allow
             },
@@ -613,7 +613,7 @@ struct RouterHistoryTests {
     @Test("History reuses partial restoration validation before applying an entry")
     func validatesHistoricalRoutes() async throws {
         let initial = RouterState<HistoryRoute>.rootStack(path: [.home, .detail])
-        let store = RouterStore(initialState: initial)
+        let store = try RouterStore(initialState: initial)
         let history = RouterHistory(
             store: store,
             validator: .init { route, _ in

@@ -10,7 +10,7 @@ struct RouterSignpostTrackerTests {
         RouterDiagnosticEventKind.committed, .unchanged, .deferred,
         .rejectedMutation, .rejectedPolicy, .rejectedBusy, .rejectedCoalesced,
         .rejectedSuperseded, .rejectedQueueOverflow, .rejectedPolicyTimeout,
-        .rejectedDeferral, .rejectedStaleState, .rejectedCancelled, .rejectedMissingAuthority,
+        .rejectedDeferral, .rejectedStaleState, .rejectedCancelled, .rejectedMissingAuthority, .rejectedPendingLinkLifetime, .rejectedResourceLimit,
     ])
     func terminalOutcomes(kind: RouterDiagnosticEventKind) {
         let sink = SignpostTestSink()

@@ -129,7 +129,7 @@ struct RouterDeepLinkHostTests {
                 RouterBranch(id: "settings"),
             ]
         )
-        let store = RouterStore(
+        let store = try RouterStore(
             initialState: try RouterState(root: .container(container))
         )
 

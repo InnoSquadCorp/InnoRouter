@@ -117,7 +117,7 @@ struct RouterTwentyFourthReviewRestorationTests {
     @Test("Older activation must not erase a newer encode failure", arguments: TwentyFourthLoad.allCases)
     func activationVersusSaveFailure(load: TwentyFourthLoad) async throws {
         let storage = TwentyFourthStorage(loadResult: load)
-        let store = RouterStore<TwentyFourthRoute>(initialState: .rootStack(path: [.broken]))
+        let store = try RouterStore<TwentyFourthRoute>(initialState: .rootStack(path: [.broken]))
         let driver = RouterRestorationDriver(
             store: store, codec: try .init(currentVersion: 1), storage: storage,
             saveDebounce: .seconds(3_600)
@@ -140,7 +140,7 @@ struct RouterTwentyFourthReviewRestorationTests {
     @Test("A save started before activation cannot replace loading", arguments: [false, true])
     func saveBeforeActivation(saveFails: Bool) async throws {
         let storage = TwentyFourthStorage(saveFails: saveFails)
-        let store = RouterStore<TwentyFourthRoute>(initialPath: [.good])
+        let store = try RouterStore<TwentyFourthRoute>(initialPath: [.good])
         let codec = try RouterSnapshotCodec<TwentyFourthRoute>(currentVersion: 1)
         let driver = RouterRestorationDriver(store: store, codec: codec, storage: storage)
         let saving = Task { try await driver.save() }
@@ -169,7 +169,7 @@ struct RouterTwentyFourthReviewRestorationTests {
     @Test("A newer manual save survives activation cleanup", arguments: [TwentyFourthLoad.missing, .failed, .cancelled], [false, true])
     func saveAfterActivation(load: TwentyFourthLoad, saveFails: Bool) async throws {
         let storage = TwentyFourthStorage(saveFails: saveFails, loadResult: load)
-        let store = RouterStore<TwentyFourthRoute>(initialPath: [.good])
+        let store = try RouterStore<TwentyFourthRoute>(initialPath: [.good])
         let codec = try RouterSnapshotCodec<TwentyFourthRoute>(currentVersion: 1)
         let driver = RouterRestorationDriver(store: store, codec: codec, storage: storage)
         let activating = Task { try await driver.activate() }
@@ -271,7 +271,7 @@ struct RouterTwentyFourthReviewRestorationTests {
     @Test("Stop and restart revoke old load publication without replaying")
     func stopDuringActivation() async throws {
         let storage = TwentyFourthStorage()
-        let store = RouterStore<TwentyFourthRoute>(initialPath: [.good])
+        let store = try RouterStore<TwentyFourthRoute>(initialPath: [.good])
         let driver = RouterRestorationDriver(store: store, codec: try .init(currentVersion: 1), storage: storage)
         let activating = Task { try await driver.activate() }
         defer { storage.releaseLoad(); storage.releaseSave(); activating.cancel(); driver.stop() }
@@ -295,7 +295,7 @@ struct RouterTwentyFourthReviewRestorationTests {
         let sleeper = ManualRuntimeSleeper()
         var configuration = RouterStoreConfiguration<TwentyFourthRoute>()
         configuration.runtimeDependencies.sleep = { try await sleeper.sleep(for: $0) }
-        let store = RouterStore(configuration: configuration)
+        let store = try RouterStore(configuration: configuration)
         let codec = try RouterSnapshotCodec<TwentyFourthRoute>(currentVersion: 1)
         let driver = RouterRestorationDriver(
             store: store, codec: codec, storage: storage, saveDebounce: .seconds(30)

@@ -141,13 +141,13 @@ private struct SixteenthReviewRestorationRoot: View {
 @MainActor
 struct RouterSixteenthReviewRegressionTests {
     @Test("Queued deferred history resume consumes ownership at the event boundary")
-    func queuedHistoryImmediateResume() async {
-        await verifyQueuedHistoryResolution(.resume)
+    func queuedHistoryImmediateResume() async throws {
+        try await verifyQueuedHistoryResolution(.resume)
     }
 
     @Test("Queued deferred history cancellation consumes ownership at the event boundary")
-    func queuedHistoryImmediateCancellation() async {
-        await verifyQueuedHistoryResolution(.cancel)
+    func queuedHistoryImmediateCancellation() async throws {
+        try await verifyQueuedHistoryResolution(.cancel)
     }
 
     @Test("Cancelling one restoration attachment preserves another attachment and its saves")
@@ -301,7 +301,7 @@ struct RouterSixteenthReviewRegressionTests {
 
     private func verifyQueuedHistoryResolution(
         _ resolution: SixteenthReviewHistoryHook.Resolution
-    ) async {
+    ) async throws {
         let gate = SixteenthReviewHistoryGate()
         var events = gate.events.makeAsyncIterator()
         let hook = SixteenthReviewHistoryHook()
@@ -322,7 +322,7 @@ struct RouterSixteenthReviewRegressionTests {
         configuration.runtimeDependencies.didQueueRequest = { _ in
             gate.continuation.yield("queued")
         }
-        let store = RouterStore<SixteenthReviewRoute>(configuration: configuration)
+        let store = try RouterStore<SixteenthReviewRoute>(configuration: configuration)
         hook.store = store
         let history = RouterHistory(store: store)
         _ = history.createCheckpoint(named: "empty")

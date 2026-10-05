@@ -43,6 +43,28 @@ reopens the session and returns its original environment metadata. Unsupported
 format versions fail before decoding entries, and failed imports preserve the
 current timeline and bookmarks.
 
+Both recorder encoding methods apply
+``InnoRouterInspector/RouterInspectorExportLimits`` to the complete JSON output,
+including a diagnostic bundle's environment metadata. The provisional,
+uncalibrated default is 8 MiB; configure `exportLimits:` on the recorder to
+choose another finite byte ceiling. This ceiling is independent of
+`importLimits:` and the recorder's entry `capacity`. A session that satisfies
+one limit need not satisfy the others.
+
+An output exactly at the byte ceiling succeeds. A larger output throws
+``InnoRouterInspector/RouterInspectorExportFailure`` with the extensible
+`encodedDataTooLarge` code and actual/maximum byte counts, without retaining
+entry content. Failure preserves entries, bookmarks, pause settings, and
+transition timing. Snapshot encoding still honors the caller's `JSONEncoder`
+and propagates its errors unchanged. The Inspector view's existing diagnostic
+export path calls the same bounded recorder method.
+
+The byte check runs after `JSONEncoder` produces its `Data`: it bounds the bytes
+returned for persistence or sharing, not peak transient allocations or the
+memory retained by formatted timeline entries. The value-only `snapshot()` and
+`diagnosticBundle()` methods do not encode or apply the export byte limit, and
+directly encoding those values bypasses the recorder's export policy.
+
 The recorder can import that export with an explicit replace or append policy.
 ``InnoRouterInspector/RouterInspectorPlayback`` steps through an imported
 session without a live store, while
@@ -122,6 +144,10 @@ route data and must not be removed when translating.
 - ``InnoRouterInspector/RouterInspectorPlayback``
 - ``InnoRouterInspector/RouterInspectorComparison``
 - ``InnoRouterInspector/RouterInspectorImportPolicy``
+- ``InnoRouterInspector/RouterInspectorExportLimits``
+- ``InnoRouterInspector/RouterInspectorExportFailure``
+- ``InnoRouterInspector/RouterInspectorExportFailureCode``
+- ``InnoRouterInspector/RouterInspectorExportFailureDetails``
 - ``InnoRouterInspector/RouterInspectorStateTree``
 - ``InnoRouterInspector/RouterInspectorStateDiff``
 

@@ -9,7 +9,7 @@ public extension View {
     /// The modifier saves immediately when the scene leaves the active phase.
     /// Restore and save failures remain visible through the driver's `status`.
     @MainActor
-    func routerStateRestoration<R: Route & Codable>(
+    func routerStateRestoration<R: Route>(
         _ driver: RouterRestorationDriver<R>
     ) -> some View {
         modifier(RouterStateRestorationModifier(driver: driver))
@@ -17,7 +17,7 @@ public extension View {
 }
 
 @MainActor
-private struct RouterStateRestorationModifier<R: Route & Codable>: ViewModifier {
+private struct RouterStateRestorationModifier<R: Route>: ViewModifier {
     @Environment(\.scenePhase) private var scenePhase
     @State private var attachmentID = UUID()
     @State private var attachedDriver: RouterRestorationDriver<R>?

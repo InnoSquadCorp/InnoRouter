@@ -1,4 +1,4 @@
-# InnoRouter 6 Public API Boundary
+# InnoRouter 7 Candidate Public API Boundary
 
 ## Default path
 
@@ -35,15 +35,26 @@ growth:
 
 | Product | Maximum symbols |
 | --- | ---: |
-| `InnoRouter` | 1,193 |
-| `InnoRouterInspector` | 207 |
-| `InnoRouterTesting` | 252 |
+| `InnoRouter` | 1,825 |
+| `InnoRouterInspector` | 236 |
+| `InnoRouterTesting` | 275 |
 
 `Baselines/PublicAPI/symbol-budgets.tsv` is the machine-readable source for
 these numbers, and the documentation gate rejects drift from this table. An
 intentional addition therefore needs both a reviewed API diff and a deliberate
 budget edit. Removal does not require lowering the budget in the same patch,
 which leaves room to review the semantic change before tightening the ceiling.
+
+The unreleased 7.0 candidate deliberately replaces the 6.x ceilings
+(1,193 / 207 / 252) with the exact extracted surface above, with no spare
+symbol allowance. Its API diff includes bounded graph persistence and
+authorization, typed branch/presentation scope components, transient result
+requests, frozen host declarations and recursive native renderers, and the
+Inspector/Testing descriptor transport and replay limitations. It retains
+the nonthrowing empty stack host, supplied-store stack host, and platform
+bridge construction contracts. The three candidate baselines were extracted
+with Xcode 27.0 (27A266a), Apple Swift 6.4, on 2026-10-05. This is candidate
+validation; the pinned-toolchain publication requirement below remains open.
 
 Deep-link execution uses one public result vocabulary,
 `RouterLinkExecution`. Hosts emit the same value returned by explicit store

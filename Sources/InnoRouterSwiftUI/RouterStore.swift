@@ -4,7 +4,6 @@
 
 import Foundation
 import Observation
-import SwiftUI
 
 import InnoRouterCore
 
@@ -17,24 +16,37 @@ import InnoRouterCore
 @Observable
 public final class RouterStore<R: Route> {
     /// The complete committed navigation state.
-    public private(set) var state: RouterState<R>
+    public var state: RouterState<R> { committedValue.state }
+
+    /// Frozen host contract committed atomically with the navigation value.
+    public var hostDescriptor: RouterHostDescriptor<R>? { committedValue.hostDescriptor }
+
+    var committedValue: RouterCommittedValue<R>
 
     /// Monotonic committed-state revision used for stale-prepare detection.
-    public private(set) var revision: UInt64
+    public var revision: UInt64 { committedValue.revision }
 
     /// Payload-safe unresolved requests released by prepare policies.
     public package(set) var deferredTransitions: [RouterDeferredTransition] = []
 
     @ObservationIgnored
+    public let resourceBudget: RouterResourceBudget
+    @ObservationIgnored
     let policies: [RouterPolicy<R>]
     @ObservationIgnored
-    private let schedulingPolicy: RouterSchedulingPolicy
+    let authorization: RouterAuthorizationConfiguration<R>?
+    @ObservationIgnored
+    let schedulingPolicy: RouterSchedulingPolicy
     @ObservationIgnored
     let maximumPendingRequestCount: Int
     @ObservationIgnored
     let requestOverflowStrategy: RouterRequestOverflowStrategy
     @ObservationIgnored
     let policyTimeout: Duration?
+    @ObservationIgnored
+    let policyOperations: RouterOperationRegistry
+    @ObservationIgnored
+    let restorationOperations: RouterOperationRegistry
     @ObservationIgnored
     let deferralConfiguration: RouterDeferralConfiguration
     @ObservationIgnored
@@ -64,6 +76,8 @@ public final class RouterStore<R: Route> {
     @ObservationIgnored
     var activePolicyRaces: [RouterTransitionID: RouterTimeoutRace<RouterPolicyDecision>] = [:]
     @ObservationIgnored
+    var activeAuthorizationRaces: [RouterTransitionID: RouterTimeoutRace<Bool>] = [:]
+    @ObservationIgnored
     var queuedRequests: [QueuedRouterRequest<R>] = []
     @ObservationIgnored
     var queuedSystemRepairs: [QueuedRouterRequest<R>] = []
@@ -79,6 +93,14 @@ public final class RouterStore<R: Route> {
     var deferralExpirationTasks: [RouterDeferralID: RouterDeferralExpiration] = [:]
     @ObservationIgnored
     var scopes: [RouterScopePath: WeakRouterScope<R>] = [:]
+    @ObservationIgnored
+    var scopeLifetimes: [RouterScopePath: RouterScopeRuntimeLifetime<R>]
+    @ObservationIgnored
+    var presentationLifetimes: [UUID: RouterPresentationRuntimeLifetime]
+    @ObservationIgnored
+    var presentationLifetimeObservations: [RouterScopePath: RouterPresentationLifetimeObservation] = [:]
+    @ObservationIgnored
+    var scopeLifetimeObservations: [RouterScopePath: RouterScopeLifetimeObservation] = [:]
     @ObservationIgnored
     var presentationWaiters: [UUID: AnyRouterPresentationWaiter] = [:]
     @ObservationIgnored
@@ -97,32 +119,66 @@ public final class RouterStore<R: Route> {
         broadcaster.stream()
     }
 
-    /// Opt-in stream of every request before scheduling or reduction.
+    /// Opt-in stream of resource-admitted requests before scheduling or reduction.
+    /// Oversized inputs produce only a payload-safe terminal rejection event.
     public var requestObservations: AsyncStream<RouterRequestObservation<R>> {
         requestBroadcaster.stream()
     }
 
-    public init(
+    /// Creates an empty root stack with the library's finite default budget.
+    /// This overload has no external state or configuration to validate.
+    public convenience init() {
+        self.init(validatedState: .rootStack, configuration: .init())
+    }
+
+    /// No application state, declaration or configuration is accepted here.
+    /// Keeps the empty native stack convenience nonthrowing without a trap.
+    package static func makeDefaultHostedStack() -> RouterStore<R> {
+        RouterStore(validatedState: .rootStack, configuration: .init(hostDescriptor: .init(
+            root: .stack, rootDeclarations: [.init(path: [], meaning: .declarationID("router.root"))]
+        )))
+    }
+
+    /// Validates resource, structural, and scene-catalog invariants before
+    /// creating any scopes or retaining the supplied state.
+    public convenience init(
         initialState: RouterState<R>,
         configuration: RouterStoreConfiguration<R> = .init()
-    ) {
-        do {
-            try initialState.validate()
-        } catch {
-            preconditionFailure("RouterStore requires a valid initial state: \(error)")
-        }
+    ) throws {
+        try configuration.validate()
+        try configuration.resourceBudget.validate(initialState)
+        try initialState.validate()
+        try configuration.hostDescriptor?.validate(initialState, resourceBudget: configuration.resourceBudget)
         if let error = Self.sceneCatalogValidationError(in: initialState) {
-            preconditionFailure("RouterStore requires scene-catalog-valid initial state: \(error)")
+            throw error
         }
-        self.state = initialState
-        self.revision = 0
+        self.init(validatedState: initialState, configuration: configuration)
+    }
+
+    private init(
+        validatedState initialState: RouterState<R>,
+        configuration: RouterStoreConfiguration<R>
+    ) {
+        self.resourceBudget = configuration.resourceBudget
+        self.committedValue = .init(state: initialState, hostDescriptor: configuration.hostDescriptor)
+        let scopeLifetimes = Self.makeScopeLifetimes(in: initialState)
+        self.scopeLifetimes = scopeLifetimes
+        self.presentationLifetimes = Self.makePresentationLifetimes(in: initialState, scopes: scopeLifetimes)
         self.policies = configuration.policies
+        self.authorization = configuration.authorization
         self.schedulingPolicy = configuration.schedulingPolicy
-        self.maximumPendingRequestCount = max(0, configuration.maximumPendingRequestCount)
+        self.maximumPendingRequestCount = resourceBudget.maximumPendingRequests
         self.requestOverflowStrategy = configuration.requestOverflowStrategy
-        self.policyTimeout = configuration.policyTimeout
+        self.policyTimeout = resourceBudget.policyTimeout
+        self.policyOperations = RouterOperationRegistry(
+            maximumCount: resourceBudget.maximumActivePolicyOperations
+        )
+        self.restorationOperations = RouterOperationRegistry(
+            maximumCount: resourceBudget.maximumActiveRestorationOperations
+        )
         var deferrals = configuration.deferrals
-        deferrals.maximumPendingCount = max(0, deferrals.maximumPendingCount)
+        deferrals.maximumPendingCount = resourceBudget.maximumDeferrals
+        deferrals.timeToLive = resourceBudget.deferralLifetime
         self.deferralConfiguration = deferrals
         self.runtimeDependencies = configuration.runtimeDependencies
         self.broadcaster = EventBroadcaster(
@@ -138,29 +194,21 @@ public final class RouterStore<R: Route> {
         self.immersiveSpaceLifecycleToken = initialState.immersiveSpace.map { _ in UUID() }
     }
 
-    /// Creates a root-stack router and rejects an invalid initial state.
+    /// Creates a root stack after resource admission of its supplied path.
     public convenience init(
-        initialPath: [R] = [],
+        initialPath: [R],
         configuration: RouterStoreConfiguration<R> = .init()
-    ) {
-        // This construction is structurally valid by definition.
-        let state = try! RouterState<R>(root: .stack(path: initialPath))
-        self.init(initialState: state, configuration: configuration)
+    ) throws {
+        try configuration.validate()
+        let state = try RouterStateDraft<R>(root: .stack(path: initialPath))
+            .build(resourceBudget: configuration.resourceBudget)
+        try self.init(initialState: state, configuration: configuration)
     }
 
-    /// Returns the stable read-only projection for `path`.
-    public func scope(at path: RouterScopePath = .root) -> RouterScope<R> {
-        compactDeadScopes()
-        if let scope = scopes[path]?.value, scope.matchesCurrentSceneLifetime {
-            return scope
-        }
-        let scope = RouterScope(
-            path: path,
-            node: state.node(at: path),
-            store: self
-        )
-        scopes[path] = WeakRouterScope(scope)
-        return scope
+    /// Even an empty configured Store uses throwing input admission. A future
+    /// configuration can narrow its resources without hiding initialization errors.
+    public convenience init(configuration: RouterStoreConfiguration<R>) throws {
+        try self.init(initialState: .rootStack, configuration: configuration)
     }
 
     /// Performs one request through reduce, prepare, stale-check, and commit.
@@ -182,243 +230,8 @@ public final class RouterStore<R: Route> {
         )
     }
 
-    package func perform(
-        _ action: RouterAction<R>,
-        context: RouterTransitionContext,
-        expectedRevision: UInt64?,
-        bypassesPolicies: Bool,
-        startingPolicyIndex: Int = 0,
-        transitionID: RouterTransitionID? = nil,
-        requestRootID: RouterTransitionID? = nil,
-        requestSemantics: RouterRequestSemantics<R> = .action,
-        executionPrecondition: RouterRequestPrecondition<R>? = nil,
-        executionPreparation: RouterRequestPreparationBuilder<R>? = nil,
-        deferredResumePreparation: RouterDeferredResumePreparationBuilder<R>? = nil,
-        systemRepairIdentity: RouterSystemRepairIdentity? = nil
-    ) async -> RouterOutcome<R> {
-        let transitionID = transitionID ?? runtimeDependencies.makeTransitionID()
-        let requestRootID = requestRootID ?? transitionID
-        observeRequest(
-            id: transitionID,
-            action: action,
-            context: context,
-            expectedRevision: expectedRevision,
-            semantics: requestSemantics
-        )
-
-        return await withTaskCancellationHandler {
-            if Task.isCancelled {
-                observeCancellation(transitionID)
-                return reject(
-                    transitionID,
-                    reason: .cancelled,
-                    context: context,
-                    action: action
-                )
-            }
-            if let activeTransitionID {
-                switch schedulingPolicy {
-                case .rejectWhileBusy where !bypassesPolicies:
-                    return reject(
-                        transitionID,
-                        reason: .busy(activeTransition: activeTransitionID),
-                        context: context,
-                        action: action
-                    )
-                case .rejectWhileBusy, .serialize:
-                    return await withCheckedContinuation { continuation in
-                        if requestCancellationIsPending(transitionID) {
-                            cancelledRequestIDs.remove(transitionID)
-                            continuation.resume(
-                                returning: reject(
-                                    transitionID,
-                                    reason: .cancelled,
-                                    context: context,
-                                    action: action
-                                )
-                            )
-                        } else {
-                            enqueue(
-                                QueuedRouterRequest(
-                                    id: transitionID,
-                                    rootID: requestRootID,
-                                    action: action,
-                                    context: context,
-                                    semantics: requestSemantics,
-                                    expectedRevision: expectedRevision,
-                                    bypassesPolicies: bypassesPolicies,
-                                    systemRepairIdentity: systemRepairIdentity,
-                                    startingPolicyIndex: startingPolicyIndex,
-                                    executionPrecondition: executionPrecondition,
-                                    executionPreparation: executionPreparation,
-                                    deferredResumePreparation: deferredResumePreparation,
-                                    continuation: continuation
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            activeTransitionID = transitionID
-            activeRequestRootID = requestRootID
-            activeRequestKey = context.requestKey
-            activeSystemRepairIdentity = systemRepairIdentity
-            return await execute(
-                action,
-                context: context,
-                expectedRevision: expectedRevision,
-                bypassesPolicies: bypassesPolicies,
-                startingPolicyIndex: startingPolicyIndex,
-                transitionID: transitionID,
-                requestRootID: requestRootID,
-                requestSemantics: requestSemantics,
-                executionPrecondition: executionPrecondition,
-                executionPreparation: executionPreparation,
-                deferredResumePreparation: deferredResumePreparation
-            )
-        } onCancel: {
-            Task { @MainActor [weak self] in
-                self?.cancelRequest(transitionID)
-            }
-        }
-    }
-
     package func reserveTransitionID() -> RouterTransitionID {
         runtimeDependencies.makeTransitionID()
-    }
-
-    private func commitPreparedTransition(
-        _ transition: RouterTransition<R>,
-        executionPrecondition: RouterRequestPrecondition<R>?
-    ) -> RouterOutcome<R> {
-        guard revision == transition.initialRevision else {
-            return reject(
-                transition.id,
-                reason: .staleState(
-                    expectedRevision: transition.initialRevision,
-                    actualRevision: revision
-                ),
-                context: transition.context,
-                action: transition.action
-            )
-        }
-        guard !requestCancellationIsPending(transition.id) else {
-            return reject(
-                transition.id,
-                reason: .cancelled,
-                context: transition.context,
-                action: transition.action
-            )
-        }
-        if let rejection = executionPrecondition?(state) {
-            return reject(
-                transition.id,
-                reason: rejection,
-                context: transition.context,
-                action: transition.action
-            )
-        }
-        guard !requestCancellationIsPending(transition.id) else {
-            return reject(
-                transition.id,
-                reason: .cancelled,
-                context: transition.context,
-                action: transition.action
-            )
-        }
-
-        return commitOutcome(
-            id: transition.id,
-            before: transition.initialState,
-            after: transition.proposedState,
-            action: transition.action,
-            context: transition.context
-        )
-    }
-
-    private func makeProposedState(
-        _ action: RouterAction<R>,
-        from initialState: RouterState<R>
-    ) throws -> RouterState<R> {
-        let proposedState = try RouterReducer.reduce(action, from: initialState)
-        if let error = Self.sceneCatalogValidationError(in: proposedState) {
-            throw error
-        }
-        return proposedState
-    }
-
-    private func unchangedOutcome(
-        id: RouterTransitionID,
-        state: RouterState<R>,
-        revision: UInt64,
-        action: RouterAction<R>,
-        context: RouterTransitionContext
-    ) -> RouterOutcome<R> {
-        emit(.unchanged(
-            transitionID: id,
-            state: state,
-            revision: revision,
-            context: context
-        ))
-        refreshScopes(after: action, context: context)
-        return .unchanged(id: id, state: state, revision: revision)
-    }
-
-    private func commitOutcome(
-        id: RouterTransitionID,
-        before: RouterState<R>,
-        after: RouterState<R>,
-        action: RouterAction<R>,
-        context: RouterTransitionContext
-    ) -> RouterOutcome<R> {
-        updateSceneLifecycleTokens(before: before, after: after)
-        commit(after, animation: context.animation)
-        revision &+= 1
-        refreshScopes(after: action, context: context)
-        finishDismissedPresentations(
-            before: before,
-            after: after,
-            transitionID: id,
-            context: context
-        )
-        emit(.committed(
-            transitionID: id,
-            before: before,
-            after: after,
-            revision: revision,
-            context: context
-        ))
-        return .applied(id: id, before: before, after: after, revision: revision)
-    }
-
-    private func commit(
-        _ proposedState: RouterState<R>,
-        animation: RouterAnimation?
-    ) {
-        switch animation {
-        case nil:
-            state = proposedState
-        case .some(.none):
-            var transaction = Transaction(animation: nil)
-            transaction.disablesAnimations = true
-            withTransaction(transaction) { state = proposedState }
-        case .default:
-            withAnimation { state = proposedState }
-        case .easeInOut(let duration):
-            withAnimation(.easeInOut(duration: max(0, duration))) {
-                state = proposedState
-            }
-        case .spring(let duration, let bounce):
-            withAnimation(
-                .spring(
-                    duration: max(0.01, duration),
-                    bounce: min(max(0, bounce), 1)
-                )
-            ) {
-                state = proposedState
-            }
-        }
     }
 }
 
@@ -437,6 +250,11 @@ extension RouterStore {
         transitionID: RouterTransitionID,
         requestRootID: RouterTransitionID,
         requestSemantics: RouterRequestSemantics<R>,
+        replayLimitationCode: String?,
+        authorization: RouterRequestAuthorization<R>?,
+        lifetimeMutation: RouterScopeLifetimeMutation,
+        hostReplacement: RouterHostReplacement<R>?,
+        presentationCompletionOwner: RouterPresentationCompletionOwner,
         executionPrecondition: RouterRequestPrecondition<R>?,
         executionPreparation: RouterRequestPreparationBuilder<R>?,
         deferredResumePreparation: RouterDeferredResumePreparationBuilder<R>?
@@ -461,7 +279,11 @@ extension RouterStore {
         let initialState = state, initialRevision = revision
         let proposedState: RouterState<R>
         do {
-            proposedState = try makeProposedState(preparedAction, from: initialState)
+            proposedState = try makeProposedState(preparedAction, from: initialState, hostReplacement: hostReplacement)
+        } catch let failure as RouterResourceLimitFailure {
+            return reject(transitionID, reason: .resourceLimit(failure), context: context)
+        } catch let failure as RouterHostValidationFailure {
+            return reject(transitionID, reason: .hostContract(failure), context: context)
         } catch let error as RouterMutationError {
             return reject(
                 transitionID,
@@ -473,7 +295,31 @@ extension RouterStore {
             preconditionFailure("RouterReducer surfaced an undocumented error: \(error)")
         }
 
-        if proposedState == initialState {
+        // A pending typed show reserves its ID for its own request lineage.
+        // Descriptor-only or restore requests cannot acquire its result waiter.
+        if let id = pendingPresentationConflict(in: proposedState, requestRootID: requestRootID) {
+            return reject(transitionID, reason: .mutation(.presentationIdentityConflict(id)),
+                          context: context, action: preparedAction)
+        }
+
+        let selection: RouterTransientSelectionPreparation<R>?
+        switch prepareTransientSelection(for: preparedAction, owner: presentationCompletionOwner) {
+        case .none: selection = nil
+        case .ready(let prepared): selection = prepared
+        case .rejected(let reason):
+            return reject(transitionID, reason: reason, context: context, action: preparedAction)
+        }
+        defer { selection?.clear() }
+        let originalPrecondition = executionPrecondition
+        let executionPrecondition: RouterRequestPrecondition<R>? = if let selectedPrecondition = selection?.precondition {
+            { state in originalPrecondition?(state) ?? selectedPrecondition(state) }
+        } else { originalPrecondition }
+        if let reason = executionPrecondition?(state) {
+            return reject(transitionID, reason: reason, context: context, action: preparedAction)
+        }
+
+        if proposedState == initialState && hostReplacement == nil && !lifetimeMutation.replacesOwnership
+            && self.authorization == nil && authorization?.configuration == nil {
             return unchangedOutcome(
                 id: transitionID,
                 state: initialState,
@@ -493,41 +339,76 @@ extension RouterStore {
         )
         emit(.started(transition))
 
+        if let rejection = await prepareAuthorization(
+            for: transition, request: authorization, executionPrecondition: executionPrecondition
+        ) {
+            return reject(transitionID, reason: rejection, context: context, action: preparedAction)
+        }
+
         let preparation = await prepare(
             for: transition,
             bypassesPolicies: bypassesPolicies,
             startingAt: startingPolicyIndex,
             requestSemantics: requestSemantics,
+            replayLimitationCode: replayLimitationCode,
+            authorization: authorization,
+            lifetimeMutation: lifetimeMutation,
+            hostReplacement: hostReplacement,
             requestRootID: requestRootID,
+            presentationCompletionOwner: presentationCompletionOwner,
             executionPrecondition: executionPrecondition,
             deferredResumePreparation: deferredResumePreparation
         )
+        return resolvePreparedTransition(
+            preparation,
+            transition: transition,
+            requestRootID: requestRootID,
+            presentationCompletionOwner: presentationCompletionOwner,
+            lifetimeMutation: lifetimeMutation,
+            hostReplacement: hostReplacement,
+            executionPrecondition: executionPrecondition
+        )
+    }
+
+    private func resolvePreparedTransition(
+        _ preparation: RouterPolicyPreparation,
+        transition: RouterTransition<R>,
+        requestRootID: RouterTransitionID,
+        presentationCompletionOwner: RouterPresentationCompletionOwner,
+        lifetimeMutation: RouterScopeLifetimeMutation,
+        hostReplacement: RouterHostReplacement<R>?,
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) -> RouterOutcome<R> {
         switch preparation {
         case .allowed:
             return commitPreparedTransition(
                 transition,
+                requestRootID: requestRootID,
+                presentationCompletionOwner: presentationCompletionOwner,
+                lifetimeMutation: lifetimeMutation,
+            hostReplacement: hostReplacement,
                 executionPrecondition: executionPrecondition
             )
         case .rejected(let reason):
             return reject(
-                transitionID,
+                transition.id,
                 reason: reason,
-                context: context,
-                action: preparedAction
+                context: transition.context,
+                action: transition.action
             )
         case .deferred(let deferral):
             emit(
                 .deferred(
-                    transitionID: transitionID,
+                    transitionID: transition.id,
                     state: state,
                     revision: revision,
                     deferral: deferral,
-                    context: context
+                    context: transition.context
                 )
             )
-            refreshScopes(after: preparedAction, context: context)
+            refreshScopes(after: transition.action, context: transition.context)
             return .deferred(
-                id: transitionID,
+                id: transition.id,
                 state: state,
                 revision: revision,
                 deferral: deferral

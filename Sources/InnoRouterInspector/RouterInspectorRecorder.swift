@@ -2,7 +2,6 @@ import Foundation
 import Observation
 
 import InnoRouterCore
-import InnoRouterSwiftUI
 
 /// A bounded, opt-in timeline recorder for InnoRouter event streams.
 @MainActor
@@ -14,16 +13,19 @@ public final class RouterInspectorRecorder {
     public private(set) var bookmarkedEntryIDs: Set<RouterInspectorEntry.ID> = []
     public let capacity: Int
     public let importLimits: RouterInspectorImportLimits
+    public let exportLimits: RouterInspectorExportLimits
 
     @ObservationIgnored private var transitionStartTimes: [String: Date] = [:]
     @ObservationIgnored private var transitionLastEventTimes: [String: Date] = [:]
 
     public init(
         capacity: Int = 500,
-        importLimits: RouterInspectorImportLimits = .default
+        importLimits: RouterInspectorImportLimits = .default,
+        exportLimits: RouterInspectorExportLimits = .default
     ) {
         self.capacity = max(1, capacity)
         self.importLimits = importLimits
+        self.exportLimits = exportLimits
     }
 
     public func pause() {
@@ -65,11 +67,14 @@ public final class RouterInspectorRecorder {
         )
     }
 
+    /// Encodes a snapshot using the caller's encoder and applies export limits
+    /// to the resulting bytes. A failure leaves recorder state unchanged.
+    /// The limit does not bound transient encoder allocations.
     public func encodedSnapshot(
         generatedAt: Date = Date(),
         encoder: JSONEncoder = JSONEncoder()
     ) throws -> Data {
-        try encoder.encode(snapshot(generatedAt: generatedAt))
+        try boundedExport(encoder.encode(snapshot(generatedAt: generatedAt)))
     }
 
     /// Creates a support-ready envelope around the current redacted timeline.
@@ -88,6 +93,9 @@ public final class RouterInspectorRecorder {
     }
 
     /// Encodes a diagnostic bundle with deterministic JSON key ordering.
+    /// Export limits apply to the complete encoded envelope, including metadata.
+    /// A failure leaves recorder state unchanged. The limit bounds returned
+    /// bytes, not transient encoder allocations.
     public func encodedDiagnosticBundle(
         platform: RouterPlatform = RouterPlatformCapabilities.current.platform,
         frameworkVersion: String = InnoRouterVersion.current,
@@ -95,13 +103,23 @@ public final class RouterInspectorRecorder {
     ) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
-        return try encoder.encode(
+        return try boundedExport(encoder.encode(
             diagnosticBundle(
                 platform: platform,
                 frameworkVersion: frameworkVersion,
                 generatedAt: generatedAt
             )
-        )
+        ))
+    }
+
+    private func boundedExport(_ data: Data) throws -> Data {
+        guard data.count <= exportLimits.maximumEncodedByteCount else {
+            throw RouterInspectorExportFailure.encodedDataTooLarge(
+                actualByteCount: data.count,
+                maximumByteCount: exportLimits.maximumEncodedByteCount
+            )
+        }
+        return data
     }
 
     /// Imports a payload-redacted snapshot into the bounded timeline.
@@ -172,6 +190,22 @@ public final class RouterInspectorRecorder {
         return bundle
     }
 
+    /// Native file imports use one classification/decoding admission. No state
+    /// or bookmark changes occur until the complete document is accepted.
+    @discardableResult
+    package func importDetectedData(
+        from data: Data,
+        policy: RouterInspectorImportPolicy = .replace,
+        decoder: JSONDecoder = JSONDecoder()
+    ) throws -> RouterInspectorSnapshot {
+        let diagnostic = try RouterInspectorImportPreflight.classifyAndValidate(data, limits: importLimits)
+        let snapshot: RouterInspectorSnapshot
+        if diagnostic { snapshot = try decoder.decode(RouterInspectorDiagnosticBundle.self, from: data).snapshot }
+        else { snapshot = try decoder.decode(RouterInspectorSnapshot.self, from: data) }
+        try importSnapshot(snapshot, policy: policy)
+        return snapshot
+    }
+
     /// Subscribes to any typed event stream with an explicit safe formatter.
     @discardableResult
     public func attach<Event: Sendable>(
@@ -186,21 +220,6 @@ public final class RouterInspectorRecorder {
             }
         }
         return RouterInspectorSubscription(task: task)
-    }
-
-    /// Attaches the canonical InnoRouter 6 transition timeline. The default
-    /// formatter records correlation and structural counts while redacting all
-    /// route payloads and policy messages.
-    @discardableResult
-    public func attach<R: Route>(
-        to store: RouterStore<R>,
-        formatter: RouterInspectorFormatter<RouterEvent<R>>? = nil
-    ) -> RouterInspectorSubscription {
-        attach(
-            to: store.events,
-            domain: .router,
-            formatter: formatter ?? redactedRouterFormatter()
-        )
     }
 
     /// Adds an explicitly formatted entry. Route objects are never retained.

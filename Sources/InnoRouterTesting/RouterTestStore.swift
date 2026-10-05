@@ -20,12 +20,30 @@ public final class RouterTestStore<R: Route> {
     private let runtime: RouterTestRuntime?
     private let runtimeOwnerID: UUID?
 
+    /// Creates a safe empty harness without external state or configuration.
+    public init() {
+        let queue = TestEventQueue<RouterEvent<R>>(
+            storeName: "RouterTestStore", exhaustivity: .strict
+        )
+        let lifecycle = RouterTestRequestLifecycle<R>()
+        self.queue = queue
+        self.lifecycle = lifecycle
+        self.runtime = nil
+        self.runtimeOwnerID = nil
+        let store = RouterStore<R>()
+        self.underlying = store
+        store.addSynchronousEventObserver { event in
+            queue.enqueue(event)
+            lifecycle.observe(event)
+        }
+    }
+
     public init(
         initialState: RouterState<R> = .rootStack,
         configuration: RouterStoreConfiguration<R> = .init(),
         exhaustivity: TestExhaustivity = .strict,
         runtime: RouterTestRuntime? = nil
-    ) {
+    ) throws {
         let queue = TestEventQueue<RouterEvent<R>>(
             storeName: "RouterTestStore",
             exhaustivity: exhaustivity
@@ -52,7 +70,7 @@ public final class RouterTestStore<R: Route> {
             queue.enqueue(event)
             lifecycle.observe(event)
         }
-        self.underlying = RouterStore(
+        self.underlying = try RouterStore(
             initialState: initialState,
             configuration: observedConfiguration
         )
@@ -63,8 +81,8 @@ public final class RouterTestStore<R: Route> {
         configuration: RouterStoreConfiguration<R> = .init(),
         exhaustivity: TestExhaustivity = .strict,
         runtime: RouterTestRuntime? = nil
-    ) {
-        self.init(
+    ) throws {
+        try self.init(
             initialState: .rootStack(path: initialPath),
             configuration: configuration,
             exhaustivity: exhaustivity,

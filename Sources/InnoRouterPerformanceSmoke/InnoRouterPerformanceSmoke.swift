@@ -40,6 +40,7 @@ private let expectedSampleNames = [
 ]
 private let clock = ContinuousClock()
 private let measurementCount = 5
+private let snapshotPathCount = 500
 
 @main
 private enum InnoRouterPerformanceSmoke {
@@ -52,6 +53,7 @@ private enum InnoRouterPerformanceSmoke {
                   expectedSampleNames.count == 7 else {
                 throw PerformanceFailure.selfTest
             }
+            try verifySnapshotWorkloadAdmission()
             print("[performance-smoke] Aggregation self-test passed")
             return
         }
@@ -181,9 +183,9 @@ private enum InnoRouterPerformanceSmoke {
     }
 
     private static func snapshotWorkload() throws {
-        let codec = try RouterSnapshotCodec<PerformanceRoute>(currentVersion: 1)
+        let codec = try snapshotWorkloadCodec()
         let state = RouterState<PerformanceRoute>.rootStack(
-            path: (0..<500).map(PerformanceRoute.init(value:))
+            path: (0..<snapshotPathCount).map(PerformanceRoute.init(value:))
         )
         var checksum = 0
         for _ in 0..<200 {
@@ -191,6 +193,48 @@ private enum InnoRouterPerformanceSmoke {
             checksum += try codec.decode(data).root == state.root ? data.count : 0
         }
         precondition(checksum > 0)
+    }
+
+    private static func snapshotWorkloadCodec() throws -> RouterSnapshotCodec<PerformanceRoute> {
+        // Keep the established 500-route workload and every finite preflight.
+        // The 7.0 provisional stack cap is smaller; this consumer explicitly
+        // admits its measured workload without changing the library default.
+        let limits = try RouterGraphSnapshotLimits(maximumStackPath: snapshotPathCount)
+        return try .init(currentVersion: 1, resourceBudget: .init(snapshot: limits))
+    }
+
+    private static func verifySnapshotWorkloadAdmission() throws {
+        let state = RouterState<PerformanceRoute>.rootStack(
+            path: (0..<snapshotPathCount).map(PerformanceRoute.init(value:))
+        )
+        let provisional = try RouterSnapshotCodec<PerformanceRoute>(currentVersion: 1)
+        do {
+            _ = try provisional.encode(state)
+            throw PerformanceFailure.selfTest
+        } catch RouterSnapshotError.preflight(let failure) {
+            guard failure.details.field == "state.stackPath",
+                  failure.details.actual == snapshotPathCount,
+                  failure.details.maximum == RouterGraphSnapshotLimits.provisional.maximumStackPath else {
+                throw PerformanceFailure.selfTest
+            }
+        }
+        let configured = try snapshotWorkloadCodec()
+        guard try configured.decode(configured.encode(state)) == state else {
+            throw PerformanceFailure.selfTest
+        }
+        let oversized = RouterState<PerformanceRoute>.rootStack(
+            path: (0...snapshotPathCount).map(PerformanceRoute.init(value:))
+        )
+        do {
+            _ = try configured.encode(oversized)
+            throw PerformanceFailure.selfTest
+        } catch RouterSnapshotError.preflight(let failure) {
+            guard failure.details.field == "state.stackPath",
+                  failure.details.actual == snapshotPathCount + 1,
+                  failure.details.maximum == snapshotPathCount else {
+                throw PerformanceFailure.selfTest
+            }
+        }
     }
 
     private static func deepLinkWorkload() {

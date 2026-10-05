@@ -28,7 +28,7 @@ struct TabRestorationExampleTests {
         #expect(session.store.scope(at: ["home"]).node == .stack(path: [.detail(id: "saved-home")]))
         #expect(session.store.scope(at: ["legacy"]).node == .stack(path: [.detail(id: "saved-legacy")]))
         #expect(session.store.scope(at: ["settings"]).node == .stack())
-        _ = try RouterTabHost(store: session.store, catalog: session.catalog, allowingOrphanedBranches: true)
+        _ = try RouterTabHost(store: session.store, catalog: session.catalog, orphanPolicy: .preserveDormant)
 
         guard case .applied = await session.store.perform(.select("settings")),
               case .applied = await session.store.scope(at: ["settings"]).perform(.push(.detail(id: "new"))) else {

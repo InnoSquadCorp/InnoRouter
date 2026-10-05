@@ -76,6 +76,12 @@ public struct RouterSplitState: Hashable, Sendable, Codable {
 
     func validate(against branchIDs: [RouterScopeID]) throws {
         let columnScopes = supportedColumns.compactMap(scopeID(for:))
+        guard columnScopes.allSatisfy({ !$0.rawValue.isEmpty }) else {
+            throw RouterStateValidationError.emptyScope
+        }
+        guard Set(columnScopes).count == columnScopes.count else {
+            throw RouterStateValidationError.duplicateSplitColumnScope
+        }
         for column in supportedColumns {
             guard let scope = scopeID(for: column), branchIDs.contains(scope) else {
                 throw RouterStateValidationError.missingSplitColumn(column)

@@ -81,11 +81,28 @@ private struct MacroFirstSettingsDestination: View {
 
 #if !os(watchOS)
 struct MacroFirstSplitExample: View {
+    private let host: Result<RouterSplitHost<MacroFirstRoute, MacroFirstSplitSidebar, Text>, Error>
+
+    init() {
+        do {
+            host = .success(try RouterSplitHost(
+                MacroFirstRoute.self,
+                sidebarDeclarationID: "split.sidebar", detailDeclarationID: "split.detail"
+            ) {
+                MacroFirstSplitSidebar()
+            } root: {
+                Text("Select a product")
+            })
+        } catch {
+            host = .failure(error)
+        }
+    }
+
     var body: some View {
-        RouterSplitHost(MacroFirstRoute.self) {
-            MacroFirstSplitSidebar()
-        } root: {
-            Text("Select a product")
+        switch host {
+        case .success(let host): host
+        case .failure:
+            ContentUnavailableView("Navigation unavailable", systemImage: "exclamationmark.triangle")
         }
     }
 }
@@ -128,8 +145,22 @@ enum MacroFirstTab {
 }
 
 struct MacroFirstTabsExample: View {
+    private let host: Result<RouterTabHost<MacroFirstTab>, Error>
+
+    init() {
+        do {
+            host = .success(try RouterTabHost(MacroFirstTab.self, initial: .home))
+        } catch {
+            host = .failure(error)
+        }
+    }
+
     var body: some View {
-        RouterTabHost(MacroFirstTab.self, initial: .home)
+        switch host {
+        case .success(let host): host
+        case .failure:
+            ContentUnavailableView("Navigation unavailable", systemImage: "exclamationmark.triangle")
+        }
     }
 }
 

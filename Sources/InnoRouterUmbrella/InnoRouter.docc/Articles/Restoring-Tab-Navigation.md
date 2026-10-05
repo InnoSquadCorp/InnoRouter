@@ -4,10 +4,12 @@ Restore saved navigation into the tab catalog the application renders now.
 
 ## Availability
 
-Explicit tab-topology restoration requires **InnoRouter 6.1.0 or later**. The existing restore
-overloads continue to apply the snapshot exactly unless a topology is supplied.
+Explicit tab-topology restoration first shipped in InnoRouter 6.1.0. This guide
+and the current example use the **InnoRouter 7** host descriptor APIs. Restore
+overloads remain exact unless a topology is supplied; a configured host
+contract rejects incompatible candidates before commit.
 
-The complete [TabRestorationExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/6.1.0/Examples/TabRestorationExample.swift)
+The complete [TabRestorationExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/TabRestorationExample.swift)
 uses one `import InnoRouter`, a Codable `@Router` enum, file storage, a
 restoration driver, and a native tab host. The example source itself is compiled
 by the package; its session is exercised by integration tests.
@@ -15,7 +17,10 @@ by the package; its session is exercised by integration tests.
 ## Keep one catalog and one store
 
 Create a `RouterTabCatalog` from the enum's generated `routerTabs`. Use that
-same catalog for `RouterTabRestorationTopology(catalog:)` and the host. Retain
+same catalog for `RouterTabRestorationTopology(catalog:)`, the Store's
+`catalog.hostDescriptor(orphanPolicy: .preserveDormant)`,
+and the host. Create the initial current-tab state explicitly; the empty
+`makeRouterStore()` convenience remains a root stack. Retain
 the store and driver across view updates, as the example does with a session
 held in `@State`. Do not reconstruct them inside `body`.
 
@@ -32,9 +37,13 @@ executes storage operations off the main actor. Replacing the catalog requires
 ending the old driver's ownership and creating a new driver with the new
 topology; changing a view's catalog alone does not reconfigure a driver.
 
-Select finite byte limits for untrusted or externally replaceable files. Use
-the encoded limit for both `RouterFileSnapshotStorage` and the codec, and set a
-payload limit that fits the application's route state:
+The legacy `RouterSnapshotCodec` now defaults to finite provisional limits:
+4 MiB encoded, 2 MiB payload, 128 JSON object/array levels, and 262,144 tokens
+(including punctuation). `RouterFileSnapshotStorage` defaults to the same
+4 MiB encoded limit. These values have not been calibrated against every app;
+measure representative snapshots before choosing larger finite overrides.
+Use the encoded limit for both storage and the codec, and set a payload limit
+that fits the application's route state:
 
 ```swift compile
 import InnoRouter
@@ -56,10 +65,28 @@ let storage = try RouterFileSnapshotStorage(
 )
 ```
 
-The storage limit prevents a complete oversized file allocation. The codec
-also rejects oversized envelopes before JSON decoding and checks the payload
-after envelope decoding and after each migration. The numeric values above are
-examples, not framework defaults. Existing initializers remain unbounded.
+The storage limit prevents a complete oversized file allocation. Before typed
+JSON decoding, the codec screens the envelope and payload for byte, depth and
+token limits and duplicate keys. It screens each migration output before the
+next migration or final state decoder can consume it. The numeric values in the
+example are application-selected overrides. Explicit `limits: nil` opts out of
+the codec's byte limits and JSON preflight, so it does not provide the bounded
+decoding guarantee. Selecting nil on the file adapter separately opts out of
+its file bound. Keep original bytes and validate real legacy migration fixtures;
+finite defaults alone do not establish application-specific compatibility.
+
+Existing byte-limit error cases remain available. Complexity and duplicate-key
+failures use `RouterSnapshotError.preflight` with extensible, payload-free codes
+and details; handle unknown codes with a fallback. Recovery remains explicit.
+
+In the PR54 groundwork carried into InnoRouter 7, a file over the storage limit reaches the driver's
+`RouterSnapshotRecoveryPolicy` exactly like an envelope the codec rejects. The
+default `.fail` fails activation and preserves the file; `.use` receives the
+typed `encodedDataTooLarge` reason and submits the application's fallback as
+the restore request. That request passes through normal policies, which can
+reject or defer it, so inspect `outcome.transition` as for any restore. An
+untyped storage failure, such as a denied file permission, says nothing about
+the snapshot and still fails activation.
 
 ## Understand what changes during reconciliation
 
@@ -74,10 +101,20 @@ Its current catalog contains `home` and the newly introduced `settings` tab.
 | Selection points to `legacy` | Selection falls back to the first current scope, `home`. |
 
 Render this state with
-`RouterTabHost(store:catalog:allowingOrphanedBranches: true)`. The existing
-manual `init(store:catalog:)` intentionally requires an exact branch set. The
-orphan-tolerant initializer still rejects a non-stack current scope or a
-selection outside the current catalog.
+`try RouterTabHost(store: store, catalog: catalog, orphanPolicy: .preserveDormant)`.
+Set the Store's `configuration.hostDescriptor` to
+`catalog.hostDescriptor(orphanPolicy: .preserveDormant)` during setup. This
+freezes the catalog's root Route values as well as its shape and orphan policy. Both supplied-store overloads throw. Their default
+policy is `.reject`; it must match the Store declaration. Preservation still
+rejects a non-stack current scope or a selection outside the rendered catalog.
+Construction never registers a contract, reconciles state, or invents a scope.
+
+Keeping a scope ID while changing its root Route is a semantic contract change,
+even when every branch still has the same shape. Use the owner's explicit
+`replaceHost(with:descriptor:context:)` to atomically replace the state plan and
+new catalog descriptor, then mount its matching host. The prior scopes lose
+authority. Changing a label, localized title, or icon alone does not change the
+root Route mapping.
 
 Topology reconciliation is not a payload migration or a tab-renaming map.
 Labels and order do not change identity. Before renaming a tab route case, add

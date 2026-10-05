@@ -127,7 +127,10 @@ public struct RouterPartialRestorationReport: Hashable, Sendable, Codable {
 }
 
 public enum RouterPartialRestorationError: Error, Hashable, Sendable {
+    case transientPresentation(RouterTransientPresentationPersistenceFailure)
     case validationTimedOut
+    /// Admission failed before creating validator or fallback work.
+    case operation(RouterRestorationOperationFailure)
     case cancelled
     case invalidReplacement(RouterStateValidationError)
     case validationFailed(String)
@@ -312,26 +315,9 @@ private struct PartialRestorationPlanner<R: Route> {
                     throw RouterPartialRestorationError.invalidPathFallback(scope)
                 }
             }
-            var presentation = stack.presentation
-            if let current = presentation {
-                try Task.checkCancellation()
-                let location = RouterRestorationRouteLocation(scope: scope, role: .presentation)
-                switch try await resolve(current.route, at: location) {
-                case .kept(let route):
-                    presentation?.route = route
-                    report.append(.init(
-                        location: location,
-                        change: .kept,
-                        reason: "validator-kept"
-                    ))
-                case .removed(let reason):
-                    presentation = nil
-                    report.append(.init(location: location, change: .removed, reason: reason))
-                case .replaced(let route, let reason):
-                    presentation?.route = route
-                    report.append(.init(location: location, change: .replaced, reason: reason))
-                }
-            }
+            let presentation = try await restorePresentation(
+                stack.presentation, at: scope, report: &report
+            )
             return .stack(path: path, presentation: presentation)
         case .container(let container):
             var branches: [RouterBranch<R>] = []
@@ -354,6 +340,42 @@ private struct PartialRestorationPlanner<R: Route> {
                 )
             )
         }
+    }
+
+    private func restorePresentation(
+        _ candidate: RouterPresentation<R>?,
+        at scope: RouterScopePath,
+        report: inout [RouterPartialRestorationReportEntry]
+    ) async throws -> RouterPresentation<R>? {
+        var presentation = candidate
+        if let current = presentation {
+            try Task.checkCancellation()
+            let location = RouterRestorationRouteLocation(scope: scope, role: .presentation)
+            switch try await resolve(current.route, at: location) {
+            case .kept(let route):
+                presentation?.route = route
+                report.append(.init(
+                    location: location,
+                    change: .kept,
+                    reason: "validator-kept"
+                ))
+            case .removed(let reason):
+                presentation = nil
+                report.append(.init(location: location, change: .removed, reason: reason))
+            case .replaced(let route, let reason):
+                presentation?.route = route
+                report.append(.init(location: location, change: .replaced, reason: reason))
+            }
+        }
+        if var retained = presentation {
+            retained.node = try await node(
+                retained.node,
+                at: scope.appendingPresentation(retained.id),
+                report: &report
+            )
+            presentation = retained
+        }
+        return presentation
     }
 
     private func validate(
@@ -405,11 +427,25 @@ private struct PartialRestorationPlanner<R: Route> {
 package func preparePartialRestoration<R: Route>(
     _ state: RouterState<R>,
     validator: RouterPartialRestorationValidator<R>,
+    operations: RouterOperationRegistry,
     timeout: Duration?,
     sleep: @escaping @Sendable (Duration) async throws -> Void
 ) async throws -> (RouterState<R>, RouterPartialRestorationReport) {
+    guard !Task.isCancelled else { throw RouterPartialRestorationError.cancelled }
+    do { try state.rejectTransientPresentations(.unsupportedRestoration) }
+    catch let failure as RouterTransientPresentationPersistenceFailure { throw RouterPartialRestorationError.transientPresentation(failure) }
+    let reservation: RouterOperationRegistry.Reservation
+    switch operations.reserve() {
+    case .success(let admitted):
+        reservation = admitted
+    case .failure(let capacity):
+        throw RouterPartialRestorationError.operation(.capacityExceeded(
+            maximumCount: capacity.limit,
+            activeCount: operations.activeCount
+        ))
+    }
     let race = RouterTimeoutRace<PartialRestorationPlanResult<R>>()
-    let result = await race.run(timeout: timeout, sleep: sleep) {
+    let result = await race.run(timeout: timeout, sleep: sleep, reservation: reservation) {
         do {
             let value = try await PartialRestorationPlanner(validator: validator).plan(state)
             return .success(value.0, value.1)
@@ -426,104 +462,5 @@ package func preparePartialRestoration<R: Route>(
     case .value(.failure(let error)): throw error
     case .timedOut: throw RouterPartialRestorationError.validationTimedOut
     case .cancelled: throw RouterPartialRestorationError.cancelled
-    }
-}
-
-public extension RouterStore where R: Codable {
-    /// Decodes and migrates a snapshot, validates each route with the app,
-    /// then applies one exact partial-restoration plan through normal policies.
-    func restorePartially(
-        from data: Data,
-        using codec: RouterSnapshotCodec<R>,
-        validator: RouterPartialRestorationValidator<R>,
-        validationTimeout: Duration? = nil,
-        expectedRevision: UInt64? = nil
-    ) async throws -> RouterPartialRestorationOutcome<R> {
-        try await restorePartially(
-            from: data,
-            using: codec,
-            validator: validator,
-            tabTopology: nil,
-            validationTimeout: validationTimeout,
-            expectedRevision: expectedRevision
-        )
-    }
-
-    /// Decodes and migrates a snapshot, adds the tabs this application renders
-    /// now, validates every route of the resulting candidate with the app, and
-    /// applies one exact plan through normal policies.
-    ///
-    /// Reconciliation runs before validation, so the application sees the
-    /// candidate that will actually be applied and nothing is added to it
-    /// afterwards. Scopes created for tabs the snapshot predates are empty,
-    /// so they contribute no routes to validate.
-    func restorePartially(
-        from data: Data,
-        using codec: RouterSnapshotCodec<R>,
-        validator: RouterPartialRestorationValidator<R>,
-        tabTopology: RouterTabRestorationTopology,
-        validationTimeout: Duration? = nil,
-        expectedRevision: UInt64? = nil
-    ) async throws -> RouterPartialRestorationOutcome<R> {
-        try await restorePartially(
-            from: data,
-            using: codec,
-            validator: validator,
-            tabTopology: .some(tabTopology),
-            validationTimeout: validationTimeout,
-            expectedRevision: expectedRevision
-        )
-    }
-
-    private func restorePartially(
-        from data: Data,
-        using codec: RouterSnapshotCodec<R>,
-        validator: RouterPartialRestorationValidator<R>,
-        tabTopology: RouterTabRestorationTopology?,
-        validationTimeout: Duration?,
-        expectedRevision: UInt64?
-    ) async throws -> RouterPartialRestorationOutcome<R> {
-        let capturedRevision = expectedRevision ?? revision
-        let decoded = try await RouterSnapshotCodecExecutor(codec: codec).decode(data)
-        return try await restorePartially(
-            decoded: decoded,
-            validator: validator,
-            tabTopology: tabTopology,
-            validationTimeout: validationTimeout,
-            expectedRevision: capturedRevision
-        )
-    }
-
-    package func restorePartially(
-        decoded: RouterState<R>,
-        validator: RouterPartialRestorationValidator<R>,
-        tabTopology: RouterTabRestorationTopology?,
-        validationTimeout: Duration?,
-        expectedRevision: UInt64,
-        transitionID: RouterTransitionID? = nil,
-        requestRootID: RouterTransitionID? = nil,
-        executionPrecondition: RouterRequestPrecondition<R>? = nil
-    ) async throws -> RouterPartialRestorationOutcome<R> {
-        let candidate = try tabTopology.map { try $0.reconciling(decoded) } ?? decoded
-        let planned = try await preparePartialRestoration(
-            candidate,
-            validator: validator,
-            timeout: validationTimeout,
-            sleep: runtimeDependencies.sleep
-        )
-        let transition = await perform(
-            .apply(RouterPlan(state: planned.0)),
-            context: .init(source: .restoration),
-            expectedRevision: expectedRevision,
-            bypassesPolicies: false,
-            transitionID: transitionID,
-            requestRootID: requestRootID,
-            executionPrecondition: executionPrecondition
-        )
-        let report = RouterPartialRestorationReport(
-            entries: planned.1.entries,
-            topologyChanges: tabTopology?.changes(from: decoded, to: planned.0) ?? []
-        )
-        return RouterPartialRestorationOutcome(report: report, transition: transition)
     }
 }

@@ -6,36 +6,13 @@ import Foundation
 
 import InnoRouterCore
 
-package actor RouterSnapshotCodecExecutor<R: Route & Codable> {
-    private let codec: RouterSnapshotCodec<R>
-
-    package init(codec: RouterSnapshotCodec<R>) {
-        self.codec = codec
-    }
-
-    package func encode(_ state: RouterState<R>) throws -> Data {
-        try codec.encode(state)
-    }
-
-    package func decode(_ data: Data) throws -> RouterState<R> {
-        try codec.decode(data)
-    }
-
-    package func decode(
-        _ data: Data,
-        recovery: RouterSnapshotRecoveryPolicy<R>
-    ) throws -> RouterSnapshotDecodingResult<R> {
-        try codec.decode(data, recovery: recovery)
-    }
-}
-
 public extension RouterStore {
     /// Encodes the current complete state using the supplied version contract.
     func snapshot(
         using codec: RouterSnapshotCodec<R>
     ) async throws -> Data where R: Codable {
         let state = state
-        return try await RouterSnapshotCodecExecutor(codec: codec).encode(state)
+        return try await RouterSnapshotCodecExecutor(codec: codec, resourceBudget: resourceBudget).encode(state)
     }
 
     /// Decodes, migrates, validates, and applies a complete snapshot through
@@ -45,12 +22,15 @@ public extension RouterStore {
         using codec: RouterSnapshotCodec<R>,
         expectedRevision: UInt64? = nil
     ) async throws -> RouterOutcome<R> where R: Codable {
-        let restored = try await RouterSnapshotCodecExecutor(codec: codec).decode(data)
+        let executionPrecondition = authorizationPrecondition(request: nil, existing: nil)
+        let restored = try await RouterSnapshotCodecExecutor(codec: codec, resourceBudget: resourceBudget).decode(data)
         return await perform(
             .apply(RouterPlan(state: restored)),
             context: .init(source: .restoration),
             expectedRevision: expectedRevision,
-            bypassesPolicies: false
+            bypassesPolicies: false,
+            lifetimeMutation: .replaceAll,
+            executionPrecondition: executionPrecondition
         )
     }
 
@@ -90,13 +70,16 @@ public extension RouterStore {
         expectedRevision: UInt64? = nil
     ) async throws -> RouterOutcome<R> where R: Codable {
         let capturedRevision = expectedRevision ?? revision
-        let restored = try await RouterSnapshotCodecExecutor(codec: codec).decode(data)
+        let executionPrecondition = authorizationPrecondition(request: nil, existing: nil)
+        let restored = try await RouterSnapshotCodecExecutor(codec: codec, resourceBudget: resourceBudget).decode(data)
         let prepared = try tabTopology.reconciling(restored)
         return await perform(
             .apply(RouterPlan(state: prepared)),
             context: .init(source: .restoration),
             expectedRevision: capturedRevision,
-            bypassesPolicies: false
+            bypassesPolicies: false,
+            lifetimeMutation: .replaceAll,
+            executionPrecondition: executionPrecondition
         )
     }
 
@@ -134,10 +117,34 @@ public extension RouterStore {
         tabTopology: RouterTabRestorationTopology? = nil,
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async throws -> RouterRestorationOutcome<R> where R: Codable {
-        let decoding = try await RouterSnapshotCodecExecutor(codec: codec).decode(
+        let executionPrecondition = authorizationPrecondition(request: nil, existing: executionPrecondition)
+        let decoding = try await RouterSnapshotCodecExecutor(codec: codec, resourceBudget: resourceBudget).decode(
             data,
             recovery: recovery
         )
+        return try await restore(
+            decoding: decoding,
+            expectedRevision: expectedRevision,
+            transitionID: transitionID,
+            requestRootID: requestRootID,
+            tabTopology: tabTopology,
+            executionPrecondition: executionPrecondition
+        )
+    }
+
+    /// Applies a decoded or recovered snapshot result through normal policies.
+    ///
+    /// Shared with ``RouterRestorationDriver``, whose storage can reject a
+    /// snapshot before the codec reads it and recover that rejection through
+    /// the same policy.
+    package func restore(
+        decoding: RouterSnapshotDecodingResult<R>,
+        expectedRevision: UInt64?,
+        transitionID: RouterTransitionID?,
+        requestRootID: RouterTransitionID?,
+        tabTopology: RouterTabRestorationTopology?,
+        executionPrecondition: RouterRequestPrecondition<R>?
+    ) async throws -> RouterRestorationOutcome<R> {
         let prepared: RouterState<R>
         switch (decoding, tabTopology) {
         case (.restored(let state), .some(let topology)):
@@ -156,6 +163,7 @@ public extension RouterStore {
             bypassesPolicies: false,
             transitionID: transitionID,
             requestRootID: requestRootID,
+            lifetimeMutation: .replaceAll,
             executionPrecondition: executionPrecondition
         )
         return RouterRestorationOutcome(
@@ -168,7 +176,7 @@ public extension RouterStore {
     func transaction(
         @RouterPlanBuilder<R> _ build: () -> [RouterPlanStep<R>]
     ) async throws -> RouterOutcome<R> {
-        let plan = try RouterPlan(from: state, build)
+        let plan = try RouterPlan(from: state, resourceBudget: resourceBudget, build)
         return await perform(.apply(plan))
     }
 }

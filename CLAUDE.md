@@ -1,6 +1,6 @@
 # Maintainer guide
 
-InnoRouter 6 is a macro-first typed navigation framework for SwiftUI.
+InnoRouter 7 is an unreleased macro-first typed navigation framework for SwiftUI.
 
 ## Public contract
 

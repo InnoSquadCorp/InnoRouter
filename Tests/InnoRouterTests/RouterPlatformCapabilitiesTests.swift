@@ -67,9 +67,9 @@ struct RouterPlatformCapabilitiesTests {
     }
 
     @Test("Store publishes each exact adaptation once")
-    func adaptationEventDeduplication() {
+    func adaptationEventDeduplication() throws {
         var events: [RouterEvent<PlatformCapabilityRoute>] = []
-        let store = RouterStore<PlatformCapabilityRoute>(
+        let store = try RouterStore<PlatformCapabilityRoute>(
             configuration: .init { events.append($0) }
         )
         let adaptation = RouterPlatformAdaptation.tabBadgeVisualUnavailable(
@@ -87,6 +87,7 @@ struct RouterPlatformCapabilitiesTests {
         #expect(adaptedEvents == [adaptation])
     }
 
+    #if canImport(SwiftUI)
     @Test("Current capabilities match the compiling Apple platform")
     func currentPlatform() {
 #if targetEnvironment(macCatalyst)
@@ -109,4 +110,5 @@ struct RouterPlatformCapabilitiesTests {
         #expect(RouterPlatformCapabilities.current.supports(.immersiveSpace))
 #endif
     }
+    #endif
 }

@@ -40,70 +40,12 @@ public extension RouterStore {
             style: style,
             options: options
         )
-        let waiter = RouterPresentationWaiter<Value>()
-        presentationWaiters[presentation.id] = AnyRouterPresentationWaiter(
-            prepareValue: { value, owner in
-                guard let value = value as? Value else { return .typeMismatch }
-                return waiter.prepare(value, owner: owner)
-            },
-            movePreparedValue: { currentOwner, nextOwner in
-                waiter.movePreparedValue(from: currentOwner, to: nextOwner)
-            },
-            clearPreparedValue: { owner in
-                waiter.clearPreparedValue(ownedBy: owner)
-            },
-            finishAfterDismissal: { owner in
-                waiter.finishAfterDismissal(ownedBy: owner)
-            },
-            finishCancelled: { waiter.finish(.cancelled) },
-            finishRejected: { waiter.finish(.rejected($0)) }
+        return await awaitPresentation(
+            .present(presentation), id: presentation.id, at: path,
+            expecting: expecting, selectionActions: nil,
+            executionPrecondition: executionPrecondition,
+            requestSemantics: requestSemantics
         )
-        let presentationIsPending: RouterRequestPrecondition<R> = { [weak self] state in
-            guard let self,
-                  self.presentationWaiters[presentation.id] != nil else {
-                return .cancelled
-            }
-            return executionPrecondition?(state)
-        }
-        let transitionID = reserveTransitionID()
-        registerPresentationRequest(presentation.id, transitionID: transitionID)
-
-        return await withTaskCancellationHandler {
-            let outcome = await perform(
-                RouterAction.present(presentation).inScope(path),
-                context: .init(),
-                expectedRevision: nil,
-                bypassesPolicies: false,
-                transitionID: transitionID,
-                requestSemantics: requestSemantics,
-                executionPrecondition: presentationIsPending
-            )
-            unregisterPresentationRequest(presentation.id, transitionID: transitionID)
-            switch outcome {
-            case .applied:
-                break
-            case .unchanged:
-                presentationWaiters.removeValue(forKey: presentation.id)
-                waiter.finish(.dismissed)
-            case .deferred:
-                break
-            case .rejected(_, _, _, let reason):
-                presentationWaiters.removeValue(forKey: presentation.id)
-                if reason == .cancelled, Task.isCancelled {
-                    waiter.finish(.cancelled)
-                } else {
-                    waiter.finish(.rejected(reason))
-                }
-            }
-            return await waiter.wait()
-        } onCancel: {
-            Task { @MainActor [weak self] in
-                await self?.cancelPresentation(
-                    id: presentation.id,
-                    at: path
-                )
-            }
-        }
     }
 
     /// Presents a macro-generated, result-typed request.
@@ -140,12 +82,22 @@ public extension RouterStore {
         executionPrecondition: RouterRequestPrecondition<R>?,
         requestSemantics: RouterRequestSemantics<R> = .action
     ) async throws {
+        if let rejection = executionPrecondition?(state) {
+            throw RouterPresentationCompletionError.dismissalRejected(rejection)
+        }
         guard let presentationID = presentationID(at: path) else {
             throw RouterPresentationCompletionError.noActivePresentation(scope: path)
+        }
+        guard case .stack(let stack) = state.node(at: path), stack.presentation != nil else {
+            throw RouterPresentationCompletionError.dismissalRejected(.mutation(.expectedNavigationPresentation(path)))
         }
         guard let erasedWaiter = presentationWaiters[presentationID] else {
             throw RouterPresentationCompletionError.presentationWasNotAwaited(presentationID)
         }
+        if let rejection = erasedWaiter.resultPrecondition() {
+            throw RouterPresentationCompletionError.dismissalRejected(rejection)
+        }
+        let resultPrecondition = erasedWaiter.resultPrecondition
         let transitionID = reserveTransitionID()
         let owner = RouterPresentationCompletionOwner.transition(transitionID)
         switch erasedWaiter.prepareValue(value, owner) {
@@ -165,8 +117,8 @@ public extension RouterStore {
             transitionID: transitionID,
             requestSemantics: requestSemantics,
             executionPrecondition: Self.combinePresentationPreconditions(
-                Self.presentationIdentityPrecondition(id: presentationID, at: path),
-                executionPrecondition
+                presentationLifetimePrecondition(id: presentationID, at: path),
+                { state in resultPrecondition() ?? executionPrecondition?(state) }
             )
         )
         if case .deferred(_, _, _, let deferral) = outcome {
@@ -248,32 +200,34 @@ extension RouterStore {
 
     func continueDeferredPresentationCompletion(
         for action: RouterAction<R>,
-        transitionID: RouterTransitionID,
-        context: RouterTransitionContext,
-        deferralID: RouterDeferralID
+        owner: RouterPresentationCompletionOwner,
+        nextOwner: RouterPresentationCompletionOwner
     ) {
         guard case .dismiss(let path) = deferredPresentationTarget(in: action),
               let presentationID = presentationID(at: path),
               let waiter = presentationWaiters[presentationID] else { return }
-        let currentOwner = context.resumedDeferral.map {
-            RouterPresentationCompletionOwner.deferral($0)
-        } ?? .transition(transitionID)
-        waiter.movePreparedValue(currentOwner, .deferral(deferralID))
+        waiter.movePreparedValue(owner, nextOwner)
     }
 
     func finishDismissedPresentations(
+        ids: Set<UUID>,
         before: RouterState<R>,
-        after: RouterState<R>,
-        transitionID: RouterTransitionID,
-        context: RouterTransitionContext
+        action: RouterAction<R>,
+        owner: RouterPresentationCompletionOwner
     ) {
-        let owner = context.resumedDeferral.map {
-            RouterPresentationCompletionOwner.deferral($0)
-        } ?? .transition(transitionID)
-        let dismissed = presentationIDs(in: before).subtracting(presentationIDs(in: after))
-        for id in dismissed {
+        let directTarget: UUID?
+        if case .dismiss(let path) = deferredPresentationTarget(in: action) {
+            directTarget = Self.presentationID(in: before, at: path)
+        } else {
+            directTarget = nil
+        }
+        for id in ids {
             let waiter = presentationWaiters.removeValue(forKey: id)
-            waiter?.finishAfterDismissal(owner)
+            if id == directTarget {
+                waiter?.finishAfterDismissal(owner)
+            } else {
+                waiter?.finishCancelled()
+            }
         }
     }
 
@@ -286,38 +240,12 @@ extension RouterStore {
         at path: RouterScopePath
     ) -> UUID? {
         guard case .stack(let stack) = state.node(at: path) else { return nil }
-        return stack.presentation?.id
+        return stack.presentationFamily?.id
     }
 
-    private func presentationIDs(in state: RouterState<R>) -> Set<UUID> {
-        var ids: Set<UUID> = []
-        collectPresentationIDs(in: state.root, into: &ids)
-        for window in state.windows {
-            collectPresentationIDs(in: window.node, into: &ids)
-        }
-        if let immersiveSpace = state.immersiveSpace {
-            collectPresentationIDs(in: immersiveSpace.node, into: &ids)
-        }
-        return ids
-    }
-
-    private func collectPresentationIDs(
-        in node: RouterNode<R>,
-        into ids: inout Set<UUID>
-    ) {
-        switch node {
-        case .stack(let stack):
-            if let id = stack.presentation?.id {
-                ids.insert(id)
-            }
-        case .container(let container):
-            for branch in container.branches {
-                collectPresentationIDs(in: branch.node, into: &ids)
-            }
-        }
-    }
-
-    private func cancelPresentation(id: UUID, at path: RouterScopePath) async {
+    func cancelPresentation(id: UUID, at path: RouterScopePath, waiterIdentity: UUID) async {
+        guard presentationWaiters[id]?.identity == waiterIdentity else { return }
+        let lifetimePrecondition = presentationLifetimePrecondition(id: id, at: path)
         let waiter = presentationWaiters.removeValue(forKey: id)
         let requestIDs = presentationRequestIDs[id] ?? []
         for requestID in requestIDs {
@@ -335,13 +263,13 @@ extension RouterStore {
             _ = await cancelDeferred(deferralID)
         }
         waiter?.finishCancelled()
-        guard presentationID(at: path) == id else { return }
+        guard presentationID(at: path) == id, lifetimePrecondition(state) == nil else { return }
         _ = await perform(
             RouterAction.dismissPresentation.inScope(path),
             context: .init(),
             expectedRevision: nil,
             bypassesPolicies: false,
-            executionPrecondition: Self.presentationIdentityPrecondition(id: id, at: path)
+            executionPrecondition: lifetimePrecondition
         )
     }
 
@@ -360,6 +288,13 @@ extension RouterStore {
         if presentationRequestIDs[presentationID]?.isEmpty == true {
             presentationRequestIDs.removeValue(forKey: presentationID)
         }
+    }
+
+    func presentationLifetimePrecondition(
+        id: UUID,
+        at path: RouterScopePath
+    ) -> RouterRequestPrecondition<R> {
+        presentationRuntimePrecondition(id: id, at: path)
     }
 
     static func presentationIdentityPrecondition(
@@ -393,10 +328,14 @@ extension RouterStore {
         switch action {
         case .present(let presentation):
             return .present(presentation.id)
-        case .dismissPresentation:
+        case .presentAlert(let presentation), .presentConfirmationDialog(let presentation):
+            return .present(presentation.id)
+        case .dismissPresentation, .selectPresentationAction:
             return .dismiss(path)
         case .scoped(let scope, let child):
             return deferredPresentationTarget(in: child, path: path.appending(scope))
+        case .presentationScoped(let id, let child):
+            return deferredPresentationTarget(in: child, path: path.appendingPresentation(id))
         case .windowScoped(let id, let child):
             return deferredPresentationTarget(in: child, path: .window(id))
         case .immersiveSpaceScoped(let id, let child):

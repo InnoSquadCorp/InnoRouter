@@ -204,14 +204,17 @@ public enum MacroFirstConsumerProbe {
         }.body
 
 #if !os(watchOS)
-        _ = RouterSplitHost(ExternalRoute.self) {
+        _ = try RouterSplitHost(
+            ExternalRoute.self,
+            sidebarDeclarationID: "split.sidebar", detailDeclarationID: "split.detail"
+        ) {
             Text("Sidebar")
         } root: {
             ExternalActions()
         }.body
 #endif
 
-        _ = RouterTabHost(ExternalRoute.self, initial: .home).body
+        _ = try RouterTabHost(ExternalRoute.self, initial: .home).body
 
         let store = ExternalRoute.makeRouterStore()
         _ = await store.perform(.push(.detail(id: "42")))

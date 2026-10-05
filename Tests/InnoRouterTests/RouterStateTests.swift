@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-import InnoRouterCore
+@testable import InnoRouterCore
 
 @Suite("RouterState")
 struct RouterStateTests {
@@ -367,6 +367,8 @@ struct RouterStateTests {
             branches: [RouterBranch(id: "home")]
         )
         container.badges["missing"] = 1
+        // Deliberately bypass the public read-only boundary to exercise the
+        // reducer's defense against an invalid internal target.
         var state = try RouterState<RouteFixture>()
         state.root = .container(container)
 

@@ -4,7 +4,7 @@
 
 SwiftUI를 위한 macro-first typed navigation 라이브러리입니다.
 
-InnoRouter 6는 하나의 `@Router` enum을 하나의 navigation 모델로 연결합니다.
+InnoRouter 7은 하나의 `@Router` enum을 하나의 navigation 모델로 연결합니다.
 
 - `RouterState<Route>`: 전체 화면 구조를 담는 단일 value source of truth
 - `RouterAction<Route>`: 유일한 점진적 요청 언어
@@ -12,8 +12,10 @@ InnoRouter 6는 하나의 `@Router` enum을 하나의 navigation 모델로 연�
 - `RouterStore<Route>`: reduce, policy prepare, atomic commit의 단일 권한
 - `RouterHost`, `RouterTabHost`, `RouterSplitHost`: native SwiftUI container
 
-> **6.1.0:** snapshot 크기 제한, 자동 부분 복원, 명시적 탭 식별자와 저장 안정성을
-> 추가하며 6.0 공개 API를 유지합니다. Breaking 변경은 다음 major 릴리스를 대상으로 합니다.
+> **7.0.0 개발 중:** PR54의 유효 변경을 다음 major 릴리스로 직접 이어갑니다.
+> 별도 6.1.1 릴리스는 만들지 않으며 이 checkout은 미출시 상태입니다.
+> native/platform·전체 package·실제 앱 수용 검증은 아직 남아 있습니다.
+> 검증 범위는 [7.0 체크리스트](Docs/7.0.0-release-checklist.md)를 확인하세요.
 
 [English](README.md) · [6.0 전략](Docs/v6-functional-strategy.md) ·
 [5.x 마이그레이션](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
@@ -27,9 +29,11 @@ InnoRouter 6는 하나의 `@Router` enum을 하나의 navigation 모델로 연�
 ## 설치
 
 패키지와 하나의 runtime product를 추가합니다.
+아래 버전은 출시 후 사용할 대상입니다. 출시 전에는 검토한 로컬 checkout을
+사용하세요. 버전 문자열만으로 실제 배포가 완료된 것은 아닙니다.
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.1.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.0")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -92,6 +96,14 @@ let outcome = await store.perform(.push(.detail(id: "42")))
 let snapshot = try await store.snapshot(using: RouterSnapshotCodec(currentVersion: 1))
 ```
 
+7.0에서도 `RouterStore()`와 `AppRoute.makeRouterStore()`는 `try` 없이 사용합니다.
+`initialState`, `initialPath`, `configuration`을 전달할 때는 `try`가 필요합니다.
+구조·scene catalog·자원 한도를 위반한 초기 입력은 중단이나 자동 잘림 대신 오류로
+반환합니다. Store를 주입받는 tab/split host 생성자도 throw하며,
+`configuration.hostDescriptor`를 요구합니다. 생성자는 Store를 등록하거나 변경하지
+않고 선언을 검증합니다. 기존 stack host 생성자는 nonthrowing을 유지하며 선언이
+없거나 맞지 않으면 `validationFailure`와 복구 UI를 제공합니다. [생성 계약](Docs/7.0.0-store-initialization-contract.md)을 참고하세요.
+
 모든 요청은 `reduce → prepare → commit`을 거칩니다. 정책 거절, 취소, stale
 prepare, 잘못된 action은 기존 상태를 바꾸지 않습니다. 성공할 때만 완성된
 `RouterState` 하나를 대입하고 revision을 한 번 올립니다.
@@ -143,6 +155,12 @@ feature payload에는 부모 route의 `Self`를 사용할 수 있습니다. 연�
 자동 복원은 versioned codec과 앱이 선택한 저장소를 명시적으로 연결합니다.
 
 ```swift skip app-lifecycle-fragment
+let store = try AppRoute.makeRouterStore(
+    configuration: .init(hostDescriptor: .init(
+        root: .stack,
+        rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+    ))
+)
 let driver = RouterRestorationDriver(
     store: store,
     codec: try RouterSnapshotCodec(
@@ -170,7 +188,12 @@ snapshot load 중 들어온 최신 navigation을 덮지 않습니다. 중단된 
 
 위 바이트 한도는 앱이 선택한 예시입니다. 파일 저장소는 읽는 동안 크기를 제한하고,
 codec은 encoded envelope·decoded payload·각 migration 결과를 별도로 제한합니다.
-기존 initializer는 source와 동작 호환성을 위해 제한 없는 의미를 유지합니다.
+7.0의 잠정 기본값은 encoded/file 4 MiB, decoded payload 2 MiB, JSON 깊이 128,
+token 262,144개입니다. 명시적 nil은 제한을 해제하며 실제 앱 기반 보정은 출시 gate로 남아 있습니다.
+7.0으로 이어지는 PR54 변경부터 저장소 한도를 넘은 파일은 codec이 거부한 envelope와 똑같이 driver의
+recovery policy로 전달됩니다. 기본값 `.fail`은 activation을 실패시키고 파일을
+보존하며, `.use`는 앱이 정한 fallback을 일반 policy를 거쳐 복원하므로 다른 복원과
+마찬가지로 activation의 `transition`을 확인해야 합니다.
 
 삭제되었거나 현재 앱에서 유효하지 않은 route가 snapshot에 있을 수 있다면
 `restorePartially(from:using:validator:validationTimeout:)`를 사용합니다. decode와
@@ -188,13 +211,13 @@ snapshot recovery fallback을 적용하지 않습니다.
 
 아래 명시적 탭 topology API는 **6.1.0 이상**에서 사용할 수 있습니다.
 
-[전체 탭 복원 예제](Examples/README.md#tab-restoration-610)는 catalog, driver,
+[전체 탭 복원 예제](Examples/README.md#tab-restoration-700)는 catalog, driver,
 host, 파일 저장과 결과 처리를 연결합니다. [복원 가이드](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md)에서
 탭 식별자, schema migration, recovery의 적용 범위를 확인할 수 있습니다.
 
-복원은 기본적으로 exact입니다. snapshot이 말하는 상태를 그대로 적용하므로, 해당 탭이
-생기기 전에 저장된 snapshot에는 그 탭의 branch가 없고 탭은 도달 불가능한 상태로
-남습니다. 지금 앱이 렌더링하는 탭을 추가하려면 topology를 명시합니다.
+복원은 앱이 보정을 요청하지 않으면 exact입니다. host descriptor를 설정한 Store는
+현재 탭이 빠진 snapshot을 빈 가짜 scope로 렌더링하지 않고 commit 전에 거절합니다.
+지금 앱이 렌더링하는 탭을 추가하려면 topology를 명시합니다.
 
 ```swift skip app-lifecycle-fragment
 let topology = try RouterTabRestorationTopology(of: AppRoute.self)
@@ -205,8 +228,10 @@ try await store.restore(from: data, using: codec, tabTopology: topology)
 snapshot에 있는 scope는 path·presentation·badge를 그대로 유지합니다. 없는 scope는 빈
 상태로 만들며 route나 badge를 임의로 만들어 넣지 않습니다. topology에 없는 branch는
 현재 scope 뒤에 orphan으로 보존해 이후 catalog가 다시 도달할 수 있게 합니다. 이런
-store는 `RouterTabHost(store:catalog:allowingOrphanedBranches:)`로 렌더링합니다.
-topology에 없는 selection은 첫 번째 scope로 대체됩니다. 같은 parameter가
+store는 `RouterTabHost(store:catalog:orphanPolicy: .preserveDormant)`로 렌더링하고,
+Store의 `configuration.hostDescriptor`에도
+`catalog.hostDescriptor(orphanPolicy: .preserveDormant)`를
+설정해야 합니다. Store와 renderer의 선언은 같아야 합니다. topology에 없는 selection은 첫 번째 scope로 대체됩니다. 같은 parameter가
 `restorePartially`에도 있으며, 이 경로에서는 보정이 검증보다 먼저 실행되어 앱이 실제로
 적용될 후보를 그대로 검증합니다. `RouterRestorationDriver.init`에도 있으며 topology는
 해당 driver의 생명주기에 속합니다. `RouterSnapshotRecoveryPolicy.use`가 반환한 상태는
@@ -236,8 +261,12 @@ enum AppRoute {
     var destination: some View { /* exhaustive switch */ }
 }
 
-RouterTabHost(AppRoute.self, initial: .home)
+let tabHost = try RouterTabHost(AppRoute.self, initial: .home)
 ```
+
+입력이 있는 host는 오류를 처리할 수 있는 초기 설정 단계에서 만듭니다.
+SwiftUI `body`는 nonthrowing으로 유지합니다. tab·split host는 전체 topology를
+보존하고 잘못되거나 한도를 넘은 초기 입력을 오류로 반환합니다.
 
 `id:`를 생략하면 case 이름이 저장되는 scope ID입니다. tab case 이름을 바꾸기 전에
 명시 ID를 추가하면 저장된 branch를 계속 찾을 수 있습니다. 이 ID는 tab scope만
@@ -250,7 +279,22 @@ content까지 포함한 세 개의 독립 history를 유지합니다. visibility
 선호도는 `RouterSplitState`에 들어가며 같은 system-origin pipeline으로 동기화됩니다.
 사용자 정의 column ID는 throwing `RouterTwoColumnSplitLayout` 또는
 `RouterThreeColumnSplitLayout`으로 구성하므로, 중복·빈 값·존재하지 않는 column
-topology는 host를 만들기 전에 거절됩니다.
+topology는 host를 만들기 전에 거절됩니다. 임의의 column closure에는 안정적인
+`sidebarDeclarationID`, `detailDeclarationID`를 지정하고, 3열이면
+`contentDeclarationID`도 지정합니다. 외부 Store의 descriptor는
+`layout.hostRootDeclarations(for:...)`에 같은 ID를 전달합니다. 라벨·번역·스타일
+변경만으로 의미 ID를 바꾸지 않습니다.
+
+외부 tab Store는 `catalog.hostDescriptor()`로 구성합니다. 이 선언은 shape와
+각 scope의 root Route 값을 함께 고정합니다. 같은 tab ID에 다른 root Route를
+연결하려면 Store 소유자가 `replaceHost(with:descriptor:context:)`로 전체 상태와
+선언을 원자적으로 교체한 뒤 일치하는 renderer를 만들어야 합니다. shape만 있는
+선언으로는 native tab catalog를 렌더링할 수 없습니다.
+
+기본 `RouterHost`와 bridge의 외부 Store descriptor는 root에
+`.declarationID("router.root")`를 선언합니다. 앱에서 다른 의미 ID를 사용한다면
+host 또는 bridge의 `rootDeclarationID`에도 같은 값을 전달합니다. 기존
+nonthrowing API는 유지되며 불일치는 `validationFailure`와 복구 UI로 알립니다.
 
 ## 명시적인 플랫폼 adaptation
 
@@ -394,9 +438,12 @@ SwiftUI locale 변경을 반영하며, 미지원 언어는 영어로 표시합�
 
 `RouterScenarioRecorder`는 reduction 전 거절과 unchanged를 포함해 요청·시작·terminal
 경계를 같은 actor에서 동기적으로 기록하므로 완료 직후 stop해도 기록을 놓치지
-않습니다. fixture v7은 route schema, 실행 환경, 의존성/효과 capability, 시작 revision,
+않습니다. fixture v9은 route schema, 실행 환경, 의존성/효과 capability, 시작 revision,
 논리 요청별 submit/wait/cancel/terminal, 가상 시간 이동, 명시적 deferral 결정을
-저장합니다. 첫 요청 전에 metadata와 전체 initial state 호환성을 검사하고 캡처 deferral
+저장합니다. v9의 bounded fixture codec은 alert/dialog 표시 descriptor도 전송하지만
+실행 중인 typed result 권한은 복원하지 않습니다. 탐색 전용 v8 fixture는 계속 읽을 수 있고,
+v8 이전 및 알 수 없는 미래 버전은 거절합니다.
+첫 요청 전에 metadata와 전체 initial state 호환성을 검사하고 캡처 deferral
 ID를 새 실행 ID에 매핑합니다. 실패나 취소가 반환되기 전에 replay가 소유한 요청과
 deferral만 취소하고 terminal을 회수합니다. deferral은 recorder의
 `resolveDeferred`를 통해 결정해야 하며, 누락된 제어 사건·용량 초과·미종료 요청은
@@ -413,8 +460,8 @@ Swift Testing 소스를 만들며, `RouterScenarioRunner`, 실제
 ## OSS 릴리즈 및 SemVer 계약
 
 공개된 5.x line은 같은 major 안에서 source stability를 유지합니다. InnoRouter
-6.0.0은 의도적인 breaking reset입니다. 독립 store·intent·plan·coordinator handoff와
-세분화 product는 외부 import 대상에서 제거됩니다. `6.0.0-rc.1` 같은 prerelease는
+6.0.0 아키텍처는 의도적인 breaking reset으로 도입됐습니다. 독립 store·intent·plan·coordinator handoff와
+세분화 product는 외부 import 대상에서 제거됩니다. 현재 미출시 7.0 개발 주기도 이 구조를 유지합니다. `7.0.0-rc.1` 같은 prerelease는
 GitHub `prerelease=true`로 게시하며, bare SemVer 태그는 package·문서·platform·API·
 consumer 게이트를 모두 통과한 뒤에만 게시합니다.
 
@@ -424,6 +471,7 @@ consumer 게이트를 모두 통과한 뒤에만 게시합니다.
 - [API 수렴](Docs/v6-api-convergence-spike.md)
 - [기능 명세](Docs/functional-expansion-spec.md)
 - [구현 계획](Docs/functional-expansion-technical-plan.md)
+- [7.0.0 릴리스 체크리스트](Docs/7.0.0-release-checklist.md)
 - [6.1.0 릴리스 체크리스트](Docs/6.1.0-release-checklist.md)
 - [6.0.0 릴리스 체크리스트](Docs/6.0.0-release-checklist.md)
 - [5.x에서 이전](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)

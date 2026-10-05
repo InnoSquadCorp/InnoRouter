@@ -43,7 +43,7 @@ struct RouterTwelfthReviewRegressionTests {
         .both,
     ])
     func featurePlanWithScenesMustReject(_ scenes: InvalidFeaturePlanScenes) async throws {
-        let store = RouterStore<ProbeParent>(initialState: .rootStack(path: [.feature(.home)]))
+        let store = try RouterStore<ProbeParent>(initialState: .rootStack(path: [.feature(.home)]))
         let feature = RouterFeatureScope(parent: store.scope(), mapping: probeMapping)
         let windows: [RouterWindow<ProbeChild>] = scenes == .immersiveSpace
             ? []
@@ -67,7 +67,7 @@ struct RouterTwelfthReviewRegressionTests {
         let initial = try RouterState<ProbeParent>(immersiveSpace: .init(
             id: "shared", route: .feature(.home), node: .stack(path: [.feature(.home)])
         ))
-        let store = RouterStore(initialState: initial, configuration: .init(policies: [
+        let store = try RouterStore(initialState: initial, configuration: .init(policies: [
             RouterPolicy(name: "defer-plan") { transition in
                 if case .apply = transition.action, transition.context.resumedDeferral == nil {
                     return .deferRequest(deferredID)
@@ -100,7 +100,7 @@ struct RouterTwelfthReviewRegressionTests {
             node: .stack(path: [.feature(.home)])
         )])
         let deferrer = OneShotDeferrer()
-        let store = RouterStore(initialState: initial, configuration: .init(policies: [
+        let store = try RouterStore(initialState: initial, configuration: .init(policies: [
             RouterPolicy(name: "defer-once") { _ in deferrer.decide(deferredID) }
         ]))
         let feature = RouterFeatureScope(
@@ -133,7 +133,7 @@ struct RouterTwelfthReviewRegressionTests {
     @Test func missingWindowScopeMustNotAcquireAWindowOpenedWhileQueued() async throws {
         let windowID = UUID()
         let (gate, release) = AsyncStream<Void>.makeStream()
-        let store = RouterStore<ProbeParent>(
+        let store = try RouterStore<ProbeParent>(
             initialState: .rootStack,
             configuration: .init(policies: [
                 RouterPolicy(name: "hold-open") { transition in
@@ -165,12 +165,12 @@ struct RouterTwelfthReviewRegressionTests {
             Issue.record("Expected the window to open")
             return
         }
-        guard case .rejected(_, _, _, .mutation(.windowNotFound(let rejectedID))) =
+        guard case .rejected(_, _, _, .mutation(.expiredScope(let rejectedPath))) =
             await staleAction.value else {
             Issue.record("Expected the missing scope to remain expired")
             return
         }
-        #expect(rejectedID == windowID)
+        #expect(rejectedPath == .window(windowID))
         #expect(store.revision == 1)
         #expect(store.state.node(at: .window(windowID)) == .stack(path: [.sibling]))
     }
@@ -184,7 +184,7 @@ struct RouterTwelfthReviewRegressionTests {
             node: .stack(path: [.feature(.home)])
         )])
         let deferrer = OneShotDeferrer()
-        let store = RouterStore(initialState: initial, configuration: .init(policies: [
+        let store = try RouterStore(initialState: initial, configuration: .init(policies: [
             RouterPolicy(name: "defer-once") { _ in deferrer.decide(deferredID) }
         ]))
         let feature = RouterFeatureScope(
@@ -218,7 +218,7 @@ struct RouterTwelfthReviewRegressionTests {
     func failedImmersiveRestorationMustSurviveFullQueue(limit: Int) async throws {
         let (gate, release) = AsyncStream<Void>.makeStream()
         let initial = try RouterState<ProbeParent>(immersiveSpace: .init(id: "shared", route: .sibling))
-        let store = RouterStore(initialState: initial, configuration: .init(
+        let store = try RouterStore(initialState: initial, configuration: .init(
             policies: [RouterPolicy(name: "hold") { _ in
                 for await _ in gate { break }
                 return .allow
@@ -259,7 +259,7 @@ struct RouterTwelfthReviewRegressionTests {
 
     @Test func featureCompletionDeferralMustRetainOwnershipPrecondition() async throws {
         let deferredID = RouterDeferralID()
-        let store = RouterStore<ProbeParent>(
+        let store = try RouterStore<ProbeParent>(
             initialState: .rootStack(path: [.feature(.home)]),
             configuration: .init(policies: [
                 RouterPolicy(name: "defer-completion") { transition in
@@ -287,8 +287,10 @@ struct RouterTwelfthReviewRegressionTests {
             Issue.record("Expected a root stack")
             return
         }
-        var replacement = store.state
-        replacement.root = .stack(path: [.sibling], presentation: root.presentation)
+        let replacement = try store.state.replacingNode(
+            .stack(path: [.sibling], presentation: root.presentation),
+            at: .root
+        )
         guard case .applied = await store.perform(.apply(.init(state: replacement))) else {
             presented.cancel()
             Issue.record("Expected the feature owner to be replaced without dismissing its presentation")
@@ -315,7 +317,7 @@ struct RouterTwelfthReviewRegressionTests {
             root: .stack(path: [.feature(.home)]),
             immersiveSpace: .init(id: "shared", route: .sibling)
         )
-        let store = RouterStore(initialState: initial, configuration: .init(policies: [
+        let store = try RouterStore(initialState: initial, configuration: .init(policies: [
             RouterPolicy(name: "separate-families") { transition in
                 guard transition.context.resumedDeferral == nil,
                       case .apply = transition.action else { return .allow }
@@ -365,7 +367,7 @@ struct RouterTwelfthReviewRegressionTests {
             id: "shared",
             route: .sibling
         ))
-        let store = RouterStore(initialState: initial, configuration: .init(
+        let store = try RouterStore(initialState: initial, configuration: .init(
             policies: [RouterPolicy(name: "hold") { _ in
                 for await _ in gate { break }
                 return .allow
@@ -403,7 +405,7 @@ struct RouterTwelfthReviewRegressionTests {
             id: "shared",
             route: .sibling
         ))
-        let store = RouterStore(initialState: initial, configuration: .init(
+        let store = try RouterStore(initialState: initial, configuration: .init(
             policies: [RouterPolicy(name: "hold") { _ in
                 for await _ in gate { break }
                 return .allow
@@ -438,7 +440,7 @@ struct RouterTwelfthReviewRegressionTests {
     }
 
     @Test func staleFeatureCannotCompleteSiblingPresentation() async throws {
-        let store = RouterStore<ProbeParent>(initialState: .rootStack(path: [.feature(.home)]))
+        let store = try RouterStore<ProbeParent>(initialState: .rootStack(path: [.feature(.home)]))
         let feature = RouterFeatureScope(parent: store.scope(), mapping: probeMapping)
         _ = await store.perform(.replaceStack([.sibling]))
         var events = store.events.makeAsyncIterator()
@@ -456,7 +458,7 @@ struct RouterTwelfthReviewRegressionTests {
     }
 
     @Test func staleFeatureCannotUseTypedCompletionAgainstSiblingPresentation() async throws {
-        let store = RouterStore<ProbeParent>(initialState: .rootStack(path: [.feature(.home)]))
+        let store = try RouterStore<ProbeParent>(initialState: .rootStack(path: [.feature(.home)]))
         let feature = RouterFeatureScope(parent: store.scope(), mapping: probeMapping)
         _ = await store.perform(.replaceStack([.sibling]))
         var events = store.events.makeAsyncIterator()

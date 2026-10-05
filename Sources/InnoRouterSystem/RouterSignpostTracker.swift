@@ -46,13 +46,16 @@ final class RouterSignpostTracker<Interval> {
              .rejectedCoalesced, .rejectedSuperseded,
              .rejectedQueueOverflow, .rejectedPolicyTimeout,
              .rejectedDeferral, .rejectedStaleState,
-             .rejectedCancelled, .rejectedMissingAuthority:
+             .rejectedCancelled, .rejectedMissingAuthority, .rejectedPendingLinkLifetime, .rejectedResourceLimit, .rejectedHostContract:
             if let active = activeIntervals.removeValue(forKey: event.transitionID) {
                 end(active)
             } else {
                 point(.outcome, nil)
             }
         case .policyAllowed, .policyDeferred, .policyRejected, .platformAdapted:
+            point(.lifecycle, activeIntervals[event.transitionID])
+        default:
+            // Unknown future codes do not fabricate a terminal event.
             point(.lifecycle, activeIntervals[event.transitionID])
         }
     }

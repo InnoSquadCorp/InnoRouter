@@ -222,6 +222,74 @@ struct RouterMacroTests {
         )
     }
 
+    @Test("An explicit get accessor is accepted as the destination getter")
+    func explicitGetterDestination() throws {
+        assertMacroExpansion(
+            """
+            @Router
+            enum ExplicitGetter {
+                case settings
+                var destination: some View {
+                    get { SettingsView() }
+                }
+            }
+            """,
+            expandedSource: """
+            enum ExplicitGetter {
+                case settings
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View {
+                    get { SettingsView() }
+                }
+            }
+
+            extension ExplicitGetter: InnoRouterSwiftUI.DestinationRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    // A setter makes two accessors, and an observer is one accessor that is
+    // not `get`; both fail the get-only rule.
+    @Test("Accessors other than a single getter are diagnosed")
+    func nonGetterDestinationAccessors() throws {
+        let declarations = [
+            "var destination: some View {\n        get { SettingsView() }\n        set { }\n    }",
+            "var destination: some View = SettingsView() {\n        didSet { }\n    }",
+        ]
+        for declaration in declarations {
+            assertMacroExpansion(
+                """
+                @Router
+                enum AccessorDestination {
+                    case settings
+                    \(declaration)
+                }
+                """,
+                expandedSource: """
+                enum AccessorDestination {
+                    case settings
+                    \(declaration)
+                }
+                """,
+                diagnostics: [
+                    DiagnosticSpec(
+                        message: "[InnoRouterMacro.E005] @Router cannot use this `destination` property: it must be get-only. Declare an instance computed `var destination: some View { ... }`.",
+                        line: 4,
+                        column: 5
+                    )
+                ],
+                macros: makeTestMacros()
+            )
+        }
+    }
+
     @Test("Manual destination function conflict is diagnosed")
     func destinationFunctionConflict() throws {
         assertMacroExpansion(

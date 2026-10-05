@@ -125,10 +125,16 @@ public enum RouterInspectorReplay {
     public static func preview<R: Route>(
         _ transition: RouterTransition<R>
     ) -> RouterInspectorReplayPreview {
+        preview(transition, resourceBudget: .provisional)
+    }
+
+    public static func preview<R: Route>(
+        _ transition: RouterTransition<R>, resourceBudget: RouterResourceBudget
+    ) -> RouterInspectorReplayPreview {
         do {
             let state = try RouterReducer.reduce(
                 transition.action,
-                from: transition.initialState
+                from: transition.initialState, resourceBudget: resourceBudget
             )
             return .init(
                 status: state == transition.proposedState
@@ -243,12 +249,23 @@ public enum RouterInspectorProjection {
         switch value {
         case .stack(let stack):
             var details = ["routes": "\(stack.path.count)"]
-            details["presentation"] = stack.presentation?.style.rawValue ?? "none"
+            switch stack.presentationFamily {
+            case .none: details["presentation"] = "none"
+            case .navigation(let presentation): details["presentation"] = presentation.style.rawValue
+            case .alert(let transient), .confirmationDialog(let transient):
+                details["presentation"] = stack.presentationFamily?.kind.rawValue
+                details["presentationActions"] = "\(transient.content.actions.count)"
+                details["presentationCancelActions"] = "\(transient.content.actions.reduce(into: 0) { if $1.role == .cancel { $0 += 1 } })"
+                details["presentationDestructiveActions"] = "\(transient.content.actions.reduce(into: 0) { if $1.role == .destructive { $0 += 1 } })"
+            }
             return .init(
                 id: path.description,
                 label: label,
                 kind: .stack,
-                details: details
+                details: details,
+                children: stack.presentation.map { presentation in
+                    [node(presentation.node, path: path.appendingPresentation(), label: "presentation content")]
+                } ?? []
             )
         case .container(let container):
             let kind: RouterInspectorNodeKind
@@ -286,19 +303,23 @@ public enum RouterInspectorProjection {
         static let root = RedactedScopePath(prefix: "", components: [])
 
         let prefix: String
-        let components: [Int]
+        let components: [String]
 
         static func scene(kind: String, index: Int) -> Self {
             .init(prefix: "/\(kind)[\(index)]", components: [])
         }
 
         func appending(_ index: Int) -> Self {
-            .init(prefix: prefix, components: components + [index])
+            .init(prefix: prefix, components: components + ["branch[\(index)]"])
+        }
+
+        func appendingPresentation() -> Self {
+            .init(prefix: prefix, components: components + ["presentation"])
         }
 
         var description: String {
             guard !components.isEmpty else { return prefix.isEmpty ? "/" : prefix }
-            return prefix + "/" + components.map { "branch[\($0)]" }.joined(separator: "/")
+            return prefix + "/" + components.joined(separator: "/")
         }
     }
 

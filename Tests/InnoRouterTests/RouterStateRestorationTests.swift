@@ -320,7 +320,7 @@ struct RouterStateRestorationTests {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let codec = try RouterSnapshotCodec<RestorableRoute>(currentVersion: 1)
-        let store = RouterStore<RestorableRoute>(initialPath: [.home])
+        let store = try RouterStore<RestorableRoute>(initialPath: [.home])
         let driver = RouterRestorationDriver(
             store: store,
             codec: codec,
@@ -344,7 +344,7 @@ struct RouterStateRestorationTests {
         let codec = try RouterSnapshotCodec<RestorableRoute>(currentVersion: 1)
         var configuration = RouterStoreConfiguration<RestorableRoute>()
         configuration.runtimeDependencies = manualRuntimeDependencies(sleeper: sleeper)
-        let store = RouterStore<RestorableRoute>(configuration: configuration)
+        let store = try RouterStore<RestorableRoute>(configuration: configuration)
         let driver = RouterRestorationDriver(
             store: store,
             codec: codec,
@@ -373,7 +373,7 @@ struct RouterStateRestorationTests {
         let storage = RecordingSnapshotStorage()
         var configuration = RouterStoreConfiguration<RestorableRoute>()
         configuration.eventBufferingPolicy = buffer.policy
-        let store = RouterStore<RestorableRoute>(configuration: configuration)
+        let store = try RouterStore<RestorableRoute>(configuration: configuration)
         let driver = RouterRestorationDriver(
             store: store,
             codec: codec,
@@ -571,7 +571,7 @@ struct RouterStateRestorationTests {
             data: try codec.encode(.rootStack(path: [.home]))
         )
         let gate = RestorationPolicyGate()
-        let store = RouterStore<RestorableRoute>(configuration: .init(policies: [
+        let store = try RouterStore<RestorableRoute>(configuration: .init(policies: [
             RouterPolicy(name: "restore-gate") { transition in
                 guard transition.context.source == .restoration else { return .allow }
                 await gate.wait()
@@ -604,7 +604,7 @@ struct RouterStateRestorationTests {
             data: try codec.encode(.rootStack(path: [.home]))
         )
         let gate = RestorationPolicyGate()
-        let store = RouterStore<RestorableRoute>(configuration: .init(
+        let store = try RouterStore<RestorableRoute>(configuration: .init(
             policies: [
                 RouterPolicy(name: "restore-gate") { transition in
                     guard transition.context.source == .restoration else { return .allow }
@@ -648,7 +648,7 @@ struct RouterStateRestorationTests {
             data: try codec.encode(.rootStack(path: [.home]))
         )
         let gate = RestorationPolicyGate()
-        let store = RouterStore<RestorableRoute>(configuration: .init(policies: [
+        let store = try RouterStore<RestorableRoute>(configuration: .init(policies: [
             RouterPolicy(name: "restore-gate") { transition in
                 guard transition.context.source == .restoration else { return .allow }
                 await gate.wait()
@@ -683,7 +683,7 @@ struct RouterStateRestorationTests {
             data: try codec.encode(.rootStack(path: [.home]))
         )
         let gate = RestorationPolicyGate()
-        let store = RouterStore<RestorableRoute>(configuration: .init(
+        let store = try RouterStore<RestorableRoute>(configuration: .init(
             policies: [
                 RouterPolicy(name: "restore-gate") { transition in
                     guard transition.context.source == .restoration else { return .allow }
@@ -752,7 +752,7 @@ struct RouterStateRestorationTests {
         var saveFinishes = storage.firstSaveFinishes.makeAsyncIterator()
         var configuration = RouterStoreConfiguration<RestorableRoute>()
         configuration.runtimeDependencies = manualRuntimeDependencies(sleeper: sleeper)
-        let store = RouterStore<RestorableRoute>(configuration: configuration)
+        let store = try RouterStore<RestorableRoute>(configuration: configuration)
         let driver = RouterRestorationDriver(
             store: store,
             codec: codec,

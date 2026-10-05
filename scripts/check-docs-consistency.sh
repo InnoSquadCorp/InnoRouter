@@ -179,4 +179,4 @@ for path in "${ENTRY_DOCS[@]}"; do
 done
 
 [[ "$failures" -eq 0 ]] || exit 1
-echo "[check-docs-consistency] 6.0 public docs and product contract match"
+echo "[check-docs-consistency] public docs and product contract match"

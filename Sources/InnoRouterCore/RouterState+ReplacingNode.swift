@@ -11,6 +11,18 @@ public extension RouterState {
         _ replacement: RouterNode<R>,
         at path: RouterScopePath
     ) throws -> RouterState<R> {
+        try replacingNode(replacement, at: path, resourceBudget: .provisional)
+    }
+
+    /// Bounds the source, replacement input, scope path, and complete candidate
+    /// before recursive structural validation. Ownership remains with the Store.
+    func replacingNode(
+        _ replacement: RouterNode<R>,
+        at path: RouterScopePath,
+        resourceBudget: RouterResourceBudget
+    ) throws -> RouterState<R> {
+        try resourceBudget.validate(self)
+        try resourceBudget.validateReplacement(replacement, at: path)
         var result = self
         switch path.domain {
         case .application:
@@ -42,13 +54,14 @@ public extension RouterState {
             )
             result.immersiveSpace = space
         }
+        try resourceBudget.validate(result)
         try result.validate()
         return result
     }
 
     private static func replaceNode(
         node: inout RouterNode<R>,
-        components: ArraySlice<RouterScopeID>,
+        components: ArraySlice<RouterScopeComponent>,
         replacement: RouterNode<R>,
         parentPath: RouterScopePath
     ) throws {
@@ -56,18 +69,38 @@ public extension RouterState {
             node = replacement
             return
         }
-        guard case .container(var container) = node else {
-            throw RouterMutationError.expectedContainer(parentPath)
+        switch first {
+        case .branch(let id):
+            guard case .container(var container) = node else {
+                throw RouterMutationError.expectedContainer(parentPath)
+            }
+            guard let index = container.branches.firstIndex(where: { $0.id == id }) else {
+                throw RouterMutationError.missingScope(id, parent: parentPath)
+            }
+            try replaceNode(
+                node: &container.branches[index].node,
+                components: components.dropFirst(),
+                replacement: replacement,
+                parentPath: parentPath.appending(id)
+            )
+            node = .container(container)
+        case .presentation(let id):
+            guard case .stack(var stack) = node else {
+                throw RouterMutationError.expectedStack(parentPath)
+            }
+            guard var presentation = stack.presentation, presentation.id == id else {
+                throw RouterMutationError.presentationIdentityMismatch(
+                    scope: parentPath, expected: id, actual: stack.presentationFamily?.id
+                )
+            }
+            try replaceNode(
+                node: &presentation.node,
+                components: components.dropFirst(),
+                replacement: replacement,
+                parentPath: parentPath.appendingPresentation(id)
+            )
+            stack.presentation = presentation
+            node = .stack(stack)
         }
-        guard let index = container.branches.firstIndex(where: { $0.id == first }) else {
-            throw RouterMutationError.missingScope(first, parent: parentPath)
-        }
-        try replaceNode(
-            node: &container.branches[index].node,
-            components: components.dropFirst(),
-            replacement: replacement,
-            parentPath: parentPath.appending(first)
-        )
-        node = .container(container)
     }
 }

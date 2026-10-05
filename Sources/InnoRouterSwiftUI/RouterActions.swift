@@ -1,0 +1,281 @@
+import Foundation
+
+import InnoRouterCore
+
+/// Type-safe actions forwarded to the nearest canonical `RouterStore` scope.
+public struct RouterActions<R: Route>: Sendable {
+    private let environment: RouterEnvironment?
+    private let environmentMissingPolicy: EnvironmentMissingPolicy
+    private let routeType: R.Type
+
+    @MainActor
+    init(
+        authority: RouterAuthority<R>,
+        environmentMissingPolicy: EnvironmentMissingPolicy = .crash
+    ) {
+        var environment = RouterEnvironment()
+        environment[R.self] = authority
+        self.environment = environment
+        self.environmentMissingPolicy = environmentMissingPolicy
+        routeType = R.self
+    }
+
+    @MainActor
+    init(
+        routeType: R.Type,
+        environmentMissingPolicy: EnvironmentMissingPolicy,
+        environment: RouterEnvironment?
+    ) {
+        self.environment = environment
+        self.environmentMissingPolicy = environmentMissingPolicy
+        self.routeType = routeType
+    }
+
+    @MainActor
+    public func perform(
+        _ action: RouterAction<R>,
+        context: RouterTransitionContext = .init()
+    ) async -> RouterOutcome<R> {
+        guard let authority = routerAuthority(action: "perform(_:context:)") else {
+            return missingAuthorityOutcome()
+        }
+        return await authority.perform(action, context: context, expectedRevision: nil)
+    }
+
+    @MainActor @discardableResult
+    public func dispatch(
+        _ action: RouterAction<R>,
+        context: RouterTransitionContext = .init()
+    ) -> Task<RouterOutcome<R>, Never> {
+        guard let authority = routerAuthority(action: "dispatch(_:context:)") else {
+            return missingAuthorityTask()
+        }
+        return Task { @MainActor in
+            await authority.perform(action, context: context, expectedRevision: nil)
+        }
+    }
+
+    @MainActor @discardableResult
+    public func go(_ route: R) -> Task<RouterOutcome<R>, Never> { dispatch(.push(route)) }
+
+    /// Pushes only when `route` is not already at the top of this scope.
+    @MainActor @discardableResult
+    public func goIfNeeded(_ route: R) -> Task<RouterOutcome<R>, Never> {
+        dispatch(.pushIfNeeded(route))
+    }
+
+    /// Pops back to `route` when present, or pushes it when absent.
+    @MainActor @discardableResult
+    public func backOrGo(_ route: R) -> Task<RouterOutcome<R>, Never> {
+        dispatch(.backOrPush(route))
+    }
+
+    /// Replaces the top destination, or pushes when the path is empty.
+    @MainActor @discardableResult
+    public func replaceTop(with route: R) -> Task<RouterOutcome<R>, Never> {
+        dispatch(.replaceTop(route))
+    }
+
+    @MainActor @discardableResult
+    public func goMany(_ routes: [R]) -> Task<RouterOutcome<R>, Never> {
+        dispatch(.pushMany(routes))
+    }
+
+    @MainActor @discardableResult
+    public func back() -> Task<RouterOutcome<R>, Never> { dispatch(.pop(count: 1)) }
+
+    @MainActor @discardableResult
+    public func back(by count: Int) -> Task<RouterOutcome<R>, Never> {
+        dispatch(.pop(count: count))
+    }
+
+    @MainActor @discardableResult
+    public func back(to route: R) -> Task<RouterOutcome<R>, Never> { dispatch(.popTo(route)) }
+
+    @MainActor @discardableResult
+    public func backToRoot() -> Task<RouterOutcome<R>, Never> { dispatch(.popToRoot) }
+
+    @MainActor @discardableResult
+    public func sheet(_ route: R) -> Task<RouterOutcome<R>, Never> {
+        dispatch(.present(.init(route: route, style: .sheet)))
+    }
+
+    @MainActor @discardableResult
+    public func cover(_ route: R) -> Task<RouterOutcome<R>, Never> {
+        dispatch(.present(.init(route: route, style: .fullScreenCover)))
+    }
+
+    @MainActor
+    public func present<Value: Sendable>(
+        _ route: R,
+        style: RouterPresentationStyle = .sheet,
+        options: RouterPresentationOptions = .init(),
+        expecting: Value.Type = Value.self
+    ) async -> RouterPresentationOutcome<Value> {
+        guard let authority = routerAuthority(action: "present(_:style:options:expecting:)") else {
+            return .rejected(.missingAuthority(routeType: String(describing: routeType)))
+        }
+        return await authority.present(
+            route,
+            style: style,
+            options: options,
+            expecting: expecting
+        )
+    }
+
+    @MainActor
+    public func present<Value: Sendable>(
+        _ request: RouterPresentationRequest<R, Value>
+    ) async -> RouterPresentationOutcome<Value> {
+        guard let authority = routerAuthority(action: "present(_:)") else {
+            return .rejected(.missingAuthority(routeType: String(describing: routeType)))
+        }
+        return await authority.present(request)
+    }
+
+    /// Presents an alert or confirmation dialog and returns the selected value.
+    @MainActor
+    public func present<Value: Sendable>(
+        _ request: RouterTransientPresentationRequest<Value>
+    ) async -> RouterPresentationOutcome<Value> {
+        guard let authority = routerAuthority(action: "present(_:)") else {
+            return .rejected(.missingAuthority(routeType: String(describing: routeType)))
+        }
+        return await authority.presentFeature(request, features: [], executionPrecondition: nil)
+    }
+
+    @MainActor
+    public func finishPresentation<Value: Sendable>(returning value: Value) async throws {
+        guard let authority = routerAuthority(action: "finishPresentation(returning:)") else {
+            throw RouterPresentationCompletionError.noActivePresentation(scope: .root)
+        }
+        if let endpoint = environment?[routeType]?.enclosingPresentation {
+            try await endpoint.finishPresentation(returning: value)
+        } else {
+            try await authority.finishPresentation(returning: value)
+        }
+    }
+
+    @MainActor
+    public func finishPresentation<Value: Sendable>(
+        _ request: RouterPresentationRequest<R, Value>,
+        returning value: Value
+    ) async throws {
+        guard let authority = routerAuthority(action: "finishPresentation(_:returning:)") else {
+            throw RouterPresentationCompletionError.noActivePresentation(scope: .root)
+        }
+        if let endpoint = environment?[routeType]?.enclosingPresentation {
+            try await endpoint.finishPresentation(request, returning: value)
+        } else {
+            try await authority.finishPresentation(request, returning: value)
+        }
+    }
+
+    @MainActor @discardableResult
+    public func dismiss() -> Task<RouterOutcome<R>, Never> {
+        if let endpoint = environment?[routeType]?.enclosingPresentation {
+            return Task { @MainActor in await endpoint.dismiss() }
+        }
+        return dispatch(.dismissPresentation)
+    }
+
+    /// Selects one declared detent for the active presentation in this scope.
+    @MainActor @discardableResult
+    public func setPresentationDetent(
+        _ detent: RouterPresentationDetent
+    ) -> Task<RouterOutcome<R>, Never> {
+        if let endpoint = environment?[routeType]?.enclosingPresentation {
+            return Task { @MainActor in await endpoint.setPresentationDetent(detent) }
+        }
+        return dispatch(.setPresentationDetent(detent))
+    }
+
+    @MainActor @discardableResult
+    public func apply(_ plan: RouterPlan<R>) -> Task<RouterOutcome<R>, Never> {
+        rootDispatch(.apply(plan), action: "apply(_:)")
+    }
+
+    @MainActor @discardableResult
+    public func transaction(
+        @RouterPlanBuilder<R> _ build: () -> [RouterPlanStep<R>]
+    ) throws -> Task<RouterOutcome<R>, Never> {
+        guard let authority = routerAuthority(action: "transaction(_:)") else {
+            return missingAuthorityTask()
+        }
+        guard let state = authority.state, let resourceBudget = authority.resourceBudget else {
+            return missingAuthorityTask()
+        }
+        let plan = try RouterPlan(from: state, resourceBudget: resourceBudget, build)
+        return Task { @MainActor in
+            await authority.performRoot(
+                .apply(plan),
+                context: .init(),
+                expectedRevision: authority.authorityRevision
+            )
+        }
+    }
+
+    /// Updates native split-column visibility at the owning store root.
+    @MainActor @discardableResult
+    public func setSplitVisibility(
+        _ visibility: RouterSplitVisibility
+    ) -> Task<RouterOutcome<R>, Never> {
+        rootDispatch(
+            .setSplitVisibility(visibility),
+            action: "setSplitVisibility(_:)"
+        )
+    }
+
+    /// Updates which native split column is preferred in compact layouts.
+    @MainActor @discardableResult
+    public func setPreferredCompactColumn(
+        _ column: RouterSplitColumn
+    ) -> Task<RouterOutcome<R>, Never> {
+        rootDispatch(
+            .setPreferredCompactColumn(column),
+            action: "setPreferredCompactColumn(_:)"
+        )
+    }
+
+    @MainActor
+    func routerAuthority(
+        action: String
+    ) -> (any RouterAuthorityProtocol<R>)? {
+        guard let environment, let authority = environment[routeType] else {
+            handleMissingEnvironment(policy: environmentMissingPolicy) {
+                "Router authority is missing for \(String(describing: routeType)) while invoking \(action). Attach a matching InnoRouter host."
+            }
+            return nil
+        }
+        return authority.base
+    }
+
+    @MainActor
+    func rootDispatch(
+        _ action: RouterAction<R>,
+        action name: String
+    ) -> Task<RouterOutcome<R>, Never> {
+        guard let authority = routerAuthority(action: name) else {
+            return missingAuthorityTask()
+        }
+        return Task { @MainActor in
+            await authority.performRoot(action, context: .init(), expectedRevision: nil)
+        }
+    }
+
+    @MainActor
+    private func missingAuthorityOutcome() -> RouterOutcome<R> {
+        .rejected(
+            id: .init(),
+            state: .rootStack,
+            revision: 0,
+            reason: .missingAuthority(routeType: String(describing: routeType))
+        )
+    }
+
+    @MainActor
+    func missingAuthorityTask() -> Task<RouterOutcome<R>, Never> {
+        let outcome = missingAuthorityOutcome()
+        return Task { outcome }
+    }
+}

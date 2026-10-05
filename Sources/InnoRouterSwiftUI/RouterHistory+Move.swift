@@ -24,6 +24,7 @@ extension RouterHistory {
                 let prepared = try await preparePartialRestoration(
                     entry.navigationState,
                     validator: validator,
+                    operations: store.restorationOperations,
                     timeout: validationTimeout,
                     sleep: store.runtimeDependencies.sleep
                 )

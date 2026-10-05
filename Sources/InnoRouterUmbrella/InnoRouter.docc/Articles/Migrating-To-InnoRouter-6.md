@@ -88,7 +88,7 @@ let policy = RouterPolicy<AppRoute>(name: "session") { transition in
     session.isAuthenticated ? .allow : .reject("authentication-required")
 }
 
-let store = AppRoute.makeRouterStore(
+let store = try AppRoute.makeRouterStore(
     configuration: .init(policies: [policy])
 )
 ```

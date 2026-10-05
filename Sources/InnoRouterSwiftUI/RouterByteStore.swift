@@ -9,7 +9,21 @@ import InnoRouterCore
 /// Package-only synchronization point for deterministic file mutation tests.
 /// Production calls use the nil default and execute no additional work.
 package enum RouterByteStoreTestSupport {
-    @TaskLocal package static var afterBoundedFileMetadataRead: (@Sendable () throws -> Void)?
+    // The tested Swift6.3 Linux Release toolchain miscompiles an optional closure directly stored in
+    // TaskLocal. A nominal Sendable value preserves the same hook semantics.
+    package struct MetadataReadHook: Sendable {
+        package let operation: @Sendable () throws -> Void
+    }
+
+    @TaskLocal package static var afterBoundedFileMetadataRead: MetadataReadHook?
+
+    @discardableResult
+    package static func withBoundedFileMetadataReadHook<Value>(
+        _ hook: @escaping @Sendable () throws -> Void,
+        operation: () throws -> Value
+    ) rethrows -> Value {
+        try $afterBoundedFileMetadataRead.withValue(.init(operation: hook), operation: operation)
+    }
 }
 
 /// Atomic file-backed byte persistence at an application-owned URL.
@@ -41,7 +55,7 @@ struct RouterAtomicFileStore: Sendable {
                 maximumByteCount: maximumByteCount
             )
         }
-        try RouterByteStoreTestSupport.afterBoundedFileMetadataRead?()
+        try RouterByteStoreTestSupport.afterBoundedFileMetadataRead?.operation()
 
         let handle = try FileHandle(forReadingFrom: fileURL)
         defer { try? handle.close() }

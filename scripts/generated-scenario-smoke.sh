@@ -78,16 +78,16 @@ enum ExternalFeatureParentRoute: Codable {
 @MainActor
 func makeRouterTestStore(
     _ state: RouterState<ExternalScenarioRoute>
-) -> RouterTestStore<ExternalScenarioRoute> {
+) throws -> RouterTestStore<ExternalScenarioRoute> {
     if ProcessInfo.processInfo.environment["SCENARIO_INITIAL_STATE_MISMATCH"] == "1" {
-        return RouterTestStore(
+        return try RouterTestStore(
             initialState: .rootStack(path: [.detail]),
             exhaustivity: .off
         )
     }
     let variant = ProcessInfo.processInfo.environment["SCENARIO_RUNTIME_VARIANT"] ?? "positive"
     if variant == "cancel-action" || variant == "cancel-history" {
-        return RouterTestStore(
+        return try RouterTestStore(
             initialState: state,
             configuration: .init(policies: [
                 RouterPolicy(name: "approval") { transition in
@@ -108,7 +108,7 @@ func makeRouterTestStore(
             exhaustivity: .off
         )
     }
-    return RouterTestStore(
+    return try RouterTestStore(
         initialState: state,
         configuration: .init(policies: [
             RouterPolicy(name: "history-approval") { transition in
@@ -130,8 +130,8 @@ enum ScenarioFactories {
     @MainActor
     static func _makeRouterTestStore(
         _ state: RouterState<ExternalScenarioRoute>
-    ) -> RouterTestStore<ExternalScenarioRoute> {
-        makeRouterTestStore(state)
+    ) throws -> RouterTestStore<ExternalScenarioRoute> {
+        try makeRouterTestStore(state)
     }
 
     static func _makeRouterScenarioEnvironment() -> RouterScenarioReplayEnvironment {
@@ -142,8 +142,8 @@ enum ScenarioFactories {
 @MainActor
 func makeFeatureRouterTestStore(
     _ state: RouterState<ExternalFeatureParentRoute>
-) -> RouterTestStore<ExternalFeatureParentRoute> {
-    RouterTestStore(
+) throws -> RouterTestStore<ExternalFeatureParentRoute> {
+    try RouterTestStore(
         initialState: state,
         configuration: .init(policies: [
             RouterPolicy(name: "feature-approval") { transition in
@@ -883,4 +883,4 @@ if ! grep -q "initialStateMismatch" "$initial_state_log"; then
   exit 1
 fi
 
-echo "[generated-scenario-smoke] Generated source and format-7 fixture compiled and ran, including stale history, action/history resume cancellation, history rebase, and macro-generated feature ownership rejection; malformed generation and initial state/state/revision/terminal negatives failed as expected"
+echo "[generated-scenario-smoke] Generated source and format-8 fixture compiled and ran, including stale history, action/history resume cancellation, history rebase, and macro-generated feature ownership rejection; malformed generation and initial state/state/revision/terminal negatives failed as expected"

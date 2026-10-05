@@ -47,9 +47,7 @@ public extension RouterInspectorScenarioController {
                 }
                 let fixture = recorder.stop()
                 storage.recorder = nil
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                let data = try encoder.encode(fixture)
+                let data = try fixture.encode(outputFormatting: [.prettyPrinted, .sortedKeys])
                 let completeness = fixture.completeness
                 let status: RouterInspectorScenarioStatus = completeness.isComplete
                     ? .complete

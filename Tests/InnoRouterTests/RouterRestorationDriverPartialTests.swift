@@ -79,7 +79,7 @@ struct RouterRestorationDriverPartialTests {
     func unchangedCandidateIsNormalizedOnDisk() async throws {
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let storage = PartialDriverStorage(try codec.encode(.rootStack(path: [.home, .retired])))
-        let store = RouterStore(initialState: RouterState<R>.rootStack(path: [.home]))
+        let store = try RouterStore(initialState: RouterState<R>.rootStack(path: [.home]))
         let driver = RouterRestorationDriver(
             store: store,
             codec: codec,
@@ -134,7 +134,7 @@ struct RouterRestorationDriverPartialTests {
         let original = try codec.encode(.rootStack(path: [.home, .retired]))
         try original.write(to: url)
         let storage = RouterFileSnapshotStorage(fileURL: url)
-        let store = RouterStore(initialState: RouterState<R>.rootStack(path: [.home]))
+        let store = try RouterStore(initialState: RouterState<R>.rootStack(path: [.home]))
         let driver = RouterRestorationDriver(
             store: store,
             codec: codec,
@@ -251,7 +251,7 @@ struct RouterRestorationDriverPartialTests {
         let deferral = RouterDeferralID()
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let storage = PartialDriverStorage(try codec.encode(.rootStack(path: [.home])))
-        let store = RouterStore<R>(configuration: .init(policies: [
+        let store = try RouterStore<R>(configuration: .init(policies: [
             RouterPolicy(name: "approval") { transition in
                 transition.context.source == .restoration ? .deferRequest(deferral) : .allow
             },
@@ -295,7 +295,7 @@ struct RouterRestorationDriverPartialTests {
     func rejectedCandidateIsNotSaved() async throws {
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let storage = PartialDriverStorage(try codec.encode(.rootStack(path: [.home])))
-        let store = RouterStore<R>(configuration: .init(policies: [
+        let store = try RouterStore<R>(configuration: .init(policies: [
             RouterPolicy(name: "reject-restore") { transition in
                 transition.context.source == .restoration
                     ? .reject("not accepted")

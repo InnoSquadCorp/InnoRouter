@@ -374,16 +374,19 @@ func validateDestination(_ variable: VariableDeclSyntax) -> String? {
     guard let accessorBlock = binding.accessorBlock else {
         return "it must be a computed property with a getter"
     }
-    switch accessorBlock.accessors {
-    case .getter:
-        return nil
-    case .accessors(let accessors):
-        guard accessors.count == 1,
-              accessors.first?.accessorSpecifier.tokenKind == .keyword(.get) else {
-            return "it must be get-only"
-        }
+    // Pattern matches instead of an exhaustive switch: prebuilt swift-syntax
+    // modules are built with library evolution, where this enum is resilient
+    // and an exhaustive switch without `@unknown default` fails to compile.
+    // An accessor shape a future swift-syntax adds is rejected, not accepted.
+    if case .getter = accessorBlock.accessors {
         return nil
     }
+    guard case .accessors(let accessors) = accessorBlock.accessors,
+          accessors.count == 1,
+          accessors.first?.accessorSpecifier.tokenKind == .keyword(.get) else {
+        return "it must be get-only"
+    }
+    return nil
 }
 
 func hasAttribute(named expectedName: String, on variable: VariableDeclSyntax) -> Bool {

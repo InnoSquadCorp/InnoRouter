@@ -8,34 +8,6 @@ import Observation
 import InnoRouterCore
 import InnoRouterDeepLink
 
-/// Application-selected transport for one encoded pending router link.
-public protocol RouterPendingLinkStorage: Sendable {
-    func load() throws -> Data?
-    func save(_ data: Data) throws
-    func remove() throws
-}
-
-/// Atomic file-backed pending-link storage at an application-owned URL.
-public struct RouterFilePendingLinkStorage: RouterPendingLinkStorage, Sendable {
-    public let fileURL: URL
-
-    public init(fileURL: URL) {
-        self.fileURL = fileURL
-    }
-
-    public func load() throws -> Data? {
-        try RouterAtomicFileStore(fileURL: fileURL).load()
-    }
-
-    public func save(_ data: Data) throws {
-        try RouterAtomicFileStore(fileURL: fileURL).save(data)
-    }
-
-    public func remove() throws {
-        try RouterAtomicFileStore(fileURL: fileURL).remove()
-    }
-}
-
 /// Observable lifecycle of pending-link persistence.
 public enum RouterPendingLinkPersistenceStatus: Sendable, Hashable {
     case inactive
@@ -52,36 +24,11 @@ public enum RouterPendingLinkRestoration<R: Route>: Sendable, Equatable {
     case supersededByNewerInMemoryLink
 }
 
-private struct RouterPendingLinkEnvelope<R: Route & Codable>: Codable {
-    let schemaVersion: Int
-    let link: PendingRouterLink<R>
-}
-
-public enum RouterPendingLinkPersistenceError: Error, Sendable, Hashable {
-    case unsupportedSchemaVersion(Int)
-}
-
-private actor RouterPendingLinkCodec<R: Route & Codable> {
-    func encode(_ link: PendingRouterLink<R>) throws -> Data {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        return try encoder.encode(
-            RouterPendingLinkEnvelope(schemaVersion: 1, link: link)
-        )
-    }
-
-    func decode(_ data: Data) throws -> PendingRouterLink<R> {
-        let envelope = try JSONDecoder().decode(
-            RouterPendingLinkEnvelope<R>.self,
-            from: data
-        )
-        guard envelope.schemaVersion == 1 else {
-            throw RouterPendingLinkPersistenceError.unsupportedSchemaVersion(
-                envelope.schemaVersion
-            )
-        }
-        return envelope.link
-    }
+private actor RouterPendingLinkCodecExecutor<R: Route> {
+    private let codec: RouterPendingLinkCodec<R>
+    init(codec: RouterPendingLinkCodec<R>) { self.codec = codec }
+    func encode(_ record: RouterDurablePendingLink<R>) throws -> Data { try codec.encode(record) }
+    func decode(_ data: Data, now: Date) throws -> RouterDurablePendingLink<R> { try codec.decode(data, now: now) }
 }
 
 /// Explicit persistence coordinator for one ``RouterPendingLinkSlot``.
@@ -90,26 +37,46 @@ private actor RouterPendingLinkCodec<R: Route & Codable> {
 /// newer in-memory submission, and saves converge on the latest slot generation.
 @MainActor
 @Observable
-public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
+public final class RouterPendingLinkPersistenceDriver<R: Route> {
     public private(set) var status: RouterPendingLinkPersistenceStatus = .inactive
 
     @ObservationIgnored private let durability = RouterDurabilityGate()
     @ObservationIgnored private let slot: RouterPendingLinkSlot<R>
     @ObservationIgnored private let storage: RouterByteStoreExecutor
-    @ObservationIgnored private let codec = RouterPendingLinkCodec<R>()
+    @ObservationIgnored private let codec: RouterPendingLinkCodecExecutor<R>
+    @ObservationIgnored private let now: @Sendable () -> Date
+    @ObservationIgnored private let lifetime: Duration?
     @ObservationIgnored private var operationGeneration: UInt64 = 0
     @ObservationIgnored private var cancellationOperation: UInt64?
 
     public init(
         slot: RouterPendingLinkSlot<R>,
-        storage: any RouterPendingLinkStorage
+        storage: any RouterPendingLinkStorage,
+        codec: RouterPendingLinkCodec<R>,
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.slot = slot
+        self.codec = RouterPendingLinkCodecExecutor(codec: codec)
+        self.now = now
+        self.lifetime = codec.lifetime
+        slot.configureDurableLifetime(lifetime: codec.lifetime, now: now)
         self.storage = RouterByteStoreExecutor(
             load: { try storage.load() },
             save: { try storage.save($0) },
             remove: { try storage.remove() }
         )
+    }
+
+    /// Source-compatible legacy initializer. New files retain their origin;
+    /// historical files without a timestamp reject unless a policy is explicit.
+    public convenience init(
+        slot: RouterPendingLinkSlot<R>,
+        storage: any RouterPendingLinkStorage,
+        legacyTimestampPolicy: RouterLegacyPendingLinkTimestampPolicy = .rejectMissingTimestamp,
+        lifetime: Duration? = .seconds(24 * 60 * 60),
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) where R: Codable {
+        self.init(slot: slot, storage: storage, codec: .init(legacyTimestampPolicy: legacyTimestampPolicy, lifetime: lifetime), now: now)
     }
 
     /// Loads once without replacing a slot mutation that occurred during I/O.
@@ -125,13 +92,19 @@ public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
                 finishOperation(operation)
                 return .noStoredLink
             }
-            let link = try await codec.decode(storedData)
+            let record = try await codec.decode(storedData, now: now())
             try validateOperation(operation)
             guard slot.mutationGeneration == expectedGeneration else {
                 finishOperation(operation)
                 return .supersededByNewerInMemoryLink
             }
-            let submission = slot.submit(link, replacing: policy)
+            try RouterPendingLinkCodec<R>.validateLifetime(record, now: now(), lifetime: lifetime)
+            let submission = slot.submit(record.link, replacing: policy)
+            if case .keptExisting = submission {
+                // Existing live intent retains its own original lifetime.
+            } else {
+                slot.restoreDurableLifetime(originatedAt: record.originatedAt, lastObservedAt: record.lastObservedAt)
+            }
             finishOperation(operation)
             return .restored(submission)
         } catch {
@@ -193,12 +166,15 @@ public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
     /// still thrown without rolling back an already committed navigation.
     public func resume(
         on store: RouterStore<R>,
+        using pipeline: RouterLinkPipeline<R>? = nil,
         source: RouterTransitionSource = .deepLink,
         consuming policy: RouterPendingLinkConsumptionPolicy = .onAcceptance
     ) async throws -> RouterLinkExecution<R>? {
+        if let pending = slot.pending { _ = try slot.durableLifetime?.validate(link: pending) }
         let operationBeforeResume = operationGeneration
         let execution = await slot.resume(
             on: store,
+            using: pipeline,
             source: source,
             consuming: policy
         )
@@ -276,13 +252,16 @@ public final class RouterPendingLinkPersistenceDriver<R: Route & Codable> {
             let ticket = durability.reserve(pending == nil ? .remove : .save)
             defer { durability.finish(ticket) }
             if let pending {
-                let data = try await codec.encode(pending)
+                guard let lifetime = slot.durableLifetime else { throw RouterPendingLinkLifetimeFailure(code: .missingOriginTimestamp) }
+                let record = try lifetime.validate(link: pending)
+                let data = try await codec.encode(record)
                 try validateOperation(
                     operation,
                     checksTaskCancellation: checksTaskCancellation
                 )
                 // A skipped save leaves the newer state to the loop below.
                 if await durability.waitForTurn(ticket) {
+                    _ = try lifetime.validate(link: pending)
                     try await storage.save(data)
                 }
             } else {

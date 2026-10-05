@@ -1,7 +1,6 @@
 import InnoRouterCore
-import InnoRouterSwiftUI
 
-func redactedRouterFormatter<R: Route>() -> RouterInspectorFormatter<RouterEvent<R>> {
+func redactedRouterFormatter<R: Route>(resourceBudget: RouterResourceBudget = .provisional) -> RouterInspectorFormatter<RouterEvent<R>> {
     RouterInspectorFormatter { event in
         switch event {
         case .started(let transition):
@@ -14,7 +13,7 @@ func redactedRouterFormatter<R: Route>() -> RouterInspectorFormatter<RouterEvent
                     "transitionID": transition.id.description,
                 ],
                 state: RouterInspectorProjection.tree(from: transition.initialState),
-                replay: RouterInspectorReplay.preview(transition)
+                replay: RouterInspectorReplay.preview(transition, resourceBudget: resourceBudget)
             )
         case .policyPrepared(let id, let policy, let decision):
             let outcome: RouterInspectorOutcome
@@ -127,6 +126,9 @@ private extension RouterAction {
         case .popToRoot: "popToRoot"
         case .replaceStack: "replaceStack"
         case .present: "present"
+        case .presentAlert: "presentAlert"
+        case .presentConfirmationDialog: "presentConfirmationDialog"
+        case .selectPresentationAction: "selectPresentationAction"
         case .dismissPresentation: "dismissPresentation"
         case .setPresentationDetent: "setPresentationDetent"
         case .select: "select"
@@ -135,6 +137,7 @@ private extension RouterAction {
         case .setSplitVisibility: "setSplitVisibility"
         case .setPreferredCompactColumn: "setPreferredCompactColumn"
         case .scoped(_, let action): "scoped.\(action.inspectorName)"
+        case .presentationScoped(_, let action): "presentationScoped.\(action.inspectorName)"
         case .windowScoped(_, let action): "windowScoped.\(action.inspectorName)"
         case .immersiveSpaceScoped(_, let action):
             "immersiveSpaceScoped.\(action.inspectorName)"
@@ -157,7 +160,10 @@ private extension RouterState {
             case .stack(let stack):
                 stackCount += 1
                 routeCount += stack.path.count
-                presentationCount += stack.presentation == nil ? 0 : 1
+                if let family = stack.presentationFamily {
+                    presentationCount += 1
+                    if case .navigation(let presentation) = family { visit(presentation.node) }
+                }
             case .container(let container):
                 for branch in container.branches {
                     visit(branch.node)
@@ -181,11 +187,16 @@ private extension RouterRejectionReason {
         case .mutation: "mutation"
         case .featureProjection: "feature-projection"
         case .policy: "policy"
+        case .authorization: "authorization"
+        case .pendingLinkLifetime: "pendingLinkLifetime"
+        case .resourceLimit: "resourceLimit"
+        case .hostContract: "hostContract"
         case .busy: "busy"
         case .coalesced: "coalesced"
         case .superseded: "superseded"
         case .queueOverflow: "queueOverflow"
         case .policyTimedOut: "policyTimedOut"
+        case .policyCapacityExceeded: "policyCapacityExceeded"
         case .deferralConflict: "deferralConflict"
         case .deferralNotFound: "deferralNotFound"
         case .deferralCapacityExceeded: "deferralCapacityExceeded"

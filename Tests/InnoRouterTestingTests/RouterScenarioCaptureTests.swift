@@ -60,6 +60,7 @@ private enum ScenarioControllerFailure: Error {
 private final class ScenarioCancellationProbe {
     var entered = false
     var cancelled = false
+    private var cancellationWaiter: CheckedContinuation<Bool, Never>?
 
     func wait() async -> RouterPolicyDecision {
         entered = true
@@ -67,8 +68,23 @@ private final class ScenarioCancellationProbe {
             try await Task.sleep(for: .seconds(30))
         } catch {
             cancelled = true
+            cancellationWaiter?.resume(returning: true)
+            cancellationWaiter = nil
         }
         return .allow
+    }
+
+    func waitUntilCancelled() async -> Bool {
+        await withTaskCancellationHandler {
+            guard !Task.isCancelled else { return false }
+            if cancelled { return true }
+            return await withCheckedContinuation { cancellationWaiter = $0 }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.cancellationWaiter?.resume(returning: false)
+                self?.cancellationWaiter = nil
+            }
+        }
     }
 }
 
@@ -108,7 +124,7 @@ private final class ImmediateCancellationTaskBox {
 @Suite("Router scenario capture")
 @MainActor
 struct RouterScenarioCaptureTests {
-    @Test("Scoped feature-plan semantics survive capture, encoding, generation, and replay")
+    @Test("Scoped feature plans preserve observations and declare replacement replay limits")
     func featurePlanSemanticsRoundTrip() async throws {
         let featureID: RouterScopeID = "feature"
         let siblingID: RouterScopeID = "sibling"
@@ -129,10 +145,10 @@ struct RouterScenarioCaptureTests {
                 return .deferRequest(deferralID)
             },
         ])
-        let source = RouterStore(initialState: initialState, configuration: configuration)
+        let source = try RouterStore(initialState: initialState, configuration: configuration)
         let recorder = RouterScenarioRecorder(store: source)
         let feature = RouterFeatureScope(
-            parent: source.scope(at: [featureID]),
+            parent: source.scope(at: [.branch(featureID)]),
             mapping: capturedFeatureMapping
         )
 
@@ -142,7 +158,7 @@ struct RouterScenarioCaptureTests {
             Issue.record("Expected captured feature deferral")
             return
         }
-        _ = await source.perform(.push(.sibling).inScope([siblingID]))
+        _ = await source.perform(.push(.sibling).inScope([.branch(siblingID)]))
         let windowID = UUID()
         _ = await source.perform(.openWindow(.init(id: windowID, route: .window)))
         _ = await recorder.resolveDeferred(
@@ -158,7 +174,7 @@ struct RouterScenarioCaptureTests {
             Issue.record("Expected serializable scoped feature semantics")
             return
         }
-        #expect(scope == [featureID])
+        #expect(scope == [.branch(featureID)])
         #expect(features.map(\.namespace) == [capturedFeatureMapping.namespace])
         let fixture = try RouterScenarioFixture<CapturedParentRoute>.decode(
             from: JSONEncoder().encode(captured)
@@ -170,77 +186,13 @@ struct RouterScenarioCaptureTests {
                 rejection: $0.observedRejection
             )
         })
-        #expect(throws: RouterScenarioSourceGenerationError.missingFeatureResolversFactory) {
-            _ = try RouterScenarioSourceGenerator.generate(
-                fixture,
-                routeTypeName: "CapturedParentRoute"
-            )
-        }
-        _ = try RouterScenarioSourceGenerator.generate(
-            fixture,
-            routeTypeName: "CapturedParentRoute",
-            featureResolversFactory: "makeCapturedFeatureResolvers"
-        )
-
-        let unresolved = RouterTestStore(
-            initialState: initialState,
-            configuration: configuration,
-            exhaustivity: .off
-        )
-        await #expect(throws: RouterScenarioReplayError.missingFeatureResolver(
-            namespaces: [capturedFeatureMapping.namespace]
-        )) {
-            _ = try await RouterScenarioRunner.replay(fixture, on: unresolved)
-        }
-        #expect(unresolved.state == initialState)
-        #expect(unresolved.revision == 0)
-        unresolved.skipReceivedEvents()
-        await unresolved.finish()
-
-        let duplicate = RouterTestStore(
-            initialState: initialState,
-            configuration: configuration,
-            exhaustivity: .off
-        )
-        await #expect(throws: RouterScenarioReplayError.duplicateFeatureResolver(
-            namespaces: [capturedFeatureMapping.namespace]
-        )) {
-            _ = try await RouterScenarioRunner.replay(
-                fixture,
-                on: duplicate,
-                featureResolvers: [
-                    .init(capturedFeatureMapping),
-                    .init(capturedFeatureMapping),
-                ]
-            )
-        }
-        #expect(duplicate.state == initialState)
-        #expect(duplicate.revision == 0)
-        duplicate.skipReceivedEvents()
-        await duplicate.finish()
-
-        let target = RouterTestStore(
-            initialState: initialState,
-            configuration: configuration,
-            exhaustivity: .off
-        )
-        let outcomes = try await RouterScenarioRunner.replay(
-            fixture,
-            on: target,
-            featureResolvers: [.init(capturedFeatureMapping)]
-        )
-
-        #expect(outcomes.map(RouterScenarioTerminal.init) == [
-            .deferred, .applied, .applied, .applied,
-        ])
-        #expect(target.state.node(at: [featureID]) == .stack(path: [.feature(.detail(9))]))
-        #expect(target.state.node(at: [siblingID]) == .stack(path: [.sibling, .sibling]))
-        #expect(target.state.windows.map(\.id) == [windowID])
-        target.skipReceivedEvents()
-        await target.finish()
+        #expect(source.state.node(at: [.branch(featureID)]) == .stack(path: [.feature(.detail(9))]))
+        #expect(source.state.node(at: [.branch(siblingID)]) == .stack(path: [.sibling, .sibling]))
+        #expect(source.state.windows.map(\.id) == [windowID])
+        try await assertCapturedReplayUnsupported(fixture, code: .runtimeOwnershipReplacement)
     }
 
-    @Test("Feature-plan replay rejects a replaced feature owner")
+    @Test("Replaced feature owners reject live work and captured replay remains unsupported")
     func featurePlanReplayRejectsReplacedOwner() async throws {
         let featureID: RouterScopeID = "feature"
         let initialState = try RouterState<CapturedParentRoute>(root: .container(
@@ -260,10 +212,10 @@ struct RouterScenarioCaptureTests {
                 return .deferRequest(deferralID)
             },
         ])
-        let source = RouterStore(initialState: initialState, configuration: configuration)
+        let source = try RouterStore(initialState: initialState, configuration: configuration)
         let recorder = RouterScenarioRecorder(store: source)
         let feature = RouterFeatureScope(
-            parent: source.scope(at: [featureID]),
+            parent: source.scope(at: [.branch(featureID)]),
             mapping: capturedFeatureMapping
         )
 
@@ -274,7 +226,7 @@ struct RouterScenarioCaptureTests {
             return
         }
         guard case .applied = await source.perform(
-            .replaceStack([.sibling]).inScope([featureID])
+            .replaceStack([.sibling]).inScope([.branch(featureID)])
         ) else {
             Issue.record("Expected replacement owner to apply")
             return
@@ -302,32 +254,17 @@ struct RouterScenarioCaptureTests {
                 rejection: $0.observedRejection
             )
         })
-        let target = RouterTestStore(
-            initialState: initialState,
-            configuration: configuration,
-            exhaustivity: .off
-        )
-        let outcomes = try await RouterScenarioRunner.replay(
-            fixture,
-            on: target,
-            featureResolvers: [.init(capturedFeatureMapping)]
-        )
-
-        #expect(outcomes.map(RouterScenarioTerminal.init) == [
-            .deferred, .applied, .rejected,
-        ])
-        #expect(target.state.node(at: [featureID]) == .stack(path: [.sibling]))
-        #expect(target.revision == 1)
-        target.skipReceivedEvents()
-        await target.finish()
+        #expect(source.state.node(at: [.branch(featureID)]) == .stack(path: [.sibling]))
+        #expect(source.revision == 1)
+        try await assertCapturedReplayUnsupported(fixture, code: .runtimeOwnershipReplacement)
     }
 
-    @Test("Nested feature mappings round-trip as one ownership resolver chain")
+    @Test("Nested feature metadata round-trips without claiming runtime ownership replay")
     func nestedFeaturePlanResolverRoundTrip() async throws {
         let initial: RouterState<CapturedParentRoute> = .rootStack(
             path: [.feature(.leaf(.home))]
         )
-        let source = RouterStore(initialState: initial)
+        let source = try RouterStore(initialState: initial)
         let recorder = RouterScenarioRecorder(store: source)
         let outer = RouterFeatureScope(parent: source.scope(), mapping: capturedFeatureMapping)
         let leaf = RouterFeatureScope(parent: outer, mapping: capturedLeafMapping)
@@ -357,21 +294,9 @@ struct RouterScenarioCaptureTests {
                 rejection: $0.observedRejection
             )
         })
-        let resolver = RouterScenarioFeatureProjection(capturedFeatureMapping)
-            .appending(capturedLeafMapping)
-            .eraseToResolver()
-        let target = RouterTestStore(initialState: initial, exhaustivity: .off)
-
-        _ = try await RouterScenarioRunner.replay(
-            fixture,
-            on: target,
-            featureResolvers: [resolver]
-        )
-
-        #expect(target.state == .rootStack(path: [.feature(.leaf(.detail))]))
-        #expect(target.revision == 1)
-        target.skipReceivedEvents()
-        await target.finish()
+        #expect(source.state == .rootStack(path: [.feature(.leaf(.detail))]))
+        #expect(source.revision == 1)
+        try await assertCapturedReplayUnsupported(fixture, code: .runtimeOwnershipReplacement)
     }
 
     @Test(
@@ -405,7 +330,7 @@ struct RouterScenarioCaptureTests {
                 }
             }
         )
-        let store = RouterStore<CapturedRoute>(configuration: configuration)
+        let store = try RouterStore<CapturedRoute>(configuration: configuration)
         let recorder = RouterScenarioRecorder(store: store)
 
         if resumingDeferral {
@@ -572,7 +497,7 @@ struct RouterScenarioCaptureTests {
             )
         })
         let runtime = RouterTestRuntime(transitionIDSeed: 99)
-        let target = RouterTestStore<CapturedRoute>(
+        let target = try RouterTestStore<CapturedRoute>(
             exhaustivity: .off,
             runtime: runtime
         )
@@ -677,16 +602,16 @@ struct RouterScenarioCaptureTests {
 
         let futureFormat = try #require(
             String(data: encoded, encoding: .utf8)?.replacingOccurrences(
-                of: "\"formatVersion\":7",
-                with: "\"formatVersion\":8"
+                of: "\"formatVersion\":9",
+                with: "\"formatVersion\":10"
             ).data(using: .utf8)
         )
-        #expect(throws: RouterScenarioFixtureError.unsupportedFormatVersion(8)) {
+        #expect(throws: RouterScenarioFixtureError.unsupportedFormatVersion(10)) {
             _ = try RouterScenarioFixture<CapturedRoute>.decode(from: futureFormat)
         }
         let legacyFormat = try #require(
             String(data: encoded, encoding: .utf8)?.replacingOccurrences(
-                of: "\"formatVersion\":7",
+                of: "\"formatVersion\":9",
                 with: "\"formatVersion\":4"
             ).data(using: .utf8)
         )
@@ -705,7 +630,7 @@ struct RouterScenarioCaptureTests {
         #expect(throws: DecodingError.self) {
             _ = try RouterScenarioFixture<CapturedRoute>.decode(from: missingSemantics)
         }
-        for requiredKey in ["expectedRevision", "cancellationOrigin"] {
+        for requiredKey in ["expectedRevision", "cancellationOrigin", "replayLimitation"] {
             var missingFieldObject = try #require(
                 JSONSerialization.jsonObject(with: encoded) as? [String: Any]
             )
@@ -800,7 +725,7 @@ struct RouterScenarioCaptureTests {
             ]
         )
         let (gate, continuation) = AsyncStream<Void>.makeStream()
-        let store = RouterTestStore<CapturedRoute>(
+        let store = try RouterTestStore<CapturedRoute>(
             configuration: .init(
                 policies: [RouterPolicy(name: "gate") { transition in
                     guard transition.context.source == .inspector else { return .allow }
@@ -889,7 +814,7 @@ struct RouterScenarioCaptureTests {
         let runtime = RouterTestRuntime()
         let (cancellationGate, cancellationContinuation) = AsyncStream<Void>.makeStream()
         let (timeoutGate, timeoutContinuation) = AsyncStream<Void>.makeStream()
-        let store = RouterTestStore<CapturedRoute>(
+        let store = try RouterTestStore<CapturedRoute>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "remote") { transition in
@@ -928,7 +853,7 @@ struct RouterScenarioCaptureTests {
                 }
             ]
         )
-        let source = RouterStore<CapturedRoute>(configuration: configuration)
+        let source = try RouterStore<CapturedRoute>(configuration: configuration)
         let recorder = RouterScenarioRecorder(store: source)
 
         guard case .deferred(_, _, _, let capturedDeferral) = await source.perform(
@@ -964,7 +889,7 @@ struct RouterScenarioCaptureTests {
             return false
         })
 
-        let target = RouterTestStore<CapturedRoute>(
+        let target = try RouterTestStore<CapturedRoute>(
             configuration: configuration,
             exhaustivity: .off
         )
@@ -986,7 +911,7 @@ struct RouterScenarioCaptureTests {
                     : .allow
             },
         ])
-        let source = RouterStore<CapturedRoute>(configuration: configuration)
+        let source = try RouterStore<CapturedRoute>(configuration: configuration)
         let recorder = RouterScenarioRecorder(store: source)
 
         guard case .deferred(_, _, _, let deferral) = await source.perform(.push(.detail)) else {
@@ -1031,7 +956,7 @@ struct RouterScenarioCaptureTests {
                 rejection: $0.observedRejection
             )
         })
-        let target = RouterTestStore<CapturedRoute>(
+        let target = try RouterTestStore<CapturedRoute>(
             configuration: configuration,
             exhaustivity: .off
         )
@@ -1059,7 +984,7 @@ struct RouterScenarioCaptureTests {
         }
 
         let sourceGate = ScenarioGate()
-        let source = RouterStore<CapturedRoute>(configuration: configuration(sourceGate))
+        let source = try RouterStore<CapturedRoute>(configuration: configuration(sourceGate))
         let history = RouterHistory(store: source)
         let recorder = RouterScenarioRecorder(store: source)
         _ = await source.perform(.push(.home))
@@ -1090,7 +1015,7 @@ struct RouterScenarioCaptureTests {
             )
         })
         let targetGate = ScenarioGate()
-        let target = RouterTestStore<CapturedRoute>(
+        let target = try RouterTestStore<CapturedRoute>(
             configuration: configuration(targetGate),
             exhaustivity: .off
         )
@@ -1141,7 +1066,7 @@ struct RouterScenarioCaptureTests {
         }
 
         let sourceGate = ScenarioGate()
-        let source = RouterStore<CapturedRoute>(configuration: configuration(sourceGate))
+        let source = try RouterStore<CapturedRoute>(configuration: configuration(sourceGate))
         let history = RouterHistory(store: source)
         let recorder = RouterScenarioRecorder(store: source)
         _ = await source.perform(.push(.home))
@@ -1204,7 +1129,7 @@ struct RouterScenarioCaptureTests {
             routeTypeName: "CapturedRoute"
         )
         let targetGate = ScenarioGate()
-        let target = RouterTestStore<CapturedRoute>(
+        let target = try RouterTestStore<CapturedRoute>(
             configuration: configuration(targetGate),
             exhaustivity: .off
         )
@@ -1257,7 +1182,7 @@ struct RouterScenarioCaptureTests {
         let sourceGate = ScenarioGate()
         let (queueEvents, queueContinuation) = AsyncStream<Void>.makeStream()
         var queueIterator = queueEvents.makeAsyncIterator()
-        let source = RouterStore<CapturedRoute>(
+        let source = try RouterStore<CapturedRoute>(
             configuration: configuration(sourceGate) { queueContinuation.yield() }
         )
         let history = RouterHistory(store: source)
@@ -1336,7 +1261,7 @@ struct RouterScenarioCaptureTests {
         })
 
         let targetGate = ScenarioGate()
-        let target = RouterTestStore<CapturedRoute>(
+        let target = try RouterTestStore<CapturedRoute>(
             initialState: fixture.initialState,
             configuration: configuration(targetGate),
             exhaustivity: .off
@@ -1357,7 +1282,7 @@ struct RouterScenarioCaptureTests {
     }
 
     @Test("Replay rejects cancellation claims and invalid revisions before execution")
-    func replayRejectsMissingCancellationProvenanceAndInvalidRevision() async {
+    func replayRejectsMissingCancellationProvenanceAndInvalidRevision() async throws {
         let requestID = RouterTransitionID()
         let cancelledStep = RouterScenarioStep<CapturedRoute>(
             requestID: requestID,
@@ -1379,7 +1304,7 @@ struct RouterScenarioCaptureTests {
             initialRevision: 3,
             steps: [cancelledStep]
         )
-        let target = RouterTestStore<CapturedRoute>(exhaustivity: .off)
+        let target = try RouterTestStore<CapturedRoute>(exhaustivity: .off)
 
         #expect(throws: RouterScenarioSourceGenerationError.missingCancellationProvenance(step: 0)) {
             _ = try RouterScenarioSourceGenerator.generate(
@@ -1474,7 +1399,7 @@ struct RouterScenarioCaptureTests {
             initialState: .rootStack,
             steps: [overflowStep]
         )
-        let overflowTarget = RouterTestStore<CapturedRoute>(exhaustivity: .off)
+        let overflowTarget = try RouterTestStore<CapturedRoute>(exhaustivity: .off)
         _ = await overflowTarget.send(.push(.home))
         _ = await overflowTarget.send(.pop(count: 1))
         #expect(overflowTarget.state == .rootStack)
@@ -1536,7 +1461,7 @@ struct RouterScenarioCaptureTests {
         }
         let fixture = try RouterScenarioFixture<CapturedRoute>.decode(from: data)
         var policyCalls = 0
-        let store = RouterTestStore<CapturedRoute>(
+        let store = try RouterTestStore<CapturedRoute>(
             initialState: initialState,
             configuration: .init(policies: [
                 RouterPolicy(name: "must-not-run") { _ in
@@ -1573,7 +1498,7 @@ struct RouterScenarioCaptureTests {
                     : .allow
             },
         ])
-        let source = RouterStore<CapturedRoute>(configuration: configuration)
+        let source = try RouterStore<CapturedRoute>(configuration: configuration)
         let history = RouterHistory(store: source)
         let recorder = RouterScenarioRecorder(store: source)
         _ = await source.perform(.push(.home))
@@ -1601,7 +1526,7 @@ struct RouterScenarioCaptureTests {
                 rejection: $0.observedRejection
             )
         })
-        let target = RouterTestStore<CapturedRoute>(
+        let target = try RouterTestStore<CapturedRoute>(
             configuration: configuration,
             exhaustivity: .off
         )
@@ -1639,7 +1564,7 @@ struct RouterScenarioCaptureTests {
                 rejection: $0.observedRejection
             )
         })
-        let target = RouterTestStore<CapturedRoute>(exhaustivity: .off)
+        let target = try RouterTestStore<CapturedRoute>(exhaustivity: .off)
 
         _ = try RouterScenarioSourceGenerator.generate(
             fixture,
@@ -1666,7 +1591,7 @@ struct RouterScenarioCaptureTests {
                     : .allow
             },
         ])
-        let source = RouterStore<CapturedRoute>(configuration: sourceConfiguration)
+        let source = try RouterStore<CapturedRoute>(configuration: sourceConfiguration)
         let history = RouterHistory(store: source)
         let recorder = RouterScenarioRecorder(store: source)
         _ = await source.perform(.push(.home))
@@ -1720,7 +1645,7 @@ struct RouterScenarioCaptureTests {
             completeness: captured.completeness
         )
         var policyCalls = 0
-        let target = RouterTestStore<CapturedRoute>(configuration: .init(policies: [
+        let target = try RouterTestStore<CapturedRoute>(configuration: .init(policies: [
             RouterPolicy(name: "probe") { _ in
                 policyCalls += 1
                 return .allow
@@ -1775,7 +1700,7 @@ struct RouterScenarioCaptureTests {
             ]
         )
         var policyCalls = 0
-        let target = RouterTestStore<CapturedRoute>(
+        let target = try RouterTestStore<CapturedRoute>(
             initialState: initialState,
             configuration: .init(policies: [
                 RouterPolicy(name: "probe") { _ in
@@ -1814,7 +1739,7 @@ struct RouterScenarioCaptureTests {
                     : .allow
             },
         ])
-        let source = RouterStore<CapturedRoute>(configuration: sourceConfiguration)
+        let source = try RouterStore<CapturedRoute>(configuration: sourceConfiguration)
         let history = RouterHistory(store: source)
         let recorder = RouterScenarioRecorder(store: source)
         _ = await source.perform(.push(.home))
@@ -1842,7 +1767,7 @@ struct RouterScenarioCaptureTests {
             )
         })
         var policyCalls = 0
-        let target = RouterTestStore<CapturedRoute>(configuration: .init(policies: [
+        let target = try RouterTestStore<CapturedRoute>(configuration: .init(policies: [
             RouterPolicy(name: "probe") { _ in
                 policyCalls += 1
                 return .allow
@@ -1879,7 +1804,7 @@ struct RouterScenarioCaptureTests {
                     : .allow
             },
         ])
-        let source = RouterStore<CapturedRoute>(configuration: configuration)
+        let source = try RouterStore<CapturedRoute>(configuration: configuration)
         let history = RouterHistory(store: source)
         let recorder = RouterScenarioRecorder(store: source)
         _ = await source.perform(.push(.home))
@@ -1925,7 +1850,7 @@ struct RouterScenarioCaptureTests {
             )
         })
 
-        let target = RouterTestStore<CapturedRoute>(
+        let target = try RouterTestStore<CapturedRoute>(
             configuration: configuration,
             exhaustivity: .off
         )
@@ -1980,7 +1905,7 @@ struct RouterScenarioCaptureTests {
                 .awaitTerminal(requestID: firstID, eventIndex: 3),
             ]
         )
-        let store = RouterTestStore<CapturedRoute>(exhaustivity: .off)
+        let store = try RouterTestStore<CapturedRoute>(exhaustivity: .off)
 
         let outcomes = try await RouterScenarioRunner.replay(fixture, on: store)
 
@@ -1991,7 +1916,7 @@ struct RouterScenarioCaptureTests {
     }
 
     @Test("Replay preflight fails before production requests")
-    func replayPreflightIsSideEffectFree() async {
+    func replayPreflightIsSideEffectFree() async throws {
         let metadata = RouterScenarioMetadata(
             routeSchemaID: String(describing: CapturedRoute.self),
             environmentID: "authenticated-app",
@@ -2005,7 +1930,7 @@ struct RouterScenarioCaptureTests {
             metadata: metadata,
             steps: []
         )
-        let store = RouterTestStore<CapturedRoute>(exhaustivity: .off)
+        let store = try RouterTestStore<CapturedRoute>(exhaustivity: .off)
 
         await #expect(throws: RouterScenarioReplayError.environmentMismatch(
             expectedID: "authenticated-app",
@@ -2020,12 +1945,12 @@ struct RouterScenarioCaptureTests {
     }
 
     @Test("Replay refuses a store whose state differs from the fixture baseline")
-    func replayRequiresExactInitialState() async {
+    func replayRequiresExactInitialState() async throws {
         let fixture = RouterScenarioFixture<CapturedRoute>(
             initialState: .rootStack,
             steps: []
         )
-        let store = RouterTestStore<CapturedRoute>(
+        let store = try RouterTestStore<CapturedRoute>(
             initialState: .rootStack(path: [.home]),
             exhaustivity: .off
         )
@@ -2039,7 +1964,7 @@ struct RouterScenarioCaptureTests {
     }
 
     @Test("Replay failure cancels and drains every request it owns")
-    func replayFailureCleansUpOwnedRequests() async {
+    func replayFailureCleansUpOwnedRequests() async throws {
         let firstID = RouterTransitionID()
         let secondID = RouterTransitionID()
         let fixture = RouterScenarioFixture<CapturedRoute>(
@@ -2085,7 +2010,7 @@ struct RouterScenarioCaptureTests {
             ]
         )
         let probe = ScenarioCancellationProbe()
-        let store = RouterTestStore<CapturedRoute>(
+        let store = try RouterTestStore<CapturedRoute>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "detail-gate") { transition in
@@ -2107,7 +2032,7 @@ struct RouterScenarioCaptureTests {
     }
 
     @Test("An unexpected replay deferral is cleaned up before the error returns")
-    func unexpectedReplayDeferralIsCleanedUp() async {
+    func unexpectedReplayDeferralIsCleanedUp() async throws {
         let deferralID = RouterDeferralID()
         let requestID = RouterTransitionID()
         let expectedState = RouterState<CapturedRoute>.rootStack(path: [.detail])
@@ -2129,7 +2054,7 @@ struct RouterScenarioCaptureTests {
                 ),
             ]
         )
-        let store = RouterTestStore<CapturedRoute>(
+        let store = try RouterTestStore<CapturedRoute>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "approval") { _ in .deferRequest(deferralID) }
@@ -2154,8 +2079,8 @@ struct RouterScenarioCaptureTests {
         await store.finish()
     }
 
-    @Test("Cancelling replay propagates to the active production request")
-    func replayCancellationCleansUpOwnedRequests() async {
+    @Test("Cancelling replay propagates to the active production request", .timeLimit(.minutes(1)))
+    func replayCancellationCleansUpOwnedRequests() async throws {
         let requestID = RouterTransitionID()
         let fixture = RouterScenarioFixture<CapturedRoute>(
             initialState: .rootStack,
@@ -2182,7 +2107,7 @@ struct RouterScenarioCaptureTests {
             ]
         )
         let probe = ScenarioCancellationProbe()
-        let store = RouterTestStore<CapturedRoute>(
+        let store = try RouterTestStore<CapturedRoute>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "gate") { _ in await probe.wait() }
@@ -2193,7 +2118,8 @@ struct RouterScenarioCaptureTests {
         let replay = Task { @MainActor in
             try await RouterScenarioRunner.replay(fixture, on: store)
         }
-        while !probe.entered { await Task.yield() }
+        defer { replay.cancel() }
+        while !probe.entered, !Task.isCancelled { await Task.yield() }
 
         replay.cancel()
         do {
@@ -2204,7 +2130,9 @@ struct RouterScenarioCaptureTests {
         } catch {
             Issue.record("Expected CancellationError, got \(error)")
         }
-        #expect(probe.cancelled)
+        // Request terminal and policy-task exit are intentionally distinct.
+        // Wait for the observed cancellation rather than relying on task order.
+        #expect(await probe.waitUntilCancelled())
         #expect(store.state == .rootStack)
         #expect(store.revision == 0)
         store.skipReceivedEvents()
@@ -2212,9 +2140,9 @@ struct RouterScenarioCaptureTests {
     }
 
     @Test("Replay preflight validates schema, dependencies, capabilities, and effects")
-    func replayPreflightMatrix() async {
+    func replayPreflightMatrix() async throws {
         let schemaID = String(describing: CapturedRoute.self)
-        let store = RouterTestStore<CapturedRoute>(exhaustivity: .off)
+        let store = try RouterTestStore<CapturedRoute>(exhaustivity: .off)
 
         func fixture(_ metadata: RouterScenarioMetadata) -> RouterScenarioFixture<CapturedRoute> {
             RouterScenarioFixture(initialState: .rootStack, metadata: metadata, steps: [])
@@ -2297,7 +2225,7 @@ struct RouterScenarioCaptureTests {
     }
 
     @Test("Replay rejects a duplicate logical submission before production execution")
-    func replayRejectsDuplicateLogicalSubmission() async {
+    func replayRejectsDuplicateLogicalSubmission() async throws {
         let requestID = RouterTransitionID()
         let fixture = RouterScenarioFixture<CapturedRoute>(
             initialState: .rootStack,
@@ -2326,7 +2254,7 @@ struct RouterScenarioCaptureTests {
             ]
         )
         var policyCalls = 0
-        let store = RouterTestStore<CapturedRoute>(
+        let store = try RouterTestStore<CapturedRoute>(
             configuration: .init(policies: [
                 RouterPolicy(name: "deny") { _ in
                     policyCalls += 1
@@ -2353,7 +2281,7 @@ struct RouterScenarioCaptureTests {
     }
 
     @Test("Replay rejects tampered deferral resume steps before production execution")
-    func replayRejectsTamperedDeferralResumeStep() async {
+    func replayRejectsTamperedDeferralResumeStep() async throws {
         let firstID = RouterTransitionID()
         let resumedID = RouterTransitionID()
         let deferralID = RouterDeferralID()
@@ -2440,7 +2368,7 @@ struct RouterScenarioCaptureTests {
             ),
         ]
         var policyCalls = 0
-        let store = RouterTestStore<CapturedRoute>(
+        let store = try RouterTestStore<CapturedRoute>(
             configuration: .init(policies: [
                 RouterPolicy(name: "probe") { _ in
                     policyCalls += 1
@@ -2558,7 +2486,7 @@ struct RouterScenarioCaptureTests {
     }
 
     @Test("Replay distinguishes rejection categories")
-    func rejectionReasonMismatchFails() async {
+    func rejectionReasonMismatchFails() async throws {
         let requestID = RouterTransitionID()
         let fixture = RouterScenarioFixture<CapturedRoute>(
             initialState: .rootStack,
@@ -2580,7 +2508,7 @@ struct RouterScenarioCaptureTests {
                 ),
             ]
         )
-        let store = RouterTestStore<CapturedRoute>(exhaustivity: .off)
+        let store = try RouterTestStore<CapturedRoute>(exhaustivity: .off)
 
         await #expect(throws: RouterScenarioReplayError.rejectionMismatch(
             step: 0,
@@ -2660,9 +2588,9 @@ struct RouterScenarioCaptureTests {
     }
 
     @Test("Capture preserves request order when a later request terminates first")
-    func preservesRequestOrder() async {
+    func preservesRequestOrder() async throws {
         let (gate, continuation) = AsyncStream<Void>.makeStream()
-        let store = RouterStore<CapturedRoute>(
+        let store = try RouterStore<CapturedRoute>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "gate") { _ in
@@ -2697,9 +2625,9 @@ struct RouterScenarioCaptureTests {
     }
 
     @Test("A stalled request cannot grow the pending correlation buffer without bound")
-    func pendingCorrelationIsBounded() async {
+    func pendingCorrelationIsBounded() async throws {
         let (gate, continuation) = AsyncStream<Void>.makeStream()
-        let store = RouterStore<CapturedRoute>(
+        let store = try RouterStore<CapturedRoute>(
             configuration: .init(
                 policies: [
                     RouterPolicy(name: "gate") { _ in

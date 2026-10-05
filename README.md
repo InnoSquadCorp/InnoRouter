@@ -4,7 +4,7 @@
 
 Macro-first, typed navigation for SwiftUI.
 
-InnoRouter 6 turns one `@Router` enum into one navigation model:
+InnoRouter 7 turns one `@Router` enum into one navigation model:
 
 - `RouterState<Route>` is the complete value-semantic source of truth.
 - `RouterAction<Route>` is the only incremental request vocabulary.
@@ -12,9 +12,10 @@ InnoRouter 6 turns one `@Router` enum into one navigation model:
 - `RouterStore<Route>` reduces, prepares policies, and commits atomically.
 - `RouterHost`, `RouterTabHost`, and `RouterSplitHost` render native SwiftUI containers.
 
-> **6.1.0:** Adds bounded snapshots, automatic partial restoration, explicit
-> tab identity, and safer persistence while preserving the 6.0 public surface.
-> Breaking changes target the next major release.
+> **7.0.0 development:** PR54 groundwork is carried directly into the next major
+> release; there is no separate 6.1.1 release. This checkout is unreleased.
+> Native/platform, full-package and actual-app acceptance gates remain open.
+> See the [7.0 checklist](Docs/7.0.0-release-checklist.md) for the verification boundary.
 
 [한국어](README.ko.md) · [6.0 strategy](Docs/v6-functional-strategy.md) ·
 [5.x migration](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
@@ -29,9 +30,11 @@ InnoRouter 6 turns one `@Router` enum into one navigation model:
 ## Installation
 
 Add the package and its single runtime product:
+The version below is the intended published release. Until it exists, use the
+reviewed local checkout; a version string does not establish publication.
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "6.1.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.0")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -96,6 +99,15 @@ let store = AppRoute.makeRouterStore()
 let outcome = await store.perform(.push(.detail(id: "42")))
 let snapshot = try await store.snapshot(using: RouterSnapshotCodec(currentVersion: 1))
 ```
+
+In 7.0, `RouterStore()` and `AppRoute.makeRouterStore()` remain nonthrowing.
+Supplying `initialState`, `initialPath`, or `configuration` requires `try`:
+initial admission rejects structural, scene-catalog, and resource errors instead
+of trapping or truncating. Supplied-store tab and split hosts also throw and
+require `configuration.hostDescriptor`; construction validates without
+registering or changing the Store. The source-compatible stack host exposes a
+`validationFailure` and renders recovery UI when that contract is missing or
+incompatible. See the [initialization contract](Docs/7.0.0-store-initialization-contract.md).
 
 Each request follows `reduce → prepare → commit`. A policy rejection,
 cancellation, stale preparation, or invalid action leaves committed state
@@ -174,6 +186,12 @@ metadata property.
 For opt-in persistence, combine a versioned codec with app-selected storage:
 
 ```swift skip app-lifecycle-fragment
+let store = try AppRoute.makeRouterStore(
+    configuration: .init(hostDescriptor: .init(
+        root: .stack,
+        rootDeclarations: [.init(meaning: .declarationID("router.root"))]
+    ))
+)
 let driver = RouterRestorationDriver(
     store: store,
     codec: try RouterSnapshotCodec(
@@ -202,8 +220,14 @@ a later activation cannot be modified by their delayed completion.
 
 The byte limits above are application-selected examples. File storage rejects
 oversized input while reading, and the codec independently bounds the encoded
-envelope, decoded payload, and every migration result. Existing initializers
-remain unbounded for source and behavior compatibility.
+envelope, decoded payload, and every migration result. The provisional 7.0
+defaults are 4 MiB encoded/file bytes and 2 MiB decoded payload, with JSON depth
+128 and 262,144 tokens. Explicit nil opts out; actual-app calibration remains
+a release gate. In the PR54 groundwork carried into 7.0, a file
+over the storage limit reaches the driver's recovery policy exactly like an
+envelope the codec rejects: the default `.fail` fails activation and preserves
+the file, while `.use` restores the application's fallback through normal
+policies, so inspect the activation's `transition` as for any restore.
 
 For snapshots containing retired destinations,
 `restorePartially(from:using:validator:validationTimeout:)` decodes and migrates
@@ -224,14 +248,15 @@ does not apply a snapshot recovery fallback.
 
 The explicit tab topology APIs below require **6.1.0 or later**.
 
-The [complete tab restoration example](Examples/README.md#tab-restoration-610)
+The [complete tab restoration example](Examples/README.md#tab-restoration-700)
 connects the catalog, driver, host, file persistence, and result handling.
 The [restoration guide](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md)
 explains tab identity, schema migration, and recovery boundaries.
 
-Restoration is exact: it applies what the snapshot says. A snapshot written
-before a tab existed therefore has no branch for it, and that tab stays
-unreachable. To add the tabs the app renders now, state the topology:
+Restoration is exact unless the app explicitly requests reconciliation. A
+snapshot predating a declared tab is rejected by a host-configured Store
+instead of rendering an empty, unreachable scope. To add the tabs the app
+renders now, state the topology:
 
 ```swift skip app-lifecycle-fragment
 let topology = try RouterTabRestorationTopology(of: AppRoute.self)
@@ -243,7 +268,9 @@ A scope the snapshot carries keeps its path, presentation, and badge. A scope
 it lacks is created empty — no route or badge is invented for it. A branch the
 topology does not name is kept after the current scopes, so a later catalog can
 still reach it; render such a store with
-`RouterTabHost(store:catalog:allowingOrphanedBranches:)`. A selection the
+`RouterTabHost(store:catalog:orphanPolicy: .preserveDormant)` and configure the
+Store with `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`.
+The Store and renderer must use the same declaration. A selection the
 topology no longer names falls back to its first scope. The same parameter
 exists on `restorePartially`, where reconciliation runs before validation so
 the app sees the candidate that will be applied, and on
@@ -278,13 +305,17 @@ enum AppRoute {
     var destination: some View { /* exhaustive switch */ }
 }
 
+let tabHost = try RouterTabHost(AppRoute.self, initial: .home)
+```
+
 Without `id:`, the case name remains the persisted scope identity. Add an
 explicit ID before renaming a tab case to keep its saved branch reachable.
 This stabilizes the tab scope only; changing a Codable route case used inside a
 saved path still requires a snapshot migration. Effective IDs must be unique.
 
-RouterTabHost(AppRoute.self, initial: .home)
-```
+Create input-bearing hosts in a throwing setup boundary and handle failures
+there; SwiftUI `body` stays nonthrowing. Tab and split hosts preserve their full
+topology and reject invalid or oversized initialization instead of trapping.
 
 The macro generates stable case-name scope identifiers, so localization or tab
 reordering does not corrupt restored branch history. `@TabItem` can also define
@@ -296,12 +327,27 @@ preferred compact column live in `RouterSplitState` and reconcile through the
 same system-origin transition pipeline. Custom column identifiers use the
 throwing `RouterTwoColumnSplitLayout` and `RouterThreeColumnSplitLayout` values,
 so duplicate, empty, or unavailable column topology is rejected before a host
-is constructed.
+is constructed. Opaque column closures declare stable `sidebarDeclarationID`,
+`detailDeclarationID`, and (for three columns) `contentDeclarationID` values.
+Supply those same IDs through `layout.hostRootDeclarations(for:...)` in an
+application-owned Store descriptor. Labels, localization, and styling do not
+change these semantic IDs.
 
 Macro-generated tab metadata is the default. Advanced integrations that must
 conform `RouterTabRoute` manually can first build a throwing `RouterTabCatalog`
 and use the catalog-taking `RouterTabHost` initializer; duplicate identities,
 scope IDs, root routes, initial tabs, and store topology become typed errors.
+Use `catalog.hostDescriptor()` for an application-owned tab Store: it freezes
+each scope's root Route value as well as its shape. Keeping a tab ID while
+changing its root Route is a contract change and requires the owner's atomic
+`replaceHost(with:descriptor:context:)`, followed by a matching renderer.
+A shape-only descriptor does not authorize a native tab catalog.
+
+A configured stack descriptor declares `.declarationID("router.root")` at its
+root for the default `RouterHost` and bridge factories. An application can
+choose another semantic ID and pass it as `rootDeclarationID` to the host or
+bridge. Existing nonthrowing APIs remain nonthrowing; declaration mismatch is
+reported through `validationFailure` and recovery UI.
 
 ## Explicit platform adaptation
 
@@ -479,15 +525,18 @@ transition intervals for Instruments, including cleanup when the adapter ends.
 `RouterScenarioRecorder` synchronously captures bounded request, start,
 cancellation, and terminal boundaries, including requests rejected before
 reduction, so stopping immediately after a completed request cannot lose it.
-Fixture format v7 stores the route schema, replay environment,
+Fixture format v9 stores the route schema, replay environment,
 dependency/effect capabilities, initial revision, each request's relative
 revision precondition and cancellation origin, logical
 submit/wait/cancel/terminal controls, virtual-time advances, explicit deferral
 decisions, and serializable execution semantics. History navigation therefore
 replays through the production navigation-only merge with its original stale
-state constraint even after queueing or repeated deferral rebases. Earlier
-and unknown versions are rejected and must be recaptured because those
-execution conditions cannot be inferred safely.
+state constraint even after queueing or repeated deferral rebases. Format v9
+also carries transient display descriptors through the bounded fixture codec;
+it never reconstructs live typed result authority. Navigation-only v8 fixtures
+remain supported. Versions before v8 and unknown future versions are rejected
+and must be recaptured because missing execution conditions cannot be inferred
+safely.
 Replay checks metadata and the complete initial
 state before submitting its first request, remaps recorded deferral IDs to fresh
 runtime IDs, and cancels and drains only its owned work before a failure or
@@ -508,10 +557,11 @@ separate explicit export actions.
 
 ## OSS release and SemVer contract
 
-The published 5.x line is source-stable within its major. InnoRouter 6.0.0 is a
+The published 5.x line is source-stable within its major. The 6.0.0 architecture introduced a
 deliberate breaking reset: old independent stores, intents, plans, coordinator
 handoffs, and granular runtime products are no longer externally importable.
-Pre-release tags such as `6.0.0-rc.1` use GitHub's `prerelease=true`; a bare
+The current unreleased 7.0 development cycle retains that architecture.
+Pre-release tags such as `7.0.0-rc.1` use GitHub's `prerelease=true`; a bare
 semantic tag is published only after package, docs, platform, API, and consumer
 gates pass.
 
@@ -521,6 +571,7 @@ gates pass.
 - [API convergence](Docs/v6-api-convergence-spike.md)
 - [Functional specification](Docs/functional-expansion-spec.md)
 - [Delivery plan](Docs/functional-expansion-technical-plan.md)
+- [7.0.0 release checklist](Docs/7.0.0-release-checklist.md)
 - [6.1.0 release checklist](Docs/6.1.0-release-checklist.md)
 - [6.0.0 release checklist](Docs/6.0.0-release-checklist.md)
 - [Migrating from 5.x](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)

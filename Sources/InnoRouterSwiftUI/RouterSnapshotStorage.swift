@@ -20,18 +20,24 @@ public protocol RouterSnapshotStorage: Sendable {
 
 /// Atomic file-backed snapshot storage at an application-owned URL.
 public struct RouterFileSnapshotStorage: RouterSnapshotStorage, Sendable {
+    /// Provisional 7.0 safety limit, pending consumer-fixture/RSS calibration.
+    /// This is a finite starting bound, not a release-calibrated guarantee.
+    public static let defaultMaximumByteCount = 4 * 1_024 * 1_024
+
     public let fileURL: URL
     public let maximumByteCount: Int?
 
+    /// Creates storage bounded by the provisional 4 MiB default.
     public init(fileURL: URL) {
         self.fileURL = fileURL
-        self.maximumByteCount = nil
+        self.maximumByteCount = Self.defaultMaximumByteCount
     }
 
-    /// Creates storage that rejects reads and writes over the supplied byte
-    /// count. Existing files are preserved when a write is rejected.
-    public init(fileURL: URL, maximumByteCount: Int) throws {
-        guard maximumByteCount > 0 else {
+    /// Creates storage with a positive byte limit, or explicit unlimited reads
+    /// and writes when `nil` is supplied. Unlimited storage is appropriate only
+    /// for trusted, app-bounded input. A rejected write preserves existing bytes.
+    public init(fileURL: URL, maximumByteCount: Int?) throws {
+        if let maximumByteCount, maximumByteCount <= 0 {
             throw RouterSnapshotError.invalidByteLimit(
                 name: "maximumByteCount",
                 value: maximumByteCount

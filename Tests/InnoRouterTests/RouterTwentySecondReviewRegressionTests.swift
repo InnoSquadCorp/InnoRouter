@@ -80,7 +80,7 @@ struct RouterTwentySecondReviewRegressionTests {
         configuration.runtimeDependencies.beforeRestorationWorker = {
             try await workerGate.sleep(for: .seconds(60))
         }
-        let store = RouterStore<TwentySecondReviewRoute>(configuration: configuration)
+        let store = try RouterStore<TwentySecondReviewRoute>(configuration: configuration)
         let driver = RouterRestorationDriver(store: store, codec: codec, storage: storage)
         let activation = Task { @MainActor in try await driver.activate() }
         defer {

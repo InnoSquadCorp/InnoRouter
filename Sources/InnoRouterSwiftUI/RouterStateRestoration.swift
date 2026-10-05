@@ -7,7 +7,7 @@ import Observation
 
 import InnoRouterCore
 
-private struct RouterRestorationActivationLease<R: Route & Codable> {
+private struct RouterRestorationActivationLease<R: Route> {
     let result: RouterRestorationDriverActivation<R>
     let generation: UInt64
 }
@@ -17,6 +17,13 @@ private struct RouterRestorationPartialConfiguration<R: Route> {
     let validationTimeout: Duration?
 }
 
+/// A stored snapshot to restore, or the recovery policy's answer to storage
+/// that rejected it before the codec could read it.
+private enum RouterInitialSnapshot<R: Route> {
+    case data(Data)
+    case recovered(RouterSnapshotDecodingResult<R>)
+}
+
 /// Opt-in automatic persistence for one canonical router store.
 ///
 /// The driver observes committed transitions, coalesces writes, and restores
@@ -24,7 +31,7 @@ private struct RouterRestorationPartialConfiguration<R: Route> {
 /// storage contains only snapshots produced by the supplied codec.
 @MainActor
 @Observable
-public final class RouterRestorationDriver<R: Route & Codable> {
+public final class RouterRestorationDriver<R: Route> {
     /// Status belongs to the most recently started activation, save, removal,
     /// or stop. Debounce reservations and already-active claims do not replace
     /// it; older operations still finish and return their own results.
@@ -40,8 +47,6 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     package let durability = RouterDurabilityGate()
     @ObservationIgnored
     package let store: RouterStore<R>
-    @ObservationIgnored
-    private let codec: RouterSnapshotCodec<R>
     @ObservationIgnored
     private let recovery: RouterSnapshotRecoveryPolicy<R>
     @ObservationIgnored
@@ -93,85 +98,28 @@ public final class RouterRestorationDriver<R: Route & Codable> {
     @ObservationIgnored
     package var statusGeneration: UInt64 = 0
 
-    public init(
+    package init(
         store: RouterStore<R>,
-        codec: RouterSnapshotCodec<R>,
+        codecExecutor: RouterSnapshotCodecExecutor<R>,
         storage: any RouterSnapshotStorage,
         recovery: RouterSnapshotRecoveryPolicy<R> = .fail,
-        saveDebounce: Duration = .milliseconds(250)
-    ) {
-        self.store = store
-        self.codec = codec
-        self.recovery = recovery
-        self.tabTopology = nil
-        self.partialConfiguration = nil
-        self.executor = RouterByteStoreExecutor(
-            load: { try storage.load() },
-            save: { try storage.save($0) },
-            remove: { try storage.remove() }
-        )
-        self.codecExecutor = RouterSnapshotCodecExecutor(codec: codec)
-        self.saveDebounce = max(saveDebounce, .zero)
-        self.automaticSaveBaselineRevision = store.revision
-    }
-
-    /// Creates a driver whose initial restore reconciles against the tab
-    /// topology this application renders now.
-    ///
-    /// The topology belongs to this driver's lifetime. An application that
-    /// changes its catalog stops this driver and creates another with the new
-    /// topology rather than mutating one in place.
-    public init(
-        store: RouterStore<R>,
-        codec: RouterSnapshotCodec<R>,
-        storage: any RouterSnapshotStorage,
-        recovery: RouterSnapshotRecoveryPolicy<R> = .fail,
-        tabTopology: RouterTabRestorationTopology,
-        saveDebounce: Duration = .milliseconds(250)
-    ) {
-        self.store = store
-        self.codec = codec
-        self.recovery = recovery
-        self.tabTopology = tabTopology
-        self.partialConfiguration = nil
-        self.executor = RouterByteStoreExecutor(
-            load: { try storage.load() },
-            save: { try storage.save($0) },
-            remove: { try storage.remove() }
-        )
-        self.codecExecutor = RouterSnapshotCodecExecutor(codec: codec)
-        self.saveDebounce = max(saveDebounce, .zero)
-        self.automaticSaveBaselineRevision = store.revision
-    }
-
-    /// Creates a driver that validates decoded routes before its initial
-    /// restore and then observes the accepted canonical Store state.
-    ///
-    /// This opt-in path does not use snapshot recovery. Decode, migration, and
-    /// validation failures remain visible to the caller and through `status`.
-    public init(
-        store: RouterStore<R>,
-        codec: RouterSnapshotCodec<R>,
-        storage: any RouterSnapshotStorage,
-        validator: RouterPartialRestorationValidator<R>,
-        validationTimeout: Duration? = nil,
         tabTopology: RouterTabRestorationTopology? = nil,
-        saveDebounce: Duration = .milliseconds(250)
+        validator: RouterPartialRestorationValidator<R>? = nil,
+        validationTimeout: Duration? = nil,
+        saveDebounce: Duration
     ) {
         self.store = store
-        self.codec = codec
-        self.recovery = .fail
+        self.recovery = recovery
         self.tabTopology = tabTopology
-        self.partialConfiguration = .init(
-            validator: validator,
-            validationTimeout: validationTimeout
-        )
+        self.partialConfiguration = validator.map {
+            .init(validator: $0, validationTimeout: validationTimeout)
+        }
         self.executor = RouterByteStoreExecutor(
             load: { try storage.load() },
             save: { try storage.save($0) },
             remove: { try storage.remove() }
         )
-        self.codecExecutor = RouterSnapshotCodecExecutor(codec: codec)
+        self.codecExecutor = codecExecutor
         self.saveDebounce = max(saveDebounce, .zero)
         self.automaticSaveBaselineRevision = store.revision
     }
@@ -273,6 +221,7 @@ extension RouterRestorationDriver {
     ) {
         guard activationTask == nil else { return }
         let taskID = UUID()
+        let authorization = store.authorizationPrecondition(request: nil, existing: nil)
         activationTaskID = taskID
         activationTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -283,7 +232,8 @@ extension RouterRestorationDriver {
                     taskID: taskID,
                     generation: generation,
                     statusOwner: statusOwner,
-                    expectedRevision: expectedRevision
+                    expectedRevision: expectedRevision,
+                    authorization: authorization
                 )
                 self.finishActivation(taskID, result: .success(result))
             } catch {
@@ -296,13 +246,14 @@ extension RouterRestorationDriver {
         taskID: UUID,
         generation: UInt64,
         statusOwner: UInt64,
-        expectedRevision: UInt64
+        expectedRevision: UInt64,
+        authorization: RouterRequestPrecondition<R>?
     ) async throws -> RouterRestorationActivationLease<R> {
         try ensureCurrentActivation(generation, taskID: taskID)
         do {
-            let data = try await executor.load()
+            let loaded = try await loadInitialSnapshot()
             try ensureCurrentActivation(generation, taskID: taskID)
-            guard let data else {
+            guard let loaded else {
                 publishStatus(.active, ownedBy: statusOwner)
                 initialRestorePhase = .completed
                 automaticSaveIsEnabled = true
@@ -319,7 +270,8 @@ extension RouterRestorationDriver {
                     activeRestoreTransitionID = nil
                 }
             }
-            let precondition: RouterRequestPrecondition<R> = { [weak self] _ in
+            let precondition: RouterRequestPrecondition<R> = { [weak self] state in
+                if let rejection = authorization?(state) { return rejection }
                 guard let self,
                       self.activationGeneration == generation,
                       self.observationID != nil else {
@@ -328,7 +280,7 @@ extension RouterRestorationDriver {
                 return nil
             }
             let outcome: RouterRestorationOutcome<R>
-            if let partialConfiguration {
+            if let partialConfiguration, case .data(let data) = loaded {
                 let decoded = try await codecExecutor.decode(data)
                 let partial = try await store.restorePartially(
                     decoded: decoded,
@@ -348,9 +300,7 @@ extension RouterRestorationDriver {
                 lastPartialRestoration = partial
             } else {
                 outcome = try await store.restore(
-                    from: data,
-                    using: codec,
-                    recovery: recovery,
+                    decoding: try await decoding(of: loaded),
                     expectedRevision: expectedRevision,
                     transitionID: transitionID,
                     requestRootID: transitionID,
@@ -403,6 +353,34 @@ extension RouterRestorationDriver {
             invalidateScheduledSave()
             publishStatus(.failed(String(describing: error)), ownedBy: statusOwner)
             throw error
+        }
+    }
+
+    /// Loads the initial snapshot, answering a typed storage rejection with
+    /// the recovery policy.
+    ///
+    /// Storage can reject a snapshot before the codec reads it, such as a file
+    /// over its byte limit. The codec raises the same typed error for its own
+    /// limits and recovers it through the policy, so this rejection is
+    /// recovered the same way; `.fail` rethrows it unchanged. Partial
+    /// restoration does not use recovery, and an untyped storage failure is
+    /// environmental rather than a verdict on the snapshot, so both still fail
+    /// activation.
+    private func loadInitialSnapshot() async throws -> RouterInitialSnapshot<R>? {
+        do {
+            return try await executor.load().map(RouterInitialSnapshot.data)
+        } catch let rejection as RouterSnapshotError where partialConfiguration == nil {
+            return .recovered(try recovery.recover(from: rejection))
+        }
+    }
+
+    /// Decodes stored bytes through the recovery policy, after the restore
+    /// request is reserved, or returns the policy's answer to storage that
+    /// rejected them.
+    private func decoding(of loaded: RouterInitialSnapshot<R>) async throws -> RouterSnapshotDecodingResult<R> {
+        switch loaded {
+        case .data(let data): try await codecExecutor.decode(data, recovery: recovery)
+        case .recovered(let decoding): decoding
         }
     }
 

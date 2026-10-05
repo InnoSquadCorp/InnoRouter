@@ -8,6 +8,7 @@ public enum RouterScenarioSourceGenerationError: Error, Hashable, Sendable {
     case invalidExpectedRevision(step: Int)
     case missingCancellationProvenance(step: Int)
     case unsupportedHistoryLifetime(step: Int)
+    case unsupportedRequestSemantics(step: Int, code: RouterScenarioReplayLimitation)
     case invalidSwiftIdentifier(String)
     case encodingFailed
     case invalidFixtureFileName(String)
@@ -51,9 +52,7 @@ public enum RouterScenarioSourceGenerator {
         guard isSafeFixtureFileName(fixtureFileName) else {
             throw RouterScenarioSourceGenerationError.invalidFixtureFileName(fixtureFileName)
         }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let data = try? encoder.encode(fixture) else {
+        guard let data = try? fixture.encode(outputFormatting: [.prettyPrinted, .sortedKeys]) else {
             throw RouterScenarioSourceGenerationError.encodingFailed
         }
         let source = """
@@ -71,7 +70,7 @@ public enum RouterScenarioSourceGenerator {
             let fixture = try RouterScenarioFixture<\(routeTypeName)>.decode(
                 from: Data(contentsOf: fixtureURL)
             )
-            let store = \(storeFactory)(fixture.initialState)
+            let store = try \(storeFactory)(fixture.initialState)
             let environment = \(environmentFactory)()
             \(featureResolversDeclaration(factory: featureResolversFactory))
             do {
@@ -112,9 +111,7 @@ public enum RouterScenarioSourceGenerator {
             storeFactory: storeFactory,
             featureResolversFactory: featureResolversFactory
         )
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        guard let data = try? encoder.encode(fixture) else {
+        guard let data = try? fixture.encode() else {
             throw RouterScenarioSourceGenerationError.encodingFailed
         }
         let encoded = data.base64EncodedString()
@@ -129,7 +126,7 @@ public enum RouterScenarioSourceGenerator {
         func \(testName)() async throws {
             let data = try #require(Data(base64Encoded: "\(encoded)"))
             let fixture = try RouterScenarioFixture<\(routeTypeName)>.decode(from: data)
-            let store = \(storeFactory)(fixture.initialState)
+            let store = try \(storeFactory)(fixture.initialState)
             \(featureResolversDeclaration(factory: featureResolversFactory))
             do {
                 _ = try await RouterScenarioRunner.replay(
@@ -159,6 +156,8 @@ public enum RouterScenarioSourceGenerator {
         }
         do {
             try RouterScenarioControlGraph.validate(fixture)
+        } catch RouterScenarioReplayError.unsupportedRequestSemantics(let step, let code) {
+            throw RouterScenarioSourceGenerationError.unsupportedRequestSemantics(step: step, code: code)
         } catch RouterScenarioReplayError.unsupportedHistoryLifetime(let step) {
             throw RouterScenarioSourceGenerationError.unsupportedHistoryLifetime(step: step)
         } catch RouterScenarioReplayError.invalidExpectedRevision(let step) {

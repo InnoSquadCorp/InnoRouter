@@ -28,7 +28,7 @@ struct RouterActionSequenceTests {
         let first = try sequence.encoded()
         let second = try sequence.encoded()
         let decoded = try RouterActionSequence<SequenceRoute>.decode(first)
-        let store = RouterTestStore<SequenceRoute>(exhaustivity: .off)
+        let store = try RouterTestStore<SequenceRoute>(exhaustivity: .off)
 
         let outcomes = await decoded.replay(on: store)
 
@@ -68,7 +68,7 @@ struct RouterActionSequenceTests {
             .init(action: .push(.home), context: linkContext),
             .init(action: .push(.detail), context: intentContext),
         ])
-        let store = RouterTestStore<SequenceRoute>(
+        let store = try RouterTestStore<SequenceRoute>(
             configuration: .init(policies: [
                 .init(name: "source") { transition in
                     transition.context.source == .appIntent ? .reject("intent denied") : .allow
