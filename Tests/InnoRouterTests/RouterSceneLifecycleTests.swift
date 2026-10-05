@@ -824,6 +824,57 @@ struct RouterSceneLifecycleTests {
         #expect(store.revision == 2)
     }
 
+    @Test(
+        "A matching appearance invalidates a queued failed-restoration repair",
+        arguments: [false, true]
+    )
+    func appearanceFencesQueuedRestorationFailureRepair(appearsBeforeRepair: Bool) async throws {
+        let initial = try RouterState<PlainSceneLifecycleRoute>(
+            immersiveSpace: .init(id: "shared", route: .old)
+        )
+        let gate = SceneLifecyclePolicyGate()
+        let store = try RouterStore(
+            initialState: initial,
+            configuration: .init(policies: [
+                RouterPolicy(name: "unrelated-update") { transition in
+                    if transition.action == .push(.old) { await gate.wait() }
+                    return .allow
+                },
+            ])
+        )
+        let token = try #require(store.immersiveSpaceLifecycleToken)
+        let ticket = try #require(store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
+            id: "shared", lifecycleToken: token
+        ))
+        var requests = store.requestObservations.makeAsyncIterator()
+        let unrelated = Task { @MainActor in await store.perform(.push(.old)) }
+        _ = await requests.next()
+        await gate.waitUntilEntered()
+        let restoration = Task { @MainActor in
+            await restoreRouterImmersiveSpaceAfterDeferredClosure(
+                id: "shared", lifecycleToken: token, ticket: ticket, store: store,
+                open: { .error }, dismiss: {}
+            )
+        }
+        // The native result has arrived, but the store is still processing the
+        // unrelated request. Appearance consumes the same restoration ticket.
+        _ = await requests.next()
+        if appearsBeforeRepair {
+            store.sceneRestorationRegistry.finishImmersiveSpaceRestoration(
+                id: "shared", lifecycleToken: token
+            )
+        }
+        gate.release()
+        guard case .applied = await unrelated.value else {
+            Issue.record("Expected the unrelated request to commit")
+            return
+        }
+        #expect(await restoration.value == false)
+        #expect(store.state.root == .stack(path: [.old]))
+        #expect(store.state.immersiveSpace == (appearsBeforeRepair ? initial.immersiveSpace : nil))
+        #expect(store.revision == (appearsBeforeRepair ? 1 : 2))
+    }
+
     @Test("A failed native open repair cannot be rejected by application policy")
     func nativeOpenFailureRepair() async throws {
         let windowID = UUID()

@@ -32,6 +32,9 @@ every historical environment cause of the vision-cancel K1 failure.
 
 ### Fixed
 
+- A queued immersive restoration failure revalidates its restoration ticket
+  before repairing canonical state. A matching appearance or a newer attempt
+  invalidates the old repair; a genuine open failure still removes the scene.
 - The performance smoke explicitly admits its existing 500-route snapshot
   workload with a finite budget. Default limits, workload size, iteration counts,
   and timing thresholds remain unchanged; admission self-tests reject overflow.
