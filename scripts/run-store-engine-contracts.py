@@ -153,6 +153,8 @@ tests.mkdir(parents=True, exist_ok=True)
 for old in tests.glob('*.swift'):
     old.unlink()
 selected_tests = [
+    'RouterStoreHostContractTests.swift',
+    'RouterHostAdmissionOrderTests.swift',
     'RouterPolicyOperationBudgetTests.swift',
     'RouterRestorationOperationBudgetContractTests.swift',
     'RouterRestorationOperationBudgetTests.swift',

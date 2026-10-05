@@ -16,6 +16,7 @@ extension RouterStore {
         hasPrecondition: Bool,
         hasPreparation: Bool
     ) -> String? {
+        if hostDescriptor != nil { return "runtime.hostContract" }
         if hasPresentationResultAuthority(in: action) { return "presentation.runtimeResultAuthority" }
         if lifetimeMutation.replacesOwnership { return "runtime.ownershipReplacement" }
         if authorization != nil || requestAuthorization != nil { return "runtime.authorization" }

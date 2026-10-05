@@ -36,15 +36,26 @@ struct TabRestorationConsumerTests {
         )))
         let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
         let data = try codec.encode(old)
-        let store = R.makeRouterStore()
+        let initial = try RouterState<R>(root: .container(.init(
+            style: .tabs, selection: "home", branches: [.init(id: "home"), .init(id: "settings")]
+        )))
+        let configuration = RouterStoreConfiguration<R>(hostDescriptor: .init(
+            root: catalog.hostShape(orphanPolicy: .preserveDormant)
+        ))
+        let store = try R.makeRouterStore(initialState: initial, configuration: configuration)
         guard case .applied = try await store.restore(from: data, using: codec, tabTopology: topology) else {
             Issue.record("Expected the external explicit restoration to apply")
             return
         }
-        _ = try RouterTabHost(store: store, catalog: catalog, allowingOrphanedBranches: true)
-        #expect(throws: RouterTabCatalogError.storeBranchesDoNotMatchCatalog) {
+        _ = try RouterTabHost(store: store, catalog: catalog, orphanPolicy: .preserveDormant)
+        do {
             _ = try RouterTabHost(store: store, catalog: catalog)
+            Issue.record("A strict renderer must not silently adopt a preservation contract")
+        } catch let failure as RouterHostValidationFailure {
+            #expect(failure.code == .rendererMismatch)
+            #expect(failure.scope == .root)
         }
+        #expect(store.revision == 1)
         let testStore = RouterTestStore<R>()
         let restored = try await testStore.restore(from: data, using: codec, tabTopology: topology)
         guard case .applied(_, _, let testState, _) = restored.transition else {
@@ -64,11 +75,11 @@ struct TabRestorationConsumerTests {
         _ = await store.scope(at: ["settings"]).perform(.pop(count: 1))
         #expect(store.scope(at: ["settings"]).node == .stack())
         let saved = try await store.snapshot(using: codec)
-        let reopened = R.makeRouterStore()
+        let reopened = try R.makeRouterStore(initialState: initial, configuration: configuration)
         _ = try await reopened.restore(from: saved, using: codec, tabTopology: topology)
         #expect(reopened.state == store.state)
 
-        let driverStore = R.makeRouterStore()
+        let driverStore = try R.makeRouterStore(initialState: initial, configuration: configuration)
         let driver = RouterRestorationDriver(
             store: driverStore,
             codec: codec,

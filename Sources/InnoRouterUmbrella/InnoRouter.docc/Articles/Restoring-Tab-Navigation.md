@@ -4,10 +4,12 @@ Restore saved navigation into the tab catalog the application renders now.
 
 ## Availability
 
-Explicit tab-topology restoration requires **InnoRouter 6.1.0 or later**. The existing restore
-overloads continue to apply the snapshot exactly unless a topology is supplied.
+Explicit tab-topology restoration first shipped in InnoRouter 6.1.0. This guide
+and the current example use the **InnoRouter 7** host descriptor APIs. Restore
+overloads remain exact unless a topology is supplied; a configured host
+contract rejects incompatible candidates before commit.
 
-The complete [TabRestorationExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/6.1.0/Examples/TabRestorationExample.swift)
+The complete [TabRestorationExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/TabRestorationExample.swift)
 uses one `import InnoRouter`, a Codable `@Router` enum, file storage, a
 restoration driver, and a native tab host. The example source itself is compiled
 by the package; its session is exercised by integration tests.
@@ -15,7 +17,10 @@ by the package; its session is exercised by integration tests.
 ## Keep one catalog and one store
 
 Create a `RouterTabCatalog` from the enum's generated `routerTabs`. Use that
-same catalog for `RouterTabRestorationTopology(catalog:)` and the host. Retain
+same catalog for `RouterTabRestorationTopology(catalog:)`, the Store's
+`RouterHostDescriptor(root: catalog.hostShape(orphanPolicy: .preserveDormant))`,
+and the host. Create the initial current-tab state explicitly; the empty
+`makeRouterStore()` convenience remains a root stack. Retain
 the store and driver across view updates, as the example does with a session
 held in `@State`. Do not reconstruct them inside `body`.
 
@@ -96,10 +101,12 @@ Its current catalog contains `home` and the newly introduced `settings` tab.
 | Selection points to `legacy` | Selection falls back to the first current scope, `home`. |
 
 Render this state with
-`RouterTabHost(store:catalog:allowingOrphanedBranches: true)`. The existing
-manual `init(store:catalog:)` intentionally requires an exact branch set. The
-orphan-tolerant initializer still rejects a non-stack current scope or a
-selection outside the current catalog.
+`try RouterTabHost(store: store, catalog: catalog, orphanPolicy: .preserveDormant)`.
+Set the Store's `configuration.hostDescriptor` to the same catalog shape and
+orphan policy during setup. Both supplied-store overloads throw. Their default
+policy is `.reject`; it must match the Store declaration. Preservation still
+rejects a non-stack current scope or a selection outside the rendered catalog.
+Construction never registers a contract, reconciles state, or invents a scope.
 
 Topology reconciliation is not a payload migration or a tab-renaming map.
 Labels and order do not change identity. Before renaming a tab route case, add

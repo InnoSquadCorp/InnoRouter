@@ -77,13 +77,14 @@ private final class TabSelectionRaceFixture {
                 break
             }
         })
+        configuration.hostDescriptor = .init(root: try RouterTabCatalog(TabSelectionRaceRoute.routerTabs).hostShape())
         configuration.runtimeDependencies.didQueueRequest = { id in
             didQueue.yield(id)
         }
         let store = try RouterStore(initialState: try Self.state(), configuration: configuration)
         self.store = store
         self.scope = store.scope()
-        self.host = RouterTabHost(store: store)
+        self.host = try RouterTabHost(store: store)
         self.terminals = terminals
         self.queued = queued
     }
@@ -133,7 +134,9 @@ struct RouterTabSelectionRaceTests {
         ])
         let replacement = try TabSelectionRaceFixture.state(style: style)
         let replace = Task { @MainActor in
-            await fixture.store.perform(.apply(.init(state: replacement)))
+            await fixture.store.replaceHost(
+                with: .init(state: replacement), descriptor: Self.replacementDescriptor(style: style)
+            )
         }
         try await gate.waitUntilEntered()
 
@@ -152,7 +155,7 @@ struct RouterTabSelectionRaceTests {
             return
         }
 
-        #expect(reason == .mutation(.incompatibleNavigationTopology(.root)))
+        #expect(reason == .mutation(.expiredScope(.root)))
         #expect(state == replacement)
         #expect(revision == 1)
         #expect(fixture.store.state == replacement)
@@ -205,19 +208,22 @@ struct RouterTabSelectionRaceTests {
             return
         }
         let replacement = try TabSelectionRaceFixture.state(style: style)
-        guard case .applied = await fixture.store.perform(.apply(.init(state: replacement))) else {
+        guard case .applied = await fixture.store.replaceHost(
+                with: .init(state: replacement), descriptor: Self.replacementDescriptor(style: style)
+            ) else {
             Issue.record("Expected root replacement to commit")
             return
         }
 
-        // Rebase removes the revision guard so this regression isolates the
-        // host's execution-time topology precondition, including deferral.
+        // Rebase removes the revision guard. An explicit host replacement
+        // still retires the original callback's scope authority; the callback
+        // must not acquire the replacement root merely because its IDs match.
         let outcome = await fixture.store.resumeDeferred(deferral, strategy: .rebaseOnCurrentState)
         guard case .rejected(_, let state, let revision, let reason) = outcome else {
             Issue.record("Expected the rebased tab callback to reject")
             return
         }
-        #expect(reason == .mutation(.incompatibleNavigationTopology(.root)))
+        #expect(reason == .mutation(.expiredScope(.root)))
         #expect(state == replacement)
         #expect(revision == 1)
         #expect(fixture.store.state == replacement)
@@ -278,6 +284,17 @@ struct RouterTabSelectionRaceTests {
         #expect(fixture.scope.observedSelection == "home")
         #expect(fixture.store.revision == 0)
         #expect(fixture.scope.reconciliationRevision == 1)
+    }
+
+    private static func replacementDescriptor(style: RouterContainerStyle) -> RouterHostDescriptor<TabSelectionRaceRoute> {
+        let branches: [RouterHostBranch] = [.init("home", shape: .stack), .init("inbox", shape: .stack)]
+        let shape: RouterHostShape
+        switch style {
+        case .split: shape = .splitTwo(sidebar: branches[0], detail: branches[1])
+        case .custom(let id): shape = .custom(declarationID: id, branches: branches, extras: .reject)
+        case .tabs: shape = .tabs(branches: branches, extras: .reject)
+        }
+        return .init(root: shape)
     }
 
     private func deferredSelectionFixture(

@@ -147,10 +147,10 @@ struct RouterSplitHostTests {
         )
         let store = try RouterStore<RouterSplitHostRoute>(
             initialState: try RouterState(root: .container(split)),
-            configuration: .init { recorder.events.append($0) }
+            configuration: .init(hostDescriptor: .init(root: RouterTwoColumnSplitLayout.standard.hostShape)) { recorder.events.append($0) }
         )
         let gate = RouterSplitHostInvocationGate()
-        let host = RouterSplitHost(
+        let host = try RouterSplitHost(
             store: store,
             sidebar: { Text("Sidebar") },
             root: { RouterSplitHostProbe(gate: gate) }
@@ -195,32 +195,26 @@ struct RouterSplitHostTests {
         _ = host.body
     }
 
-    // Exact restoration may replace the root with any valid shape. SwiftUI
-    // re-runs these initializers on every parent body pass, so a root that is
-    // not the host's split shape must render rather than trap.
-    @Test("Split hosts render over a store whose root is not a split container")
-    func nonSplitRootDoesNotAbort() throws {
+    @Test("Split hosts explicitly reject an application-owned stack without mutating it")
+    func nonSplitRootRejectsWithoutMutation() throws {
         let restored = RouterState<RouterSplitHostRoute>.rootStack(path: [.detail(id: "restored")])
-        let store = try RouterStore(initialState: restored)
-
-        _ = try renderRouterSplitHost(RouterSplitHost(
-            store: store,
-            sidebar: { Text("Sidebar") },
-            root: { Text("Detail") }
-        ))
-        _ = try renderRouterSplitHost(RouterThreeColumnSplitHost(
-            store: store,
-            sidebar: { Text("Sidebar") },
-            content: { Text("Content") },
-            detail: { Text("Detail") }
-        ))
-
+        let store = try RouterStore(initialState: restored, configuration: .init(hostDescriptor: .init(root: .stack)))
+        expectSplitHostFailure(.rendererMismatch) {
+            _ = try RouterSplitHost(store: store, sidebar: { Text("Sidebar") }, root: { Text("Detail") })
+        }
+        expectSplitHostFailure(.rendererMismatch) {
+            _ = try RouterThreeColumnSplitHost(
+                store: store, sidebar: { Text("Sidebar") }, content: { Text("Content") }, detail: { Text("Detail") }
+            )
+        }
         #expect(store.state == restored)
+        #expect(store.revision == 0)
+        let stackHost = RouterHost(store: store) { Text("Stack root") }
+        #expect(stackHost.validationFailure == nil)
     }
 
-    // A root of another shape can carry branches named like the split
-    // columns. The host renders over it without owning its topology, so its
-    // default link must not push into the same-named branch.
+    // A root of another shape can carry branches named like split columns.
+    // Even the standalone planner must reject that incompatible topology.
     @Test("Split host links never write into a root of another shape")
     func mismatchedRootRejectsSplitLinks() throws {
         let tabs = try RouterState<RouterSplitHostRoute>(root: .container(.init(
@@ -237,51 +231,49 @@ struct RouterSplitHostTests {
         #expect(plan.state.node(at: ["detail"]) == .stack(path: [.detail(id: "link")]))
     }
 
-    // The detail column's own content navigates on appear. Over a tabs root
-    // that carries a `detail` branch, the column must not resolve or write it.
-    @Test("Split host columns never write into a root of another shape")
-    func mismatchedRootRejectsColumnNavigation() async throws {
+    @Test("Split host columns cannot acquire authority over another declared root shape")
+    func mismatchedRootRejectsColumnNavigation() throws {
         let restored = try RouterState<RouterSplitHostRoute>(root: .container(.init(
-            style: .tabs,
-            selection: "detail",
+            style: .tabs, selection: "detail",
             branches: [RouterBranch(id: "sidebar"), RouterBranch(id: "detail")]
         )))
-        let store = try RouterStore(initialState: restored)
+        let shape = RouterHostShape.tabs(branches: [
+            .init("sidebar", shape: .stack), .init("detail", shape: .stack),
+        ], extras: .reject)
+        let store = try RouterStore(initialState: restored, configuration: .init(hostDescriptor: .init(root: shape)))
         let gate = RouterSplitHostInvocationGate()
-
-        _ = try renderRouterSplitHost(RouterSplitHost(
-            store: store,
-            sidebar: { Text("Sidebar") },
-            root: { RouterSplitHostProbe(gate: gate) }
-        ))
-        for _ in 0..<6 { await Task.yield() }
-
-        #expect(gate.didRun)
+        expectSplitHostFailure(.rendererMismatch) {
+            _ = try RouterSplitHost(
+                store: store, sidebar: { Text("Sidebar") }, root: { RouterSplitHostProbe(gate: gate) }
+            )
+        }
+        #expect(!gate.didRun)
         #expect(store.state == restored)
         #expect(store.revision == 0)
     }
 
-    @Test("Split hosts render over the other column count's split state")
-    func mismatchedColumnCountDoesNotAbort() throws {
+    @Test("Split hosts reject the other column count and admit matching declared layouts")
+    func mismatchedColumnCountRejectsWithoutMutation() throws {
         let twoColumn = try makeSplitStore(threeColumn: false)
         let threeColumn = try makeSplitStore(threeColumn: true)
         let twoColumnState = twoColumn.state
         let threeColumnState = threeColumn.state
-
-        _ = try renderRouterSplitHost(RouterSplitHost(
-            store: threeColumn,
-            sidebar: { Text("Sidebar") },
-            root: { Text("Detail") }
-        ))
-        _ = try renderRouterSplitHost(RouterThreeColumnSplitHost(
-            store: twoColumn,
-            sidebar: { Text("Sidebar") },
-            content: { Text("Content") },
-            detail: { Text("Detail") }
-        ))
-
+        expectSplitHostFailure(.rendererMismatch) {
+            _ = try RouterSplitHost(store: threeColumn, sidebar: { Text("Sidebar") }, root: { Text("Detail") })
+        }
+        expectSplitHostFailure(.rendererMismatch) {
+            _ = try RouterThreeColumnSplitHost(
+                store: twoColumn, sidebar: { Text("Sidebar") }, content: { Text("Content") }, detail: { Text("Detail") }
+            )
+        }
+        _ = try RouterSplitHost(store: twoColumn, sidebar: { Text("Sidebar") }, root: { Text("Detail") })
+        _ = try RouterThreeColumnSplitHost(
+            store: threeColumn, sidebar: { Text("Sidebar") }, content: { Text("Content") }, detail: { Text("Detail") }
+        )
         #expect(twoColumn.state == twoColumnState)
         #expect(threeColumn.state == threeColumnState)
+        #expect(twoColumn.revision == 0)
+        #expect(threeColumn.revision == 0)
     }
 
     @Test("Two- and three-column hosts follow replacement application-owned stores")
@@ -293,7 +285,7 @@ struct RouterSplitHostTests {
         _ = await secondTwo.perform(
             .push(.detail(id: "second-two")).inScope("detail")
         )
-        let twoView = RouterSplitHost(
+        let twoView = try RouterSplitHost(
             store: firstTwo,
             sidebar: { Text("Sidebar") },
             root: {
@@ -306,7 +298,7 @@ struct RouterSplitHostTests {
         let twoHost = try renderRouterSplitHost(twoView)
         for _ in 0..<8 { await Task.yield() }
 
-        twoHost.rootView = RouterSplitHost(
+        twoHost.rootView = try RouterSplitHost(
             store: secondTwo,
             sidebar: { Text("Sidebar") },
             root: {
@@ -327,7 +319,7 @@ struct RouterSplitHostTests {
         _ = await secondThree.perform(
             .push(.detail(id: "second-three")).inScope("detail")
         )
-        let threeView = RouterThreeColumnSplitHost(
+        let threeView = try RouterThreeColumnSplitHost(
             store: firstThree,
             sidebar: { Text("Sidebar") },
             content: { Text("Content") },
@@ -341,7 +333,7 @@ struct RouterSplitHostTests {
         let threeHost = try renderRouterSplitHost(threeView)
         for _ in 0..<8 { await Task.yield() }
 
-        threeHost.rootView = RouterThreeColumnSplitHost(
+        threeHost.rootView = try RouterThreeColumnSplitHost(
             store: secondThree,
             sidebar: { Text("Sidebar") },
             content: { Text("Content") },
@@ -380,7 +372,26 @@ private func makeSplitStore(
         branches: branches,
         split: split
     )
-    return try RouterStore(initialState: try RouterState(root: .container(container)))
+    let shape = threeColumn ? RouterThreeColumnSplitLayout.standard.hostShape : RouterTwoColumnSplitLayout.standard.hostShape
+    return try RouterStore(
+        initialState: try RouterState(root: .container(container)),
+        configuration: .init(hostDescriptor: .init(root: shape))
+    )
+}
+
+@MainActor
+private func expectSplitHostFailure(
+    _ code: RouterHostValidationFailure.Code,
+    operation: () throws -> Void
+) {
+    do {
+        try operation()
+        Issue.record("Expected a typed host validation failure")
+    } catch let failure as RouterHostValidationFailure {
+        #expect(failure.code == code)
+    } catch {
+        Issue.record("Expected host validation failure, received \(type(of: error))")
+    }
 }
 
 #if canImport(AppKit)

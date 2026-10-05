@@ -1,4 +1,4 @@
-# InnoRouter 6 examples
+# InnoRouter 7 examples
 
 These examples are intentionally macro-first and compile against the single
 public `InnoRouter` runtime product.
@@ -8,8 +8,8 @@ public `InnoRouter` runtime product.
 - `DeepLinkExample.swift` demonstrates fail-closed `@DeepLink` resolution in a
   macro-first host.
 - `TabRestorationExample.swift` connects a Codable `@Router`, one store/catalog,
-  file storage, the restoration driver, and an orphan-tolerant tab host. It
-  requires **InnoRouter 6.1.0 or later**.
+  file storage, the restoration driver, and a tab host with explicit dormant-branch preservation. It
+  uses the **InnoRouter 7** throwing host and descriptor APIs.
 
 The matching files in `ExamplesSmoke/` are compiler-stable CI fixtures. The
 independent package under `ConsumerSmoke/` proves the actual downstream product
@@ -23,10 +23,9 @@ swift build --target InnoRouterMacroFirstSmoke
 ./scripts/external-consumer-smoke.sh
 ```
 
-## Tab restoration (6.1.0)
+## Tab restoration (7.0.0)
 
-Copy `TabRestorationExample.swift` into a SwiftUI app using InnoRouter 6.1.0
-or later. The file imports
+Copy `TabRestorationExample.swift` into a SwiftUI app using InnoRouter 7. The file imports
 only the public `InnoRouter` product; no internal modules or test tools are
 required. Add this app entry point, or use the view in an existing app:
 
@@ -57,7 +56,8 @@ Use a dedicated demo path. The launcher has two explicit actions:
 
 On the first action, Home shows the saved `saved-home` detail, Settings is a
 new empty stack, and the removed Legacy tab is hidden. Its saved subtree is
-retained as an orphan; selection falls back from Legacy to Home. Select
+retained as an explicitly dormant orphan; the requested restoration topology
+changes selection from Legacy to Home before Store admission. Select
 Settings, choose Open detail, and await Save now's success message. Quit and
 reopen, choose Open saved session, and confirm the Settings detail returns.
 Automatic writes are also coalesced after navigation and flushed when the

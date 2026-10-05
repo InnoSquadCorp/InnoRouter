@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--modules', required=True, type=Path)
 parser.add_argument('--build-provenance', required=True, type=Path)
 parser.add_argument('--scratch', required=True, type=Path)
+parser.add_argument('--only-fixture', action='append', default=[], help='Run selected boundary probes against a reduced module set')
 args = parser.parse_args()
 args.scratch.mkdir(parents=True, exist_ok=True)
 base = 'import Foundation\nimport InnoRouterCore\nenum R: String, Route { case home }\n'
@@ -76,6 +77,38 @@ struct Opaque: Sendable { let operation: @Sendable () -> Int }
     'presentation_resume_authority_negative': (runtime + 'let owner = RouterPresentationResumeAuthority()\n', r"cannot find|inaccessible|protection level"),
     'transient_transport_capability_negative': (base + 'let encoder = RouterTransientDescriptorTransport.encoder()\n', r"cannot find|inaccessible|protection level"),
 })
+fixtures.update({
+    'host_descriptor_public_positive': (base + """
+let shape = RouterHostShape.tabs(branches: [RouterHostBranch("home", shape: .stack)], extras: .preserveDormant)
+let childCatalog = RouterHostCatalog<R>(entries: [RouterHostCatalogEntry("editor", shape: .stack)], declaration: { _ in "editor" })
+let descriptor = RouterHostDescriptor<R>(root: .stack, presentations: childCatalog, windows: .stack, immersiveSpaces: .none)
+try descriptor.validate(RouterState<R>.rootStack, resourceBudget: .provisional)
+try descriptor.validate(RouterStateDraft<R>(), resourceBudget: .provisional)
+try descriptor.validateRenderer(.stack, at: .root, in: RouterState<R>.rootStack, resourceBudget: .provisional)
+let declared = try descriptor.shape(at: .root, in: RouterState<R>.rootStack)
+let shapes: Set<RouterHostShape> = [shape, declared]
+""", None),
+    'host_failure_extensible_positive': (base + """
+let failure = RouterHostValidationFailure(code: .init(rawValue: "hostShape.future"))
+let required = RouterHostValidationFailure(code: .required, scope: .root)
+let stale = RouterHostValidationFailure(code: .stale, scope: .root)
+let rejection = RouterRejectionReason.hostContract(stale)
+func classify(_ failure: RouterHostValidationFailure) -> Bool {
+    switch failure.code { case .rendererMismatch: true; default: false }
+}
+let failures: Set<RouterHostValidationFailure> = [failure, required]
+""", None),
+    'host_prototype_alias_negative': (base + 'let shape = RouterHostShapeContract.stack\n', r"cannot find 'RouterHostShapeContract'|inaccessible|package.*protection"),
+    'host_descriptor_mutation_negative': (base + 'var descriptor = RouterHostDescriptor<R>(root: .stack)\ndescriptor.root = .stack\n', r"'root'.*(?:constant|immutable|inaccessible)|cannot assign.*'root'"),
+    'host_catalog_mutation_negative': (base + 'var catalog = RouterHostCatalog<R>.stack\ncatalog.entries.append(.init("new", shape: .stack))\n', r"'entries'.*(?:constant|immutable|inaccessible)|cannot use mutating member.*immutable"),
+    'host_catalog_resolver_negative': (base + 'let catalog = RouterHostCatalog<R>.stack\n_ = catalog.declaration(.home)\n', r"'declaration'.*inaccessible|package.*protection"),
+    'host_failure_detail_negative': (base + 'let failure = RouterHostValidationFailure(code: .required)\n_ = failure.detail\n', r"'detail'.*inaccessible|package.*protection"),
+})
+if args.only_fixture:
+    unknown = set(args.only_fixture) - fixtures.keys()
+    if unknown:
+        parser.error('Unknown fixture(s): ' + ', '.join(sorted(unknown)))
+    fixtures = {name: fixture for name, fixture in fixtures.items() if name in args.only_fixture}
 record = {
     'scope': 'external module typechecking against reduced actual-source Linux engine',
     'excluded': ['shipped public product graph', 'SwiftUI', 'ABI/API baseline', 'Apple SDK/full compiler matrix'],

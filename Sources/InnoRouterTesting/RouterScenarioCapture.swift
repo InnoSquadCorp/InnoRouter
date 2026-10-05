@@ -14,6 +14,7 @@ public enum RouterScenarioTerminal: String, Hashable, Sendable, Codable {
 /// without serializing transition IDs or application messages.
 public enum RouterScenarioRejectionKind: String, Hashable, Sendable, Codable {
     case resourceLimit
+    case hostContract
     case pendingLinkLifetime
     case mutation, featureProjection, policy, authorization, busy, coalesced, superseded
     case queueOverflow, policyTimedOut, policyCapacityExceeded, deferralConflict, deferralNotFound

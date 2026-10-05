@@ -13,6 +13,7 @@ public struct RouterScenarioReplayLimitation: RawRepresentable, Hashable, Sendab
     public static let runtimeOwnershipReplacement = Self(rawValue: "runtime.ownershipReplacement")
     public static let runtimeExecutionPrecondition = Self(rawValue: "runtime.executionPrecondition")
     public static let runtimeResultAuthority = Self(rawValue: "presentation.runtimeResultAuthority")
+    public static let runtimeHostContract = Self(rawValue: "runtime.hostContract")
     public static let runtimeAuthorization = Self(rawValue: "runtime.authorization")
 
     static func validate<R: Route & Codable>(_ steps: [RouterScenarioStep<R>]) throws {

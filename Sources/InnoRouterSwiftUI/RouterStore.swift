@@ -16,10 +16,15 @@ import InnoRouterCore
 @Observable
 public final class RouterStore<R: Route> {
     /// The complete committed navigation state.
-    public private(set) var state: RouterState<R>
+    public var state: RouterState<R> { committedValue.state }
+
+    /// Frozen host contract committed atomically with the navigation value.
+    public var hostDescriptor: RouterHostDescriptor<R>? { committedValue.hostDescriptor }
+
+    var committedValue: RouterCommittedValue<R>
 
     /// Monotonic committed-state revision used for stale-prepare detection.
-    public private(set) var revision: UInt64
+    public var revision: UInt64 { committedValue.revision }
 
     /// Payload-safe unresolved requests released by prepare policies.
     public package(set) var deferredTransitions: [RouterDeferredTransition] = []
@@ -126,6 +131,12 @@ public final class RouterStore<R: Route> {
         self.init(validatedState: .rootStack, configuration: .init())
     }
 
+    /// No application state, declaration or configuration is accepted here.
+    /// Keeps the empty native stack convenience nonthrowing without a trap.
+    package static func makeDefaultHostedStack() -> RouterStore<R> {
+        RouterStore(validatedState: .rootStack, configuration: .init(hostDescriptor: .init(root: .stack)))
+    }
+
     /// Validates resource, structural, and scene-catalog invariants before
     /// creating any scopes or retaining the supplied state.
     public convenience init(
@@ -135,6 +146,7 @@ public final class RouterStore<R: Route> {
         try configuration.validate()
         try configuration.resourceBudget.validate(initialState)
         try initialState.validate()
+        try configuration.hostDescriptor?.validate(initialState, resourceBudget: configuration.resourceBudget)
         if let error = Self.sceneCatalogValidationError(in: initialState) {
             throw error
         }
@@ -146,8 +158,7 @@ public final class RouterStore<R: Route> {
         configuration: RouterStoreConfiguration<R>
     ) {
         self.resourceBudget = configuration.resourceBudget
-        self.state = initialState
-        self.revision = 0
+        self.committedValue = .init(state: initialState, hostDescriptor: configuration.hostDescriptor)
         let scopeLifetimes = Self.makeScopeLifetimes(in: initialState)
         self.scopeLifetimes = scopeLifetimes
         self.presentationLifetimes = Self.makePresentationLifetimes(in: initialState, scopes: scopeLifetimes)
@@ -220,144 +231,6 @@ public final class RouterStore<R: Route> {
     package func reserveTransitionID() -> RouterTransitionID {
         runtimeDependencies.makeTransitionID()
     }
-
-    private func commitPreparedTransition(
-        _ transition: RouterTransition<R>,
-        requestRootID: RouterTransitionID,
-        presentationCompletionOwner: RouterPresentationCompletionOwner,
-        lifetimeMutation: RouterScopeLifetimeMutation,
-        executionPrecondition: RouterRequestPrecondition<R>?
-    ) -> RouterOutcome<R> {
-        guard revision == transition.initialRevision else {
-            return reject(
-                transition.id,
-                reason: .staleState(
-                    expectedRevision: transition.initialRevision,
-                    actualRevision: revision
-                ),
-                context: transition.context,
-                action: transition.action
-            )
-        }
-        guard !requestCancellationIsPending(transition.id) else {
-            return reject(
-                transition.id,
-                reason: .cancelled,
-                context: transition.context,
-                action: transition.action
-            )
-        }
-        if let rejection = executionPrecondition?(state) {
-            return reject(
-                transition.id,
-                reason: rejection,
-                context: transition.context,
-                action: transition.action
-            )
-        }
-        guard !requestCancellationIsPending(transition.id) else {
-            return reject(
-                transition.id,
-                reason: .cancelled,
-                context: transition.context,
-                action: transition.action
-            )
-        }
-
-        if transition.proposedState == transition.initialState {
-            let previousScopes = Array(scopes.values)
-            let retired = updateScopeLifetimes(after: state, mutation: lifetimeMutation, requestRootID: requestRootID)
-            finishDismissedPresentations(
-                ids: retired, before: transition.initialState, action: transition.action,
-                owner: presentationCompletionOwner
-            )
-            return unchangedOutcome(
-                id: transition.id, state: state, revision: revision,
-                action: transition.action, context: transition.context,
-                including: previousScopes
-            )
-        }
-        return commitOutcome(
-            id: transition.id,
-            requestRootID: requestRootID,
-            before: transition.initialState,
-            after: transition.proposedState,
-            action: transition.action,
-            context: transition.context,
-            lifetimeMutation: lifetimeMutation,
-            presentationCompletionOwner: presentationCompletionOwner
-        )
-    }
-
-    private func makeProposedState(
-        _ action: RouterAction<R>,
-        from initialState: RouterState<R>
-    ) throws -> RouterState<R> {
-        let proposedState = try RouterReducer.reduce(action, from: initialState, resourceBudget: resourceBudget)
-        if let error = Self.sceneCatalogValidationError(in: proposedState) {
-            throw error
-        }
-        return proposedState
-    }
-
-    private func unchangedOutcome(
-        id: RouterTransitionID,
-        state: RouterState<R>,
-        revision: UInt64,
-        action: RouterAction<R>,
-        context: RouterTransitionContext,
-        including previousScopes: [WeakRouterScope<R>] = []
-    ) -> RouterOutcome<R> {
-        refreshScopes(after: action, context: context, including: previousScopes)
-        emit(.unchanged(
-            transitionID: id,
-            state: state,
-            revision: revision,
-            context: context
-        ))
-        return .unchanged(id: id, state: state, revision: revision)
-    }
-
-    private func commitOutcome(
-        id: RouterTransitionID,
-        requestRootID: RouterTransitionID,
-        before: RouterState<R>,
-        after: RouterState<R>,
-        action: RouterAction<R>,
-        context: RouterTransitionContext,
-        lifetimeMutation: RouterScopeLifetimeMutation,
-        presentationCompletionOwner: RouterPresentationCompletionOwner
-    ) -> RouterOutcome<R> {
-        let previousScopes = Array(scopes.values)
-        let retired = updateScopeLifetimes(after: after, mutation: lifetimeMutation, requestRootID: requestRootID)
-        updateSceneLifecycleTokens(before: before, after: after)
-        commit(after, animation: context.animation)
-        revision &+= 1
-        refreshScopes(after: action, context: context, including: previousScopes)
-        finishDismissedPresentations(
-            ids: retired,
-            before: before,
-            action: action,
-            owner: presentationCompletionOwner
-        )
-        emit(.committed(
-            transitionID: id,
-            before: before,
-            after: after,
-            revision: revision,
-            context: context
-        ))
-        return .applied(id: id, before: before, after: after, revision: revision)
-    }
-
-    private func commit(
-        _ proposedState: RouterState<R>,
-        animation: RouterAnimation?
-    ) {
-        RouterNativeTransaction.commit(animation: animation) {
-            state = proposedState
-        }
-    }
 }
 
 enum RouterExecutionAdmission<R: Route> {
@@ -377,6 +250,7 @@ extension RouterStore {
         requestSemantics: RouterRequestSemantics<R>,
         authorization: RouterRequestAuthorization<R>?,
         lifetimeMutation: RouterScopeLifetimeMutation,
+        hostReplacement: RouterHostReplacement<R>?,
         presentationCompletionOwner: RouterPresentationCompletionOwner,
         executionPrecondition: RouterRequestPrecondition<R>?,
         executionPreparation: RouterRequestPreparationBuilder<R>?,
@@ -402,9 +276,11 @@ extension RouterStore {
         let initialState = state, initialRevision = revision
         let proposedState: RouterState<R>
         do {
-            proposedState = try makeProposedState(preparedAction, from: initialState)
+            proposedState = try makeProposedState(preparedAction, from: initialState, hostReplacement: hostReplacement)
         } catch let failure as RouterResourceLimitFailure {
             return reject(transitionID, reason: .resourceLimit(failure), context: context)
+        } catch let failure as RouterHostValidationFailure {
+            return reject(transitionID, reason: .hostContract(failure), context: context)
         } catch let error as RouterMutationError {
             return reject(
                 transitionID,
@@ -439,7 +315,7 @@ extension RouterStore {
             return reject(transitionID, reason: reason, context: context, action: preparedAction)
         }
 
-        if proposedState == initialState && !lifetimeMutation.replacesOwnership
+        if proposedState == initialState && hostReplacement == nil && !lifetimeMutation.replacesOwnership
             && self.authorization == nil && authorization?.configuration == nil {
             return unchangedOutcome(
                 id: transitionID,
@@ -473,6 +349,7 @@ extension RouterStore {
             requestSemantics: requestSemantics,
             authorization: authorization,
             lifetimeMutation: lifetimeMutation,
+            hostReplacement: hostReplacement,
             requestRootID: requestRootID,
             presentationCompletionOwner: presentationCompletionOwner,
             executionPrecondition: executionPrecondition,
@@ -484,6 +361,7 @@ extension RouterStore {
             requestRootID: requestRootID,
             presentationCompletionOwner: presentationCompletionOwner,
             lifetimeMutation: lifetimeMutation,
+            hostReplacement: hostReplacement,
             executionPrecondition: executionPrecondition
         )
     }
@@ -494,6 +372,7 @@ extension RouterStore {
         requestRootID: RouterTransitionID,
         presentationCompletionOwner: RouterPresentationCompletionOwner,
         lifetimeMutation: RouterScopeLifetimeMutation,
+        hostReplacement: RouterHostReplacement<R>?,
         executionPrecondition: RouterRequestPrecondition<R>?
     ) -> RouterOutcome<R> {
         switch preparation {
@@ -503,6 +382,7 @@ extension RouterStore {
                 requestRootID: requestRootID,
                 presentationCompletionOwner: presentationCompletionOwner,
                 lifetimeMutation: lifetimeMutation,
+            hostReplacement: hostReplacement,
                 executionPrecondition: executionPrecondition
             )
         case .rejected(let reason):

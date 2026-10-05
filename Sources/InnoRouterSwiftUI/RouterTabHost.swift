@@ -2,19 +2,29 @@ import SwiftUI
 
 import InnoRouterCore
 
-/// A macro-first native tab host backed by one canonical ``RouterStore``.
+public extension RouterTabCatalog {
+    /// The frozen, ordered stack renderers declared by this tab catalog.
+    func hostShape(orphanPolicy: RouterHostOrphanPolicy = .reject) -> RouterHostShape {
+        .tabs(
+            branches: descriptors.map { .init($0.tab.routerScopeID, shape: .stack) },
+            extras: orphanPolicy
+        )
+    }
+}
+
+/// Native tabs backed by one Store and an explicit, immutable rendering catalog.
 ///
-/// Cases carrying `@TabItem` become tab roots. Unmarked cases in the same
-/// `@Router` enum remain ordinary push or presentation destinations, allowing
-/// one route type and one store to own the complete tab hierarchy.
+/// A supplied Store must already declare this host through its configuration.
+/// Construction validates that declaration without changing Store state. Shape
+/// changes require the owner's atomic `replaceHost` operation and a new renderer.
 @MainActor
 public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
-    @State private var ownedStore: RouterStore<R>?
+    @State private var ownedStore: RouterStore<R>
     private let suppliedStore: RouterStore<R>?
     private let tabs: [RouterTabDescriptor<R, R.Tab>]
+    private let shape: RouterHostShape
     private let linkHandling: RouterLinkHandling<R>?
 
-    /// Creates a tab tree with one stack scope per macro-declared tab root.
     public init(
         _ routeType: R.Type,
         initial: R.Tab,
@@ -22,42 +32,12 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         configuration: RouterStoreConfiguration<R> = .init(),
         linkHandling: RouterLinkHandling<R>? = nil
     ) throws {
-        _ = routeType
-        let catalog = try RouterTabCatalog(R.routerTabs)
-        let tabs = catalog.descriptors
-        guard catalog.descriptor(for: initial) != nil else {
-            throw RouterTabCatalogError.initialTabNotInCatalog
-        }
-        let branches = tabs.map { descriptor in
-            RouterBranch<R>(id: descriptor.tab.routerScopeID)
-        }
-        let badgePairs: [(RouterScopeID, Int)] = badges.compactMap { tab, count in
-                guard R.routerTab(for: tab) != nil, count > 0 else { return nil }
-                return (tab.routerScopeID, count)
-            }
-        let badgeState = Dictionary<RouterScopeID, Int>(
-            uniqueKeysWithValues: badgePairs
-        )
-        let container = try RouterContainerState(
-            style: .tabs,
-            selection: initial.routerScopeID,
-            branches: branches,
-            badges: badgeState
-        )
-        let initialState = try RouterStateDraft<R>(root: .container(container))
-            .build(resourceBudget: configuration.resourceBudget)
-        self.tabs = tabs
-        self.linkHandling = linkHandling
-        self.suppliedStore = nil
-        self._ownedStore = State(
-            initialValue: try R.makeRouterStore(
-                initialState: initialState,
-                configuration: configuration
-            )
+        try self.init(
+            routeType, catalog: RouterTabCatalog(R.routerTabs), initial: initial,
+            badges: badges, configuration: configuration, linkHandling: linkHandling
         )
     }
 
-    /// Creates a host from an explicitly validated manual tab catalog.
     public init(
         _ routeType: R.Type,
         catalog: RouterTabCatalog<R>,
@@ -70,331 +50,154 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         guard catalog.descriptor(for: initial) != nil else {
             throw RouterTabCatalogError.initialTabNotInCatalog
         }
-        let tabs = catalog.descriptors
-        let branches = tabs.map { descriptor in
-            RouterBranch<R>(id: descriptor.tab.routerScopeID)
+        let shape = catalog.hostShape()
+        var configuration = configuration
+        if configuration.hostDescriptor == nil {
+            configuration.hostDescriptor = RouterHostDescriptor(root: shape)
         }
-        let badgeState = Dictionary<RouterScopeID, Int>(
-            uniqueKeysWithValues: badges.compactMap { tab, count in
+        let container = try RouterContainerState(
+            style: .tabs,
+            selection: initial.routerScopeID,
+            branches: catalog.descriptors.map { RouterBranch<R>(id: $0.tab.routerScopeID) },
+            badges: Dictionary<RouterScopeID, Int>(uniqueKeysWithValues: badges.compactMap { tab, count in
                 guard catalog.descriptor(for: tab) != nil, count > 0 else { return nil }
                 return (tab.routerScopeID, count)
-            }
+            })
         )
-        let container = try RouterContainerState(
-            style: .tabs,
-            selection: initial.routerScopeID,
-            branches: branches,
-            badges: badgeState
-        )
-        let initialState = try RouterStateDraft<R>(root: .container(container))
+        let state = try RouterStateDraft<R>(root: .container(container))
             .build(resourceBudget: configuration.resourceBudget)
-        self.tabs = tabs
+        let store = try R.makeRouterStore(initialState: state, configuration: configuration)
+        try store.validateHostRenderer(shape: shape, at: .root)
+        self.tabs = catalog.descriptors
+        self.shape = shape
         self.linkHandling = linkHandling
         self.suppliedStore = nil
-        self._ownedStore = State(
-            initialValue: try R.makeRouterStore(
-                initialState: initialState,
-                configuration: configuration
-            )
+        self._ownedStore = State(initialValue: store)
+    }
+
+    public init(
+        store: RouterStore<R>,
+        orphanPolicy: RouterHostOrphanPolicy = .reject,
+        linkHandling: RouterLinkHandling<R>? = nil
+    ) throws {
+        try self.init(
+            store: store, catalog: RouterTabCatalog(R.routerTabs),
+            orphanPolicy: orphanPolicy, linkHandling: linkHandling
         )
     }
 
-    /// Hosts a tab-shaped state retained by an application boundary.
-    public init(
-        store: RouterStore<R>,
-        linkHandling: RouterLinkHandling<R>? = nil
-    ) {
-        let catalog: RouterTabCatalog<R>
-        do {
-            catalog = try RouterTabCatalog(R.routerTabs)
-        } catch {
-            preconditionFailure("@Router generated an invalid tab catalog: \(error)")
-        }
-        // Branch drift is tolerated rather than asserted. This is a View
-        // initializer, so SwiftUI re-runs it on every parent body pass, and the
-        // store's branches are not always something the application chose:
-        // `RouterRestorationDriver` applies a decoded snapshot through
-        // `.apply`, which replaces the root wholesale, and
-        // `RouterPartialRestoration` preserves branch identifiers as written.
-        // A snapshot taken before a tab was renamed or removed therefore
-        // reaches a host whose catalog no longer matches, and asserting there
-        // aborted the process on the next render.
-        //
-        // Rendering is driven by the catalog, and every tab resolves through
-        // `store.scope(at:)`, which yields a nil node for a branch that is not
-        // present. An orphaned branch goes unused. A tab the snapshot predates
-        // has no branch, and selecting it is rejected as a missing scope until
-        // the store is restored with a `RouterTabRestorationTopology`. Bumping
-        // `RouterSnapshotCodec.currentVersion` remains the way to reject or
-        // migrate a snapshot deliberately.
-        //
-        // A root that is not a tabs container is tolerated for the same
-        // reason. Exact restoration applies any valid decoded state, such as a
-        // stack written before this router adopted tabs. Each tab then renders
-        // its catalog root over an unresolvable scope, so a same-named branch
-        // of a split or custom root is neither shown nor written, and default
-        // links and tab bar selection are rejected, rather than trapping here.
-        if !Self.hasTabsRoot(store.state) {
-            RouterHostTopologyDiagnostics.reportMismatch(
-                host: "RouterTabHost",
-                expected: "a tabs container"
-            )
-        }
-        self.tabs = catalog.descriptors
-        self.linkHandling = linkHandling
-        self.suppliedStore = store
-        self._ownedStore = State(initialValue: nil)
-    }
-
-    /// Hosts application-owned state using a validated manual tab catalog.
+    /// Orphans are rejected unless preservation is explicitly declared in both
+    /// the Store contract and this renderer. Preserved branches cannot be selected.
     public init(
         store: RouterStore<R>,
         catalog: RouterTabCatalog<R>,
+        orphanPolicy: RouterHostOrphanPolicy = .reject,
         linkHandling: RouterLinkHandling<R>? = nil
-    ) throws {
-        let tabScopeIDs = catalog.descriptors.map(\.tab.routerScopeID)
-        guard case .container(let container) = store.state.root,
-              container.style == .tabs else {
-            throw RouterTabCatalogError.storeIsNotTabContainer
-        }
-        guard Set(container.branches.map(\.id)) == Set(tabScopeIDs) else {
-            throw RouterTabCatalogError.storeBranchesDoNotMatchCatalog
-        }
+    ) throws(RouterHostValidationFailure) {
+        let shape = catalog.hostShape(orphanPolicy: orphanPolicy)
+        try store.validateHostRenderer(shape: shape, at: .root)
         self.tabs = catalog.descriptors
+        self.shape = shape
         self.linkHandling = linkHandling
         self.suppliedStore = store
-        self._ownedStore = State(initialValue: nil)
-    }
-
-    /// Hosts application-owned state that was restored against this catalog's
-    /// topology, tolerating branches the catalog no longer names.
-    ///
-    /// Use this with
-    /// ``RouterStore/restore(from:using:tabTopology:expectedRevision:)`` and
-    /// `RouterTabRestorationTopology(catalog:)` built from the same catalog.
-    /// Restoration keeps a branch this catalog dropped so a later catalog can
-    /// still reach it, and those orphans reach the host.
-    ///
-    /// Every tab in `catalog` must still have a branch: an orphan is a branch
-    /// nothing renders, whereas a missing catalog branch is a tab the host
-    /// cannot render. Set `allowingOrphanedBranches` to `false` for the exact
-    /// set match performed by
-    /// ``init(store:catalog:linkHandling:)``.
-    public init(
-        store: RouterStore<R>,
-        catalog: RouterTabCatalog<R>,
-        allowingOrphanedBranches: Bool,
-        linkHandling: RouterLinkHandling<R>? = nil
-    ) throws {
-        let tabScopeIDs = catalog.descriptors.map(\.tab.routerScopeID)
-        guard case .container(let container) = store.state.root,
-              container.style == .tabs else {
-            throw RouterTabCatalogError.storeIsNotTabContainer
-        }
-        let present = Set(container.branches.map(\.id))
-        guard let selection = container.selection, tabScopeIDs.contains(selection) else {
-            throw RouterTabCatalogError.storeBranchesDoNotMatchCatalog
-        }
-        if allowingOrphanedBranches {
-            guard present.isSuperset(of: tabScopeIDs) else {
-                throw RouterTabCatalogError.storeBranchesDoNotMatchCatalog
-            }
-        } else {
-            guard present == Set(tabScopeIDs) else {
-                throw RouterTabCatalogError.storeBranchesDoNotMatchCatalog
-            }
-        }
-        try RouterTabRestorationTopology(catalog: catalog).validateStackScopes(in: container)
-        self.tabs = catalog.descriptors
-        self.linkHandling = linkHandling
-        self.suppliedStore = store
-        self._ownedStore = State(initialValue: nil)
+        self._ownedStore = State(initialValue: store)
     }
 
     public var body: some View {
-        let rootScope = store.scope()
+        RouterValidatedHostSurface(store: store, shape: shape, path: .root) { rootScope in
+            tabView(rootScope)
+        }
+    }
 
+    private func tabView(_ rootScope: RouterScope<R>) -> some View {
         TabView(selection: selectionBinding(rootScope)) {
             ForEach(tabs) { descriptor in
                 let tab = descriptor.tab
                 let scopeID = tab.routerScopeID
-                let scope = store.scope(
-                    at: resolvesBranches(of: rootScope) ? RouterScopePath([.branch(scopeID)]) : .unresolvable
-                )
-                let selectedImage = displayedSelection(for: selectedScope(in: rootScope)) == scopeID
-                    ? tab.selectedSystemImage ?? tab.systemImage
-                    : tab.systemImage
+                let scope = store.scope(at: rootScope.path.appending(scopeID))
+                let image = rootScope.observedSelection == scopeID
+                    ? tab.selectedSystemImage ?? tab.systemImage : tab.systemImage
                 #if os(tvOS) || os(watchOS)
-                routerTab(
-                    descriptor,
-                    scope: scope,
-                    scopeID: scopeID,
-                    selectedImage: selectedImage,
-                    rootScope: rootScope
-                )
+                routerTab(descriptor, scope: scope, image: image, rootScope: rootScope)
                 #else
-                routerTab(
-                    descriptor,
-                    scope: scope,
-                    scopeID: scopeID,
-                    selectedImage: selectedImage,
-                    rootScope: rootScope
-                )
-                .badge(badge(for: scopeID, in: rootScope) ?? 0)
+                routerTab(descriptor, scope: scope, image: image, rootScope: rootScope)
+                    .badge(rootScope.observedBadges[scopeID] ?? 0)
                 #endif
             }
         }
         .routerAuthority(rootScope, for: R.self)
         .handleRouterPlans(
-            for: R.self,
-            scope: rootScope,
-            handling: linkHandling,
+            for: R.self, scope: rootScope, handling: linkHandling,
             fallbackPlan: defaultLinkPlan
         )
     }
 
-    // Shared with host integration tests so URL expectations exercise the
-    // production default rather than reimplementing it in a test closure.
     func defaultLinkPlan(_ route: R, _ state: RouterState<R>) throws -> RouterPlan<R> {
-        guard case .container(let container) = state.root else {
-            throw RouterMutationError.expectedContainer(.root)
+        try shape.validate(RouterStateDraft(state), at: .root, resourceBudget: store.resourceBudget)
+        if let tab = tabs.first(where: { $0.root == route })?.tab {
+            return RouterPlan(state: try RouterReducer.reduce(
+                .select(tab.routerScopeID), from: state, resourceBudget: store.resourceBudget
+            ))
         }
-        // A split or custom root can carry a branch named like a tab. The host
-        // renders over such a root without owning its topology, so a link must
-        // not select or push into that branch.
-        guard container.style == .tabs else {
+        guard case .container(let container) = state.root,
+              let target = container.selection else {
             throw RouterMutationError.incompatibleNavigationTopology(.root)
         }
-        if let tab = tabs.first(where: { $0.root == route })?.tab {
-            return RouterPlan(state: try RouterReducer.reduce(.select(tab.routerScopeID), from: state, resourceBudget: store.resourceBudget))
-        }
-        // Push into the tab on screen. When a restored selection names a
-        // branch this catalog dropped, the host displays its first tab, and
-        // pushing into the stored selection landed the route in a branch
-        // nothing renders. Selecting the displayed tab in the same plan keeps
-        // the state and the screen in agreement with one transition.
-        let target = displayedSelection(for: container.selection)
-        var prepared = state
-        if container.selection != target {
-            prepared = try RouterReducer.reduce(.select(target), from: prepared, resourceBudget: store.resourceBudget)
-        }
-        return RouterPlan(state: try RouterReducer.reduce(.scoped(target, .push(route)), from: prepared, resourceBudget: store.resourceBudget))
+        return RouterPlan(state: try RouterReducer.reduce(
+            .scoped(target, .push(route)), from: state, resourceBudget: store.resourceBudget
+        ))
     }
 
-    /// The tab the host displays for a stored `selection`.
-    ///
-    /// A restored selection can name a branch this catalog no longer declares,
-    /// and a root of another shape may have no selection or one that is not a
-    /// tab. `TabView` must stay inside the set `ForEach` renders, so the host
-    /// displays its first tab instead. The selected tab image and the default
-    /// link target use the same answer, so none of them disagrees with the
-    /// screen.
-    func displayedSelection(for selection: RouterScopeID?) -> RouterScopeID {
-        guard let selection,
-              tabs.contains(where: { $0.tab.routerScopeID == selection })
-        else {
-            return tabs[0].tab.routerScopeID
-        }
-        return selection
+    /// There is no implicit first-tab reconciliation; admission owns selection.
+    func displayedSelection(for selection: RouterScopeID?) -> RouterScopeID? {
+        selection
     }
 
-    /// Dispatches a tab bar selection unless the root is another shape.
-    ///
-    /// Over a split or custom root the tab bar does not represent that
-    /// container's selection, so a tap must not write it. The display then
-    /// falls back as ``displayedSelection(for:)`` describes.
     func requestSelection(_ selection: RouterScopeID, in rootScope: RouterScope<R>) {
-        guard let state = rootScope.state, Self.hasTabsRoot(state) else { return }
-        rootScope.dispatchRoot(
-            .select(selection),
-            context: .init(source: .system),
-            executionPrecondition: { state in
-                // The root can change after this binding callback, while its
-                // request is queued or deferred. Recheck at execution rather
-                // than letting a tab tap select a split/custom branch.
-                guard Self.hasTabsRoot(state) else {
-                    return .mutation(.incompatibleNavigationTopology(.root))
-                }
+        let shape = shape
+        let budget = store.resourceBudget
+        rootScope.dispatch(.select(selection), context: .init(source: .system), executionPrecondition: { state in
+            do {
+                try shape.validate(RouterStateDraft(state), at: .root, resourceBudget: budget)
                 return nil
+            } catch {
+                return .mutation(.incompatibleNavigationTopology(.root))
             }
-        )
+        })
     }
 
-    private static func hasTabsRoot(_ state: RouterState<R>) -> Bool {
-        guard case .container(let container) = state.root else { return false }
-        return container.style == .tabs
+    private func selectionBinding(_ scope: RouterScope<R>) -> Binding<RouterScopeID?> {
+        Binding(get: { scope.observedSelection }, set: { selection in
+            if let selection { requestSelection(selection, in: scope) }
+        })
     }
 
-    private func selectionBinding(_ rootScope: RouterScope<R>) -> Binding<RouterScopeID> {
-        Binding(
-            get: {
-                displayedSelection(for: selectedScope(in: rootScope))
-            },
-            set: { selection in
-                requestSelection(selection, in: rootScope)
-            }
-        )
-    }
-
-    private var store: RouterStore<R> {
-        if let suppliedStore { return suppliedStore }
-        guard let ownedStore else {
-            preconditionFailure("RouterTabHost requires either an owned or supplied store")
-        }
-        return ownedStore
-    }
-
-    /// Whether tabs resolve the root's branches, which holds only while the
-    /// root is a tabs container.
-    ///
-    /// A same-named branch of a split or custom root belongs to that
-    /// container, so each tab then renders over an unresolvable scope that
-    /// neither shows nor writes it, and that root's selection and badges are
-    /// not these tabs'. The container style is observed on its own, so the
-    /// host re-renders when the root changes shape, such as a later tabs
-    /// restore, rather than on every commit.
-    private func resolvesBranches(of rootScope: RouterScope<R>) -> Bool {
-        rootScope.observedContainerStyle == .tabs
-    }
-
-    private func selectedScope(in rootScope: RouterScope<R>) -> RouterScopeID? {
-        resolvesBranches(of: rootScope) ? rootScope.observedSelection : nil
-    }
-
-    private func badge(
-        for scope: RouterScopeID,
-        in rootScope: RouterScope<R>
-    ) -> Int? {
-        resolvesBranches(of: rootScope) ? rootScope.observedBadges[scope] : nil
-    }
+    private var store: RouterStore<R> { suppliedStore ?? ownedStore }
 
     private func routerTab(
         _ descriptor: RouterTabDescriptor<R, R.Tab>,
         scope: RouterScope<R>,
-        scopeID: RouterScopeID,
-        selectedImage: String,
+        image: String,
         rootScope: RouterScope<R>
-    ) -> some TabContent<RouterScopeID> {
+    ) -> some TabContent<RouterScopeID?> {
         let tab = descriptor.tab
-        return Tab(value: scopeID, role: tab.role.swiftUITabRole) {
+        return Tab(value: Optional(tab.routerScopeID), role: tab.role.swiftUITabRole) {
             RouterStoreStackSurface(
-                scope: scope,
-                destination: R.destination(for:),
+                scope: scope, destination: R.destination(for:),
                 root: { R.destination(for: descriptor.root) }
             )
             .routerAuthority(scope, for: R.self)
             .routerTabBadgeDiagnostics(
-                badge(for: scopeID, in: rootScope),
-                scopeID: scopeID,
-                routerScope: rootScope
+                rootScope.observedBadges[tab.routerScopeID],
+                scopeID: tab.routerScopeID, routerScope: rootScope
             )
         } label: {
-            Label(tab.title, systemImage: selectedImage)
+            Label(tab.title, systemImage: image)
         }
     }
 }
 
-private extension RouterTabRole {
+extension RouterTabRole {
     var swiftUITabRole: TabRole? {
         switch self {
         case .standard: nil

@@ -116,9 +116,15 @@ struct RouterRestoredTabHostTests {
         let legacy = try RouterState<R>(root: .container(.init(
             style: .tabs, selection: "legacy", branches: [.init(id: "home"), .init(id: "legacy")]
         )))
-        let store = RouterStore<R>()
+        let initial = try RouterState<R>(root: .container(.init(
+            style: .tabs, selection: "home", branches: [.init(id: "home"), .init(id: "settings")]
+        )))
+        let configuration = RouterStoreConfiguration<R>(hostDescriptor: .init(
+            root: catalog.hostShape(orphanPolicy: .preserveDormant)
+        ))
+        let store = try RouterStore(initialState: initial, configuration: configuration)
         _ = try await store.restore(from: codec.encode(legacy), using: codec, tabTopology: topology)
-        let host = try RouterTabHost(store: store, catalog: catalog, allowingOrphanedBranches: true)
+        let host = try RouterTabHost(store: store, catalog: catalog, orphanPolicy: .preserveDormant)
         let recorder = RestoredTabRecorder()
         defer { recorder.appearances.continuation.finish() }
         let view = host.environment(\.restoredTabRecorder, recorder)
@@ -169,7 +175,7 @@ struct RouterRestoredTabHostTests {
         #expect(await recorder.waitFor(.detail, path: [.detail], scope: ["settings"]))
         #expect(store.scope(at: ["legacy"]).node == .stack())
         let saved = try await store.snapshot(using: codec)
-        let reopened = RouterStore<R>()
+        let reopened = try RouterStore(initialState: initial, configuration: configuration)
         _ = try await reopened.restore(from: saved, using: codec, tabTopology: topology)
         #expect(reopened.state == store.state)
         _ = await store.scope(at: ["settings"]).perform(.pop(count: 1), context: .init(source: .system))

@@ -48,6 +48,7 @@ public extension RouterScenarioRejectionKind {
         self = switch reason {
         case .pendingLinkLifetime: .pendingLinkLifetime
         case .resourceLimit: .resourceLimit
+        case .hostContract: .hostContract
         case .mutation: .mutation
         case .featureProjection: .featureProjection
         case .policy, .authorization: Self.policyKind(reason)

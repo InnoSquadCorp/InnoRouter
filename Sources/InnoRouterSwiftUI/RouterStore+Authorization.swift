@@ -7,8 +7,12 @@ extension RouterStore {
     /// runtime-only and follows the same queue/deferral lifetime as the request.
     func authorizationPrecondition(
         request: RouterRequestAuthorization<R>?,
-        existing: RouterRequestPrecondition<R>?
+        existing: RouterRequestPrecondition<R>?,
+        captureHostGeneration: Bool = true
     ) -> RouterRequestPrecondition<R>? {
+        // This function is also the pre-worker capture boundary used by
+        // snapshots, partial restore, pending links and typed presentations.
+        let existing = captureHostGeneration ? hostGenerationPrecondition(existing: existing) : existing
         let generations = authorizationConfigurations(for: request).compactMap { configuration in
             configuration.generation.map { provider in (provider, provider()) }
         }

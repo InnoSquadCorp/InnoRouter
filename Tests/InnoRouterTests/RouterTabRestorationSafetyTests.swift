@@ -221,11 +221,15 @@ struct RouterTabRestorationSafetyTests {
         }
         #expect(store.state == initial)
         #expect(store.revision == 0)
-        let malformedHostStore = try RouterStore(initialState: snapshot)
         let catalog = try RouterTabCatalog(R.routerTabs)
-        #expect(throws: RouterMutationError.expectedStack(["settings"])) {
-            _ = try RouterTabHost(store: malformedHostStore, catalog: catalog, allowingOrphanedBranches: true)
+        let configuration = RouterStoreConfiguration<R>(hostDescriptor: .init(
+            root: catalog.hostShape(orphanPolicy: .preserveDormant)
+        ))
+        expectSafetyHostFailure(.kindMismatch, scope: ["settings"]) {
+            _ = try RouterStore(initialState: snapshot, configuration: configuration)
         }
+        let validHostStore = try RouterStore(initialState: initial, configuration: configuration)
+        _ = try RouterTabHost(store: validHostStore, catalog: catalog, orphanPolicy: .preserveDormant)
     }
 
     @Test("Orphan containers are preserved but cannot be the host's selection")
@@ -235,12 +239,18 @@ struct RouterTabRestorationSafetyTests {
             .init(id: "home"), .init(id: "settings"), .init(id: "legacy", node: .container(nested)),
         ], selection: "legacy")
         let catalog = try RouterTabCatalog(R.routerTabs)
-        #expect(throws: RouterTabCatalogError.storeBranchesDoNotMatchCatalog) {
-            _ = try RouterTabHost(store: .init(initialState: snapshot), catalog: catalog, allowingOrphanedBranches: true)
+        let configuration = RouterStoreConfiguration<R>(hostDescriptor: .init(
+            root: catalog.hostShape(orphanPolicy: .preserveDormant)
+        ))
+        expectSafetyHostFailure(.selectionNotRendered) {
+            _ = try RouterStore(initialState: snapshot, configuration: configuration)
         }
         let reconciled = try RouterTabRestorationTopology(catalog: catalog).reconciling(snapshot)
         #expect(reconciled.node(at: ["legacy"]) == .container(nested))
-        _ = try RouterTabHost(store: .init(initialState: reconciled), catalog: catalog, allowingOrphanedBranches: true)
+        let store = try RouterStore(initialState: reconciled, configuration: configuration)
+        _ = try RouterTabHost(store: store, catalog: catalog, orphanPolicy: .preserveDormant)
+        #expect(store.state == reconciled)
+        #expect(store.revision == 0)
     }
 
     @Test("Structural reports describe empty tab changes and decode older reports")
@@ -330,5 +340,22 @@ struct RouterTabRestorationSafetyTests {
         #expect(outcome.report.topologyChanges.contains(.insertedScope("settings")))
         #expect(store.state == initial)
         #expect(store.revision == 0)
+    }
+}
+
+@MainActor
+private func expectSafetyHostFailure(
+    _ code: RouterHostValidationFailure.Code,
+    scope: RouterScopePath = .root,
+    operation: () throws -> Void
+) {
+    do {
+        try operation()
+        Issue.record("Expected a typed host validation failure")
+    } catch let failure as RouterHostValidationFailure {
+        #expect(failure.code == code)
+        #expect(failure.scope == scope)
+    } catch {
+        Issue.record("Expected host validation failure, received \(type(of: error))")
     }
 }

@@ -202,6 +202,9 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
         }
     }
 
+    /// Frozen renderer contract. Native hosts require an explicit compatible descriptor.
+    public var hostDescriptor: RouterHostDescriptor<R>?
+
     public var policies: [RouterPolicy<R>]
     /// Optional authoritative app authorization for every Store application.
     public var authorization: RouterAuthorizationConfiguration<R>?
@@ -238,6 +241,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
     package var runtimeDependencies: RouterRuntimeDependencies
 
     public init(
+        hostDescriptor: RouterHostDescriptor<R>? = nil,
         policies: [RouterPolicy<R>] = [],
         authorization: RouterAuthorizationConfiguration<R>? = nil,
         schedulingPolicy: RouterSchedulingPolicy = .serialize,
@@ -250,6 +254,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
         eventBufferingPolicy: EventBufferingPolicy = .default,
         onEvent: (@MainActor @Sendable (RouterEvent<R>) -> Void)? = nil
     ) {
+        self.hostDescriptor = hostDescriptor
         self.baseResourceBudget = .provisional
         self.policies = policies
         self.authorization = authorization
@@ -269,6 +274,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
     /// execution fields remain mutable compatibility aliases afterward.
     public init(
         resourceBudget: RouterResourceBudget,
+        hostDescriptor: RouterHostDescriptor<R>? = nil,
         policies: [RouterPolicy<R>] = [],
         authorization: RouterAuthorizationConfiguration<R>? = nil,
         schedulingPolicy: RouterSchedulingPolicy = .serialize,
@@ -278,6 +284,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
         onEvent: (@MainActor @Sendable (RouterEvent<R>) -> Void)? = nil
     ) {
         self.init(
+            hostDescriptor: hostDescriptor,
             policies: policies,
             authorization: authorization,
             schedulingPolicy: schedulingPolicy,
@@ -305,6 +312,7 @@ struct QueuedRouterRequest<R: Route> {
     let semantics: RouterRequestSemantics<R>
     let authorization: RouterRequestAuthorization<R>?
     let lifetimeMutation: RouterScopeLifetimeMutation
+    let hostReplacement: RouterHostReplacement<R>?
     let expectedRevision: UInt64?
     let bypassesPolicies: Bool
     /// Non-nil only for Store-owned native-scene reconciliation.
@@ -325,6 +333,7 @@ struct DeferredRouterRequest<R: Route> {
     let semantics: RouterRequestSemantics<R>
     let authorization: RouterRequestAuthorization<R>?
     let lifetimeMutation: RouterScopeLifetimeMutation
+    let hostReplacement: RouterHostReplacement<R>?
     let initialRevision: UInt64
     let nextPolicyIndex: Int
     let executionPrecondition: RouterRequestPrecondition<R>?

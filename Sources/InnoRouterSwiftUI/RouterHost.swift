@@ -31,7 +31,7 @@ import InnoRouterCore
 /// ```
 @MainActor
 public struct RouterHost<R: DestinationRoute, Root: View>: View {
-    @State private var ownedStore: RouterStore<R>?
+    @State private var ownedStore: RouterStore<R>
     private let suppliedStore: RouterStore<R>?
     private let root: () -> Root
     private let linkHandling: RouterLinkHandling<R>?
@@ -46,7 +46,7 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
         self.root = root
         self.linkHandling = linkHandling
         self.suppliedStore = nil
-        self._ownedStore = State(initialValue: R.makeRouterStore())
+        self._ownedStore = State(initialValue: RouterStore<R>.makeDefaultHostedStack())
     }
 
     /// Creates a locally owned router for `routeType`.
@@ -62,15 +62,16 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
         @ViewBuilder root: @escaping () -> Root
     ) throws {
         _ = routeType
+        var configuration = configuration
+        if configuration.hostDescriptor == nil {
+            configuration.hostDescriptor = RouterHostDescriptor(root: .stack)
+        }
+        let store = try RouterStore(initialPath: initialPath, configuration: configuration)
+        try store.validateHostRenderer(shape: .stack, at: .root)
         self.root = root
         self.linkHandling = linkHandling
         self.suppliedStore = nil
-        self._ownedStore = State(
-            initialValue: try RouterStore(
-                initialPath: initialPath,
-                configuration: configuration
-            )
-        )
+        self._ownedStore = State(initialValue: store)
     }
 
     public init(
@@ -86,6 +87,10 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
     }
 
     /// Hosts a store retained by an application boundary.
+    ///
+    /// For source compatibility this initializer does not throw. A missing or
+    /// incompatible stack contract is exposed by `validationFailure` and
+    /// visible recovery UI. Supply a configured Store to render its state.
     public init(
         store: RouterStore<R>,
         linkHandling: RouterLinkHandling<R>? = nil,
@@ -94,16 +99,27 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
         self.root = root
         self.linkHandling = linkHandling
         self.suppliedStore = store
-        self._ownedStore = State(initialValue: nil)
+        self._ownedStore = State(initialValue: store)
+    }
+
+    /// A typed, payload-redacted failure for the Store's current contract.
+    /// Reading this value never installs a contract or changes navigation state.
+    public var validationFailure: RouterHostValidationFailure? {
+        do {
+            try store.validateHostRenderer(shape: .stack, at: .root)
+            return nil
+        } catch {
+            return error
+        }
     }
 
     public var body: some View {
-        let scope = store.scope()
-        RouterStoreStackSurface(
-            scope: scope,
-            destination: R.destination(for:),
-            root: root
-        )
+        RouterValidatedHostSurface(store: store, shape: .stack, path: .root) { scope in
+            RouterStoreStackSurface(
+                scope: scope,
+                destination: R.destination(for:),
+                root: root
+            )
             .routerAuthority(scope, for: R.self)
             .handleRouterPlans(
                 for: R.self,
@@ -113,13 +129,8 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
                 let target = try state.replacingNode(.stack(path: [route]), at: .root, resourceBudget: store.resourceBudget)
                 return RouterPlan(state: target)
             }
+        }
     }
 
-    private var store: RouterStore<R> {
-        if let suppliedStore { return suppliedStore }
-        guard let ownedStore else {
-            preconditionFailure("RouterHost requires either an owned or supplied store")
-        }
-        return ownedStore
-    }
+    private var store: RouterStore<R> { suppliedStore ?? ownedStore }
 }

@@ -99,7 +99,10 @@ let snapshot = try await store.snapshot(using: RouterSnapshotCodec(currentVersio
 7.0에서도 `RouterStore()`와 `AppRoute.makeRouterStore()`는 `try` 없이 사용합니다.
 `initialState`, `initialPath`, `configuration`을 전달할 때는 `try`가 필요합니다.
 구조·scene catalog·자원 한도를 위반한 초기 입력은 중단이나 자동 잘림 대신 오류로
-반환합니다. [생성 계약](Docs/7.0.0-store-initialization-contract.md)을 참고하세요.
+반환합니다. Store를 주입받는 tab/split host 생성자도 throw하며,
+`configuration.hostDescriptor`를 요구합니다. 생성자는 Store를 등록하거나 변경하지
+않고 선언을 검증합니다. 기존 stack host 생성자는 nonthrowing을 유지하며 선언이
+없거나 맞지 않으면 `validationFailure`와 복구 UI를 제공합니다. [생성 계약](Docs/7.0.0-store-initialization-contract.md)을 참고하세요.
 
 모든 요청은 `reduce → prepare → commit`을 거칩니다. 정책 거절, 취소, stale
 prepare, 잘못된 action은 기존 상태를 바꾸지 않습니다. 성공할 때만 완성된
@@ -152,6 +155,9 @@ feature payload에는 부모 route의 `Self`를 사용할 수 있습니다. 연�
 자동 복원은 versioned codec과 앱이 선택한 저장소를 명시적으로 연결합니다.
 
 ```swift skip app-lifecycle-fragment
+let store = try AppRoute.makeRouterStore(
+    configuration: .init(hostDescriptor: .init(root: .stack))
+)
 let driver = RouterRestorationDriver(
     store: store,
     codec: try RouterSnapshotCodec(
@@ -202,13 +208,13 @@ snapshot recovery fallback을 적용하지 않습니다.
 
 아래 명시적 탭 topology API는 **6.1.0 이상**에서 사용할 수 있습니다.
 
-[전체 탭 복원 예제](Examples/README.md#tab-restoration-610)는 catalog, driver,
+[전체 탭 복원 예제](Examples/README.md#tab-restoration-700)는 catalog, driver,
 host, 파일 저장과 결과 처리를 연결합니다. [복원 가이드](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md)에서
 탭 식별자, schema migration, recovery의 적용 범위를 확인할 수 있습니다.
 
-복원은 기본적으로 exact입니다. snapshot이 말하는 상태를 그대로 적용하므로, 해당 탭이
-생기기 전에 저장된 snapshot에는 그 탭의 branch가 없고 탭은 도달 불가능한 상태로
-남습니다. 지금 앱이 렌더링하는 탭을 추가하려면 topology를 명시합니다.
+복원은 앱이 보정을 요청하지 않으면 exact입니다. host descriptor를 설정한 Store는
+현재 탭이 빠진 snapshot을 빈 가짜 scope로 렌더링하지 않고 commit 전에 거절합니다.
+지금 앱이 렌더링하는 탭을 추가하려면 topology를 명시합니다.
 
 ```swift skip app-lifecycle-fragment
 let topology = try RouterTabRestorationTopology(of: AppRoute.self)
@@ -219,8 +225,10 @@ try await store.restore(from: data, using: codec, tabTopology: topology)
 snapshot에 있는 scope는 path·presentation·badge를 그대로 유지합니다. 없는 scope는 빈
 상태로 만들며 route나 badge를 임의로 만들어 넣지 않습니다. topology에 없는 branch는
 현재 scope 뒤에 orphan으로 보존해 이후 catalog가 다시 도달할 수 있게 합니다. 이런
-store는 `RouterTabHost(store:catalog:allowingOrphanedBranches:)`로 렌더링합니다.
-topology에 없는 selection은 첫 번째 scope로 대체됩니다. 같은 parameter가
+store는 `RouterTabHost(store:catalog:orphanPolicy: .preserveDormant)`로 렌더링하고,
+Store의 `configuration.hostDescriptor`에도
+`RouterHostDescriptor(root: catalog.hostShape(orphanPolicy: .preserveDormant))`를
+설정해야 합니다. Store와 renderer의 선언은 같아야 합니다. topology에 없는 selection은 첫 번째 scope로 대체됩니다. 같은 parameter가
 `restorePartially`에도 있으며, 이 경로에서는 보정이 검증보다 먼저 실행되어 앱이 실제로
 적용될 후보를 그대로 검증합니다. `RouterRestorationDriver.init`에도 있으며 topology는
 해당 driver의 생명주기에 속합니다. `RouterSnapshotRecoveryPolicy.use`가 반환한 상태는

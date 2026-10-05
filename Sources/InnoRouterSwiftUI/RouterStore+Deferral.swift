@@ -73,6 +73,7 @@ public extension RouterStore {
                 requestSemantics: request.semantics,
                     authorization: request.authorization,
                 lifetimeMutation: request.lifetimeMutation,
+                hostReplacement: request.hostReplacement,
                 executionPrecondition: request.executionPrecondition,
                 executionPreparation: executionPreparation,
                 deferredResumePreparation: request.resumePreparation,

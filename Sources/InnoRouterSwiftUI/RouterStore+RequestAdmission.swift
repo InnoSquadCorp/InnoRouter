@@ -16,6 +16,7 @@ extension RouterStore {
         requestSemantics: RouterRequestSemantics<R> = .action,
         authorization: RouterRequestAuthorization<R>? = nil,
         lifetimeMutation: RouterScopeLifetimeMutation = .reconcile,
+        hostReplacement: RouterHostReplacement<R>? = nil,
         executionPrecondition: RouterRequestPrecondition<R>? = nil,
         executionPreparation: RouterRequestPreparationBuilder<R>? = nil,
         deferredResumePreparation: RouterDeferredResumePreparationBuilder<R>? = nil,
@@ -37,9 +38,10 @@ extension RouterStore {
             hasPrecondition: executionPrecondition != nil,
             hasPreparation: executionPreparation != nil || deferredResumePreparation != nil
         )
-        let executionPrecondition = isRemovalOnlySystemRepair(action, identity: systemRepairIdentity)
-            ? executionPrecondition
-            : authorizationPrecondition(request: authorization, existing: executionPrecondition)
+        let executionPrecondition = requestExecutionPrecondition(
+            action: action, authorization: authorization, existing: executionPrecondition,
+            systemRepairIdentity: systemRepairIdentity, isResumed: presentationResumeAuthority != nil
+        )
         observeRequest(
             id: transitionID,
             action: action,
@@ -91,6 +93,7 @@ extension RouterStore {
                                     semantics: requestSemantics,
                                     authorization: authorization,
                                     lifetimeMutation: lifetimeMutation,
+                                    hostReplacement: hostReplacement,
                                     expectedRevision: expectedRevision,
                                     bypassesPolicies: bypassesPolicies,
                                     systemRepairIdentity: systemRepairIdentity,
@@ -121,6 +124,7 @@ extension RouterStore {
                 requestSemantics: requestSemantics,
                 authorization: authorization,
                 lifetimeMutation: lifetimeMutation,
+                hostReplacement: hostReplacement,
                 presentationCompletionOwner: presentationCompletionOwner,
                 executionPrecondition: executionPrecondition,
                 executionPreparation: executionPreparation,

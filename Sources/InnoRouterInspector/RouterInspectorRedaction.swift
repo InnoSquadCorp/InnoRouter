@@ -190,6 +190,7 @@ private extension RouterRejectionReason {
         case .authorization: "authorization"
         case .pendingLinkLifetime: "pendingLinkLifetime"
         case .resourceLimit: "resourceLimit"
+        case .hostContract: "hostContract"
         case .busy: "busy"
         case .coalesced: "coalesced"
         case .superseded: "superseded"

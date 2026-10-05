@@ -28,25 +28,59 @@ enum AppRoute {
 
 @MainActor
 func makeConfiguredStore() throws -> RouterStore<AppRoute> {
-    try AppRoute.makeRouterStore(configuration: .init())
+    try AppRoute.makeRouterStore(configuration: .init(hostDescriptor: .init(root: .stack)))
 }
 
 @MainActor
 func makePopulatedStore() throws -> RouterStore<AppRoute> {
-    try RouterStore(initialPath: [AppRoute.settings])
+    try RouterStore(initialPath: [AppRoute.settings], configuration: .init(hostDescriptor: .init(root: .stack)))
 }
 ```
 
 Catch initialization errors in application setup and show the appropriate error
-or recovery UI. Inject a successfully created Store into `RouterHost(store:)`,
-`RouterTabHost(store:)`, or a split host. Do not hide failure with `try!`, `try?`,
-or an unrelated fallback state.
+or recovery UI. Supplied-store tab and split hosts now also throw. Configure the
+Store's `hostDescriptor` before injecting it into any native host. The existing
+`RouterHost(store:)` and platform bridge factories remain nonthrowing; the stack
+host exposes `validationFailure` and renders recovery UI for a missing or
+incompatible declaration. Host construction validates the existing declaration;
+it never registers or changes it. Do not hide failure
+with `try!`, `try?`, or an unrelated fallback state.
 
 `RouterHost(Route.self) { ... }` keeps its nonthrowing empty convenience.
 Supplying paths or configuration uses a throwing overload. Tab and split host
 constructors accepting selection, catalog, layout, paths, or configuration also
 throw. Create them before entering a nonthrowing SwiftUI `body`, or retain a
 setup result and render either its host or an explicit error view.
+
+## Declare the renderer before mounting it
+
+A stack renderer uses `RouterHostDescriptor(root: .stack)`. A tab renderer
+uses `RouterTabCatalog.hostShape(orphanPolicy:)`; a split renderer uses its
+`RouterTwoColumnSplitLayout.hostShape` or `RouterThreeColumnSplitLayout.hostShape`.
+The configured initial state and the renderer must match that declaration,
+including ordered tabs, child node kinds, split role IDs, and orphan policy.
+Pass the same explicit split layout to the supplied-store host.
+
+Replace `allowingOrphanedBranches: true` with `orphanPolicy: .preserveDormant`
+in both the tab shape declaration and the host. Preserved branches retain their
+state and remain structurally validated; they cannot be selected or rendered.
+Use `RouterTabRestorationTopology` explicitly before admission to add current
+tabs and move selection away from retired branches. A missing or incompatible
+shape produces `RouterHostValidationFailure`, never an empty fallback scope.
+
+Ordinary actions, links, transactions, and restoration retain the declared host
+contract. To intentionally change topology, call the owning Store's
+`replaceHost(with:descriptor:context:)` with the complete state plan and the new
+independent declaration, then construct its matching renderer. This uses the
+normal policy pipeline and commits state and declaration atomically. Rejected
+replacement preserves both; accepted replacement retires old scope authority,
+including when node IDs are reused. Child scopes cannot replace the contract.
+
+The descriptor's presentation, window, and immersive catalogs are frozen
+route-to-declaration mappings. The default presentation child is a stack;
+window and immersive catalogs default to none. Declare other nested hosts
+explicitly. A route resolver selects a predeclared identifier; it must not
+construct a shape from the incoming candidate or mutate captured configuration.
 
 ## Select resource settings deliberately
 

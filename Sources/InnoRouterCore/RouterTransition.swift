@@ -271,6 +271,7 @@ public enum RouterRejectionReason: Hashable, Sendable {
     case featureProjection(RouterFeatureProjectionError)
     case policy(name: String, message: String)
     case authorization(RouterAuthorizationFailure)
+    case hostContract(RouterHostValidationFailure)
     case pendingLinkLifetime(RouterPendingLinkLifetimeFailure)
     case resourceLimit(RouterResourceLimitFailure)
     case busy(activeTransition: RouterTransitionID)

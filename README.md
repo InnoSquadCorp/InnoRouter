@@ -103,7 +103,11 @@ let snapshot = try await store.snapshot(using: RouterSnapshotCodec(currentVersio
 In 7.0, `RouterStore()` and `AppRoute.makeRouterStore()` remain nonthrowing.
 Supplying `initialState`, `initialPath`, or `configuration` requires `try`:
 initial admission rejects structural, scene-catalog, and resource errors instead
-of trapping or truncating. See the [initialization contract](Docs/7.0.0-store-initialization-contract.md).
+of trapping or truncating. Supplied-store tab and split hosts also throw and
+require `configuration.hostDescriptor`; construction validates without
+registering or changing the Store. The source-compatible stack host exposes a
+`validationFailure` and renders recovery UI when that contract is missing or
+incompatible. See the [initialization contract](Docs/7.0.0-store-initialization-contract.md).
 
 Each request follows `reduce → prepare → commit`. A policy rejection,
 cancellation, stale preparation, or invalid action leaves committed state
@@ -182,6 +186,9 @@ metadata property.
 For opt-in persistence, combine a versioned codec with app-selected storage:
 
 ```swift skip app-lifecycle-fragment
+let store = try AppRoute.makeRouterStore(
+    configuration: .init(hostDescriptor: .init(root: .stack))
+)
 let driver = RouterRestorationDriver(
     store: store,
     codec: try RouterSnapshotCodec(
@@ -238,14 +245,15 @@ does not apply a snapshot recovery fallback.
 
 The explicit tab topology APIs below require **6.1.0 or later**.
 
-The [complete tab restoration example](Examples/README.md#tab-restoration-610)
+The [complete tab restoration example](Examples/README.md#tab-restoration-700)
 connects the catalog, driver, host, file persistence, and result handling.
 The [restoration guide](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md)
 explains tab identity, schema migration, and recovery boundaries.
 
-Restoration is exact: it applies what the snapshot says. A snapshot written
-before a tab existed therefore has no branch for it, and that tab stays
-unreachable. To add the tabs the app renders now, state the topology:
+Restoration is exact unless the app explicitly requests reconciliation. A
+snapshot predating a declared tab is rejected by a host-configured Store
+instead of rendering an empty, unreachable scope. To add the tabs the app
+renders now, state the topology:
 
 ```swift skip app-lifecycle-fragment
 let topology = try RouterTabRestorationTopology(of: AppRoute.self)
@@ -257,7 +265,9 @@ A scope the snapshot carries keeps its path, presentation, and badge. A scope
 it lacks is created empty — no route or badge is invented for it. A branch the
 topology does not name is kept after the current scopes, so a later catalog can
 still reach it; render such a store with
-`RouterTabHost(store:catalog:allowingOrphanedBranches:)`. A selection the
+`RouterTabHost(store:catalog:orphanPolicy: .preserveDormant)` and configure the
+Store with `RouterHostDescriptor(root: catalog.hostShape(orphanPolicy: .preserveDormant))`.
+The Store and renderer must use the same declaration. A selection the
 topology no longer names falls back to its first scope. The same parameter
 exists on `restorePartially`, where reconciliation runs before validation so
 the app sees the candidate that will be applied, and on

@@ -105,167 +105,194 @@ struct RouterSplitRestorationTests {
         }
     }
 
-    @Test("Each host body observes split mapping even when the root style is unchanged", arguments: [false, true])
-    func bodyObservesCurrentMapping(threeColumn: Bool) async throws {
+    @Test("Exact restoration cannot silently change a declared split mapping", arguments: [false, true])
+    func declaredMappingRequiresHostReplacement(threeColumn: Bool) async throws {
         let initial = try restoredSplitState(threeColumn: threeColumn, generation: "initial")
-        let store = try RouterStore(initialState: initial)
-        let target = try restoredSplitState(threeColumn: threeColumn)
-        if threeColumn {
-            try await requireMappingObservation(
-                RouterThreeColumnSplitHost(
-                    store: store,
-                    sidebar: { EmptyView() },
-                    content: { EmptyView() },
-                    detail: { EmptyView() }
-                ),
-                store: store,
-                replacement: target
-            )
-        } else {
-            try await requireMappingObservation(
-                RouterSplitHost(
-                    store: store,
-                    sidebar: { EmptyView() },
-                    root: { EmptyView() }
-                ),
-                store: store,
-                replacement: target
-            )
+        let descriptor = try restoredSplitDescriptor(threeColumn: threeColumn, generation: "initial")
+        let store = try RouterStore(initialState: initial, configuration: .init(hostDescriptor: descriptor))
+        let codec = try RouterSnapshotCodec<RestoredSplitRoute>(currentVersion: 1)
+        for swapped in [false, true] {
+            let target = try restoredSplitState(threeColumn: threeColumn, swapped: swapped)
+            let before = store.state
+            let revision = store.revision
+            guard case .rejected(_, _, _, .hostContract(let failure)) =
+                try await store.restore(from: codec.encode(target), using: codec) else {
+                Issue.record("Expected undeclared IDs or split roles to reject")
+                return
+            }
+            #expect(failure.code == .splitMappingMismatch)
+            #expect(store.state == before)
+            #expect(store.revision == revision)
+
+            // The owner deliberately replaces state and the independently
+            // declared layout together, then constructs its new renderer.
+            guard case .applied = await store.replaceHost(
+                with: .init(state: target),
+                descriptor: try restoredSplitDescriptor(threeColumn: threeColumn, swapped: swapped)
+            ) else {
+                Issue.record("Expected the explicit owner replacement to commit")
+                return
+            }
+            if threeColumn {
+                _ = try RouterThreeColumnSplitHost(
+                    store: store, layout: restoredThreeColumnLayout(swapped: swapped),
+                    sidebar: { EmptyView() }, content: { EmptyView() }, detail: { EmptyView() }
+                )
+            } else {
+                _ = try RouterSplitHost(
+                    store: store, layout: restoredTwoColumnLayout(swapped: swapped),
+                    sidebar: { EmptyView() }, root: { EmptyView() }
+                )
+            }
+            #expect(store.state == target)
+            #expect(store.revision == revision + 1)
         }
     }
 
     #if canImport(AppKit)
-    @Test("One mounted split host follows restoration without reconstructing its root view", arguments: [false, true], [false, true])
+    @Test("One mounted split host retains authority across compatible restoration", arguments: [false, true], [false, true])
     func mountedRestoration(threeColumn: Bool, startsAsSplit: Bool) async throws {
-        let initial: RouterState<RestoredSplitRoute> = startsAsSplit
-            ? try restoredSplitState(threeColumn: threeColumn, generation: "initial")
-            : .rootStack
-        let store = try RouterStore(initialState: initial)
+        let declaredInitial = try restoredSplitState(threeColumn: threeColumn)
+        let initial: RouterState<RestoredSplitRoute> = startsAsSplit ? declaredInitial : .rootStack
+        let descriptor: RouterHostDescriptor<RestoredSplitRoute> = startsAsSplit
+            ? try restoredSplitDescriptor(threeColumn: threeColumn) : .init(root: .stack)
+        let store = try RouterStore(initialState: initial, configuration: .init(hostDescriptor: descriptor))
         let codec = try RouterSnapshotCodec<RestoredSplitRoute>(currentVersion: 1)
         let recorder = RestoredSplitRecorder()
-        let view: AnyView
-        if threeColumn {
-            view = AnyView(RouterThreeColumnSplitHost(
-                store: store,
-                sidebar: { RestoredSplitProbe(column: .sidebar, recorder: recorder) },
-                content: { RestoredSplitProbe(column: .content, recorder: recorder) },
-                detail: { RestoredSplitProbe(column: .detail, recorder: recorder) }
-            ))
-        } else {
-            view = AnyView(RouterSplitHost(
-                store: store,
-                sidebar: { RestoredSplitProbe(column: .sidebar, recorder: recorder) },
-                root: { RestoredSplitProbe(column: .detail, recorder: recorder) }
-            ))
+        if !startsAsSplit {
+            do {
+                _ = try restoredSplitView(store: store, threeColumn: threeColumn, recorder: recorder)
+                Issue.record("A split host must reject the declared stack before mounting")
+            } catch let failure as RouterHostValidationFailure {
+                #expect(failure.code == .rendererMismatch)
+            }
+            #expect(store.state == initial)
+            #expect(store.revision == 0)
+            guard case .applied = await store.replaceHost(
+                with: .init(state: declaredInitial),
+                descriptor: try restoredSplitDescriptor(threeColumn: threeColumn)
+            ) else {
+                Issue.record("Expected explicit setup to replace the root host")
+                return
+            }
         }
+        let view = try restoredSplitView(store: store, threeColumn: threeColumn, recorder: recorder)
         let controller = NSHostingController(rootView: view)
         let window = NSWindow(contentViewController: controller)
         window.setContentSize(NSSize(width: 1400, height: 900))
         window.orderFront(nil)
         defer { window.orderOut(nil) }
-        if startsAsSplit {
-            try await recorder.waitFor(expectedColumns(in: initial))
-        } else {
-            try await recorder.waitFor([.detail: .init(scope: .unresolvable, path: [])])
-        }
-
+        try await recorder.waitFor(expectedColumns(in: declaredInitial))
         let columns: [RouterSplitColumn] = threeColumn ? [.sidebar, .content, .detail] : [.sidebar, .detail]
-        // Keep this exact rootView mounted throughout. Reconstructing a host
-        // would refresh an initializer cache and conceal the regression.
-        // First replace all IDs; then swap semantic roles with IDs unchanged.
-        for swapped in [false, true] {
-            let target = try restoredSplitState(threeColumn: threeColumn, swapped: swapped)
+
+        // Retain this exact rootView across distinct compatible path restores.
+        // A renderer cannot silently acquire new role mappings.
+        for generation in [1, 2] {
+            var target = declaredInitial
+            let split = try #require(rootSplitState(of: target))
+            for column in columns {
+                let id = try #require(split.scopeID(for: column))
+                target = try RouterReducer.reduce(
+                    .push(.marker("restored-\(generation)")).inScope(id), from: target
+                )
+            }
             guard case .applied = try await store.restore(from: codec.encode(target), using: codec) else {
-                Issue.record("Expected exact split restoration to commit")
+                Issue.record("Expected compatible split restoration to commit")
                 return
             }
             #expect(store.state == target)
-            let split = try #require(rootSplitState(of: target))
             try await recorder.waitFor(expectedColumns(in: target))
             for column in columns {
                 let observed = try #require(recorder.columns[column])
                 let id = try #require(split.scopeID(for: column))
-                let outcome = await observed.actions.perform(.push(.marker("from-" + column.rawValue)))
-                guard case .applied = outcome else {
-                    Issue.record("Restored column navigation must use its current scope")
+                guard case .applied = await observed.actions.perform(.push(.marker("from-" + column.rawValue))) else {
+                    Issue.record("Restored column navigation must retain its declared scope")
                     return
                 }
                 #expect(store.state.node(at: [id]) == .stack(path: [
-                    .marker(column.rawValue), .marker("from-" + column.rawValue),
+                    .marker(column.rawValue), .marker("restored-\(generation)"),
+                    .marker("from-" + column.rawValue),
                 ]))
             }
         }
 
-        // Same-named branches of a different root still cannot be rendered
-        // or written through the mounted split host.
         let branchIDs: [RouterScopeID] = threeColumn
             ? ["restored-a", "restored-b", "restored-c"] : ["restored-a", "restored-c"]
         let tabs = try RouterState<RestoredSplitRoute>(root: .container(.init(
-            style: .tabs,
-            selection: "restored-a",
+            style: .tabs, selection: "restored-a",
             branches: branchIDs.map { .init(id: $0, node: .stack(path: [.marker("hidden")])) }
         )))
-        guard case .applied = try await store.restore(from: codec.encode(tabs), using: codec) else {
-            Issue.record("Expected non-split restoration to commit")
-            return
-        }
+        let before = store.state
         let revision = store.revision
-        let unresolved = Dictionary(uniqueKeysWithValues: columns.map {
-            ($0, RestoredSplitRecorder.Expected(scope: .unresolvable, path: []))
-        })
-        try await recorder.waitFor(unresolved)
-        for column in columns {
-            let observed = try #require(recorder.columns[column])
-            guard case .rejected = await observed.actions.perform(.push(.marker("blocked"))) else {
-                Issue.record("Non-split column navigation must be rejected")
-                return
-            }
-        }
-        #expect(store.state == tabs)
-        #expect(store.revision == revision)
-
-        // Recovery from that incompatible shape must use yet another set of
-        // current IDs, without recreating the same mounted host.
-        let recovered = try restoredSplitState(threeColumn: threeColumn, generation: "recovered")
-        guard case .applied = try await store.restore(from: codec.encode(recovered), using: codec) else {
-            Issue.record("Expected split recovery to commit")
+        guard case .rejected(_, _, _, .hostContract(let failure)) =
+            try await store.restore(from: codec.encode(tabs), using: codec) else {
+            Issue.record("Expected incompatible restoration to reject before commit")
             return
         }
-        try await recorder.waitFor(expectedColumns(in: recovered))
-        #expect(store.state == recovered)
+        #expect(failure.code == .kindMismatch)
+        #expect(store.state == before)
+        #expect(store.revision == revision)
+        try await recorder.waitFor(expectedColumns(in: before))
+
+        // The same mounted host remains usable after rejection; no fake
+        // unresolved column and no replacement renderer are required.
+        guard case .applied = try await store.restore(from: codec.encode(declaredInitial), using: codec) else {
+            Issue.record("Expected compatible recovery to commit")
+            return
+        }
+        try await recorder.waitFor(expectedColumns(in: declaredInitial))
     }
     #endif
 }
 
-@MainActor
-private func requireMappingObservation<V: View>(
-    _ host: V,
-    store: RouterStore<RestoredSplitRoute>,
-    replacement: RouterState<RestoredSplitRoute>
-) async throws {
-    let initial = try #require(rootSplitState(of: store.state))
-    // Retain and warm every scope before observation. Otherwise creating a
-    // previously uncached scope reads store.state and falsely hides the bug.
-    let scopes = [store.scope()] + [initial.sidebar, initial.content, initial.detail]
-        .compactMap { $0 }
-        .map { store.scope(at: [$0]) }
-    defer { withExtendedLifetime(scopes) {} }
-    let (changes, continuation) = AsyncStream<Void>.makeStream()
-    defer { continuation.finish() }
-    withObservationTracking {
-        _ = host.body
-    } onChange: {
-        continuation.yield(())
-    }
-    let codec = try RouterSnapshotCodec<RestoredSplitRoute>(currentVersion: 1)
-    guard case .applied = try await store.restore(from: codec.encode(replacement), using: codec) else {
-        Issue.record("Expected a split mapping-only restore to commit")
-        return
-    }
-    #expect(store.state == replacement)
-    #expect(scopes[0].reconciliationRevision == 0)
-    _ = try await firstElement(from: changes, what: "split host mapping invalidation")
+private func restoredTwoColumnLayout(
+    generation: String = "restored", swapped: Bool = false
+) throws -> RouterTwoColumnSplitLayout {
+    try .init(
+        sidebarScopeID: .init("\(generation)-" + (swapped ? "c" : "a")),
+        detailScopeID: .init("\(generation)-" + (swapped ? "a" : "c"))
+    )
 }
+
+private func restoredThreeColumnLayout(
+    generation: String = "restored", swapped: Bool = false
+) throws -> RouterThreeColumnSplitLayout {
+    try .init(
+        sidebarScopeID: .init("\(generation)-" + (swapped ? "c" : "a")),
+        contentScopeID: .init("\(generation)-b"),
+        detailScopeID: .init("\(generation)-" + (swapped ? "a" : "c"))
+    )
+}
+
+private func restoredSplitDescriptor(
+    threeColumn: Bool, generation: String = "restored", swapped: Bool = false
+) throws -> RouterHostDescriptor<RestoredSplitRoute> {
+    let shape = threeColumn
+        ? try restoredThreeColumnLayout(generation: generation, swapped: swapped).hostShape
+        : try restoredTwoColumnLayout(generation: generation, swapped: swapped).hostShape
+    return .init(root: shape)
+}
+
+#if canImport(AppKit)
+@MainActor
+private func restoredSplitView(
+    store: RouterStore<RestoredSplitRoute>, threeColumn: Bool, recorder: RestoredSplitRecorder
+) throws -> AnyView {
+    if threeColumn {
+        return AnyView(try RouterThreeColumnSplitHost(
+            store: store, layout: restoredThreeColumnLayout(),
+            sidebar: { RestoredSplitProbe(column: .sidebar, recorder: recorder) },
+            content: { RestoredSplitProbe(column: .content, recorder: recorder) },
+            detail: { RestoredSplitProbe(column: .detail, recorder: recorder) }
+        ))
+    }
+    return AnyView(try RouterSplitHost(
+        store: store, layout: restoredTwoColumnLayout(),
+        sidebar: { RestoredSplitProbe(column: .sidebar, recorder: recorder) },
+        root: { RestoredSplitProbe(column: .detail, recorder: recorder) }
+    ))
+}
+#endif
 
 #if canImport(AppKit)
 @MainActor
@@ -276,8 +303,11 @@ private func expectedColumns(
     let columns: [RouterSplitColumn] = split.content == nil ? [.sidebar, .detail] : [.sidebar, .content, .detail]
     return try Dictionary(uniqueKeysWithValues: columns.map { column in
         let id = try #require(split.scopeID(for: column))
+        guard case .stack(let stack) = state.node(at: [id]) else {
+            throw RouterMutationError.expectedStack([id])
+        }
         return (column, RestoredSplitRecorder.Expected(
-            scope: RouterScopePath([.branch(id)]), path: [.marker(column.rawValue)]
+            scope: RouterScopePath([.branch(id)]), path: stack.path
         ))
     })
 }

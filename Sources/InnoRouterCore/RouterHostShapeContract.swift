@@ -1,56 +1,69 @@
-// InnoRouterCore - package-only, payload-free node-shape groundwork
+// InnoRouterCore - explicit, payload-free host node shapes
 
 /// An explicit renderer declaration, never inferred from a candidate state.
 /// This value describes node kinds, ordered rendered branches and split roles.
-/// It cannot prove matching view/root/label closures or route-to-host contracts
-/// for presentations and scenes. It installs no Store or native-host policy.
+/// It cannot prove matching view/root/label closures. Use
+/// ``RouterHostDescriptor`` to additionally validate presentation and scene
+/// catalogs. A shape by itself installs no Store or native-host policy.
 ///
 /// Children are owned values, not references or named links: declaration cycles
 /// are unrepresentable. Validation still bounds repeated children, metadata and
 /// depth before any identifier hashing, and walks declarations iteratively.
-package indirect enum RouterHostShapeContract: Sendable {
+public indirect enum RouterHostShape: Hashable, Sendable {
     case stack
-    case tabs(branches: [RouterHostShapeBranch], extras: RouterHostExtraBranches)
-    case splitTwo(sidebar: RouterHostShapeBranch, detail: RouterHostShapeBranch)
-    case splitThree(sidebar: RouterHostShapeBranch, content: RouterHostShapeBranch, detail: RouterHostShapeBranch)
-    case custom(declarationID: String, branches: [RouterHostShapeBranch], extras: RouterHostExtraBranches)
+    case tabs(branches: [RouterHostBranch], extras: RouterHostOrphanPolicy)
+    case splitTwo(sidebar: RouterHostBranch, detail: RouterHostBranch)
+    case splitThree(sidebar: RouterHostBranch, content: RouterHostBranch, detail: RouterHostBranch)
+    case custom(declarationID: String, branches: [RouterHostBranch], extras: RouterHostOrphanPolicy)
 }
 
-package struct RouterHostShapeBranch: Sendable {
-    package let id: RouterScopeID
-    package let shape: RouterHostShapeContract
+public struct RouterHostBranch: Hashable, Sendable {
+    public let id: RouterScopeID
+    public let shape: RouterHostShape
 
-    package init(_ id: RouterScopeID, shape: RouterHostShapeContract) {
+    public init(_ id: RouterScopeID, shape: RouterHostShape) {
         self.id = id
         self.shape = shape
     }
 }
 
-package enum RouterHostExtraBranches: Sendable {
+public enum RouterHostOrphanPolicy: Hashable, Sendable {
     case reject
     /// Extra branches remain intact and structurally validated, but cannot be
     /// selected. No child renderer contract is claimed for those dormant nodes.
     case preserveDormant
 }
 
-/// Fixed code/detail vocabulary. Descriptions never interpolate Route values,
+/// Extensible error codes. Descriptions never interpolate Route values,
 /// custom declaration names, identifier text or the underlying error message.
-package struct RouterHostShapeFailure: Error, Equatable, Sendable, CustomStringConvertible {
-    package enum Code: String, Sendable {
-        case resourceLimit = "hostShape.resourceLimit"
-        case invalidDeclaration = "hostShape.invalidDeclaration"
-        case invalidState = "hostShape.invalidState"
-        case invalidScope = "hostShape.invalidScope"
-        case missingScope = "hostShape.missingScope"
-        case kindMismatch = "hostShape.kindMismatch"
-        case missingBranch = "hostShape.missingBranch"
-        case extraBranch = "hostShape.extraBranch"
-        case branchOrderMismatch = "hostShape.branchOrderMismatch"
-        case selectionNotRendered = "hostShape.selectionNotRendered"
-        case splitMappingMismatch = "hostShape.splitMappingMismatch"
+public struct RouterHostValidationFailure: Error, Hashable, Sendable, CustomStringConvertible, CustomDebugStringConvertible {
+    public struct Code: RawRepresentable, Hashable, Sendable {
+        public let rawValue: String
+        public init(rawValue: String) { self.rawValue = rawValue }
+        public static let resourceLimit = Self(rawValue: "hostShape.resourceLimit")
+        public static let invalidDeclaration = Self(rawValue: "hostShape.invalidDeclaration")
+        public static let invalidState = Self(rawValue: "hostShape.invalidState")
+        public static let invalidScope = Self(rawValue: "hostShape.invalidScope")
+        public static let missingScope = Self(rawValue: "hostShape.missingScope")
+        public static let kindMismatch = Self(rawValue: "hostShape.kindMismatch")
+        public static let missingBranch = Self(rawValue: "hostShape.missingBranch")
+        public static let extraBranch = Self(rawValue: "hostShape.extraBranch")
+        public static let branchOrderMismatch = Self(rawValue: "hostShape.branchOrderMismatch")
+        public static let selectionNotRendered = Self(rawValue: "hostShape.selectionNotRendered")
+        public static let splitMappingMismatch = Self(rawValue: "hostShape.splitMappingMismatch")
+        public static let required = Self(rawValue: "hostShape.required")
+        public static let rendererMismatch = Self(rawValue: "hostShape.rendererMismatch")
+        public static let stale = Self(rawValue: "hostShape.stale")
+        public static let unknownDeclaration = Self(rawValue: "hostShape.unknownDeclaration")
+        public static let duplicateDeclaration = Self(rawValue: "hostShape.duplicateDeclaration")
+        public static let sceneIdentifierMismatch = Self(rawValue: "hostShape.sceneIdentifierMismatch")
     }
 
-    package enum Detail: Equatable, Sendable {
+    package enum Detail: Hashable, Sendable {
+        case unspecified
+        case catalogDeclaration
+        case sceneIdentifier
+        case rendererDeclaration
         case resource(RouterResourceLimitFailure)
         case emptyIdentifier
         case duplicateBranch
@@ -66,13 +79,32 @@ package struct RouterHostShapeFailure: Error, Equatable, Sendable, CustomStringC
         case splitColumns
     }
 
-    package let code: Code
-    package let scope: RouterScopePath
+    public let code: Code
+    public let scope: RouterScopePath
     package let detail: Detail
-    package var description: String { code.rawValue }
+
+    /// Structural resource information only; no route payload or resolver text.
+    public var resourceLimit: RouterResourceLimitFailure? {
+        if case .resource(let failure) = detail { failure } else { nil }
+    }
+
+    public init(code: Code, scope: RouterScopePath = .root, resourceLimit: RouterResourceLimitFailure? = nil) {
+        self.code = code
+        self.scope = scope
+        self.detail = resourceLimit.map(Detail.resource) ?? .unspecified
+    }
+
+    package init(code: Code, scope: RouterScopePath, detail: Detail) {
+        self.code = code
+        self.scope = scope
+        self.detail = detail
+    }
+
+    public var description: String { code.rawValue }
+    public var debugDescription: String { description }
 }
 
-package extension RouterHostShapeContract {
+public extension RouterHostShape {
     /// Validates the entire input's resources/structure, then the node at the
     /// exact typed path against this explicit declaration. An unrelated invalid
     /// scene or dormant branch therefore still rejects the complete input.
@@ -86,14 +118,14 @@ package extension RouterHostShapeContract {
         _ input: RouterStateDraft<R>,
         at scope: RouterScopePath,
         resourceBudget: RouterResourceBudget
-    ) throws(RouterHostShapeFailure) {
+    ) throws(RouterHostValidationFailure) {
         do {
             // All externally supplied structural input is admitted before the
             // state validator or declaration matcher can hash identifiers.
             try resourceBudget.validate(root: input.root, windows: input.windows, immersiveSpace: input.immersiveSpace)
             try admitDeclaration(at: scope, limits: resourceBudget.snapshot)
         } catch {
-            throw RouterHostShapeFailure(code: .resourceLimit, scope: .root, detail: .resource(error))
+            throw RouterHostValidationFailure(code: .resourceLimit, scope: .root, detail: .resource(error))
         }
         try validateScope(scope)
         try validateDeclaration(at: scope)
@@ -101,10 +133,10 @@ package extension RouterHostShapeContract {
         do {
             state = try RouterState(root: input.root, windows: input.windows, immersiveSpace: input.immersiveSpace)
         } catch {
-            throw RouterHostShapeFailure(code: .invalidState, scope: .root, detail: .stateStructure)
+            throw RouterHostValidationFailure(code: .invalidState, scope: .root, detail: .stateStructure)
         }
         guard let node = state.node(at: scope) else {
-            throw RouterHostShapeFailure(code: .missingScope, scope: scope, detail: .nodeUnavailable)
+            throw RouterHostValidationFailure(code: .missingScope, scope: scope, detail: .nodeUnavailable)
         }
         var work = [(shape: self, node: node, scope: scope)]
         var cursor = 0
@@ -124,8 +156,8 @@ package extension RouterHostShapeContract {
     }
 }
 
-private extension RouterHostShapeContract {
-    var branches: [RouterHostShapeBranch] {
+package extension RouterHostShape {
+    var branches: [RouterHostBranch] {
         switch self {
         case .stack: []
         case .tabs(let branches, _), .custom(_, let branches, _): branches
@@ -139,84 +171,57 @@ private extension RouterHostShapeContract {
     func admitDeclaration(
         at scope: RouterScopePath, limits: RouterGraphSnapshotLimits
     ) throws(RouterResourceLimitFailure) {
-        func add(_ value: Int, _ increment: Int, maximum: Int, resource: String) throws(RouterResourceLimitFailure) -> Int {
-            try RouterResourceBudget.addingResourceCount(value, increment, maximum: maximum, resource: resource)
-        }
-        let rootDepth = try add(scope.components.count, 1, maximum: limits.maximumGraphDepth, resource: "hostShape.depth")
-        var bytes = 0
-        func charge(_ value: String) throws(RouterResourceLimitFailure) {
-            for _ in value.utf8 {
-                bytes = try add(bytes, 1, maximum: limits.maximumPayloadBytes, resource: "hostShape.metadataBytes")
-            }
-        }
-        if case .immersiveSpace(let id) = scope.domain { try charge(id) }
-        for component in scope.components {
-            if case .branch(let id) = component { try charge(id.rawValue) }
-        }
-        var work = [(shape: self, depth: rootDepth)]
-        var cursor = 0
-        while cursor < work.count {
-            let entry = work[cursor]
-            cursor += 1
-            if case .custom(let id, _, _) = entry.shape { try charge(id) }
-            let branches = entry.shape.branches
-            _ = try add(work.count, branches.count, maximum: limits.maximumNodes, resource: "hostShape.nodes")
-            guard !branches.isEmpty else { continue }
-            let depth = try add(entry.depth, 1, maximum: limits.maximumGraphDepth, resource: "hostShape.depth")
-            for branch in branches {
-                try charge(branch.id.rawValue)
-                work.append((branch.shape, depth))
-            }
-        }
+        var admission = RouterHostDeclarationAdmission(limits: limits)
+        try admission.admit(self, at: scope)
     }
 
-    func validateScope(_ scope: RouterScopePath) throws(RouterHostShapeFailure) {
+    func validateScope(_ scope: RouterScopePath) throws(RouterHostValidationFailure) {
         if case .immersiveSpace(let id) = scope.domain, id.isEmpty {
-            throw RouterHostShapeFailure(code: .invalidScope, scope: scope, detail: .emptyIdentifier)
+            throw RouterHostValidationFailure(code: .invalidScope, scope: scope, detail: .emptyIdentifier)
         }
         for component in scope.components {
             if case .branch(let id) = component, id.rawValue.isEmpty {
-                throw RouterHostShapeFailure(code: .invalidScope, scope: scope, detail: .emptyIdentifier)
+                throw RouterHostValidationFailure(code: .invalidScope, scope: scope, detail: .emptyIdentifier)
             }
         }
     }
 
-    func validateDeclaration(at scope: RouterScopePath) throws(RouterHostShapeFailure) {
+    func validateDeclaration(at scope: RouterScopePath) throws(RouterHostValidationFailure) {
         var work = [(shape: self, scope: scope)]
         var cursor = 0
         while cursor < work.count {
             let entry = work[cursor]
             cursor += 1
             if case .custom(let id, _, _) = entry.shape, id.isEmpty {
-                throw RouterHostShapeFailure(code: .invalidDeclaration, scope: entry.scope, detail: .emptyIdentifier)
+                throw RouterHostValidationFailure(code: .invalidDeclaration, scope: entry.scope, detail: .emptyIdentifier)
             }
             let branches = entry.shape.branches
             if case .tabs = entry.shape, branches.isEmpty {
-                throw RouterHostShapeFailure(code: .invalidDeclaration, scope: entry.scope, detail: .emptyTabs)
+                throw RouterHostValidationFailure(code: .invalidDeclaration, scope: entry.scope, detail: .emptyTabs)
             }
             var ids: Set<RouterScopeID> = []
             for branch in branches {
                 guard !branch.id.rawValue.isEmpty else {
-                    throw RouterHostShapeFailure(code: .invalidDeclaration, scope: entry.scope, detail: .emptyIdentifier)
+                    throw RouterHostValidationFailure(code: .invalidDeclaration, scope: entry.scope, detail: .emptyIdentifier)
                 }
                 guard ids.insert(branch.id).inserted else {
-                    throw RouterHostShapeFailure(code: .invalidDeclaration, scope: entry.scope, detail: .duplicateBranch)
+                    throw RouterHostValidationFailure(code: .invalidDeclaration, scope: entry.scope, detail: .duplicateBranch)
                 }
                 work.append((branch.shape, entry.scope.appending(branch.id)))
             }
         }
     }
 
-    func match<R: Route>(_ node: RouterNode<R>, at scope: RouterScopePath) throws(RouterHostShapeFailure) {
-        func fail(_ code: RouterHostShapeFailure.Code, _ detail: RouterHostShapeFailure.Detail) -> RouterHostShapeFailure {
-            RouterHostShapeFailure(code: code, scope: scope, detail: detail)
+    func match<R: Route>(_ node: RouterNode<R>, at scope: RouterScopePath) throws(RouterHostValidationFailure) {
+        func fail(_ code: RouterHostValidationFailure.Code, _ detail: RouterHostValidationFailure.Detail) -> RouterHostValidationFailure {
+            RouterHostValidationFailure(code: code, scope: scope, detail: detail)
         }
         if case .stack = self {
             guard case .stack = node else { throw fail(.kindMismatch, .nodeKind) }
             return
         }
         guard case .container(let container) = node else { throw fail(.kindMismatch, .nodeKind) }
-        let extras: RouterHostExtraBranches
+        let extras: RouterHostOrphanPolicy
         let matchesOrder: Bool
         switch (self, container.style) {
         case (.tabs(_, let policy), .tabs):
@@ -247,18 +252,75 @@ private extension RouterHostShapeContract {
         let rendered = Set(declared)
         let actual = Set(container.branches.map(\.id))
         for id in declared where !actual.contains(id) {
-            throw RouterHostShapeFailure(code: .missingBranch, scope: scope.appending(id), detail: .declaredBranchUnavailable)
+            throw RouterHostValidationFailure(code: .missingBranch, scope: scope.appending(id), detail: .declaredBranchUnavailable)
         }
         if let selection = container.selection, !rendered.contains(selection) {
             throw fail(.selectionNotRendered, .selectedBranchUndeclared)
         }
         if case .reject = extras, let extra = container.branches.first(where: { !rendered.contains($0.id) }) {
-            throw RouterHostShapeFailure(code: .extraBranch, scope: scope.appending(extra.id), detail: .undeclaredBranch)
+            throw RouterHostValidationFailure(code: .extraBranch, scope: scope.appending(extra.id), detail: .undeclaredBranch)
         }
         // Split role mapping determines rendered order independently of storage
         // order. Tabs/custom declare the ordered rendered subsequence explicitly.
         if matchesOrder, container.branches.map(\.id).filter({ rendered.contains($0) }) != declared {
             throw fail(.branchOrderMismatch, .orderedBranches)
+        }
+    }
+}
+
+// Compatibility names for the package-only groundwork fixtures. New clients use
+// the public descriptor vocabulary above.
+package typealias RouterHostShapeContract = RouterHostShape
+package typealias RouterHostShapeBranch = RouterHostBranch
+package typealias RouterHostExtraBranches = RouterHostOrphanPolicy
+package typealias RouterHostShapeFailure = RouterHostValidationFailure
+
+/// One cumulative admission for the root and every frozen catalog entry. Charge
+/// before hashing, comparing identifiers, invoking resolvers, or growing work.
+package struct RouterHostDeclarationAdmission {
+    let limits: RouterGraphSnapshotLimits
+    private var nodes = 0
+    private var bytes = 0
+
+    init(limits: RouterGraphSnapshotLimits) { self.limits = limits }
+
+    mutating func charge(_ value: String) throws(RouterResourceLimitFailure) {
+        for _ in value.utf8 {
+            bytes = try RouterResourceBudget.addingResourceCount(
+                bytes, 1, maximum: limits.maximumPayloadBytes, resource: "hostShape.metadataBytes"
+            )
+        }
+    }
+
+    mutating func admit(_ shape: RouterHostShape, at scope: RouterScopePath) throws(RouterResourceLimitFailure) {
+        let rootDepth = try RouterResourceBudget.addingResourceCount(
+            scope.components.count, 1, maximum: limits.maximumGraphDepth, resource: "hostShape.depth"
+        )
+        if case .immersiveSpace(let id) = scope.domain { try charge(id) }
+        for component in scope.components {
+            if case .branch(let id) = component { try charge(id.rawValue) }
+        }
+        nodes = try RouterResourceBudget.addingResourceCount(
+            nodes, 1, maximum: limits.maximumNodes, resource: "hostShape.nodes"
+        )
+        var work = [(shape: shape, depth: rootDepth)]
+        var cursor = 0
+        while cursor < work.count {
+            let entry = work[cursor]
+            cursor += 1
+            if case .custom(let id, _, _) = entry.shape { try charge(id) }
+            let branches = entry.shape.branches
+            nodes = try RouterResourceBudget.addingResourceCount(
+                nodes, branches.count, maximum: limits.maximumNodes, resource: "hostShape.nodes"
+            )
+            guard !branches.isEmpty else { continue }
+            let depth = try RouterResourceBudget.addingResourceCount(
+                entry.depth, 1, maximum: limits.maximumGraphDepth, resource: "hostShape.depth"
+            )
+            for branch in branches {
+                try charge(branch.id.rawValue)
+                work.append((branch.shape, depth))
+            }
         }
     }
 }

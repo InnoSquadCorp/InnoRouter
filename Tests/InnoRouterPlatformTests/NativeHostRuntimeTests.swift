@@ -49,10 +49,11 @@ private enum NativeHostRoute: DestinationRoute, RouterTabRoute {
 struct NativeHostRuntimeTests {
     @Test("Stack, tab, and presentation hosts evaluate on the running platform")
     func nativeHostBodies() async throws {
-        let stackStore = RouterStore<NativeHostRoute>()
+        let stackStore = try RouterStore<NativeHostRoute>(configuration: .init(hostDescriptor: .init(root: .stack)))
         let stackHost = RouterHost(store: stackStore) {
             Text(verbatim: "Root")
         }
+        #expect(stackHost.validationFailure == nil)
         _ = stackHost.body
 
         let catalog = try RouterTabCatalog(NativeHostRoute.routerTabs)
@@ -77,8 +78,8 @@ struct NativeHostRuntimeTests {
 
 #if canImport(UIKit) && !os(watchOS)
     @Test("UIHostingController mounts the canonical stack host")
-    func uiKitStackMount() async {
-        let store = RouterStore<NativeHostRoute>()
+    func uiKitStackMount() async throws {
+        let store = try RouterStore<NativeHostRoute>(configuration: .init(hostDescriptor: .init(root: .stack)))
         let controller = UIHostingController(
             rootView: RouterHost(store: store) {
                 Text(verbatim: "Root")
@@ -103,7 +104,8 @@ struct NativeHostRuntimeTests {
             branches: [RouterBranch(id: "home"), RouterBranch(id: "settings")]
         )
         let store = try RouterStore(
-            initialState: try RouterState(root: .container(container))
+            initialState: try RouterState(root: .container(container)),
+            configuration: .init(hostDescriptor: .init(root: catalog.hostShape()))
         )
         let controller = UIHostingController(
             rootView: try RouterTabHost(store: store, catalog: catalog)
