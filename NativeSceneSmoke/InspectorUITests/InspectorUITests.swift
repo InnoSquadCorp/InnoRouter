@@ -232,6 +232,7 @@ final class InspectorUITests: XCTestCase {
     ) -> (XCUIApplication, XCUIElement) {
         continueAfterFailure = false
         let app = XCUIApplication()
+        app.launchEnvironment["INNOROUTER_INSPECTOR_TRACE"] = "1"
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
             + (localizationProbe ? ["--localization-probe"] : [])
         app.launch()
@@ -371,6 +372,9 @@ final class InspectorUITests: XCTestCase {
         let expectation = XCTNSPredicateExpectation(predicate: satisfied, object: element)
         guard XCTWaiter.wait(for: [expectation], timeout: timeout) != .completed else { return }
         let observed = element.exists ? "label \"\(element.label)\"" : "no matching element"
+        // The predicate has already failed. Preserve the displayed state before
+        // XCTFail aborts this scenario; this never retries an input or the wait.
+        capture(XCUIApplication(), "wait-timeout")
         XCTFail("Timed out after \(timeout)s waiting for \(element) \(goal); observed \(observed)", file: file, line: line)
     }
 

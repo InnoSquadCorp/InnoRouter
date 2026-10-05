@@ -111,6 +111,53 @@ execution is held, cancelled without a commit, and applied after Resume.
 These setup controls replace the nested native switch that once ignored a tap
 on CI. No test retries, longer timeouts, or Inspector assertions were removed.
 
+### Inspector execution diagnostics
+
+The five Inspector scenarios opt in to Debug-only diagnostics through the
+app launch environment `INNOROUTER_INSPECTOR_TRACE=1`. This does not enable
+tracing in Release or change any wait, input, or success condition. Each process
+emits at most 256 `INSPECTOR_EXECUTION` lines and 256 `INSPECTOR_PROBE` lines;
+the last permitted line is `event=trace.limit`. No URL, route payload, or policy
+message is recorded. Output is synchronous and opt-in, so an instrumented pass
+does not prove a timing-sensitive failure has been repaired.
+
+`INSPECTOR_EXECUTION` records the private Execute action, task creation/entry,
+the resolved request immediately before store submission, store return, task
+exit/status, Cancel, and view appearance/disappearance. The `run` identifier
+correlates task events; `run=0` denotes a view or Cancel event. `INSPECTOR_PROBE`
+records Hold/Resume, policy entry/return with canonical counters, and the counter
+string observed by the SwiftUI view. That observation is not proof of compositor
+or accessibility delivery. A failed predicate also retains a `wait-timeout`
+screenshot and full accessibility hierarchy before reporting the original
+assertion; it does not retry the predicate or the input.
+
+The existing `platforms` workflow's `test Inspector UI (iPadOS)` job captures
+these lines in `InspectorUI.xcresult`, already included in the
+`inspector-ui-evidence` artifact on both success and failure. On the new exact
+PR head, download that artifact and run:
+
+```sh
+xcrun xcresulttool export diagnostics --path InspectorUI.xcresult \
+  --output-path inspector-diagnostics
+rg 'INSPECTOR_(EXECUTION|PROBE)' inspector-diagnostics \
+  -g 'StandardOutputAndStandardError-com.innosquad.router.inspector-probe.txt'
+xcrun xcresulttool export attachments --path InspectorUI.xcresult \
+  --test-id 'InspectorUITests/testInspectorDirectionChangePreservesSelectionAndRecording()' \
+  --output-path inspector-attachments
+```
+
+Read the failing process's `pid` and event sequence together with the XCTest
+tap activity. After a `view.appear` marker and before either trace limit, an
+absent `execute.action` separates action non-entry from later stages. An action
+without `task.enter` points to the task boundary; `store.submit` without
+`policy.enter` narrows it to submission/policy entry. A `policy.enter policy=1`
+with a stale `counters.view-value` narrows the model/view observation boundary;
+an updated view value with a stale failure hierarchy narrows the remaining
+display/accessibility boundary. Cancellation, disappearance, invalid input,
+and unresolved routes have explicit markers. Missing or truncated diagnostics
+are inconclusive. Rerunning the old immutable `681ef1cf` CI run cannot produce
+these new markers; the ordinary push's new head must run the existing job.
+
 In 6.1.1 the former single localization test became the three scenarios
 above, and its one-time reads became predicate waits with the same timeouts. No
 retry was added and no Inspector assertion was removed.

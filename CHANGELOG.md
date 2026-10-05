@@ -6,17 +6,35 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
-Target: **7.0.0**. PR54 work is carried forward without a separate 6.1.1 release.
-Native vision-cancel K1 remains unresolved; portable validation does not close it.
+## 7.0.0 - 2026-10-05
+
+Prepared GA notes; 7.0.0 has not been published. PR54 work is carried forward
+without a separate 6.1.1 release. See the [7.0 migration guide](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md)
+and [release checklist](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Docs/7.0.0-release-checklist.md).
+Current native scene probes passed at the SHA recorded in the
+[Xcode 27 report](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Docs/7.0.0-xcode27-validation.ko.md); this does not establish
+every historical environment cause of the vision-cancel K1 failure.
 
 ### Breaking
 
 - RouterState is externally read-only; construct validated values with RouterStateDraft.
 - Restoring or replacing owned topology expires prior scope execution lifetimes.
 - Authorization generation and catalog contracts are explicit; inspect the 7.0 guides.
+- Input-bearing Store factories and tab/split host construction throw on invalid
+  state, resource settings, or renderer declarations. Configure an independent
+  host descriptor before mounting; it freezes root shape and root meaning.
+  Handle setup errors explicitly. Existing stack `RouterHost(store:)` and
+  UIKit/AppKit bridge factories remain nonthrowing.
+- Preserve retired tab branches explicitly with `.preserveDormant` and apply
+  `RouterTabRestorationTopology` before admission when the catalog changes.
+  A preserved branch cannot become a selected renderer. Replace topology and
+  its declaration atomically through the owning Store's `replaceHost` operation.
 
 ### Fixed
 
+- A queued immersive restoration failure revalidates its restoration ticket
+  before repairing canonical state. A matching appearance or a newer attempt
+  invalidates the old repair; a genuine open failure still removes the scene.
 - The performance smoke explicitly admits its existing 500-route snapshot
   workload with a finite budget. Default limits, workload size, iteration counts,
   and timing thresholds remain unchanged; admission self-tests reject overflow.
@@ -48,29 +66,17 @@ Native vision-cancel K1 remains unresolved; portable validation does not close i
   paths. Routers without a backticked tab case expand unchanged. A 6.1.0
   snapshot that stored the backticked spelling restores that branch as an
   orphan; keep the old identity with an explicit `id:` that spells it.
-- `RouterTabHost(store:)` pushes a link into the tab it displays. When a
-  restored selection names a branch the catalog no longer declares, the host
-  displays its first tab, but the default link plan pushed onto the stored,
-  hidden branch: the outcome was `.applied` while the screen did not change.
-  The plan now selects the displayed tab and pushes into it in one
-  transition. The selected tab image follows the same displayed selection,
-  and a first tab without a branch rejects the link instead of hiding it.
+- Tab link planning no longer reports an applied push into an invisible,
+  retired branch. In the final 7.0 contract, explicit restoration topology
+  resolves retired selections before admission and the frozen host declaration
+  rejects an incompatible renderer. Default links use the admitted selection.
 - `RouterTabHost(store:)`, `RouterSplitHost(store:)`, and
   `RouterThreeColumnSplitHost(store:)` no longer abort the process when the
-  store's root is not the container they render. Exact restoration may apply
-  any valid decoded state, including a root written before the application
-  changed containers, and these initializers are re-run on every parent
-  body pass. A tab host now renders its catalog, a split host renders the
-  columns the root carries or the standard column IDs, navigation into
-  missing scopes is rejected, and one warning per host type is logged. The
-  hosts never rewrite the store. Over a root of another shape, even one that
-  carries a branch named like a tab or column, tabs and columns render their
-  roots over an unresolvable scope, so navigation from their content is
-  rejected; default links and a tab host's tab bar selection are rejected with
-  `incompatibleNavigationTopology`. When the root changes back to the host's
-  shape, the host resolves its branches again. Exact restore still round-trips any root
-  shape; bump `RouterSnapshotCodec.currentVersion` to reject or migrate a
-  snapshot deliberately.
+  Store's declaration or root is incompatible with the renderer. The final 7.0
+  constructors throw a typed validation error instead of adopting a fallback
+  catalog, root, or empty scope. Ordinary restoration retains the configured
+  host contract; an intentional topology/root-meaning change uses atomic
+  `replaceHost`. Hosts never register or rewrite the Store's declaration.
 - `RouterRestorationDriver` applies its `RouterSnapshotRecoveryPolicy` to a
   typed storage rejection. `RouterFileSnapshotStorage(maximumByteCount:)`
   rejects an oversized file before the codec reads it, and activation failed

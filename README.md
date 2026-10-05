@@ -12,13 +12,16 @@ InnoRouter 7 turns one `@Router` enum into one navigation model:
 - `RouterStore<Route>` reduces, prepares policies, and commits atomically.
 - `RouterHost`, `RouterTabHost`, and `RouterSplitHost` render native SwiftUI containers.
 
-> **7.0.0 development:** PR54 groundwork is carried directly into the next major
-> release; there is no separate 6.1.1 release. This checkout is unreleased.
-> Native/platform, full-package and actual-app acceptance gates remain open.
+> **7.0.0 release preparation:** PR54 groundwork is carried directly into the next
+> major release; there is no separate 6.1.1 release. This checkout is unpublished.
+> [Apple and native validation](Docs/7.0.0-xcode27-validation.ko.md) is recorded
+> against the reviewed candidate. Exact-main release validation, minimum-OS and
+> physical-device qualification, and actual-app acceptance remain separate gates.
 > See the [7.0 checklist](Docs/7.0.0-release-checklist.md) for the verification boundary.
 
 [한국어](README.ko.md) · [6.0 strategy](Docs/v6-functional-strategy.md) ·
-[5.x migration](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
+[6.x to 7 migration](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md) ·
+[5.x to 6 migration](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
 
 ## Requirements
 

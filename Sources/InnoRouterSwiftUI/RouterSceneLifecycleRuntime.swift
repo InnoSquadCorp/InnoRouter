@@ -244,9 +244,15 @@ package func restoreRouterImmersiveSpaceAfterDeferredClosure<R: Route>(
             _ = await store.reconcileSceneSystemFailure(
                 .dismissImmersiveSpace,
                 executionPrecondition: { [weak store] state in
+                    // The repair can wait behind another store request.
+                    // A matching appearance or a newer restoration attempt
+                    // consumes this ticket while that request is suspended.
                     guard let store,
                           state.immersiveSpace?.id == id,
-                          store.immersiveSpaceLifecycleToken == lifecycleToken else {
+                          store.immersiveSpaceLifecycleToken == lifecycleToken,
+                          store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+                              id: id, lifecycleToken: lifecycleToken, ticket: ticket
+                          ) else {
                         return .cancelled
                     }
                     return requestPrecondition(state)

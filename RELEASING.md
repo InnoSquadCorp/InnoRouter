@@ -13,6 +13,25 @@ Release or publishing Pages. A local identity check is:
 python3 scripts/validate-release-candidate.py --version 7.0.0 --commit-sha <full-sha>
 ```
 
+For the current 7.0 preparation, first merge the release-preparation PR through
+the normal protected PR flow. A successful check of a topic-branch commit does
+not make that commit an exact-main candidate. Fetch main and pin its full SHA:
+
+```bash
+git fetch origin main
+candidate_sha="$(git rev-parse origin/main^{commit})"
+python3 scripts/validate-release-candidate.py --version 7.0.0 --commit-sha "$candidate_sha"
+gh workflow run release.yml --ref main \
+  -f version=7.0.0 -f commit_sha="$candidate_sha" -F publish=false
+```
+
+Leave `tag` unset. Confirm that no validation for the same version/SHA is already
+running before dispatching, then retain its run URL, **Candidate Required** result,
+versioned DocC, notes and checksums. This creates unpublished candidate artifacts;
+it neither creates a tag nor publishes a Release or Pages. Keep physical-device,
+minimum-OS, pilot, scorecard and historical native-issue qualification separate
+from the automated result in the [7.0 checklist](Docs/7.0.0-release-checklist.md).
+
 Once the owner approves the same version/SHA, the approved bare SemVer tag is
 already public to SwiftPM. The existing tag event publishes the Swift Package,
 versioned DocC documentation and GitHub Release. Never create a candidate tag
@@ -65,14 +84,14 @@ while other non-release labels fall back to `main`.
 
 ## SemVer commitment
 
-InnoRouter 6.x follows [Semantic Versioning](https://semver.org/)
-strictly. The public commitment lives in
+InnoRouter follows [Semantic Versioning](https://semver.org/) within each major
+line, including 7.x. The public commitment lives in
 [`README.md`](README.md#oss-release-and-semver-contract); this section documents
 the maintainer-side rules.
 
 ### What counts as a breaking change
 
-Within the 6.x line, treating any of the following as in-scope for
+Within an existing major line, treating any of the following as in-scope for
 a *minor* release is a release-process bug:
 
 - Removing or renaming a public symbol.
@@ -87,7 +106,8 @@ a *minor* release is a release-process bug:
   is exhaustive to them whether or not it is marked `@frozen`: a client
   `switch` without `default` stops compiling when a case appears.
 
-Anything in that list goes to a `7.0.0` cycle. The
+Anything in that list requires the next major: the 6.x changes below belong to
+`7.0.0`, and later breaking changes to published 7.x belong to 8.0. The
 `Baselines/PublicAPI` symbol-graph baseline gate is the
 machine-checked half of this contract; reviewer judgment is the
 other half (behavior changes that don't show up in the symbol
@@ -170,6 +190,11 @@ Every user-visible change lands directly in `CHANGELOG.md` under
 3. Review breaking entries for an explicit migration and commit the cut before
    tagging. Historical release sections are immutable after publication except
    for factual corrections.
+
+A prepared dated section is not publication. Keep README/checklist publication
+status explicitly pending until an owner-approved tag and publication complete.
+Confirm the final release date before that approval; unpublished preparation
+notes may still be corrected through the normal PR process.
 
 The release preflight reads `CHANGELOG.md` from the tag commit itself. A GA tag
 is accepted only when `Unreleased` contains no remaining release entries and

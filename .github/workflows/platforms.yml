@@ -55,6 +55,14 @@ jobs:
           SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
         run: |
           set -euo pipefail
+          python3 scripts/watch-inspector-hangs.py \
+            --device "$SIMULATOR_UDID" --output "$RUNNER_TEMP/InspectorUI-hang-diagnostics" &
+          inspector_observer_pid=$!
+          stop_inspector_observer() {
+            kill "$inspector_observer_pid" 2>/dev/null || true
+            wait "$inspector_observer_pid" 2>/dev/null || true
+          }
+          trap stop_inspector_observer EXIT
           test_status=0
           xcodebuild test \
             -project NativeSceneSmoke/NativeSceneSmoke.xcodeproj \
@@ -92,6 +100,7 @@ jobs:
             ${{ runner.temp }}/InspectorUI.xcresult
             ${{ runner.temp }}/InspectorUI-summary.json
             ${{ runner.temp }}/InspectorUI-tests.json
+            ${{ runner.temp }}/InspectorUI-hang-diagnostics
 
   build-matrix:
     if: github.workflow != 'platforms' || vars.INNOROUTER_CI_AGGREGATE != 'true'
