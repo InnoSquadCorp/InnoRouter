@@ -141,13 +141,13 @@ private struct SixteenthReviewRestorationRoot: View {
 @MainActor
 struct RouterSixteenthReviewRegressionTests {
     @Test("Queued deferred history resume consumes ownership at the event boundary")
-    func queuedHistoryImmediateResume() async {
-        await verifyQueuedHistoryResolution(.resume)
+    func queuedHistoryImmediateResume() async throws {
+        try await verifyQueuedHistoryResolution(.resume)
     }
 
     @Test("Queued deferred history cancellation consumes ownership at the event boundary")
-    func queuedHistoryImmediateCancellation() async {
-        await verifyQueuedHistoryResolution(.cancel)
+    func queuedHistoryImmediateCancellation() async throws {
+        try await verifyQueuedHistoryResolution(.cancel)
     }
 
     @Test("Cancelling one restoration attachment preserves another attachment and its saves")

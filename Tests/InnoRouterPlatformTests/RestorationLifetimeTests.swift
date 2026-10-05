@@ -344,6 +344,7 @@ private enum ImmersiveLifetimeRoute: DestinationRoute, RouterSceneRoute {
 @MainActor
 private final class ImmersiveLifetimeObservation {
     var appeared = false
+    var disappeared = false
     var renderedRevision: UInt64?
     var finished = 0
 }
@@ -355,6 +356,7 @@ private struct ImmersiveLifetimeRoot: View {
     var body: some View {
         RouterImmersiveSpaceHost(id: "theater", store: store)
             .onAppear { observation.appeared = true }
+            .onDisappear { observation.disappeared = true }
             .onChange(of: store.revision, initial: true) { _, revision in
                 observation.renderedRevision = revision
             }
@@ -371,16 +373,30 @@ struct MountedImmersiveLifetimeTests {
         dependencies.didFinishImmersiveDisappearance = { observation.finished += 1 }
         var configuration = RouterStoreConfiguration<ImmersiveLifetimeRoute>()
         configuration.runtimeDependencies = dependencies
+        configuration.hostDescriptor = .init(
+            root: .stack,
+            immersiveSpaces: .init(entries: [.init("theater", shape: .stack)], declaration: { _ in "theater" })
+        )
         let store = try RouterStore(
             initialState: try RouterState<ImmersiveLifetimeRoute>(
                 immersiveSpace: .init(id: "theater", route: .theater)
             ),
             configuration: configuration
         )
+        let firstLifetime = try #require(store.immersiveSpaceLifecycleToken)
+        #expect(RouterImmersiveSpaceHost(id: "theater", store: store).validationFailure == nil)
+        let ticket = try #require(store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
+            id: "theater", lifecycleToken: firstLifetime
+        ))
         let mount = RestorationMount(AnyView(ImmersiveLifetimeRoot(store: store, observation: observation)))
         defer { mount.close() }
-        try await until { observation.appeared }
-        let firstLifetime = store.immersiveSpaceLifecycleToken
+        // Parent appearance alone does not acknowledge the nested lifecycle
+        // modifier. Its consumption of the restoration ticket does.
+        try await until {
+            observation.appeared && !store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+                id: "theater", lifecycleToken: firstLifetime, ticket: ticket
+            )
+        }
         if replaceBeforeDetach {
             _ = await store.perform(.dismissImmersiveSpace)
             _ = await store.perform(.enterImmersiveSpace(.init(id: "theater", route: .theater)))
@@ -389,7 +405,9 @@ struct MountedImmersiveLifetimeTests {
             #expect(observation.finished == 0)
         }
         mount.removeRoot()
-        try await until { observation.finished == 1 }
+        try await until { observation.disappeared }
+        if !replaceBeforeDetach { try await until { observation.finished == 1 } }
+        #expect(observation.finished == (replaceBeforeDetach ? 0 : 1))
         #expect((store.state.immersiveSpace != nil) == replaceBeforeDetach)
         #expect(store.revision == (replaceBeforeDetach ? 2 : 1))
     }

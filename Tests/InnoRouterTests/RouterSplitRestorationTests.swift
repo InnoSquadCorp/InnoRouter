@@ -72,9 +72,9 @@ struct RouterSplitRestorationTests {
                 from: target
             )
             #expect(plan.state == expected)
-            #expect(plan.state.node(at: [split.sidebar]) == .stack(path: [.marker("sidebar")]))
+            #expect(plan.state.node(at: [.branch(split.sidebar)]) == .stack(path: [.marker("sidebar")]))
             if let content = split.content {
-                #expect(plan.state.node(at: [content]) == .stack(path: [.marker("content")]))
+                #expect(plan.state.node(at: [.branch(content)]) == .stack(path: [.marker("content")]))
             }
         }
     }
@@ -211,7 +211,7 @@ struct RouterSplitRestorationTests {
                     Issue.record("Restored column navigation must retain its declared scope")
                     return
                 }
-                #expect(store.state.node(at: [id]) == .stack(path: [
+                #expect(store.state.node(at: [.branch(id)]) == .stack(path: [
                     .marker(column.rawValue), .marker("restored-\(generation)"),
                     .marker("from-" + column.rawValue),
                 ]))
@@ -315,8 +315,8 @@ private func expectedColumns(
     let columns: [RouterSplitColumn] = split.content == nil ? [.sidebar, .detail] : [.sidebar, .content, .detail]
     return try Dictionary(uniqueKeysWithValues: columns.map { column in
         let id = try #require(split.scopeID(for: column))
-        guard case .stack(let stack) = state.node(at: [id]) else {
-            throw RouterMutationError.expectedStack([id])
+        guard case .stack(let stack) = state.node(at: [.branch(id)]) else {
+            throw RouterMutationError.expectedStack([.branch(id)])
         }
         return (column, RestoredSplitRecorder.Expected(
             scope: RouterScopePath([.branch(id)]), path: stack.path

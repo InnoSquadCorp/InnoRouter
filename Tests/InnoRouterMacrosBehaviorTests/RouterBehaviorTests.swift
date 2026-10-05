@@ -351,7 +351,7 @@ struct RouterBehaviorTests {
                 ]
             )
         )
-        let parentScope = store.scope(at: [featureBranch])
+        let parentScope = store.scope(at: [.branch(featureBranch)])
         let feature = RouterFeatureScope(
             parent: parentScope,
             mapping: FeatureParentRoute.Feature.account
@@ -367,14 +367,22 @@ struct RouterBehaviorTests {
         #expect(id == outcome.id)
         #expect(after.root == .stack(path: [.home, .detail(id: "42")]))
         #expect(observedActions == [.push(.account(.detail(id: "42"))).inScope(featureBranch)])
-        #expect(store.state.node(at: [siblingBranch]) == .stack(path: [.settings]))
+        #expect(store.state.node(at: [.branch(siblingBranch)]) == .stack(path: [.settings]))
 
         let replacement = try RouterPlan<FeatureBehaviorRoute> {
             .stack([.detail(id: "replacement")])
         }
-        _ = await feature.perform(.apply(replacement))
-        #expect(feature.node == .stack(path: [.detail(id: "replacement")]))
-        #expect(store.state.node(at: [siblingBranch]) == .stack(path: [.settings]))
+        guard case .applied = await feature.perform(.apply(replacement)) else {
+            Issue.record("Expected the feature plan to replace its mapped owner")
+            return
+        }
+        #expect(feature.node == nil)
+        let replacedFeature = RouterFeatureScope(
+            parent: store.scope(at: [.branch(featureBranch)]),
+            mapping: FeatureParentRoute.Feature.account
+        )
+        #expect(replacedFeature.node == .stack(path: [.detail(id: "replacement")]))
+        #expect(store.state.node(at: [.branch(siblingBranch)]) == .stack(path: [.settings]))
         #expect(FeatureParentRoute.Feature.account.id == "account.primary")
         #expect(FeatureParentRoute.Feature.secondary.id == "account.secondary")
         #expect(FeatureParentRoute.Feature.catalog.id == "catalog")
