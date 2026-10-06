@@ -1,6 +1,9 @@
 #if os(visionOS)
 import SwiftUI
 import InnoRouter
+#if DEBUG
+@testable import InnoRouterSwiftUI
+#endif
 
 @Router
 enum VisionProbeRoute {
@@ -64,6 +67,9 @@ final class VisionProbeModel {
     }
 
     private func flushTrace() {
+#if DEBUG
+        RouterSceneLifecycleTrace.flush()
+#endif
         FileHandle.standardOutput.write(Data((lifecycleTrace.joined(separator: "\n") + "\n").utf8))
     }
 

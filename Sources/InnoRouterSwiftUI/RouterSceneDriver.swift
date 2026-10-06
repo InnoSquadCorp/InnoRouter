@@ -139,9 +139,13 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
         }
         let open = openImmersiveSpace
         let dismiss = dismissImmersiveSpace
+        let owner = immersiveActionsOwner
         registry.installImmersiveActions(.init(
             open: { id in
-                switch await open(id: id) {
+                RouterSceneLifecycleTrace.record("actions.open.call", "owner=\(owner)")
+                let result = await open(id: id)
+                RouterSceneLifecycleTrace.record("actions.open.return", "owner=\(owner) result=\(String(describing: result))")
+                return switch result {
                 case .opened: .opened
                 case .userCancelled: .userCancelled
                 case .error: .error
@@ -160,6 +164,7 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
         immersiveSpaceLifetime: UUID?,
         expected reconciliationID: RouterSceneReconciliationID
     ) async {
+        RouterSceneLifecycleTrace.record("driver.reconcile", "revision=\(reconciliationID.revision) current=\(isCurrent(reconciliationID)) previousLifetime=\(String(describing: previousImmersiveSpaceLifetime)) nextLifetime=\(String(describing: immersiveSpaceLifetime)) previousStore=\(String(describing: previousStoreIdentity)) store=\(ObjectIdentifier(store))")
         guard isCurrent(reconciliationID) else { return }
         let previousByID = Dictionary(uniqueKeysWithValues: previousWindows.map { ($0.id, $0) })
         let currentByID = Dictionary(uniqueKeysWithValues: state.windows.map { ($0.id, $0) })
@@ -326,7 +331,9 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
 #if os(visionOS)
         guard isCurrent(reconciliationID) else { return false }
         if let previous {
+            RouterSceneLifecycleTrace.record("driver.dismiss.call", "revision=\(store.revision)")
             await dismissImmersiveSpace()
+            RouterSceneLifecycleTrace.record("driver.dismiss.return", "revision=\(store.revision)")
             previousImmersiveSpace = nil
             onEvent(.dismissedImmersiveSpace(previous))
             guard isCurrent(reconciliationID) else { return false }
@@ -343,7 +350,9 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
             )
             return false
         }
+        RouterSceneLifecycleTrace.record("driver.open.call", "lifetime=\(String(describing: currentLifetime)) revision=\(store.revision)")
         let result = await openImmersiveSpace(id: scene.id)
+        RouterSceneLifecycleTrace.record("driver.open.return", "result=\(String(describing: result)) lifetime=\(String(describing: currentLifetime)) revision=\(store.revision)")
         guard isCurrent(reconciliationID) else {
             if result == .opened {
                 await dismissImmersiveSpace()
