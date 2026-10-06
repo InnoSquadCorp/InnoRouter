@@ -155,18 +155,18 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
     func body(content: Content) -> some View {
         content
             .onAppear {
+                RouterSceneLifecycleTrace.record("appearance.enter", "lifetime=\(String(describing: lifecycleToken)) currentLifetime=\(String(describing: store.immersiveSpaceLifecycleToken)) revision=\(store.revision)")
                 appearedLifetime = lifecycleToken
                 appearedRequestPrecondition = scope.combinedExecutionPrecondition(nil)
-                guard let lifecycleToken, let appearedRequestPrecondition,
-                      appearedRequestPrecondition(store.state) == nil else { return }
-                store.sceneRestorationRegistry.finishImmersiveSpaceRestoration(
-                    id: id,
-                    lifecycleToken: lifecycleToken
+                _ = admitRouterImmersiveSpaceAppearance(
+                    id: id, lifecycleToken: lifecycleToken, store: store,
+                    executionPrecondition: appearedRequestPrecondition
                 )
             }
             .onDisappear {
                 // A body refresh may already contain the replacement's token
                 // while the previous native space is still disappearing.
+                RouterSceneLifecycleTrace.record("disappearance.enter", "lifetime=\(String(describing: appearedLifetime)) revision=\(store.revision)")
                 let lifecycleToken = appearedLifetime
                 let requestPrecondition = appearedRequestPrecondition
                 appearedLifetime = nil
@@ -207,12 +207,16 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
                             ticket: restorationTicket,
                             store: store,
                             open: {
-                            switch await openImmersiveSpace(id: id) {
-                            case .opened: .opened
-                            case .userCancelled: .userCancelled
-                            case .error: .error
-                            @unknown default: .error
-                            }
+                                let requestID = RouterSceneLifecycleTrace.requestID()
+                                RouterSceneLifecycleTrace.record("fallback.open.call", "request=\(String(describing: requestID)) lifetime=\(lifecycleToken) ticket=\(restorationTicket)")
+                                let result = await openImmersiveSpace(id: id)
+                                RouterSceneLifecycleTrace.record("fallback.open.return", "request=\(String(describing: requestID)) result=\(String(describing: result)) lifetime=\(lifecycleToken) ticket=\(restorationTicket)")
+                                return switch result {
+                                case .opened: .opened
+                                case .userCancelled: .userCancelled
+                                case .error: .error
+                                @unknown default: .error
+                                }
                             },
                             dismiss: { await dismissImmersiveSpace() },
                             executionPrecondition: requestPrecondition

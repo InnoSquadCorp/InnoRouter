@@ -824,11 +824,24 @@ struct RouterSceneLifecycleTests {
         #expect(store.revision == 2)
     }
 
-    @Test(
-        "A matching appearance invalidates a queued failed-restoration repair",
-        arguments: [false, true]
-    )
-    func appearanceFencesQueuedRestorationFailureRepair(appearsBeforeRepair: Bool) async throws {
+    @Test("Appearance before queued repair preserves the current lifetime")
+    func appearanceBeforeQueuedRepair() async throws {
+        try await checkAppearanceRepairOrder(.beforeRepair)
+    }
+
+    @Test("Appearance after committed repair cannot revive an expired lifetime")
+    func appearanceAfterCommittedRepair() async throws {
+        try await checkAppearanceRepairOrder(.afterRepair)
+    }
+
+    @Test("No appearance lets a genuine native failure remove canonical state")
+    func noAppearanceAfterFailedOpen() async throws {
+        try await checkAppearanceRepairOrder(.absent)
+    }
+
+    private enum AppearanceRepairOrder { case beforeRepair, afterRepair, absent }
+
+    private func checkAppearanceRepairOrder(_ order: AppearanceRepairOrder) async throws {
         let initial = try RouterState<PlainSceneLifecycleRoute>(
             immersiveSpace: .init(id: "shared", route: .old)
         )
@@ -843,6 +856,8 @@ struct RouterSceneLifecycleTests {
             ])
         )
         let token = try #require(store.immersiveSpaceLifecycleToken)
+        let scope = store.scope(at: .immersiveSpace("shared"))
+        let appearancePrecondition = scope.combinedExecutionPrecondition(nil)
         let ticket = try #require(store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
             id: "shared", lifecycleToken: token
         ))
@@ -856,13 +871,18 @@ struct RouterSceneLifecycleTests {
                 open: { .error }, dismiss: {}
             )
         }
-        // The native result has arrived, but the store is still processing the
-        // unrelated request. Appearance consumes the same restoration ticket.
+        // Observing submission proves the failed native return has queued its
+        // repair behind the suspended policy. No sleep or scheduling guess.
         _ = await requests.next()
-        if appearsBeforeRepair {
-            store.sceneRestorationRegistry.finishImmersiveSpaceRestoration(
-                id: "shared", lifecycleToken: token
-            )
+        #expect(store.revision == 0)
+        #expect(store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+            id: "shared", lifecycleToken: token, ticket: ticket
+        ))
+        if order == .beforeRepair {
+            #expect(admitRouterImmersiveSpaceAppearance(
+                id: "shared", lifecycleToken: token, store: store,
+                executionPrecondition: appearancePrecondition
+            ))
         }
         gate.release()
         guard case .applied = await unrelated.value else {
@@ -870,9 +890,81 @@ struct RouterSceneLifecycleTests {
             return
         }
         #expect(await restoration.value == false)
+        if order == .afterRepair {
+            // The task result proves repair has committed, before invoking the
+            // very same admission function used by the native onAppear.
+            #expect(store.state.immersiveSpace == nil)
+            #expect(store.revision == 2)
+            #expect(!admitRouterImmersiveSpaceAppearance(
+                id: "shared", lifecycleToken: token, store: store,
+                executionPrecondition: appearancePrecondition
+            ))
+            #expect(!admitRouterImmersiveSpaceAppearance(
+                id: "shared", lifecycleToken: store.immersiveSpaceLifecycleToken,
+                store: store,
+                executionPrecondition: store.scope(at: .immersiveSpace("shared"))
+                    .combinedExecutionPrecondition(nil)
+            ))
+        }
         #expect(store.state.root == .stack(path: [.old]))
-        #expect(store.state.immersiveSpace == (appearsBeforeRepair ? initial.immersiveSpace : nil))
-        #expect(store.revision == (appearsBeforeRepair ? 1 : 2))
+        #expect(store.state.immersiveSpace == (order == .beforeRepair ? initial.immersiveSpace : nil))
+        #expect(store.revision == (order == .beforeRepair ? 1 : 2))
+        #expect(!store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+            id: "shared", lifecycleToken: token, ticket: ticket
+        ))
+    }
+
+    @Test("Late appearance cannot consume a replacement lifetime reservation")
+    func lateAppearanceCannotAdmitReplacement() async throws {
+        let initial = try RouterState<PlainSceneLifecycleRoute>(
+            immersiveSpace: .init(id: "shared", route: .old)
+        )
+        let store = try RouterStore(initialState: initial)
+        let oldToken = try #require(store.immersiveSpaceLifecycleToken)
+        let scope = store.scope(at: .immersiveSpace("shared"))
+        let oldPrecondition = scope.combinedExecutionPrecondition(nil)
+        _ = await store.perform(.dismissImmersiveSpace)
+        #expect(!admitRouterImmersiveSpaceAppearance(
+            id: "shared", lifecycleToken: oldToken, store: store,
+            executionPrecondition: oldPrecondition
+        ))
+        #expect(store.state.immersiveSpace == nil)
+        _ = await store.perform(.enterImmersiveSpace(.init(id: "shared", route: .replacement)))
+        let token = try #require(store.immersiveSpaceLifecycleToken)
+        let ticket = try #require(store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
+            id: "shared", lifecycleToken: token
+        ))
+        #expect(!admitRouterImmersiveSpaceAppearance(
+            id: "shared", lifecycleToken: oldToken, store: store,
+            executionPrecondition: oldPrecondition
+        ))
+        #expect(store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+            id: "shared", lifecycleToken: token, ticket: ticket
+        ))
+        #expect(store.state.immersiveSpace?.route == .replacement)
+        #expect(store.revision == 2)
+    }
+
+    @Test("Rejected appearance authority preserves the reservation")
+    func rejectedAppearanceCannotConsumeReservation() throws {
+        let initial = try RouterState<PlainSceneLifecycleRoute>(
+            immersiveSpace: .init(id: "shared", route: .old)
+        )
+        let store = try RouterStore(initialState: initial)
+        let token = try #require(store.immersiveSpaceLifecycleToken)
+        let ticket = try #require(store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
+            id: "shared", lifecycleToken: token
+        ))
+        let denied: RouterRequestPrecondition<PlainSceneLifecycleRoute> = { _ in .cancelled }
+        #expect(!admitRouterImmersiveSpaceAppearance(
+            id: "shared", lifecycleToken: token, store: store,
+            executionPrecondition: denied
+        ))
+        #expect(store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+            id: "shared", lifecycleToken: token, ticket: ticket
+        ))
+        #expect(store.state == initial)
+        #expect(store.revision == 0)
     }
 
     @Test("A failed native open repair cannot be rejected by application policy")

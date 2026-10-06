@@ -136,8 +136,16 @@ extension RouterStore {
     ) -> RouterOutcome<R> {
         let previousScopes = Array(scopes.values)
         let retired = updateScopeLifetimes(after: after, mutation: lifetimeMutation, requestRootID: requestRootID)
+#if DEBUG
+        let previousSceneLifetime = immersiveSpaceLifecycleToken
+#endif
         updateSceneLifecycleTokens(before: before, after: after)
         commit(after, hostReplacement: hostReplacement, animation: context.animation)
+#if DEBUG
+        if previousSceneLifetime != immersiveSpaceLifecycleToken {
+            RouterSceneLifecycleTrace.record("scene.commit", "transition=\(id) revision=\(revision) previousLifetime=\(String(describing: previousSceneLifetime)) currentLifetime=\(String(describing: immersiveSpaceLifecycleToken)) source=\(context.source)")
+        }
+#endif
         refreshScopes(after: action, context: context, including: previousScopes)
         finishDismissedPresentations(
             ids: retired,
