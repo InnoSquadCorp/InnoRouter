@@ -10,12 +10,21 @@ enum RouterSceneLifecycleTrace {
     private static var flushedCount = 0
 #endif
 
+    static func requestID() -> UUID? {
+#if DEBUG
+        guard enabled else { return nil }
+        return UUID()
+#else
+        return nil
+#endif
+    }
+
     static func record(_ event: String, _ fields: @autoclosure () -> String = "") {
 #if DEBUG
         guard enabled, lines.count < 256 else { return }
         let sequence = lines.count + 1
         let recordedEvent = sequence == 256 ? "trace.limit" : event
-        lines.append("SCENE_TRACE seq=\(sequence) time=\(Date().timeIntervalSince1970) event=\(recordedEvent) \(fields())")
+        lines.append("SCENE_TRACE pid=\(ProcessInfo.processInfo.processIdentifier) seq=\(sequence) time=\(Date().timeIntervalSince1970) event=\(recordedEvent) \(fields())")
 #endif
     }
 

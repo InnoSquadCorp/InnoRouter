@@ -142,9 +142,10 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
         let owner = immersiveActionsOwner
         registry.installImmersiveActions(.init(
             open: { id in
-                RouterSceneLifecycleTrace.record("actions.open.call", "owner=\(owner)")
+                let requestID = RouterSceneLifecycleTrace.requestID()
+                RouterSceneLifecycleTrace.record("actions.open.call", "request=\(String(describing: requestID)) owner=\(owner)")
                 let result = await open(id: id)
-                RouterSceneLifecycleTrace.record("actions.open.return", "owner=\(owner) result=\(String(describing: result))")
+                RouterSceneLifecycleTrace.record("actions.open.return", "request=\(String(describing: requestID)) owner=\(owner) result=\(String(describing: result))")
                 return switch result {
                 case .opened: .opened
                 case .userCancelled: .userCancelled
@@ -350,9 +351,10 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
             )
             return false
         }
-        RouterSceneLifecycleTrace.record("driver.open.call", "lifetime=\(String(describing: currentLifetime)) revision=\(store.revision)")
+        let requestID = RouterSceneLifecycleTrace.requestID()
+        RouterSceneLifecycleTrace.record("driver.open.call", "request=\(String(describing: requestID)) lifetime=\(String(describing: currentLifetime)) revision=\(store.revision)")
         let result = await openImmersiveSpace(id: scene.id)
-        RouterSceneLifecycleTrace.record("driver.open.return", "result=\(String(describing: result)) lifetime=\(String(describing: currentLifetime)) revision=\(store.revision)")
+        RouterSceneLifecycleTrace.record("driver.open.return", "request=\(String(describing: requestID)) result=\(String(describing: result)) lifetime=\(String(describing: currentLifetime)) revision=\(store.revision)")
         guard isCurrent(reconciliationID) else {
             if result == .opened {
                 await dismissImmersiveSpace()

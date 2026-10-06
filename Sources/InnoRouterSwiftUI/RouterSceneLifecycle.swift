@@ -207,9 +207,10 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
                             ticket: restorationTicket,
                             store: store,
                             open: {
-                                RouterSceneLifecycleTrace.record("fallback.open.call", "lifetime=\(lifecycleToken) ticket=\(restorationTicket)")
+                                let requestID = RouterSceneLifecycleTrace.requestID()
+                                RouterSceneLifecycleTrace.record("fallback.open.call", "request=\(String(describing: requestID)) lifetime=\(lifecycleToken) ticket=\(restorationTicket)")
                                 let result = await openImmersiveSpace(id: id)
-                                RouterSceneLifecycleTrace.record("fallback.open.return", "result=\(String(describing: result)) lifetime=\(lifecycleToken) ticket=\(restorationTicket)")
+                                RouterSceneLifecycleTrace.record("fallback.open.return", "request=\(String(describing: requestID)) result=\(String(describing: result)) lifetime=\(lifecycleToken) ticket=\(restorationTicket)")
                                 return switch result {
                                 case .opened: .opened
                                 case .userCancelled: .userCancelled

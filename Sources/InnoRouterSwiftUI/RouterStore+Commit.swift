@@ -143,7 +143,7 @@ extension RouterStore {
         commit(after, hostReplacement: hostReplacement, animation: context.animation)
 #if DEBUG
         if previousSceneLifetime != immersiveSpaceLifecycleToken {
-            RouterSceneLifecycleTrace.record("scene.commit", "revision=\(revision) previousLifetime=\(String(describing: previousSceneLifetime)) currentLifetime=\(String(describing: immersiveSpaceLifecycleToken)) source=\(context.source)")
+            RouterSceneLifecycleTrace.record("scene.commit", "transition=\(id) revision=\(revision) previousLifetime=\(String(describing: previousSceneLifetime)) currentLifetime=\(String(describing: immersiveSpaceLifecycleToken)) source=\(context.source)")
         }
 #endif
         refreshScopes(after: action, context: context, including: previousScopes)

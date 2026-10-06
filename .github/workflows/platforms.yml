@@ -499,6 +499,7 @@ jobs:
         env:
           SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
           PLATFORM_NAME: ${{ matrix.platform.name }}
+          SIMCTL_CHILD_INNOROUTER_SCENE_TRACE: ${{ matrix.platform.name == 'visionOS' && '1' || '0' }}
         run: |
           platform=ipad
           if [[ "$PLATFORM_NAME" == "visionOS" ]]; then platform=vision; fi
