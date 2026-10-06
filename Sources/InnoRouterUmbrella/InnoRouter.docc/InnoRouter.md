@@ -93,6 +93,7 @@ struct AppRoot: View {
 ### System integration
 
 - `RouterSceneDriver`
+- `RouterImmersiveSpaceScene` (visionOS)
 - `RouterOpenURLIntentBuilder`
 - `RouterShortcutCatalog`
 - `RouterObservability`

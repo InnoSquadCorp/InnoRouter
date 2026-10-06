@@ -390,6 +390,14 @@ universal link만 받습니다. 기존 UIKit/AppKit 앱은 `RouterUIKitBridge` �
 구분하고, `RouterWindowHost`와 `RouterImmersiveSpaceHost`가 정확한 scene-local
 history를 렌더링합니다.
 
+visionOS에서는 `RouterImmersiveSpaceScene(id:store:)`를 driver 옆에 선언하면
+native appearance가 실제 open 시도의 opaque 값을 전달합니다. 실패 repair가 이미
+commit된 뒤라도 같은 시도의 appearance만 새 authorization·policy 검사를 거쳐
+복원할 수 있습니다. 복원은 새 revision과 scope를 발급하고 만료된 scope를 되살리지
+않습니다. 기존 id-only scene은 기존 동작을 유지하며 귀속되지 않은 callback으로
+만료된 scene을 복원하지 않습니다. wrapper ID는 앱 scene graph에서 Store·ID마다
+하나씩 안정적으로 선언해야 합니다. 조건부 선언 제거는 모델링하지 않습니다.
+
 ## 적합한 surface 고르기
 
 | 필요 | 6.0 surface |

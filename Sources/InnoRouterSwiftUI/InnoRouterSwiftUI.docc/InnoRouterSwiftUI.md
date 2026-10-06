@@ -52,6 +52,7 @@ a typed reason without partial state.
 | three-column split tree | `RouterThreeColumnSplitHost` |
 | regular-window local history | `RouterWindowHost` |
 | immersive-space local history | `RouterImmersiveSpaceHost` |
+| attributed native immersive scene declaration on visionOS | `RouterImmersiveSpaceScene` |
 | application-owned authority | `RouterStore` |
 | child subtree | `RouterScope` |
 | macro-first read-only state | `EnvironmentRouterState` |
@@ -71,6 +72,15 @@ Use the atomic stack helpers for idempotent producer behavior and attach a
 replace-pending semantics. A `RouterPolicy` can defer a transition while the
 store continues unrelated work; resolving that deferral explicitly resumes,
 rejects, or cancels the immutable request.
+
+On visionOS, declare `RouterImmersiveSpaceScene(id:store:)` beside a matching
+`RouterSceneDriver`. The native value binds appearance to one Store, lifetime,
+open request, and driver owner without requiring a Codable route. A matching
+appearance after committed failure repair enters the regular authorization and
+policy pipeline and receives a new revision and scope; expired scope authority
+never revives. Existing id-only scene declarations retain their original
+behavior. Declare each wrapper ID once for a stable Store in the app scene
+graph; conditional declaration removal is not modeled.
 
 Partial restoration validates decoded routes before one revision-checked
 commit and returns a payload-free structural report. A fully removed nonempty

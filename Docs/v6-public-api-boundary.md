@@ -85,6 +85,14 @@ Explicit persisted tab identity adds one `@TabItem` overload. The generated
 typed tab and catalog stay unchanged; only the opt-in scope identity is
 decoupled from the route case spelling.
 
+The visionOS-only `RouterImmersiveSpaceScene` adds one Scene declaration with
+the `id:store:rendering:presentations:` initializer and its Scene body. Native
+activation payload and diagnostic observation remain internal. The host
+symbol graphs do not contain this conditional platform surface, so the
+visionOS consumer matrix validates its emitted public interface separately
+through `check-platform-interface.sh`. The macOS product budgets above remain
+unchanged. Routes require no additional Codable conformance.
+
 Run both checks with:
 
 ```sh

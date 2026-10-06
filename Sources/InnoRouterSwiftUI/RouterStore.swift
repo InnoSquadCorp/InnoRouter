@@ -113,6 +113,14 @@ public final class RouterStore<R: Route> {
     var windowLifecycleTokens: [UUID: UUID]
     @ObservationIgnored
     let sceneRestorationRegistry = RouterSceneRestorationRegistry()
+    @ObservationIgnored
+    let immersiveActivationStoreID = UUID()
+    @ObservationIgnored
+    var immersiveActivation: RouterImmersiveActivationRecord<R>?
+    @ObservationIgnored
+    var pendingImmersiveDismissal: RouterImmersiveDismissal<R>?
+    // Effect identity must wake the Driver even for an accepted unchanged close.
+    var immersiveDismissalEpoch: UUID?
 
     /// A multicast stream of correlated transition events.
     public var events: AsyncStream<RouterEvent<R>> {

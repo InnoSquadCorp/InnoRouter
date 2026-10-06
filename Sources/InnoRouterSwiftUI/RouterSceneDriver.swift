@@ -37,6 +37,7 @@ private final class RouterSceneReconciliationQueue {
 private struct RouterSceneReconciliationID: Hashable {
     let store: ObjectIdentifier
     let revision: UInt64
+    let immersiveDismissalEpoch: UUID?
 }
 
 /// Executes the window and immersive-space differences in ``RouterState``.
@@ -45,8 +46,9 @@ private struct RouterSceneReconciliationID: Hashable {
 /// SwiftUI effect boundary that translates committed state into environment
 /// actions. Applications declare regular windows with
 /// `WindowGroup(id:for: UUID.self)` so the router's exact window identity is
-/// preserved, and declare matching `ImmersiveSpace(id:)` scenes from the
-/// generated route catalog.
+/// preserved. On visionOS, declare RouterImmersiveSpaceScene from the generated
+/// route catalog to retain native open-attempt identity. Id-only ImmersiveSpace
+/// declarations remain supported without recovery of unattributed callbacks.
 @MainActor
 public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
     private let store: RouterStore<R>
@@ -111,11 +113,13 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
             }
             .task(id: RouterSceneReconciliationID(
                 store: ObjectIdentifier(store),
-                revision: store.revision
+                revision: store.revision,
+                immersiveDismissalEpoch: store.immersiveDismissalEpoch
             )) {
                 let reconciliationID = RouterSceneReconciliationID(
                     store: ObjectIdentifier(store),
-                    revision: store.revision
+                    revision: store.revision,
+                    immersiveDismissalEpoch: store.immersiveDismissalEpoch
                 )
                 let state = store.state
                 let windowLifetimes = store.windowLifecycleTokens
@@ -134,6 +138,7 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
     private func registerImmersiveActions() {
 #if os(visionOS)
         let registry = store.sceneRestorationRegistry
+        store.prepareAttributedImmersiveDriver(owner: immersiveActionsOwner)
         if registeredRestorationRegistry !== registry {
             registeredRestorationRegistry?.removeImmersiveActions(owner: immersiveActionsOwner)
         }
@@ -153,7 +158,18 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
                 @unknown default: .error
                 }
             },
-            dismiss: { await dismiss() }
+            dismiss: { await dismiss() },
+            openActivation: { activation in
+                RouterSceneLifecycleTrace.record("actions.bound.open.call", "request=\(activation.requestID) owner=\(owner)")
+                let result = await open(id: activation.sceneID, value: activation)
+                RouterSceneLifecycleTrace.record("actions.bound.open.return", "request=\(activation.requestID) result=\(String(describing: result))")
+                return switch result {
+                case .opened: .opened
+                case .userCancelled: .userCancelled
+                case .error: .error
+                @unknown default: .error
+                }
+            }
         ), owner: immersiveActionsOwner)
         registeredRestorationRegistry = registry
 #endif
@@ -198,7 +214,7 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
             ) else { return }
         }
 
-        if !sameNativeIdentity(
+        if store.pendingImmersiveDismissal != nil || !sameNativeIdentity(
             previousImmersiveSpace,
             state.immersiveSpace,
             previousLifetime: previousImmersiveSpaceLifetime,
@@ -307,93 +323,6 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
 #endif
     }
 
-    private func reconcileImmersiveSpace(
-        from previous: RouterImmersiveSpace<R>?,
-        to current: RouterImmersiveSpace<R>?,
-        currentLifetime: UUID?,
-        expected reconciliationID: RouterSceneReconciliationID
-    ) async -> Bool {
-        await RouterSceneRestorationRegistry.immersiveEffectQueue.enqueue {
-            await reconcileImmersiveSpaceEffect(
-                from: previous,
-                to: current,
-                currentLifetime: currentLifetime,
-                expected: reconciliationID
-            )
-        }
-    }
-
-    private func reconcileImmersiveSpaceEffect(
-        from previous: RouterImmersiveSpace<R>?,
-        to current: RouterImmersiveSpace<R>?,
-        currentLifetime: UUID?,
-        expected reconciliationID: RouterSceneReconciliationID
-    ) async -> Bool {
-#if os(visionOS)
-        guard isCurrent(reconciliationID) else { return false }
-        if let previous {
-            RouterSceneLifecycleTrace.record("driver.dismiss.call", "revision=\(store.revision)")
-            await dismissImmersiveSpace()
-            RouterSceneLifecycleTrace.record("driver.dismiss.return", "revision=\(store.revision)")
-            previousImmersiveSpace = nil
-            onEvent(.dismissedImmersiveSpace(previous))
-            guard isCurrent(reconciliationID) else { return false }
-        }
-        guard let current else { return true }
-        guard let scene = catalog.descriptor(for: current.route),
-              scene.style == .immersiveSpace,
-              scene.id == current.id else {
-            onEvent(.unsupported(route: current.route, style: .immersiveSpace))
-            await rollback(
-                current,
-                lifecycleToken: currentLifetime,
-                expected: reconciliationID
-            )
-            return false
-        }
-        let requestID = RouterSceneLifecycleTrace.requestID()
-        RouterSceneLifecycleTrace.record("driver.open.call", "request=\(String(describing: requestID)) lifetime=\(String(describing: currentLifetime)) revision=\(store.revision)")
-        let result = await openImmersiveSpace(id: scene.id)
-        RouterSceneLifecycleTrace.record("driver.open.return", "request=\(String(describing: requestID)) result=\(String(describing: result)) lifetime=\(String(describing: currentLifetime)) revision=\(store.revision)")
-        guard isCurrent(reconciliationID) else {
-            if result == .opened {
-                await dismissImmersiveSpace()
-            }
-            return false
-        }
-        if result == .opened {
-            previousImmersiveSpace = current
-            previousImmersiveSpaceLifetime = currentLifetime
-            onEvent(.openedImmersiveSpace(current))
-            return true
-        } else {
-            previousImmersiveSpace = nil
-            onEvent(.immersiveOpenFailed(current))
-            await rollback(
-                current,
-                lifecycleToken: currentLifetime,
-                expected: reconciliationID
-            )
-            return false
-        }
-#else
-        guard isCurrent(reconciliationID) else { return false }
-        if let previous {
-            onEvent(.unsupported(route: previous.route, style: .immersiveSpace))
-        }
-        if let current {
-            onEvent(.unsupported(route: current.route, style: .immersiveSpace))
-            await rollback(
-                current,
-                lifecycleToken: currentLifetime,
-                expected: reconciliationID
-            )
-            return false
-        }
-        return true
-#endif
-    }
-
     private func rollback(
         _ window: RouterWindow<R>,
         lifecycleToken: UUID?,
@@ -443,4 +372,158 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
             && ObjectIdentifier(store) == expected.store
             && store.revision == expected.revision
     }
+}
+
+private extension RouterSceneDriver {
+    private func reconcileImmersiveSpace(
+        from previous: RouterImmersiveSpace<R>?,
+        to current: RouterImmersiveSpace<R>?,
+        currentLifetime: UUID?,
+        expected reconciliationID: RouterSceneReconciliationID
+    ) async -> Bool {
+        await RouterSceneRestorationRegistry.immersiveEffectQueue.enqueue {
+            await reconcileImmersiveSpaceEffect(
+                from: previous,
+                to: current,
+                currentLifetime: currentLifetime,
+                expected: reconciliationID
+            )
+        }
+    }
+
+    private func reconcileImmersiveSpaceEffect(
+        from previous: RouterImmersiveSpace<R>?,
+        to current: RouterImmersiveSpace<R>?,
+        currentLifetime: UUID?,
+        expected reconciliationID: RouterSceneReconciliationID
+    ) async -> Bool {
+#if os(visionOS)
+        guard isCurrent(reconciliationID) else { return false }
+        if adoptImmersiveSpace(current, lifetime: currentLifetime) { return true }
+        guard await dismissPreviousImmersiveSpace(
+            previous, desired: current, expected: reconciliationID
+        ) else { return false }
+        guard let current else { return true }
+        return await openNativeImmersiveSpace(
+            current, lifetime: currentLifetime, expected: reconciliationID
+        )
+#else
+        guard isCurrent(reconciliationID) else { return false }
+        if let previous {
+            onEvent(.unsupported(route: previous.route, style: .immersiveSpace))
+        }
+        if let current {
+            onEvent(.unsupported(route: current.route, style: .immersiveSpace))
+            await rollback(
+                current,
+                lifecycleToken: currentLifetime,
+                expected: reconciliationID
+            )
+            return false
+        }
+        return true
+#endif
+    }
+
+#if os(visionOS)
+    private func adoptImmersiveSpace(_ current: RouterImmersiveSpace<R>?, lifetime: UUID?) -> Bool {
+        guard let current, store.hasAdoptedImmersiveAppearance(id: current.id, lifetime: lifetime) else { return false }
+        if let pending = store.pendingImmersiveDismissal { store.finishAttributedImmersiveDismissal(pending.id) }
+        previousImmersiveSpace = current
+        previousImmersiveSpaceLifetime = lifetime
+        onEvent(.openedImmersiveSpace(current))
+        return true
+    }
+
+    private func dismissPreviousImmersiveSpace(
+        _ previous: RouterImmersiveSpace<R>?, desired current: RouterImmersiveSpace<R>?,
+        expected reconciliationID: RouterSceneReconciliationID
+    ) async -> Bool {
+        if let pending = store.pendingImmersiveDismissal {
+            await dismissImmersiveSpace()
+            store.finishAttributedImmersiveDismissal(pending.id)
+            previousImmersiveSpace = nil
+            previousImmersiveSpaceLifetime = nil
+            onEvent(.dismissedImmersiveSpace(pending.scene))
+            guard isCurrent(reconciliationID) else { return false }
+        }
+        if let previous, previousImmersiveSpace != nil {
+            if current == nil && store.hasClaimedImmersiveRecovery {
+                previousImmersiveSpace = nil
+                return true
+            }
+            RouterSceneLifecycleTrace.record("driver.dismiss.call", "revision=\(store.revision)")
+            await dismissImmersiveSpace()
+            RouterSceneLifecycleTrace.record("driver.dismiss.return", "revision=\(store.revision)")
+            previousImmersiveSpace = nil
+            onEvent(.dismissedImmersiveSpace(previous))
+            guard isCurrent(reconciliationID) else { return false }
+        }
+        return true
+    }
+
+    private func openNativeImmersiveSpace(
+        _ current: RouterImmersiveSpace<R>, lifetime currentLifetime: UUID?,
+        expected reconciliationID: RouterSceneReconciliationID
+    ) async -> Bool {
+        guard let scene = catalog.descriptor(for: current.route),
+              scene.style == .immersiveSpace,
+              scene.id == current.id else {
+            onEvent(.unsupported(route: current.route, style: .immersiveSpace))
+            await rollback(
+                current,
+                lifecycleToken: currentLifetime,
+                expected: reconciliationID
+            )
+            return false
+        }
+        let requestID = RouterSceneLifecycleTrace.requestID()
+        RouterSceneLifecycleTrace.record("driver.open.call", "request=\(String(describing: requestID)) lifetime=\(String(describing: currentLifetime)) revision=\(store.revision)")
+        guard let result = await performImmersiveSpaceOpen(id: scene.id, lifetime: currentLifetime) else { return false }
+        RouterSceneLifecycleTrace.record("driver.open.return", "request=\(String(describing: requestID)) result=\(String(describing: result)) lifetime=\(String(describing: currentLifetime)) revision=\(store.revision)")
+        guard isCurrent(reconciliationID) else {
+            if result == .opened {
+                await dismissImmersiveSpace()
+            }
+            return false
+        }
+        if result == .opened || store.hasAdoptedImmersiveAppearance(id: scene.id, lifetime: currentLifetime) {
+            previousImmersiveSpace = current
+            previousImmersiveSpaceLifetime = currentLifetime
+            onEvent(.openedImmersiveSpace(current))
+            return true
+        } else {
+            previousImmersiveSpace = nil
+            onEvent(.immersiveOpenFailed(current))
+            await rollback(
+                current,
+                lifecycleToken: currentLifetime,
+                expected: reconciliationID
+            )
+            return false
+        }
+    }
+
+    private func performImmersiveSpaceOpen(id: String, lifetime: UUID?) async -> OpenImmersiveSpaceAction.Result? {
+        let activation = if store.sceneRestorationRegistry.hasAttributedImmersiveSpace(id: id), let lifetime {
+            store.beginAttributedImmersiveOpen(id: id, lifecycleToken: lifetime, owner: immersiveActionsOwner)
+        } else { Optional<RouterImmersiveActivation>.none }
+        if let activation {
+            let result = await openImmersiveSpace(id: id, value: activation)
+            let mappedResult: RouterImmersiveSpaceOpenResult = switch result {
+                case .opened: .opened
+                case .userCancelled: .userCancelled
+                case .error: .error
+                @unknown default: .error
+            }
+            guard store.returnedAttributedImmersiveOpen(mappedResult, activation: activation) else {
+                if result == .opened { await dismissImmersiveSpace() }
+                return nil
+            }
+            return result
+        }
+        if store.sceneRestorationRegistry.hasAttributedImmersiveSpace(id: id) { return .error }
+        return await openImmersiveSpace(id: id)
+    }
+#endif
 }
