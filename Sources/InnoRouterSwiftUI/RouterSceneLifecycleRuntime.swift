@@ -65,13 +65,16 @@ package final class RouterImmersiveSceneEffectQueue {
 package struct RouterImmersiveSceneActions {
     package let open: @MainActor @Sendable (String) async -> RouterImmersiveSpaceOpenResult
     package let dismiss: @MainActor @Sendable () async -> Void
+    package let openActivation: (@MainActor @Sendable (RouterImmersiveActivation) async -> RouterImmersiveSpaceOpenResult)?
 
     package init(
         open: @escaping @MainActor @Sendable (String) async -> RouterImmersiveSpaceOpenResult,
-        dismiss: @escaping @MainActor @Sendable () async -> Void
+        dismiss: @escaping @MainActor @Sendable () async -> Void,
+        openActivation: (@MainActor @Sendable (RouterImmersiveActivation) async -> RouterImmersiveSpaceOpenResult)? = nil
     ) {
         self.open = open
         self.dismiss = dismiss
+        self.openActivation = openActivation
     }
 }
 
@@ -91,8 +94,12 @@ package final class RouterSceneRestorationRegistry {
 
     private var restoringWindows: [WindowLifetime: UUID] = [:]
     private var restoringImmersiveSpaces: [ImmersiveSpaceLifetime: UUID] = [:]
-    private var immersiveActionsOwner: UUID?
+    package private(set) var immersiveActionsOwner: UUID?
     package private(set) var immersiveActions: RouterImmersiveSceneActions?
+    private var attributedImmersiveIDs: Set<String> = []
+
+    package func declareAttributedImmersiveSpace(id: String) { attributedImmersiveIDs.insert(id) }
+    package func hasAttributedImmersiveSpace(id: String) -> Bool { attributedImmersiveIDs.contains(id) }
 
     package init() {}
 
@@ -203,7 +210,8 @@ package func restoreRouterImmersiveSpaceAfterDeferredClosure<R: Route>(
     store: RouterStore<R>,
     open: @escaping @MainActor @Sendable () async -> RouterImmersiveSpaceOpenResult,
     dismiss: @escaping @MainActor @Sendable () async -> Void,
-    executionPrecondition: RouterRequestPrecondition<R>? = nil
+    executionPrecondition: RouterRequestPrecondition<R>? = nil,
+    deferredClose: RouterDeferralID? = nil
 ) async -> Bool {
     let requestPrecondition = executionPrecondition ?? store.scopeLifetimePrecondition(at: .immersiveSpace(id))
     return await RouterSceneRestorationRegistry.immersiveEffectQueue.enqueue {
@@ -233,11 +241,29 @@ package func restoreRouterImmersiveSpaceAfterDeferredClosure<R: Route>(
         // Restoration may outlive the disappeared scene's SwiftUI environment.
         // Use the surviving scene driver's actions when one is registered.
         let actions = store.sceneRestorationRegistry.immersiveActions
+        let usesAttribution = store.sceneRestorationRegistry.hasAttributedImmersiveSpace(id: id)
+        let activation = if usesAttribution, actions?.openActivation != nil,
+                            let owner = store.sceneRestorationRegistry.immersiveActionsOwner {
+            store.beginAttributedImmersiveOpen(
+                id: id, lifecycleToken: lifecycleToken, owner: owner,
+                permitsRecovery: true, ticket: ticket, deferredClose: deferredClose
+            )
+        } else { Optional<RouterImmersiveActivation>.none }
         RouterSceneLifecycleTrace.record("restore.open.call", "source=\(actions == nil ? "fallback" : "driver") lifetime=\(lifecycleToken) ticket=\(ticket) revision=\(store.revision)")
-        let result = if let actions {
+        let result = if let activation, let openActivation = actions?.openActivation {
+            await openActivation(activation)
+        } else if usesAttribution {
+            RouterImmersiveSpaceOpenResult.error
+        } else if let actions {
             await actions.open(id)
         } else {
             await open()
+        }
+        if let activation {
+            guard store.returnedAttributedImmersiveOpen(result, activation: activation) else {
+                if result == .opened { await actions?.dismiss() }
+                return false
+            }
         }
         RouterSceneLifecycleTrace.record("restore.open.return", "result=\(result) lifetime=\(lifecycleToken) ticket=\(ticket) revision=\(store.revision) currentLifetime=\(String(describing: store.immersiveSpaceLifecycleToken))")
         guard store.state.immersiveSpace?.id == id,
@@ -271,26 +297,41 @@ package func restoreRouterImmersiveSpaceAfterDeferredClosure<R: Route>(
             RouterSceneLifecycleTrace.record("repair.submit", "lifetime=\(lifecycleToken) ticket=\(ticket) revision=\(store.revision)")
             let repair = await store.reconcileSceneSystemFailure(
                 .dismissImmersiveSpace,
-                executionPrecondition: { [weak store] state in
-                    // The repair can wait behind another store request.
-                    // A matching appearance or a newer restoration attempt
-                    // consumes this ticket while that request is suspended.
-                    RouterSceneLifecycleTrace.record("repair.precondition", "lifetime=\(lifecycleToken) ticket=\(ticket) revision=\(String(describing: store?.revision)) currentLifetime=\(String(describing: store?.immersiveSpaceLifecycleToken)) currentTicket=\(store?.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(id: id, lifecycleToken: lifecycleToken, ticket: ticket) == true)")
-                    guard let store,
-                          state.immersiveSpace?.id == id,
-                          store.immersiveSpaceLifecycleToken == lifecycleToken,
-                          store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
-                              id: id, lifecycleToken: lifecycleToken, ticket: ticket
-                          ) else {
-                        return .cancelled
-                    }
-                    return requestPrecondition(state)
-                }
+                executionPrecondition: immersiveRestorationRepairPrecondition(
+                    id: id, lifecycleToken: lifecycleToken, ticket: ticket,
+                    store: store, activation: activation, result: result,
+                    requestPrecondition: requestPrecondition
+                )
             )
             let applied: Bool = if case .applied = repair { true } else { false }
             RouterSceneLifecycleTrace.record("repair.return", "applied=\(applied) lifetime=\(lifecycleToken) ticket=\(ticket) revision=\(store.revision) canonical=\(store.state.immersiveSpace != nil)")
             return false
         }
+    }
+}
+
+@MainActor
+private func immersiveRestorationRepairPrecondition<R: Route>(
+    id: String, lifecycleToken: UUID, ticket: UUID,
+    store: RouterStore<R>, activation: RouterImmersiveActivation?,
+    result: RouterImmersiveSpaceOpenResult,
+    requestPrecondition: @escaping RouterRequestPrecondition<R>
+) -> RouterRequestPrecondition<R> {
+    { [weak store] state in
+        // Recheck the ticket after any queued Store work. Matching appearance
+        // or a newer restoration may have consumed it while work was suspended.
+        RouterSceneLifecycleTrace.record("repair.precondition", "lifetime=\(lifecycleToken) ticket=\(ticket) revision=\(String(describing: store?.revision)) currentLifetime=\(String(describing: store?.immersiveSpaceLifecycleToken)) currentTicket=\(store?.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(id: id, lifecycleToken: lifecycleToken, ticket: ticket) == true)")
+        guard let store,
+              state.immersiveSpace?.id == id,
+              store.immersiveSpaceLifecycleToken == lifecycleToken,
+              store.sceneRestorationRegistry.isCurrentImmersiveSpaceRestoration(
+                  id: id, lifecycleToken: lifecycleToken, ticket: ticket
+              ) else { return .cancelled }
+        if let activation {
+            guard store.sceneRestorationRegistry.immersiveActionsOwner == activation.driverOwner else { return .cancelled }
+            if result == .error, store.currentImmersiveActivation(activation) == nil { return .cancelled }
+        }
+        return requestPrecondition(state)
     }
 }
 

@@ -110,6 +110,7 @@ public struct RouterWindowHost<R: DestinationRoute & RouterSceneRoute>: View {
 /// Hosts the independent stack and presentations of the active immersive space.
 @MainActor
 public struct RouterImmersiveSpaceHost<R: DestinationRoute & RouterSceneRoute>: View {
+    @Environment(\.routerImmersiveActivationBinding) private var activationBinding
     private let id: String
     private let store: RouterStore<R>
     private let rendering: RouterHostViewDescriptor<R>?
@@ -135,7 +136,12 @@ public struct RouterImmersiveSpaceHost<R: DestinationRoute & RouterSceneRoute>: 
         case .failure(let failure):
             RouterHostRecoveryView(failure: failure)
         case .success(let scope):
-            sceneContent(scope)
+            let admitted = !activationBinding.isAttributed
+                || activationBinding.activation.map({ store.canRenderAttributedImmersiveSpace($0) }) == true
+            // Keep the same native boundary in the success branch when content
+            // loses authority. A structural branch change would manufacture a
+            // native disappearance during the paired repair/recovery commits.
+            sceneContent(admitted ? scope : nil)
         }
     }
 
@@ -161,7 +167,24 @@ public struct RouterImmersiveSpaceHost<R: DestinationRoute & RouterSceneRoute>: 
                 }
             }
         }
-        .routerImmersiveSpaceLifecycle(id, store: store)
+        .modifier(RouterImmersiveHostLifecycle(
+            id: id, store: store, binding: activationBinding
+        ))
+    }
+}
+
+private struct RouterImmersiveHostLifecycle<R: RouterSceneRoute>: ViewModifier {
+    let id: String
+    let store: RouterStore<R>
+    let binding: RouterImmersiveActivationBinding
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if binding.isAttributed {
+            content.routerAttributedImmersiveSpaceLifecycle(id, store: store, binding: binding)
+        } else {
+            content.routerImmersiveSpaceLifecycle(id, store: store)
+        }
     }
 }
 

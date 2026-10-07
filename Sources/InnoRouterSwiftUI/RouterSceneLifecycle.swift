@@ -51,6 +51,20 @@ public extension View {
     }
 }
 
+extension View {
+    @MainActor
+    func routerAttributedImmersiveSpaceLifecycle<R: RouterSceneRoute>(
+        _ id: String, store: RouterStore<R>, binding: RouterImmersiveActivationBinding
+    ) -> some View {
+        modifier(RouterImmersiveSpaceLifecycleModifier(
+            id: id, lifecycleToken: store.immersiveSpaceLifecycleToken,
+            store: store, scope: store.scope(at: .immersiveSpace(id)),
+            activationBinding: binding
+        ))
+        .id(binding.activation?.requestID)
+    }
+}
+
 @MainActor
 private struct RouterWindowLifecycleModifier<R: RouterSceneRoute>: ViewModifier {
     let id: UUID
@@ -144,6 +158,7 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
     let store: RouterStore<R>
     // Retains the observed lifetime slot even when used without a Scene host.
     let scope: RouterScope<R>
+    var activationBinding = RouterImmersiveActivationBinding(isAttributed: false, activation: nil)
     @State private var appearedLifetime: UUID?
     @State private var appearedRequestPrecondition: RouterRequestPrecondition<R>?
 
@@ -155,6 +170,13 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
     func body(content: Content) -> some View {
         content
             .onAppear {
+                if activationBinding.isAttributed {
+                    guard let activation = activationBinding.activation else { return }
+                    if activationBinding.appearanceObserver?.interceptNativeAppearance(activation) == true { return }
+                    if store.observeAttributedImmersiveAppearance(activation) { return }
+                    Task { @MainActor in _ = await store.admitAttributedImmersiveAppearance(activation) }
+                    return
+                }
                 RouterSceneLifecycleTrace.record("appearance.enter", "lifetime=\(String(describing: lifecycleToken)) currentLifetime=\(String(describing: store.immersiveSpaceLifecycleToken)) revision=\(store.revision)")
                 appearedLifetime = lifecycleToken
                 appearedRequestPrecondition = scope.combinedExecutionPrecondition(nil)
@@ -167,8 +189,16 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
                 // A body refresh may already contain the replacement's token
                 // while the previous native space is still disappearing.
                 RouterSceneLifecycleTrace.record("disappearance.enter", "lifetime=\(String(describing: appearedLifetime)) revision=\(store.revision)")
-                let lifecycleToken = appearedLifetime
-                let requestPrecondition = appearedRequestPrecondition
+                let lifecycleToken: UUID?
+                let requestPrecondition: RouterRequestPrecondition<R>?
+                if activationBinding.isAttributed {
+                    guard let activation = activationBinding.activation else { return }
+                    lifecycleToken = store.attributedImmersiveDisappearance(activation)
+                    requestPrecondition = store.scope(at: .immersiveSpace(id)).combinedExecutionPrecondition(nil)
+                } else {
+                    lifecycleToken = appearedLifetime
+                    requestPrecondition = appearedRequestPrecondition
+                }
                 appearedLifetime = nil
                 appearedRequestPrecondition = nil
                 guard let lifecycleToken, let requestPrecondition,
@@ -219,7 +249,11 @@ private struct RouterImmersiveSpaceLifecycleModifier<R: RouterSceneRoute>: ViewM
                                 }
                             },
                             dismiss: { await dismissImmersiveSpace() },
-                            executionPrecondition: requestPrecondition
+                            executionPrecondition: requestPrecondition,
+                            deferredClose: {
+                                if case .deferred(_, _, _, let metadata) = outcome { return metadata.id }
+                                return nil
+                            }()
                         )
 #endif
                 }

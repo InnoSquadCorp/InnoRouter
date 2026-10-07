@@ -300,6 +300,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
 package enum RouterSystemRepairIdentity: Hashable, Sendable {
     case window(id: UUID, lifecycleToken: UUID)
     case immersiveSpace(id: String, lifecycleToken: UUID)
+    case immersiveSpaceRecovery(RouterImmersiveActivation)
 }
 
 @MainActor

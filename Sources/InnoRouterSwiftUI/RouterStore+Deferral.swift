@@ -40,6 +40,7 @@ public extension RouterStore {
 
         switch resolution {
         case .allow:
+            let continuity = immersiveDeferralContinuity(id: id, request: request, strategy: resumeStrategy)
             var context = request.context
             context.resumedDeferral = id
             let executionPreparation: RouterRequestPreparationBuilder<R>? =
@@ -58,14 +59,14 @@ public extension RouterStore {
             if let presentationID {
                 registerPresentationRequest(presentationID, transitionID: transitionID)
             }
-            let expectedRevision: UInt64? = switch resumeStrategy {
+            let originalExpectedRevision: UInt64? = switch resumeStrategy {
             case .requireUnchangedState: request.initialRevision
             case .rebaseOnCurrentState: nil
             }
             let outcome = await perform(
                 request.action,
                 context: context,
-                expectedRevision: expectedRevision,
+                expectedRevision: continuity?.revision ?? originalExpectedRevision,
                 bypassesPolicies: false,
                 startingPolicyIndex: request.nextPolicyIndex,
                 transitionID: transitionID,
@@ -74,7 +75,7 @@ public extension RouterStore {
                     authorization: request.authorization,
                 lifetimeMutation: request.lifetimeMutation,
                 hostReplacement: request.hostReplacement,
-                executionPrecondition: request.executionPrecondition,
+                executionPrecondition: continuity?.precondition ?? request.executionPrecondition,
                 executionPreparation: executionPreparation,
                 deferredResumePreparation: request.resumePreparation,
                 presentationResumeAuthority: .init(id: id, store: ObjectIdentifier(self), owner: request.presentationCompletionOwner, replayLimitationCode: request.replayLimitationCode)

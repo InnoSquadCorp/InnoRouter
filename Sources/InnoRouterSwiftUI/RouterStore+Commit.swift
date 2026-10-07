@@ -113,6 +113,7 @@ extension RouterStore {
         context: RouterTransitionContext,
         including previousScopes: [WeakRouterScope<R>] = []
     ) -> RouterOutcome<R> {
+        reconcileImmersiveActivationUnchanged(action)
         refreshScopes(after: action, context: context, including: previousScopes)
         emit(.unchanged(
             transitionID: id,
@@ -139,8 +140,13 @@ extension RouterStore {
 #if DEBUG
         let previousSceneLifetime = immersiveSpaceLifecycleToken
 #endif
+        let oldRevision = revision
         updateSceneLifecycleTokens(before: before, after: after)
         commit(after, hostReplacement: hostReplacement, animation: context.animation)
+        reconcileImmersiveActivationCommit(
+            before: before, after: after, action: action,
+            hostReplacement: hostReplacement != nil, oldRevision: oldRevision
+        )
 #if DEBUG
         if previousSceneLifetime != immersiveSpaceLifecycleToken {
             RouterSceneLifecycleTrace.record("scene.commit", "transition=\(id) revision=\(revision) previousLifetime=\(String(describing: previousSceneLifetime)) currentLifetime=\(String(describing: immersiveSpaceLifecycleToken)) source=\(context.source)")

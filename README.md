@@ -457,6 +457,15 @@ Intents, while localized phrases and concrete shortcut declarations stay in
 the application target. `RouterObservability` provides payload-free OSLog and
 app-metrics hooks without collecting or transmitting analytics itself.
 
+On visionOS, declare `RouterImmersiveSpaceScene(id:store:)` beside the driver
+to carry each native open's identity into its lifecycle callbacks. A matching
+restoration appearance can recover a committed failure repair with a new
+revision and new scope authority. Existing id-only scenes keep their original
+behavior and cannot revive an expired scene from an unattributed callback.
+Declare wrapper IDs stably in the app's scene graph, with one declaration per
+Store/ID. The originating system-close deferral can follow that same attributed
+restoration; default resume still rejects unrelated state changes.
+
 Each open window and immersive space owns an independent recursive node inside
 the same application state. The macro-generated `AppRoute.Scene` catalog
 provides typed window or immersive requests; `RouterWindowHost` and

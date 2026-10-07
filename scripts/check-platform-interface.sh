@@ -121,4 +121,20 @@ if grep -E "$legacy_pattern" "$umbrella" "$inspector" "$testing" >/dev/null; the
   exit 1
 fi
 
+if [[ "$platform_name" == "visionOS" ]]; then
+  scene_interfaces=()
+  while IFS= read -r interface; do
+    scene_interfaces+=("$interface")
+  done < <(find "$derived_data/Build/Products" -type f \
+    -path '*/InnoRouterSwiftUI.swiftmodule/*.swiftinterface' \
+    ! -name '*.private.swiftinterface' ! -name '*.package.swiftinterface' | sort)
+  if [[ "${#scene_interfaces[@]}" -eq 0 ]]; then
+    echo '[platform-interface] Missing visionOS SwiftUI public interface' >&2
+    exit 1
+  fi
+  for interface in "${scene_interfaces[@]}"; do
+    python3 "$ROOT_DIR/scripts/check-immersive-scene-interface.py" "$interface"
+  done
+fi
+
 echo "[platform-interface] $platform_name public product contract passed ($minimum_os)"

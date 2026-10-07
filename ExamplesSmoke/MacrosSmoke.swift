@@ -3,6 +3,26 @@ import SwiftUI
 
 import InnoRouter
 
+#if os(visionOS)
+// This downstream route deliberately has no Codable conformance. The public
+// scene declaration must not expose or require its native transport payload.
+@Router
+private enum ImmersiveSceneSmokeRoute {
+    @Scene(.immersiveSpace, id: "theater")
+    case theater
+
+    var destination: some View { Text("Theater") }
+}
+
+@MainActor
+private func immersiveSceneConsumer() -> some Scene {
+    RouterImmersiveSpaceScene(
+        id: "theater", store: ImmersiveSceneSmokeRoute.makeRouterStore(),
+        rendering: nil, presentations: .stack
+    )
+}
+#endif
+
 @Router(
     deepLinkSchemes: ["innorouter", "https"],
     deepLinkHosts: ["app.example.com"]

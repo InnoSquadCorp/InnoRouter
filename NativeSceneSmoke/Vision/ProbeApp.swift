@@ -14,15 +14,19 @@ enum VisionProbeRoute {
 
 @MainActor
 @Observable
-final class VisionProbeModel {
+final class VisionProbeModel: RouterImmersiveAppearanceObserver {
     var status = "Starting"
     var requestedDeferral: RouterDeferralID?
-    var policyEntries = 0
-    var appeared = 0
-    var isPresented = false
+    var policyEntries = 0 { didSet { notifyNativeWaiters() } }
+    var appeared = 0 { didSet { notifyNativeWaiters() } }
+    var isPresented = false { didSet { notifyNativeWaiters() } }
     var didRun = false
-    var completedOpenings = 0
-    var completedDismissals = 0
+    @ObservationIgnored private var injectedActivation: RouterImmersiveActivation?
+    @ObservationIgnored private var originalBoundActions: RouterImmersiveSceneActions?
+    @ObservationIgnored private var injectRestoration = CommandLine.arguments.contains("--injected-restoration")
+    var injectedRepairObserved = false { didSet { notifyNativeWaiters() } }
+    var completedOpenings = 0 { didSet { notifyNativeWaiters() } }
+    var completedDismissals = 0 { didSet { notifyNativeWaiters() } }
     @ObservationIgnored private var nativeCloseInFlight = false
     @ObservationIgnored private var lifecycleTrace: [String] = []
     @ObservationIgnored lazy var store = makeStore()
@@ -40,10 +44,48 @@ final class VisionProbeModel {
                     }
                     return .allow
                 }
-            ]))
+            ], onEvent: { [weak self] event in
+                guard let self, self.injectRestoration, self.requestedDeferral != nil else { return }
+                if case .committed(_, let before, let after, _, _) = event,
+                   before.immersiveSpace != nil, after.immersiveSpace == nil {
+                    self.injectedRepairObserved = true
+                }
+            }))
         } catch {
             preconditionFailure("Invalid native scene probe configuration: \(error)")
         }
+    }
+
+    // Fault injection only: the OS still opens a real native scene. Its value
+    // is captured from SwiftUI, while library admission is held until a real
+    // Store repair commits. No timer orders either boundary.
+    func interceptNativeAppearance(_ activation: RouterImmersiveActivation) -> Bool {
+        guard injectRestoration, requestedDeferral != nil,
+              let record = store.currentImmersiveActivation(activation) else { return false }
+        record.nativeVisible = true
+        injectedActivation = activation
+        notifyNativeWaiters()
+        trace("fault.bound-value.captured request=\(activation.requestID)")
+        return true
+    }
+
+    private func installRestorationFault() throws {
+        guard let actions = store.sceneRestorationRegistry.immersiveActions,
+              let owner = store.sceneRestorationRegistry.immersiveActionsOwner else {
+            throw VisionProbeFailure(message: "Missing surviving driver actions")
+        }
+        if originalBoundActions == nil { originalBoundActions = actions }
+        guard let original = originalBoundActions, let openBound = original.openActivation else {
+            throw VisionProbeFailure(message: "Missing native value open action")
+        }
+        store.sceneRestorationRegistry.installImmersiveActions(.init(
+            open: original.open, dismiss: original.dismiss,
+            openActivation: { [weak self] activation in
+                let actual = await openBound(activation)
+                self?.log("NATIVE_FAULT request=\(activation.requestID) actualOSResult=\(actual) injectedLibraryResult=error")
+                return actual == .opened ? .error : actual
+            }
+        ), owner: owner)
     }
 
     func log(_ value: String) {
@@ -73,11 +115,25 @@ final class VisionProbeModel {
         FileHandle.standardOutput.write(Data((lifecycleTrace.joined(separator: "\n") + "\n").utf8))
     }
 
-    func until(_ label: String, _ condition: () -> Bool) async throws {
-        let deadline = ContinuousClock.now.advanced(by: .seconds(20))
-        while !condition() {
-            guard ContinuousClock.now < deadline else { throw VisionProbeFailure(message: "Timeout: " + label) }
-            try await Task.sleep(for: .milliseconds(20))
+    @ObservationIgnored private var nativeWaiters: [(UUID, () -> Bool, CheckedContinuation<Void, Error>)] = []
+
+    private func notifyNativeWaiters() {
+        let ready = nativeWaiters.filter { $0.1() }
+        nativeWaiters.removeAll { candidate in ready.contains { $0.0 == candidate.0 } }
+        ready.forEach { $0.2.resume() }
+    }
+
+    func until(_ label: String, _ condition: @escaping () -> Bool) async throws {
+        if condition() { return }
+        let identity = UUID()
+        try await withCheckedThrowingContinuation { continuation in
+            nativeWaiters.append((identity, condition, continuation))
+            // Same 20-second timeout; timer only fails a hung probe. It never
+            // advances a scenario or orders a native callback.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in
+                guard let self, let index = self.nativeWaiters.firstIndex(where: { $0.0 == identity }) else { return }
+                self.nativeWaiters.remove(at: index).2.resume(throwing: VisionProbeFailure(message: "Timeout: " + label))
+            }
         }
     }
 
@@ -104,8 +160,12 @@ final class VisionProbeModel {
                     throw VisionProbeFailure(message: "Immersive entry rejected")
                 }
                 try await until("native immersive opening completes") {
-                    isPresented && completedOpenings > priorOpenings
+                    self.isPresented && self.completedOpenings > priorOpenings
                 }
+                let oldScopePrecondition = store.scope(at: .immersiveSpace("theater")).combinedExecutionPrecondition(nil)
+                injectedActivation = nil
+                injectedRepairObserved = false
+                if injectRestoration { try installRestorationFault() }
                 let deferralID = RouterDeferralID()
                 requestedDeferral = deferralID
                 let previousEntries = policyEntries
@@ -115,8 +175,24 @@ final class VisionProbeModel {
                 await closeNative()
                 nativeCloseInFlight = false
                 trace("native.close.return")
-                try await until("native closure enters policy") { policyEntries > previousEntries }
-                try await until("canonical immersive space reopens") { isPresented && appeared > previousAppearances }
+                try await until("native closure enters policy") { self.policyEntries > previousEntries }
+                if injectRestoration {
+                    try await until("injected error repair commits after real native appearance") {
+                        self.injectedRepairObserved && self.injectedActivation != nil && self.isPresented
+                    }
+                    guard store.state.immersiveSpace == nil, let activation = injectedActivation else {
+                        throw VisionProbeFailure(message: "Injection did not commit native failure repair")
+                    }
+                    let repairRevision = store.revision
+                    log("NATIVE_FAULT_REPAIR revision=\(repairRevision) nativePresented=true canonical=false")
+                    guard await store.admitAttributedImmersiveAppearance(activation),
+                          store.revision == repairRevision + 1,
+                          oldScopePrecondition?(store.state) != nil else {
+                        throw VisionProbeFailure(message: "Attributed recovery did not commit with fresh scope")
+                    }
+                    log("NATIVE_FAULT_RECOVERED revision=\(store.revision) request=\(activation.requestID)")
+                }
+                try await until("canonical immersive space reopens") { self.isPresented && self.appeared > previousAppearances }
                 guard store.state.immersiveSpace?.id == "theater" else {
                     throw VisionProbeFailure(message: "Deferred closure removed canonical space")
                 }
@@ -126,7 +202,7 @@ final class VisionProbeModel {
                 case "allow":
                     _ = await store.resolveDeferred(deferralID, with: .allow)
                     try await until("allow closes native and canonical space") {
-                        !isPresented && store.state.immersiveSpace == nil
+                        !self.isPresented && self.store.state.immersiveSpace == nil
                     }
                 case "reject":
                     _ = await store.resolveDeferred(deferralID, with: .reject("Keep open"))
@@ -141,10 +217,10 @@ final class VisionProbeModel {
                 }
                 if store.state.immersiveSpace != nil {
                     _ = await store.perform(.dismissImmersiveSpace)
-                    try await until("cleanup closes space") { !isPresented && store.state.immersiveSpace == nil }
+                    try await until("cleanup closes space") { !self.isPresented && self.store.state.immersiveSpace == nil }
                 }
                 if !CommandLine.arguments.contains("--rapid-reopen") {
-                    try await until("driver finishes native dismissal") { completedDismissals > priorDismissals }
+                    try await until("driver finishes native dismissal") { self.completedDismissals > priorDismissals }
                 }
                 log("PASS " + resolution)
             }
@@ -186,18 +262,19 @@ struct VisionProbeApp: App {
                 .onAppear { model.trace("driver.boundary.appear") }
                 .onDisappear { model.trace("driver.boundary.disappear") }
         }
-        ImmersiveSpace(id: "theater") {
-            RouterImmersiveSpaceHost(id: "theater", store: model.store)
-                .onAppear {
-                    model.appeared += 1
-                    model.isPresented = true
-                    model.trace("native.appear")
-                }
-                .onDisappear {
-                    model.isPresented = false
-                    model.trace("native.disappear")
-                }
-        }
+        RouterImmersiveSpaceScene(
+            id: "theater", store: model.store,
+            nativeAppearance: {
+                model.appeared += 1
+                model.isPresented = true
+                model.trace("native.appear")
+            },
+            nativeDisappearance: {
+                model.isPresented = false
+                model.trace("native.disappear")
+            },
+            appearanceObserver: model
+        )
     }
 }
 #endif
