@@ -493,6 +493,12 @@ swift test --jobs 2
 릴리즈 검증에서는 지원하는 모든 Apple platform과 후보 revision에 고정한 downstream
 consumer build도 추가로 수행합니다.
 
+## 후원
+
+다음 링크를 통해 InnoRouter 개발을 후원할 수 있습니다:
+[GitHub Sponsors](https://github.com/sponsors/InnoSquadCorp) ·
+[Patreon](https://www.patreon.com/c/InnoSquad)
+
 ## 라이선스
 
 MIT. [LICENSE](LICENSE)를 확인하세요.

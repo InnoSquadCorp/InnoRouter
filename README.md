@@ -603,6 +603,12 @@ Release validation additionally builds every supported Apple platform and Mac
 Catalyst, verifies library-evolution interfaces for all three public products,
 and builds a downstream consumer pinned to the candidate revision.
 
+## Sponsorship
+
+Support InnoRouter development through
+[GitHub Sponsors](https://github.com/sponsors/InnoSquadCorp) ·
+[Patreon](https://www.patreon.com/c/InnoSquad)
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
