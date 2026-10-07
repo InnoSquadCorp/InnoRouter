@@ -1,0 +1,6 @@
+interface:
+  display_name: "InnoRouter"
+  short_description: "Typed SwiftUI navigation for planned InnoRouter 7.0.x"
+  default_prompt: "Use $innorouter to implement and test navigation against this project's resolved InnoRouter version."
+policy:
+  allow_implicit_invocation: true

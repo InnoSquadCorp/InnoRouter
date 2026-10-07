@@ -1,5 +1,7 @@
 # InnoRouter
 
+[Codex·Claude Code용 AI 스킬](skills/README.md)은 예정된 7.0.x를 대상으로 하며, 검증 기준은 고정된 미배포 main 커밋입니다.
+
 [![CI](https://github.com/InnoSquadCorp/InnoRouter/actions/workflows/ci.yml/badge.svg)](https://github.com/InnoSquadCorp/InnoRouter/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/InnoSquadCorp/InnoRouter)](https://github.com/InnoSquadCorp/InnoRouter/releases) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter) · [DocC](https://innosquadcorp.github.io/InnoRouter/latest/)
 
 SwiftUI를 위한 macro-first typed navigation 라이브러리입니다.

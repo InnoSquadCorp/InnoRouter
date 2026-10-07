@@ -1,0 +1,23 @@
+{
+  "originHash" : "262bb4a8a5faa37e88f39f1c9d4e2ec814c3a62cfb2d3422316601256edadd60",
+  "pins" : [
+    {
+      "identity" : "innorouter",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/InnoSquadCorp/InnoRouter.git",
+      "state" : {
+        "revision" : "851c63f095e49b700c3a0aa8152a3521a39977e7"
+      }
+    },
+    {
+      "identity" : "swift-syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-syntax.git",
+      "state" : {
+        "revision" : "050f1a346fbbac0ca2cfb15a95274f7bd1cf0ccf",
+        "version" : "604.0.0"
+      }
+    }
+  ],
+  "version" : 3
+}

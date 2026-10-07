@@ -98,6 +98,7 @@ iOSInjectionProject/
 **/Package.resolved
 !/Package.resolved
 !/ConsumerSmoke/Package.resolved
+!/skills/innorouter/assets/consumer/Package.resolved
 !/MigrationSmoke/Before/Package.resolved
 !/MigrationSmoke/After/Package.resolved
 !/NativeSceneSmoke/NativeSceneSmoke.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved

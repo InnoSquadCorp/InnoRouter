@@ -6,6 +6,12 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+### Added
+
+- Library-owned Codex and Claude Code skill for planned stable 7.0.x, with
+  navigation guidance and an independently validated consumer pinned to an
+  unreleased main commit. This does not qualify a published 7.0.0 tag.
+
 ## 7.0.0 - 2026-10-07
 
 Prepared GA notes; 7.0.0 has not been published. PR54 work is carried forward

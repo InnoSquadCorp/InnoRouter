@@ -1,0 +1,42 @@
+{
+  "status": "passed",
+  "started_at": "2026-10-07T07:33:15.878086+00:00",
+  "supported_range": ">=7.0.0 <7.1.0",
+  "include_prereleases": false,
+  "validation_scope": "unreleased_main_commit",
+  "swift": "swift-driver version: 1.168.6 Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+  "xcode": "Xcode 27.0\nBuild version 27A266a",
+  "source_sha256": {
+    "Package.resolved": "53683d27c1f9a974a378844feb0dddfbcf14b1a6dcd2e2b887a6af2718a4c428",
+    "Package.swift": "262bb4a8a5faa37e88f39f1c9d4e2ec814c3a62cfb2d3422316601256edadd60",
+    "Sources/RouterSkillExample/AppRoute.swift": "cd5fe272b779ae10fd3503880debfb0ba4de23f2934933c2b542041da006b8e2",
+    "Sources/RouterSkillExample/NavigationViews.swift": "849779c1b6c2d8d22f5720c389ddb46ae6448377cc3b83fc26e74b75831c3943",
+    "Tests/RouterSkillExampleTests/ConsumerTests.swift": "6b18e854f9dde8a589325ecd35f9a10bd4ed8a01e5b9064bfbad463f7d4e4ab8"
+  },
+  "dependencies": {
+    "innorouter": {
+      "version": null,
+      "revision": "851c63f095e49b700c3a0aa8152a3521a39977e7",
+      "clean": true,
+      "prebuilt_selected": false
+    },
+    "swift-syntax": {
+      "version": "604.0.0",
+      "revision": "050f1a346fbbac0ca2cfb15a95274f7bd1cf0ccf",
+      "clean": true,
+      "prebuilt_selected": true
+    }
+  },
+  "swift_test_result": {
+    "tests": 11,
+    "suites": 1,
+    "failures": 0,
+    "strict_concurrency": "complete",
+    "warnings_as_errors": true
+  },
+  "finished_at": "2026-10-07T07:33:53.709486+00:00",
+  "baseline_revision": "851c63f095e49b700c3a0aa8152a3521a39977e7",
+  "planned_version": "7.0.0",
+  "released_version": null,
+  "command": "python3 skills/innorouter/scripts/validate_consumer.py --scratch-path /tmp/innorouter-skill-validation"
+}
