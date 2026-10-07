@@ -6,7 +6,7 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
-## 7.0.0 - 2026-10-05
+## 7.0.0 - 2026-10-07
 
 Prepared GA notes; 7.0.0 has not been published. PR54 work is carried forward
 without a separate 6.1.1 release. See the [7.0 migration guide](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md)
@@ -32,6 +32,12 @@ every historical environment cause of the vision-cancel K1 failure.
 
 ### Fixed
 
+- visionOS bound immersive declarations carry activation identity through native
+  appearance. Recovery adopts only a matching, still-valid activation after an
+  open failure; stale, foreign, cancelled, and replaced activations have no
+  recovery authority. Bound scene and Store identities must remain stable.
+  Regression probes validate attributed recovery, but do not reproduce a real
+  OS open error followed by a late physical appearance or establish its cause.
 - A queued immersive restoration failure revalidates its restoration ticket
   before repairing canonical state. A matching appearance or a newer attempt
   invalidates the old repair; a genuine open failure still removes the scene.
