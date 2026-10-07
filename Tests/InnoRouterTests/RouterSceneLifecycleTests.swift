@@ -694,6 +694,51 @@ struct RouterSceneLifecycleTests {
         #expect(registry.immersiveActions == nil)
     }
 
+    @Test("Task registration supports Store replacement before or after lifecycle registration", arguments: [false, true])
+    func taskRegistrationAcrossStoreReplacement(lifecycleRegistersFirst: Bool) throws {
+        let state = try RouterState<PlainSceneLifecycleRoute>(
+            immersiveSpace: .init(id: "shared", route: .old)
+        )
+        let first = try RouterStore(initialState: state)
+        let second = try RouterStore(initialState: state)
+        let owner = UUID()
+        let actions = RouterImmersiveSceneActions(open: { _ in .opened }, dismiss: {})
+        let firstRegistry = first.sceneRestorationRegistry
+        let secondRegistry = second.sceneRestorationRegistry
+        firstRegistry.installImmersiveActions(actions, owner: owner)
+        let firstToken = try #require(first.immersiveSpaceLifecycleToken)
+        let secondToken = try #require(second.immersiveSpaceLifecycleToken)
+        let original = try #require(first.beginAttributedImmersiveOpen(
+            id: "shared", lifecycleToken: firstToken, owner: owner
+        ))
+        #expect(first.revision == second.revision)
+        #expect(second.beginAttributedImmersiveOpen(
+            id: "shared", lifecycleToken: secondToken, owner: owner
+        ) == nil, "Actions on the previous Store cannot authorize the replacement")
+
+        func registerReplacement() {
+            second.prepareAttributedImmersiveDriver(owner: owner)
+            firstRegistry.removeImmersiveActions(owner: owner)
+            secondRegistry.installImmersiveActions(actions, owner: owner)
+        }
+        if lifecycleRegistersFirst { registerReplacement() }
+        // The source-order contract separately verifies that .task does this
+        // unconditionally before any state capture or suspension.
+        registerReplacement()
+        let activation = try #require(second.beginAttributedImmersiveOpen(
+            id: "shared", lifecycleToken: secondToken, owner: owner
+        ))
+        #expect(first.currentImmersiveActivation(original) == nil)
+        #expect(second.currentImmersiveActivation(activation) != nil)
+
+        // A later lifecycle callback or revision-triggered task must be safe
+        // for the same owner and must not discard the active open attempt.
+        registerReplacement()
+        #expect(second.currentImmersiveActivation(activation) != nil)
+        #expect(second.state == state)
+        #expect(second.revision == 0)
+    }
+
     @Test("Successful immersive restoration keeps its reservation until appearance")
     func successfulImmersiveRestorationKeepsReservation() async throws {
         let state = try RouterState<PlainSceneLifecycleRoute>(

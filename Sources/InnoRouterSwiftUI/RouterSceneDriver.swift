@@ -116,6 +116,9 @@ public struct RouterSceneDriver<R: RouterSceneRoute, Content: View>: View {
                 revision: store.revision,
                 immersiveDismissalEpoch: store.immersiveDismissalEpoch
             )) {
+                // SwiftUI may start this task before onAppear/onChange, including
+                // when a new Store replaces the old one at the same revision.
+                registerImmersiveActions()
                 let reconciliationID = RouterSceneReconciliationID(
                     store: ObjectIdentifier(store),
                     revision: store.revision,
