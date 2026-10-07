@@ -6,12 +6,6 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
-### Added
-
-- Library-owned Codex and Claude Code skill for planned stable 7.0.x, with
-  navigation guidance and an independently validated consumer pinned to an
-  unreleased main commit. This does not qualify a published 7.0.0 tag.
-
 ## 7.0.0 - 2026-10-07
 
 Prepared GA notes; 7.0.0 has not been published. PR54 work is carried forward
@@ -20,6 +14,12 @@ and [release checklist](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Do
 Current native scene probes passed at the SHA recorded in the
 [Xcode 27 report](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Docs/7.0.0-xcode27-validation.ko.md); this does not establish
 every historical environment cause of the vision-cancel K1 failure.
+
+### Added
+
+- Library-owned Codex and Claude Code skill for planned stable 7.0.x, with
+  navigation guidance and an independently validated consumer pinned to an
+  unreleased main commit. This does not qualify a published 7.0.0 tag.
 
 ### Breaking
 
