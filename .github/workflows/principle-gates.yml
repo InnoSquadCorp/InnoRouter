@@ -16,8 +16,8 @@ on:
       - develop
 
 concurrency:
-  group: principle-gates-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}
-  cancel-in-progress: true
+  group: principle-gates-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}${{ (vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request') && format('-jobs-{0}-{1}', github.run_id, github.run_attempt) || '' }}
+  cancel-in-progress: ${{ !(vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request') && (true) }}
 
 jobs:
   # Source-level lint gates run independently of the heavy
@@ -27,6 +27,9 @@ jobs:
   # delegates to; running it in its own job lets the two slices
   # parallelize on PRs.
   lint:
+    concurrency:
+      group: scoped-job-v1-${{ github.repository }}-${{ github.workflow }}-principle-gates.yml-lint-pr-${{ github.event.pull_request.number }}-base-${{ github.event.pull_request.base.ref }}-${{ contains(github.event.pull_request.labels.*.name, 'release-validation') && 'release-validation' || 'no-release-validation' }}-${{ (vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base))))) && 'active' || format('off-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base)))) }}
     if: github.workflow != 'principle-gates' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     runs-on: macos-15
     timeout-minutes: 10
@@ -48,6 +51,9 @@ jobs:
         run: ./scripts/lint-source-gates.sh
 
   changelog-sync:
+    concurrency:
+      group: scoped-job-v1-${{ github.repository }}-${{ github.workflow }}-principle-gates.yml-changelog-sync-pr-${{ github.event.pull_request.number }}-base-${{ github.event.pull_request.base.ref }}-${{ contains(github.event.pull_request.labels.*.name, 'release-validation') && 'release-validation' || 'no-release-validation' }}-${{ (vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base))))) && 'active' || format('off-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base)))) }}
     if: github.workflow != 'principle-gates' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -71,6 +77,9 @@ jobs:
         run: ./scripts/check-changelog-sync.sh
 
   release-contract:
+    concurrency:
+      group: scoped-job-v1-${{ github.repository }}-${{ github.workflow }}-principle-gates.yml-release-contract-pr-${{ github.event.pull_request.number }}-base-${{ github.event.pull_request.base.ref }}-${{ contains(github.event.pull_request.labels.*.name, 'release-validation') && 'release-validation' || 'no-release-validation' }}-${{ (vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base))))) && 'active' || format('off-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base)))) }}
     if: github.workflow != 'principle-gates' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -113,6 +122,9 @@ jobs:
         run: bash ./scripts/test-boot-simulator.sh
 
   gates:
+    concurrency:
+      group: scoped-job-v1-${{ github.repository }}-${{ github.workflow }}-principle-gates.yml-gates-pr-${{ github.event.pull_request.number }}-base-${{ github.event.pull_request.base.ref }}-${{ contains(github.event.pull_request.labels.*.name, 'release-validation') && 'release-validation' || 'no-release-validation' }}-${{ (vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base))))) && 'active' || format('off-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base)))) }}
     if: github.workflow != 'principle-gates' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     runs-on: macos-26
     timeout-minutes: 30
@@ -157,6 +169,9 @@ jobs:
   # suites before users upgrade into them. `xcode-27` is GitHub's preview
   # image, bumped independently of RELEASING.md's toolchain pin.
   xcode-27:
+    concurrency:
+      group: scoped-job-v1-${{ github.repository }}-${{ github.workflow }}-principle-gates.yml-xcode-27-pr-${{ github.event.pull_request.number }}-base-${{ github.event.pull_request.base.ref }}-${{ contains(github.event.pull_request.labels.*.name, 'release-validation') && 'release-validation' || 'no-release-validation' }}-${{ (vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base))))) && 'active' || format('off-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base)))) }}
     if: github.workflow != 'principle-gates' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     name: forward toolchain (Xcode 27)
     runs-on: xcode-27

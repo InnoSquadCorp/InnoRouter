@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Repository-local CI selection and fail-closed result evaluation (stdlib only)."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -27,11 +28,27 @@ WORKFLOW_IMPACT = {
 }
 
 
+def prose_policy():
+    spec = importlib.util.spec_from_file_location("ci_prose_impact", Path(__file__).with_name("ci_prose_impact.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def verify_prose(plan):
+    if "prose" in plan:
+        event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+        prose_policy().revalidate(plan["prose"], Path("."), os.environ["GITHUB_EVENT_NAME"], event)
+
+
 def path_impact(path):
     if not isinstance(path, str) or not path or "\x00" in path or "\n" in path:
         raise ValueError("invalid changed path")
     if path.startswith("/") or any(p in ("..", ".", "") for p in path.split("/")) or "\\" in path:
         raise ValueError("changed path must be a repository-relative POSIX path")
+    if any(token in path.lower() for token in ("releasing", "changelog", "release-notes", "release_check", "release-check", "release-evidence")):
+        return set(JOBS), "release metadata (all gates)"
+
     if path in ("Package.swift", "Package.resolved") or path.startswith(".github/actions/"):
         return set(JOBS), "shared package/toolchain"
     if path.startswith(".github/workflows/"):
@@ -85,7 +102,7 @@ def changed_paths(root, base, head):
     return paths
 
 
-def make_plan(event_name, event, paths):
+def make_plan(event_name, event, paths, prose=None):
     if not isinstance(event, dict) or not isinstance(paths, list):
         raise ValueError("event and changed paths have invalid types")
     lane = "full"
@@ -117,12 +134,17 @@ def make_plan(event_name, event, paths):
     # An empty/missing diff is never evidence that no verification is needed.
     if lane != "fast" or not paths:
         selected = set(JOBS)
-    return {"schema": 1, "lane": lane, "jobs": {j: j in selected for j in JOBS},
+    plan = {"schema": 1, "lane": lane, "jobs": {j: j in selected for j in JOBS},
             "changes": reasons}
+    if prose is not None and lane == "fast":
+        prose_policy().validate(prose, paths)
+        plan["prose"] = prose
+        plan["jobs"] = {job: job == "policy" for job in JOBS}
+    return plan
 
 
 def validate_plan(plan):
-    if not isinstance(plan, dict) or set(plan) != {"schema", "lane", "jobs", "changes"}:
+    if not isinstance(plan, dict) or set(plan) - {"prose"} != {"schema", "lane", "jobs", "changes"}:
         raise ValueError("missing or unknown plan fields")
     if type(plan["schema"]) is not int or plan["schema"] != 1 or plan["lane"] not in ("fast", "full", "release-validation"):
         raise ValueError("unsupported plan schema/lane")
@@ -140,8 +162,13 @@ def validate_plan(plan):
         if not isinstance(change, dict) or set(change) != {"path", "reason"}:
             raise ValueError("invalid change record")
         impact, reason = path_impact(change["path"])
-        if change["reason"] != reason or any(not plan["jobs"][j] for j in impact):
+        if change["reason"] != reason or ("prose" not in plan and any(not plan["jobs"][j] for j in impact)):
             raise ValueError("plan suppresses changed-path requirements")
+
+    if "prose" in plan:
+        prose_policy().validate(plan["prose"], [change["path"] for change in plan["changes"]])
+        if plan["lane"] != "fast" or plan["jobs"] != {job: job == "policy" for job in JOBS}:
+            raise ValueError("invalid prose-only selected jobs")
 
 
 def evaluate(plan, needs):
@@ -170,16 +197,32 @@ def main():
     strict_cmd.add_argument("--jobs", nargs="+", required=True)
     strict_cmd.add_argument("--skipped", nargs="*", default=[])
     strict_cmd.add_argument("--needs-json", default=os.environ.get("CI_NEEDS", ""))
+    check_cmd = sub.add_parser("check-prose")
+    check_cmd.add_argument("--plan-json", default=os.environ.get("CI_PLAN", ""))
     args = parser.parse_args()
     try:
-        if args.command == "plan":
+        if args.command == "check-prose":
+            plan = json.loads(args.plan_json)
+            validate_plan(plan)
+            verify_prose(plan)
+            print("Static documentation: exact changed prose/FUNDING evidence verified (or full CI selected).")
+        elif args.command == "plan":
             event = json.loads(args.event.read_text())
             event_name = os.environ["GITHUB_EVENT_NAME"]
             paths = []
+            prose = None
             if event_name == "pull_request":
                 pr = event["pull_request"]
-                paths = changed_paths(args.root, pr["base"]["sha"], pr["head"]["sha"])
-            plan = make_plan(event_name, event, paths)
+                try:
+                    paths = changed_paths(args.root, pr["base"]["sha"], pr["head"]["sha"])
+                    prose = prose_policy().prove(args.root, pr["base"]["sha"], pr["head"]["sha"])
+                    # The proof uses no-renames; a rename/copy stays conservative.
+                    if prose is not None and prose["paths"] != paths:
+                        prose = None
+                except (ValueError, KeyError, OSError, UnicodeError, subprocess.CalledProcessError) as error:
+                    print(f"::warning::Diff/prose evidence unavailable; selecting full CI: {error}", file=sys.stderr)
+                    paths, prose = [], None
+            plan = make_plan(event_name, event, paths, prose)
             validate_plan(plan)
             payload = json.dumps(plan, separators=(",", ":"))
             args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -191,6 +234,7 @@ def main():
                         stream.write(job + "=" + str(selected).lower() + "\n")
             print(json.dumps(plan, indent=2))
         elif args.command == "evaluate":
+            verify_prose(json.loads(args.plan_json))
             evaluate(json.loads(args.plan_json), json.loads(args.needs_json))
             print("CI Required: every planned job succeeded; only declared non-targets skipped.")
         else:

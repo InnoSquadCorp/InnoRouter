@@ -17,11 +17,14 @@ on:
       - develop
 
 concurrency:
-  group: migration-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}
-  cancel-in-progress: true
+  group: migration-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}${{ (vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request') && format('-jobs-{0}-{1}', github.run_id, github.run_attempt) || '' }}
+  cancel-in-progress: ${{ !(vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request') && (true) }}
 
 jobs:
   migration:
+    concurrency:
+      group: scoped-job-v1-${{ github.repository }}-${{ github.workflow }}-migration-smoke.yml-migration-pr-${{ github.event.pull_request.number }}-base-${{ github.event.pull_request.base.ref }}-${{ contains(github.event.pull_request.labels.*.name, 'release-validation') && 'release-validation' || 'no-release-validation' }}-${{ (vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base))))) && 'active' || format('off-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base)))) }}
     if: github.workflow != 'migration-smoke' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     runs-on: macos-26
     timeout-minutes: 30
