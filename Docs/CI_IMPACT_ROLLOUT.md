@@ -68,8 +68,8 @@ Inspector/Testing을 포함하는 DeveloperToolsSmoke와 그 뒤의 public-inter
 
 ## 이 PR의 권한 및 검증 경계
 
-Merged PR cleanup workflow는 항상 read-only dry run이다. actions:write job은 포함하지 않는다. 실제 취소 기능 활성화는 별도 승인된 workflow 변경이 필요하다.
+Merged PR cleanup은 명시 승인된 trusted default-branch handler에서 기본 활성화한다. 최소 actions:write job만 부여하며 INNO_MERGED_PR_CLEANUP이 unset/empty/enabled일 때 해당 병합 PR의 잔여 validation만 취소한다. disabled 또는 잘못된 값은 read-only inspect로 전환한다.
 DI/Network의 default-on 설정을 Router에 전파하지 않는다. product scope와 job cancellation은 명시 opt-in이고 aggregate 전환은 required-check migration과 함께 별도 승인한다.
 DocC catalog는 prose-only 대상이 아니므로 symbol/article link 검증을 유지한다. Router consumer 선택은 validated target reverse-dependency closure에 기반하며 매크로 변경은 full fallback한다. temporary path는 recipe에서 resolve하여 macOS symlink 경로를 일치시킨다.
 
-검증: Python/Ruby policy 및 negative tests 190개, pinned actionlint 1.7.12와 native parallel schema 12 workflows, public operations/reusable concurrency/CI optimization 계약 통과. Apple compile/runtime 검증은 이 PR hosted CI 결과로 별도 확인한다.
+검증: Python/Ruby policy 및 negative tests 191개, pinned actionlint 1.7.12와 native parallel schema 12 workflows, public operations/reusable concurrency/CI optimization 계약 통과. Apple compile/runtime 검증은 이 PR hosted CI 결과로 별도 확인한다.

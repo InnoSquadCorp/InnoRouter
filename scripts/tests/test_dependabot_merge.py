@@ -140,6 +140,14 @@ class DependabotTests(unittest.TestCase):
             self.assertEqual(result['head'],HEAD)
             self.assertTrue(result['evidence'])
 
+    def test_missing_native_parallel_policy_child_rejects(self):
+        for active in (False, True):
+            for child in adapter.PRIMARY['CI and public operations policy']:
+                api=API(active)
+                job=next(j for j in api.jobs[100] if j['name']=='CI and public operations policy')
+                job['steps']=[s for s in job['steps'] if s['name']!=child]
+                self.assert_rejected(api)
+
     def test_native_enable_uses_head_cas_and_never_direct_merge(self):
         for active in (False,True):
             api=API(active);result=policy.coordinate(api,55,True)

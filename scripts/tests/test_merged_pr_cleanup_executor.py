@@ -25,7 +25,7 @@ class CleanupExecutorTests(unittest.TestCase):
   self.pr={'number':42,'state':'closed','merged':True,'created_at':'2026-01-01T00:00:00Z','merged_at':'2026-01-02T00:00:00Z','head':{'sha':self.sha},'base':{'repo':{'id':1}}}
   self.event={'action':'closed','number':42,'repository':self.repo,'pull_request':copy.deepcopy(self.pr)}
   self.context={'event_name':'pull_request_target','repository':'Org/Repo','ref':'refs/heads/main','workflow_ref':'Org/Repo/.github/workflows/merged-pr-cleanup.yml@refs/heads/main','source_sha':source,'checkout_sha':source,'enable_writes':'enabled'}
-  self.config={'schema':1,'repository':'Org/Repo','status':'reviewed-local-proposal-not-active','merged_pr_pull_request_workflow_allowlist':['.github/workflows/ci.yml']}
+  self.config={'schema':1,'repository':'Org/Repo','status':'reviewed-cleanup-policy-v1','merged_pr_pull_request_workflow_allowlist':['.github/workflows/ci.yml']}
   run={'id':100,'run_attempt':1,'created_at':'2026-01-01T12:00:00Z','run_started_at':'2026-01-01T12:01:00Z','repository':self.repo,'event':'pull_request','status':'queued','conclusion':None,'head_sha':self.sha,'path':'.github/workflows/ci.yml','pull_requests':[copy.deepcopy(self.pr)]}
   self.api=FakeAPI(self.repo,self.pr,[run])
  def execute(self,apply=False):return m.execute(self.event,self.context,self.config,self.api,apply)
@@ -99,6 +99,9 @@ class CleanupExecutorTests(unittest.TestCase):
   self.assertIn('pull_request_target:',text);self.assertIn('types: [closed]',text);self.assertIn('ref: ${{ github.workflow_sha }}',text)
   self.assertIn('persist-credentials: false',text);self.assertIn('cancel-in-progress: false',text);self.assertIn("CLEANUP_ENABLE_WRITES: ''",text)
   self.assertNotIn('pull_request.head.ref',text);self.assertNotIn('pull_request.head.sha',text);self.assertNotIn('contents: write',text)
-  self.assertIn('actions: read',text);self.assertNotIn('actions: write\n',text)
-  self.assertNotIn('  cleanup:',text)
+  inspect=text.split('  inspect:\n',1)[1].split('  cleanup:\n',1)[0];apply=text.split('  cleanup:\n',1)[1]
+  self.assertIn('actions: read',inspect);self.assertNotIn('actions: write',inspect)
+  enabled="(vars.INNO_MERGED_PR_CLEANUP == '' || vars.INNO_MERGED_PR_CLEANUP == 'enabled')"
+  self.assertIn('!'+enabled,inspect);self.assertIn(enabled,apply);self.assertIn('actions: write',apply)
+  self.assertIn("&& 'enabled' || 'disabled'",apply)
 if __name__=='__main__':unittest.main()
