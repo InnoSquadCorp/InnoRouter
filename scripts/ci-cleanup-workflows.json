@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "repository": "InnoSquadCorp/InnoRouter",
+  "status": "reviewed-cleanup-policy-v1",
+  "merged_pr_pull_request_workflow_allowlist": [
+    ".github/workflows/ci.yml",
+    ".github/workflows/coverage.yml",
+    ".github/workflows/docs-ci.yml",
+    ".github/workflows/migration-smoke.yml",
+    ".github/workflows/performance-smoke.yml",
+    ".github/workflows/platforms.yml",
+    ".github/workflows/principle-gates.yml",
+    ".github/workflows/sanitizers.yml"
+  ],
+  "always_preserved_workflows": [
+    ".github/workflows/dependabot-auto-merge.yml",
+    ".github/workflows/dependabot-review-notice.yml",
+    ".github/workflows/release.yml"
+  ],
+  "event_filter": "pull_request only; never select by SHA alone",
+  "permission_activation": "approved trusted default-branch handler; unset/enabled applies, other values inspect"
+}

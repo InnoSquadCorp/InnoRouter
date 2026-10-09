@@ -6,6 +6,11 @@ permissions:
 on:
   workflow_call:
     inputs:
+      product-key:
+        description: Compile-free cancellation partition only, never build authorization
+        type: string
+        required: false
+        default: ''
       ref:
         description: Commit or tag to check out
         required: false
@@ -17,11 +22,14 @@ on:
       - develop
 
 concurrency:
-  group: platforms-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}
-  cancel-in-progress: true
+  group: platforms-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}${{ (vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request') && format('-jobs-{0}-{1}', github.run_id, github.run_attempt) || '' }}
+  cancel-in-progress: ${{ !(vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request') && (true) }}
 
 jobs:
   inspector-ui:
+    concurrency:
+      group: scoped-job-v1-${{ github.repository }}-${{ github.workflow }}-platforms.yml-inspector-ui-pr-${{ github.event.pull_request.number }}-base-${{ github.event.pull_request.base.ref }}-${{ contains(github.event.pull_request.labels.*.name, 'release-validation') && 'release-validation' || 'no-release-validation' }}-${{ (vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base))))) && 'active' || format('off-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base)))) }}
     if: github.workflow != 'platforms' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     name: test Inspector UI (iPadOS)
     runs-on: macos-26
@@ -103,6 +111,9 @@ jobs:
             ${{ runner.temp }}/InspectorUI-hang-diagnostics
 
   build-matrix:
+    concurrency:
+      group: scoped-job-v1-${{ github.repository }}-${{ github.workflow }}-platforms.yml-build-matrix-pr-${{ github.event.pull_request.number }}-base-${{ github.event.pull_request.base.ref }}-${{ contains(github.event.pull_request.labels.*.name, 'release-validation') && 'release-validation' || 'no-release-validation' }}-${{ matrix.platform.name }}-${{ matrix.platform.destination }}-${{ (vars.INNOROUTER_PRODUCT_CI == 'true') && inputs.product-key || 'full-package' }}-${{ (vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base)))) && (!(vars.INNOROUTER_PRODUCT_CI == 'true') || inputs.product-key != '')) && 'active' || format('off-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base)))) && (!(vars.INNOROUTER_PRODUCT_CI == 'true') || inputs.product-key != '') }}
     if: github.workflow != 'platforms' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     name: build ${{ matrix.platform.name }}
     runs-on: macos-26
@@ -131,6 +142,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: 0
           persist-credentials: false
 
       # This build job is compile-only. The authoritative macOS
@@ -160,26 +172,30 @@ jobs:
       # all three public products; the first also expands @Router after only
       # importing the default umbrella.
       - name: Build macro-first consumer for ${{ matrix.platform.name }}
+        env:
+          PRODUCT_SCOPE_ENABLED: ${{ vars.INNOROUTER_CI_AGGREGATE == 'true' && vars.INNOROUTER_PRODUCT_CI == 'true' && 'true' || 'false' }}
+          BUILD_PLATFORM: ${{ matrix.platform.name }}
         run: |
-          xcodebuild build \
-            -workspace .github/platform-tests.xcworkspace \
-            -scheme InnoRouterMacroFirstSmoke \
-            -destination '${{ matrix.platform.destination }}' \
-            -derivedDataPath "$RUNNER_TEMP/InnoRouter-${{ matrix.platform.name }}" \
-            -configuration Release \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-            -quiet
+          set -euo pipefail
+          python3 -B scripts/ci_product_execution.py build \
+            --kind router-consumer --units InnoRouterMacroFirstSmoke --platform "$BUILD_PLATFORM" \
+            --temporary "$RUNNER_TEMP" --receipts "$RUNNER_TEMP/product-build-receipts"
+          python3 -B scripts/ci_product_execution.py verify \
+            --kind router-consumer --units InnoRouterMacroFirstSmoke --platform "$BUILD_PLATFORM" \
+            --temporary "$RUNNER_TEMP" --receipts "$RUNNER_TEMP/product-build-receipts"
 
       - name: Build developer tools consumer for ${{ matrix.platform.name }}
+        env:
+          PRODUCT_SCOPE_ENABLED: ${{ vars.INNOROUTER_CI_AGGREGATE == 'true' && vars.INNOROUTER_PRODUCT_CI == 'true' && 'true' || 'false' }}
+          BUILD_PLATFORM: ${{ matrix.platform.name }}
         run: |
-          xcodebuild build \
-            -workspace .github/platform-tests.xcworkspace \
-            -scheme InnoRouterDeveloperToolsSmoke \
-            -destination '${{ matrix.platform.destination }}' \
-            -derivedDataPath "$RUNNER_TEMP/InnoRouter-${{ matrix.platform.name }}" \
-            -configuration Release \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
-            -quiet
+          set -euo pipefail
+          python3 -B scripts/ci_product_execution.py build \
+            --kind router-consumer --units InnoRouterDeveloperToolsSmoke --platform "$BUILD_PLATFORM" \
+            --temporary "$RUNNER_TEMP" --receipts "$RUNNER_TEMP/product-build-receipts"
+          python3 -B scripts/ci_product_execution.py verify \
+            --kind router-consumer --units InnoRouterDeveloperToolsSmoke --platform "$BUILD_PLATFORM" \
+            --temporary "$RUNNER_TEMP" --receipts "$RUNNER_TEMP/product-build-receipts"
 
       - name: Validate public interfaces for ${{ matrix.platform.name }}
         run: |
@@ -188,6 +204,9 @@ jobs:
             '${{ matrix.platform.name }}'
 
   platform-tests:
+    concurrency:
+      group: scoped-job-v1-${{ github.repository }}-${{ github.workflow }}-platforms.yml-platform-tests-pr-${{ github.event.pull_request.number }}-base-${{ github.event.pull_request.base.ref }}-${{ contains(github.event.pull_request.labels.*.name, 'release-validation') && 'release-validation' || 'no-release-validation' }}-${{ matrix.platform.name }}-${{ matrix.platform.destination }}-${{ (vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base))))) && 'active' || format('off-{0}-{1}', github.run_id, github.run_attempt) }}
+      cancel-in-progress: ${{ vars.INNO_JOB_CANCELLATION == 'enabled' && github.event_name == 'pull_request' && !((github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base)))) }}
     if: github.workflow != 'platforms' || vars.INNOROUTER_CI_AGGREGATE != 'true'
     name: test ${{ matrix.platform.name }}
     runs-on: macos-26

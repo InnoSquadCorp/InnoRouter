@@ -9,7 +9,8 @@ _spec.loader.exec_module(managed)
 
 PRIMARY = {
     'CI Plan': 'Plan exact changed paths',
-    'CI and public operations policy': 'Run fail-closed policy and negative contracts',
+    'CI and public operations policy': ('Run fail-closed policy and negative contracts',
+        'Check public operations and workflow contracts', 'Verify native workflows with pinned actionlint'),
     'Documentation contracts': 'Validate copyable documentation',
     'Exact-SHA external macro consumer': 'Resolve exact event revision in a clean consumer',
     'CI Required': 'Require exact planned dependencies',

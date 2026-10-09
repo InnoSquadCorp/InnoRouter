@@ -9,6 +9,7 @@ policy = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(policy)
 plan = json.loads(os.environ['CI_PLAN'])
 policy.validate_plan(plan)
+policy.verify_prose(plan)
 needs = json.loads(os.environ['CI_NEEDS'])
 if set(needs) != set(policy.JOBS) | {'ci-plan'}:
     raise SystemExit('Transition missing/unexpected dependency')

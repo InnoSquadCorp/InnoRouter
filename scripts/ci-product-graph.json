@@ -1,0 +1,317 @@
+{
+  "schema": 1,
+  "manifest_sha256": "0c1e8cc4c1c50fac59127391957b19dd2425c69dc1366247203349988a746c3f",
+  "targets": {
+    "InnoRouterPatternSupport": {
+      "inputs": [
+        "Sources/InnoRouterPatternSupport/"
+      ],
+      "kind": "regular",
+      "dependencies": []
+    },
+    "InnoRouterCore": {
+      "inputs": [
+        "Sources/InnoRouterCore/"
+      ],
+      "kind": "regular",
+      "dependencies": []
+    },
+    "InnoRouterDeepLink": {
+      "inputs": [
+        "Sources/InnoRouterDeepLink/"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouterCore"
+      ]
+    },
+    "InnoRouterSwiftUI": {
+      "inputs": [
+        "Sources/InnoRouterSwiftUI/"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouterCore",
+        "InnoRouterDeepLink"
+      ]
+    },
+    "InnoRouterSystem": {
+      "inputs": [
+        "Sources/InnoRouterSystem/"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouterCore",
+        "InnoRouterDeepLink",
+        "InnoRouterSwiftUI"
+      ]
+    },
+    "InnoRouterInspector": {
+      "inputs": [
+        "Sources/InnoRouterInspector/"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouterCore",
+        "InnoRouterDeepLink",
+        "InnoRouterSwiftUI"
+      ]
+    },
+    "InnoRouter": {
+      "inputs": [
+        "Sources/InnoRouterUmbrella/"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouterCore",
+        "InnoRouterSwiftUI",
+        "InnoRouterDeepLink",
+        "InnoRouterMacros",
+        "InnoRouterSystem"
+      ]
+    },
+    "InnoRouterPerformanceSmoke": {
+      "inputs": [
+        "Sources/InnoRouterPerformanceSmoke/"
+      ],
+      "kind": "executable",
+      "dependencies": [
+        "InnoRouterCore",
+        "InnoRouterDeepLink",
+        "InnoRouterInspector",
+        "InnoRouterSwiftUI",
+        "InnoRouterTesting"
+      ]
+    },
+    "RouterRecursiveDeepLinkProbe": {
+      "inputs": [
+        "Sources/RouterRecursiveDeepLinkProbe/"
+      ],
+      "kind": "executable",
+      "dependencies": [
+        "InnoRouter",
+        "InnoRouterDeepLink"
+      ]
+    },
+    "RouterEnvironmentFailFastProbe": {
+      "inputs": [
+        "Sources/RouterEnvironmentFailFastProbe/"
+      ],
+      "kind": "executable",
+      "dependencies": [
+        "InnoRouterCore",
+        "InnoRouterSwiftUI"
+      ]
+    },
+    "InnoRouterMacros": {
+      "inputs": [
+        "Sources/InnoRouterMacros/"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouterCore",
+        "InnoRouterDeepLink",
+        "InnoRouterSwiftUI",
+        "InnoRouterMacrosPlugin"
+      ]
+    },
+    "InnoRouterTesting": {
+      "inputs": [
+        "Sources/InnoRouterTesting/"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouterCore",
+        "InnoRouterSwiftUI",
+        "InnoRouterInspector"
+      ]
+    },
+    "InnoRouterMacrosPlugin": {
+      "inputs": [
+        "Sources/InnoRouterMacrosPlugin/"
+      ],
+      "kind": "macro",
+      "dependencies": [
+        "InnoRouterPatternSupport"
+      ]
+    },
+    "InnoRouterExampleTests": {
+      "inputs": [
+        "Tests/InnoRouterExampleTests/"
+      ],
+      "kind": "test",
+      "dependencies": [
+        "InnoRouter",
+        "InnoRouterTabRestorationExample"
+      ]
+    },
+    "InnoRouterTests": {
+      "inputs": [
+        "Tests/InnoRouterTests/"
+      ],
+      "kind": "test",
+      "dependencies": [
+        "InnoRouter",
+        "InnoRouterDeepLink",
+        "InnoRouterSwiftUI",
+        "InnoRouterSystem"
+      ]
+    },
+    "InnoRouterInspectorTests": {
+      "inputs": [
+        "Tests/InnoRouterInspectorTests/"
+      ],
+      "kind": "test",
+      "dependencies": [
+        "InnoRouter",
+        "InnoRouterInspector"
+      ]
+    },
+    "InnoRouterPlatformTests": {
+      "inputs": [
+        "Tests/InnoRouterPlatformTests/"
+      ],
+      "kind": "test",
+      "dependencies": [
+        "InnoRouterCore",
+        "InnoRouterDeepLink",
+        "InnoRouterSwiftUI"
+      ]
+    },
+    "InnoRouterMacrosTests": {
+      "inputs": [
+        "Tests/InnoRouterMacrosTests/"
+      ],
+      "kind": "test",
+      "dependencies": [
+        "InnoRouterMacrosPlugin"
+      ]
+    },
+    "InnoRouterMacrosBehaviorTests": {
+      "inputs": [
+        "Tests/InnoRouterMacrosBehaviorTests/"
+      ],
+      "kind": "test",
+      "dependencies": [
+        "InnoRouterMacros",
+        "InnoRouterCore",
+        "InnoRouterDeepLink"
+      ]
+    },
+    "InnoRouterTestingTests": {
+      "inputs": [
+        "Tests/InnoRouterTestingTests/"
+      ],
+      "kind": "test",
+      "dependencies": [
+        "InnoRouterTesting",
+        "InnoRouterInspector",
+        "InnoRouter",
+        "InnoRouterSwiftUI"
+      ]
+    },
+    "InnoRouterMacrosExample": {
+      "inputs": [
+        "Examples/MacrosExample.swift"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouter"
+      ]
+    },
+    "InnoRouterDeepLinkExample": {
+      "inputs": [
+        "Examples/DeepLinkExample.swift"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouter"
+      ]
+    },
+    "InnoRouterTabRestorationExample": {
+      "inputs": [
+        "Examples/TabRestorationExample.swift"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouter"
+      ]
+    },
+    "InnoRouterExamplesSmoke": {
+      "inputs": [
+        "ExamplesSmoke/DeepLinkSmoke.swift"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouter"
+      ]
+    },
+    "InnoRouterDeveloperToolsSmoke": {
+      "inputs": [
+        "ExamplesSmoke/DeveloperToolsSmoke.swift"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouter",
+        "InnoRouterInspector",
+        "InnoRouterTesting"
+      ]
+    },
+    "InnoRouterMacroFirstSmoke": {
+      "inputs": [
+        "ExamplesSmoke/MacrosSmoke.swift"
+      ],
+      "kind": "regular",
+      "dependencies": [
+        "InnoRouter"
+      ]
+    }
+  },
+  "products": {
+    "InnoRouter": [
+      "InnoRouter"
+    ],
+    "InnoRouterInspector": [
+      "InnoRouterInspector"
+    ],
+    "InnoRouterTesting": [
+      "InnoRouterTesting"
+    ]
+  },
+  "full_targets": [
+    "InnoRouterCore",
+    "InnoRouterPatternSupport",
+    "InnoRouterMacros",
+    "InnoRouterMacrosPlugin"
+  ],
+  "consumers": {
+    "ConsumerSmoke": {
+      "path": "ConsumerSmoke",
+      "products": [
+        "InnoRouter",
+        "InnoRouterInspector",
+        "InnoRouterTesting"
+      ]
+    },
+    "MigrationSmoke/After": {
+      "path": "MigrationSmoke/After",
+      "products": [
+        "InnoRouter"
+      ]
+    },
+    "MigrationSmoke/Before": {
+      "path": "MigrationSmoke/Before",
+      "products": [
+        "InnoRouter"
+      ]
+    },
+    "NativeSceneSmoke": {
+      "path": "NativeSceneSmoke",
+      "products": [
+        "InnoRouter",
+        "InnoRouterInspector",
+        "InnoRouterTesting"
+      ]
+    }
+  }
+}

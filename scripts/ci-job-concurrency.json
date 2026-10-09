@@ -1,0 +1,330 @@
+{
+  "schema": 1,
+  "feature": "INNO_JOB_CANCELLATION",
+  "scripts": "scripts",
+  "metadata": "(github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base)))",
+  "workflows": {
+    ".github/workflows/ci.yml": {
+      "original_concurrency": {
+        "group": "ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.dependabot_merge_pr != '' && format('dependabot-{0}', inputs.dependabot_merge_pr) || 'validation' }}",
+        "cancel-in-progress": "${{ !(github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base))) }}",
+        "queue": "${{ (github.event_name == 'pull_request' && (((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name && github.event.label.name != 'release-validation') || (github.event.action == 'edited' && !github.event.changes.base))) && 'max' || 'single' }}"
+      },
+      "jobs": {
+        "policy": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": "needs.ci-plan.outputs.product-key"
+        },
+        "documentation": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": "needs.ci-plan.outputs.product-key"
+        },
+        "remote-consumer": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": "needs.ci-plan.outputs.product-key"
+        }
+      },
+      "excluded_jobs": {
+        "ci-plan": "planner/final aggregate or metadata observer",
+        "core": "reusable call may own child aggregates/writers; caller cancellation left unchanged",
+        "docc": "reusable call may own child aggregates/writers; caller cancellation left unchanged",
+        "platforms": "reusable call may own child aggregates/writers; caller cancellation left unchanged",
+        "coverage": "reusable call may own child aggregates/writers; caller cancellation left unchanged",
+        "sanitizers": "reusable call may own child aggregates/writers; caller cancellation left unchanged",
+        "performance": "reusable call may own child aggregates/writers; caller cancellation left unchanged",
+        "migration": "reusable call may own child aggregates/writers; caller cancellation left unchanged",
+        "ci-required": "planner/final aggregate or metadata observer"
+      },
+      "metadata_gates": {
+        "ci-required": {
+          "timeout": "${{ needs.ci-plan.outputs.active == 'false' && 360 || 10 }}",
+          "command": "python3 -B scripts/verify-ci-metadata.py"
+        }
+      },
+      "excluded_concurrency": {
+        "ci-plan": null,
+        "core": null,
+        "docc": null,
+        "platforms": null,
+        "coverage": null,
+        "sanitizers": null,
+        "performance": null,
+        "migration": null,
+        "ci-required": null
+      }
+    },
+    ".github/workflows/coverage.yml": {
+      "original_concurrency": {
+        "group": "coverage-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}",
+        "cancel-in-progress": true
+      },
+      "jobs": {
+        "coverage": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": null
+        }
+      },
+      "excluded_jobs": {
+        "codecov": "external upload/security/stateful writer permissions"
+      },
+      "metadata_gates": {},
+      "excluded_concurrency": {
+        "codecov": null
+      }
+    },
+    ".github/workflows/docs-ci.yml": {
+      "original_concurrency": {
+        "group": "docs-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}",
+        "cancel-in-progress": true
+      },
+      "jobs": {
+        "docc": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": null
+        }
+      },
+      "excluded_jobs": {},
+      "metadata_gates": {},
+      "excluded_concurrency": {}
+    },
+    ".github/workflows/migration-smoke.yml": {
+      "original_concurrency": {
+        "group": "migration-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}",
+        "cancel-in-progress": true
+      },
+      "jobs": {
+        "migration": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": null
+        }
+      },
+      "excluded_jobs": {},
+      "metadata_gates": {},
+      "excluded_concurrency": {}
+    },
+    ".github/workflows/performance-smoke.yml": {
+      "original_concurrency": {
+        "group": "performance-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}",
+        "cancel-in-progress": true
+      },
+      "jobs": {
+        "smoke": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": null
+        }
+      },
+      "excluded_jobs": {},
+      "metadata_gates": {},
+      "excluded_concurrency": {}
+    },
+    ".github/workflows/platforms.yml": {
+      "original_concurrency": {
+        "group": "platforms-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}",
+        "cancel-in-progress": true
+      },
+      "jobs": {
+        "inspector-ui": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": null
+        },
+        "build-matrix": {
+          "axes": [
+            "matrix.platform.name",
+            "matrix.platform.destination"
+          ],
+          "matrix": {
+            "platform": [
+              {
+                "name": "iOS",
+                "destination": "generic/platform=iOS Simulator"
+              },
+              {
+                "name": "iPadOS",
+                "destination": "generic/platform=iOS Simulator"
+              },
+              {
+                "name": "Mac-Catalyst",
+                "destination": "generic/platform=macOS,variant=Mac Catalyst"
+              },
+              {
+                "name": "macOS",
+                "destination": "platform=macOS"
+              },
+              {
+                "name": "tvOS",
+                "destination": "generic/platform=tvOS Simulator"
+              },
+              {
+                "name": "watchOS",
+                "destination": "generic/platform=watchOS Simulator"
+              },
+              {
+                "name": "visionOS",
+                "destination": "generic/platform=visionOS Simulator"
+              }
+            ]
+          },
+          "product_flags": [
+            "INNOROUTER_PRODUCT_CI"
+          ],
+          "product_key": "inputs.product-key"
+        },
+        "platform-tests": {
+          "axes": [
+            "matrix.platform.name",
+            "matrix.platform.destination"
+          ],
+          "matrix": {
+            "platform": [
+              {
+                "name": "iOS",
+                "destination": "iOS Simulator",
+                "runtimePrefix": "com.apple.CoreSimulator.SimRuntime.iOS",
+                "deviceNameContains": "iPhone",
+                "usesSimulator": true,
+                "minimumPassedTests": 10
+              },
+              {
+                "name": "iPadOS",
+                "destination": "iOS Simulator",
+                "runtimePrefix": "com.apple.CoreSimulator.SimRuntime.iOS",
+                "deviceNameContains": "iPad",
+                "usesSimulator": true,
+                "minimumPassedTests": 10
+              },
+              {
+                "name": "Mac-Catalyst",
+                "destination": "macOS,variant=Mac Catalyst",
+                "runtimePrefix": "",
+                "deviceNameContains": "",
+                "usesSimulator": false,
+                "minimumPassedTests": 10
+              },
+              {
+                "name": "tvOS",
+                "destination": "tvOS Simulator",
+                "runtimePrefix": "com.apple.CoreSimulator.SimRuntime.tvOS",
+                "deviceNameContains": "",
+                "usesSimulator": true,
+                "minimumPassedTests": 12
+              },
+              {
+                "name": "watchOS",
+                "destination": "watchOS Simulator",
+                "runtimePrefix": "com.apple.CoreSimulator.SimRuntime.watchOS",
+                "deviceNameContains": "",
+                "usesSimulator": true,
+                "minimumPassedTests": 6
+              },
+              {
+                "name": "visionOS",
+                "destination": "visionOS Simulator",
+                "runtimePrefix": "com.apple.CoreSimulator.SimRuntime.xrOS",
+                "deviceNameContains": "",
+                "usesSimulator": true,
+                "minimumPassedTests": 10
+              }
+            ]
+          },
+          "product_flags": [],
+          "product_key": null
+        }
+      },
+      "excluded_jobs": {
+        "required": "planner/final aggregate or metadata observer"
+      },
+      "metadata_gates": {},
+      "excluded_concurrency": {
+        "required": null
+      }
+    },
+    ".github/workflows/principle-gates.yml": {
+      "original_concurrency": {
+        "group": "principle-gates-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}",
+        "cancel-in-progress": true
+      },
+      "jobs": {
+        "lint": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": null
+        },
+        "changelog-sync": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": null
+        },
+        "release-contract": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": null
+        },
+        "gates": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": null
+        },
+        "xcode-27": {
+          "axes": [],
+          "matrix": {},
+          "product_flags": [],
+          "product_key": null
+        }
+      },
+      "excluded_jobs": {},
+      "metadata_gates": {},
+      "excluded_concurrency": {}
+    },
+    ".github/workflows/sanitizers.yml": {
+      "original_concurrency": {
+        "group": "sanitizers-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.run_id }}",
+        "cancel-in-progress": true
+      },
+      "jobs": {
+        "sanitizer": {
+          "axes": [
+            "matrix.kind"
+          ],
+          "matrix": {
+            "kind": [
+              "thread",
+              "address"
+            ]
+          },
+          "product_flags": [],
+          "product_key": null
+        }
+      },
+      "excluded_jobs": {
+        "required": "planner/final aggregate or metadata observer"
+      },
+      "metadata_gates": {},
+      "excluded_concurrency": {
+        "required": null
+      }
+    }
+  },
+  "lane_labels": [
+    "release-validation"
+  ]
+}
