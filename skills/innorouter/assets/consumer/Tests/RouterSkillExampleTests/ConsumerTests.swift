@@ -5,7 +5,7 @@ import InnoRouter
 import InnoRouterTesting
 import RouterSkillExample
 
-@Suite("Router skill candidate consumer", .timeLimit(.minutes(1)))
+@Suite("Router skill release consumer", .timeLimit(.minutes(1)))
 @MainActor
 struct ConsumerTests {
     @Test func macroAndOriginContract() throws {

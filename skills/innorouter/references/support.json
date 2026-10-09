@@ -1,17 +1,16 @@
 {
   "schema_version": 1,
-  "checked_on": "2026-10-07",
+  "checked_on": "2026-10-09",
   "library": "InnoRouter",
   "supported_release_line": "7.0.x",
   "supported_range": ">=7.0.0 <7.1.0",
   "include_prereleases": false,
-  "support_status": "planned_stable_line",
+  "support_status": "stable_line",
   "repository": "https://github.com/InnoSquadCorp/InnoRouter.git",
-  "version": null,
-  "planned_version": "7.0.0",
-  "revision": "851c63f095e49b700c3a0aa8152a3521a39977e7",
-  "baseline_kind": "unreleased_main_commit",
-  "tag_status": "7.0.0_not_found_at_check",
+  "version": "7.0.0",
+  "revision": "33b0da7639105cfa8e6f5acffa3badb91b5e0254",
+  "baseline_kind": "verified_release_tag",
+  "tag_status": "verified",
   "swift_tools_version": "6.3",
   "swift_syntax_requirement": ">=603.0.0 <605.0.0",
   "declared_platform_minimums": {
@@ -24,7 +23,8 @@
   "resolved_dependencies": {
     "innorouter": {
       "repository": "https://github.com/InnoSquadCorp/InnoRouter.git",
-      "revision": "851c63f095e49b700c3a0aa8152a3521a39977e7"
+      "revision": "33b0da7639105cfa8e6f5acffa3badb91b5e0254",
+      "version": "7.0.0"
     },
     "swift-syntax": {
       "repository": "https://github.com/swiftlang/swift-syntax.git",
@@ -32,5 +32,7 @@
       "revision": "050f1a346fbbac0ca2cfb15a95274f7bd1cf0ccf"
     }
   },
-  "scope": "Planned stable 7.0.x guidance, validated only against the captured unreleased main commit. version=null means no release was validated. Before release qualification, verify the actual 7.0.0 tag and rerun the remote consumer against it. Native platform lifecycle, cross-library runtime integration, full migration and later patches require separate checks."
+  "scope": "Stable 7.0.x guidance with an exact published 7.0.0 consumer. Later patches, native lifecycle, cross-library runtime integration, full migration and alternate toolchains require separate checks.",
+  "tag": "7.0.0",
+  "release_url": "https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0"
 }

@@ -39,14 +39,14 @@ For 6→7 migration, audit: external state writes → drafts; input-bearing setu
 throwing setup; independent host shape and root meanings; finite resource admission;
 retired scopes/results; explicit authorization generation/catalog contracts;
 transient persistence. For 5.x start from the 6 migration and then 7. Do not migrate
-an existing stable consumer solely because this skill knows the candidate.
+an existing stable consumer solely because this skill knows a newer release.
 
 Native windows and immersive spaces need matching app scene declarations and
 stable Store/scene identities. `RouterImmersiveSpaceScene(id:store:)` carries bound
 activation identity; an old ID-only callback cannot recover expired authority.
 Desktop consumer tests are not native visionOS/iOS lifecycle evidence.
 
-Read the actual patch's guides when implementing advanced behavior. Candidate:
-[7.0 migration](https://github.com/InnoSquadCorp/InnoRouter/blob/851c63f095e49b700c3a0aa8152a3521a39977e7/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md),
-[tab restoration](https://github.com/InnoSquadCorp/InnoRouter/blob/851c63f095e49b700c3a0aa8152a3521a39977e7/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md),
-[5.x migration](https://github.com/InnoSquadCorp/InnoRouter/blob/851c63f095e49b700c3a0aa8152a3521a39977e7/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md).
+Read the actual patch's guides when implementing advanced behavior. Release baseline:
+[7.0 migration](https://github.com/InnoSquadCorp/InnoRouter/blob/33b0da7639105cfa8e6f5acffa3badb91b5e0254/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md),
+[tab restoration](https://github.com/InnoSquadCorp/InnoRouter/blob/33b0da7639105cfa8e6f5acffa3badb91b5e0254/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md),
+[5.x migration](https://github.com/InnoSquadCorp/InnoRouter/blob/33b0da7639105cfa8e6f5acffa3badb91b5e0254/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md).

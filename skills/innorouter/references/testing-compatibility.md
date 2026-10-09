@@ -33,23 +33,22 @@ workspace state, checkout SHAs/cleanliness and SwiftSyntax prebuilt, then uses
 Keep separate scratch paths for concurrent builds. The source repository requires
 `--no-parallel`: synchronous restoration storage doubles can starve concurrent suites.
 
-The fixture pins unreleased main **851c63f095e49b700c3a0aa8152a3521a39977e7**,
-not a 7.0.0 tag. It requires Swift tools 6.3+, Apple platform floors iOS/tvOS 18,
-macOS 15, watchOS 11, visionOS 2. The package admits SwiftSyntax 603..<605; the
-fixture uses 604.0.0. Compatible declared ranges do not prove a combined app graph.
+The fixture pins published **7.0.0** at **33b0da7639105cfa8e6f5acffa3badb91b5e0254**.
+It requires Swift tools 6.3+, Apple platform floors iOS/tvOS 18, macOS 15,
+watchOS 11 and visionOS 2. The package admits SwiftSyntax 603..<605; the fixture
+uses 604.0.0. Compatible declared ranges do not prove a combined app graph.
 
-Planned support is **stable 7.0.x only** (`>=7.0.0 <7.1.0`), excluding prereleases.
-This is not a claim that 7.0.0/7.0.1 has shipped or that all patches were tested.
-Before adopting the planned release, verify its actual tag/commit and release notes,
-inspect manifest/API differences from the candidate, and rerun an exact tagged
-consumer. Record that evidence and refresh the source support record/fixture through
-a reviewed change. Do not replace `version: null` with a released version merely
-because the changelog or runtime constant says 7.0.0. Later 7.0.x consumers retain
-their patch and receive patch-specific checks; 7.1+ requires a separate review.
+Support is **stable 7.0.x only** (`>=7.0.0 <7.1.0`), excluding prereleases.
+The 7.0.0 tag and GitHub Release were verified independently, and the exact-tag
+consumer was tested. This does not qualify every patch. For another 7.0.x patch,
+verify its actual tag/commit, inspect release notes and manifest/API differences,
+and test the consumer while retaining its selected patch. 7.1+ requires a
+separate review. The validator checks the baseline tag identity before and after
+testing so a moved tag cannot silently replace the reviewed release.
 
 Use the [support record](support.json) and the consumer's actual lock together.
 Migration execution, optional feature/split composition, native UI/scene behavior,
 Inspector, alternate toolchains and release preflight need their own evidence.
-Candidate [testing API](https://github.com/InnoSquadCorp/InnoRouter/blob/851c63f095e49b700c3a0aa8152a3521a39977e7/Sources/InnoRouterTesting/RouterTestStore.swift)
-and [release guide](https://github.com/InnoSquadCorp/InnoRouter/blob/851c63f095e49b700c3a0aa8152a3521a39977e7/RELEASING.md)
+Release [testing API](https://github.com/InnoSquadCorp/InnoRouter/blob/33b0da7639105cfa8e6f5acffa3badb91b5e0254/Sources/InnoRouterTesting/RouterTestStore.swift)
+and [release guide](https://github.com/InnoSquadCorp/InnoRouter/blob/33b0da7639105cfa8e6f5acffa3badb91b5e0254/RELEASING.md)
 remain the detailed references.

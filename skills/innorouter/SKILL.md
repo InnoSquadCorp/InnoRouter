@@ -5,12 +5,13 @@ description: Implement, test, diagnose, or migrate SwiftUI navigation with InnoR
 
 # InnoRouter
 
-Use the consumer's actual resolved dependency. This skill targets planned stable
-**7.0.x** (`>=7.0.0 <7.1.0`), based on unreleased `main` commit
-`851c63f095e49b700c3a0aa8152a3521a39977e7`, intended for 7.0.0. **No 7.0.0
-release was validated.** The [support record](references/support.json) separates
-the intended range from the immutable candidate. Do not silently upgrade a 6.x
-consumer, pin it to moving `main`, or claim a future tag is available.
+Use the consumer's actual resolved dependency. This skill supports stable
+**7.0.x** (`>=7.0.0 <7.1.0`), with the exact **7.0.0** release at
+`33b0da7639105cfa8e6f5acffa3badb91b5e0254` as its validated baseline. The
+[support record](references/support.json) separates that baseline from the supported
+patch range. Keep the consumer's chosen patch; do not silently upgrade a 6.x
+consumer or pin it to moving `main`. Later patches require their own source and
+consumer checks.
 
 ## Choose the relevant guide
 
@@ -24,7 +25,7 @@ consumer, pin it to moving `main`, or claim a future tag is available.
 
 1. Read `Package.swift`/`Package.resolved` and existing navigation ownership. For
    7.0.x, inspect the actual patch source and manifest. Keep the project's patch
-   version; the bundled candidate is reproducible evidence, not a downgrade target.
+   version; the bundled release is reproducible evidence, not a downgrade target.
 2. Import the public `InnoRouter` product. Start with `@Router`, its generated
    typed helpers, `RouterHost`/`RouterTabHost`/`RouterSplitHost`, and
    `@EnvironmentRouter`. Read state through `@EnvironmentRouterState`.

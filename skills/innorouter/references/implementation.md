@@ -47,6 +47,6 @@ Use finite `RouterResourceBudget` settings selected for the workload. Invalid
 negative settings throw, zero admits no matching work, and `.unlimited` is an
 explicit opt-out. Validation does not truncate input or raise a budget for it.
 
-Exact candidate sources: [README](https://github.com/InnoSquadCorp/InnoRouter/blob/851c63f095e49b700c3a0aa8152a3521a39977e7/README.md),
-[macro-first examples](https://github.com/InnoSquadCorp/InnoRouter/blob/851c63f095e49b700c3a0aa8152a3521a39977e7/Examples/MacrosExample.swift),
-[7.0 migration](https://github.com/InnoSquadCorp/InnoRouter/blob/851c63f095e49b700c3a0aa8152a3521a39977e7/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md).
+Exact release sources: [README](https://github.com/InnoSquadCorp/InnoRouter/blob/33b0da7639105cfa8e6f5acffa3badb91b5e0254/README.md),
+[macro-first examples](https://github.com/InnoSquadCorp/InnoRouter/blob/33b0da7639105cfa8e6f5acffa3badb91b5e0254/Examples/MacrosExample.swift),
+[7.0 migration](https://github.com/InnoSquadCorp/InnoRouter/blob/33b0da7639105cfa8e6f5acffa3badb91b5e0254/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md).

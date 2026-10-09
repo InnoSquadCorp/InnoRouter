@@ -42,5 +42,5 @@ the task's outcome and clean up on failure. Use bounded test time limits rather
 than sleeps or arbitrary `Task.yield()` counts. [Consumer tests](../assets/consumer/Tests/RouterSkillExampleTests/ConsumerTests.swift)
 cover declared cancel value, caller cancellation and encode-only omission.
 
-Candidate contracts: [7.0 migration](https://github.com/InnoSquadCorp/InnoRouter/blob/851c63f095e49b700c3a0aa8152a3521a39977e7/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md),
-[presentation handles](https://github.com/InnoSquadCorp/InnoRouter/blob/851c63f095e49b700c3a0aa8152a3521a39977e7/Sources/InnoRouterSwiftUI/RouterPresentationHandle.swift).
+Release contracts: [7.0 migration](https://github.com/InnoSquadCorp/InnoRouter/blob/33b0da7639105cfa8e6f5acffa3badb91b5e0254/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md),
+[presentation handles](https://github.com/InnoSquadCorp/InnoRouter/blob/33b0da7639105cfa8e6f5acffa3badb91b5e0254/Sources/InnoRouterSwiftUI/RouterPresentationHandle.swift).

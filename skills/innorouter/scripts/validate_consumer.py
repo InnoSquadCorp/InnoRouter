@@ -56,7 +56,7 @@ def main():
         evidence["include_prereleases"] = support["include_prereleases"]
         evidence["validation_scope"] = support["baseline_kind"]
         expected = support["resolved_dependencies"]
-        check(expected["innorouter"] == {k: support[k] for k in ("repository", "revision")},
+        check(expected["innorouter"] == {k: support[k] for k in ("repository", "version", "revision")},
               "Library support and dependency record disagree")
         source = skill / "assets/consumer"
         original_pins = pins(source / "Package.resolved")
@@ -66,6 +66,16 @@ def main():
             check(pin["kind"] == "remoteSourceControl" and pin["location"] == baseline["repository"]
                   and pin["state"] == {k: baseline[k] for k in ("version", "revision") if k in baseline},
                   f"{identity} fixture pin differs from support record")
+        def verify_release_tag(label):
+            ref = "refs/tags/" + support["tag"]
+            output = command(label, ["git", "ls-remote", support["repository"], ref, ref + "^{}"])
+            refs = {name: sha for sha, name in (line.split() for line in output.splitlines())}
+            check(ref in refs and refs.get(ref + "^{}", refs.get(ref)) == support["revision"],
+                  "Official release tag differs from reviewed baseline")
+            return refs
+
+        release_refs = verify_release_tag("release-tag-before")
+        evidence["release_identity"] = {"tag": support["tag"], "revision": support["revision"], "refs": release_refs}
         evidence["swift"] = command("swift-version", ["swift", "--version"])
         evidence["xcode"] = command("xcode-version", ["xcodebuild", "-version"])
         evidence["source_sha256"] = {
@@ -123,6 +133,18 @@ def main():
         evidence["swift_test_result"] = {"tests": sum(int(x) for x, _ in summaries),
                                          "suites": sum(int(x) for _, x in summaries), "failures": 0,
                                          "strict_concurrency": "complete", "warnings_as_errors": True}
+        check(pins(package / "Package.resolved") == original_pins, "Tests changed exact pins")
+        for relative, digest in evidence["source_sha256"].items():
+            if relative != "Package.resolved":
+                check(hashlib.sha256((package / relative).read_bytes()).hexdigest() == digest,
+                      f"Validation changed consumer source: {relative}")
+        for identity, dependency in resolved.items():
+            checkout = (scratch / "checkouts" / dependency["subpath"]).resolve()
+            check(command(identity + "-final-head", ["git", "-C", checkout, "rev-parse", "HEAD"]) == expected[identity]["revision"],
+                  f"{identity} revision changed during build")
+            check(not command(identity + "-final-status", ["git", "-C", checkout, "status", "--porcelain", "--untracked-files=all"]),
+                  f"{identity} changed during build")
+        check(verify_release_tag("release-tag-after") == release_refs, "Release tag changed during validation")
         evidence["status"] = "passed"
     except (OSError, RuntimeError, ValueError, KeyError) as error:
         evidence["status"] = "failed"
