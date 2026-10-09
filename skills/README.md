@@ -20,3 +20,11 @@ The central plugin uses `$innosquad:innorouter` or `/innosquad:innorouter`.
 Run `python3 skills/innorouter/scripts/validate_consumer.py --scratch-path
 /tmp/innorouter-skill-validation` for an isolated exact-release consumer.
 Do not include local build products or credentials in the skill.
+
+## Consumer command diagnostics
+
+The validator parses dependency-graph JSON from stdout only. SwiftPM warnings
+are retained in `graph.stderr.log`,
+linked by each command's `stderr_log` evidence field. Malformed or empty stdout
+and nonzero command exits still fail validation. Other commands retain combined
+text logs, including Swift Testing summaries written to stderr.
