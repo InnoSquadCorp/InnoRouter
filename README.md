@@ -579,7 +579,7 @@ gates pass.
 
 ## Documentation
 
-- [AI skill for Codex and Claude Code](skills/README.md): library-owned guidance for planned 7.0.x, with an exact unreleased-main consumer baseline.
+- [AI skill for Codex and Claude Code](skills/README.md): library-owned guidance for stable 7.0.x, with an exact 7.0.0 release consumer baseline.
 
 - [Functional strategy](Docs/v6-functional-strategy.md)
 - [API convergence](Docs/v6-api-convergence-spike.md)

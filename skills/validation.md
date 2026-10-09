@@ -1,10 +1,31 @@
-# InnoRouter skill validation — 2026-10-07
+# InnoRouter released skill validation — 2026-10-09
+
+The supported line is stable **7.0.x** (`>=7.0.0 <7.1.0`). The fixture now pins
+published **7.0.0** at `33b0da7639105cfa8e6f5acffa3badb91b5e0254`.
+The remote lightweight tag and GitHub Release were checked independently.
+`Sources/` and `Package.swift` are identical between the historical candidate
+`851c63f` and this release; no runtime or production test files changed here.
+
+Fresh isolated remote consumer validation passed **11 Swift tests** with complete
+strict concurrency and warnings as errors. The helper checked the official tag
+before and after tests, exact SwiftPM pins/graph/workspace, both clean checkout
+SHAs, SwiftSyntax prebuilt identity and unchanged consumer source/pins.
+[Current machine-readable evidence](validation/consumer-evidence.json).
+
+The fixture contains stack/tab view compile coverage and public runtime tests.
+It does not establish device/scene lifecycle, alternate toolchains, every patch,
+full library release readiness or AI-host behavior. Those remain separate gates.
+A support/lock copy with a fake release SHA was rejected by the official tag
+check before any Swift command; a missing-version lock was rejected by the
+fixture/support consistency check.
+
+## Historical candidate validation — 2026-10-07
 
 The skill supports the planned stable **7.0.x** line. The tested library is the
 unreleased remote main commit `851c63f095e49b700c3a0aa8152a3521a39977e7`, intended
 for 7.0.0. The remote 7.0.0 tag lookup returned 404 at this check; a changelog date
 or runtime version string is not publication evidence. The skill source is a
-separate commit. [Machine-readable consumer evidence](validation/consumer-evidence.json).
+separate commit. The original machine-readable evidence is preserved in Git history.
 
 The isolated consumer passed **11 tests** using Xcode 27 / Swift 6.4 on macOS 27
 arm64, Swift language mode 6, complete strict concurrency and warnings as errors.

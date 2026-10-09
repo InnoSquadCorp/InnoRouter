@@ -1,22 +1,30 @@
 {
   "status": "passed",
-  "started_at": "2026-10-07T07:33:15.878086+00:00",
+  "started_at": "2026-10-09T04:44:10.629486+00:00",
+  "finished_at": "2026-10-09T04:44:59.263703+00:00",
   "supported_range": ">=7.0.0 <7.1.0",
   "include_prereleases": false,
-  "validation_scope": "unreleased_main_commit",
+  "validation_scope": "verified_release_tag",
+  "release_identity": {
+    "tag": "7.0.0",
+    "revision": "33b0da7639105cfa8e6f5acffa3badb91b5e0254",
+    "refs": {
+      "refs/tags/7.0.0": "33b0da7639105cfa8e6f5acffa3badb91b5e0254"
+    }
+  },
   "swift": "swift-driver version: 1.168.6 Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
   "xcode": "Xcode 27.0\nBuild version 27A266a",
   "source_sha256": {
-    "Package.resolved": "53683d27c1f9a974a378844feb0dddfbcf14b1a6dcd2e2b887a6af2718a4c428",
-    "Package.swift": "262bb4a8a5faa37e88f39f1c9d4e2ec814c3a62cfb2d3422316601256edadd60",
+    "Package.resolved": "7f809417479ae27edd378938f4a5482f6f2737e3aba467d26a72d66802b9ba27",
+    "Package.swift": "4ce2b8dd65192955501c24381142f5644a1e53fd6edf2e0d6b958472296d8202",
     "Sources/RouterSkillExample/AppRoute.swift": "cd5fe272b779ae10fd3503880debfb0ba4de23f2934933c2b542041da006b8e2",
     "Sources/RouterSkillExample/NavigationViews.swift": "849779c1b6c2d8d22f5720c389ddb46ae6448377cc3b83fc26e74b75831c3943",
-    "Tests/RouterSkillExampleTests/ConsumerTests.swift": "6b18e854f9dde8a589325ecd35f9a10bd4ed8a01e5b9064bfbad463f7d4e4ab8"
+    "Tests/RouterSkillExampleTests/ConsumerTests.swift": "83b03dd898d44d8b5bec0d1230bf37a7d3f1a80eecf1531f84c1eb976515b6c3"
   },
   "dependencies": {
     "innorouter": {
-      "version": null,
-      "revision": "851c63f095e49b700c3a0aa8152a3521a39977e7",
+      "version": "7.0.0",
+      "revision": "33b0da7639105cfa8e6f5acffa3badb91b5e0254",
       "clean": true,
       "prebuilt_selected": false
     },
@@ -34,9 +42,5 @@
     "strict_concurrency": "complete",
     "warnings_as_errors": true
   },
-  "finished_at": "2026-10-07T07:33:53.709486+00:00",
-  "baseline_revision": "851c63f095e49b700c3a0aa8152a3521a39977e7",
-  "planned_version": "7.0.0",
-  "released_version": null,
   "command": "python3 skills/innorouter/scripts/validate_consumer.py --scratch-path /tmp/innorouter-skill-validation"
 }
