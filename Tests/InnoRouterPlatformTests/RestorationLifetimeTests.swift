@@ -350,6 +350,15 @@ private final class ImmersiveLifetimeObservation {
 }
 
 @MainActor
+private final class ImmersiveAppearanceObservation: RouterImmersiveAppearanceObserver {
+    var appearances = 0
+    func interceptNativeAppearance(_ activation: RouterImmersiveActivation) -> Bool {
+        appearances += 1
+        return false
+    }
+}
+
+@MainActor
 private struct ImmersiveLifetimeRoot: View {
     let store: RouterStore<ImmersiveLifetimeRoute>
     let observation: ImmersiveLifetimeObservation
@@ -366,6 +375,69 @@ private struct ImmersiveLifetimeRoot: View {
 @Suite("Mounted immersive lifetime", .serialized, .timeLimit(.minutes(1)))
 @MainActor
 struct MountedImmersiveLifetimeTests {
+    @Test("An attributed host first mounted after repair receives native appearance")
+    func firstAppearanceAfterRepair() async throws {
+        var configuration = RouterStoreConfiguration<ImmersiveLifetimeRoute>()
+        configuration.hostDescriptor = .init(
+            root: .stack,
+            immersiveSpaces: .init(entries: [.init("theater", shape: .stack)], declaration: { _ in "theater" })
+        )
+        let initial = try RouterState<ImmersiveLifetimeRoute>(
+            immersiveSpace: .init(id: "theater", route: .theater)
+        )
+        let store = try RouterStore(initialState: initial, configuration: configuration)
+        let lifetime = try #require(store.immersiveSpaceLifecycleToken)
+        let oldPrecondition = try #require(store.scope(at: .immersiveSpace("theater")).combinedExecutionPrecondition(nil))
+        let ticket = try #require(store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(
+            id: "theater", lifecycleToken: lifetime
+        ))
+        var activation: RouterImmersiveActivation?
+        var opens = 0
+        store.sceneRestorationRegistry.declareAttributedImmersiveSpace(id: "theater")
+        store.sceneRestorationRegistry.installImmersiveActions(.init(
+            open: { _ in Issue.record("Attributed host used an id-only open"); return .error },
+            dismiss: {},
+            openActivation: { value in activation = value; opens += 1; return .error }
+        ), owner: UUID())
+        #expect(await restoreRouterImmersiveSpaceAfterDeferredClosure(
+            id: "theater", lifecycleToken: lifetime, ticket: ticket, store: store,
+            open: { .error }, dismiss: {}
+        ) == false)
+        #expect(store.state.immersiveSpace == nil)
+        #expect(store.revision == 1)
+        let boundValue = try #require(activation)
+        #expect(store.currentImmersiveActivation(boundValue)?.phase == .repaired)
+        let observation = ImmersiveAppearanceObservation()
+        var outerAppeared = false
+        // Mount only after the removal committed. Helper-only admission and
+        // keeping an already visible host mounted do not exercise this gap.
+        let mount = RestorationMount(AnyView(
+            ZStack {
+                Color.clear.frame(width: 0, height: 0)
+                    .onAppear { outerAppeared = true }
+                RouterImmersiveSpaceHost(id: "theater", store: store)
+                    .environment(\.routerImmersiveActivationBinding, .init(
+                        isAttributed: true, activation: boundValue, appearanceObserver: observation
+                    ))
+            }
+        ))
+        defer { mount.close() }
+        try await until { outerAppeared }
+        do {
+            try await until { observation.appearances > 0 && store.state.immersiveSpace != nil }
+        } catch is LifetimeTimeout {
+            // The deadline only reports a missing callback; it never advances
+            // repair or manually invokes the production admission helper.
+        }
+        #expect(observation.appearances == 1, "Empty host must receive native appearance after repair")
+        #expect(store.state == initial, "Mounted native appearance must recover canonical content")
+        #expect(store.revision == 2)
+        #expect(store.immersiveSpaceLifecycleToken != lifetime)
+        #expect(oldPrecondition(store.state) != nil)
+        #expect(store.hasAdoptedImmersiveAppearance(id: "theater", lifetime: store.immersiveSpaceLifecycleToken))
+        #expect(opens == 1, "Mount recovery must adopt the existing native open")
+    }
+
     @Test("Native disappearance owns its appearance token", arguments: [false, true])
     func disappearanceOwnership(replaceBeforeDetach: Bool) async throws {
         let observation = ImmersiveLifetimeObservation()

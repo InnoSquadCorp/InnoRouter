@@ -45,11 +45,12 @@ final class VisionProbeModel: RouterImmersiveAppearanceObserver {
                     return .allow
                 }
             ], onEvent: { [weak self] event in
-                guard let self, self.injectRestoration, self.requestedDeferral != nil else { return }
-                if case .committed(_, let before, let after, _, _) = event,
+                guard let self, case .committed(_, let before, let after, _, _) = event else { return }
+                if self.injectRestoration, self.requestedDeferral != nil,
                    before.immersiveSpace != nil, after.immersiveSpace == nil {
                     self.injectedRepairObserved = true
                 }
+                self.notifyNativeWaiters()
             }))
         } catch {
             preconditionFailure("Invalid native scene probe configuration: \(error)")
@@ -192,7 +193,12 @@ final class VisionProbeModel: RouterImmersiveAppearanceObserver {
                     }
                     log("NATIVE_FAULT_RECOVERED revision=\(store.revision) request=\(activation.requestID)")
                 }
-                try await until("canonical immersive space reopens") { self.isPresented && self.appeared > previousAppearances }
+                // Physical appearance can precede the attributed recovery
+                // commit. Await both observations without extending the bound.
+                try await until("canonical immersive space reopens") {
+                    self.isPresented && self.appeared > previousAppearances
+                        && self.store.state.immersiveSpace?.id == "theater"
+                }
                 guard store.state.immersiveSpace?.id == "theater" else {
                     throw VisionProbeFailure(message: "Deferred closure removed canonical space")
                 }

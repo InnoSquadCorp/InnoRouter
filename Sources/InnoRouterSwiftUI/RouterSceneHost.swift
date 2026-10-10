@@ -150,6 +150,10 @@ public struct RouterImmersiveSpaceHost<R: DestinationRoute & RouterSceneRoute>: 
         // Keep the native lifetime boundary mounted while canonical content is
         // temporarily empty. Removing the inner stack is not a native close.
         ZStack {
+            // A late native scene can first mount after failure repair removed
+            // its canonical content. Keep a concrete leaf so SwiftUI delivers
+            // appearance to the lifecycle modifier on that empty first mount.
+            Color.clear.frame(width: 0, height: 0)
             if let scope, let rootRoute = scope.observedSceneRootRoute {
                 RouterValidatedHostSurface(
                     store: store, shape: rendering?.shape ?? .stack,
