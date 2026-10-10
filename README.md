@@ -1,40 +1,19 @@
 # InnoRouter
 
-[![CI](https://github.com/InnoSquadCorp/InnoRouter/actions/workflows/ci.yml/badge.svg)](https://github.com/InnoSquadCorp/InnoRouter/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/InnoSquadCorp/InnoRouter)](https://github.com/InnoSquadCorp/InnoRouter/releases) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter) · [DocC](https://innosquadcorp.github.io/InnoRouter/latest/)
+[English](README.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Deutsch](README.de.md) · [简体中文](README.zh-Hans.md) · [日本語](README.ja.md) · [Русский](README.ru.md)
 
-Macro-first, typed navigation for SwiftUI.
+Macro-first, typed navigation for SwiftUI. One route enum, one recursive state tree, one mutable authority.
 
-InnoRouter 7 turns one `@Router` enum into one navigation model:
+Current stable release: **7.0.0**, published October 8, 2026. The release tag points to `33b0da7639105cfa8e6f5acffa3badb91b5e0254`. This guide describes that release; historical candidate reports retain their original scope.
 
-- `RouterState<Route>` is the complete value-semantic source of truth.
-- `RouterAction<Route>` is the only incremental request vocabulary.
-- `RouterPlan<Route>` is an exact target used by links and restoration.
-- `RouterStore<Route>` reduces, prepares policies, and commits atomically.
-- `RouterHost`, `RouterTabHost`, and `RouterSplitHost` render native SwiftUI containers.
+[Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 
-> **7.0.0 release preparation:** PR54 groundwork is carried directly into the next
-> major release; there is no separate 6.1.1 release. This checkout is unpublished.
-> [Apple and native validation](Docs/7.0.0-xcode27-validation.ko.md) is recorded
-> against the reviewed candidate. Exact-main release validation, minimum-OS and
-> physical-device qualification, and actual-app acceptance remain separate gates.
-> See the [7.0 checklist](Docs/7.0.0-release-checklist.md) for the verification boundary.
+## Requirements and installation
 
-[한국어](README.ko.md) · [6.0 strategy](Docs/v6-functional-strategy.md) ·
-[6.x to 7 migration](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md) ·
-[5.x to 6 migration](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
+- Swift 6.3+ (`swift-tools-version: 6.3`)
+- iOS / iPadOS / Mac Catalyst 18+, macOS 15+, tvOS 18+, watchOS 11+, visionOS 2+
 
-## Requirements
-
-- Swift 6.3+
-- `swift-tools-version: 6.3`
-- iOS 18+, iPadOS 18+, Mac Catalyst 18+, macOS 15+, tvOS 18+, watchOS 11+,
-  visionOS 2+
-
-## Installation
-
-Add the package and its single runtime product:
-The version below is the intended published release. Until it exists, use the
-reviewed local checkout; a version string does not establish publication.
+Add the package dependency and the product to the corresponding arrays in your Package.swift. `from:` allows compatible 7.x updates; use `exact: "7.0.0"` for an exact baseline. Normal apps import only `InnoRouter`. Optional products: `InnoRouterTesting` and `InnoRouterInspector`.
 
 ```swift skip package-manifest-fragment
 .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.0")
@@ -42,13 +21,9 @@ reviewed local checkout; a version string does not establish publication.
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
 
-`InnoRouterTesting` and `InnoRouterInspector` are optional developer products.
-The granular 5.x runtime, macro, effect, scene, and spatial products are removed
-from the 6.0 package contract.
-
 ## 30-second quick start
 
-Start with a route enum and a macro-first host.
+The host owns the store. `@EnvironmentRouter` sends actions; `@EnvironmentRouterState` observes read-only UI state. These wrappers require a matching host. Keep a supplied store at a stable application boundary, never recreate it in `body`.
 
 ```swift compile
 import SwiftUI
@@ -61,10 +36,8 @@ enum AppRoute {
 
     var destination: some View {
         switch self {
-        case .settings:
-            Text("Settings")
-        case .detail(let id):
-            Text("Detail \(id)")
+        case .settings: Text("Settings")
+        case .detail(let id): Text("Detail \(id)")
         }
     }
 }
@@ -74,526 +47,144 @@ struct HomeView: View {
     @EnvironmentRouterState(AppRoute.self) private var routerState
 
     var body: some View {
-        Button("Open detail") {
-            router.go(.detail(id: "42"))
-        }
-        .disabled(routerState.presentation != nil)
+        Button("Open detail") { router.go(.detail(id: "42")) }
+            .disabled(routerState.presentation != nil)
     }
 }
 
 struct AppRoot: View {
     var body: some View {
-        RouterHost(AppRoute.self) {
-            HomeView()
-        }
+        RouterHost(AppRoute.self) { HomeView() }
     }
 }
 ```
 
-The host owns the store by default. Create and inject a `RouterStore` only when
-an application boundary needs restoration, policies, inspection, or direct
-state observation.
+## State, authority, and throwing setup
 
-## One runtime model
+`RouterState` is externally read-only; edit a `RouterStateDraft` and call `try build(resourceBudget:)` before forming a `RouterPlan(state:)`. A plan describes an exact target. `RouterAction` describes incremental changes. Only `RouterStore` commits navigation. `RouterScope` is a read-only subtree projection and action forwarder, not another store.
 
-```swift skip doc-fragment
-let store = AppRoute.makeRouterStore()
+`RouterStore<AppRoute>()` and `AppRoute.makeRouterStore()` remain nonthrowing. Initial state, paths, and configuration require `try`. A supplied-store renderer needs an explicit `hostDescriptor`; the example declares the default stack root. Handle setup errors in app initialization and render recovery UI. Do not hide them with `try!` or an unrelated empty state.
 
-let outcome = await store.perform(.push(.detail(id: "42")))
-let snapshot = try await store.snapshot(using: RouterSnapshotCodec(currentVersion: 1))
-```
-
-In 7.0, `RouterStore()` and `AppRoute.makeRouterStore()` remain nonthrowing.
-Supplying `initialState`, `initialPath`, or `configuration` requires `try`:
-initial admission rejects structural, scene-catalog, and resource errors instead
-of trapping or truncating. Supplied-store tab and split hosts also throw and
-require `configuration.hostDescriptor`; construction validates without
-registering or changing the Store. The source-compatible stack host exposes a
-`validationFailure` and renders recovery UI when that contract is missing or
-incompatible. See the [initialization contract](Docs/7.0.0-store-initialization-contract.md).
-
-Each request follows `reduce → prepare → commit`. A policy rejection,
-cancellation, stale preparation, or invalid action leaves committed state
-unchanged. Successful requests assign one complete `RouterState` value and
-increment the store revision once.
-
-Use `goIfNeeded`, `backOrGo`, and `replaceTop` for atomic idempotent stack
-changes. For bursty producers, attach a `RouterRequestKey` and choose
-`keepFirst` or `replacePending`; unrelated requests retain FIFO order. A policy
-may return `deferRequest` to release the execution lane while the app awaits an
-external decision, then resume revision-safely or explicitly rebase on current
-state.
-
-Long-running or bursty producers can bound every retained stage explicitly:
-
-```swift skip doc-fragment
-let configuration = RouterStoreConfiguration<AppRoute>(
-    maximumPendingRequestCount: 128,
-    requestOverflowStrategy: .rejectNewest,
-    policyTimeout: .seconds(5),
-    deferrals: .init(
-        maximumPendingCount: 32,
-        timeToLive: .seconds(600),
-        overflowStrategy: .cancelOldest
-    )
-)
-```
-
-Overflow, timeout, eviction, and expiry return distinct
-`RouterRejectionReason` values and complete any awaiting presentation exactly
-once. Caller cancellation wins immediately even when a policy implementation
-does not cooperatively observe task cancellation.
-
-Use `RouterScope` to observe or act on a tab or split subtree. A scope is a
-stable projection and forwarder, never a second mutable store.
-
-`@EnvironmentRouterState` is the macro-first read surface. It exposes a
-read-only, observation-aware `RouterStateReader` with narrow properties such as
-`path`, `canGoBack`, `presentation`, tab selection, and badges. It never creates
-a second authority.
-
-Independent feature packages keep their own route enum and declare no app
-dependency. The app composition root wraps the associated-value case with
-`@FeatureRoute`; the generated mapping installs child actions and state without
-creating a child store:
-
-```swift skip doc-fragment
-@Router
-enum AppRoute {
-    @FeatureRoute("account.primary")
-    case account(AccountRoute)
-
-    var destination: some View {
-        RouterFeatureHost(AppRoute.Feature.account) {
-            AccountRoot()
-        }
-    }
-}
-```
-
-Inside `AccountRoot`, the usual `@EnvironmentRouter(AccountRoute.self)` and
-`@EnvironmentRouterState(AccountRoute.self)` APIs use the parent store's same
-policy, queue, transition ID, revision, and commit. The feature projection must
-own its complete subtree; mixed parent/child route values fail explicitly.
-Opening or dismissing application windows and immersive spaces remains a
-parent composition-root responsibility.
-
-Generated mappings remain under `AppRoute.Feature` (for example,
-`AppRoute.Feature.account`). Structural feature metadata is exposed separately
-as `AppRoute.routerFeatureCatalog`, so an app may freely declare a feature case
-named `catalog`. Recursive feature payloads may use `Self`, including in nested
-generic routers. An associated-value case named `routerFeatureCatalog` remains
-a normal overload; only a parameterless case conflicts with the generated
-metadata property.
-
-For opt-in persistence, combine a versioned codec with app-selected storage:
-
-```swift skip app-lifecycle-fragment
-let store = try AppRoute.makeRouterStore(
-    configuration: .init(hostDescriptor: .init(
+```swift skip contextual-fragment
+@MainActor
+func makeConfiguredStore() throws -> RouterStore<AppRoute> {
+    try AppRoute.makeRouterStore(configuration: .init(hostDescriptor: .init(
         root: .stack,
         rootDeclarations: [.init(meaning: .declarationID("router.root"))]
-    ))
-)
-let driver = RouterRestorationDriver(
-    store: store,
-    codec: try RouterSnapshotCodec(
-        currentVersion: 1,
-        limits: RouterSnapshotLimits(
-            maximumEncodedByteCount: 2 * 1_024 * 1_024,
-            maximumPayloadByteCount: 1 * 1_024 * 1_024
-        )
-    ),
-    storage: try RouterFileSnapshotStorage(
-        fileURL: snapshotURL,
-        maximumByteCount: 2 * 1_024 * 1_024
-    )
-)
-
-RouterHost(store: store) { HomeView() }
-    .routerStateRestoration(driver)
-```
-
-The driver restores through normal policies, coalesces committed-state writes,
-and flushes when the scene becomes inactive. Storage and cloud synchronization
-remain explicit application choices. Observation begins when activation is
-reserved, so navigation committed while snapshot loading is pending is not
-overwritten. Stopping a driver invalidates queued workers and caller ownership;
-a later activation cannot be modified by their delayed completion.
-
-The byte limits above are application-selected examples. File storage rejects
-oversized input while reading, and the codec independently bounds the encoded
-envelope, decoded payload, and every migration result. The provisional 7.0
-defaults are 4 MiB encoded/file bytes and 2 MiB decoded payload, with JSON depth
-128 and 262,144 tokens. Explicit nil opts out; actual-app calibration remains
-a release gate. In the PR54 groundwork carried into 7.0, a file
-over the storage limit reaches the driver's recovery policy exactly like an
-envelope the codec rejects: the default `.fail` fails activation and preserves
-the file, while `.use` restores the application's fallback through normal
-policies, so inspect the activation's `transition` as for any restore.
-
-For snapshots containing retired destinations,
-`restorePartially(from:using:validator:validationTimeout:)` decodes and migrates
-first, asks the app to keep, remove, or replace each route, and commits one
-exact plan at the captured revision. Invalid stack predecessors remove their
-dependent suffix while valid siblings and existing scenes survive. The report
-contains every keep/remove/replace decision with locations and app-owned reason
-codes, not route values. If validation removes an entire previously nonempty
-stack, restoration fails unless the app provides a fallback route through
-`RouterPartialRestorationValidator(fallback:validate:)`; that fallback is
-validated once before it can enter the plan.
-
-The automatic driver also accepts a required `validator`, optional
-`validationTimeout`, and optional `tabTopology`. It performs the same partial
-planning before one policy transition, exposes the initial result through
-`lastPartialRestoration`, and saves only accepted normalized state. This mode
-does not apply a snapshot recovery fallback.
-
-The explicit tab topology APIs below require **6.1.0 or later**.
-
-The [complete tab restoration example](Examples/README.md#tab-restoration-700)
-connects the catalog, driver, host, file persistence, and result handling.
-The [restoration guide](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md)
-explains tab identity, schema migration, and recovery boundaries.
-
-Restoration is exact unless the app explicitly requests reconciliation. A
-snapshot predating a declared tab is rejected by a host-configured Store
-instead of rendering an empty, unreachable scope. To add the tabs the app
-renders now, state the topology:
-
-```swift skip app-lifecycle-fragment
-let topology = try RouterTabRestorationTopology(of: AppRoute.self)
-
-try await store.restore(from: data, using: codec, tabTopology: topology)
-```
-
-A scope the snapshot carries keeps its path, presentation, and badge. A scope
-it lacks is created empty — no route or badge is invented for it. A branch the
-topology does not name is kept after the current scopes, so a later catalog can
-still reach it; render such a store with
-`RouterTabHost(store:catalog:orphanPolicy: .preserveDormant)` and configure the
-Store with `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`.
-The Store and renderer must use the same declaration. A selection the
-topology no longer names falls back to its first scope. The same parameter
-exists on `restorePartially`, where reconciliation runs before validation so
-the app sees the candidate that will be applied, and on
-`RouterRestorationDriver.init`, where the topology belongs to that driver's
-lifetime. A state returned by `RouterSnapshotRecoveryPolicy.use` is the app's
-final answer and is never reconciled.
-
-Tab-aware restore captures the request's starting revision, so navigation
-committed during decoding makes that restore stale. Public reconciliation
-validates the input and rejects a current tab whose node is not a stack.
-Partial restoration exposes payload-free `report.topologyChanges` alongside
-route entries, including inserted scopes, scope order, and selection changes.
-The report describes the candidate; check `transition` to see whether policies
-accepted it. Reports encoded before 6.1 decode with no topology changes.
-
-## Tabs and split views
-
-Mark only tab roots with `@TabItem`; associated-value cases can stay in the same
-enum as ordinary destinations:
-
-```swift skip doc-fragment
-@Router
-enum AppRoute {
-    @TabItem("Home", systemImage: "house")
-    case home
-
-    @TabItem("Settings", systemImage: "gear", id: "settings")
-    case preferences
-
-    case detail(id: String)
-
-    var destination: some View { /* exhaustive switch */ }
+    )))
 }
-
-let tabHost = try RouterTabHost(AppRoute.self, initial: .home)
 ```
 
-Without `id:`, the case name remains the persisted scope identity. Add an
-explicit ID before renaming a tab case to keep its saved branch reachable.
-This stabilizes the tab scope only; changing a Codable route case used inside a
-saved path still requires a snapshot migration. Effective IDs must be unique.
+## Outcomes, policies, and cancellation
 
-Create input-bearing hosts in a throwing setup boundary and handle failures
-there; SwiftUI `body` stays nonthrowing. Tab and split hosts preserve their full
-topology and reject invalid or oversized initialization instead of trapping.
+Requests follow reduce → prepare → commit. An applied transition assigns the complete state and increments the revision once. Unchanged, rejected, and deferred requests do not commit a candidate. Handle all four `RouterOutcome` cases. This fragment runs on the main actor and reuses `AppRoute` above.
 
-The macro generates stable case-name scope identifiers, so localization or tab
-reordering does not corrupt restored branch history. `@TabItem` can also define
-a selected system image and native search-tab role.
+```swift skip contextual-fragment
+let store = AppRoute.makeRouterStore()
+switch await store.perform(.push(.detail(id: "42"))) {
+case .applied(_, _, _, let revision): print("Committed", revision)
+case .unchanged: break
+case .deferred(_, _, _, let deferral): print("Deferred", deferral)
+case .rejected(_, _, _, let reason): print("Rejected", reason)
+}
+```
 
-`RouterSplitHost` owns independent sidebar and detail histories, while
-`RouterThreeColumnSplitHost` adds an independent content column. Visibility and
-preferred compact column live in `RouterSplitState` and reconcile through the
-same system-origin transition pipeline. Custom column identifiers use the
-throwing `RouterTwoColumnSplitLayout` and `RouterThreeColumnSplitLayout` values,
-so duplicate, empty, or unavailable column topology is rejected before a host
-is constructed. Opaque column closures declare stable `sidebarDeclarationID`,
-`detailDeclarationID`, and (for three columns) `contentDeclarationID` values.
-Supply those same IDs through `layout.hostRootDeclarations(for:...)` in an
-application-owned Store descriptor. Labels, localization, and styling do not
-change these semantic IDs.
+Policies inspect immutable candidates across suspension. Rejection, caller cancellation, stale preparation, and invalid actions leave committed state unchanged. `RouterRequestKey` supports `keepFirst` / `replacePending`; unrelated requests remain FIFO. Bound pending requests, policy timeouts, and deferrals explicitly. A `deferRequest` releases the execution lane; resumption checks revision unless explicitly rebased. Cancellation still wins against a late non-cooperative policy. `RouterRejectionReason` distinguishes overflow, timeout, expiry, and cancellation.
 
-Macro-generated tab metadata is the default. Advanced integrations that must
-conform `RouterTabRoute` manually can first build a throwing `RouterTabCatalog`
-and use the catalog-taking `RouterTabHost` initializer; duplicate identities,
-scope IDs, root routes, initial tabs, and store topology become typed errors.
-Use `catalog.hostDescriptor()` for an application-owned tab Store: it freezes
-each scope's root Route value as well as its shape. Keeping a tab ID while
-changing its root Route is a contract change and requires the owner's atomic
-`replaceHost(with:descriptor:context:)`, followed by a matching renderer.
-A shape-only descriptor does not authorize a native tab catalog.
+## Tabs, split views, and scope lifetimes
 
-A configured stack descriptor declares `.declarationID("router.root")` at its
-root for the default `RouterHost` and bridge factories. An application can
-choose another semantic ID and pass it as `rootDeclarationID` to the host or
-bridge. Existing nonthrowing APIs remain nonthrowing; declaration mismatch is
-reported through `validationFailure` and recovery UI.
+Mark parameterless roots with `@TabItem`; keep ordinary destinations in the same enum. `RouterTabHost` preserves independent branch histories. Use explicit stable tab IDs before renaming cases; Codable route changes still need migration. Construct input-bearing tab/split hosts with `try` outside nonthrowing `body`. `RouterSplitHost` and `RouterThreeColumnSplitHost` require stable column declaration IDs. A `RouterTabCatalog` supplies `hostDescriptor()`; change root meaning or topology atomically with `replaceHost(with:descriptor:context:)`. Restoring or replacing an owned subtree expires its old scope authority; reacquire scopes after replacement. `RouterHost(store:)` remains nonthrowing and exposes `validationFailure` plus recovery UI.
 
-## Explicit platform adaptation
+Compose independent feature enums with `@FeatureRoute` and `RouterFeatureHost`. Child `@EnvironmentRouter` and `@EnvironmentRouterState` forward through the parent store’s policies, queue, revision, and commit. The feature must own its complete subtree; mixed parent/child values fail explicitly. Window and immersive-scene ownership stays at the app composition root.
 
-`RouterPlatformCapabilities.current` is the public contract for native router
-features on the compiling Apple platform. Hosts use the same value when a
-requested presentation style or option has no equivalent native rendering.
-Each fallback emits a deduplicated `RouterEvent.platformAdapted` event, and the
-optional Inspector records a payload-redacted description instead of silently
-changing behavior. CI executes this contract on iPhone, iPad, Apple TV, Apple
-Watch, and Apple Vision simulators; the macOS package suite exercises it in a
-native process.
+[Examples/MacrosExample.swift](Examples/MacrosExample.swift)
 
-## Deep links and exact plans
+## Deep links and pending authentication
 
-`@DeepLink` generates fail-closed parsing from literal origin allowlists.
-`RouterLinkPipeline` promotes a matched route—or accepts a full matcher output—
-into the same `RouterPlan` used by transactions and restoration. Authentication
-can retain the exact plan as pending without partially navigating.
-`RouterPendingLinkSlot` makes replacement, cancellation, and policy-safe resume
-explicit; a rejected resume remains pending by default.
-When that continuation must survive process termination,
-`RouterPendingLinkPersistenceDriver` stores its versioned representation in
-application-selected storage. Slow restoration never replaces a newer
-in-memory link.
+Use literal scheme and host allowlists. A matching `RouterHost` handles `onOpenURL`; malformed or unapproved origins fail closed. The example accepts HTTPS product URLs at example.com. `RouterLinkPipeline` promotes a match to `RouterPlan`; policies can retain the whole target without partial navigation. `RouterPendingLinkSlot` makes replacement, cancellation, and resume explicit. `RouterPendingLinkPersistenceDriver` persists an app-selected continuation; a slow restore cannot overwrite a newer pending link. `inspectorCatalog: true` and `explainDeepLink(_:)` enable opt-in read-only diagnostics.
 
-Set `inspectorCatalog: true` on `@Router` to generate an opt-in, payload-free
-`DeepLinkRouteCatalog` from the resolver's same ordered mappings.
-`explainDeepLink(_:)` distinguishes origin rejection, path mismatch, and
-parameter conversion failure without executing authentication or navigation.
-Catalog entries expose stable IDs, declaration namespaces, feature paths, and
-parameter schemas. Parameter purity uses the actual metatype, so a custom type
-that shadows a standard name is never executed by read-only analysis. Feature
-routes retain their child declaration's origin when rendered; parent direct
-routes retain the parent's origin. `RouterInspectorDeepLinkView(store:)` previews a redacted
-structural diff with the pure reducer and keeps execution as a separate button;
-execution resolves the URL and enters the normal store policy queue.
+```swift compile
+import SwiftUI
+import InnoRouter
 
-## Bounded navigation history
+@Router(deepLinkSchemes: ["https"], deepLinkHosts: ["example.com"])
+enum LinkedRoute {
+    @DeepLink("/products/:id")
+    case product(id: String)
 
-Attach `RouterHistory` only where app-owned back/forward and named checkpoints
-are useful. It records stack paths, tab/split selection, and navigation inside
-scenes that still exist. Moves use exact plans and normal policies, advance the
-cursor only after an applied or unchanged result, and discard forward entries
-after a successful branch. They preserve badges and presentations, reject path
-changes beneath an active presentation, and never open or close a scene. Call
-`reset(sessionKey:)` at an app-defined account or document boundary. History
-observes commits synchronously, distinguishes deferred moves from rejection,
-and invalidates suspended or deferred moves when the session resets or history
-stops. Multiple active histories attached to the same Store synchronize their
-cursors from successful history-originated commits while retaining independent
-capacities, checkpoints, and session keys. An optional partial-restoration
-validator is shared with snapshot repair.
+    var destination: some View {
+        switch self {
+        case .product(let id): Text("Product \(id)")
+        }
+    }
+}
+```
 
-## Result-bearing presentation
+## Typed presentation results
 
-```swift skip doc-fragment
+The declaration, caller, and presented destination must share the same route type and host. This is a contextual fragment, not a standalone app. A generated request checks the result type at both ends. The presentation UUID and one completion request own the value. Stale callbacks and caller cancellation cannot dismiss a replacement. Interactive dismissal, cancellation, rejection, and a returned value remain distinct. Do not retain a completion authority beyond its presentation lifetime.
+
+```swift skip contextual-fragment
 @Router
-enum AppRoute {
+enum SettingsRoute {
     @PresentationResult(Bool.self)
     case settings
-    // destination...
+    var destination: some View { Text("Settings") }
 }
 
-let request = AppRoute.Presentation.settings
+// In a view under a matching SettingsRoute host:
+// @EnvironmentRouter(SettingsRoute.self) private var router
+let request = SettingsRoute.Presentation.settings
 switch await router.present(request) {
 case .value(let saved): print(saved)
 case .dismissed: break
 case .cancelled: break
 case .rejected(let reason): print(reason)
 }
-
-// Inside the presented destination:
+// In the presented destination, using its matching environment router:
 try await router.finishPresentation(request, returning: true)
 ```
 
-The generated request checks the result type at both call sites. The exact
-presentation UUID and one completion request own the pending value, so a stale
-completion or caller cancellation cannot dismiss a replacement presentation.
-Cancellation remains attached while a deferred presentation is resumed, so a
-late non-cooperative policy return cannot commit it. Interactive dismissal,
-caller cancellation, route mismatch, result mismatch, and policy rejection
-remain distinct outcomes. Sheets, covers, and popovers share snapshot-safe
-detent, drag-indicator, compact-adaptation, and interactive-dismiss options.
+## Restoration and navigation history
 
-## Scenes, system entry points, and existing apps
+Retain `RouterRestorationDriver` with app-selected storage and attach `routerStateRestoration(_:)` to a stable root. Version snapshots with `RouterSnapshotCodec`; define migrations for route/schema changes and inspect restore outcomes. For changing tabs use one catalog for `RouterTabRestorationTopology`, `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`, and the renderer. Dormant branches cannot become selected renderers. Stale restoration must not overwrite newer navigation. Snapshot limits are finite provisional defaults: measure your app before increasing budgets; abrupt termination does not guarantee a final save.
 
-Use `@Scene(.window)` or `@Scene(.immersiveSpace)` on parameterless router
-cases and install `RouterSceneDriver` once beside matching SwiftUI scene
-declarations. A regular window uses `WindowGroup(id:for: UUID.self)` so each
-`RouterWindow.id` opens and dismisses one exact native window instance. App
-scene content attaches `routerWindowLifecycle(_:store:)` or
-`routerImmersiveSpaceLifecycle(_:store:)` so interactive system dismissal
-updates the same store and a policy rejection restores the native scene. A
-queued immersive disappearance is tied to the exact native scene lifetime, so
-it cannot close a replacement—even when the replacement reuses the same scene
-identifier. App
-Intents and Handoff render or consume the same canonical URL
-contract through `RouterOpenURLIntentBuilder`, `routerHandoff`, and
-`continueRouterHandoff`; Handoff intentionally accepts only HTTP(S) universal
-links. Existing UIKit and AppKit applications can host the same store with
-`RouterUIKitBridge` or `RouterAppKitBridge` without creating a second stack.
-`RouterShortcutCatalog` shares stable route identifiers with app-owned App
-Intents, while localized phrases and concrete shortcut declarations stay in
-the application target. `RouterObservability` provides payload-free OSLog and
-app-metrics hooks without collecting or transmitting analytics itself.
+`RouterHistory` provides bounded back/forward and checkpoints through exact plans and normal policies. It preserves badges and presentations and never opens or closes scenes. Reset with `reset(sessionKey:)` at account/document boundaries; reset or stop invalidates suspended moves.
 
-On visionOS, declare `RouterImmersiveSpaceScene(id:store:)` beside the driver
-to carry each native open's identity into its lifecycle callbacks. A matching
-restoration appearance can recover a committed failure repair with a new
-revision and new scope authority. Existing id-only scenes keep their original
-behavior and cannot revive an expired scene from an unattributed callback.
-Declare wrapper IDs stably in the app's scene graph, with one declaration per
-Store/ID. The originating system-close deferral can follow that same attributed
-restoration; default resume still rejects unrelated state changes.
+Snapshot persistence requires Codable routes; application payload/schema migrations remain your responsibility.
 
-Each open window and immersive space owns an independent recursive node inside
-the same application state. The macro-generated `AppRoute.Scene` catalog
-provides typed window or immersive requests; `RouterWindowHost` and
-`RouterImmersiveSpaceHost` render the exact scene-local history.
-Applications with manual `RouterSceneRoute` conformances can pass a throwing
-`RouterSceneCatalog` to `RouterSceneDriver`, rejecting empty or duplicate
-identifiers and duplicate routes before native reconciliation starts.
+[Tab restoration](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Restoring-Tab-Navigation.md) · [Examples/TabRestorationExample.swift](Examples/TabRestorationExample.swift)
 
-## Choosing the right surface
+## Scenes, system integration, and platform adaptation
 
-| Need | 6.0 surface |
-| --- | --- |
-| Local stack and presentation | `@Router` + `RouterHost` |
-| Tabs with independent branch history | `@Router` + `@TabItem` + `RouterTabHost` |
-| Two- or three-column composition | `RouterSplitHost` / `RouterThreeColumnSplitHost` |
-| External authority or policies | `RouterStore` + `RouterStoreConfiguration` |
-| Idempotent or coalesced requests | atomic environment actions + `RouterRequestKey` |
-| Externally approved transition | `RouterPolicyDecision.deferRequest` |
-| Reactive read-only UI state | `@EnvironmentRouterState` |
-| URL to complete target | `RouterLinkPipeline` + `RouterPlan` |
-| Deferred authenticated URL | `RouterPendingLinkSlot` |
-| Durable authenticated continuation | `RouterPendingLinkPersistenceDriver` |
-| Versioned automatic restoration | `RouterRestorationDriver` + app-selected storage |
-| Host-less transition assertions | `InnoRouterTesting.RouterTestStore` |
-| Windows and immersive scenes | `@Scene` + `RouterSceneDriver` |
-| App Intent or Handoff entry | `RouterOpenURLIntentBuilder` / `continueRouterHandoff` |
-| Shortcut route catalog | `RouterShortcutCatalog` |
-| Payload-safe local diagnostics | `RouterObservability` |
-| UIKit or AppKit adoption | `RouterUIKitBridge` / `RouterAppKitBridge` |
-| State tree, diff, and safe replay | `InnoRouterInspector` |
+Declare parameterless `@Scene(.window)` / `@Scene(.immersiveSpace)` routes and install `RouterSceneDriver` beside matching app scene declarations. Use window UUID identity and `routerWindowLifecycle` / `routerImmersiveSpaceLifecycle` callbacks. On visionOS, `RouterImmersiveSpaceScene` carries native activation identity. Each scene has its own subtree in the same store; platform availability still applies. `RouterPlatformCapabilities.current` describes support and `RouterEvent.platformAdapted` reports fallbacks. `RouterUIKitBridge` / `RouterAppKitBridge` adopt the same authority. `RouterOpenURLIntentBuilder`, `RouterShortcutCatalog`, `routerHandoff`, and `continueRouterHandoff` share the URL contract; Handoff accepts only HTTP(S).
 
-## Developer tooling
+## Testing, Inspector, and observability
 
-`RouterTestStore` executes the production reducer and policies and asserts the
-ordered, correlated lifecycle, accepts transition context and exact plans, and
-offers snapshot/restore assertions. `RouterInspectorRecorder` keeps a bounded,
-searchable, payload-redacted timeline and supports JSON import/export,
-step-through playback, session comparison, a native state tree, structural
-diffs, bookmarks, correlated timing, arbitrary A/B comparison, rejection
-breakpoints, and pure-reducer replay preview. The native view can import a JSON
-snapshot or versioned diagnostic bundle with the platform file importer and
-exports bundles containing framework/platform identity. An optional
-`RouterInspectorScenarioController.routerScenario(store:)` adapter adds explicit
-start, progress, stop, completeness, raw import, and raw export controls when
-the app also imports `InnoRouterTesting`. Replay never mutates the live store;
-scenario failures use payload-free categories instead of decoder or app error
-descriptions, and a failed import cannot leave stale raw data exportable.
-App-specific payload formatting remains an explicit opt-in. Imports default to
-an 8 MiB encoded-data limit and 5,000 entries, checked before a full decode;
-`RouterInspectorImportLimits` makes both bounds explicit when constructing the
-recorder.
+`RouterTestStore` runs the production reducer and policies without a host. `RouterActionSequence` preserves transition context. `RouterInspectorRecorder` provides bounded, payload-redacted timelines, state diffs, import/export, and pure-reducer replay; replay does not mutate the live store. Import defaults are 8 MiB and 5,000 entries. `RouterObservability` adds payload-free logging/signposts without transmitting analytics.
 
-Inspector controls, accessibility labels, and generic status/failure messages
-include English plus 15 translations: Korean, Japanese, Simplified and
-Traditional Chinese, Spanish, French, German, Italian, Brazilian Portuguese,
-Russian, Arabic, Hindi, Indonesian, Vietnamese, and Thai. Views follow the
-SwiftUI locale, including changes while mounted; unsupported languages fall
-back to English. Diagnostic identifiers and app-provided content remain
-unchanged. See [Inspector localization](Docs/inspector-localization.md) for
-language overrides, semantic review, and validation boundaries.
+`RouterScenarioRecorder` records execution controls; `RouterScenarioRunner` replays them, including cancellation and deferral. Fixture format v9 supports navigation-only v8; older/unknown formats need recapture. Raw fixtures contain app payloads and require explicit export. `RouterScenarioSourceGenerator.generateFiles` requires developer-supplied expectations before generating tests. Inspector supports English plus 15 translations; that UI localization is separate from the seven README languages.
 
-`RouterActionSequence` stores each action with its transition context and
-replays through `RouterTestStore`, preserving policy-visible provenance and
-request metadata. Supply the original initial state and dependencies; replay
-is sequential. These fixtures contain application payloads, unlike the default
-redacted Inspector bundles. `RouterObservability.signposts` adds payload-free
-transition intervals for Instruments, including cleanup when the adapter ends.
+[Inspector localization](Docs/inspector-localization.md) · [AI skill: Codex / Claude Code](skills/README.md)
 
-`RouterScenarioRecorder` synchronously captures bounded request, start,
-cancellation, and terminal boundaries, including requests rejected before
-reduction, so stopping immediately after a completed request cannot lose it.
-Fixture format v9 stores the route schema, replay environment,
-dependency/effect capabilities, initial revision, each request's relative
-revision precondition and cancellation origin, logical
-submit/wait/cancel/terminal controls, virtual-time advances, explicit deferral
-decisions, and serializable execution semantics. History navigation therefore
-replays through the production navigation-only merge with its original stale
-state constraint even after queueing or repeated deferral rebases. Format v9
-also carries transient display descriptors through the bounded fixture codec;
-it never reconstructs live typed result authority. Navigation-only v8 fixtures
-remain supported. Versions before v8 and unknown future versions are rejected
-and must be recaptured because missing execution conditions cannot be inferred
-safely.
-Replay checks metadata and the complete initial
-state before submitting its first request, remaps recorded deferral IDs to fresh
-runtime IDs, and cancels and drains only its owned work before a failure or
-cancellation returns. Resolve deferrals through the
-recorder; missing controls, dropped data, and unfinished work make a fixture
-incomplete instead of being guessed during replay.
-Captured observations remain separate from
-`RouterScenarioExpectation`; source generation is blocked until a developer
-supplies every expected state, revision, and terminal result.
-`RouterScenarioSourceGenerator.generateFiles` emits a Swift Testing source and
-a separate reviewable JSON fixture using
-`RouterScenarioRunner`, the real `RouterTestStore`, relative revisions, and an
-app-provided policy factory. Overlapping busy/queue behavior, cancellation,
-timeouts, and approvals replay from explicit controls rather than being
-flattened into sequential sends. Default Inspector sharing contains only the
-decision and declared route patterns; raw URLs and raw scenario fixtures require
-separate explicit export actions.
+## Migration and historical documentation
 
-## OSS release and SemVer contract
+6.x → 7 is a breaking migration: read-only state drafts, throwing setup, frozen host declarations, finite resource budgets, authorization generations, and lifetime-bound results. 5.x consumers must also replace independent stores/intents and removed granular products. Do not copy archived APIs into a current app. All seven historical translations remain linked in the archive index.
 
-The published 5.x line is source-stable within its major. The 6.0.0 architecture introduced a
-deliberate breaking reset: old independent stores, intents, plans, coordinator
-handoffs, and granular runtime products are no longer externally importable.
-The current unreleased 7.0 development cycle retains that architecture.
-Pre-release tags such as `7.0.0-rc.1` use GitHub's `prerelease=true`; a bare
-semantic tag is published only after package, docs, platform, API, and consumer
-gates pass.
+- [Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)
+- [DocC 7.0.0](https://innosquadcorp.github.io/InnoRouter/7.0.0/)
+- [6.x → 7](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md)
+- [5.x → 6](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
+- [Historical translations / 과거 번역 / traducciones históricas / historische Übersetzungen / 历史译本 / 過去の翻訳 / исторические переводы](Docs/Archive/README-translations.md)
+- [CHANGELOG](CHANGELOG.md)
+- [Navigation reference (English)](Docs/Navigation-Guide.md) · [상세 가이드 (한국어)](Docs/Navigation-Guide.ko.md)
 
-## Documentation
+## Validation and contributing
 
-- [AI skill for Codex and Claude Code](skills/README.md): library-owned guidance for stable 7.0.x, with an exact 7.0.0 release consumer baseline.
-
-- [Functional strategy](Docs/v6-functional-strategy.md)
-- [API convergence](Docs/v6-api-convergence-spike.md)
-- [Functional specification](Docs/functional-expansion-spec.md)
-- [Delivery plan](Docs/functional-expansion-technical-plan.md)
-- [7.0.0 release checklist](Docs/7.0.0-release-checklist.md)
-- [6.1.0 release checklist](Docs/6.1.0-release-checklist.md)
-- [6.0.0 release checklist](Docs/6.0.0-release-checklist.md)
-- [Migrating from 5.x](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
-- [Changelog](CHANGELOG.md)
-
-## Quality gates
+The seven quick starts share API snippets and contract coverage. Static checks do not establish Swift compilation, DocC rendering, native scene behavior, or human translation review. Run Apple-toolchain gates before merging. `--no-parallel` avoids cooperative-pool starvation from synchronous restoration test doubles. Never run simultaneous SwiftPM builds in one scratch directory.
 
 ```bash
+python3 scripts/check-readme-translations.py
 swift test --jobs 2 --no-parallel
 ./scripts/check-public-api.sh
 ./scripts/check-docs-consistency.sh
@@ -601,27 +192,10 @@ swift test --jobs 2 --no-parallel
 ./scripts/principle-gates.sh
 ```
 
-`--no-parallel` is required, not optional. `RouterSnapshotStorage` is a
-synchronous protocol by design, so the restoration suites' storage doubles
-hold a real thread inside `load()`/`save()` to keep an operation open. Swift
-Testing runs suites concurrently in-process by default, and enough
-simultaneously blocked doubles starve the cooperative pool: the restoration
-tests then fail with 60s time-limit and `loadTimedOut` errors. The gates in
-`scripts/principle-gates.sh` and `.github/workflows/coverage.yml` already pass
-this flag.
+[CONTRIBUTING](CONTRIBUTING.md) · [RELEASING](RELEASING.md) · [Automation policy](Docs/automation-policy.md)
 
-Release validation additionally builds every supported Apple platform and Mac
-Catalyst, verifies library-evolution interfaces for all three public products,
-and builds a downstream consumer pinned to the candidate revision.
+## License and support
 
-## Sponsorship
+MIT. Contributions, issue reports, and documentation corrections are welcome.
 
-Support InnoRouter development through
-[GitHub Sponsors](https://github.com/sponsors/InnoSquadCorp) ·
-[Patreon](https://www.patreon.com/15188938/join)
-
-## License
-
-MIT. See [LICENSE](LICENSE).
-
-CI selection, dependency updates, release candidates and maintainer activation are documented in [automation policy](Docs/automation-policy.md).
+[LICENSE](LICENSE) · [GitHub Sponsors](https://github.com/sponsors/InnoSquadCorp) · [Patreon](https://www.patreon.com/15188938/join)

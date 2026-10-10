@@ -2,6 +2,15 @@
 
 Macro-first typed navigation for SwiftUI.
 
+## Release and requirements
+
+This catalog describes stable InnoRouter **7.0.0**. Use Swift 6.3+ with
+iOS/iPadOS/Mac Catalyst 18+, macOS 15+, tvOS 18+, watchOS 11+, or visionOS 2+.
+Apps import the `InnoRouter` product; `InnoRouterTesting` and
+`InnoRouterInspector` are optional. Platform-specific scenes and presentations
+retain their availability constraints. Read <doc:Migrating-To-InnoRouter-7>
+when moving from 6.x; older release notes remain historical evidence.
+
 ## Overview
 
 Declare one route enum with `@Router`. The generated conformance unlocks one

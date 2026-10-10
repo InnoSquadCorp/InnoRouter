@@ -6,10 +6,12 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
-## 7.0.0 - 2026-10-07
+## 7.0.0 - 2026-10-08
 
-Prepared GA notes; 7.0.0 has not been published. PR54 work is carried forward
-without a separate 6.1.1 release. See the [7.0 migration guide](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md)
+Published as [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)
+at `33b0da7639105cfa8e6f5acffa3badb91b5e0254`. Notes were prepared on October 7;
+publication occurred on October 8. PR54 work was carried forward without a
+separate 6.1.1 release. See the [7.0 migration guide](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md)
 and [release checklist](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Docs/7.0.0-release-checklist.md).
 Current native scene probes passed at the SHA recorded in the
 [Xcode 27 report](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Docs/7.0.0-xcode27-validation.ko.md); this does not establish
@@ -17,9 +19,9 @@ every historical environment cause of the vision-cancel K1 failure.
 
 ### Added
 
-- Library-owned Codex and Claude Code skill for planned stable 7.0.x, with
-  navigation guidance and an independently validated consumer pinned to an
-  unreleased main commit. This does not qualify a published 7.0.0 tag.
+- Library-owned Codex and Claude Code skill for stable 7.0.x. Initial consumer
+  validation used the release candidate; later exact-release validation is
+  recorded separately in [skills/validation.md](skills/validation.md).
 
 ### Breaking
 
