@@ -177,6 +177,8 @@ final class VisionProbeModel: RouterImmersiveAppearanceObserver {
                 nativeCloseInFlight = false
                 trace("native.close.return")
                 try await until("native closure enters policy") { self.policyEntries > previousEntries }
+                var recovery: Task<Bool, Never>?
+                var repairRevision: UInt64?
                 if injectRestoration {
                     try await until("injected error repair commits after real native appearance") {
                         self.injectedRepairObserved && self.injectedActivation != nil && self.isPresented
@@ -184,14 +186,15 @@ final class VisionProbeModel: RouterImmersiveAppearanceObserver {
                     guard store.state.immersiveSpace == nil, let activation = injectedActivation else {
                         throw VisionProbeFailure(message: "Injection did not commit native failure repair")
                     }
-                    let repairRevision = store.revision
-                    log("NATIVE_FAULT_REPAIR revision=\(repairRevision) nativePresented=true canonical=false")
-                    guard await store.admitAttributedImmersiveAppearance(activation),
-                          store.revision == repairRevision + 1,
-                          oldScopePrecondition?(store.state) != nil else {
-                        throw VisionProbeFailure(message: "Attributed recovery did not commit with fresh scope")
+                    repairRevision = store.revision
+                    log("NATIVE_FAULT_REPAIR revision=\(store.revision) nativePresented=true canonical=false")
+                    // Model a late onAppear: admission is enqueued on the main
+                    // actor, just as the production lifecycle modifier does.
+                    // The waiter below must suspend until its commit, rather
+                    // than exit merely because native appearance was observed.
+                    recovery = Task { @MainActor in
+                        await self.store.admitAttributedImmersiveAppearance(activation)
                     }
-                    log("NATIVE_FAULT_RECOVERED revision=\(store.revision) request=\(activation.requestID)")
                 }
                 // Physical appearance can precede the attributed recovery
                 // commit. Await both observations without extending the bound.
@@ -201,6 +204,13 @@ final class VisionProbeModel: RouterImmersiveAppearanceObserver {
                 }
                 guard store.state.immersiveSpace?.id == "theater" else {
                     throw VisionProbeFailure(message: "Deferred closure removed canonical space")
+                }
+                if let recovery, let repairRevision {
+                    guard await recovery.value, store.revision == repairRevision + 1,
+                          oldScopePrecondition?(store.state) != nil else {
+                        throw VisionProbeFailure(message: "Attributed recovery did not commit with fresh scope")
+                    }
+                    log("NATIVE_FAULT_RECOVERED revision=\(store.revision)")
                 }
                 log("NATIVE_REOPEN " + resolution)
                 requestedDeferral = nil

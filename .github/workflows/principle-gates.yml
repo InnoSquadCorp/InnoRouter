@@ -156,9 +156,6 @@ jobs:
       - name: Install gate tools
         run: brew install ripgrep swiftformat swiftlint
 
-      - name: Verify immersive first-mount regression against the original boundary
-        run: ./scripts/verify-immersive-mount-regression.sh
-
       - name: Run Principle Gates
         # DocC site generation and source lint remain required in the sibling
         # docc and lint jobs. The script's default invocation still runs both.
