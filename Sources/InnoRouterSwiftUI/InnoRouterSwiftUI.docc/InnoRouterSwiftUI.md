@@ -88,18 +88,22 @@ stack requires an app-provided, revalidated fallback.
 
 The explicit tab topology APIs are available in 6.1.0 and later.
 
-Restoration is exact. A snapshot written before a tab existed carries no branch
-for it, so that tab stays unreachable. `RouterTabRestorationTopology` states
+Restoration is exact unless a topology is supplied. In 7.0, a host-configured
+Store rejects a snapshot missing a required current tab instead of committing
+an unreachable renderer. `RouterTabRestorationTopology` states
 the scopes the application renders now, as an explicit argument to
 `RouterStore.restore`, `RouterStore.restorePartially`, and
 `RouterRestorationDriver.init`. It carries ordered scope identity only, so
 reconciliation adds empty scopes and never moves routes, presentations, or
-badges into a restored state. Branches the topology does not name are kept as
-orphans for a later catalog, and a selection it no longer names falls back to
-its first scope. A state returned by `RouterSnapshotRecoveryPolicy.use` is the
+badges into a restored state. Reconciliation retains branches the topology does
+not name as orphans for a later catalog. Committing and rendering those branches
+requires both the Store descriptor and renderer to opt into `.preserveDormant`;
+such branches cannot become selected renderers. A selection the current topology
+no longer names falls back to its first scope. A state returned by
+`RouterSnapshotRecoveryPolicy.use` is the
 application's final answer and is applied without reconciliation. Tab-aware
 requests capture their starting revision before decoding. Public reconciliation
-validates mutable state and current stack shapes before preparing a candidate.
+validates input state and current stack shapes before preparing a candidate.
 Partial reports include payload-free `topologyChanges`; their transition outcome
 determines whether the candidate was applied. Older reports decode with an empty
 change list.

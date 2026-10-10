@@ -1,6 +1,6 @@
 # Maintainer guide
 
-InnoRouter 7 is an unreleased macro-first typed navigation framework for SwiftUI.
+InnoRouter 7.0.0 is the current stable macro-first typed navigation framework for SwiftUI.
 
 ## Public contract
 
@@ -100,7 +100,10 @@ user intent, or can leave the source with another diagnostic.
 
 ## Documentation and examples
 
-- `README.md` and `README.ko.md` are the canonical quick starts.
+- The seven root READMEs (English, Korean, Spanish, German, Simplified Chinese,
+  Japanese, Russian) are maintained quick starts with shared API snippets.
+- `Docs/Navigation-Guide.md` and its Korean counterpart retain the detailed contracts.
+- `Docs/Archive/README-translations.md` links immutable historical translations.
 - `Sources/InnoRouterUmbrella/InnoRouter.docc/` is the public runtime catalog.
 - `Docs/v6-functional-strategy.md` states product decisions.
 - `Docs/functional-expansion-spec.md` states requirements and acceptance.
@@ -112,9 +115,9 @@ user intent, or can leave the source with another diagnostic.
 
 ## Release rules
 
-- Tags are bare SemVer, such as `6.0.0`; never prefix them with `v`.
+- Tags are bare SemVer, such as `7.0.0`; never prefix them with `v`.
 - Update only the three public API baselines intentionally.
-- Breaking changes after 6.0 target the next major release.
+- Breaking changes after 7.0 target the next major release.
 - A release requires package, macro, DocC, public API, lint, platform, and exact
   downstream revision gates.
 
