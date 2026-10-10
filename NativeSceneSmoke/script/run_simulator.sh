@@ -4,6 +4,12 @@ set -euo pipefail
 PROBE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 platform="${1:?Usage: run_simulator.sh ipad|vision <booted-simulator-uuid>}"
 device="${2:?Pass an explicitly selected booted simulator UUID}"
+mode="${3:-normal}"
+case "$mode" in
+  normal) ;;
+  injected) [[ "$platform" == vision ]] || { echo "Fault injection requires visionOS" >&2; exit 2; } ;;
+  *) echo "Expected normal or injected probe mode" >&2; exit 2 ;;
+esac
 case "$platform" in
   ipad) scheme=RouterNativeIPadProbe; bundle=com.innosquad.router.native-ipad-probe; sdk=iphonesimulator; runtime=iOS; marker=iPadOS ;;
   vision) scheme=RouterNativeVisionProbe; bundle=com.innosquad.router.native-vision-probe; sdk=xrsimulator; runtime=xrOS; marker=visionOS ;;
@@ -35,7 +41,7 @@ xcodebuild -project "$PROBE_ROOT/NativeSceneSmoke.xcodeproj" -scheme "$scheme" \
   -configuration Debug -destination "id=$device" -derivedDataPath "$PROBE_DERIVED" \
   CODE_SIGNING_ALLOWED=NO build > "$PROBE_LOG_DIR/build.log" 2>&1
 xcrun simctl install "$device" "$PROBE_DERIVED/Build/Products/Debug-$sdk/$scheme.app"
-python3 - "$device" "$bundle" "$PROBE_LOG_DIR/runtime.log" "$platform" "$PROBE_DERIVED/Build/Products/Debug-$sdk/$scheme.app" "$scheme" "$DEVICE_DATA_PATH" <<'PY'
+python3 - "$device" "$bundle" "$PROBE_LOG_DIR/runtime.log" "$platform" "$PROBE_DERIVED/Build/Products/Debug-$sdk/$scheme.app" "$scheme" "$DEVICE_DATA_PATH" "$mode" <<'PY'
 from pathlib import Path
 import os
 import re
@@ -127,8 +133,11 @@ if sys.argv[4] == "vision":
         for resolution in ("allow", "reject", "cancel"):
             subprocess.run(["xcrun", "simctl", "uninstall", sys.argv[1], sys.argv[2]], check=True)
             subprocess.run(["xcrun", "simctl", "install", sys.argv[1], sys.argv[5]], check=True)
-            case_log = runtime_log.with_name(f"runtime-{resolution}.log")
-            launch(case_log, ["--resolution", resolution])
+            case_log = runtime_log.with_name(f"runtime-{sys.argv[8]}-{resolution}.log")
+            arguments = ["--resolution", resolution]
+            if sys.argv[8] == "injected":
+                arguments.append("--injected-restoration")
+            launch(case_log, arguments)
             expected = f"PASS native visionOS {resolution}"
             combined.write(verify(case_log, expected, f"vision-{resolution}"))
         combined.write("PASS native visionOS allow/reject/cancel\n")
