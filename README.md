@@ -59,7 +59,7 @@ struct AppRoot: View {
 }
 ```
 
-## State, authority, and throwing setup
+## One runtime model
 
 `RouterState` is externally read-only; edit a `RouterStateDraft` and call `try build(resourceBudget:)` before forming a `RouterPlan(state:)`. A plan describes an exact target. `RouterAction` describes incremental changes. Only `RouterStore` commits navigation. `RouterScope` is a read-only subtree projection and action forwarder, not another store.
 

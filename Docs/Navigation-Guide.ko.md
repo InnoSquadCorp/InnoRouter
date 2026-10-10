@@ -277,7 +277,9 @@ try await router.finishPresentation(request, returning: true)
 
 생성된 request가 표시와 완료 양쪽의 결과 타입을 컴파일 시점에 검사합니다.
 presentation UUID와 하나의 완료 요청이 예약 값을 소유하므로 오래된 완료가 교체된
-presentation을 닫지 못합니다. 사용자 dismiss, 호출자 취소,
+presentation을 닫지 못합니다. deferred presentation을 재개하는 동안에도 취소가
+계속 적용되므로 취소에 협조하지 않는 policy가 늦게 반환해도 commit되지 않습니다.
+사용자 dismiss, 호출자 취소,
 route/result mismatch, 정책 거절을 구분합니다. sheet, cover, popover는 snapshot에
 보존되는 detent, drag indicator, compact adaptation, dismiss 옵션을 공유합니다.
 
@@ -363,8 +365,10 @@ SwiftUI locale 변경을 반영하며, 미지원 언어는 영어로 표시합�
 `RouterScenarioRecorder`는 reduction 전 거절과 unchanged를 포함해 요청·시작·terminal
 경계를 같은 actor에서 동기적으로 기록하므로 완료 직후 stop해도 기록을 놓치지
 않습니다. fixture v9은 route schema, 실행 환경, 의존성/효과 capability, 시작 revision,
-논리 요청별 submit/wait/cancel/terminal, 가상 시간 이동, 명시적 deferral 결정을
-저장합니다. v9의 bounded fixture codec은 alert/dialog 표시 descriptor도 전송하지만
+요청별 상대 revision precondition과 cancellation origin, 논리 요청별
+submit/wait/cancel/terminal, 가상 시간 이동, 명시적 deferral 결정을 저장합니다.
+history 탐색은 queue 대기나 반복된 deferral rebase 뒤에도 원래 stale-state 조건을
+유지하며 production의 탐색 전용 merge를 통해 replay됩니다. v9의 bounded fixture codec은 alert/dialog 표시 descriptor도 전송하지만
 실행 중인 typed result 권한은 복원하지 않습니다. 탐색 전용 v8 fixture는 계속 읽을 수 있고,
 v8 이전 및 알 수 없는 미래 버전은 거절합니다.
 첫 요청 전에 metadata와 전체 initial state 호환성을 검사하고 캡처 deferral

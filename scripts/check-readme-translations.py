@@ -26,18 +26,24 @@ LINKS = re.compile(r'\]\(([^\s)]+)\)')
 
 def check(root: Path) -> list[str]:
     errors: list[str] = []
-    source = '\n'.join(path.read_text() for path in (root / 'Sources').rglob('*.swift'))
-    version_source = (root / 'Sources/InnoRouterCore/InnoRouterVersion.swift').read_text()
-    version = re.search(r'public static let current = "([^"]+)"', version_source).group(1)
-    fixture_source = (root / 'Sources/InnoRouterTesting/RouterScenarioFixture.swift').read_text()
-    fixture = re.search(r'currentFormatVersion: Int \{ (\d+) \}', fixture_source).group(1)
+    source = '\n'.join(path.read_text(encoding='utf-8') for path in (root / 'Sources').rglob('*.swift'))
+    version_source = (root / 'Sources/InnoRouterCore/InnoRouterVersion.swift').read_text(encoding='utf-8')
+    version_match = re.search(r'public static let current = "([^"]+)"', version_source)
+    if version_match is None:
+        return ['InnoRouterVersion.swift: cannot read the current runtime version']
+    version = version_match.group(1)
+    fixture_source = (root / 'Sources/InnoRouterTesting/RouterScenarioFixture.swift').read_text(encoding='utf-8')
+    fixture_match = re.search(r'currentFormatVersion: Int \{ (\d+) \}', fixture_source)
+    if fixture_match is None:
+        return ['RouterScenarioFixture.swift: cannot read the current fixture format version']
+    fixture = fixture_match.group(1)
     expected_blocks = None
     for filename in FILES:
         path = root / filename
         if not path.is_file():
             errors.append(f'{filename}: missing current translation')
             continue
-        text = path.read_text()
+        text = path.read_text(encoding='utf-8')
         if len(re.findall(r'^## ', text, re.M)) != 13:
             errors.append(f'{filename}: expected 13 aligned sections')
         blocks = FENCES.findall(text)
@@ -59,6 +65,8 @@ def check(root: Path) -> list[str]:
             'keepFirst', 'replacePending', 'deferRequest', 'reset(sessionKey:)',
             '8 MiB', '.preserveDormant', 'routerStateRestoration(_:)',
         ) + FILES + SYMBOLS
+        if filename == 'README.md' and text.splitlines().count('## One runtime model') != 1:
+            errors.append('README.md: expected exactly one One runtime model section')
         for literal in required:
             if literal not in text:
                 errors.append(f'{filename}: missing contract {literal}')
@@ -72,7 +80,7 @@ def check(root: Path) -> list[str]:
     if not archive.is_file():
         errors.append('Missing historical translation index')
     else:
-        archive_text = archive.read_text()
+        archive_text = archive.read_text(encoding='utf-8')
         for filename in FILES:
             if f'/blob/5.2.1/{filename}' not in archive_text:
                 errors.append(f'Historical translation link missing: {filename}')
@@ -80,7 +88,7 @@ def check(root: Path) -> list[str]:
     for path in paths:
         if not path.is_file():
             continue
-        for target in LINKS.findall(path.read_text()):
+        for target in LINKS.findall(path.read_text(encoding='utf-8')):
             if re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]*:', target) or target.startswith('#'):
                 continue
             target = target.split('#', 1)[0]
