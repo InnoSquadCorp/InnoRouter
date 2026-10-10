@@ -521,7 +521,10 @@ jobs:
           SIMCTL_CHILD_INNOROUTER_SCENE_TRACE: ${{ matrix.platform.name == 'visionOS' && '1' || '0' }}
         run: |
           platform=ipad
-          if [[ "$PLATFORM_NAME" == "visionOS" ]]; then platform=vision; fi
+          if [[ "$PLATFORM_NAME" == "visionOS" ]]; then
+            platform=vision
+            ./scripts/verify-vision-reopen-regression.sh "$SIMULATOR_UDID"
+          fi
           ./NativeSceneSmoke/script/run_simulator.sh "$platform" "$SIMULATOR_UDID"
 
       # Only a probe that ran can leave logs. When an earlier step fails, the
