@@ -77,3 +77,5 @@ expect_failure missing "exactly the seven canonical scenarios"
 expect_failure inconsistent "passed is inconsistent"
 expect_failure regressed "Failed thresholds"
 echo "[test-performance-report] Validator scenarios passed"
+
+python3 "$ROOT_DIR/scripts/tests/test_performance_diagnostics.py"

@@ -58,6 +58,11 @@ private enum InnoRouterPerformanceSmoke {
             return
         }
 
+        if arguments == ["--profile-json-keys"] {
+            try profileJSONKeyDecoding()
+            return
+        }
+
         guard arguments.count == 2,
               arguments.first == "--output",
               let output = arguments.last else {
@@ -85,7 +90,6 @@ private enum InnoRouterPerformanceSmoke {
         // Re-derive these from a CI artifact after any change that moves the
         // numbers, and raise rather than lower them when a runner image slows
         // down.
-        try profileJSONKeyDecoding()
         let samples = try await [
             measure(
                 name: expectedSampleNames[0],
@@ -403,7 +407,7 @@ private enum PerformanceFailure: Error, CustomStringConvertible {
         case .invalidMeasurement(let name): "invalid measurement for \(name)"
         case .selfTest: "aggregation self-test failed"
         case .thresholdExceeded: "one or more performance thresholds were exceeded"
-        case .usage: "usage: InnoRouterPerformanceSmoke --output <report.json>"
+        case .usage: "usage: InnoRouterPerformanceSmoke --output <report.json> | --profile-json-keys"
         }
     }
 }

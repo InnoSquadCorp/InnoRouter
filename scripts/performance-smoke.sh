@@ -46,3 +46,10 @@ if [[ "$SMOKE_EXIT_CODE" -ne 0 ]]; then
 fi
 
 echo "[performance-smoke] Canonical runtime baselines passed"
+
+# Attribution is a separate process after the canonical report is validated.
+# A diagnostic crash/failure must neither suppress that report nor change its gate.
+if ! DYLD_FRAMEWORK_PATH="$TESTING_FRAMEWORKS${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}" \
+  "$PERFORMANCE_EXECUTABLE" --profile-json-keys; then
+  echo "[performance-smoke] Warning: optional JSON-key attribution failed" >&2
+fi

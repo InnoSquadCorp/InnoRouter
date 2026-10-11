@@ -43,3 +43,23 @@ validator scenarios, four skill-consumer-output regressions, shell syntax and
 `git diff --check`. Swift/Xcode and native execution are unavailable in this Linux
 workspace. Compiler, reference-failure proof, optimized contracts, A/B timings and
 complete platform results must be obtained from CI for the published candidate.
+
+## CI evidence and diagnostic isolation
+
+At candidate `3fdbc5cf44fe3a5f23442f408960bc19c017fd32`, Apple CI established:
+
+- Intended Foundation-only regression failure, followed by passing optimized contracts
+- All seven canonical benchmarks passed; snapshot median **673.122458 ms**, unchanged 1300 ms limit
+- Scalar 100,000-key A/B medians: Foundation **58.722375 ms**, optimized **3.813125 ms**
+- https://github.com/InnoSquadCorp/InnoRouter/actions/runs/38080931254/job/114297505967
+
+These timings belong to that exact candidate and are not a promise for later heads.
+The A/B ratio describes scalar-key cost, not a predicted whole-snapshot speedup.
+
+Review comment 4238983177 identified that attribution diagnostics preceded report
+creation. They now run through separate `--profile-json-keys` process execution,
+after the canonical report is saved and validated. Diagnostic failure produces a
+warning without changing canonical success; a canonical failure still fails and
+is never bypassed. Four synthetic orchestration regressions pass locally, including
+a failed diagnostic, successful diagnostic, failed canonical workload, and separate
+command dispatch. The unchanged key-regression harness remains mandatory.
