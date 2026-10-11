@@ -16,10 +16,14 @@ maintainers to apply to your contribution.
   alternatives you considered. Behaviour changes that touch the
   public surface (`@Router`, `RouterState`, `RouterAction`, `RouterPlan`,
   `RouterStore`, native hosts, or the link pipeline) need a short rationale
-  tied to the 6.0 product contract in
+  tied to the current 7.0 contract and the architectural decisions recorded in
   [`Docs/v6-functional-strategy.md`](Docs/v6-functional-strategy.md).
 - **Fix documentation.** README, DocC catalogs (`Sources/*/*.docc`),
-  and the in-repo guides under `Docs/` are all open to PRs. Doc-only
+  and the in-repo guides under `Docs/` are all open to PRs. Keep all seven
+  current READMEs aligned; run `python3 scripts/check-readme-translations.py`
+  and `python3 scripts/test-check-readme-translations.py`. Keep detailed
+  English/Korean references under `Docs/Navigation-Guide*.md` and leave
+  immutable historical translations linked from the archive index. Doc-only
   PRs do not require a CHANGELOG entry.
 - **Improve a smoke fixture.** `ExamplesSmoke/*.swift` is the
   compiler-stable surface that CI guards. Adding coverage there is
@@ -51,9 +55,9 @@ for ordinary patches — the GitHub `platforms` workflow compiles every
 Apple target and runs tvOS, watchOS, and visionOS Simulator tests on
 every PR.
 
-## 6.0 stabilization workflow
+## Contract-first workflow
 
-For the 6.0.0 stabilization cycle, follow the
+The historical 6.0.0 cycle established the
 [contract-first implementation and verification workflow (Korean)](Docs/6.0.0-stabilization-workflow.ko.md).
 Define ownership and lifecycle invariants before changing code, reproduce
 defects with failing tests and passing controls, and connect each acceptance
@@ -79,7 +83,7 @@ validation, release readiness, and publication status separate.
 
 A change is **breaking** if it would fail to compile for an existing
 caller, narrow a generic constraint, or change documented runtime
-behaviour. Breaking changes after 6.0 target the next major release, not a
+behaviour. Breaking changes after 7.0 target the next major release, not a
 6.x minor.
 
 If your PR touches the public surface:

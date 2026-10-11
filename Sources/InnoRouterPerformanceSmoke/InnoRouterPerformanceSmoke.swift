@@ -58,6 +58,11 @@ private enum InnoRouterPerformanceSmoke {
             return
         }
 
+        if arguments == ["--profile-json-keys"] {
+            try profileJSONKeyDecoding()
+            return
+        }
+
         guard arguments.count == 2,
               arguments.first == "--output",
               let output = arguments.last else {
@@ -171,6 +176,47 @@ private enum InnoRouterPerformanceSmoke {
             operationsPerSecond: Double(iterations) / (medianMilliseconds / 1_000),
             passed: medianMilliseconds <= maximumMilliseconds
         )
+    }
+
+    /// Same-process A/B attribution only. The seven canonical workloads and
+    /// their thresholds below remain the merge gate; this reports scalar cost.
+    private static func profileJSONKeyDecoding() throws {
+        let bytes = Array(#""value""#.utf8)
+        let decoder = JSONDecoder()
+        let iterations = 100_000
+        func sample(reference: Bool) throws -> Double {
+            var checksum = 0
+            var work = RouterJSONWorkBudget(limits: .init(maximumWorkUnits: .max, maximumKeyDecodes: .max))
+            let elapsed = try clock.measure {
+                for _ in 0..<iterations {
+                    let key = try work.withKeyDecode(byteCount: bytes.count) {
+                        if reference { return try decoder.decode(String.self, from: Data(bytes)) }
+                        return try RouterJSONKeyDecoder.decode(bytes[...]) { try decoder.decode(String.self, from: $0) }
+                    }
+                    checksum += key.utf8.count
+                }
+            }
+            precondition(checksum == iterations * 5)
+            precondition(work.result.keyDecodes == iterations)
+            precondition(work.result.workUnits == iterations * (bytes.count * 3 + 1))
+            return milliseconds(elapsed)
+        }
+        _ = try sample(reference: true)
+        _ = try sample(reference: false)
+        var reference: [Double] = []
+        var optimized: [Double] = []
+        for index in 0..<measurementCount {
+            // Alternate order to avoid assigning all warm-cache runs to one path.
+            if index.isMultiple(of: 2) {
+                reference.append(try sample(reference: true))
+                optimized.append(try sample(reference: false))
+            } else {
+                optimized.append(try sample(reference: false))
+                reference.append(try sample(reference: true))
+            }
+        }
+        print("[json-key-profile] iterations=\(iterations) reference_ms=\(reference) optimized_ms=\(optimized)")
+        print("[json-key-profile] reference_median_ms=\(median(reference)!) optimized_median_ms=\(median(optimized)!)")
     }
 
     private static func reducerWorkload() throws {
@@ -361,7 +407,7 @@ private enum PerformanceFailure: Error, CustomStringConvertible {
         case .invalidMeasurement(let name): "invalid measurement for \(name)"
         case .selfTest: "aggregation self-test failed"
         case .thresholdExceeded: "one or more performance thresholds were exceeded"
-        case .usage: "usage: InnoRouterPerformanceSmoke --output <report.json>"
+        case .usage: "usage: InnoRouterPerformanceSmoke --output <report.json> | --profile-json-keys"
         }
     }
 }

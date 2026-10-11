@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OUTPUT_PATH="${1:-$ROOT_DIR/.build/performance-smoke.json}"
 SWIFTPM_JOBS="${SWIFTPM_JOBS:-2}"
+
+bash "$ROOT_DIR/scripts/verify-json-key-fast-path.sh"
 TESTING_FRAMEWORKS="$(xcrun --sdk macosx --show-sdk-platform-path)/Developer/Library/Frameworks"
 RELEASE_BIN_DIR="$(swift build -c release --jobs "$SWIFTPM_JOBS" --package-path "$ROOT_DIR" --show-bin-path)"
 PERFORMANCE_EXECUTABLE="$RELEASE_BIN_DIR/InnoRouterPerformanceSmoke"
@@ -44,3 +46,10 @@ if [[ "$SMOKE_EXIT_CODE" -ne 0 ]]; then
 fi
 
 echo "[performance-smoke] Canonical runtime baselines passed"
+
+# Attribution is a separate process after the canonical report is validated.
+# A diagnostic crash/failure must neither suppress that report nor change its gate.
+if ! DYLD_FRAMEWORK_PATH="$TESTING_FRAMEWORKS${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}" \
+  "$PERFORMANCE_EXECUTABLE" --profile-json-keys; then
+  echo "[performance-smoke] Warning: optional JSON-key attribution failed" >&2
+fi

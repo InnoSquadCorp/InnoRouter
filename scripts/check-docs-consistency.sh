@@ -39,6 +39,13 @@ reject_pattern() {
 PUBLIC_DOCS=(
   README.md
   README.ko.md
+  README.es.md
+  README.de.md
+  README.zh-Hans.md
+  README.ja.md
+  README.ru.md
+  Docs/Navigation-Guide.md
+  Docs/Navigation-Guide.ko.md
   AGENTS.md
   CLAUDE.md
   CONTRIBUTING.md
@@ -84,7 +91,10 @@ if [[ -n "${RELEASE_VERSION:-}" ]]; then
   bash scripts/check-release-identity.sh "$RELEASE_VERSION" "${RELEASE_CHANNEL:-ga}" || failures=1
 fi
 
-for readme in README.md README.ko.md; do
+python3 scripts/test-check-readme-translations.py || failures=1
+python3 scripts/check-readme-translations.py || failures=1
+
+for readme in README.md README.ko.md README.es.md README.de.md README.zh-Hans.md README.ja.md README.ru.md; do
   require_literal "$readme" "Swift 6.3+" "$readme must document Swift 6.3+"
   require_literal "$readme" "from: \"$RUNTIME_VERSION\"" "$readme must install the $RUNTIME_VERSION line"
   require_literal "$readme" '.product(name: "InnoRouter", package: "InnoRouter")' "$readme must use the umbrella product"

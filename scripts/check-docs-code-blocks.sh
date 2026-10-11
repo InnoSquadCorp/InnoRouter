@@ -15,6 +15,13 @@ fi
 DOC_FILES=(
   "README.md"
   "README.ko.md"
+  "README.es.md"
+  "README.de.md"
+  "README.zh-Hans.md"
+  "README.ja.md"
+  "README.ru.md"
+  "Docs/Navigation-Guide.md"
+  "Docs/Navigation-Guide.ko.md"
   "Examples/README.md"
   "Docs/v6-functional-strategy.md"
   "Docs/v6-api-convergence-spike.md"

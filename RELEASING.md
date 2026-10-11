@@ -7,13 +7,15 @@ Validate the version and exact SHA before approving a public SwiftPM tag.
 Dispatch from main with `version`, full lowercase `commit_sha`, no `tag`, and
 `publish=false`. Candidate Required validates all existing gates and exact-SHA
 consumers, packaging versioned DocC/notes/checksums without creating a tag or
-Release or publishing Pages. A local identity check is:
+Release or publishing Pages. The commands below retain 7.0.0 as the historical example; use the intended new
+version and candidate SHA for a future release. Do not recreate or move the
+published 7.0.0 tag. A local identity check is:
 
 ```bash
 python3 scripts/validate-release-candidate.py --version 7.0.0 --commit-sha <full-sha>
 ```
 
-For the current 7.0 preparation, first merge the release-preparation PR through
+For a future release, first merge the release-preparation PR through
 the normal protected PR flow. A successful check of a topic-branch commit does
 not make that commit an exact-main candidate. Fetch main and pin its full SHA:
 
@@ -41,12 +43,12 @@ before approval.
 
 Allowed tag format:
 
-- `6.0.0`
+- `7.0.0`
 
 Disallowed tag format:
 
 - any tag with a leading `v`
-- `release-6.0.0`
+- `release-7.0.0`
 
 The release preflight accepts only numeric identifiers without leading zeroes,
 resolves `refs/tags/<version>` exactly, and requires the tagged commit to be

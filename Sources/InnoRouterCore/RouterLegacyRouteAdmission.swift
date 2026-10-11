@@ -115,7 +115,7 @@ private struct RouterJSONValueSpans: Sendable {
             if let last = frames.indices.last, frames[last].object, frames[last].expectsKey {
                 guard byte == 34, !compound else { throw RouterJSONPreflightError.malformedJSON }
                 frames[last].key = try work.withKeyDecode(byteCount: range.count) {
-                    try decoder.decode(String.self, from: Data(bytes[range]))
+                    try RouterJSONKeyDecoder.decode(bytes[range], fallback: { try decoder.decode(String.self, from: $0) })
                 }
                 frames[last].expectsKey = false
                 continue

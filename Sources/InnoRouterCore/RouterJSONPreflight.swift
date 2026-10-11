@@ -40,7 +40,7 @@ package enum RouterJSONPreflight {
             var keys: Set<String> = []
             for range in group {
                 let key = try parser.work.withKeyDecode(byteCount: range.count) {
-                    guard let key = try? decoder.decode(String.self, from: Data(bytes[range])) else {
+                    guard let key = try? RouterJSONKeyDecoder.decode(bytes[range], fallback: { try decoder.decode(String.self, from: $0) }) else {
                         throw RouterJSONPreflightError.malformedJSON
                     }
                     return key
@@ -57,7 +57,7 @@ package enum RouterJSONPreflight {
         var remaining = Set(requiredRootArrayLimits.keys)
         for (range, count) in parser.rootArrayCounts {
             let key = try parser.work.withKeyDecode(byteCount: range.count) {
-                try decoder.decode(String.self, from: Data(bytes[range]))
+                try RouterJSONKeyDecoder.decode(bytes[range], fallback: { try decoder.decode(String.self, from: $0) })
             }
             if let maximum = requiredRootArrayLimits[key] {
                 try check(count, maximum: maximum, name: key)
