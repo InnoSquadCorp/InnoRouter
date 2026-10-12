@@ -228,7 +228,7 @@ def gate(api, number, head, status, check_id=None, reason="Metadata verification
                 observed.get("name") == READY and observed.get("app", {}).get("id") == APP and
                 observed.get("head_sha") == head and observed.get("external_id") == payload["external_id"])
 
-    def matches(observed, expected_id):
+    def matches_response(observed, expected_id):
         return (identity(observed, expected_id) and observed.get("status") == payload["status"] and
                 observed.get("conclusion") == payload.get("conclusion"))
 
@@ -246,7 +246,7 @@ def gate(api, number, head, status, check_id=None, reason="Metadata verification
                 require(len(matches) == 1, "ready creation outcome unconfirmed; no retry")
                 observed = matches[0]
             check_id = observed["id"]
-            require(matches(observed, check_id), "ready creation not confirmed")
+            require(matches_response(observed, check_id), "ready creation not confirmed")
             return check_id
         check_id = existing[0]["id"]
     # Do not retag a different check through the mutable name/external_id fields.
@@ -261,7 +261,7 @@ def gate(api, number, head, status, check_id=None, reason="Metadata verification
         mutation_error = (f" (HTTP {error.code})" if isinstance(error, urllib.error.HTTPError)
                           else f" ({type(error).__name__})")
         observed = api.get(route(f"check-runs/{check_id}"))
-    require(matches(observed, check_id), "ready update not confirmed" + mutation_error)
+    require(matches_response(observed, check_id), "ready update not confirmed" + mutation_error)
     return check_id
 
 

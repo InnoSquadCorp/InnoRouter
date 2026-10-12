@@ -225,6 +225,15 @@ class DependabotTests(unittest.TestCase):
                         policy.gate(api,55,HEAD,'failure',check_id)
                 self.assertEqual(mutation.call_count,1)
 
+    def test_applied_ready_creation_timeout_is_confirmed_without_second_post(self):
+        api=API();original=api.mutate
+        def applied_then_timeout(method,path,payload):
+            original(method,path,payload);raise TimeoutError('reply lost')
+        with mock.patch.object(api,'mutate',side_effect=applied_then_timeout) as mutation:
+            self.assertEqual(policy.gate(api,55,HEAD,'failure'),999999)
+            self.assertEqual(mutation.call_count,1)
+        self.assertEqual(api.checks[-1]['conclusion'],'failure')
+
     def test_human_and_spoofed_bot_author_never_auto_merge(self):
         for user in ({'login':'human','id':1,'type':'User'}, {'login':'dependabot[bot]','id':1,'type':'Bot'},
                      {'login':'dependabot[bot]','id':49699333,'type':'User'}):
