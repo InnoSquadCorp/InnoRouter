@@ -101,6 +101,10 @@ class API:
         raise AssertionError('unhandled pages '+p)
 
     def graphql(self,query,variables):
+        if 'autoMergeAllowed' in query:
+            return {'repository':getattr(self, 'merge_settings', {
+                'databaseId':self.repo['id'], 'nameWithOwner':REPO,
+                'autoMergeAllowed':True, 'squashMergeAllowed':True})}
         if 'disablePullRequestAutoMerge' in query:
             self.writes.append(('disable',variables))
             if self.denied:raise PermissionError('permission denied')
@@ -122,7 +126,11 @@ class API:
         if p=='check-runs':
             result=copy.deepcopy(payload);result.update(id=999999,app={'id':15368});self.checks.append(result);return result
         if p.startswith('check-runs/'):
-            check=next(c for c in self.checks if c['id']==int(p.split('/')[-1]));check.update(payload);return check
+            check=next(c for c in self.checks if c['id']==int(p.split('/')[-1]));check.update(payload)
+            # Model a server retaining the old conclusion when PATCH omits it;
+            # a conclusion requires completed rather than a reopened check.
+            if check.get('conclusion') is not None:check['status']='completed'
+            return check
         if p=='actions/workflows/ci.yml/dispatches':
             if self.denied:raise PermissionError('permission denied')
             return None
@@ -156,6 +164,67 @@ class DependabotTests(unittest.TestCase):
             self.assertEqual(api.checks[-1]['conclusion'],'success')
             self.assertNotIn('mergePullRequest',(ROOT/'scripts/dependabot-merge-policy.py').read_text())
 
+    def test_completed_ready_is_explicitly_failed_before_proof_and_enable(self):
+        for prior in ('failure','completed'):
+            api=API();check_id=policy.gate(api,55,HEAD,prior)
+            original=api.graphql
+            def guarded_graphql(query,variables):
+                if 'enablePullRequestAutoMerge' in query:
+                    check=next(c for c in api.checks if c['id']==check_id)
+                    self.assertEqual((check['status'],check['conclusion']),('completed','failure'))
+                return original(query,variables)
+            with mock.patch.object(api,'graphql',side_effect=guarded_graphql):
+                self.assertIn('armed',policy.coordinate(api,55,True))
+            updates=[x[2] for x in api.writes if x[0]=='PATCH']
+            self.assertEqual(updates[0]['conclusion'],'failure')
+            self.assertEqual(updates[-1]['conclusion'],'success')
+            self.assertEqual(len([c for c in api.checks if c.get('name')==policy.READY]),1)
+
+    def test_unconfirmed_failure_barrier_never_enables_native_merge(self):
+        api=API();check_id=policy.gate(api,55,HEAD,'completed')
+        api.pr['auto_merge']={'enabled_at':'earlier'}
+        existing=next(c for c in api.checks if c['id']==check_id)
+        with mock.patch.object(api,'mutate',return_value=copy.deepcopy(existing)):
+            self.assertIn('ready update not confirmed',policy.coordinate(api,55,True))
+        self.assertFalse(any(x[0]=='enable' for x in api.writes))
+        self.assertIsNone(api.pr['auto_merge'])
+        self.assertTrue(any(x[0]=='disable' for x in api.writes))
+
+    def test_ready_target_and_response_identity_are_verified(self):
+        for field,value in (('name','other'),('app',{'id':7}),('head_sha','d'*40),
+                            ('external_id','other'),('id',1)):
+            api=API();check_id=policy.gate(api,55,HEAD,'completed')
+            observed=copy.deepcopy(api.checks[-1]);observed[field]=value
+            with mock.patch.object(api,'get',return_value=observed),mock.patch.object(api,'mutate') as mutation:
+                with self.assertRaisesRegex(policy.Rejected,'unverified ready update target'):
+                    policy.gate(api,55,HEAD,'failure',check_id)
+                mutation.assert_not_called()
+            observed=copy.deepcopy(api.checks[-1]);observed.update(status='completed',conclusion='failure');observed[field]=value
+            with mock.patch.object(api,'mutate',return_value=observed):
+                with self.assertRaisesRegex(policy.Rejected,'ready update not confirmed'):
+                    policy.gate(api,55,HEAD,'failure',check_id)
+
+    def test_ready_rejection_exposes_only_sanitized_http_status(self):
+        api=API();check_id=policy.gate(api,55,HEAD,'completed')
+        error=policy.urllib.error.HTTPError('https://api.github.com/hidden',403,'private response text',{},None)
+        with mock.patch.object(api,'mutate',side_effect=error):
+            with self.assertRaisesRegex(policy.Rejected,r'ready update not confirmed \(HTTP 403\)') as raised:
+                policy.gate(api,55,HEAD,'failure',check_id)
+        self.assertNotIn('private response text',str(raised.exception))
+
+    def test_failure_barrier_timeout_is_read_back_without_second_patch(self):
+        for applied in (False,True):
+            api=API();check_id=policy.gate(api,55,HEAD,'completed');original=api.mutate
+            def lost_reply(method,path,payload):
+                if applied:original(method,path,payload)
+                raise TimeoutError('private diagnostic')
+            with mock.patch.object(api,'mutate',side_effect=lost_reply) as mutation:
+                if applied:self.assertEqual(policy.gate(api,55,HEAD,'failure',check_id),check_id)
+                else:
+                    with self.assertRaisesRegex(policy.Rejected,'ready update not confirmed'):
+                        policy.gate(api,55,HEAD,'failure',check_id)
+                self.assertEqual(mutation.call_count,1)
+
     def test_human_and_spoofed_bot_author_never_auto_merge(self):
         for user in ({'login':'human','id':1,'type':'User'}, {'login':'dependabot[bot]','id':1,'type':'Bot'},
                      {'login':'dependabot[bot]','id':49699333,'type':'User'}):
@@ -170,13 +239,49 @@ class DependabotTests(unittest.TestCase):
 
     def test_disabled_auto_merge_protection_wrong_app_and_bypass_reject(self):
         for mutate in (lambda a:a.repo.update(allow_auto_merge=False),lambda a:a.repo.update(allow_squash_merge=False),
-                       lambda a:a.rules[0]['parameters'].update(strict_required_status_checks_policy=False),
+                       lambda a:a.rules[0]['parameters'].update(strict_required_status_checks_policy='false'),
                        lambda a:a.rules[0]['parameters']['required_status_checks'][0].update(integration_id=7),
                        lambda a:a.ruleset.update(bypass_actors=[{'actor_id':15368,'actor_type':'Integration'}]),
                        lambda a:a.ruleset.update(current_user_can_bypass='always'),
                        lambda a:a.rules[0]['parameters'].update(required_status_checks=[])):
             api=API();mutate(api);self.assert_rejected(api)
         api=API();self.assertIn('standby',policy.coordinate(api,55,False));self.assertFalse(any(x[0]=='enable' for x in api.writes))
+
+    def test_verified_non_strict_policy_preserves_current_revision_proof(self):
+        api=API();api.rules[0]['parameters']['strict_required_status_checks_policy']=False
+        self.assertEqual(policy.proof(api,55)['head'],HEAD)
+        api.main='d'*40
+        with self.assertRaisesRegex(policy.Rejected,'base is no longer main'):
+            policy.proof(api,55)
+        api=API();del api.rules[0]['parameters']['strict_required_status_checks_policy']
+        self.assert_rejected(api)
+
+    def test_redacted_merge_settings_use_verified_graphql_booleans(self):
+        for keys in (('allow_auto_merge',),('allow_squash_merge',),('allow_auto_merge','allow_squash_merge')):
+            api=API()
+            for key in keys:del api.repo[key]
+            self.assertEqual(policy.proof(api,55)['head'],HEAD)
+
+    def test_known_merge_settings_do_not_need_graphql_fallback(self):
+        api=API()
+        with mock.patch.object(api,'graphql',side_effect=AssertionError('unexpected fallback')):
+            policy.native_rules(api,api.repo)
+
+    def test_disabled_malformed_or_unverified_merge_settings_fail_closed(self):
+        for key in ('allow_auto_merge','allow_squash_merge'):
+            for value in (False,None,1,'true'):
+                api=API();api.repo[key]=value
+                with mock.patch.object(api,'graphql',side_effect=AssertionError('disabled value must not be overridden')):
+                    with self.assertRaises(policy.Rejected):policy.native_rules(api,api.repo)
+        for field,value in (('databaseId',999),('nameWithOwner','other/repo'),
+                            ('autoMergeAllowed',False),('squashMergeAllowed',False),
+                            ('autoMergeAllowed',None),('squashMergeAllowed','true')):
+            api=API();del api.repo['allow_auto_merge']
+            api.merge_settings={'databaseId':123,'nameWithOwner':REPO,'autoMergeAllowed':True,'squashMergeAllowed':True}
+            api.merge_settings[field]=value
+            self.assert_rejected(api)
+        api=API();del api.repo['allow_auto_merge'];api.merge_settings=None
+        self.assert_rejected(api)
 
     def test_major_and_swiftsyntax_are_not_excluded(self):
         for title in ('chore(deps): bump swift-syntax to 604.0.0','chore(ci): bump action from 7 to 8'):

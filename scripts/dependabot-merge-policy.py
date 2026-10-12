@@ -107,16 +107,42 @@ def basic(pr, repo, require_open=True):
         require(pr.get("mergeable") is True, "conflict or unknown mergeability")
 
 
+def native_merge_settings(api, repo):
+    fields = ("allow_auto_merge", "allow_squash_merge")
+    for field in fields:
+        if field in repo:
+            require(type(repo[field]) is bool, "malformed native merge setting")
+            require(repo[field] is True, "native auto-merge/squash feature disabled")
+    if all(field in repo for field in fields):
+        return
+    # Read-only job tokens can omit REST merge settings. An absent field is
+    # unknown, not disabled; explicit false/malformed REST values never fall back.
+    data = api.graphql('''query {
+      repository(owner:"InnoSquadCorp",name:"InnoRouter") {
+        databaseId nameWithOwner autoMergeAllowed squashMergeAllowed
+      }
+    }''', {})
+    observed = data.get("repository") if isinstance(data, dict) else None
+    require(isinstance(observed, dict) and type(observed.get("databaseId")) is int and
+            observed["databaseId"] == repo.get("id") and observed.get("nameWithOwner") == REPOSITORY,
+            "unverified repository merge settings")
+    require(observed.get("autoMergeAllowed") is True and observed.get("squashMergeAllowed") is True,
+            "native auto-merge/squash feature disabled or unknown")
+
+
 def native_rules(api, repo):
-    require(repo.get("allow_auto_merge") is True and repo.get("allow_squash_merge") is True,
-            "native auto-merge/squash feature disabled")
+    native_merge_settings(api, repo)
     rules = api.pages(route("rules/branches/main"))
     status = [r for r in rules if r.get("type") == "required_status_checks"]
     require(bool(status), "native required checks absent")
     contexts = set()
     for rule in status:
         parameters = rule.get("parameters", {})
-        require(parameters.get("strict_required_status_checks_policy") is True, "loose native CI policy")
+        # Honor the audited repository choice. Current main/test-merge/CI proof
+        # remains mandatory, but non-strict native rules do not atomically lock
+        # the base between our final read and publishing Ready success.
+        require(type(parameters.get("strict_required_status_checks_policy")) is bool,
+                "missing or malformed native CI strictness")
         for check in parameters.get("required_status_checks", []):
             require(check.get("integration_id") == APP, "required check has wrong app or any source")
             contexts.add(check.get("context"))
@@ -197,6 +223,15 @@ def gate(api, number, head, status, check_id=None, reason="Metadata verification
         payload["conclusion"] = "success"
     if status == "failure":
         payload.update(status="completed", conclusion="failure")
+    def identity(observed, expected_id):
+        return (type(expected_id) is int and expected_id > 0 and observed.get("id") == expected_id and
+                observed.get("name") == READY and observed.get("app", {}).get("id") == APP and
+                observed.get("head_sha") == head and observed.get("external_id") == payload["external_id"])
+
+    def matches(observed, expected_id):
+        return (identity(observed, expected_id) and observed.get("status") == payload["status"] and
+                observed.get("conclusion") == payload.get("conclusion"))
+
     if check_id is None:
         existing = [c for c in api.pages(route(f"commits/{head}/check-runs?filter=all"), "check_runs")
                     if c.get("name") == READY and c.get("app", {}).get("id") == APP and
@@ -211,19 +246,22 @@ def gate(api, number, head, status, check_id=None, reason="Metadata verification
                 require(len(matches) == 1, "ready creation outcome unconfirmed; no retry")
                 observed = matches[0]
             check_id = observed["id"]
-            require(observed.get("app", {}).get("id") == APP and observed.get("status") == payload["status"] and
-                    observed.get("head_sha") == head and observed.get("external_id") == payload["external_id"] and
-                    ("conclusion" not in payload or observed.get("conclusion") == payload["conclusion"]), "ready creation not confirmed")
+            require(matches(observed, check_id), "ready creation not confirmed")
             return check_id
         check_id = existing[0]["id"]
+    # Do not retag a different check through the mutable name/external_id fields.
+    require(identity(api.get(route(f"check-runs/{check_id}")), check_id), "unverified ready update target")
     payload.pop("head_sha")
+    mutation_error = ""
     try:
         observed = api.mutate("PATCH", route(f"check-runs/{check_id}"), payload)
-    except Exception:
+    except Exception as error:
+        # Preserve a useful, non-secret diagnostic without printing a response
+        # body, request headers, credentials, or arbitrary exception contents.
+        mutation_error = (f" (HTTP {error.code})" if isinstance(error, urllib.error.HTTPError)
+                          else f" ({type(error).__name__})")
         observed = api.get(route(f"check-runs/{check_id}"))
-    require(observed.get("app", {}).get("id") == APP and observed.get("status") == payload["status"] and
-            observed.get("external_id") == payload["external_id"] and observed.get("head_sha") == head and
-            ("conclusion" not in payload or observed.get("conclusion") == payload["conclusion"]), "ready update not confirmed")
+    require(matches(observed, check_id), "ready update not confirmed" + mutation_error)
     return check_id
 
 
@@ -262,7 +300,10 @@ def coordinate(api, number, enabled=False, notification=None):
             elif not runs or max(runs, key=lambda r: (r['run_number'], r['id']))['id'] != notification['id']:
                 return 'obsolete notification; no mutation'
 
-        check_id = gate(api, number, head, "in_progress", reason="Awaiting verified full CI and current metadata.")
+        # Do not assume omitting a terminal check's conclusion reopens it as
+        # in_progress. Confirm an explicit failure barrier instead,
+        # including when a previous reconciliation published success.
+        check_id = gate(api, number, head, "failure", reason="Awaiting verified full CI and current metadata.")
         require(enabled is True, "standby: new auto-merge approvals disabled")
         first = proof(api, number, notification)
         require(first["head"] == head, "head changed before native enable")
@@ -283,7 +324,7 @@ def coordinate(api, number, enabled=False, notification=None):
                         "native enable outcome not confirmed")
         third = proof(api, number, notification)
         same(second, third)
-        gate(api, number, head, "completed", check_id, "Verified full CI, exact head/base and latest attempt; native strict requirements apply.")
+        gate(api, number, head, "completed", check_id, "Verified full CI, exact current head/base and latest attempt; configured native requirements apply.")
         return "native auto-merge armed; server owns actual merge"
     except Exception as error:
         reason = "blocked: " + str(error)
