@@ -60,6 +60,15 @@ class API:
                                 'check_suite':{'id':run['check_suite_id']},'status':'completed','conclusion':result,
                                 'details_url':f'https://github.com/{REPO}/actions/runs/{run_id}/job/{job_id}'})
 
+    def add_coordinator(self):
+        run_id=500
+        self.add_run('dependabot-auto-merge.yml',{'inspect':'Resolve authoritative API targets',
+                     'bot-ready (55)':'Gate native auto-merge on exact current CI proof',
+                     'manual-ready':None,'post-merge':None},run_id)
+        run=self.runs[run_id];run['event']='pull_request_target';run['pull_requests'][0]['base']['ref']='main'
+        for job in self.jobs[run_id]:job['head_sha']=HEAD
+        return run
+
     def suffix(self,path):
         if path==f'repos/{REPO}':return ''
         if path.startswith(f'repos/{REPO}/'):return path[len(f'repos/{REPO}/'):]
@@ -295,6 +304,39 @@ class DependabotTests(unittest.TestCase):
     def test_major_and_swiftsyntax_are_not_excluded(self):
         for title in ('chore(deps): bump swift-syntax to 604.0.0','chore(ci): bump action from 7 to 8'):
             api=API();api.pr.update(title=title,labels=[]);self.assertEqual(policy.proof(api,55)['head'],HEAD)
+
+    def test_proven_coordinator_transport_does_not_create_ci_cycle(self):
+        for state,result in (('completed','success'),('in_progress',None),('completed','failure')):
+            api=API();api.add_coordinator()
+            job=api.jobs[500][1];job.update(status=state,conclusion=result)
+            check=next(c for c in api.checks if c['name']=='bot-ready (55)')
+            check.update(status=state,conclusion=result)
+            self.assertEqual(policy.proof(api,55)['head'],HEAD)
+        api=API();api.add_coordinator();api.jobs[101][0]['conclusion']='failure'
+        self.assert_rejected(api)
+
+    def test_coordinator_transport_exception_requires_exact_provenance(self):
+        transforms=(lambda a:a.runs[500].update(workflow_id=7),
+                    lambda a:a.runs[500].update(event='pull_request'),
+                    lambda a:a.runs[500].update(head_sha='d'*40),
+                    lambda a:a.runs[500].update(head_repository={'id':7}),
+                    lambda a:a.runs[500].update(pull_requests=[]),
+                    lambda a:a.runs[500]['pull_requests'][0].update(number=7),
+                    lambda a:a.jobs[500][2].update(run_attempt=2),
+                    lambda a:a.jobs[500][2].update(head_sha='d'*40),
+                    lambda a:a.jobs[500][2].update(check_run_url='https://example.test/'),
+                    lambda a:a.jobs[500][2].update(steps=[{'name':'unexpected'}]))
+        for transform in transforms:
+            api=API();api.add_coordinator();transform(api);self.assert_rejected(api)
+        for field,value in (('app',{'id':7}),('check_suite',{'id':7}),
+                            ('status','queued'),('conclusion','success'),('name','unrecognized')):
+            api=API();api.add_coordinator()
+            check=next(c for c in api.checks if c['name']=='manual-ready');check[field]=value
+            self.assert_rejected(api)
+        api=API();run=api.add_coordinator();job=api.jobs[500][2]
+        check=next(c for c in api.checks if c['name']=='manual-ready');check['head_sha']='d'*40
+        with self.assertRaisesRegex(policy.Rejected,'unverified coordinator job/check association'):
+            adapter.coordinator_transport(api,check,job,run,REPO,api.repo,api.pr,policy.require)
 
     def test_latest_attempt_failure_pending_and_obsolete_notification_reject(self):
         for result in ('failure','cancelled','skipped',None):

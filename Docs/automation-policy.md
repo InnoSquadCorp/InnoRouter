@@ -224,6 +224,12 @@ Failed proof or Ready write invalidates readiness and independently cancels any
 verified bot's outstanding native request. An unconfirmed initial check creation
 never causes a second POST; uncertain updates are read back before acceptance.
 Cancellation failure is surfaced instead of claiming the request was stopped.
+The coordinator's own transport jobs, including unexpanded matrix skips, are
+not CI evidence. They are separated only after API verification of the active
+coordinator workflow ID/path, same-repository PR-target event, PR/head linkage,
+run/attempt, Actions app, check suite, job/check URL and exact job name. An
+unexpanded matrix must be an empty terminal skip. Other failed, skipped or
+pending checks continue to block; display names alone never grant an exception.
 
 The API can redact `bypass_actors` for a token without Administration write.
 Missing data is not an empty-list audit. Activation requires an owner audit of
