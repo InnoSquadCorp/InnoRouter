@@ -213,14 +213,29 @@ read; the human eligibility check adds checks write only; bot coordination uses
 contents/checks/PR write and actions read; a separate post-merge job uses actions
 write with contents/PR read. Bot coordination uses native
 `enablePullRequestAutoMerge(expectedHeadOid: …)` and never a direct merge API.
-**Dependabot Merge Ready** remains incomplete until current full proof succeeds;
+**Dependabot Merge Ready** is explicitly confirmed as completed/failure before
+each bot proof and remains failed until current full proof succeeds. Reusing a
+completed check does not assume that omitting its conclusion reopens it. This
+failure barrier also invalidates an earlier success before native enable;
 it is required separately from CI inputs to avoid a circular gate. Human PRs
 receive an eligibility success without enabling auto-merge, preserving their
 existing manual CI/review policy. No additional required review count is added.
+For verified Dependabot PRs, optional reviewer and team requests (including
+optional CODEOWNERS notifications) do not independently block auto-merge. The
+requests and CODEOWNERS file remain unchanged. Actual `CHANGES_REQUESTED` and
+`PENDING` reviews, unresolved threads, native required approvals/CODEOWNER
+requirements and all CI/provenance checks still block. Manually re-requesting
+an optional review is therefore a notification, not an automation pause.
 Failed proof or Ready write invalidates readiness and independently cancels any
 verified bot's outstanding native request. An unconfirmed initial check creation
 never causes a second POST; uncertain updates are read back before acceptance.
 Cancellation failure is surfaced instead of claiming the request was stopped.
+The coordinator's own transport jobs, including unexpanded matrix skips, are
+not CI evidence. They are separated only after API verification of the active
+coordinator workflow ID/path, same-repository PR-target event, PR/head linkage,
+run/attempt, Actions app, check suite, job/check URL and exact job name. An
+unexpanded matrix must be an empty terminal skip. Other failed, skipped or
+pending checks continue to block; display names alone never grant an exception.
 
 The API can redact `bypass_actors` for a token without Administration write.
 Missing data is not an empty-list audit. Activation requires an owner audit of
@@ -231,19 +246,36 @@ observed no-bypass settings; this runtime limitation does not authorize weakenin
 With the existing zero-required-review-count policy, a new review/thread change
 after the last API read is not atomically locked by native protection. Supported
 review/comment events and hourly thread reconciliation invalidate Ready and
-cancel requests after processing; strict native CI remains independent. Atomic
+cancel requests after processing. Atomic
 review locking would require a separately approved review-policy decision.
 Turning off the variable cancels observed bot requests during reconciliation;
 it is not a synchronous stop of all outstanding native requests.
 
-After the selective CI rollout above, owner-approved automatic-merge activation
-must add strict **Dependabot Merge Ready** from app `15368` alongside **CI
-Required** after bootstrap with the flag off confirms human Ready contexts and
-no pending-check cycle; confirm trusted coordinator execution, enable
-repository `allow_auto_merge`, then set `DEPENDABOT_AUTO_MERGE_ENABLED=true` last.
+Owner-approved automatic-merge activation adds **Dependabot Merge Ready** and
+**CI Required** from app `15368` while preserving the existing required checks.
+Bootstrap with the flag off must confirm human Ready contexts and no pending-check
+cycle. Confirm trusted coordinator execution and native auto-merge/squash support,
+then set `DEPENDABOT_AUTO_MERGE_ENABLED=true` last. This variable applies to future
+verified Dependabot PRs too; it does not authorize automatic merges of human PRs.
 Existing review, conversation, deletion, non-fast-forward and no-bypass policies
-remain intact. Current unset variables and `allow_auto_merge=false` keep bot
-coordination in standby. These are proposed settings, not settings applied here.
+remain intact. An unset/false activation variable keeps bot coordination in
+standby. This document does not itself apply repository settings.
+
+The owner-approved non-strict choice preserves
+`strict_required_status_checks_policy=false`; both explicit native boolean values
+are supported, while missing or malformed strictness fails closed. Every proof
+still requires current main, matching test-merge parents, a head that is not
+behind main, exact current CI provenance/attempts, and the same review checks.
+Non-strict native protection does not atomically prevent main advancing after
+the final proof and before Ready success/merge. `expectedHeadOid` protects the
+head only. Event-driven cancellation and repeated reads narrow this window but
+cannot eliminate it; strict native checks would require a separate owner choice.
+
+Read-only workflow tokens may omit the REST auto-merge/squash settings. Only
+missing fields fall back to a read-only GraphQL repository query, requiring the
+same repository name/database ID and explicit true booleans. Explicit false or
+malformed REST values, missing GraphQL data and identity mismatches fail closed;
+no broader token permission is needed.
 
 Native auto-merge using `GITHUB_TOKEN` does not establish that a normal push
 workflow will run. The separate reconciliation job verifies an actual merged

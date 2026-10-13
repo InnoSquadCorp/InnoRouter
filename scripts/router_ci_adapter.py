@@ -93,6 +93,45 @@ def validation_runs(api, runs, workflow_id, repository_id, number, head, source,
                               number=number, head=head, source=source, require=require)
 
 
+def coordinator_transport(api, check, job, run, repository, repo, pr, require):
+    """Exclude only API-bound trusted coordinator transport, never CI by name."""
+    path='.github/workflows/dependabot-auto-merge.yml'
+    if run.get('path','').split('@')[0] != path:
+        return False
+    route=lambda suffix:f'repos/{repository}/{suffix}'
+    workflow=api.get(route('actions/workflows/dependabot-auto-merge.yml'))
+    head,number=pr['head']['sha'],pr['number']
+    links=run.get('pull_requests',[])
+    require(type(workflow.get('id')) is int and workflow['id']>0 and
+            type(run.get('id')) is int and run['id']>0 and
+            type(run.get('check_suite_id')) is int and run['check_suite_id']>0 and
+            workflow.get('path')==path and workflow.get('state')=='active' and
+            run.get('workflow_id')==workflow.get('id') and run.get('event')=='pull_request_target' and
+            run.get('head_sha')==head and run.get('repository',{}).get('id')==repo['id'] and
+            run.get('head_repository',{}).get('id')==repo['id'] and len(links)==1 and
+            links[0].get('number')==number and links[0].get('head',{}).get('sha')==head and
+            links[0].get('base',{}).get('ref')=='main', 'unverified coordinator run provenance')
+    require(type(check.get('id')) is int and check['id']>0 and
+            type(job.get('id')) is int and job['id']>0 and type(job.get('run_attempt')) is int and
+            type(run.get('run_attempt')) is int and 1<=job['run_attempt']<=run['run_attempt'] and
+            job.get('run_id')==run.get('id') and job.get('head_sha')==head and
+            job.get('check_run_url')==f'https://api.github.com/repos/{repository}/check-runs/{check["id"]}' and
+            check.get('app',{}).get('id')==15368 and check.get('head_sha')==head and
+            check.get('check_suite',{}).get('id')==run.get('check_suite_id') and
+            check.get('name')==job.get('name') and check.get('status')==job.get('status') and
+            check.get('conclusion')==job.get('conclusion') and
+            check.get('details_url')==f'https://github.com/{repository}/actions/runs/{run["id"]}/job/{job["id"]}',
+            'unverified coordinator job/check association')
+    name=job.get('name')
+    if name in {'bot-ready','manual-ready'}:
+        require(job.get('status')=='completed' and job.get('conclusion')=='skipped' and job.get('steps')==[],
+                'unexpanded coordinator matrix must be an empty terminal skip')
+    else:
+        require(name in {'inspect',f'bot-ready ({number})',f'manual-ready ({number})','post-merge'},
+                'unexpected coordinator transport job')
+    return True
+
+
 def verify(api, repository, pr, repo, notification, require):
     route=lambda suffix: f'repos/{repository}/{suffix}'
     head,main,merge,number=pr['head']['sha'],pr['base']['sha'],pr['merge_commit_sha'],pr['number']
@@ -173,6 +212,8 @@ def verify(api, repository, pr, repo, notification, require):
         if match and check.get('app',{}).get('id')==15368:
             old_job=api.get(route('actions/jobs/'+match[2]))
             old_run=api.get(route('actions/runs/'+match[1]))
+            if coordinator_transport(api,check,old_job,old_run,repository,repo,pr,require):
+                continue
             path=old_run.get('path','').split('@')[0].removeprefix('.github/workflows/')
             current=latest.get(path)
             if current and old_run.get('workflow_id')==current['workflow_id'] and old_run.get('head_sha')==head and old_run.get('event')=='pull_request':
