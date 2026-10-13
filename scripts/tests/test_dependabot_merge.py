@@ -126,7 +126,7 @@ class API:
             if self.after_enable:self.after_enable(self)
             if self.uncertain:raise TimeoutError('unknown outcome')
             return {'enablePullRequestAutoMerge':{'pullRequest':{'id':'PR_node','headRefOid':HEAD,'autoMergeRequest':{'enabledAt':'now'}}}}
-        return {'repository':{'pullRequest':{'id':'PR_node','headRefOid':self.pr['head']['sha'],
+        return {'repository':{'pullRequest':{'id':'PR_node','headRefOid':getattr(self,'graph_head',self.pr['head']['sha']),
                                             'reviewDecision':self.review_decision,
                                             'reviewThreads':{'nodes':self.threads,'pageInfo':{'hasNextPage':False,'endCursor':None}}}}}
 
@@ -367,11 +367,55 @@ class DependabotTests(unittest.TestCase):
                                     'status':'completed','conclusion':'failure','details_url':'https://example.test'})
         self.assert_rejected(api)
 
-    def test_review_requests_threads_and_changes_block(self):
-        for mutate in (lambda a:a.pr.update(requested_reviewers=[{'id':1}]),lambda a:a.pr.update(requested_teams=[{'id':2}]),
-                       lambda a:a.threads.append({'isResolved':False}),lambda a:setattr(a,'review_decision','REVIEW_REQUIRED'),
+    def test_review_threads_and_changes_block(self):
+        for mutate in (lambda a:a.threads.append({'isResolved':False}),lambda a:setattr(a,'review_decision','REVIEW_REQUIRED'),
                        lambda a:a.review_list.append({'id':1,'state':'CHANGES_REQUESTED','user':{'id':1}})):
             api=API();mutate(api);self.assert_rejected(api)
+
+    def test_optional_review_requests_preserve_requests_and_allow_verified_bot(self):
+        for reviewers,teams in (([{'id':1}],[]),([],[{'id':2}]),([{'id':1}],[{'id':2}])):
+            for strict in (False,True):
+                api=API();api.pr.update(requested_reviewers=reviewers,requested_teams=teams)
+                api.rules[0]['parameters']['strict_required_status_checks_policy']=strict
+                before=copy.deepcopy(api.pr)
+                self.assertEqual(policy.proof(api,55)['head'],HEAD)
+                self.assertEqual(api.pr,before);self.assertFalse(api.writes)
+                self.assertIn('armed',policy.coordinate(api,55,True))
+                self.assertEqual(api.pr['requested_reviewers'],reviewers)
+                self.assertEqual(api.pr['requested_teams'],teams)
+                self.assertEqual([w for w in api.writes if w[0]=='enable'],[('enable',{'id':'PR_node','head':HEAD})])
+
+    def test_optional_requests_never_override_actual_review_or_provenance_barriers(self):
+        blockers=(lambda a:a.review_list.extend([{'id':1,'state':'CHANGES_REQUESTED','user':{'id':1}},
+                                                 {'id':2,'state':'COMMENTED','user':{'id':1}}]),
+                  lambda a:a.review_list.append({'id':1,'state':'PENDING','user':{'id':1}}),
+                  lambda a:setattr(a,'review_decision','CHANGES_REQUESTED'),
+                  lambda a:setattr(a,'review_decision','REVIEW_REQUIRED'),
+                  lambda a:a.threads.append({'isResolved':False}),
+                  lambda a:setattr(a,'graph_head','d'*40),
+                  lambda a:setattr(a,'main','d'*40),
+                  lambda a:a.runs[100].update(conclusion='failure'),
+                  lambda a:a.rules.clear(),
+                  lambda a:a.pr['user'].update(id=1))
+        for mutate in blockers:
+            api=API();api.pr.update(requested_reviewers=[{'id':1}],requested_teams=[{'id':2}])
+            mutate(api);before=copy.deepcopy(api.pr)
+            self.assert_rejected(api);self.assertEqual(api.pr,before);self.assertFalse(api.writes)
+        for native_parameter in ('required_approving_review_count','require_code_owner_review'):
+            api=API();api.pr.update(requested_reviewers=[{'id':1}],requested_teams=[{'id':2}])
+            api.rules.append({'type':'pull_request','parameters':{native_parameter:1 if native_parameter.endswith('count') else True}})
+            api.review_decision='REVIEW_REQUIRED';self.assert_rejected(api)
+
+    def test_actual_review_block_cancels_armed_bot_with_optional_requests(self):
+        for state in ('CHANGES_REQUESTED','PENDING'):
+            api=API();api.pr.update(requested_reviewers=[{'id':1}],requested_teams=[{'id':2}],auto_merge={'enabled_at':'earlier'})
+            api.review_list=[{'id':1,'state':state,'user':{'id':1}}]
+            self.assertIn('review blocks auto-merge',policy.coordinate(api,55,True))
+            self.assertIsNone(api.pr['auto_merge'])
+            self.assertEqual(api.pr['requested_reviewers'],[{'id':1}])
+            self.assertEqual(api.pr['requested_teams'],[{'id':2}])
+            self.assertFalse(any(w[0]=='enable' for w in api.writes))
+            self.assertTrue(any(w[0]=='disable' for w in api.writes))
 
     def test_base_head_test_merge_and_enable_races_block(self):
         for mutate in (lambda a:setattr(a,'main','d'*40),lambda a:setattr(a,'behind',1),

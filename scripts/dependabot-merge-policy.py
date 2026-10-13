@@ -206,7 +206,10 @@ def proof(api, number, notification=None):
     require([p["sha"] for p in parents] == [main, head], "test-merge parents do not match base/head")
     graph = reviews(api, number)
     require(graph["headRefOid"] == head, "head raced during reviews")
-    require(not pr.get("requested_reviewers") and not pr.get("requested_teams"), "review request pending")
+    # basic() has verified the exact Dependabot identity. Optional reviewer/team
+    # requests are notifications, not another approval requirement. Keep them
+    # intact; reviews() still enforces blocking reviews, native approvals and
+    # unresolved threads, with its result bound to the current head above.
     evidence = router_ci_adapter.verify(api, REPOSITORY, pr, repo, notification, require)
     return {"pr": pr, "node": graph["id"], "head": head, "base": main, "merge": merge_sha, **evidence}
 

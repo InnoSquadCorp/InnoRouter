@@ -220,6 +220,12 @@ failure barrier also invalidates an earlier success before native enable;
 it is required separately from CI inputs to avoid a circular gate. Human PRs
 receive an eligibility success without enabling auto-merge, preserving their
 existing manual CI/review policy. No additional required review count is added.
+For verified Dependabot PRs, optional reviewer and team requests (including
+optional CODEOWNERS notifications) do not independently block auto-merge. The
+requests and CODEOWNERS file remain unchanged. Actual `CHANGES_REQUESTED` and
+`PENDING` reviews, unresolved threads, native required approvals/CODEOWNER
+requirements and all CI/provenance checks still block. Manually re-requesting
+an optional review is therefore a notification, not an automation pause.
 Failed proof or Ready write invalidates readiness and independently cancels any
 verified bot's outstanding native request. An unconfirmed initial check creation
 never causes a second POST; uncertain updates are read back before acceptance.
