@@ -18,9 +18,9 @@ HEAD,BASE,MERGE='a'*40,'b'*40,'c'*40
 
 
 class API:
-    def __init__(self,active=False):
+    def __init__(self,active=False,number=55):
         self.repo={'id':123,'full_name':REPO,'default_branch':'main','allow_auto_merge':True,'allow_squash_merge':True}
-        self.pr={'number':55,'node_id':'PR_node','state':'open','merged':False,'draft':False,'mergeable':True,'user':dict(policy.BOT),
+        self.pr={'number':number,'node_id':'PR_node','state':'open','merged':False,'draft':False,'mergeable':True,'user':dict(policy.BOT),
                  'head':{'sha':HEAD,'repo':{'id':123,'full_name':REPO}},
                  'base':{'ref':'main','sha':BASE,'repo':{'id':123,'full_name':REPO}},'merge_commit_sha':MERGE,
                  'requested_reviewers':[],'requested_teams':[],'auto_merge':None}
@@ -47,7 +47,7 @@ class API:
         run={'id':run_id,'run_number':run_id,'run_attempt':1,'workflow_id':run_id+1000,'path':'.github/workflows/'+filename,
              'status':'completed','conclusion':'success','event':'pull_request','head_sha':HEAD,
              'repository':{'id':123,'full_name':REPO},'head_repository':{'id':123},'check_suite_id':run_id+2000,
-             'pull_requests':[{'number':55,'head':{'sha':HEAD},'base':{'sha':BASE}}]}
+             'pull_requests':[{'number':self.pr['number'],'head':{'sha':HEAD},'base':{'sha':BASE}}]}
         self.runs[run_id]=run;self.jobs[run_id]=[]
         for i,(name,step) in enumerate(expected.items()):
             job_id=run_id*100+i;check_id=job_id+100000
@@ -79,7 +79,7 @@ class API:
         if self.race:self.race(self,path)
         p=self.suffix(path)
         if not p:return copy.deepcopy(self.repo)
-        if p=='pulls/55':return copy.deepcopy(self.pr)
+        if p==f"pulls/{self.pr['number']}":return copy.deepcopy(self.pr)
         if p=='git/ref/heads/main':return {'object':{'sha':self.main}}
         if p.startswith('git/commits/'):return {'parents':[{'sha':x} for x in self.parents]}
         if p.startswith('compare/'):return {'behind_by':self.behind,'status':'ahead'}
@@ -95,7 +95,7 @@ class API:
     def pages(self,path,key=None):
         p=self.suffix(path)
         if p=='rules/branches/main':return copy.deepcopy(self.rules)
-        if p=='pulls/55/reviews':return copy.deepcopy(self.review_list)
+        if p==f"pulls/{self.pr['number']}/reviews":return copy.deepcopy(self.review_list)
         if p.startswith('actions/workflows/') and '/runs?' in p:
             if 'branch=main' in p:return copy.deepcopy(self.main_runs)
             filename=p.split('/')[2]
@@ -156,6 +156,90 @@ class DependabotTests(unittest.TestCase):
             result=policy.proof(API(active),55)
             self.assertEqual(result['head'],HEAD)
             self.assertTrue(result['evidence'])
+
+    def add_mount_comparison(self, api, active, vision_conclusion='skipped'):
+        prefix='CI platforms / ' if active else ''
+        names={prefix+'test '+p for p in ('iOS','iPadOS','Mac-Catalyst','tvOS','watchOS','visionOS')}
+        jobs=[j for group in api.jobs.values() for j in group if j['name'] in names]
+        self.assertEqual(len(jobs),6)
+        for job in jobs:
+            job['steps'].append({'name':'Compare original and explicit visionOS tab mounting',
+                                 'status':'completed','conclusion':vision_conclusion if job['name'].endswith('visionOS') else 'skipped'})
+        return jobs
+
+    def test_inactive_pr54_diagnostic_skip_preserves_full_proof_and_enable(self):
+        for active in (False,True):
+            api=API(active);self.add_mount_comparison(api,active)
+            self.assertEqual(policy.proof(api,55)['head'],HEAD)
+            self.assertIn('armed',policy.coordinate(api,55,True))
+            self.assertEqual([w for w in api.writes if w[0]=='enable'],[('enable',{'id':'PR_node','head':HEAD})])
+
+    def test_pr54_visionos_diagnostic_must_not_skip(self):
+        for active in (False,True):
+            api=API(active,number=54);self.add_mount_comparison(api,active,vision_conclusion='success')
+            self.assertEqual(policy.proof(api,54)['head'],HEAD)
+            for conclusion in ('skipped','failure','cancelled',None):
+                api=API(active,number=54);self.add_mount_comparison(api,active,vision_conclusion=conclusion)
+                with self.assertRaisesRegex(policy.Rejected,'unexpected skipped/failed/incomplete step'):
+                    policy.proof(api,54)
+                self.assertIn('blocked:',policy.coordinate(api,54,True))
+                self.assertFalse(any(w[0]=='enable' for w in api.writes))
+
+    def test_diagnostic_exception_never_allows_core_skip_or_diagnostic_failure(self):
+        for active in (False,True):
+            for conclusion in ('skipped','failure','cancelled',None):
+                api=API(active);jobs=self.add_mount_comparison(api,active)
+                job=next(j for j in jobs if j['name'].endswith('test visionOS'))
+                job['steps'][0]['conclusion']=conclusion
+                self.assert_rejected(api)
+            for conclusion in ('failure','cancelled',None):
+                api=API(active);self.add_mount_comparison(api,active,vision_conclusion=conclusion)
+                self.assert_rejected(api)
+            api=API(active);self.add_mount_comparison(api,active)
+            api.jobs[100][0]['steps'].append({'name':'Compare original and explicit visionOS tab mounting',
+                                            'status':'completed','conclusion':'skipped'})
+            self.assert_rejected(api)
+
+    def test_diagnostic_skip_requires_exact_lane_and_pr_context(self):
+        step='Compare original and explicit visionOS tab mounting'
+        run={'path':'.github/workflows/platforms.yml','event':'pull_request','pull_requests':[{'number':55}]}
+        self.assertTrue(adapter.skip_step('test visionOS',step,False,run,55))
+        for number in (None,0,True,'55',54):
+            self.assertFalse(adapter.skip_step('test visionOS',step,False,run,number))
+        for job in ('test Inspector UI (iPadOS)','test macOS','other / test visionOS','CI platforms / test visionOS'):
+            self.assertFalse(adapter.skip_step(job,step,False,run,55))
+        self.assertFalse(adapter.skip_step('test visionOS',step,False))
+        for mutate in (lambda r:r.update(path='.github/workflows/other.yml'),
+                       lambda r:r.update(event='push'),lambda r:r.update(pull_requests=[]),
+                       lambda r:r['pull_requests'].append({'number':55})):
+            altered=copy.deepcopy(run);mutate(altered)
+            self.assertFalse(adapter.skip_step('test visionOS',step,False,altered,55))
+        active=copy.deepcopy(run);active['path']='.github/workflows/ci.yml'
+        self.assertTrue(adapter.skip_step('CI platforms / test visionOS',step,True,active,55))
+        self.assertFalse(adapter.skip_step('test visionOS',step,True,active,55))
+        self.assertFalse(adapter.skip_step('CI platforms / test visionOS',step,False,active,55))
+
+    def test_diagnostic_skip_tracks_exact_committed_workflow_condition(self):
+        workflow=(ROOT/'.github/workflows/platforms.yml').read_text()
+        self.assertRegex(workflow,r'- name: Compare original and explicit visionOS tab mounting\n'
+                         r'\s+id: mount_comparison\n'
+                         r"\s+if: matrix.platform.name == 'visionOS' && github.event_name == 'pull_request' && github.event.pull_request.number == 54\n")
+        self.assertIn('uses: ./.github/workflows/platforms.yml',(ROOT/'.github/workflows/ci.yml').read_text())
+
+    def test_diagnostic_skip_cannot_bypass_run_or_check_provenance(self):
+        for active in (False,True):
+            for field,value in (('path','.github/workflows/other.yml'),('workflow_id',999),
+                                ('event','workflow_dispatch'),('head_sha','d'*40),
+                                ('repository',{'id':999}),('head_repository',{'id':999}),('pull_requests',[])):
+                api=API(active);jobs=self.add_mount_comparison(api,active)
+                api.runs[jobs[0]['run_id']][field]=value
+                self.assert_rejected(api)
+            for field,value in (('app',{'id':7}),('check_suite',{'id':0}),('head_sha','d'*40),
+                                ('details_url','https://example.test/')):
+                api=API(active);jobs=self.add_mount_comparison(api,active)
+                job=jobs[0];check_id=int(job['check_run_url'].split('/')[-1])
+                next(c for c in api.checks if c['id']==check_id)[field]=value
+                self.assert_rejected(api)
 
     def test_missing_native_parallel_policy_child_rejects(self):
         for active in (False, True):

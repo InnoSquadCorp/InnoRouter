@@ -37,8 +37,26 @@ LEGACY = {
 }
 
 
-def skip_step(job, step, active):
+def skip_step(job, step, active, run=None, number=None):
     # Conditional diagnostic steps are never substitutes for successful tests.
+    # current_run() has already authenticated workflow/repository/head/base.
+    # Mirror this one PR-scoped experiment's condition, not its display name
+    # alone. It must run on PR 54's visionOS lane; ordinary platform tests remain
+    # mandatory regardless of whether this diagnostic is active.
+    if step == 'Compare original and explicit visionOS tab mounting':
+        run=run or {}
+        path=run.get('path','').split('@')[0]
+        if path == '.github/workflows/platforms.yml':
+            child=job
+        elif active and path == '.github/workflows/ci.yml' and job.startswith('CI platforms / '):
+            child=job.removeprefix('CI platforms / ')
+        else:
+            return False
+        links=run.get('pull_requests',[])
+        return (type(number) is int and number > 0 and run.get('event')=='pull_request'
+                and len(links)==1 and links[0].get('number')==number
+                and child in {'test '+p for p in ('iOS','iPadOS','Mac-Catalyst','tvOS','watchOS','visionOS')}
+                and (number != 54 or child != 'test visionOS'))
     child = job.split(' / ')[-1]
     if child in ('thread sanitizer', 'address sanitizer') and step in (
             'Replay failed address tests under LLDB', 'Collect router crash reports'):
@@ -52,7 +70,7 @@ def skip_step(job, step, active):
             (active and step == 'Reuse original protected checks during rollout'))) or (job == 'CI Plan' and step == 'Verify actual bot merge before recovery')
 
 
-def validate_jobs(jobs, expected, run, head, merge, checks, repository, require, active=False, all_skipped=False):
+def validate_jobs(jobs, expected, run, head, merge, checks, repository, require, active=False, all_skipped=False, number=None):
     require(len(jobs)==len(expected) and {j.get('name') for j in jobs}==set(expected),
             'missing, duplicate or unexpected Router CI job')
     ids=set()
@@ -79,7 +97,7 @@ def validate_jobs(jobs, expected, run, head, merge, checks, repository, require,
             required_steps=(step,) if isinstance(step,str) else step
             require(set(required_steps) <= {s.get('name') for s in steps}, 'missing core validation step: '+name)
             require(all(s.get('status')=='completed' and (s.get('conclusion')=='success' or
-                        (s.get('conclusion')=='skipped' and skip_step(name,s.get('name'),active))) for s in steps),
+                        (s.get('conclusion')=='skipped' and skip_step(name,s.get('name'),active,run,number))) for s in steps),
                     'unexpected skipped/failed/incomplete step: '+name)
     return ids
 
@@ -181,7 +199,7 @@ def verify(api, repository, pr, repo, notification, require):
         require(all(s.get('state')=='success' for s in states.values()),'additional commit status pending/failed')
     by_id={c['id']:c for c in checks}
     require(len(by_id)==len(checks),'duplicate check IDs')
-    known=metadata_check_ids | validate_jobs(jobs,expected,run,head,merge,by_id,repository,require,active)
+    known=metadata_check_ids | validate_jobs(jobs,expected,run,head,merge,by_id,repository,require,active,number=number)
     # During rollout all 24 original checks are required independently of the
     # PR-controlled transition evaluator. Active CI verifies the same children.
     for filename,(caller,children) in LEGACY.items():
@@ -194,10 +212,10 @@ def verify(api, repository, pr, repo, notification, require):
             # Matrix job-level conditions can skip before matrix expansion.
             # No source execution or success is allowed in this inactive run.
             inactive={j['name']:None for j in legacy_jobs}
-            known |= validate_jobs(legacy_jobs,inactive,legacy,head,merge,by_id,repository,require,active,True)
+            known |= validate_jobs(legacy_jobs,inactive,legacy,head,merge,by_id,repository,require,active,True,number=number)
         else:
             require(legacy['conclusion']=='success','legacy gate not successful')
-            known |= validate_jobs(legacy_jobs,children,legacy,head,merge,by_id,repository,require,active)
+            known |= validate_jobs(legacy_jobs,children,legacy,head,merge,by_id,repository,require,active,number=number)
     extras={}
     protected_names=set(PRIMARY)|{n for _,children in LEGACY.values() for n in children}|set(expected)
     for check in sorted(checks,key=lambda c:c['id'],reverse=True):
