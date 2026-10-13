@@ -101,7 +101,7 @@ jobs:
 
       - name: Preserve Inspector UI evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: inspector-ui-evidence
           path: |
@@ -502,7 +502,7 @@ jobs:
 
       - name: Preserve platform test evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: platform-tests-${{ matrix.platform.name }}
           path: |
@@ -532,7 +532,7 @@ jobs:
       # original failure; a probe that ran and wrote nothing still fails.
       - name: Preserve native scene evidence
         if: always() && steps.native_scene.outcome != 'skipped' && (matrix.platform.name == 'iPadOS' || matrix.platform.name == 'visionOS')
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: native-scene-${{ matrix.platform.name }}
           path: NativeSceneSmoke/.build/native-*/*.log
