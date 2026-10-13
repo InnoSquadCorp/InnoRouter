@@ -60,6 +60,15 @@ class API:
                                 'check_suite':{'id':run['check_suite_id']},'status':'completed','conclusion':result,
                                 'details_url':f'https://github.com/{REPO}/actions/runs/{run_id}/job/{job_id}'})
 
+    def add_coordinator(self):
+        run_id=500
+        self.add_run('dependabot-auto-merge.yml',{'inspect':'Resolve authoritative API targets',
+                     'bot-ready (55)':'Gate native auto-merge on exact current CI proof',
+                     'manual-ready':None,'post-merge':None},run_id)
+        run=self.runs[run_id];run['event']='pull_request_target';run['pull_requests'][0]['base']['ref']='main'
+        for job in self.jobs[run_id]:job['head_sha']=HEAD
+        return run
+
     def suffix(self,path):
         if path==f'repos/{REPO}':return ''
         if path.startswith(f'repos/{REPO}/'):return path[len(f'repos/{REPO}/'):]
@@ -101,6 +110,10 @@ class API:
         raise AssertionError('unhandled pages '+p)
 
     def graphql(self,query,variables):
+        if 'autoMergeAllowed' in query:
+            return {'repository':getattr(self, 'merge_settings', {
+                'databaseId':self.repo['id'], 'nameWithOwner':REPO,
+                'autoMergeAllowed':True, 'squashMergeAllowed':True})}
         if 'disablePullRequestAutoMerge' in query:
             self.writes.append(('disable',variables))
             if self.denied:raise PermissionError('permission denied')
@@ -113,7 +126,7 @@ class API:
             if self.after_enable:self.after_enable(self)
             if self.uncertain:raise TimeoutError('unknown outcome')
             return {'enablePullRequestAutoMerge':{'pullRequest':{'id':'PR_node','headRefOid':HEAD,'autoMergeRequest':{'enabledAt':'now'}}}}
-        return {'repository':{'pullRequest':{'id':'PR_node','headRefOid':self.pr['head']['sha'],
+        return {'repository':{'pullRequest':{'id':'PR_node','headRefOid':getattr(self,'graph_head',self.pr['head']['sha']),
                                             'reviewDecision':self.review_decision,
                                             'reviewThreads':{'nodes':self.threads,'pageInfo':{'hasNextPage':False,'endCursor':None}}}}}
 
@@ -122,7 +135,11 @@ class API:
         if p=='check-runs':
             result=copy.deepcopy(payload);result.update(id=999999,app={'id':15368});self.checks.append(result);return result
         if p.startswith('check-runs/'):
-            check=next(c for c in self.checks if c['id']==int(p.split('/')[-1]));check.update(payload);return check
+            check=next(c for c in self.checks if c['id']==int(p.split('/')[-1]));check.update(payload)
+            # Model a server retaining the old conclusion when PATCH omits it;
+            # a conclusion requires completed rather than a reopened check.
+            if check.get('conclusion') is not None:check['status']='completed'
+            return check
         if p=='actions/workflows/ci.yml/dispatches':
             if self.denied:raise PermissionError('permission denied')
             return None
@@ -156,6 +173,76 @@ class DependabotTests(unittest.TestCase):
             self.assertEqual(api.checks[-1]['conclusion'],'success')
             self.assertNotIn('mergePullRequest',(ROOT/'scripts/dependabot-merge-policy.py').read_text())
 
+    def test_completed_ready_is_explicitly_failed_before_proof_and_enable(self):
+        for prior in ('failure','completed'):
+            api=API();check_id=policy.gate(api,55,HEAD,prior)
+            original=api.graphql
+            def guarded_graphql(query,variables):
+                if 'enablePullRequestAutoMerge' in query:
+                    check=next(c for c in api.checks if c['id']==check_id)
+                    self.assertEqual((check['status'],check['conclusion']),('completed','failure'))
+                return original(query,variables)
+            with mock.patch.object(api,'graphql',side_effect=guarded_graphql):
+                self.assertIn('armed',policy.coordinate(api,55,True))
+            updates=[x[2] for x in api.writes if x[0]=='PATCH']
+            self.assertEqual(updates[0]['conclusion'],'failure')
+            self.assertEqual(updates[-1]['conclusion'],'success')
+            self.assertEqual(len([c for c in api.checks if c.get('name')==policy.READY]),1)
+
+    def test_unconfirmed_failure_barrier_never_enables_native_merge(self):
+        api=API();check_id=policy.gate(api,55,HEAD,'completed')
+        api.pr['auto_merge']={'enabled_at':'earlier'}
+        existing=next(c for c in api.checks if c['id']==check_id)
+        with mock.patch.object(api,'mutate',return_value=copy.deepcopy(existing)):
+            self.assertIn('ready update not confirmed',policy.coordinate(api,55,True))
+        self.assertFalse(any(x[0]=='enable' for x in api.writes))
+        self.assertIsNone(api.pr['auto_merge'])
+        self.assertTrue(any(x[0]=='disable' for x in api.writes))
+
+    def test_ready_target_and_response_identity_are_verified(self):
+        for field,value in (('name','other'),('app',{'id':7}),('head_sha','d'*40),
+                            ('external_id','other'),('id',1)):
+            api=API();check_id=policy.gate(api,55,HEAD,'completed')
+            observed=copy.deepcopy(api.checks[-1]);observed[field]=value
+            with mock.patch.object(api,'get',return_value=observed),mock.patch.object(api,'mutate') as mutation:
+                with self.assertRaisesRegex(policy.Rejected,'unverified ready update target'):
+                    policy.gate(api,55,HEAD,'failure',check_id)
+                mutation.assert_not_called()
+            observed=copy.deepcopy(api.checks[-1]);observed.update(status='completed',conclusion='failure');observed[field]=value
+            with mock.patch.object(api,'mutate',return_value=observed):
+                with self.assertRaisesRegex(policy.Rejected,'ready update not confirmed'):
+                    policy.gate(api,55,HEAD,'failure',check_id)
+
+    def test_ready_rejection_exposes_only_sanitized_http_status(self):
+        api=API();check_id=policy.gate(api,55,HEAD,'completed')
+        error=policy.urllib.error.HTTPError('https://api.github.com/hidden',403,'private response text',{},None)
+        with mock.patch.object(api,'mutate',side_effect=error):
+            with self.assertRaisesRegex(policy.Rejected,r'ready update not confirmed \(HTTP 403\)') as raised:
+                policy.gate(api,55,HEAD,'failure',check_id)
+        self.assertNotIn('private response text',str(raised.exception))
+
+    def test_failure_barrier_timeout_is_read_back_without_second_patch(self):
+        for applied in (False,True):
+            api=API();check_id=policy.gate(api,55,HEAD,'completed');original=api.mutate
+            def lost_reply(method,path,payload):
+                if applied:original(method,path,payload)
+                raise TimeoutError('private diagnostic')
+            with mock.patch.object(api,'mutate',side_effect=lost_reply) as mutation:
+                if applied:self.assertEqual(policy.gate(api,55,HEAD,'failure',check_id),check_id)
+                else:
+                    with self.assertRaisesRegex(policy.Rejected,'ready update not confirmed'):
+                        policy.gate(api,55,HEAD,'failure',check_id)
+                self.assertEqual(mutation.call_count,1)
+
+    def test_applied_ready_creation_timeout_is_confirmed_without_second_post(self):
+        api=API();original=api.mutate
+        def applied_then_timeout(method,path,payload):
+            original(method,path,payload);raise TimeoutError('reply lost')
+        with mock.patch.object(api,'mutate',side_effect=applied_then_timeout) as mutation:
+            self.assertEqual(policy.gate(api,55,HEAD,'failure'),999999)
+            self.assertEqual(mutation.call_count,1)
+        self.assertEqual(api.checks[-1]['conclusion'],'failure')
+
     def test_human_and_spoofed_bot_author_never_auto_merge(self):
         for user in ({'login':'human','id':1,'type':'User'}, {'login':'dependabot[bot]','id':1,'type':'Bot'},
                      {'login':'dependabot[bot]','id':49699333,'type':'User'}):
@@ -170,7 +257,7 @@ class DependabotTests(unittest.TestCase):
 
     def test_disabled_auto_merge_protection_wrong_app_and_bypass_reject(self):
         for mutate in (lambda a:a.repo.update(allow_auto_merge=False),lambda a:a.repo.update(allow_squash_merge=False),
-                       lambda a:a.rules[0]['parameters'].update(strict_required_status_checks_policy=False),
+                       lambda a:a.rules[0]['parameters'].update(strict_required_status_checks_policy='false'),
                        lambda a:a.rules[0]['parameters']['required_status_checks'][0].update(integration_id=7),
                        lambda a:a.ruleset.update(bypass_actors=[{'actor_id':15368,'actor_type':'Integration'}]),
                        lambda a:a.ruleset.update(current_user_can_bypass='always'),
@@ -178,9 +265,78 @@ class DependabotTests(unittest.TestCase):
             api=API();mutate(api);self.assert_rejected(api)
         api=API();self.assertIn('standby',policy.coordinate(api,55,False));self.assertFalse(any(x[0]=='enable' for x in api.writes))
 
+    def test_verified_non_strict_policy_preserves_current_revision_proof(self):
+        api=API();api.rules[0]['parameters']['strict_required_status_checks_policy']=False
+        self.assertEqual(policy.proof(api,55)['head'],HEAD)
+        api.main='d'*40
+        with self.assertRaisesRegex(policy.Rejected,'base is no longer main'):
+            policy.proof(api,55)
+        api=API();del api.rules[0]['parameters']['strict_required_status_checks_policy']
+        self.assert_rejected(api)
+
+    def test_redacted_merge_settings_use_verified_graphql_booleans(self):
+        for keys in (('allow_auto_merge',),('allow_squash_merge',),('allow_auto_merge','allow_squash_merge')):
+            api=API()
+            for key in keys:del api.repo[key]
+            self.assertEqual(policy.proof(api,55)['head'],HEAD)
+
+    def test_known_merge_settings_do_not_need_graphql_fallback(self):
+        api=API()
+        with mock.patch.object(api,'graphql',side_effect=AssertionError('unexpected fallback')):
+            policy.native_rules(api,api.repo)
+
+    def test_disabled_malformed_or_unverified_merge_settings_fail_closed(self):
+        for key in ('allow_auto_merge','allow_squash_merge'):
+            for value in (False,None,1,'true'):
+                api=API();api.repo[key]=value
+                with mock.patch.object(api,'graphql',side_effect=AssertionError('disabled value must not be overridden')):
+                    with self.assertRaises(policy.Rejected):policy.native_rules(api,api.repo)
+        for field,value in (('databaseId',999),('nameWithOwner','other/repo'),
+                            ('autoMergeAllowed',False),('squashMergeAllowed',False),
+                            ('autoMergeAllowed',None),('squashMergeAllowed','true')):
+            api=API();del api.repo['allow_auto_merge']
+            api.merge_settings={'databaseId':123,'nameWithOwner':REPO,'autoMergeAllowed':True,'squashMergeAllowed':True}
+            api.merge_settings[field]=value
+            self.assert_rejected(api)
+        api=API();del api.repo['allow_auto_merge'];api.merge_settings=None
+        self.assert_rejected(api)
+
     def test_major_and_swiftsyntax_are_not_excluded(self):
         for title in ('chore(deps): bump swift-syntax to 604.0.0','chore(ci): bump action from 7 to 8'):
             api=API();api.pr.update(title=title,labels=[]);self.assertEqual(policy.proof(api,55)['head'],HEAD)
+
+    def test_proven_coordinator_transport_does_not_create_ci_cycle(self):
+        for state,result in (('completed','success'),('in_progress',None),('completed','failure')):
+            api=API();api.add_coordinator()
+            job=api.jobs[500][1];job.update(status=state,conclusion=result)
+            check=next(c for c in api.checks if c['name']=='bot-ready (55)')
+            check.update(status=state,conclusion=result)
+            self.assertEqual(policy.proof(api,55)['head'],HEAD)
+        api=API();api.add_coordinator();api.jobs[101][0]['conclusion']='failure'
+        self.assert_rejected(api)
+
+    def test_coordinator_transport_exception_requires_exact_provenance(self):
+        transforms=(lambda a:a.runs[500].update(workflow_id=7),
+                    lambda a:a.runs[500].update(event='pull_request'),
+                    lambda a:a.runs[500].update(head_sha='d'*40),
+                    lambda a:a.runs[500].update(head_repository={'id':7}),
+                    lambda a:a.runs[500].update(pull_requests=[]),
+                    lambda a:a.runs[500]['pull_requests'][0].update(number=7),
+                    lambda a:a.jobs[500][2].update(run_attempt=2),
+                    lambda a:a.jobs[500][2].update(head_sha='d'*40),
+                    lambda a:a.jobs[500][2].update(check_run_url='https://example.test/'),
+                    lambda a:a.jobs[500][2].update(steps=[{'name':'unexpected'}]))
+        for transform in transforms:
+            api=API();api.add_coordinator();transform(api);self.assert_rejected(api)
+        for field,value in (('app',{'id':7}),('check_suite',{'id':7}),
+                            ('status','queued'),('conclusion','success'),('name','unrecognized')):
+            api=API();api.add_coordinator()
+            check=next(c for c in api.checks if c['name']=='manual-ready');check[field]=value
+            self.assert_rejected(api)
+        api=API();run=api.add_coordinator();job=api.jobs[500][2]
+        check=next(c for c in api.checks if c['name']=='manual-ready');check['head_sha']='d'*40
+        with self.assertRaisesRegex(policy.Rejected,'unverified coordinator job/check association'):
+            adapter.coordinator_transport(api,check,job,run,REPO,api.repo,api.pr,policy.require)
 
     def test_latest_attempt_failure_pending_and_obsolete_notification_reject(self):
         for result in ('failure','cancelled','skipped',None):
@@ -211,11 +367,55 @@ class DependabotTests(unittest.TestCase):
                                     'status':'completed','conclusion':'failure','details_url':'https://example.test'})
         self.assert_rejected(api)
 
-    def test_review_requests_threads_and_changes_block(self):
-        for mutate in (lambda a:a.pr.update(requested_reviewers=[{'id':1}]),lambda a:a.pr.update(requested_teams=[{'id':2}]),
-                       lambda a:a.threads.append({'isResolved':False}),lambda a:setattr(a,'review_decision','REVIEW_REQUIRED'),
+    def test_review_threads_and_changes_block(self):
+        for mutate in (lambda a:a.threads.append({'isResolved':False}),lambda a:setattr(a,'review_decision','REVIEW_REQUIRED'),
                        lambda a:a.review_list.append({'id':1,'state':'CHANGES_REQUESTED','user':{'id':1}})):
             api=API();mutate(api);self.assert_rejected(api)
+
+    def test_optional_review_requests_preserve_requests_and_allow_verified_bot(self):
+        for reviewers,teams in (([{'id':1}],[]),([],[{'id':2}]),([{'id':1}],[{'id':2}])):
+            for strict in (False,True):
+                api=API();api.pr.update(requested_reviewers=reviewers,requested_teams=teams)
+                api.rules[0]['parameters']['strict_required_status_checks_policy']=strict
+                before=copy.deepcopy(api.pr)
+                self.assertEqual(policy.proof(api,55)['head'],HEAD)
+                self.assertEqual(api.pr,before);self.assertFalse(api.writes)
+                self.assertIn('armed',policy.coordinate(api,55,True))
+                self.assertEqual(api.pr['requested_reviewers'],reviewers)
+                self.assertEqual(api.pr['requested_teams'],teams)
+                self.assertEqual([w for w in api.writes if w[0]=='enable'],[('enable',{'id':'PR_node','head':HEAD})])
+
+    def test_optional_requests_never_override_actual_review_or_provenance_barriers(self):
+        blockers=(lambda a:a.review_list.extend([{'id':1,'state':'CHANGES_REQUESTED','user':{'id':1}},
+                                                 {'id':2,'state':'COMMENTED','user':{'id':1}}]),
+                  lambda a:a.review_list.append({'id':1,'state':'PENDING','user':{'id':1}}),
+                  lambda a:setattr(a,'review_decision','CHANGES_REQUESTED'),
+                  lambda a:setattr(a,'review_decision','REVIEW_REQUIRED'),
+                  lambda a:a.threads.append({'isResolved':False}),
+                  lambda a:setattr(a,'graph_head','d'*40),
+                  lambda a:setattr(a,'main','d'*40),
+                  lambda a:a.runs[100].update(conclusion='failure'),
+                  lambda a:a.rules.clear(),
+                  lambda a:a.pr['user'].update(id=1))
+        for mutate in blockers:
+            api=API();api.pr.update(requested_reviewers=[{'id':1}],requested_teams=[{'id':2}])
+            mutate(api);before=copy.deepcopy(api.pr)
+            self.assert_rejected(api);self.assertEqual(api.pr,before);self.assertFalse(api.writes)
+        for native_parameter in ('required_approving_review_count','require_code_owner_review'):
+            api=API();api.pr.update(requested_reviewers=[{'id':1}],requested_teams=[{'id':2}])
+            api.rules.append({'type':'pull_request','parameters':{native_parameter:1 if native_parameter.endswith('count') else True}})
+            api.review_decision='REVIEW_REQUIRED';self.assert_rejected(api)
+
+    def test_actual_review_block_cancels_armed_bot_with_optional_requests(self):
+        for state in ('CHANGES_REQUESTED','PENDING'):
+            api=API();api.pr.update(requested_reviewers=[{'id':1}],requested_teams=[{'id':2}],auto_merge={'enabled_at':'earlier'})
+            api.review_list=[{'id':1,'state':state,'user':{'id':1}}]
+            self.assertIn('review blocks auto-merge',policy.coordinate(api,55,True))
+            self.assertIsNone(api.pr['auto_merge'])
+            self.assertEqual(api.pr['requested_reviewers'],[{'id':1}])
+            self.assertEqual(api.pr['requested_teams'],[{'id':2}])
+            self.assertFalse(any(w[0]=='enable' for w in api.writes))
+            self.assertTrue(any(w[0]=='disable' for w in api.writes))
 
     def test_base_head_test_merge_and_enable_races_block(self):
         for mutate in (lambda a:setattr(a,'main','d'*40),lambda a:setattr(a,'behind',1),
