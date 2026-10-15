@@ -12,7 +12,7 @@
   "baseline_kind": "verified_release_tag",
   "tag_status": "verified",
   "swift_tools_version": "6.3",
-  "swift_syntax_requirement": ">=603.0.0 <605.0.0",
+  "swift_syntax_requirement": ">=603.0.2 <605.0.0",
   "declared_platform_minimums": {
     "iOS": "18",
     "macOS": "15",

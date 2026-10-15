@@ -21,7 +21,8 @@ are bare semver (no leading `v`).
 
 - The library skill consumer validator keeps SwiftPM diagnostics separate from
   dependency JSON so warnings do not reject a valid resolved dependency graph.
-  The skill continues to support the complete stable 7.0.x line.
+  Its SwiftSyntax requirement now accurately records the package's existing
+  minimum of 603.0.2. The skill continues to support the complete stable 7.0.x line.
 - Native visionOS regression probes wait for a complete activation after scene
   restoration, and verify the intended failing control plus injected and normal
   allow/reject/cancel cases. This is a test-harness correction, not a new claim
