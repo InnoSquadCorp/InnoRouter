@@ -6,6 +6,32 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+## 7.0.1 - 2026-10-15
+
+### Changed
+
+- Snapshot preflight and legacy route admission decode ordinary, unescaped ASCII
+  JSON keys directly, avoiding repeated Foundation decoder setup. Escaped,
+  non-ASCII, and malformed keys retain the Foundation path; validation rules,
+  resource limits, and the public API remain unchanged.
+- Refresh all seven README quick starts and the English/Korean navigation
+  guides with the current 7.0 contract and shared, checked Swift examples.
+
+### Fixed
+
+- The library skill consumer validator keeps SwiftPM diagnostics separate from
+  dependency JSON so warnings do not reject a valid resolved dependency graph.
+  The skill continues to support the complete stable 7.0.x line.
+- Native visionOS regression probes wait for a complete activation after scene
+  restoration, and verify the intended failing control plus injected and normal
+  allow/reject/cancel cases. This is a test-harness correction, not a new claim
+  about physical-device or historical OS behavior.
+
+### Maintenance
+
+- Harden exact-head CI reuse, required-check aggregation, and forward-toolchain
+  validation without weakening the release gates.
+
 ## 7.0.0 - 2026-10-08
 
 Published as [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)

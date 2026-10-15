@@ -2,6 +2,7 @@
 """Regression tests for the static translation gate, without Swift or network."""
 import importlib.util
 import os
+import re
 import subprocess
 import sys
 from unittest import mock
@@ -81,7 +82,11 @@ class ReadmeContractTests(unittest.TestCase):
         self.assertTrue(any('Swift snippets differ' in e for e in checker.check(self.root)))
 
     def test_stale_version_fails(self):
-        self.mutate('from: "7.0.0"', 'from: "6.1.0"')
+        source = (self.root / 'Sources/InnoRouterCore/InnoRouterVersion.swift').read_text(encoding='utf-8')
+        versions = re.findall(r'public static let current = "([^"]+)"', source)
+        self.assertEqual(len(versions), 1)
+        stale = '0.0.0' if versions[0] != '0.0.0' else '0.0.1'
+        self.mutate(f'from: "{versions[0]}"', f'from: "{stale}"')
         self.assertTrue(any('missing contract from:' in e for e in checker.check(self.root)))
 
     def test_contract_omission_fails(self):

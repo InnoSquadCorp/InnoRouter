@@ -1,6 +1,7 @@
 # Maintainer guide
 
-InnoRouter 7.0.0 is the current stable macro-first typed navigation framework for SwiftUI.
+InnoRouter is a macro-first typed navigation framework for SwiftUI.
+The current source targets 7.0.1; see README.md for publication status.
 
 ## Public contract
 

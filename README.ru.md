@@ -4,19 +4,19 @@
 
 Типобезопасная навигация SwiftUI на основе макросов: один enum маршрутов, рекурсивное дерево состояния и единственный владелец изменений.
 
-Текущая стабильная версия: **7.0.0**, опубликована 8 октября 2026 года. Тег указывает на `33b0da7639105cfa8e6f5acffa3badb91b5e0254`. Руководство описывает этот релиз; исторические отчёты сохраняют исходные границы проверки.
+Руководство описывает **7.0.1**. Публикация ожидается до появления релиза по ссылке ниже; предыдущая стабильная версия — [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0), опубликованная 8 октября 2026 года. Исторические отчёты сохраняют исходную версию и привязку к коммиту.
 
-[Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
+[Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 
 ## Требования и установка
 
 - Swift 6.3+ (`swift-tools-version: 6.3`)
 - iOS / iPadOS / Mac Catalyst 18+, macOS 15+, tvOS 18+, watchOS 11+, visionOS 2+
 
-Добавьте зависимость и продукт в соответствующие массивы Package.swift. `from:` разрешает совместимые обновления 7.x; `exact: "7.0.0"` фиксирует версию. Обычное приложение импортирует `InnoRouter`; `InnoRouterTesting` и `InnoRouterInspector` подключаются дополнительно.
+Добавьте зависимость и продукт в соответствующие массивы Package.swift. `from:` разрешает совместимые обновления 7.x; `exact: "7.0.1"` фиксирует версию. Обычное приложение импортирует `InnoRouter`; `InnoRouterTesting` и `InnoRouterInspector` подключаются дополнительно.
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.1")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -171,8 +171,8 @@ try await router.finishPresentation(request, returning: true)
 
 6.x → 7 нарушает совместимость: drafts состояния, throwing-настройка, фиксированные декларации host, конечные бюджеты, поколения авторизации и результаты с ограниченным временем жизни. Из 5.x также нужно заменить независимые stores/intents и удалённые отдельные продукты. Не переносите архивные API в текущее приложение. Исторический индекс сохраняет все семь языков.
 
-- [Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)
-- [DocC 7.0.0](https://innosquadcorp.github.io/InnoRouter/7.0.0/)
+- [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1)
+- [DocC 7.0.1](https://innosquadcorp.github.io/InnoRouter/7.0.1/)
 - [6.x → 7](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md)
 - [5.x → 6](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
 - [Historical translations / 과거 번역 / traducciones históricas / historische Übersetzungen / 历史译本 / 過去の翻訳 / исторические переводы](Docs/Archive/README-translations.md)
