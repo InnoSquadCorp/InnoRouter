@@ -35,8 +35,8 @@ Keep separate scratch paths for concurrent builds. The source repository require
 
 The fixture pins published **7.0.0** at **33b0da7639105cfa8e6f5acffa3badb91b5e0254**.
 It requires Swift tools 6.3+, Apple platform floors iOS/tvOS 18, macOS 15,
-watchOS 11 and visionOS 2. The package admits SwiftSyntax 603..<605; the fixture
-uses 604.0.0. Compatible declared ranges do not prove a combined app graph.
+watchOS 11 and visionOS 2. The package admits SwiftSyntax `>=603.0.2 <605.0.0`;
+the fixture uses 604.0.0. Compatible declared ranges do not prove a combined app graph.
 
 Support is **stable 7.0.x only** (`>=7.0.0 <7.1.0`), excluding prereleases.
 The 7.0.0 tag and GitHub Release were verified independently, and the exact-tag

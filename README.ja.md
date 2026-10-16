@@ -4,19 +4,19 @@
 
 マクロを中心とした SwiftUI の型安全なナビゲーション。1 つのルート enum、再帰的な状態ツリー、単一の変更権限で構成します。
 
-現在の安定版は **7.0.0**、公開日は 2026 年 10 月 8 日です。タグのコミットは `33b0da7639105cfa8e6f5acffa3badb91b5e0254`。このガイドは同リリースを説明し、過去の候補版検証記録は元の範囲を保持します。
+このガイドは **7.0.1** を対象とします。以下のリリースが公開されるまでは準備段階です。以前の安定版は 2026 年 10 月 8 日公開の [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0) です。過去の検証記録は元のバージョンとコミットの範囲を保持します。
 
-[Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
+[Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 
 ## 要件とインストール
 
 - Swift 6.3+ (`swift-tools-version: 6.3`)
 - iOS / iPadOS / Mac Catalyst 18+, macOS 15+, tvOS 18+, watchOS 11+, visionOS 2+
 
-Package.swift の依存関係と製品の配列にそれぞれ追加します。`from:` は互換性のある 7.x 更新を許可します。固定する場合は `exact: "7.0.0"` を使います。通常のアプリは `InnoRouter` のみを import し、`InnoRouterTesting` と `InnoRouterInspector` は任意です。
+Package.swift の依存関係と製品の配列にそれぞれ追加します。`from:` は互換性のある 7.x 更新を許可します。固定する場合は `exact: "7.0.1"` を使います。通常のアプリは `InnoRouter` のみを import し、`InnoRouterTesting` と `InnoRouterInspector` は任意です。
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.1")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -171,8 +171,8 @@ snapshot の永続化には Codable ルートが必要で、payload/schema の m
 
 6.x → 7 は破壊的変更です。読み取り専用状態 draft、throwing 初期設定、固定 host 宣言、有限予算、authorization generation、寿命に結び付く結果を確認してください。5.x からは独立 store/intent と廃止された個別製品も置き換えます。過去の API を現在のアプリにコピーしないでください。アーカイブ索引には過去の全 7 言語を残しています。
 
-- [Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)
-- [DocC 7.0.0](https://innosquadcorp.github.io/InnoRouter/7.0.0/)
+- [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1)
+- [DocC 7.0.1](https://innosquadcorp.github.io/InnoRouter/7.0.1/)
 - [6.x → 7](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md)
 - [5.x → 6](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
 - [Historical translations / 과거 번역 / traducciones históricas / historische Übersetzungen / 历史译本 / 過去の翻訳 / исторические переводы](Docs/Archive/README-translations.md)

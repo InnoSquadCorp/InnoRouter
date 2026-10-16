@@ -4,19 +4,19 @@
 
 Navegación tipada para SwiftUI basada en macros: un enum de rutas, un árbol de estado recursivo y una sola autoridad mutable.
 
-Versión estable actual: **7.0.0**, publicada el 8 de octubre de 2026. El tag apunta a `33b0da7639105cfa8e6f5acffa3badb91b5e0254`. Esta guía describe esa versión; los informes de candidatos conservan su alcance histórico.
+Esta guía corresponde a **7.0.1**. La publicación está pendiente hasta que esté disponible el lanzamiento enlazado abajo; la versión estable anterior es [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0), publicada el 8 de octubre de 2026. Los informes históricos conservan su versión y commit originales.
 
-[Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
+[Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 
 ## Requisitos e instalación
 
 - Swift 6.3+ (`swift-tools-version: 6.3`)
 - iOS / iPadOS / Mac Catalyst 18+, macOS 15+, tvOS 18+, watchOS 11+, visionOS 2+
 
-Añade la dependencia y el producto a los arrays correspondientes de Package.swift. `from:` permite actualizaciones compatibles 7.x; usa `exact: "7.0.0"` para fijar la versión. Las aplicaciones importan `InnoRouter`; `InnoRouterTesting` e `InnoRouterInspector` son productos opcionales.
+Añade la dependencia y el producto a los arrays correspondientes de Package.swift. `from:` permite actualizaciones compatibles 7.x; usa `exact: "7.0.1"` para fijar la versión. Las aplicaciones importan `InnoRouter`; `InnoRouterTesting` e `InnoRouterInspector` son productos opcionales.
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.1")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -171,8 +171,8 @@ Declara rutas sin parámetros con `@Scene(.window)` / `@Scene(.immersiveSpace)` 
 
 6.x → 7 rompe compatibilidad: drafts de estado, inicialización que lanza errores, declaraciones de host fijas, presupuestos finitos, generaciones de autorización y resultados ligados a su duración. Desde 5.x también debes sustituir stores/intents independientes y productos granulares retirados. No copies API archivadas a una app actual. El índice histórico conserva los siete idiomas.
 
-- [Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)
-- [DocC 7.0.0](https://innosquadcorp.github.io/InnoRouter/7.0.0/)
+- [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1)
+- [DocC 7.0.1](https://innosquadcorp.github.io/InnoRouter/7.0.1/)
 - [6.x → 7](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md)
 - [5.x → 6](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
 - [Historical translations / 과거 번역 / traducciones históricas / historische Übersetzungen / 历史译本 / 過去の翻訳 / исторические переводы](Docs/Archive/README-translations.md)

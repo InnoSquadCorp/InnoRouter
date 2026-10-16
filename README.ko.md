@@ -4,19 +4,19 @@
 
 SwiftUI를 위한 매크로 중심의 타입 안전 내비게이션입니다. 하나의 라우트 enum, 재귀 상태 트리, 변경 권한으로 구성됩니다.
 
-현재 안정 버전은 **7.0.0**이며 2026년 10월 8일 공개되었습니다. 태그 커밋은 `33b0da7639105cfa8e6f5acffa3badb91b5e0254`입니다. 이 가이드는 해당 릴리스를 설명하며, 과거 후보 검증 기록은 원래의 범위를 유지합니다.
+이 가이드는 **7.0.1**을 대상으로 합니다. 아래 릴리스가 공개되기 전까지는 배포 준비 상태이며, 이전 안정 버전은 2026년 10월 8일 공개된 [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)입니다. 과거 검증 기록은 원래 버전과 커밋 범위를 유지합니다.
 
-[Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
+[Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 
 ## 요구 사항과 설치
 
 - Swift 6.3+ (`swift-tools-version: 6.3`)
 - iOS / iPadOS / Mac Catalyst 18+, macOS 15+, tvOS 18+, watchOS 11+, visionOS 2+
 
-Package.swift의 의존성과 제품 배열에 각각 추가하세요. `from:`은 호환되는 7.x 업데이트를 허용하며, 정확히 고정하려면 `exact: "7.0.0"`을 사용합니다. 일반 앱은 `InnoRouter`만 import합니다. 선택 제품은 `InnoRouterTesting`, `InnoRouterInspector`입니다.
+Package.swift의 의존성과 제품 배열에 각각 추가하세요. `from:`은 호환되는 7.x 업데이트를 허용하며, 정확히 고정하려면 `exact: "7.0.1"`을 사용합니다. 일반 앱은 `InnoRouter`만 import합니다. 선택 제품은 `InnoRouterTesting`, `InnoRouterInspector`입니다.
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.1")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -171,8 +171,8 @@ snapshot 영속화에는 Codable route가 필요하며, 앱 payload/schema의 mi
 
 6.x → 7은 breaking migration입니다. 읽기 전용 상태 draft, throwing 초기 설정, 고정 host 선언, 유한 자원 한도, authorization generation, 수명에 묶인 결과를 확인하세요. 5.x 사용자는 독립 store/intent와 제거된 세분화 제품도 교체해야 합니다. 과거 API를 현재 앱에 복사하지 마세요. 이전 7개 언어 문서는 모두 archive index에서 접근할 수 있습니다.
 
-- [Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)
-- [DocC 7.0.0](https://innosquadcorp.github.io/InnoRouter/7.0.0/)
+- [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1)
+- [DocC 7.0.1](https://innosquadcorp.github.io/InnoRouter/7.0.1/)
 - [6.x → 7](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md)
 - [5.x → 6](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
 - [Historical translations / 과거 번역 / traducciones históricas / historische Übersetzungen / 历史译本 / 過去の翻訳 / исторические переводы](Docs/Archive/README-translations.md)

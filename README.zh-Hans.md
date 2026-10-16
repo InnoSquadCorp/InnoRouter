@@ -4,19 +4,19 @@
 
 以宏为核心的 SwiftUI 类型安全导航：一个路由枚举、一棵递归状态树、一个可变状态管理者。
 
-当前稳定版为 **7.0.0**，发布于 2026 年 10 月 8 日。标签指向 `33b0da7639105cfa8e6f5acffa3badb91b5e0254`。本指南描述该版本；历史候选版报告仍保留原有验证范围。
+本指南面向 **7.0.1**。在下方版本正式发布之前，发布仍处于准备阶段。上一稳定版是 2026 年 10 月 8 日发布的 [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)。历史验证记录保留原有版本和提交范围。
 
-[Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
+[Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 
 ## 要求与安装
 
 - Swift 6.3+ (`swift-tools-version: 6.3`)
 - iOS / iPadOS / Mac Catalyst 18+, macOS 15+, tvOS 18+, watchOS 11+, visionOS 2+
 
-将依赖和产品分别加入 Package.swift 对应的数组。`from:` 允许兼容的 7.x 更新；精确固定版本请用 `exact: "7.0.0"`。普通应用只需导入 `InnoRouter`。可选产品为 `InnoRouterTesting` 和 `InnoRouterInspector`。
+将依赖和产品分别加入 Package.swift 对应的数组。`from:` 允许兼容的 7.x 更新；精确固定版本请用 `exact: "7.0.1"`。普通应用只需导入 `InnoRouter`。可选产品为 `InnoRouterTesting` 和 `InnoRouterInspector`。
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.1")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -171,8 +171,8 @@ snapshot 持久化要求路由遵循 Codable，应用需自行定义 payload/sch
 
 6.x → 7 是破坏性迁移：只读状态 draft、可抛错设置、固定 host 声明、有限资源预算、授权 generation、生命周期绑定结果。5.x 用户还需替换独立 store/intent 和已移除的细分产品。不要将归档 API 复制到当前应用。历史索引保留全部七种语言。
 
-- [Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)
-- [DocC 7.0.0](https://innosquadcorp.github.io/InnoRouter/7.0.0/)
+- [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1)
+- [DocC 7.0.1](https://innosquadcorp.github.io/InnoRouter/7.0.1/)
 - [6.x → 7](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md)
 - [5.x → 6](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
 - [Historical translations / 과거 번역 / traducciones históricas / historische Übersetzungen / 历史译本 / 過去の翻訳 / исторические переводы](Docs/Archive/README-translations.md)

@@ -4,19 +4,19 @@
 
 Typsichere, makrobasierte Navigation für SwiftUI: ein Routen-Enum, ein rekursiver Zustandsbaum und eine einzige veränderbare Zustandsinstanz.
 
-Aktuelle stabile Version: **7.0.0**, veröffentlicht am 8. Oktober 2026. Der Tag verweist auf `33b0da7639105cfa8e6f5acffa3badb91b5e0254`. Dieser Leitfaden beschreibt diese Version; historische Prüfberichte behalten ihren ursprünglichen Geltungsbereich.
+Dieser Leitfaden beschreibt **7.0.1**. Die Veröffentlichung steht aus, bis der unten verlinkte Release verfügbar ist; die vorherige stabile Version ist [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0), veröffentlicht am 8. Oktober 2026. Historische Prüfberichte behalten ihre ursprüngliche Version und ihren Commit-Bezug.
 
-[Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
+[Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 
 ## Voraussetzungen und Installation
 
 - Swift 6.3+ (`swift-tools-version: 6.3`)
 - iOS / iPadOS / Mac Catalyst 18+, macOS 15+, tvOS 18+, watchOS 11+, visionOS 2+
 
-Füge Abhängigkeit und Produkt in die passenden Arrays der Package.swift ein. `from:` erlaubt kompatible 7.x-Updates; `exact: "7.0.0"` fixiert die Version. Apps importieren `InnoRouter`; `InnoRouterTesting` und `InnoRouterInspector` sind optionale Produkte.
+Füge Abhängigkeit und Produkt in die passenden Arrays der Package.swift ein. `from:` erlaubt kompatible 7.x-Updates; `exact: "7.0.1"` fixiert die Version. Apps importieren `InnoRouter`; `InnoRouterTesting` und `InnoRouterInspector` sind optionale Produkte.
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.1")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -171,8 +171,8 @@ Deklariere parameterlose `@Scene(.window)` / `@Scene(.immersiveSpace)` und insta
 
 6.x → 7 ist inkompatibel: Zustands-Drafts, werfende Einrichtung, feste Host-Deklarationen, endliche Budgets, Autorisierungsgenerationen und lebensdauergebundene Ergebnisse. Aus 5.x müssen zusätzlich unabhängige Stores/Intents und entfernte Einzelprodukte ersetzt werden. Übernimm keine archivierten APIs in aktuelle Apps. Der Archivindex verlinkt alle sieben historischen Übersetzungen.
 
-- [Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)
-- [DocC 7.0.0](https://innosquadcorp.github.io/InnoRouter/7.0.0/)
+- [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1)
+- [DocC 7.0.1](https://innosquadcorp.github.io/InnoRouter/7.0.1/)
 - [6.x → 7](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md)
 - [5.x → 6](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
 - [Historical translations / 과거 번역 / traducciones históricas / historische Übersetzungen / 历史译本 / 過去の翻訳 / исторические переводы](Docs/Archive/README-translations.md)

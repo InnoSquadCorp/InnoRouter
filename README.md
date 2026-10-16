@@ -4,19 +4,19 @@
 
 Macro-first, typed navigation for SwiftUI. One route enum, one recursive state tree, one mutable authority.
 
-Current stable release: **7.0.0**, published October 8, 2026. The release tag points to `33b0da7639105cfa8e6f5acffa3badb91b5e0254`. This guide describes that release; historical candidate reports retain their original scope.
+This guide targets **7.0.1**. Publication is pending until the release linked below is available; the previous stable release is [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0), published October 8, 2026. Historical validation reports retain their original version and commit scope.
 
-[Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
+[Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 
 ## Requirements and installation
 
 - Swift 6.3+ (`swift-tools-version: 6.3`)
 - iOS / iPadOS / Mac Catalyst 18+, macOS 15+, tvOS 18+, watchOS 11+, visionOS 2+
 
-Add the package dependency and the product to the corresponding arrays in your Package.swift. `from:` allows compatible 7.x updates; use `exact: "7.0.0"` for an exact baseline. Normal apps import only `InnoRouter`. Optional products: `InnoRouterTesting` and `InnoRouterInspector`.
+Add the package dependency and the product to the corresponding arrays in your Package.swift. `from:` allows compatible 7.x updates; use `exact: "7.0.1"` for an exact baseline. Normal apps import only `InnoRouter`. Optional products: `InnoRouterTesting` and `InnoRouterInspector`.
 
 ```swift skip package-manifest-fragment
-.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.0")
+.package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "7.0.1")
 
 .product(name: "InnoRouter", package: "InnoRouter")
 ```
@@ -171,8 +171,8 @@ Declare parameterless `@Scene(.window)` / `@Scene(.immersiveSpace)` routes and i
 
 6.x → 7 is a breaking migration: read-only state drafts, throwing setup, frozen host declarations, finite resource budgets, authorization generations, and lifetime-bound results. 5.x consumers must also replace independent stores/intents and removed granular products. Do not copy archived APIs into a current app. All seven historical translations remain linked in the archive index.
 
-- [Release 7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)
-- [DocC 7.0.0](https://innosquadcorp.github.io/InnoRouter/7.0.0/)
+- [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1)
+- [DocC 7.0.1](https://innosquadcorp.github.io/InnoRouter/7.0.1/)
 - [6.x → 7](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-7.md)
 - [5.x → 6](Sources/InnoRouterUmbrella/InnoRouter.docc/Articles/Migrating-To-InnoRouter-6.md)
 - [Historical translations / 과거 번역 / traducciones históricas / historische Übersetzungen / 历史译本 / 過去の翻訳 / исторические переводы](Docs/Archive/README-translations.md)
