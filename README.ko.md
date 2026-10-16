@@ -4,7 +4,7 @@
 
 SwiftUI를 위한 매크로 중심의 타입 안전 내비게이션입니다. 하나의 라우트 enum, 재귀 상태 트리, 변경 권한으로 구성됩니다.
 
-이 가이드는 **7.0.1**을 대상으로 합니다. 아래 릴리스가 공개되기 전까지는 배포 준비 상태이며, 이전 안정 버전은 2026년 10월 8일 공개된 [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)입니다. 과거 검증 기록은 원래 버전과 커밋 범위를 유지합니다.
+이 가이드는 2026년 10월 16일(UTC) [정식 공개된 **7.0.1**](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1)을 대상으로 합니다. 과거 검증 기록은 원래 버전과 커밋 범위를 유지합니다.
 
 [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 

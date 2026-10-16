@@ -4,7 +4,7 @@
 
 以宏为核心的 SwiftUI 类型安全导航：一个路由枚举、一棵递归状态树、一个可变状态管理者。
 
-本指南面向 **7.0.1**。在下方版本正式发布之前，发布仍处于准备阶段。上一稳定版是 2026 年 10 月 8 日发布的 [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0)。历史验证记录保留原有版本和提交范围。
+本指南面向[于 2026 年 10 月 16 日（UTC）正式发布的 **7.0.1**](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1)。历史验证记录保留原有版本和提交范围。
 
 [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 
