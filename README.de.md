@@ -4,7 +4,7 @@
 
 Typsichere, makrobasierte Navigation für SwiftUI: ein Routen-Enum, ein rekursiver Zustandsbaum und eine einzige veränderbare Zustandsinstanz.
 
-Dieser Leitfaden beschreibt **7.0.1**. Die Veröffentlichung steht aus, bis der unten verlinkte Release verfügbar ist; die vorherige stabile Version ist [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0), veröffentlicht am 8. Oktober 2026. Historische Prüfberichte behalten ihre ursprüngliche Version und ihren Commit-Bezug.
+Dieser Leitfaden beschreibt **7.0.1**, [veröffentlicht am 16. Oktober 2026 (UTC)](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1). Historische Prüfberichte behalten ihre ursprüngliche Version und ihren Commit-Bezug.
 
 [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 
