@@ -4,7 +4,7 @@
 
 Типобезопасная навигация SwiftUI на основе макросов: один enum маршрутов, рекурсивное дерево состояния и единственный владелец изменений.
 
-Руководство описывает **7.0.1**. Публикация ожидается до появления релиза по ссылке ниже; предыдущая стабильная версия — [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0), опубликованная 8 октября 2026 года. Исторические отчёты сохраняют исходную версию и привязку к коммиту.
+Руководство описывает **7.0.1**, [опубликованную 16 октября 2026 года (UTC)](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1). Исторические отчёты сохраняют исходную версию и привязку к коммиту.
 
 [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 
