@@ -4,7 +4,7 @@
 
 Navegación tipada para SwiftUI basada en macros: un enum de rutas, un árbol de estado recursivo y una sola autoridad mutable.
 
-Esta guía corresponde a **7.0.1**. La publicación está pendiente hasta que esté disponible el lanzamiento enlazado abajo; la versión estable anterior es [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0), publicada el 8 de octubre de 2026. Los informes históricos conservan su versión y commit originales.
+Esta guía corresponde a **7.0.1**, [publicada el 16 de octubre de 2026 (UTC)](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1). Los informes históricos conservan su versión y commit originales.
 
 [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 

@@ -4,7 +4,7 @@
 
 マクロを中心とした SwiftUI の型安全なナビゲーション。1 つのルート enum、再帰的な状態ツリー、単一の変更権限で構成します。
 
-このガイドは **7.0.1** を対象とします。以下のリリースが公開されるまでは準備段階です。以前の安定版は 2026 年 10 月 8 日公開の [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0) です。過去の検証記録は元のバージョンとコミットの範囲を保持します。
+このガイドは、[2026 年 10 月 16 日（UTC）に正式公開された **7.0.1**](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) を対象とします。過去の検証記録は元のバージョンとコミットの範囲を保持します。
 
 [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 

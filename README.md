@@ -4,7 +4,7 @@
 
 Macro-first, typed navigation for SwiftUI. One route enum, one recursive state tree, one mutable authority.
 
-This guide targets **7.0.1**. Publication is pending until the release linked below is available; the previous stable release is [7.0.0](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.0), published October 8, 2026. Historical validation reports retain their original version and commit scope.
+This guide targets **7.0.1**, [published October 16, 2026 (UTC)](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1). Historical validation reports retain their original version and commit scope.
 
 [Release 7.0.1](https://github.com/InnoSquadCorp/InnoRouter/releases/tag/7.0.1) · [Swift Package Index](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
 
