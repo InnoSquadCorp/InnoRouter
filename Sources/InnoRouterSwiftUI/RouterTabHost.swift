@@ -133,11 +133,13 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
 
     public var body: some View {
         RouterValidatedHostSurface(store: store, shape: shape, rootDeclarations: rootDeclarations, presentations: presentations, path: .root) { rootScope in
-            tabView(rootScope)
+            tabView(rootScope, reconciliationRevision: rootScope.reconciliationRevision)
         }
     }
 
-    private func tabView(_ rootScope: RouterScope<R>) -> some View {
+    /// Reading the reconciliation revision rebuilds `TabView` after a rejected
+    /// native selection, so its binding re-reads the canonical selection.
+    private func tabView(_ rootScope: RouterScope<R>, reconciliationRevision _: UInt64) -> some View {
         TabView(selection: selectionBinding(rootScope)) {
             ForEach(tabs) { descriptor in
                 let tab = descriptor.tab
@@ -194,7 +196,7 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         })
     }
 
-    private func selectionBinding(_ scope: RouterScope<R>) -> Binding<RouterScopeID?> {
+    func selectionBinding(_ scope: RouterScope<R>) -> Binding<RouterScopeID?> {
         Binding(get: { scope.observedSelection }, set: { selection in
             if let selection { requestSelection(selection, in: scope) }
         })
