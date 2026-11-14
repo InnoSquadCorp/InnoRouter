@@ -147,7 +147,7 @@ try await router.finishPresentation(request, returning: true)
 
 ## 복원과 이동 이력
 
-`RouterRestorationDriver`와 앱이 선택한 저장소를 유지하고 안정적인 root에 `routerStateRestoration(_:)`을 붙이세요. `RouterSnapshotCodec`에 버전을 지정하고 route/schema 변경의 migration과 복원 결과를 처리합니다. 탭 변경에는 하나의 catalog를 `RouterTabRestorationTopology`, `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`, renderer에 공통으로 사용합니다. dormant branch는 선택 renderer가 될 수 없습니다. 오래된 복원은 최신 이동을 덮지 못합니다. snapshot 기본 한도는 유한한 잠정값이므로 늘리기 전에 측정하세요. 갑작스러운 종료 직전 저장은 보장되지 않습니다. 기본적으로 snapshot을 읽는 동안 commit된 navigation이 우선합니다. driver를 `initialRestorePrecedence: .snapshot`으로 만들면 snapshot을 먼저 적용하며, 그 사이 view가 보낸 요청은 snapshot을 밀어내지 않고 거절됩니다.
+`RouterRestorationDriver`와 앱이 선택한 저장소를 유지하고 안정적인 root에 `routerStateRestoration(_:)`을 붙이세요. `RouterSnapshotCodec`에 버전을 지정하고 route/schema 변경의 migration과 복원 결과를 처리합니다. 탭 변경에는 하나의 catalog를 `RouterTabRestorationTopology`, `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`, renderer에 공통으로 사용합니다. dormant branch는 선택 renderer가 될 수 없습니다. 오래된 복원은 최신 이동을 덮지 못합니다. snapshot 기본 한도는 유한한 잠정값이므로 늘리기 전에 측정하세요. 갑작스러운 종료 직전 저장은 보장되지 않습니다. 기본적으로 snapshot을 읽는 동안 commit된 navigation이 우선합니다. driver를 `initialRestorePrecedence: .snapshot`으로 만들면 activation 시점에 이미 실행 중이거나 대기 중인 요청이 없는 한 복원이 실행될 때까지 새 navigation을 보류하며, snapshot이 복원되면 그 사이 view가 보낸 요청은 snapshot을 밀어내지 않고 거절됩니다. snapshot이 없으면 대기하던 요청은 그대로 실행되며, 그 밖의 결과는 [내비게이션 가이드](Docs/Navigation-Guide.ko.md)에 정리되어 있습니다.
 
 `RouterHistory`는 exact plan과 일반 정책을 통해 제한된 뒤로/앞으로 이동과 checkpoint를 제공합니다. badge와 presentation을 보존하고 scene을 열거나 닫지 않습니다. 계정·문서 경계에서 `reset(sessionKey:)`을 호출하세요. reset 또는 stop은 중단된 이동을 무효화합니다.
 

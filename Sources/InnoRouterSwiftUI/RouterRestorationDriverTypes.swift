@@ -74,8 +74,10 @@ public struct RouterRestorationPrecedence: Sendable, Hashable {
     /// queues them in order, `.rejectWhileBusy` rejects them as busy, naming
     /// the reserved restore transition.
     ///
-    /// After an applied or unchanged restore, the queued requests run under
-    /// the ordinary rules:
+    /// When the storage has no snapshot, the load or decoding fails, or the
+    /// driver stops, nothing replaced the scopes and the queued requests run
+    /// on the current state. After an applied or unchanged restore, they run
+    /// under the ordinary rules:
     ///
     /// - A request from a `RouterScope` or a view's router, including a
     ///   host's own deep-link handling and SwiftUI's navigation bindings, was

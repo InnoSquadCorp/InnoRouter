@@ -155,22 +155,33 @@ snapshot that lost is replaced.
 
 When launch-time work must not displace the previous session, wait until the
 driver reports `lastActivation` before committing it, or create the driver with
-`initialRestorePrecedence: .snapshot`. With that option the driver holds the
-store's execution lane from activation until its restore request runs, through
-loading, decoding, migration, and validation, so nothing commits before the
-snapshot is applied: requests made meanwhile wait under `.serialize` or are
-rejected as busy under `.rejectWhileBusy`. Afterwards a request from a view—a
-router call, a host's deep-link handling, a SwiftUI navigation binding—was made
-for the scope the restore replaced and is rejected as an expired scope, as
-after any restore, so an early tap or launch link ends as a rejected request
-instead of erasing the session. A request sent to the store itself is not tied
-to a scope: it runs after the restore and can change or replace the restored
-state, including link handling through `handle(_:using:)`, whose default plan
-replaces the whole state. Keep the storage's load bounded and give a
-validator a `validationTimeout`, because navigation is closed for the
-duration. If a policy or authorization defers or rejects the restoration
-transition, the hold ends with that outcome: the waiting requests run on the
-state before the snapshot and are saved.
+`initialRestorePrecedence: .snapshot`. With that option, when no request is
+running or queued as activation starts, the driver holds the store's execution
+lane until its restore request runs, through loading, decoding, migration, and
+validation: requests made meanwhile wait under `.serialize` or are rejected as
+busy under `.rejectWhileBusy`. If a request was already running or queued, the
+driver holds nothing; that activation behaves as the default, and once the
+earlier request commits, the restore is rejected as stale.
+
+What the waiting requests do depends on how the hold ends:
+
+- **The snapshot is restored** (the restore applies or leaves the state
+  unchanged). Every scope is replaced, so a request from a view—a router call,
+  a host's deep-link handling, a SwiftUI navigation binding—was made for a
+  scope that no longer exists and is rejected as an expired scope, as after
+  any restore: an early tap or launch link ends as a rejected request instead
+  of erasing the session. A request sent to the store itself is not tied to a
+  scope: it runs after the restore and can change or replace the restored
+  state, including link handling through `handle(_:using:)`, whose default
+  plan replaces the whole state.
+- **There is no snapshot, the load fails, or the driver stops.** Nothing
+  replaced the scopes, so the waiting requests run on the current state.
+- **A policy or authorization defers or rejects the restoration transition.**
+  The hold ends with that outcome: the waiting requests run on the state
+  before the snapshot, and what they commit is saved.
+
+Keep the storage's load bounded and give a validator a `validationTimeout`,
+because navigation is closed for the duration.
 
 Stopping a driver invalidates queued workers and caller ownership; a later
 activation cannot be modified by their delayed completion.

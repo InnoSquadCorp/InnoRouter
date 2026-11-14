@@ -120,8 +120,10 @@ change list.
 By default a navigation committed while the initial snapshot loads makes that
 restore stale. From 7.1.0, a driver created with
 `initialRestorePrecedence: .snapshot` holds the Store's execution lane until its
-restore request runs; requests from views made meanwhile are then rejected as
-expired scopes, and requests sent to the Store run after the restore.
+restore request runs, unless a request is already running or queued when
+activation starts. Once the snapshot is restored, requests from views made meanwhile are
+rejected as expired scopes, and requests sent to the Store run after the
+restore; with no snapshot they simply run.
 
 Automatic restoration can take the same validator, timeout, and optional
 topology. It plans before one policy transition and exposes the initial report

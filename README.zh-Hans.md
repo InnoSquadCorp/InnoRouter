@@ -147,7 +147,7 @@ try await router.finishPresentation(request, returning: true)
 
 ## 恢复与导航历史
 
-稳定持有 `RouterRestorationDriver` 及应用选择的存储，在根节点附加 `routerStateRestoration(_:)`。为 `RouterSnapshotCodec` 设置版本，迁移路由/schema 变更并检查恢复结果。标签目录变化时，`RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)` 和 renderer 应共享同一目录。休眠分支不能成为选中的 renderer。过期恢复不能覆盖新导航。snapshot 默认上限是有限的暂定值，增大前请实测；突然终止不保证最后一次保存。 默认情况下，快照加载期间提交的导航优先；使用 `initialRestorePrecedence: .snapshot` 创建的 driver 会先应用快照，期间由视图发出的请求会被拒绝，而不会取代快照。
+稳定持有 `RouterRestorationDriver` 及应用选择的存储，在根节点附加 `routerStateRestoration(_:)`。为 `RouterSnapshotCodec` 设置版本，迁移路由/schema 变更并检查恢复结果。标签目录变化时，`RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)` 和 renderer 应共享同一目录。休眠分支不能成为选中的 renderer。过期恢复不能覆盖新导航。snapshot 默认上限是有限的暂定值，增大前请实测；突然终止不保证最后一次保存。 默认情况下，快照加载期间提交的导航优先。使用 `initialRestorePrecedence: .snapshot` 创建的 driver 会在恢复执行前暂缓新的导航（激活时已有请求在执行或排队的情况除外）；快照恢复后，期间由视图发出的请求会被拒绝，而不会取代快照。没有快照时，等待中的请求会直接执行；其他情况见[导航指南](Docs/Navigation-Guide.md)。
 
 `RouterHistory` 通过精确 plan 和普通策略提供有界的前进、后退及 checkpoint，保留 badge 和 presentation，不打开或关闭 scene。在账户/文档边界调用 `reset(sessionKey:)`；reset 或 stop 会使挂起的移动失效。
 

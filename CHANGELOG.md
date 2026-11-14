@@ -63,17 +63,19 @@ site compiling. Behavior changes are marked in bold.
   of every `RouterRestorationDriver` initializer, readable afterwards as
   `initialRestorePrecedence`. The default, `.navigation`, is the 7.0 behavior:
   a navigation committed while the initial snapshot loads wins, and the
-  snapshot is rejected as stale. With `.snapshot` the driver holds the Store's
-  execution lane from activation until its restore request runs, through
-  loading, decoding, and validation, so nothing commits before the snapshot
-  is applied. Afterwards a request from a view, including a host's deep-link
-  handling and native binding writes, was made for a scope the restore
-  replaced and is rejected as an expired scope, so it cannot erase the
-  previous session; a request sent to the Store itself runs after the restore
-  and can change or replace it. A missing snapshot, a failed load, `stop()`,
-  and the last detach release the hold. A policy or authorization that defers
-  or rejects the restoration transition ends the hold, and the waiting
-  requests then run on the state before the snapshot.
+  snapshot is rejected as stale. With `.snapshot`, when no request is running
+  or queued as activation starts, the driver holds the Store's execution lane
+  until its restore request runs, through loading, decoding, and validation;
+  otherwise that activation behaves as `.navigation`. Once the snapshot is
+  restored, a request from a view, including a host's deep-link handling and
+  native binding writes, was made for a scope the restore replaced and is
+  rejected as an expired scope, so it cannot erase the previous session; a
+  request sent to the Store itself runs after the restore and can change or
+  replace it. A missing snapshot, a failed load, `stop()`, and the last detach
+  release the hold, and the waiting requests then run on the current state. A
+  policy or authorization that defers or rejects the restoration transition
+  ends the hold, and the waiting requests then run on the state before the
+  snapshot.
 - `RouterTabHost(_:linkHandling:)`, a nonthrowing initializer for the
   macro-first path that starts on the first declared tab, and
   `RouterTabHost.validationFailure`. An invalid hand-written `routerTabs`

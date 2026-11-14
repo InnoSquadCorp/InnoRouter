@@ -40,9 +40,10 @@ Version 7.1.0 adds opt-in behaviors and conveniences; the defaults keep the
   hosts' native bindings keep committing on a later turn.
 - Create a `RouterRestorationDriver` with `initialRestorePrecedence: .snapshot`
   to keep the Store from committing anything until the initial restore has
-  run, so navigation a view requests while the snapshot loads cannot displace
-  the previous session. <doc:Restoring-Tab-Navigation> describes what happens
-  to requests made meanwhile.
+  run, unless a request is already running or queued when activation starts. Once the
+  snapshot is restored, navigation a view requested meanwhile is rejected
+  instead of displacing the previous session. <doc:Restoring-Tab-Navigation>
+  describes the other outcomes.
 - `RouterTabHost(AppRoute.self)` builds the tab host of an `@Router` enum
   without `try`. `validationFailure` reports a hand-written catalog that is
   invalid.

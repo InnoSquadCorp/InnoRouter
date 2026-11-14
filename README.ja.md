@@ -147,7 +147,7 @@ try await router.finishPresentation(request, returning: true)
 
 ## 復元とナビゲーション履歴
 
-`RouterRestorationDriver` と保存先を保持し、安定した root に `routerStateRestoration(_:)` を付けます。`RouterSnapshotCodec` をバージョン管理し、ルート/schema の migration と復元結果を処理します。タブ変更時は `RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)`、renderer で同じ catalog を使います。休止 branch は選択 renderer になれません。古い復元が新しい移動を上書きしないようにします。snapshot の既定上限は有限の暫定値です。増やす前に計測し、突然の終了時の最終保存は保証しないでください。 既定では、snapshot の読み込み中に commit された navigation が優先されます。`initialRestorePrecedence: .snapshot` で作成した driver は snapshot を先に適用し、その間に view が出したリクエストは snapshot を置き換えずに拒否されます。
+`RouterRestorationDriver` と保存先を保持し、安定した root に `routerStateRestoration(_:)` を付けます。`RouterSnapshotCodec` をバージョン管理し、ルート/schema の migration と復元結果を処理します。タブ変更時は `RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)`、renderer で同じ catalog を使います。休止 branch は選択 renderer になれません。古い復元が新しい移動を上書きしないようにします。snapshot の既定上限は有限の暫定値です。増やす前に計測し、突然の終了時の最終保存は保証しないでください。 既定では、snapshot の読み込み中に commit された navigation が優先されます。`initialRestorePrecedence: .snapshot` で作成した driver は、activation 時にすでに実行中または待機中のリクエストがない限り、復元が実行されるまで新しい navigation を保留します。snapshot が復元されると、その間に view が出したリクエストは snapshot を置き換えずに拒否されます。snapshot がなければ待機中のリクエストはそのまま実行されます。それ以外の結果は[ナビゲーションガイド](Docs/Navigation-Guide.md)を参照してください。
 
 `RouterHistory` は exact plan と通常のポリシーで上限付きの前後移動と checkpoint を提供します。badge と presentation を保持し、scene は開閉しません。アカウント・文書の境界で `reset(sessionKey:)` を呼びます。reset または stop は中断された移動を無効にします。
 

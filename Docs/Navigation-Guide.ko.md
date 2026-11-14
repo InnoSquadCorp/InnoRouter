@@ -122,17 +122,27 @@ snapshot load 중 들어온 최신 navigation을 덮지 않습니다. driver가 
 
 실행 직후의 작업이 이전 session을 밀어내면 안 된다면 driver가 `lastActivation`을 보고한
 뒤에 commit하거나, driver를 `initialRestorePrecedence: .snapshot`으로 만드세요. 이 옵션에서는
-driver가 activation부터 복원 요청이 실행될 때까지(읽기, 디코딩, migration, 검증 전체) store의
-실행 lane을 잡으므로 snapshot이 적용되기 전에는 아무것도 commit되지 않습니다. 그 사이의 요청은
-`.serialize`에서는 대기하고 `.rejectWhileBusy`에서는 busy로 거절됩니다. 이후 view에서 온
-요청(router 호출, host의 deep link 처리, SwiftUI navigation binding)은 복원이 대체한 scope를
-대상으로 만든 것이므로 다른 복원 뒤와 마찬가지로 expired scope로 거절되며, 따라서 이른 탭이나
-실행 직후의 link는 session을 지우는 대신 거절된 요청으로 끝납니다. store에 직접 보낸 요청은
-scope에 묶이지 않으므로 복원 뒤에 실행되어 복원된 상태를 바꾸거나 대체할 수 있습니다. 기본
-plan이 상태 전체를 대체하는 `handle(_:using:)`의 link 처리도 여기에 해당합니다. 그동안
-navigation이 닫히므로 저장소의 load 시간을 제한하고 검증기에는 `validationTimeout`을 주세요.
-policy나 authorization이 복원 transition을 defer하거나 거절하면 대기는 그 결과와 함께 끝나고,
-대기하던 요청은 snapshot 이전 상태에서 실행되어 저장됩니다.
+activation 시점에 실행 중이거나 대기 중인 요청이 없으면 driver가 복원 요청이 실행될 때까지(읽기,
+디코딩, migration, 검증 전체) store의 실행 lane을 잡습니다. 그 사이의 요청은 `.serialize`에서는
+대기하고 `.rejectWhileBusy`에서는 busy로 거절됩니다. 이미 실행 중이거나 대기 중인 요청이 있었다면
+driver는 lane을 잡지 않으며, 그 activation은 기본 방식으로 동작해 앞선 요청이 commit되면 복원은
+stale로 거절됩니다.
+
+대기하던 요청이 어떻게 되는지는 대기가 끝나는 방식에 따라 다릅니다.
+
+- **snapshot이 복원된 경우**(복원이 적용되었거나 상태가 그대로인 경우). 모든 scope가 대체되므로
+  view에서 온 요청(router 호출, host의 deep link 처리, SwiftUI navigation binding)은 더 이상 없는
+  scope를 대상으로 만든 것이 되어 다른 복원 뒤와 마찬가지로 expired scope로 거절됩니다. 이른 탭이나
+  실행 직후의 link는 session을 지우는 대신 거절된 요청으로 끝납니다. store에 직접 보낸 요청은
+  scope에 묶이지 않으므로 복원 뒤에 실행되어 복원된 상태를 바꾸거나 대체할 수 있습니다. 기본 plan이
+  상태 전체를 대체하는 `handle(_:using:)`의 link 처리도 여기에 해당합니다.
+- **snapshot이 없거나, load가 실패하거나, driver가 중단된 경우.** scope가 대체되지 않았으므로
+  대기하던 요청은 현재 상태에서 실행됩니다.
+- **policy나 authorization이 복원 transition을 defer하거나 거절한 경우.** 대기는 그 결과와 함께
+  끝나고, 대기하던 요청은 snapshot 이전 상태에서 실행되며 그 결과가 저장됩니다.
+
+그동안 navigation이 닫히므로 저장소의 load 시간을 제한하고 검증기에는 `validationTimeout`을
+주세요.
 
 중단된 worker와 caller 소유권은 이후 activation을 변경할 수 없습니다. cloud sync는
 계속 앱이 선택하는 별도 책임입니다.
