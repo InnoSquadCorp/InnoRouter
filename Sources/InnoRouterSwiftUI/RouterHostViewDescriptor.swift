@@ -294,26 +294,32 @@ struct RouterValidatedHostSurface<R: Route, Content: View>: View {
 }
 
 @MainActor
-private struct RouterDescriptorTabsSurface<R: DestinationRoute>: View {
+struct RouterDescriptorTabsSurface<R: DestinationRoute>: View {
     let scope: RouterScope<R>
     let tabs: [RouterHostTabView<R>]
 
     var body: some View {
         if let store = scope.store, scope.matchesCurrentLifetime {
-            TabView(selection: selection) {
-                ForEach(tabs) { tab in
-                    let child = store.scope(at: scope.path.appending(tab.id))
-                    #if os(tvOS) || os(watchOS)
-                    tabContent(tab, scope: child)
-                    #else
-                    tabContent(tab, scope: child).badge(scope.observedBadges[tab.id] ?? 0)
-                    #endif
-                }
-            }
-            .routerAuthority(scope, for: R.self)
+            tabView(store, reconciliationRevision: scope.reconciliationRevision)
         } else {
             RouterHostRecoveryView(failure: .init(code: .stale, scope: scope.path))
         }
+    }
+
+    /// Reading the reconciliation revision rebuilds `TabView` after a rejected
+    /// native selection, so its binding re-reads the canonical selection.
+    private func tabView(_ store: RouterStore<R>, reconciliationRevision _: UInt64) -> some View {
+        TabView(selection: selection) {
+            ForEach(tabs) { tab in
+                let child = store.scope(at: scope.path.appending(tab.id))
+                #if os(tvOS) || os(watchOS)
+                tabContent(tab, scope: child)
+                #else
+                tabContent(tab, scope: child).badge(scope.observedBadges[tab.id] ?? 0)
+                #endif
+            }
+        }
+        .routerAuthority(scope, for: R.self)
     }
 
     private func tabContent(_ tab: RouterHostTabView<R>, scope: RouterScope<R>) -> some TabContent<RouterScopeID?> {
@@ -324,7 +330,7 @@ private struct RouterDescriptorTabsSurface<R: DestinationRoute>: View {
         }
     }
 
-    private var selection: Binding<RouterScopeID?> {
+    var selection: Binding<RouterScopeID?> {
         Binding(get: { scope.observedSelection }, set: { id in
             if let id { scope.dispatch(.select(id), context: .init(source: .system)) }
         })

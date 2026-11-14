@@ -6,6 +6,15 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+### Fixed
+
+- `RouterTabHost` and `RouterHostViewDescriptor.tabs` now re-render when the
+  Store rejects a native tab selection, for example through a policy or a busy
+  rejection under `.rejectWhileBusy`. A rejection changes only the scope's
+  `reconciliationRevision`, which neither tab surface read, so `TabView` could
+  keep showing the tapped tab. Both surfaces now read it, as the stack and
+  split hosts already do, and `TabView` re-reads the Store's selection.
+
 ## 7.0.1 - 2026-10-15
 
 ### Changed
