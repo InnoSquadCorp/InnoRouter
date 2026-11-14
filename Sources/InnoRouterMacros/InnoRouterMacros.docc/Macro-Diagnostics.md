@@ -44,6 +44,7 @@ whose explicit declarations are redundant.
 | `InnoRouterMacro.E015` | Error | Tab cases or their attributes are declared inside conditional compilation. Declare the same tab set for every build configuration. |
 | `InnoRouterMacro.E016` | Error | A type-level declaration collides with the generated `Tab` type or `routerTabs` catalog: a `static`/`class` property, a nested type, or a case of that name. Rename it or remove all tab annotations. An instance property of the same name is legal and is not reported, and a declaration inside `#if` is left to the compiler. |
 | `InnoRouterMacro.W004` | Warning | `RouterTab` is written explicitly even though `@Router` supplies it when tabs are marked. Remove the conformance. |
+| `InnoRouterMacro.W008` | Warning | An unqualified `Tab(...)` call with a content closure, written inside an `@Router` enum with `@TabItem` cases, resolves to the generated nested `Tab`, not SwiftUI's tab content. Write `SwiftUI.Tab`. Calls without a content closure, such as `Tab(rawValue:)`, are not diagnosed, and neither is code inside a type, function, or closure that declares its own `Tab`. An initializer with a content closure that you add to the generated type has the same shape and is diagnosed; write `Self.Tab(...)` for it. Calls in extensions of the router are outside the macro's view; qualify them the same way. |
 
 ## Deep links
 

@@ -6,6 +6,135 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
+Every change below is additive or a fix; no public symbol was removed or
+changed. Behavior changes are marked in bold.
+
+### Added
+
+- `RouterStoreConfiguration.dispatchTiming`. With `.immediateWhenIdle`, a
+  fire-and-forget `RouterActions` request (`go`, `back`, `sheet`, `apply`,
+  `transaction`, ...) commits before the call returns when the Store has no
+  prepare policy and no authorization, no other request is in flight or still
+  on its way from an earlier fire-and-forget call, the call is not made from
+  inside a `RouterEvent` or request observer callback, and the calling task
+  is not cancelled. A surrounding `withAnimation` or `withTransaction` then
+  applies to the navigation change itself. Every other request keeps the
+  existing pipeline, so call order and policy guarantees are unchanged. The
+  default, `.deferred`, is the 7.0 behavior. Requests through a feature
+  projection, and `dismiss()` or `setPresentationDetent(_:)` called from
+  inside presented content, always take the deferred path. A request that
+  application code starts in its own `Task` is invisible to the Store, so an
+  immediate request made later in the same turn commits before it.
+- `RouterRestorationDriver.initialRestorePrecedence` and
+  `RouterRestorationPrecedence`. The default, `.navigation`, is the 7.0
+  behavior: a navigation committed while the initial snapshot loads wins and
+  the snapshot is rejected as stale. With `.snapshot` the driver holds the
+  Store's execution lane during the load, so nothing commits before the
+  snapshot is applied. A request sent to the Store meanwhile then runs on the
+  restored state; a request from a view was written for the scope the restore
+  replaced and is rejected as an expired scope, so it cannot erase the
+  previous session. A missing snapshot, a failed load, `stop()`, and
+  detaching release the hold at once; a policy that defers the restoration
+  transition ends it with the deferral.
+- `RouterTabHost(_:linkHandling:)`, a nonthrowing initializer for the
+  macro-first path that starts on the first declared tab, and
+  `RouterTabHost.validationFailure`. An invalid hand-written `routerTabs` is
+  reported through that property and recovery UI, and its cause is logged.
+- `makeHostedRouterStore()` and
+  `makeHostedTabRouterStore(initial:badges:configuration:)` on route types.
+  They create Stores already declared for `RouterHost(store:)` and
+  `RouterTabHost(store:)`, for when something besides the host needs the
+  Store, such as a restoration driver.
+- `DeepLinkFeatureRuntime.admitsOrigin(of:schemes:hosts:)`, the exact origin
+  check used by generated resolvers.
+- Macro warning `InnoRouterMacro.W008` with a fix-it: an unqualified
+  `Tab(...)` call with a content closure, inside an `@Router` enum that has
+  `@TabItem` cases, resolves to the generated nested `Tab`, not SwiftUI's.
+  Write `SwiftUI.Tab`. Calls without a content closure are not diagnosed,
+  nor is code inside a type, function, or closure that declares its own `Tab`.
+- `InnoRouterPerformanceSmoke --profile-store-commit` reports how the cost of
+  one Store commit grows with the size of the whole router tree. It is an
+  attribution mode, not a merge gate.
+
+### Changed
+
+- A Store commit does less repeated work. Observation semantics are unchanged.
+  - `RouterStore` and `RouterScope` are generic observable classes, and a key
+    path written inside generic code is instantiated by the runtime every time
+    it is evaluated. The Store now caches its key path and the commit path
+    uses closures.
+  - A commit that keeps the shape of the graph (the same scopes and
+    presentations, no window or immersive-space change) no longer rebuilds the
+    runtime lifetime tables, and only the scopes whose own subtree changed are
+    re-derived. A push in one tab touches that tab's scope and the root, not
+    every mounted scope.
+
+  Measured in release on one development machine with
+  `--profile-store-commit`; these are local numbers, not CI medians. Against
+  7.0.1, one commit went from about 197 µs to 90 µs on an empty store, from
+  832 µs to 293 µs on a 64-branch store, and from 3,275 µs to 930 µs on a
+  256-branch store. With scopes mounted, where no 7.0.1 figure was taken, a
+  five-tab store with six scopes went from 394 µs after the first of these
+  changes to 172 µs, and a 64-branch store with 65 scopes from 1,995 µs to
+  563 µs.
+
+### Fixed
+
+- Deep-link origins are compared exactly, byte for byte after folding ASCII
+  case only. Generated resolvers and catalog explanations used Foundation's
+  case-insensitive comparison, which treats `ß` as `ss`; pipelines used
+  Unicode lowercasing, which maps the Kelvin sign to `k`, and Swift string
+  equality, which treats canonically equivalent spellings as equal. A
+  percent-encoded host such as `stra%C3%9Fe.example` or
+  `ban%E2%84%AA.example` was therefore admitted for the allow-list entries
+  `strasse.example` and `bank.example`. `DeepLinkOrigin` and the `@Router`
+  origin arguments apply the same rule before validation. **A non-ASCII
+  allow-list entry is now matched exactly, without case folding.**
+- A user or password component that does not percent-decode, such as
+  `https://%FF@host/`, is rejected like any other credential. `URL.user`
+  reports it as absent, so it passed the credential check.
+- Percent-encoding that is not valid UTF-8 is never accepted as a value.
+  Previously `/pay/%FF` reached the route as the literal parameter `"%FF"`,
+  and `?q=%FF` reached a `String` parameter as an empty string. **A path
+  segment that a pattern compares or captures now makes the URL unmatched,
+  and a generated route that reads such a query value no longer resolves.**
+  A typed parameter was already rejected. A query item the route does not
+  read, or a segment a trailing wildcard swallows, does not affect the match.
+  In hand-written mappings the typed `firstValue(forName:as:)` and
+  `values(forName:as:)` reject or skip such a value, also for `String`; the
+  untyped accessors and `valuesByName` still report the empty string.
+- A host without `linkHandling` derives its link plan from the state the Store
+  holds when the request executes. The plan was built at URL arrival and
+  applied turns later, so a commit landing in between was silently reverted.
+- A link no host can apply (for example a push while a sheet covers the
+  stack) ends as a rejected Store request, visible through `RouterEvent` and
+  logged. It previously disappeared without a state change or an event. A
+  host that cannot apply a link when it arrives still yields to another host
+  that can, as it did in 7.0. The host is chosen at arrival: one that becomes
+  unable to apply the link before its request runs rejects it, where 7.0
+  applied its stale plan.
+- **`RouterActions.transaction` applies its steps to the state the Store holds
+  when the request executes.** The plan was built when the call was made and
+  applied turns later, so it reverted any commit that landed in between,
+  including a fire-and-forget request made just before it. An invalid
+  transaction still throws at the call, and the request's observation no
+  longer carries an expected revision. A transaction made through a feature
+  projection is unchanged.
+- `RouterPlan`'s builder throws `RouterStateValidationError.duplicateWindow`
+  when a `.windows` step repeats an ID and an `.action` step follows. That
+  action step used to trap.
+
+### Maintenance
+
+- Two native-host tests no longer depend on how many main-queue turns AppKit
+  needs: the same-ID window replacement test waits for its event, and the
+  mounted restoration test lays out its off-screen window while waiting.
+- `scripts/performance-smoke.sh` also runs under an open-source toolchain
+  selected through `TOOLCHAINS`, which ships Swift Testing inside the toolchain.
+- A manually dispatched `macos-15-runtime` workflow runs the package tests on
+  macOS 15, the oldest supported macOS, with the swift.org 6.3 toolchain. It
+  is not a required check.
+
 ## 7.0.1 - 2026-10-15
 
 ### Changed

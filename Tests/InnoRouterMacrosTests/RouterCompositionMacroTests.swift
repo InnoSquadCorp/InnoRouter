@@ -610,6 +610,103 @@ struct RouterCompositionMacroTests {
         )
     }
 
+    @Test("An unqualified SwiftUI Tab call inside a tab router offers the qualified spelling")
+    func shadowedSwiftUITabFixIt() {
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house")
+                case home
+                var destination: some View { TabView { Tab("Home", systemImage: "house") { EmptyView() } } }
+                static let first = Tab(rawValue: "home")
+                static let second = Tab.home
+                static let third = Tab(scope: "home")
+                struct Rebound {
+                    typealias Tab = SwiftUI.Tab
+                    static func make() -> some TabContent<Never> { Tab("a", systemImage: "b") { EmptyView() } }
+                }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+                case home
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { TabView { Tab("Home", systemImage: "house") { EmptyView() } } }
+                static let first = Tab(rawValue: "home")
+                static let second = Tab.home
+                static let third = Tab(scope: "home")
+                struct Rebound {
+                    typealias Tab = SwiftUI.Tab
+                    static func make() -> some TabContent<Never> { Tab("a", systemImage: "b") { EmptyView() } }
+                }
+            }
+
+            extension AppRoute: InnoRouterSwiftUI.DestinationRoute, InnoRouterSwiftUI.RouterTabRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Tab: Swift.String, InnoRouterSwiftUI.RouterTab {
+                    case home
+
+                    internal var title: Foundation.LocalizedStringResource {
+                        switch self {
+                        case .home:
+                            return "Home"
+                        }
+                    }
+
+                    internal var systemImage: Swift.String {
+                        switch self {
+                        case .home:
+                            return "house"
+                        }
+                    }
+
+                    internal var routerScopeID: InnoRouterCore.RouterScopeID {
+                        InnoRouterCore.RouterScopeID(rawValue)
+                    }
+                }
+
+                internal static var routerTabs: [InnoRouterSwiftUI.RouterTabDescriptor<Self, Tab>] {
+                    [.init(tab: .home, root: .home)]
+                }
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "[InnoRouterMacro.W008] `Tab` inside `AppRoute` names the generated `AppRoute.Tab`, not SwiftUI's tab content; write `SwiftUI.Tab`",
+                    line: 5,
+                    column: 44,
+                    severity: .warning,
+                    fixIts: [
+                        FixItSpec(message: "Write `SwiftUI.Tab`"),
+                    ]
+                )
+            ],
+            macros: makeTestMacros(),
+            applyFixIts: ["Write `SwiftUI.Tab`"],
+            fixedSource: """
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house")
+                case home
+                var destination: some View { TabView { SwiftUI.Tab("Home", systemImage: "house") { EmptyView() } } }
+                static let first = Tab(rawValue: "home")
+                static let second = Tab.home
+                static let third = Tab(scope: "home")
+                struct Rebound {
+                    typealias Tab = SwiftUI.Tab
+                    static func make() -> some TabContent<Never> { Tab("a", systemImage: "b") { EmptyView() } }
+                }
+            }
+            """
+        )
+    }
+
     @Test("Duplicate @TabItem offers a removal fix-it")
     func duplicateTabItemFixIt() {
         assertMacroExpansion(

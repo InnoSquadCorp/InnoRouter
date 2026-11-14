@@ -75,20 +75,27 @@ extension RouterStore {
     func updateScopeLifetimes(
         after state: RouterState<R>,
         mutation: RouterScopeLifetimeMutation,
-        requestRootID: RouterTransitionID
+        requestRootID: RouterTransitionID,
+        keepsStructure: Bool = false
     ) -> Set<UUID> {
-        let previousScopes = scopeLifetimes
         let previousPresentations = presentationLifetimes
-        let nextScopes = Self.makeScopeLifetimes(
-            in: state, previous: previousScopes, mutation: mutation
-        )
-        let nextPresentations = Self.makePresentationLifetimes(
-            in: state, scopes: nextScopes, previous: previousPresentations
-        )
-        // Install both maps before publishing any observable lifetime slot.
-        // Synchronous observers may capture either kind of authority in willSet.
-        scopeLifetimes = nextScopes
-        presentationLifetimes = nextPresentations
+        // With the same scopes and presentations and no ownership replacement,
+        // every identity is retained and both maps are already what a rebuild
+        // would produce. See `subtreesChanged(from:to:)`.
+        let rebuilds = !keepsStructure || mutation.replacesOwnership
+        if rebuilds {
+            let nextScopes = Self.makeScopeLifetimes(
+                in: state, previous: scopeLifetimes, mutation: mutation
+            )
+            let rebuiltPresentations = Self.makePresentationLifetimes(
+                in: state, scopes: nextScopes, previous: previousPresentations
+            )
+            // Install both maps before publishing any observable lifetime slot.
+            // Synchronous observers may capture either kind of authority in willSet.
+            scopeLifetimes = nextScopes
+            presentationLifetimes = rebuiltPresentations
+        }
+        let nextPresentations = presentationLifetimes
         // Only the request lineage that registered a typed waiter can activate
         // it. Install this private authority before any observable publication.
         for (id, waiter) in presentationWaiters where waiter.activatedToken() == nil {
@@ -97,13 +104,18 @@ extension RouterStore {
                 waiter.activate(lifetime.token)
             }
         }
-        var retired = Set(previousPresentations.compactMap { id, lifetime -> UUID? in
-            nextPresentations[id]?.token == lifetime.token ? nil : id
-        })
+        var retired: Set<UUID> = []
+        if rebuilds {
+            retired = Set(previousPresentations.compactMap { id, lifetime -> UUID? in
+                nextPresentations[id]?.token == lifetime.token ? nil : id
+            })
+        }
         for (id, waiter) in presentationWaiters where !waiter.lifetimeIsCurrent() {
             retired.insert(id)
         }
         updatePresentationLifetimeObservations()
+        // No token changed without a rebuild, so no observation is behind.
+        guard rebuilds else { return retired }
         for (path, observation) in scopeLifetimeObservations {
             let current = scopeLifetimeToken(at: path)
             if observation.token != current { observation.token = current }

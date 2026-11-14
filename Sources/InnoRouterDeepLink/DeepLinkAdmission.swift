@@ -89,20 +89,25 @@ struct DeepLinkAdmission<Output: Sendable>: Sendable {
         }
 
         if rejectsNonCanonicalAuthority,
-           url.user != nil || url.password != nil || url.port != nil {
+           DeepLinkOriginComparison.carriesCredentials(url) || url.port != nil {
             // Reuse the 5.x origin rejection surface so existing exhaustive
             // switches over DeepLinkRejectionReason keep compiling.
             return .rejected(.hostNotAllowed(actualHost: url.host))
         }
 
         if let allowedSchemes {
-            guard let scheme = url.scheme?.lowercased(), allowedSchemes.contains(scheme) else {
+            // Byte comparison, not `Set.contains`: Swift string equality is
+            // Unicode canonical equivalence, which would admit a decomposed
+            // spelling of a precomposed allow-list entry.
+            guard let scheme = url.scheme,
+                  allowedSchemes.contains(where: { DeepLinkOriginComparison.matches(scheme, $0) }) else {
                 return .rejected(.schemeNotAllowed(actualScheme: url.scheme))
             }
         }
 
         if let allowedHosts {
-            guard let host = url.host?.lowercased(), allowedHosts.contains(host) else {
+            guard let host = url.host,
+                  allowedHosts.contains(where: { DeepLinkOriginComparison.matches(host, $0) }) else {
                 return .rejected(.hostNotAllowed(actualHost: url.host))
             }
         }
@@ -137,7 +142,8 @@ private extension DeepLinkOriginPolicy {
 }
 
 private extension Set where Element == String {
+    /// Folds ASCII letters only; see ``DeepLinkOriginComparison``.
     var lowercased: Set<String> {
-        Set(map { $0.lowercased() })
+        Set(map(DeepLinkOriginComparison.asciiLowercased))
     }
 }

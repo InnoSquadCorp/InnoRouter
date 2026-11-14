@@ -63,6 +63,11 @@ private enum InnoRouterPerformanceSmoke {
             return
         }
 
+        if arguments == ["--profile-store-commit"] {
+            try await profileStoreCommitScaling()
+            return
+        }
+
         guard arguments.count == 2,
               arguments.first == "--output",
               let output = arguments.last else {
@@ -217,6 +222,65 @@ private enum InnoRouterPerformanceSmoke {
         }
         print("[json-key-profile] iterations=\(iterations) reference_ms=\(reference) optimized_ms=\(optimized)")
         print("[json-key-profile] reference_median_ms=\(median(reference)!) optimized_median_ms=\(median(optimized)!)")
+    }
+
+    /// Attribution only, like ``profileJSONKeyDecoding()``: it reports how the
+    /// cost of one Store commit grows with the size of the whole router tree.
+    ///
+    /// Every accepted transition validates the complete candidate state, so
+    /// the cost of pushing one route is a function of everything else in the
+    /// tree. The canonical samples run on a single root stack and cannot see
+    /// that. This becomes a canonical gate once CI medians exist for it; until
+    /// then the numbers are compared by hand.
+    @MainActor
+    private static func profileStoreCommitScaling() async throws {
+        let shapes: [(branches: Int, depth: Int)] = [(1, 0), (2, 2), (5, 10), (64, 16), (256, 28)]
+        let commits = 2_000
+        var perCommit: [Double] = []
+        for shape in shapes {
+            let ids = (0..<shape.branches).map { RouterScopeID("b\($0)") }
+            let path = (0..<shape.depth).map { PerformanceRoute(value: $0) }
+            let state = try RouterState<PerformanceRoute>(root: .container(.init(
+                style: .tabs,
+                selection: ids[0],
+                branches: ids.map { .init(id: $0, node: .stack(path: path)) }
+            )))
+            func run(mountingScopes: Bool = false) async throws -> Double {
+                let store = try RouterStore(initialState: state)
+                // A mounted host holds one projection per rendered subtree,
+                // and every commit refreshes all of them.
+                let scopes = mountingScopes
+                    ? [store.scope()] + ids.map { store.scope(at: RouterScopePath.root.appending($0)) }
+                    : []
+                defer { withExtendedLifetime(scopes) {} }
+                let elapsed = await clock.measure {
+                    for index in 0..<(commits / 2) {
+                        _ = await store.perform(.scoped(ids[0], .push(.init(value: index))))
+                        _ = await store.perform(.scoped(ids[0], .pop(count: 1)))
+                    }
+                }
+                precondition(store.revision == UInt64(commits))
+                return milliseconds(elapsed) * 1_000 / Double(commits)
+            }
+            _ = try await run()
+            var measurements: [Double] = []
+            for _ in 0..<measurementCount { measurements.append(try await run()) }
+            let microseconds = median(measurements)!
+            perCommit.append(microseconds)
+            print(
+                "[store-commit-profile] branches=\(shape.branches) depth=\(shape.depth) "
+                    + "routes=\(shape.branches * shape.depth) median_us_per_commit=\(microseconds)"
+            )
+            guard shape.branches <= 64 else { continue }
+            _ = try await run(mountingScopes: true)
+            var mounted: [Double] = []
+            for _ in 0..<measurementCount { mounted.append(try await run(mountingScopes: true)) }
+            print(
+                "[store-commit-profile] branches=\(shape.branches) depth=\(shape.depth) "
+                    + "mounted_scopes=\(shape.branches + 1) median_us_per_commit=\(median(mounted)!)"
+            )
+        }
+        print("[store-commit-profile] largest_over_smallest=\(perCommit.last! / perCommit.first!)")
     }
 
     private static func reducerWorkload() throws {
@@ -407,7 +471,7 @@ private enum PerformanceFailure: Error, CustomStringConvertible {
         case .invalidMeasurement(let name): "invalid measurement for \(name)"
         case .selfTest: "aggregation self-test failed"
         case .thresholdExceeded: "one or more performance thresholds were exceeded"
-        case .usage: "usage: InnoRouterPerformanceSmoke --output <report.json> | --profile-json-keys"
+        case .usage: "usage: InnoRouterPerformanceSmoke --output <report.json> | --profile-json-keys | --profile-store-commit"
         }
     }
 }

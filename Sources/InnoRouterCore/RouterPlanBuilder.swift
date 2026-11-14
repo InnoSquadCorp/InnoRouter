@@ -108,13 +108,24 @@ public extension RouterPlan {
     ) throws {
         try resourceBudget.validate(base)
         var target = base
+        // Set by a `.windows` step that repeats an ID. The final validation
+        // reports it, as it always did, unless a later `.windows` step
+        // replaces the list. An `.action` step cannot wait that long: it
+        // reduces from this in-progress state, and the reducer assumes
+        // unique window IDs.
+        var hasDuplicateWindows = false
         for step in build() {
             switch step {
             case .root(let root):
                 target.root = root
             case .action(let action):
+                if hasDuplicateWindows { throw RouterStateValidationError.duplicateWindow }
                 target = try RouterReducer.reduce(action, from: target, resourceBudget: resourceBudget)
             case .windows(let windows):
+                // A count over the budget is left to the budget checks: it is
+                // admitted before any ID is hashed, and stays the error seen.
+                hasDuplicateWindows = windows.count <= resourceBudget.snapshot.maximumWindows
+                    && Set(windows.map { $0.id }).count != windows.count
                 target.windows = windows
             case .immersiveSpace(let immersiveSpace):
                 target.immersiveSpace = immersiveSpace

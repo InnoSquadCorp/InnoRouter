@@ -1,0 +1,63 @@
+name: macos-15-runtime
+
+# Runs the package tests on macOS 15, the oldest macOS the package supports.
+# Every other lane runs on macOS 26, so a runtime difference on the deployment
+# floor would otherwise go unobserved. macOS 15 images do not ship an Xcode
+# with Swift 6.3, so the lane installs the matching swift.org toolchain.
+#
+# Manual only: it is not a required check and takes no part in the aggregate.
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit, branch, or tag to test
+        required: false
+        type: string
+
+concurrency:
+  group: macos-15-runtime-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: macOS 15 runtime tests
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      SWIFT_RELEASE: "6.3.3"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Install the Swift toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="swift-${SWIFT_RELEASE}-RELEASE-osx.pkg"
+          url="https://download.swift.org/swift-${SWIFT_RELEASE}-release/xcode/swift-${SWIFT_RELEASE}-RELEASE/${package}"
+          curl --fail --location --silent --show-error --retry 3 \
+            --output "$RUNNER_TEMP/$package" "$url"
+          # Install only a package signed by the Swift project's team.
+          pkgutil --check-signature "$RUNNER_TEMP/$package" | tee "$RUNNER_TEMP/signature.txt"
+          grep -q "Swift Open Source (V9AUD2URP3)" "$RUNNER_TEMP/signature.txt"
+          sudo installer -pkg "$RUNNER_TEMP/$package" -target /
+          toolchain="/Library/Developer/Toolchains/swift-${SWIFT_RELEASE}-RELEASE.xctoolchain"
+          identifier="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$toolchain/Info.plist")"
+          echo "TOOLCHAINS=$identifier" >> "$GITHUB_ENV"
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Run the package tests
+        run: swift test --jobs 2 --no-parallel

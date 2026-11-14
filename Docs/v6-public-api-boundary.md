@@ -35,7 +35,7 @@ growth:
 
 | Product | Maximum symbols |
 | --- | ---: |
-| `InnoRouter` | 1,825 |
+| `InnoRouter` | 1,838 |
 | `InnoRouterInspector` | 236 |
 | `InnoRouterTesting` | 275 |
 
@@ -92,6 +92,22 @@ symbol graphs do not contain this conditional platform surface, so the
 visionOS consumer matrix validates its emitted public interface separately
 through `check-platform-interface.sh`. The macOS product budgets above remain
 unchanged. Routes require no additional Codable conformance.
+
+After 7.0.1 the umbrella grows by thirteen symbols, raising its ceiling from
+1,825 to 1,838:
+
+- `RouterDispatchTiming` with its two cases and
+  `RouterStoreConfiguration.dispatchTiming`;
+- `DeepLinkFeatureRuntime.admitsOrigin(of:schemes:hosts:)`, the origin check
+  that generated resolvers call;
+- `RouterRestorationPrecedence` with its two cases and
+  `RouterRestorationDriver.initialRestorePrecedence`;
+- `RouterTabHost.init(_:linkHandling:)` and `RouterTabHost.validationFailure`;
+- `DestinationRoute.makeHostedRouterStore()` and
+  `DestinationRoute.makeHostedTabRouterStore(initial:badges:configuration:)`.
+
+The diff contained only these additions; it was extracted with the Swift
+6.3.3 open-source toolchain.
 
 Run both checks with:
 

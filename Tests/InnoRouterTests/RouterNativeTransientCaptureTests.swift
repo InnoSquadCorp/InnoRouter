@@ -52,9 +52,9 @@ struct RouterNativeTransientCaptureTests {
 
     @Test("Rejected native selection keeps canonical state and can use a fresh attempt")
     func rejectedSelection() async throws {
-        var shouldReject = true
+        let shouldReject = TestCell(true)
         let store = try RouterStore<R>(configuration: .init(policies: [.init(name: "native-selection") { transition in
-            if shouldReject, case .selectPresentationAction = transition.action { return .reject("blocked") }
+            if shouldReject.value, case .selectPresentationAction = transition.action { return .reject("blocked") }
             return .allow
         }]))
         _ = await store.perform(.presentAlert(.init(content: .init(title: "Title", actions: [.init(id: "ok", label: "OK")]))))
@@ -68,7 +68,7 @@ struct RouterNativeTransientCaptureTests {
         #expect(capture.isCurrent())
         old.retire()
         #expect(old.settle() == nil)
-        shouldReject = false
+        shouldReject.value = false
         let fresh = RouterNativePresentationAttempt(handle: capture.handle)
         fresh.select("ok")
         await capture.submit(try #require(fresh.settle()))

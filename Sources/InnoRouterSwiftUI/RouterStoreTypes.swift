@@ -157,6 +157,63 @@ public enum RouterSchedulingPolicy: Sendable {
     case rejectWhileBusy
 }
 
+/// When a fire-and-forget request made through ``RouterActions`` commits.
+///
+/// `RouterActions` methods such as `go(_:)`, `back()`, and `sheet(_:)` return a
+/// task instead of suspending the caller. This option decides whether the
+/// transition they request is committed before they return.
+public enum RouterDispatchTiming: Sendable, Hashable {
+    /// Commit on a later main-actor turn. This is the 7.0 behavior and the
+    /// default: the caller never observes the new state before it returns.
+    case deferred
+    /// Commit before the call returns whenever nothing requires waiting, so a
+    /// surrounding `withAnimation` or `withTransaction` applies to the
+    /// navigation change.
+    ///
+    /// A request commits immediately only when all of these hold:
+    ///
+    /// - the Store has no prepare policy and no authorization;
+    /// - no other request is in flight, queued, or still on its way from an
+    ///   earlier fire-and-forget call made through this library;
+    /// - the call is not made from inside a `RouterEvent` or request
+    ///   observer callback;
+    /// - the calling task is not cancelled.
+    ///
+    /// Otherwise it takes the deferred path, so call order and every policy
+    /// guarantee are unchanged. Three kinds of request always take the
+    /// deferred path: one made through a feature projection, and `dismiss()`
+    /// or `setPresentationDetent(_:)` called from inside presented content.
+    ///
+    /// The Store cannot see a request that your own code starts in a `Task`
+    /// (for example `Task { await router.perform(...) }`), so an immediate
+    /// request made later in the same turn commits before it.
+    ///
+    /// Call from a user-interaction handler such as a button action, not
+    /// while a view body is being evaluated: the commit mutates observable
+    /// state synchronously.
+    case immediateWhenIdle
+}
+
+/// What must be true, besides an idle lane, for a request to commit
+/// synchronously. Each field closes a way an immediate commit could run out
+/// of the order in which requests were made.
+struct RouterDispatchGate {
+    /// Fire-and-forget requests whose task has not started. They are in
+    /// neither the lane nor a queue yet, so only this count keeps a later
+    /// immediate request from overtaking them.
+    var unstartedDispatches = 0
+    /// Depth of event and request-observer callbacks in progress. A request
+    /// made from inside one must not commit, and publish its own events,
+    /// before the event being delivered has reached every observer.
+    var notificationDepth = 0
+    /// Set while a request commits synchronously. That request runs on the
+    /// caller's task, whose cancellation is not the request's: the deferred
+    /// path would have run it on a task of its own.
+    var ignoresTaskCancellation = false
+
+    var isOpen: Bool { unstartedDispatches == 0 && notificationDepth == 0 }
+}
+
 /// Bounds unresolved policy deferrals and optionally expires them.
 public struct RouterDeferralConfiguration: Sendable {
     public var maximumPendingCount: Int
@@ -209,6 +266,9 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
     /// Optional authoritative app authorization for every Store application.
     public var authorization: RouterAuthorizationConfiguration<R>?
     public var schedulingPolicy: RouterSchedulingPolicy
+    /// When fire-and-forget ``RouterActions`` requests commit. Defaults to
+    /// ``RouterDispatchTiming/deferred``.
+    public var dispatchTiming: RouterDispatchTiming = .deferred
     public var maximumPendingRequestCount: Int
     public var requestOverflowStrategy: RouterRequestOverflowStrategy
     /// Deadline for each asynchronous policy or authorization decision. Waiting

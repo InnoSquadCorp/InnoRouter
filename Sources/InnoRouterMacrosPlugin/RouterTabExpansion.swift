@@ -2,6 +2,7 @@
 // InnoRouterMacrosPlugin - @Router tab analysis and witness generation
 // Copyright © 2026 Inno Squad. All rights reserved.
 
+import SwiftDiagnostics
 import SwiftSyntax
 import SwiftSyntaxMacros
 
@@ -148,10 +149,8 @@ func analyzeRouterTabs(
     }
 
     let directlyConformsToRouterTabRoute = directlyConforms(enumDecl, to: "RouterTabRoute")
-    diagnoseRedundantRouterTabConformance(
-        in: enumDecl,
-        isRedundant: directlyConformsToRouterTabRoute,
-        context: context
+    diagnoseRouterTabWarnings(
+        in: enumDecl, isConformanceRedundant: directlyConformsToRouterTabRoute, context: context
     )
 
     return .valid(
@@ -440,6 +439,130 @@ private func firstConflictingTabMember(in enumDecl: EnumDeclSyntax) -> Conflicti
         return nil
     }
     return ConflictingTabMember(name: conflict.name, declaration: conflict.declaration)
+}
+
+/// Emits the warnings that accompany a valid tab router.
+private func diagnoseRouterTabWarnings(
+    in enumDecl: EnumDeclSyntax,
+    isConformanceRedundant: Bool,
+    context: some MacroExpansionContext
+) {
+    diagnoseRedundantRouterTabConformance(
+        in: enumDecl,
+        isRedundant: isConformanceRedundant,
+        context: context
+    )
+    diagnoseShadowedSwiftUITabCalls(in: enumDecl, context: context)
+}
+
+/// Collects unqualified `Tab(...)` calls that were written for SwiftUI's tab
+/// content but resolve to the generated `Tab` instead.
+///
+/// The compiler reports such a call as an unrelated-looking `ViewBuilder` or
+/// argument error, so the macro names the real cause. Only the shape every
+/// SwiftUI `Tab` initializer has is flagged: a content closure, written as a
+/// trailing closure or a `content:` argument. Any other call, such as
+/// `Tab(rawValue:)` or an initializer an extension adds to the generated
+/// type, is a legitimate use of that type and is left alone, as is member
+/// access such as `Tab.home`.
+///
+/// An initializer with a content closure that an extension adds to the
+/// generated type has the same shape and is reported too; `Self.Tab(...)`
+/// names the generated type without the warning.
+///
+/// The walk stops wherever `Tab` is given another meaning (a nested type, a
+/// function body, or a closure that declares its own `Tab`) and at a nested
+/// tab router, whose own expansion reports the calls it contains.
+final class ShadowedSwiftUITabCallFinder: SyntaxVisitor {
+    private(set) var references: [DeclReferenceExprSyntax] = []
+
+    static func references(in enumDecl: EnumDeclSyntax) -> [DeclReferenceExprSyntax] {
+        let finder = ShadowedSwiftUITabCallFinder(viewMode: .sourceAccurate)
+        finder.walk(enumDecl.memberBlock)
+        return finder.references
+    }
+
+    override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
+        if let reference = node.calledExpression.as(DeclReferenceExprSyntax.self),
+           reference.baseName.text == "Tab",
+           node.trailingClosure != nil || node.arguments.contains(where: { $0.label?.text == "content" }) {
+            references.append(reference)
+        }
+        return .visitChildren
+    }
+
+    override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
+        continuation(for: node.memberBlock)
+    }
+
+    override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
+        continuation(for: node.memberBlock)
+    }
+
+    override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind {
+        continuation(for: node.memberBlock)
+    }
+
+    override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
+        let generatesOwnTab = node.memberBlock.members.contains { member in
+            member.decl.as(EnumCaseDeclSyntax.self)?.attributes.contains { attribute in
+                attribute.as(AttributeSyntax.self).flatMap(attributeBaseName) == "TabItem"
+            } ?? false
+        }
+        return generatesOwnTab ? .skipChildren : continuation(for: node.memberBlock)
+    }
+
+    /// Every body is a statement list: functions, closures, and accessors.
+    override func visit(_ node: CodeBlockItemListSyntax) -> SyntaxVisitorContinueKind {
+        rebindsTab(node.map { Syntax($0.item) }) ? .skipChildren : .visitChildren
+    }
+
+    /// Skips a type whose own members give `Tab` another meaning.
+    private func continuation(for members: MemberBlockSyntax) -> SyntaxVisitorContinueKind {
+        rebindsTab(members.members.map { Syntax($0.decl) }) ? .skipChildren : .visitChildren
+    }
+
+    /// Whether one of `declarations` is a type or type alias named `Tab`.
+    private func rebindsTab(_ declarations: [Syntax]) -> Bool {
+        declarations.contains { declaration in
+            let name = declaration.as(TypeAliasDeclSyntax.self)?.name
+                ?? declaration.as(StructDeclSyntax.self)?.name
+                ?? declaration.as(ClassDeclSyntax.self)?.name
+                ?? declaration.as(EnumDeclSyntax.self)?.name
+                ?? declaration.as(ActorDeclSyntax.self)?.name
+            return name?.text == "Tab"
+        }
+    }
+}
+
+/// Warns where the generated `Tab` shadows SwiftUI's `Tab` inside the router
+/// enum, offering the qualified spelling. Uses in extensions are outside the
+/// macro's view and are covered by documentation only.
+private func diagnoseShadowedSwiftUITabCalls(
+    in enumDecl: EnumDeclSyntax,
+    context: some MacroExpansionContext
+) {
+    for reference in ShadowedSwiftUITabCallFinder.references(in: enumDecl) {
+        let qualified = ExprSyntax(
+            MemberAccessExprSyntax(
+                base: DeclReferenceExprSyntax(baseName: .identifier("SwiftUI")),
+                declName: DeclReferenceExprSyntax(baseName: .identifier("Tab"))
+            )
+        )
+        .with(\.leadingTrivia, reference.leadingTrivia)
+        .with(\.trailingTrivia, reference.trailingTrivia)
+        diagnoseTabItem(
+            .shadowedSwiftUITab(routerName: enumDecl.name.text),
+            at: reference,
+            context: context,
+            fixIts: [
+                FixIt(
+                    message: QualifySwiftUITabFixIt(),
+                    changes: [.replace(oldNode: Syntax(reference), newNode: Syntax(qualified))]
+                ),
+            ]
+        )
+    }
 }
 
 /// Warns about an explicit `RouterTabRoute` conformance that `@Router` already

@@ -34,7 +34,8 @@ enum MacroFirstRoute {
 
 struct MacroFirstStackExample: View {
     var body: some View {
-        // Matching onOpenURL values are resolved and pushed automatically.
+        // A matching onOpenURL value is resolved and shown directly above the
+        // root, replacing whatever the stack held before.
         RouterHost(MacroFirstRoute.self) {
             MacroFirstStackActions()
         }

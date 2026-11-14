@@ -34,6 +34,28 @@ may return `deferRequest` to release the execution lane while the app awaits an
 external decision, then resume revision-safely or explicitly rebase on current
 state.
 
+`RouterActions` methods such as `go`, `back`, and `sheet` return a task and, by
+default, commit on a later main-actor turn. Set
+`configuration.dispatchTiming = .immediateWhenIdle` to commit before the call
+returns, so a surrounding `withAnimation` or `withTransaction` applies to the
+navigation change itself. A request commits immediately only when the store has
+no prepare policy and no authorization, no other request is in flight or still
+on its way from an earlier fire-and-forget call, the call is not made from
+inside a `RouterEvent` or request observer callback, and the calling task is not
+cancelled; every other request takes the deferred path, so call order and policy
+guarantees are unchanged. Requests through a feature projection, and
+`dismiss()` or `setPresentationDetent(_:)` called from inside presented content,
+always take the deferred path. The store cannot see a request your own code
+starts in a `Task`, so an immediate request made later in the same turn commits
+before it. Call from a user-interaction handler such as a button action, not
+while a view body is being evaluated.
+
+`router.transaction { ... }` applies its steps to the state the store holds
+when the request executes, so it builds on the fire-and-forget requests made
+before it. An invalid transaction still throws at the call. Through a feature
+projection the transaction replaces that feature's subtree with a plan built at
+the call, as before.
+
 Long-running or bursty producers can bound every retained stage explicitly:
 
 ```swift skip doc-fragment
@@ -128,8 +150,32 @@ The driver restores through normal policies, coalesces committed-state writes,
 and flushes when the scene becomes inactive. Storage and cloud synchronization
 remain explicit application choices. Observation begins when activation is
 reserved, so navigation committed while snapshot loading is pending is not
-overwritten. Stopping a driver invalidates queued workers and caller ownership;
-a later activation cannot be modified by their delayed completion.
+overwritten. That newer state is also what the driver saves next, so the
+snapshot that lost is replaced.
+
+When launch-time work must not displace the previous session, wait until
+`driver.status` leaves `.loading` before committing it, or set
+`driver.initialRestorePrecedence = .snapshot` before activation. With that
+option the driver holds the store's execution lane while the initial snapshot
+loads, so nothing commits until the snapshot has been applied: requests made
+meanwhile wait under `.serialize` or are rejected as busy under
+`.rejectWhileBusy`. Afterwards a request sent to the store itself runs on the
+restored state. A request from a view—a router call, a host's deep-link
+handling, a SwiftUI navigation binding—was written for the scope the restore
+replaced and is rejected as an expired scope, as after any restore, so an early
+tap or launch link is dropped visibly instead of erasing the session. Keep the
+storage's load bounded, because navigation is closed for its duration. A policy
+that defers the restoration transition ends the hold with the deferral, and an
+exact plan sent to the store during the hold replaces the restored state when
+it runs.
+
+Stopping a driver invalidates queued workers and caller ownership; a later
+activation cannot be modified by their delayed completion.
+
+A store that something besides its host needs, such as this driver, can be
+created already declared for the default hosts:
+`AppRoute.makeHostedRouterStore()` for `RouterHost(store:)` and
+`try AppRoute.makeHostedTabRouterStore()` for `RouterTabHost(store:)`.
 
 The byte limits above are application-selected examples. File storage rejects
 oversized input while reading, and the codec independently bounds the encoded
@@ -286,6 +332,30 @@ When that continuation must survive process termination,
 `RouterPendingLinkPersistenceDriver` stores its versioned representation in
 application-selected storage. Slow restoration never replaces a newer
 in-memory link.
+
+Origins are compared exactly, byte for byte after folding ASCII case only, so a
+percent-encoded host that merely resembles an allowed one after Unicode case
+mapping or normalization is rejected. A user or password component is rejected
+in any form, including one that does not decode. Percent-encoding that is not
+valid UTF-8 is never accepted as a value: a path segment a pattern reads then
+matches nothing, and a query value is invalid for every type, `String` included,
+so a generated route that reads it does not resolve. A query item the route does
+not read, or a segment a trailing wildcard swallows, does not decide the match.
+In a hand-written mapping, the typed `firstValue(forName:as:)` rejects such a
+value; the untyped accessors report it as the empty string.
+
+A host without `linkHandling` applies a resolved link as one ordinary store
+request. `RouterHost` shows the route directly above its root, replacing the
+previous stack; `RouterTabHost` selects a tab root or pushes onto the selected
+tab; split hosts route to the matching column. The exact plan is derived from
+the state the store holds when the request executes, so a commit that lands
+between URL arrival and execution is preserved. A link the host cannot apply—
+for example a push while a sheet covers the stack—yields to another host that
+can apply it when the URL arrives; when no host can, it ends as a rejected
+request visible through `RouterEvent`, not as a silently dropped URL. Where
+several hosts can apply the same URL, the outermost one answers it. The host is
+chosen when the URL arrives, so a host that becomes unable to apply the link
+before its request runs rejects it without handing it to another host.
 
 Set `inspectorCatalog: true` on `@Router` to generate an opt-in, payload-free
 `DeepLinkRouteCatalog` from the resolver's same ordered mappings.

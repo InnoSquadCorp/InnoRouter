@@ -63,7 +63,7 @@ struct AppRoot: View {
 
 `RouterState`는 외부에서 읽기 전용입니다. `RouterStateDraft`를 편집하고 `try build(resourceBudget:)`로 검증한 뒤 `RouterPlan(state:)`를 만드세요. plan은 정확한 목표 상태, `RouterAction`은 점진적 변경입니다. 오직 `RouterStore`가 이동을 commit합니다. `RouterScope`는 하위 트리의 읽기 전용 투영과 액션 전달자입니다.
 
-`RouterStore<AppRoute>()`와 `AppRoute.makeRouterStore()`는 nonthrowing입니다. 초기 상태·경로·설정이 있으면 `try`가 필요합니다. 외부 store의 renderer는 명시적인 `hostDescriptor`가 필요하며 아래 코드는 기본 stack root를 선언합니다. 앱 초기 설정에서 오류를 처리하고 복구 UI를 표시하세요. `try!`나 무관한 빈 상태로 오류를 숨기지 마세요.
+`RouterStore<AppRoute>()`와 `AppRoute.makeRouterStore()`는 nonthrowing입니다. 초기 상태·경로·설정이 있으면 `try`가 필요합니다. 외부 store의 renderer는 명시적인 `hostDescriptor`가 필요하며 아래 코드는 기본 stack root를 선언합니다. 앱 초기 설정에서 오류를 처리하고 복구 UI를 표시하세요. `try!`나 무관한 빈 상태로 오류를 숨기지 마세요. `AppRoute.makeHostedRouterStore()`와 `try AppRoute.makeHostedTabRouterStore()`는 `RouterHost(store:)`와 `RouterTabHost(store:)`용으로 미리 선언된 store를 만듭니다.
 
 ```swift skip contextual-fragment
 @MainActor
@@ -89,11 +89,11 @@ case .rejected(_, _, _, let reason): print("Rejected", reason)
 }
 ```
 
-정책은 중단 전후에 불변 후보를 검사합니다. 거절·호출자 취소·오래된 준비·잘못된 액션은 commit 상태를 바꾸지 않습니다. `RouterRequestKey`의 `keepFirst` / `replacePending`을 사용할 수 있으며 무관한 요청은 FIFO입니다. 대기 요청, 정책 timeout, deferral의 한도를 명시하세요. `deferRequest`는 실행 레인을 비우고 재개 시 명시적으로 rebase하지 않으면 revision을 검사합니다. 취소를 무시하는 정책이 늦게 반환해도 취소가 우선합니다. `RouterRejectionReason`은 overflow·timeout·만료·취소를 구별합니다.
+정책은 중단 전후에 불변 후보를 검사합니다. 거절·호출자 취소·오래된 준비·잘못된 액션은 commit 상태를 바꾸지 않습니다. `RouterRequestKey`의 `keepFirst` / `replacePending`을 사용할 수 있으며 무관한 요청은 FIFO입니다. 대기 요청, 정책 timeout, deferral의 한도를 명시하세요. `deferRequest`는 실행 레인을 비우고 재개 시 명시적으로 rebase하지 않으면 revision을 검사합니다. 취소를 무시하는 정책이 늦게 반환해도 취소가 우선합니다. `RouterRejectionReason`은 overflow·timeout·만료·취소를 구별합니다. fire-and-forget 요청은 기본적으로 이후 main-actor turn에 commit됩니다. `configuration.dispatchTiming = .immediateWhenIdle`로 설정하면 대기 중인 요청이 없을 때 호출이 반환되기 전에 commit하므로 `withAnimation`이 변경에 적용됩니다.
 
 ## 탭, 분할 화면, scope 수명
 
-매개변수 없는 root에 `@TabItem`을 붙이고 일반 destination은 같은 enum에 둡니다. `RouterTabHost`는 탭별 독립 이력을 보존합니다. case 이름을 바꾸기 전에 안정적인 명시 ID를 지정하세요. Codable route 변경에는 별도 migration이 필요합니다. 입력이 있는 tab/split host는 nonthrowing `body` 밖에서 `try`로 만듭니다. `RouterSplitHost`, `RouterThreeColumnSplitHost`는 안정적인 column declaration ID가 필요합니다. `RouterTabCatalog.hostDescriptor()`로 의미를 고정하고 `replaceHost(with:descriptor:context:)`로 topology와 의미를 원자적으로 교체하세요. 소유 하위 트리를 복원·교체하면 이전 scope 권한은 만료되므로 다시 얻어야 합니다. `RouterHost(store:)`는 nonthrowing이며 `validationFailure`와 복구 UI를 제공합니다.
+매개변수 없는 root에 `@TabItem`을 붙이고 일반 destination은 같은 enum에 둡니다. `RouterTabHost`는 탭별 독립 이력을 보존합니다. case 이름을 바꾸기 전에 안정적인 명시 ID를 지정하세요. Codable route 변경에는 별도 migration이 필요합니다. 입력이 있는 tab/split host는 nonthrowing `body` 밖에서 `try`로 만듭니다. `RouterSplitHost`, `RouterThreeColumnSplitHost`는 안정적인 column declaration ID가 필요합니다. `RouterTabCatalog.hostDescriptor()`로 의미를 고정하고 `replaceHost(with:descriptor:context:)`로 topology와 의미를 원자적으로 교체하세요. 소유 하위 트리를 복원·교체하면 이전 scope 권한은 만료되므로 다시 얻어야 합니다. `RouterHost(store:)`는 nonthrowing이며 `validationFailure`와 복구 UI를 제공합니다. `RouterTabHost(AppRoute.self)`는 throw하지 않으며 처음 선언된 tab에서 시작합니다.
 
 독립 기능 enum은 `@FeatureRoute`와 `RouterFeatureHost`로 합성합니다. 자식의 `@EnvironmentRouter`, `@EnvironmentRouterState`도 부모 store의 정책·큐·revision·commit을 공유합니다. 기능은 전체 하위 트리를 소유해야 하며 부모/자식 route가 섞이면 명시적으로 실패합니다. window와 immersive scene의 소유권은 앱의 합성 root에 둡니다.
 
@@ -147,7 +147,7 @@ try await router.finishPresentation(request, returning: true)
 
 ## 복원과 이동 이력
 
-`RouterRestorationDriver`와 앱이 선택한 저장소를 유지하고 안정적인 root에 `routerStateRestoration(_:)`을 붙이세요. `RouterSnapshotCodec`에 버전을 지정하고 route/schema 변경의 migration과 복원 결과를 처리합니다. 탭 변경에는 하나의 catalog를 `RouterTabRestorationTopology`, `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`, renderer에 공통으로 사용합니다. dormant branch는 선택 renderer가 될 수 없습니다. 오래된 복원은 최신 이동을 덮지 못합니다. snapshot 기본 한도는 유한한 잠정값이므로 늘리기 전에 측정하세요. 갑작스러운 종료 직전 저장은 보장되지 않습니다.
+`RouterRestorationDriver`와 앱이 선택한 저장소를 유지하고 안정적인 root에 `routerStateRestoration(_:)`을 붙이세요. `RouterSnapshotCodec`에 버전을 지정하고 route/schema 변경의 migration과 복원 결과를 처리합니다. 탭 변경에는 하나의 catalog를 `RouterTabRestorationTopology`, `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`, renderer에 공통으로 사용합니다. dormant branch는 선택 renderer가 될 수 없습니다. 오래된 복원은 최신 이동을 덮지 못합니다. snapshot 기본 한도는 유한한 잠정값이므로 늘리기 전에 측정하세요. 갑작스러운 종료 직전 저장은 보장되지 않습니다. 기본적으로 snapshot을 읽는 동안 commit된 navigation이 우선합니다. `driver.initialRestorePrecedence = .snapshot`으로 설정하면 snapshot을 먼저 적용하며, 그 사이 view가 보낸 요청은 snapshot을 밀어내지 않고 거절됩니다.
 
 `RouterHistory`는 exact plan과 일반 정책을 통해 제한된 뒤로/앞으로 이동과 checkpoint를 제공합니다. badge와 presentation을 보존하고 scene을 열거나 닫지 않습니다. 계정·문서 경계에서 `reset(sessionKey:)`을 호출하세요. reset 또는 stop은 중단된 이동을 무효화합니다.
 

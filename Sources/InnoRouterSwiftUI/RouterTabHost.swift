@@ -1,6 +1,9 @@
+import OSLog
 import SwiftUI
 
 import InnoRouterCore
+
+private let routerTabHostLogger = Logger(subsystem: "io.innosquad.innorouter", category: "tab-host")
 
 public extension RouterTabCatalog {
     /// Freezes tab root values independently of localized labels and icons.
@@ -43,6 +46,43 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
     private let presentations: RouterPresentationViewCatalog<R>
     private let linkHandling: RouterLinkHandling<R>?
 
+    /// Creates a locally owned tab router that starts on the first declared
+    /// tab.
+    ///
+    /// This initializer does not throw, so it can be written directly in a
+    /// view's `body`. A `@Router` enum's tabs are checked when it is compiled,
+    /// which leaves nothing to fail here. A hand-written `routerTabs` that is
+    /// not a valid catalog is reported through ``validationFailure`` and
+    /// visible recovery UI, never a trap; the underlying error is logged, and
+    /// a throwing initializer returns it. Use a throwing initializer to choose
+    /// the initial tab, badges, a configuration, or presentations.
+    public init(_ routeType: R.Type, linkHandling: RouterLinkHandling<R>? = nil) {
+        do {
+            let catalog = try RouterTabCatalog(R.routerTabs)
+            guard let initial = catalog.descriptors.first?.tab else { throw RouterTabCatalogError.empty }
+            self = try Self(routeType, catalog: catalog, initial: initial, linkHandling: linkHandling)
+        } catch {
+            // No tab can be rendered. The shape below is the tabs exactly as
+            // declared, so host validation names what is wrong with them where
+            // it can (no tabs, a repeated scope ID); the Store behind it is an
+            // empty stack and never matches. The precise cause is logged,
+            // because a throwing initializer is the only way to receive it.
+            routerTabHostLogger.error(
+                "RouterTabHost could not be created from the declared tabs: \(String(describing: error), privacy: .public)"
+            )
+            self.presentations = .stack
+            self.tabs = []
+            self.shape = .tabs(
+                branches: R.routerTabs.map { .init($0.tab.routerScopeID, shape: .stack) },
+                extras: .reject
+            )
+            self.rootDeclarations = []
+            self.linkHandling = nil
+            self.suppliedStore = nil
+            self._ownedStore = State(initialValue: RouterStore<R>.makeDefaultHostedStack())
+        }
+    }
+
     public init(
         _ routeType: R.Type,
         initial: R.Tab,
@@ -71,22 +111,7 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
             throw RouterTabCatalogError.initialTabNotInCatalog
         }
         let shape = catalog.hostShape()
-        var configuration = configuration
-        if configuration.hostDescriptor == nil {
-            configuration.hostDescriptor = catalog.hostDescriptor()
-        }
-        let container = try RouterContainerState(
-            style: .tabs,
-            selection: initial.routerScopeID,
-            branches: catalog.descriptors.map { RouterBranch<R>(id: $0.tab.routerScopeID) },
-            badges: Dictionary<RouterScopeID, Int>(uniqueKeysWithValues: badges.compactMap { tab, count in
-                guard catalog.descriptor(for: tab) != nil, count > 0 else { return nil }
-                return (tab.routerScopeID, count)
-            })
-        )
-        let state = try RouterStateDraft<R>(root: .container(container))
-            .build(resourceBudget: configuration.resourceBudget)
-        let store = try R.makeRouterStore(initialState: state, configuration: configuration)
+        let store = try catalog.makeHostedStore(initial: initial, badges: badges, configuration: configuration)
         try store.validateHostRenderer(shape: shape, at: .root, rootDeclarations: catalog.hostRootDeclarations())
         try presentations.validate(for: store)
         self.presentations = presentations
@@ -131,6 +156,19 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         self._ownedStore = State(initialValue: store)
     }
 
+    /// A typed, payload-redacted failure for the Store's current contract,
+    /// or `nil` when this host can render it. Reading this value never
+    /// installs a contract or changes navigation state.
+    public var validationFailure: RouterHostValidationFailure? {
+        do {
+            try store.validateHostRenderer(shape: shape, at: .root, rootDeclarations: rootDeclarations)
+            try presentations.validate(for: store)
+            return nil
+        } catch {
+            return error
+        }
+    }
+
     public var body: some View {
         RouterValidatedHostSurface(store: store, shape: shape, rootDeclarations: rootDeclarations, presentations: presentations, path: .root) { rootScope in
             tabView(rootScope)
@@ -156,15 +194,34 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
         .routerAuthority(rootScope, for: R.self)
         .handleRouterPlans(
             for: R.self, scope: rootScope, handling: linkHandling,
-            fallbackPlan: defaultLinkPlan
+            fallbackPlan: defaultLinkPlanBuilder
         )
     }
 
+    /// The plan builder handed to the link pipeline. It captures values only:
+    /// a queued or deferred link request keeps it, and the Store keeps the
+    /// request, so capturing this host would retain the Store.
+    var defaultLinkPlanBuilder: @MainActor @Sendable (R, RouterState<R>) throws -> RouterPlan<R> {
+        { [shape, tabs, budget = store.resourceBudget] route, state in
+            try Self.defaultLinkPlan(route, state, shape: shape, tabs: tabs, resourceBudget: budget)
+        }
+    }
+
     func defaultLinkPlan(_ route: R, _ state: RouterState<R>) throws -> RouterPlan<R> {
-        try shape.validate(RouterStateDraft(state), at: .root, resourceBudget: store.resourceBudget)
+        try defaultLinkPlanBuilder(route, state)
+    }
+
+    private static func defaultLinkPlan(
+        _ route: R,
+        _ state: RouterState<R>,
+        shape: RouterHostShape,
+        tabs: [RouterTabDescriptor<R, R.Tab>],
+        resourceBudget: RouterResourceBudget
+    ) throws -> RouterPlan<R> {
+        try shape.validate(RouterStateDraft(state), at: .root, resourceBudget: resourceBudget)
         if let tab = tabs.first(where: { $0.root == route })?.tab {
             return RouterPlan(state: try RouterReducer.reduce(
-                .select(tab.routerScopeID), from: state, resourceBudget: store.resourceBudget
+                .select(tab.routerScopeID), from: state, resourceBudget: resourceBudget
             ))
         }
         guard case .container(let container) = state.root,
@@ -172,7 +229,7 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
             throw RouterMutationError.incompatibleNavigationTopology(.root)
         }
         return RouterPlan(state: try RouterReducer.reduce(
-            .scoped(target, .push(route)), from: state, resourceBudget: store.resourceBudget
+            .scoped(target, .push(route)), from: state, resourceBudget: resourceBudget
         ))
     }
 

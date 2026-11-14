@@ -20,7 +20,8 @@ enum ProductRoute {
 
 struct DeepLinkExampleView: View {
     var body: some View {
-        // RouterHost resolves matching onOpenURL values and pushes the route.
+        // RouterHost resolves a matching onOpenURL value and shows that route
+        // directly above the root, replacing whatever the stack held before.
         RouterHost(ProductRoute.self) {
             ProductListView()
         }

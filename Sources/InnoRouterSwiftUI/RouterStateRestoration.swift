@@ -7,23 +7,6 @@ import Observation
 
 import InnoRouterCore
 
-private struct RouterRestorationActivationLease<R: Route> {
-    let result: RouterRestorationDriverActivation<R>
-    let generation: UInt64
-}
-
-private struct RouterRestorationPartialConfiguration<R: Route> {
-    let validator: RouterPartialRestorationValidator<R>
-    let validationTimeout: Duration?
-}
-
-/// A stored snapshot to restore, or the recovery policy's answer to storage
-/// that rejected it before the codec could read it.
-private enum RouterInitialSnapshot<R: Route> {
-    case data(Data)
-    case recovered(RouterSnapshotDecodingResult<R>)
-}
-
 /// Opt-in automatic persistence for one canonical router store.
 ///
 /// The driver observes committed transitions, coalesces writes, and restores
@@ -42,6 +25,11 @@ public final class RouterRestorationDriver<R: Route> {
     /// A deferred transition is not a terminal success. Observe Store events
     /// for the final resumed outcome.
     public private(set) var lastPartialRestoration: RouterPartialRestorationOutcome<R>?
+    /// Which side wins when navigation is requested while the initial
+    /// snapshot is still loading. Read when an activation starts.
+    @ObservationIgnored public var initialRestorePrecedence: RouterRestorationPrecedence = .navigation
+    /// The Store lane this driver holds for an initial restore in progress.
+    @ObservationIgnored var reservedRestoreLane: RouterTransitionID?
 
     @ObservationIgnored
     package let durability = RouterDurabilityGate()
@@ -131,6 +119,7 @@ public final class RouterRestorationDriver<R: Route> {
     isolated deinit {
         activationTask?.cancel()
         activationWaiters.values.forEach { $0.resume(throwing: CancellationError()) }
+        if let reservedRestoreLane { store.releaseExecutionLane(reservedRestoreLane) }
         if let activeRestoreRequestRootID {
             store.cancelRequestFamily(activeRestoreRequestRootID)
         }
@@ -193,10 +182,12 @@ extension RouterRestorationDriver {
         initialRestorePhase = .inProgress
         lastPartialRestoration = nil
         publishStatus(.loading, ownedBy: statusOwner)
+        let reservedLane = reserveInitialRestoreLane()
         let waiterID = UUID()
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
                 guard !Task.isCancelled else {
+                    releaseInitialRestoreLane(reservedLane)
                     continuation.resume(throwing: CancellationError())
                     return
                 }
@@ -204,7 +195,8 @@ extension RouterRestorationDriver {
                 startActivationTask(
                     generation: generation,
                     statusOwner: statusOwner,
-                    expectedRevision: expectedRevision
+                    expectedRevision: expectedRevision,
+                    reservedLane: reservedLane
                 )
             }
         } onCancel: {
@@ -217,7 +209,8 @@ extension RouterRestorationDriver {
     private func startActivationTask(
         generation: UInt64,
         statusOwner: UInt64,
-        expectedRevision: UInt64
+        expectedRevision: UInt64,
+        reservedLane: RouterTransitionID?
     ) {
         guard activationTask == nil else { return }
         let taskID = UUID()
@@ -226,6 +219,7 @@ extension RouterRestorationDriver {
         activationTask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer { self.store.runtimeDependencies.didFinishRestorationWorker() }
+            defer { self.releaseInitialRestoreLane(reservedLane) }
             do {
                 try await self.store.runtimeDependencies.beforeRestorationWorker()
                 let result = try await self.performActivation(
@@ -233,6 +227,7 @@ extension RouterRestorationDriver {
                     generation: generation,
                     statusOwner: statusOwner,
                     expectedRevision: expectedRevision,
+                    reservedLane: reservedLane,
                     authorization: authorization
                 )
                 self.finishActivation(taskID, result: .success(result))
@@ -247,6 +242,7 @@ extension RouterRestorationDriver {
         generation: UInt64,
         statusOwner: UInt64,
         expectedRevision: UInt64,
+        reservedLane: RouterTransitionID?,
         authorization: RouterRequestPrecondition<R>?
     ) async throws -> RouterRestorationActivationLease<R> {
         try ensureCurrentActivation(generation, taskID: taskID)
@@ -262,7 +258,7 @@ extension RouterRestorationDriver {
                 lastPartialRestoration = nil
                 return .init(result: result, generation: generation)
             }
-            let transitionID = store.reserveTransitionID()
+            let transitionID = reservedLane ?? store.reserveTransitionID()
             activeRestoreTransitionID = transitionID
             activeRestoreRequestRootID = transitionID
             defer {
@@ -566,6 +562,7 @@ extension RouterRestorationDriver {
     }
 
     private func cancelActiveRestoreRequest() {
+        releaseInitialRestoreLane(reservedRestoreLane)
         if let activeRestoreRequestRootID {
             store.cancelRequestFamily(activeRestoreRequestRootID)
         }

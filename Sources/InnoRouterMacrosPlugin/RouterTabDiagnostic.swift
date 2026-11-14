@@ -16,10 +16,11 @@ enum RouterTabDiagnostic: DiagnosticMessage {
     case conditionalCase
     case conflictingMember(name: String)
     case redundantRouterTabConformance
+    case shadowedSwiftUITab(routerName: String)
 
     var severity: DiagnosticSeverity {
         switch self {
-        case .redundantRouterTabConformance:
+        case .redundantRouterTabConformance, .shadowedSwiftUITab:
             return .warning
         default:
             return .error
@@ -39,6 +40,7 @@ enum RouterTabDiagnostic: DiagnosticMessage {
         case .conditionalCase: return "InnoRouterMacro.E015"
         case .conflictingMember: return "InnoRouterMacro.E016"
         case .redundantRouterTabConformance: return "InnoRouterMacro.W004"
+        case .shadowedSwiftUITab: return "InnoRouterMacro.W008"
         }
     }
 
@@ -67,10 +69,21 @@ enum RouterTabDiagnostic: DiagnosticMessage {
             return prefix + "@Router with @TabItem generates `\(name)`; remove the manual declaration or remove the tab annotations"
         case .redundantRouterTabConformance:
             return prefix + "RouterTabRoute conformance is supplied by @Router when @TabItem is present; remove the explicit conformance"
+        case .shadowedSwiftUITab(let routerName):
+            return prefix + "`Tab` inside `\(routerName)` names the generated `\(routerName).Tab`, not SwiftUI's tab content; write `SwiftUI.Tab`"
         }
     }
 
     var diagnosticID: MessageID {
         MessageID(domain: "InnoRouterMacros", id: code)
+    }
+}
+
+/// Qualifies a `Tab` call that the generated nested `Tab` type shadows.
+struct QualifySwiftUITabFixIt: FixItMessage {
+    var message: String { "Write `SwiftUI.Tab`" }
+
+    var fixItID: MessageID {
+        MessageID(domain: "InnoRouterMacros", id: "qualifySwiftUITab")
     }
 }

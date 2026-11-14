@@ -1,6 +1,14 @@
 # product<TAB>maximum public symbols
 # Unreleased 7.0 candidate, extracted with Xcode 27.0 (27A266a).
 # Exact reviewed surface; no allowance for additional symbols.
-InnoRouter	1825
+# InnoRouter +13 after 7.0.1: RouterDispatchTiming (enum and two cases),
+# RouterStoreConfiguration.dispatchTiming,
+# DeepLinkFeatureRuntime.admitsOrigin(of:schemes:hosts:),
+# RouterRestorationPrecedence (enum and two cases),
+# RouterRestorationDriver.initialRestorePrecedence,
+# RouterTabHost.init(_:linkHandling:), RouterTabHost.validationFailure,
+# DestinationRoute.makeHostedRouterStore(), and
+# DestinationRoute.makeHostedTabRouterStore(initial:badges:configuration:).
+InnoRouter	1838
 InnoRouterInspector	236
 InnoRouterTesting	275

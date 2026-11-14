@@ -44,6 +44,7 @@ struct RouterCatalogDiagnosticContractTests {
             (.conditionalCase, "InnoRouterMacro.E015", .error, "#if"),
             (.conflictingMember(name: "tabCatalog"), "InnoRouterMacro.E016", .error, "tabCatalog"),
             (.redundantRouterTabConformance, "InnoRouterMacro.W004", .warning, "conformance"),
+            (.shadowedSwiftUITab(routerName: "AppRoute"), "InnoRouterMacro.W008", .warning, "SwiftUI.Tab"),
         ]
 
         #expect(Set(diagnostics.map { $0.0.code }).count == diagnostics.count)

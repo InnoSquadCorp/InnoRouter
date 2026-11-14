@@ -50,7 +50,12 @@ public struct RouterActions<R: Route>: Sendable {
         guard let authority = routerAuthority(action: "dispatch(_:context:)") else {
             return missingAuthorityTask()
         }
-        return Task { @MainActor in
+        if let outcome = authority.performImmediately(
+            action, context: context, expectedRevision: nil, atRoot: false
+        ) {
+            return Task { outcome }
+        }
+        return authority.startDispatch {
             await authority.perform(action, context: context, expectedRevision: nil)
         }
     }
@@ -173,8 +178,10 @@ public struct RouterActions<R: Route>: Sendable {
 
     @MainActor @discardableResult
     public func dismiss() -> Task<RouterOutcome<R>, Never> {
-        if let endpoint = environment?[routeType]?.enclosingPresentation {
-            return Task { @MainActor in await endpoint.dismiss() }
+        // Presented content dismisses through the endpoint that owns its
+        // presentation, which always runs on the asynchronous path.
+        if let authority = environment?[routeType], let endpoint = authority.enclosingPresentation {
+            return authority.base.startDispatch { await endpoint.dismiss() }
         }
         return dispatch(.dismissPresentation)
     }
@@ -184,8 +191,8 @@ public struct RouterActions<R: Route>: Sendable {
     public func setPresentationDetent(
         _ detent: RouterPresentationDetent
     ) -> Task<RouterOutcome<R>, Never> {
-        if let endpoint = environment?[routeType]?.enclosingPresentation {
-            return Task { @MainActor in await endpoint.setPresentationDetent(detent) }
+        if let authority = environment?[routeType], let endpoint = authority.enclosingPresentation {
+            return authority.base.startDispatch { await endpoint.setPresentationDetent(detent) }
         }
         return dispatch(.setPresentationDetent(detent))
     }
@@ -205,8 +212,16 @@ public struct RouterActions<R: Route>: Sendable {
         guard let state = authority.state, let resourceBudget = authority.resourceBudget else {
             return missingAuthorityTask()
         }
-        let plan = try RouterPlan(from: state, resourceBudget: resourceBudget, build)
-        return Task { @MainActor in
+        let steps = build()
+        let builder: () -> [RouterPlanStep<R>] = { steps }
+        // Building once now keeps an invalid transaction a thrown error.
+        let plan = try RouterPlan(from: state, resourceBudget: resourceBudget, builder)
+        if let scope = authority as? RouterScope<R> {
+            return scope.dispatchTransaction(steps, resourceBudget: resourceBudget)
+        }
+        // A feature projection replaces its own subtree with this plan when
+        // the request runs, and reads the revision then, exactly as in 7.0.
+        return authority.startDispatch {
             await authority.performRoot(
                 .apply(plan),
                 context: .init(),
@@ -258,7 +273,12 @@ public struct RouterActions<R: Route>: Sendable {
         guard let authority = routerAuthority(action: name) else {
             return missingAuthorityTask()
         }
-        return Task { @MainActor in
+        if let outcome = authority.performImmediately(
+            action, context: .init(), expectedRevision: nil, atRoot: true
+        ) {
+            return Task { outcome }
+        }
+        return authority.startDispatch {
             await authority.performRoot(action, context: .init(), expectedRevision: nil)
         }
     }
