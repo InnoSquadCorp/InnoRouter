@@ -165,6 +165,23 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
         }
     }
 
+    func startDispatch<Output: Sendable>(
+        _ work: @escaping @MainActor @Sendable () async -> Output
+    ) -> Task<Output, Never> {
+        parent.startDispatch(work)
+    }
+
+    /// Feature projections embed and re-project every action through their
+    /// parent, so they always take the asynchronous path.
+    func performImmediately(
+        _ action: RouterAction<Child>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?,
+        atRoot: Bool
+    ) -> RouterOutcome<Child>? {
+        nil
+    }
+
     func performRoot(
         _ action: RouterAction<Child>,
         context: RouterTransitionContext,

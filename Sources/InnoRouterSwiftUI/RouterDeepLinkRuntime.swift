@@ -17,7 +17,14 @@ final class RouterDeepLinkArbiter: Sendable {
     private struct Candidate {
         let source: RouterDeepLinkSource
         let depth: Int
+        let isApplicable: Bool
         let action: @MainActor @Sendable () -> Void
+
+        /// A host that can apply the link now answers before one that
+        /// cannot; among equals the outermost host answers.
+        func outranks(_ other: Candidate) -> Bool {
+            isApplicable != other.isApplicable ? isApplicable : depth < other.depth
+        }
     }
 
     private static let logger = Logger(
@@ -29,33 +36,32 @@ final class RouterDeepLinkArbiter: Sendable {
     private var scheduledURLs: Set<URL> = []
     private var ambiguousURLs: Set<URL> = []
 
+    /// `isApplicable` is `false` only for a host that resolved the URL but
+    /// cannot apply it to its current state. Such a host still answers when
+    /// no other host can, so the link ends as a reported rejection instead of
+    /// disappearing; it never takes the link from a host that can apply it.
     func submit(
         url: URL,
         source: RouterDeepLinkSource,
         depth: Int,
+        isApplicable: Bool = true,
         action: @escaping @MainActor @Sendable () -> Void
     ) {
+        let candidate = Candidate(source: source, depth: depth, isApplicable: isApplicable, action: action)
         if let current = pending[url] {
             if current.source === source {
                 return
             }
-            if depth < current.depth {
-                pending[url] = Candidate(
-                    source: source,
-                    depth: depth,
-                    action: action
-                )
-            } else if depth == current.depth, ambiguousURLs.insert(url).inserted {
-                Self.logger.warning(
-                    "Multiple macro-first hosts resolved one incoming URL at the same nesting depth; the first candidate will handle it."
-                )
+            if candidate.outranks(current) {
+                pending[url] = candidate
+                ambiguousURLs.remove(url)
+            } else if !current.outranks(candidate) {
+                // Reported at flush, once the winner is known: a later
+                // candidate can still outrank both.
+                ambiguousURLs.insert(url)
             }
         } else {
-            pending[url] = Candidate(
-                source: source,
-                depth: depth,
-                action: action
-            )
+            pending[url] = candidate
         }
 
         guard scheduledURLs.insert(url).inserted else { return }
@@ -67,7 +73,11 @@ final class RouterDeepLinkArbiter: Sendable {
 
     func flush(_ url: URL) {
         scheduledURLs.remove(url)
-        ambiguousURLs.remove(url)
+        if ambiguousURLs.remove(url) != nil {
+            Self.logger.warning(
+                "Multiple macro-first hosts resolved one incoming URL at the same nesting depth; the first candidate will handle it."
+            )
+        }
         pending.removeValue(forKey: url)?.action()
     }
 }
@@ -492,25 +502,23 @@ func submitRouterPlanLink<R: Route>(
     handling: RouterLinkHandling<R>?,
     fallbackPlan: @escaping @MainActor @Sendable (R, RouterState<R>) throws -> RouterPlan<R>
 ) {
-    let admittedDecision: RouterLinkAdmission<R>
-    if let handling {
-        admittedDecision = handling.admittedDecision(for: url)
-    } else {
-        guard let resolver = routeType as? any DeepLinkRoute.Type,
-              let route = resolver.resolveDeepLink(url) as? R,
-              let state = scope.state,
-              let plan = try? fallbackPlan(route, state) else { return }
-        admittedDecision = .matched(RouterAdmittedLink(plan: plan, matchedRoute: route))
+    guard let handling else {
+        submitDefaultRouterPlanLink(
+            routeType, url: url, scope: scope, context: context,
+            source: source, fallbackPlan: fallbackPlan
+        )
+        return
     }
+    let admittedDecision = handling.admittedDecision(for: url)
     if case .unhandled = admittedDecision {
-        handling?.onEvent(.unhandled(url: url))
+        handling.onEvent(.unhandled(url: url))
         return
     }
     let authorization: RouterRequestAuthorization<R>?
     if case .matched(let request) = admittedDecision {
         authorization = .init(
             matchedRoutes: request.matchedRoute.map { [$0] } ?? [],
-            configuration: handling?.authorization
+            configuration: handling.authorization
         )
     } else {
         authorization = nil
@@ -519,9 +527,9 @@ func submitRouterPlanLink<R: Route>(
     context.arbiter.submit(url: url, source: source, depth: context.depth) {
         switch admittedDecision {
         case .rejected(let reason):
-            handling?.onEvent(.rejected(url: url, reason: reason))
+            handling.onEvent(.rejected(url: url, reason: reason))
         case .unhandled:
-            handling?.onEvent(.unhandled(url: url))
+            handling.onEvent(.unhandled(url: url))
         case .matched(let request):
             Task { @MainActor in
                 let outcome = await scope.performRoot(
@@ -532,12 +540,12 @@ func submitRouterPlanLink<R: Route>(
                 if case .rejected(_, _, _, .authorization(let failure)) = outcome,
                    failure.code == .denied,
                    let gated = authorization?.deniedRoute {
-                    handling?.onEvent(.pending(.init(
+                    handling.onEvent(.pending(.init(
                         url: url, gatedRoute: gated, plan: request.plan,
                         matchedRoute: request.matchedRoute, isRevalidationRequired: true
                     )))
                 } else {
-                    handling?.onEvent(.completed(plan: request.plan, outcome: outcome))
+                    handling.onEvent(.completed(plan: request.plan, outcome: outcome))
                 }
             }
         }

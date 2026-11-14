@@ -427,8 +427,12 @@ public enum RouterReducer {
         from current: RouterState<R>,
         to proposed: RouterState<R>
     ) throws {
+        // Module-internal construction (such as an in-progress plan) can hand
+        // this an unvalidated source state, so it never uses the trapping
+        // unique-key initializer. The first occurrence wins.
         let currentByID = Dictionary(
-            uniqueKeysWithValues: current.windows.map { ($0.id, $0.route) }
+            current.windows.map { ($0.id, $0.route) },
+            uniquingKeysWith: { first, _ in first }
         )
         for window in proposed.windows {
             guard let currentRoute = currentByID[window.id] else { continue }

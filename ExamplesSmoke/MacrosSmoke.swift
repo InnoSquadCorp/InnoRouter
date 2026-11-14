@@ -109,6 +109,27 @@ enum MacrosSmokeConsumer {
             badges: [.settings: 1]
         ).body
 
+        // 7.1.0 additions, compiled outside the package's own modules.
+        let tabHost = RouterTabHost(RouterMacroSmokeRoute.self)
+        _ = tabHost.body
+        let _: RouterHostValidationFailure? = tabHost.validationFailure
+        let immediate = RouterStoreConfiguration<RouterMacroSmokeRoute>(dispatchTiming: .immediateWhenIdle)
+        let _: RouterDispatchTiming = immediate.dispatchTiming
+        let stackStore = try RouterMacroSmokeRoute.makeRouterHostStore(configuration: immediate)
+        _ = RouterHost(store: stackStore) { RouterMacroSmokeActions() }.validationFailure
+        _ = RouterMacroSmokeRoute.makeRouterHostStore()
+        let tabStore = try RouterMacroSmokeRoute.makeRouterTabHostStore(
+            initial: .settings, orphanPolicy: .preserveDormant
+        )
+        _ = try RouterTabHost(store: tabStore, orphanPolicy: .preserveDormant).body
+        let precedenceDriver = RouterRestorationDriver(
+            store: tabStore,
+            codec: try RouterSnapshotCodec<RouterMacroSmokeRoute>(currentVersion: 1),
+            storage: RouterFileSnapshotStorage(fileURL: URL.temporaryDirectory.appending(path: "smoke.json")),
+            initialRestorePrecedence: .snapshot
+        )
+        let _: RouterRestorationPrecedence = precedenceDriver.initialRestorePrecedence
+
         let store = RouterMacroSmokeRoute.makeRouterStore()
         _ = await store.perform(.push(.detail(id: "42")))
 

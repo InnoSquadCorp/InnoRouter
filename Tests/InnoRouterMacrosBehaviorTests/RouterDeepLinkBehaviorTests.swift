@@ -466,6 +466,13 @@ struct RouterDeepLinkBehaviorTests {
         #expect(BehaviorDeepLinkRoute.resolveDeepLink(missing) == .search(page: nil))
         #expect(BehaviorDeepLinkRoute.resolveDeepLink(valid) == .search(page: 3))
         #expect(BehaviorDeepLinkRoute.resolveDeepLink(invalid) == nil)
+
+        // A value that does not percent-decode is invalid, not missing, and
+        // does not let a later value take its place.
+        let undecodable = try #require(URL(string: "https://app.example.com/search?page=%FF"))
+        let shifted = try #require(URL(string: "https://app.example.com/search?page=%FF&page=3"))
+        #expect(BehaviorDeepLinkRoute.resolveDeepLink(undecodable) == nil)
+        #expect(BehaviorDeepLinkRoute.resolveDeepLink(shifted) == nil)
     }
 
     @Test("Path captures win over query values with the same name")

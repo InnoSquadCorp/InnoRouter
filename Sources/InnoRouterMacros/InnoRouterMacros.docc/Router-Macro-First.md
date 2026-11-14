@@ -77,6 +77,12 @@ Use `role: .search` only for the route that should adopt SwiftUI's native
 search-tab behavior. Role and selected-image metadata do not change the stable
 case-name identity.
 
+Render the tabs with `RouterTabHost(AppRoute.self)`, which needs no `try` from
+7.1.0 because the macro has already validated the catalog, or with a throwing
+initializer to choose the initial tab, badges, or a configuration. Inside the
+enum, the name `Tab` means the generated `AppRoute.Tab`; write `SwiftUI.Tab`
+for SwiftUI's tab content, as warning `InnoRouterMacro.W008` suggests.
+
 ## Generate typed scenes
 
 Annotate parameterless scene roots with `@Scene`. The router macro generates a

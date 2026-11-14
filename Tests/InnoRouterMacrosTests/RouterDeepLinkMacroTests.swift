@@ -114,17 +114,11 @@ struct RouterDeepLinkExpansionMacroTests {
                             return .product(id: deepLinkValue0, featured: deepLinkValue1, page: deepLinkValue2)
                         }
                     }
-                    guard url.user == nil,
-                          url.password == nil,
-                          url.port == nil,
-                          let scheme = url.scheme,
-                          ["innorouter", "https"].contains(where: {
-                              $0.caseInsensitiveCompare(scheme) == .orderedSame
-                          }),
-                          let host = url.host,
-                          ["app.example.com"].contains(where: {
-                              $0.caseInsensitiveCompare(host) == .orderedSame
-                          }),
+                    guard InnoRouterDeepLink.DeepLinkFeatureRuntime.admitsOrigin(
+                              of: url,
+                              schemes: ["innorouter", "https"],
+                              hosts: ["app.example.com"]
+                          ),
                           let route = matcher.match(url) else {
                         return nil
                     }
@@ -238,17 +232,11 @@ struct RouterDeepLinkExpansionMacroTests {
                             return .name(value: deepLinkValue0)
                         }
                     }
-                    guard url.user == nil,
-                          url.password == nil,
-                          url.port == nil,
-                          let scheme = url.scheme,
-                          ["innorouter"].contains(where: {
-                              $0.caseInsensitiveCompare(scheme) == .orderedSame
-                          }),
-                          let host = url.host,
-                          ["app.example.com"].contains(where: {
-                              $0.caseInsensitiveCompare(host) == .orderedSame
-                          }),
+                    guard InnoRouterDeepLink.DeepLinkFeatureRuntime.admitsOrigin(
+                              of: url,
+                              schemes: ["innorouter"],
+                              hosts: ["app.example.com"]
+                          ),
                           let route = matcher.match(url) else {
                         return nil
                     }
@@ -380,17 +368,11 @@ struct RouterDeepLinkExpansionMacroTests {
                             return .value(value: deepLinkValue0)
                         }
                     }
-                    guard url.user == nil,
-                          url.password == nil,
-                          url.port == nil,
-                          let scheme = url.scheme,
-                          ["innorouter"].contains(where: {
-                              $0.caseInsensitiveCompare(scheme) == .orderedSame
-                          }),
-                          let host = url.host,
-                          ["app.example.com"].contains(where: {
-                              $0.caseInsensitiveCompare(host) == .orderedSame
-                          }),
+                    guard InnoRouterDeepLink.DeepLinkFeatureRuntime.admitsOrigin(
+                              of: url,
+                              schemes: ["innorouter"],
+                              hosts: ["app.example.com"]
+                          ),
                           let route = matcher.match(url) else {
                         return nil
                     }
@@ -498,17 +480,11 @@ struct RouterDeepLinkExpansionMacroTests {
                             return .home
                         }
                     }
-                    guard url.user == nil,
-                          url.password == nil,
-                          url.port == nil,
-                          let scheme = url.scheme,
-                          ["innorouter"].contains(where: {
-                              $0.caseInsensitiveCompare(scheme) == .orderedSame
-                          }),
-                          let host = url.host,
-                          ["app.example.com"].contains(where: {
-                              $0.caseInsensitiveCompare(host) == .orderedSame
-                          }),
+                    guard InnoRouterDeepLink.DeepLinkFeatureRuntime.admitsOrigin(
+                              of: url,
+                              schemes: ["innorouter"],
+                              hosts: ["app.example.com"]
+                          ),
                           let route = matcher.match(url) else {
                         return nil
                     }
@@ -1319,17 +1295,11 @@ struct RouterDeepLinkDiagnosticMacroTests {
                             return .home
                         }
                     }
-                    guard url.user == nil,
-                          url.password == nil,
-                          url.port == nil,
-                          let scheme = url.scheme,
-                          ["innorouter"].contains(where: {
-                              $0.caseInsensitiveCompare(scheme) == .orderedSame
-                          }),
-                          let host = url.host,
-                          ["app.example.com"].contains(where: {
-                              $0.caseInsensitiveCompare(host) == .orderedSame
-                          }),
+                    guard InnoRouterDeepLink.DeepLinkFeatureRuntime.admitsOrigin(
+                              of: url,
+                              schemes: ["innorouter"],
+                              hosts: ["app.example.com"]
+                          ),
                           let route = matcher.match(url) else {
                         return nil
                     }

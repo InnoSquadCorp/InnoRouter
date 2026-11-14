@@ -56,6 +56,12 @@ public final class RouterScope<R: Route> {
     private(set) var sceneLifetime: RouterSceneRequestLifetime?
     @ObservationIgnored
     private let lifetimeToken: UUID?
+    /// The values the observed projection was last derived from.
+    @ObservationIgnored
+    private var refreshInputs: RefreshInputs
+    /// Whether `refresh` has run at least once since this scope was created.
+    @ObservationIgnored
+    private(set) var hasRefreshed = false
     @ObservationIgnored
     private let admissionFailure: RouterResourceLimitFailure?
 
@@ -83,6 +89,12 @@ public final class RouterScope<R: Route> {
         self.observedContainerStyle = Self.containerStyle(of: node)
         self.observedWindows = admissionFailure == nil ? store.state.windows : []
         self.observedImmersiveSpace = admissionFailure == nil ? store.state.immersiveSpace : nil
+        self.refreshInputs = .init(
+            node: node,
+            sceneRootRoute: admissionFailure == nil ? store.state.sceneRootRoute(at: path) : nil,
+            windows: admissionFailure == nil ? store.state.windows : [],
+            immersiveSpace: admissionFailure == nil ? store.state.immersiveSpace : nil
+        )
         self.store = store
         self.lifetimeToken = lifetimeToken
         self.admissionFailure = admissionFailure
@@ -191,6 +203,39 @@ public final class RouterScope<R: Route> {
         )
     }
 
+    /// Performs a root request whose action is derived from the state the
+    /// Store holds when the request executes, not the state at submission.
+    ///
+    /// An exact-state plan built ahead of time would overwrite every commit
+    /// that lands before it runs. The same builder is reused when a deferred
+    /// request is rebased, for the same reason.
+    func performRoot(
+        preparedBy preparation: @escaping RouterRequestPreparationBuilder<R>,
+        context: RouterTransitionContext,
+        executionPrecondition: RouterRequestPrecondition<R>?,
+        authorization: RouterRequestAuthorization<R>? = nil
+    ) async -> RouterOutcome<R> {
+        guard let store else { return Self.missingAuthorityOutcome() }
+        if let rejection = resourceAdmissionRejection {
+            return store.rejectRequest(reason: rejection, context: context)
+        }
+        // Only describes the request to observers; execution re-derives it.
+        let submittedAction: RouterAction<R> = switch preparation(store.state) {
+        case .action(let action): action
+        case .rejected: .apply(RouterPlan(state: store.state))
+        }
+        return await store.perform(
+            submittedAction,
+            context: context,
+            expectedRevision: nil,
+            bypassesPolicies: false,
+            authorization: authorization,
+            executionPrecondition: combinedExecutionPrecondition(executionPrecondition),
+            executionPreparation: preparation,
+            deferredResumePreparation: { state, _ in preparation(state) }
+        )
+    }
+
     func captureLinkAuthorizationPrecondition(
         request: RouterRequestAuthorization<R>?
     ) -> RouterRequestPrecondition<R>? {
@@ -267,8 +312,8 @@ public final class RouterScope<R: Route> {
         _ action: RouterAction<R>,
         context: RouterTransitionContext = .init()
     ) -> Task<RouterOutcome<R>, Never> {
-        Task { @MainActor [self] in
-            return await perform(action, context: context)
+        startDispatch { [self] in
+            await perform(action, context: context)
         }
     }
 
@@ -278,8 +323,8 @@ public final class RouterScope<R: Route> {
         context: RouterTransitionContext,
         executionPrecondition: RouterRequestPrecondition<R>?
     ) -> Task<RouterOutcome<R>, Never> {
-        Task { @MainActor [self] in
-            return await perform(
+        startDispatch { [self] in
+            await perform(
                 action,
                 context: context,
                 expectedRevision: nil,
@@ -294,8 +339,8 @@ public final class RouterScope<R: Route> {
         _ action: RouterAction<R>,
         context: RouterTransitionContext = .init()
     ) -> Task<RouterOutcome<R>, Never> {
-        Task { @MainActor [self] in
-            return await performRoot(action, context: context)
+        startDispatch { [self] in
+            await performRoot(action, context: context)
         }
     }
 
@@ -305,8 +350,8 @@ public final class RouterScope<R: Route> {
         context: RouterTransitionContext,
         executionPrecondition: RouterRequestPrecondition<R>?
     ) -> Task<RouterOutcome<R>, Never> {
-        Task { @MainActor [self] in
-            return await performRoot(
+        startDispatch { [self] in
+            await performRoot(
                 action,
                 context: context,
                 expectedRevision: nil,
@@ -319,41 +364,56 @@ public final class RouterScope<R: Route> {
         from state: RouterState<R>,
         reconcileSystemBinding: Bool = false
     ) {
+        hasRefreshed = true
+        // One lookup: the lifetime check hashes this scope's path.
+        let isCurrent = matchesCurrentLifetime
         // A scope acquired synchronously during commit can capture its new
         // runtime incarnation before the native scene lifetime is installed.
         // Complete that capture only while it still owns the current runtime;
         // missing and expired scopes must retain their original semantics.
-        if matchesCurrentLifetime,
+        if isCurrent,
            let currentSceneLifetime = store?.sceneRequestLifetime(at: path),
            sceneLifetime != currentSceneLifetime {
             sceneLifetime = currentSceneLifetime
         }
-        let refreshedNode = matchesCurrentLifetime ? state.node(at: path) : nil
-        let projection = Self.projection(from: refreshedNode)
-        let sceneRootRoute = matchesCurrentLifetime ? state.sceneRootRoute(at: path) : nil
-        if node != refreshedNode { node = refreshedNode }
-        if observedPath != projection.path { observedPath = projection.path }
-        if observedSceneRootRoute != sceneRootRoute {
-            observedSceneRootRoute = sceneRootRoute
+        let inputs = RefreshInputs(
+            node: isCurrent ? state.node(at: path) : nil,
+            sceneRootRoute: isCurrent ? state.sceneRootRoute(at: path) : nil,
+            windows: isCurrent ? state.windows : [],
+            immersiveSpace: isCurrent ? state.immersiveSpace : nil
+        )
+        // Every observed property is a pure function of these four values, and
+        // only `init` and this method write them. A commit elsewhere in the
+        // tree leaves the inputs equal, so there is nothing to publish.
+        let previous = refreshInputs
+        guard inputs != previous else {
+            if reconcileSystemBinding { reconciliationRevision &+= 1 }
+            return
         }
-        if observedPresentation != projection.presentation {
-            observedPresentation = projection.presentation
+        refreshInputs = inputs
+        // Old values are re-derived from the previous inputs instead of read
+        // back through the observed properties: each observed read registers
+        // an access, and its key path is instantiated at runtime inside this
+        // generic class. Only a property that actually changed is written.
+        let old = Self.projection(from: previous.node)
+        let new = Self.projection(from: inputs.node)
+        if previous.node != inputs.node { node = inputs.node }
+        if old.path != new.path { observedPath = new.path }
+        if previous.sceneRootRoute != inputs.sceneRootRoute {
+            observedSceneRootRoute = inputs.sceneRootRoute
         }
-        if observedPresentationFamily != projection.family {
-            observedPresentationFamily = projection.family
+        if old.presentation != new.presentation { observedPresentation = new.presentation }
+        if old.family != new.family { observedPresentationFamily = new.family }
+        if old.selection != new.selection { observedSelection = new.selection }
+        if old.badges != new.badges { observedBadges = new.badges }
+        if old.split != new.split { observedSplitState = new.split }
+        let containerStyle = Self.containerStyle(of: inputs.node)
+        if Self.containerStyle(of: previous.node) != containerStyle {
+            observedContainerStyle = containerStyle
         }
-        if observedSelection != projection.selection {
-            observedSelection = projection.selection
-        }
-        if observedBadges != projection.badges { observedBadges = projection.badges }
-        if observedSplitState != projection.split { observedSplitState = projection.split }
-        let containerStyle = Self.containerStyle(of: refreshedNode)
-        if observedContainerStyle != containerStyle { observedContainerStyle = containerStyle }
-        let windows = matchesCurrentLifetime ? state.windows : []
-        let immersiveSpace = matchesCurrentLifetime ? state.immersiveSpace : nil
-        if observedWindows != windows { observedWindows = windows }
-        if observedImmersiveSpace != immersiveSpace {
-            observedImmersiveSpace = immersiveSpace
+        if previous.windows != inputs.windows { observedWindows = inputs.windows }
+        if previous.immersiveSpace != inputs.immersiveSpace {
+            observedImmersiveSpace = inputs.immersiveSpace
         }
         if reconcileSystemBinding {
             reconciliationRevision &+= 1
@@ -431,3 +491,14 @@ public final class RouterScope<R: Route> {
 }
 
 extension RouterScope: RouterAuthorityProtocol {}
+
+extension RouterScope {
+    /// Everything ``refresh(from:reconcileSystemBinding:)`` derives the
+    /// observed projection from.
+    fileprivate struct RefreshInputs: Equatable {
+        let node: RouterNode<R>?
+        let sceneRootRoute: R?
+        let windows: [RouterWindow<R>]
+        let immersiveSpace: RouterImmersiveSpace<R>?
+    }
+}

@@ -204,7 +204,7 @@ public extension RouterStore {
         _ action: RouterAction<R>,
         context: RouterTransitionContext = .init()
     ) -> Task<RouterOutcome<R>, Never> {
-        Task { @MainActor [weak self] in
+        startDispatchTask { [weak self] in
             guard let self else {
                 let state = try! RouterState<R>()
                 return .rejected(

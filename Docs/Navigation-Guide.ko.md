@@ -30,6 +30,25 @@ prepare, 잘못된 action은 기존 상태를 바꾸지 않습니다. `.applied`
 policy가 `deferRequest`를 반환하면 외부 결정을 기다리는 동안 실행 lane을 비우고,
 이후 기존 revision을 확인해 재개하거나 현재 상태에 명시적으로 rebase할 수 있습니다.
 
+`go`, `back`, `sheet` 같은 `RouterActions` 메서드는 task를 반환하며, 기본적으로
+이후 main-actor turn에 commit합니다. `configuration.dispatchTiming =
+.immediateWhenIdle`로 설정하면 호출이 반환되기 전에 commit하므로, 감싸고 있는
+`withAnimation`·`withTransaction`이 navigation 변경 자체에 적용됩니다. 즉시 commit은
+store에 prepare policy와 authorization이 없고, 진행 중이거나 앞선 fire-and-forget
+호출에서 아직 도착하지 않은 요청이 없으며, `RouterEvent`·요청 observer callback
+안에서 호출한 것이 아니고, 호출한 task가 취소되지 않았을 때만 일어납니다. 그 밖의
+요청은 기존 경로를 그대로 타므로 호출 순서와 policy 보장은 달라지지 않습니다.
+feature projection을 거친 요청, 그리고 표시된 콘텐츠 안에서 호출한 `dismiss()`와
+`setPresentationDetent(_:)`는 항상 기존 경로를 사용합니다. 앱 코드가 직접 `Task`로
+시작한 요청은 store가 알 수 없으므로, 같은 turn에서 그 뒤에 보낸 즉시 요청이 먼저
+commit됩니다. view body 평가 중이 아니라 버튼 action 같은 사용자 상호작용 handler에서
+호출하세요.
+
+`router.transaction { ... }`은 요청이 실행되는 시점의 store 상태에 step을 적용하므로,
+그보다 먼저 보낸 fire-and-forget 요청 위에 쌓입니다. 잘못된 transaction은 지금처럼
+호출 시점에 throw합니다. feature projection을 거친 transaction은 이전과 같이 호출
+시점에 만든 plan으로 그 feature의 subtree를 대체합니다.
+
 tab·split 하위 트리는 `RouterScope`로 관찰하고 요청합니다. scope는 안정적인
 projection과 forwarder이며 또 다른 mutable store가 아닙니다.
 
@@ -98,9 +117,42 @@ RouterHost(store: store) { HomeView() }
 
 driver는 일반 policy pipeline으로 복원하고 commit 저장을 coalesce하며 scene이
 inactive가 될 때 flush합니다. activation 예약 시점에 관찰과 시작 revision을 확정해
-snapshot load 중 들어온 최신 navigation을 덮지 않습니다. 중단된 worker와 caller
-소유권은 이후 activation을 변경할 수 없습니다. cloud sync는 계속 앱이 선택하는 별도
-책임입니다.
+snapshot load 중 들어온 최신 navigation을 덮지 않습니다. driver가 다음에 저장하는
+것도 그 최신 상태이므로, 밀려난 snapshot은 대체됩니다.
+
+실행 직후의 작업이 이전 session을 밀어내면 안 된다면 driver가 `lastActivation`을 보고한
+뒤에 commit하거나, driver를 `initialRestorePrecedence: .snapshot`으로 만드세요. 이 옵션에서는
+activation 시점에 실행 중이거나 대기 중인 요청이 없으면 driver가 복원 요청이 실행될 때까지(읽기,
+디코딩, migration, 검증 전체) store의 실행 lane을 잡습니다. 그 사이의 요청은 `.serialize`에서는
+대기하고 `.rejectWhileBusy`에서는 busy로 거절됩니다. 이미 실행 중이거나 대기 중인 요청이 있었다면
+driver는 lane을 잡지 않으며, 그 activation은 기본 방식으로 동작해 앞선 요청이 commit되면 복원은
+stale로 거절됩니다.
+
+대기하던 요청이 어떻게 되는지는 대기가 끝나는 방식에 따라 다릅니다.
+
+- **snapshot이 복원된 경우**(복원이 적용되었거나 상태가 그대로인 경우). 모든 scope가 대체되므로
+  view에서 온 요청(router 호출, host의 deep link 처리, SwiftUI navigation binding)은 더 이상 없는
+  scope를 대상으로 만든 것이 되어 다른 복원 뒤와 마찬가지로 expired scope로 거절됩니다. 이른 탭이나
+  실행 직후의 link는 session을 지우는 대신 거절된 요청으로 끝납니다. store에 직접 보낸 요청은
+  scope에 묶이지 않으므로 복원 뒤에 실행되어 복원된 상태를 바꾸거나 대체할 수 있습니다. 기본 plan이
+  상태 전체를 대체하는 `handle(_:using:)`의 link 처리도 여기에 해당합니다.
+- **snapshot이 없거나, load가 실패하거나, driver가 중단된 경우.** scope가 대체되지 않았으므로
+  대기하던 요청은 현재 상태에서 실행됩니다.
+- **policy나 authorization이 복원 transition을 defer하거나 거절한 경우.** 대기는 그 결과와 함께
+  끝나고, 대기하던 요청은 snapshot 이전 상태에서 실행되며 그 결과가 저장됩니다.
+
+그동안 navigation이 닫히므로 저장소의 load 시간을 제한하고 검증기에는 `validationTimeout`을
+주세요.
+
+중단된 worker와 caller 소유권은 이후 activation을 변경할 수 없습니다. cloud sync는
+계속 앱이 선택하는 별도 책임입니다.
+
+이 driver처럼 host 외의 대상이 store를 필요로 하면 기본 host용으로 미리 선언된
+store를 만들 수 있습니다. `RouterHost(store:)`에는 `AppRoute.makeRouterHostStore()`(또는
+`try AppRoute.makeRouterHostStore(configuration:)`), `RouterTabHost(store:)`에는
+`try AppRoute.makeRouterTabHostStore()`를 사용합니다. 복원된 snapshot에 catalog가 더 이상
+선언하지 않는 tab이 남아 있을 수 있다면 tab factory에 `orphanPolicy: .preserveDormant`를,
+host에도 같은 policy를 주세요.
 
 위 바이트 한도는 앱이 선택한 예시입니다. 파일 저장소는 읽는 동안 크기를 제한하고,
 codec은 encoded envelope·decoded payload·각 migration 결과를 별도로 제한합니다.
@@ -183,6 +235,11 @@ let tabHost = try RouterTabHost(AppRoute.self, initial: .home)
 입력이 있는 host는 오류를 처리할 수 있는 초기 설정 단계에서 만듭니다.
 SwiftUI `body`는 nonthrowing으로 유지합니다. tab·split host는 전체 topology를
 보존하고 잘못되거나 한도를 넘은 초기 입력을 오류로 반환합니다.
+7.1.0부터 `RouterTabHost(AppRoute.self)`는 선언된 tab으로 `try` 없이 tab host를 만들므로
+`body`에 바로 쓸 수 있습니다. catalog는 매크로가 이미 검증했고, 손으로 쓴 잘못된 catalog는
+복구 화면과 `validationFailure`로 보고됩니다. enum 안에서 SwiftUI의 tab content는
+`SwiftUI.Tab`으로 쓰세요. 이름만 쓰면 생성된 `AppRoute.Tab`을 뜻합니다(경고
+`InnoRouterMacro.W008`).
 
 `id:`를 생략하면 case 이름이 저장되는 scope ID입니다. tab case 이름을 바꾸기 전에
 명시 ID를 추가하면 저장된 branch를 계속 찾을 수 있습니다. 이 ID는 tab scope만
@@ -231,6 +288,27 @@ plan 전체를 보관합니다. `RouterPendingLinkSlot`은 교체·취소·재�
 다루며, 재개가 정책에서 거절되면 기본적으로 pending 값을 유지합니다.
 프로세스 종료 뒤에도 이어야 한다면 `RouterPendingLinkPersistenceDriver`가 앱이 고른
 저장소에 versioned 값을 저장합니다. 느린 복원은 더 최신 in-memory link를 덮지 않습니다.
+
+origin은 ASCII 대소문자만 접은 뒤 byte 단위로 정확히 비교합니다. 따라서 Unicode
+대소문자 변환이나 정규화를 거쳐야 허용 값과 같아지는 percent-encoding host는
+거절합니다. user·password component는 해석할 수 없는 형태를 포함해 모두 거절합니다.
+올바른 UTF-8이 아닌 percent-encoding은 값으로 받아들이지 않습니다. pattern이 읽는
+path segment라면 어떤 것과도 일치하지 않고, query 값이라면 `String`을 포함한 모든
+type에서 잘못된 값이므로 그 값을 읽는 생성 route는 해석되지 않습니다. route가 읽지
+않는 query item과 마지막 wildcard가 삼키는 segment는 일치 여부를 좌우하지 않습니다.
+직접 작성한 mapping에서는 typed `firstValue(forName:as:)`가 그런 값을 거절하고, type을
+지정하지 않는 accessor는 빈 문자열로 보고합니다.
+
+`linkHandling`이 없는 host는 해석한 link를 일반 store 요청 하나로 적용합니다.
+`RouterHost`는 route를 root 바로 위에 표시하며 기존 stack을 대체하고,
+`RouterTabHost`는 tab root를 선택하거나 선택된 tab에 push하며, split host는 해당
+column으로 보냅니다. exact plan은 요청이 실행되는 시점의 store 상태에서 만들기 때문에
+URL 도착과 실행 사이에 들어온 commit은 보존됩니다. host가 적용할 수 없는 link(예:
+sheet가 stack을 덮은 상태의 push)는 URL이 도착한 시점에 적용할 수 있는 다른 host에
+양보하며, 어떤 host도 적용할 수 없을 때는 조용히 사라지지 않고 `RouterEvent`로 관찰되는
+거절 요청으로 끝납니다. 여러 host가 같은 URL을 적용할 수 있으면 가장 바깥 host가
+처리합니다. host는 URL 도착 시점에 정해지므로, 요청이 실행되기 전에 적용할 수 없게 된
+host는 link를 다른 host에 넘기지 않고 거절합니다.
 
 `@Router`에 `inspectorCatalog: true`를 지정하면 실제 resolver와 같은 우선순위로
 payload 없는 `DeepLinkRouteCatalog`를 생성합니다. `explainDeepLink(_:)`는 인증이나

@@ -17,8 +17,12 @@ private enum DeepLinkAdmissionSource<Output: Sendable>: Sendable {
 /// limits run after those validations so both public pipelines preserve the same
 /// rejection precedence while sharing one parsed URL for matching.
 struct DeepLinkAdmission<Output: Sendable>: Sendable {
-    private let allowedSchemes: Set<String>?
-    private let allowedHosts: Set<String>?
+    /// Kept as given, not folded into a new `Set<String>`: after ASCII
+    /// folding, two spellings that differ in their bytes can become
+    /// canonically equivalent, and a `Set` would keep only one of them.
+    /// ``DeepLinkOriginComparison/matches(_:_:)`` folds both sides.
+    private let allowedSchemes: [String]?
+    private let allowedHosts: [String]?
     private let rejectsNonCanonicalAuthority: Bool
     private let source: DeepLinkAdmissionSource<Output>
     private let inputLimits: DeepLinkInputLimits
@@ -57,8 +61,8 @@ struct DeepLinkAdmission<Output: Sendable>: Sendable {
         matcher: DeepLinkMatcher<Output>,
         inputLimits: DeepLinkInputLimits
     ) {
-        self.allowedSchemes = allowedSchemes?.lowercased
-        self.allowedHosts = allowedHosts?.lowercased
+        self.allowedSchemes = allowedSchemes.map(Array.init)
+        self.allowedHosts = allowedHosts.map(Array.init)
         self.rejectsNonCanonicalAuthority = allowedSchemes != nil || allowedHosts != nil
         self.source = .matcher(matcher)
         self.inputLimits = inputLimits
@@ -70,8 +74,8 @@ struct DeepLinkAdmission<Output: Sendable>: Sendable {
         customResolver: @escaping @Sendable (URL) -> Output?,
         inputLimits: DeepLinkInputLimits
     ) {
-        self.allowedSchemes = allowedSchemes?.lowercased
-        self.allowedHosts = allowedHosts?.lowercased
+        self.allowedSchemes = allowedSchemes.map(Array.init)
+        self.allowedHosts = allowedHosts.map(Array.init)
         self.rejectsNonCanonicalAuthority = allowedSchemes != nil || allowedHosts != nil
         self.source = .customResolver(customResolver)
         self.inputLimits = inputLimits
@@ -89,20 +93,25 @@ struct DeepLinkAdmission<Output: Sendable>: Sendable {
         }
 
         if rejectsNonCanonicalAuthority,
-           url.user != nil || url.password != nil || url.port != nil {
+           DeepLinkOriginComparison.carriesCredentials(url) || url.port != nil {
             // Reuse the 5.x origin rejection surface so existing exhaustive
             // switches over DeepLinkRejectionReason keep compiling.
             return .rejected(.hostNotAllowed(actualHost: url.host))
         }
 
         if let allowedSchemes {
-            guard let scheme = url.scheme?.lowercased(), allowedSchemes.contains(scheme) else {
+            // Byte comparison, not `Set.contains`: Swift string equality is
+            // Unicode canonical equivalence, which would admit a decomposed
+            // spelling of a precomposed allow-list entry.
+            guard let scheme = url.scheme,
+                  allowedSchemes.contains(where: { DeepLinkOriginComparison.matches(scheme, $0) }) else {
                 return .rejected(.schemeNotAllowed(actualScheme: url.scheme))
             }
         }
 
         if let allowedHosts {
-            guard let host = url.host?.lowercased(), allowedHosts.contains(host) else {
+            guard let host = url.host,
+                  allowedHosts.contains(where: { DeepLinkOriginComparison.matches(host, $0) }) else {
                 return .rejected(.hostNotAllowed(actualHost: url.host))
             }
         }
@@ -133,11 +142,5 @@ private extension DeepLinkOriginPolicy {
         case .trustedInProcess:
             return (nil, nil)
         }
-    }
-}
-
-private extension Set where Element == String {
-    var lowercased: Set<String> {
-        Set(map { $0.lowercased() })
     }
 }

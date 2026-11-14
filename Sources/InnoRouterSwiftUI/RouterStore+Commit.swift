@@ -136,7 +136,14 @@ extension RouterStore {
         presentationCompletionOwner: RouterPresentationCompletionOwner
     ) -> RouterOutcome<R> {
         let previousScopes = Array(scopes.values)
-        let retired = updateScopeLifetimes(after: after, mutation: lifetimeMutation, requestRootID: requestRootID)
+        // A host replacement changes what the graph means even when its
+        // value is the same, so it always takes the general path.
+        let changedPaths = hostReplacement == nil && !lifetimeMutation.replacesOwnership
+            ? Self.subtreesChanged(from: before, to: after) : nil
+        let retired = updateScopeLifetimes(
+            after: after, mutation: lifetimeMutation, requestRootID: requestRootID,
+            keepsStructure: changedPaths != nil
+        )
 #if DEBUG
         let previousSceneLifetime = immersiveSpaceLifecycleToken
 #endif
@@ -152,7 +159,7 @@ extension RouterStore {
             RouterSceneLifecycleTrace.record("scene.commit", "transition=\(id) revision=\(revision) previousLifetime=\(String(describing: previousSceneLifetime)) currentLifetime=\(String(describing: immersiveSpaceLifecycleToken)) source=\(context.source)")
         }
 #endif
-        refreshScopes(after: action, context: context, including: previousScopes)
+        refreshScopes(after: action, context: context, including: previousScopes, changedPaths: changedPaths)
         finishDismissedPresentations(
             ids: retired,
             before: before,

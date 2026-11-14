@@ -63,7 +63,7 @@ struct AppRoot: View {
 
 `RouterState` 对外只读。修改 `RouterStateDraft`，调用 `try build(resourceBudget:)` 验证后创建 `RouterPlan(state:)`。plan 表示精确目标，`RouterAction` 表示增量变更，只有 `RouterStore` 能提交导航。`RouterScope` 是子树的只读投影和动作转发器，不是另一个 store。
 
-`RouterStore<AppRoute>()` 和 `AppRoute.makeRouterStore()` 不抛错；提供初始状态、路径或配置时必须使用 `try`。外部 store 的 renderer 需要明确的 `hostDescriptor`；下面声明默认 stack 根节点。在应用初始化阶段处理错误并显示恢复界面，不要用 `try!` 或无关空状态隐藏失败。
+`RouterStore<AppRoute>()` 和 `AppRoute.makeRouterStore()` 不抛错；提供初始状态、路径或配置时必须使用 `try`。外部 store 的 renderer 需要明确的 `hostDescriptor`；下面声明默认 stack 根节点。在应用初始化阶段处理错误并显示恢复界面，不要用 `try!` 或无关空状态隐藏失败。 `AppRoute.makeRouterHostStore()` 和 `try AppRoute.makeRouterTabHostStore()` 会创建已为 `RouterHost(store:)` 和 `RouterTabHost(store:)` 声明好的 store。
 
 ```swift skip contextual-fragment
 @MainActor
@@ -89,11 +89,11 @@ case .rejected(_, _, _, let reason): print("Rejected", reason)
 }
 ```
 
-策略在挂起前后检查不可变候选状态。拒绝、调用者取消、过期准备或无效动作不改变已提交状态。`RouterRequestKey` 支持 `keepFirst` / `replacePending`；无关请求仍按 FIFO 执行。明确限制队列、策略超时和延后请求。`deferRequest` 释放执行通道；恢复时检查 revision，除非显式 rebase。即使策略不配合取消且很晚才返回，取消仍优先。`RouterRejectionReason` 区分溢出、超时、过期与取消。
+策略在挂起前后检查不可变候选状态。拒绝、调用者取消、过期准备或无效动作不改变已提交状态。`RouterRequestKey` 支持 `keepFirst` / `replacePending`；无关请求仍按 FIFO 执行。明确限制队列、策略超时和延后请求。`deferRequest` 释放执行通道；恢复时检查 revision，除非显式 rebase。即使策略不配合取消且很晚才返回，取消仍优先。`RouterRejectionReason` 区分溢出、超时、过期与取消。 默认情况下，fire-and-forget 请求会在之后的 main-actor 轮次提交。设置 `configuration.dispatchTiming = .immediateWhenIdle` 后，请求会在调用返回前提交，因此 `withAnimation` 会作用于这次变更，但前提是 store 没有策略或授权，且没有其他待处理请求；其他情况以及[导航指南](Docs/Navigation-Guide.md)列出的情况仍走延迟路径。
 
 ## 标签页、分栏与作用域生命周期
 
-用 `@TabItem` 标记无参数根路由，普通目标保留在同一枚举中。`RouterTabHost` 维护独立分支历史。重命名 case 前先指定稳定 ID；Codable 路由变更仍需迁移。带输入的 tab/split host 要在不抛错的 `body` 外通过 `try` 创建。`RouterSplitHost`、`RouterThreeColumnSplitHost` 需要稳定的列声明 ID。用 `RouterTabCatalog.hostDescriptor()` 固定含义，通过 `replaceHost(with:descriptor:context:)` 原子替换拓扑与含义。恢复或替换子树会使旧 scope 权限失效，之后应重新获取。`RouterHost(store:)` 保持不抛错，通过 `validationFailure` 和恢复 UI 报告问题。
+用 `@TabItem` 标记无参数根路由，普通目标保留在同一枚举中。`RouterTabHost` 维护独立分支历史。重命名 case 前先指定稳定 ID；Codable 路由变更仍需迁移。带输入的 tab/split host 要在不抛错的 `body` 外通过 `try` 创建。`RouterSplitHost`、`RouterThreeColumnSplitHost` 需要稳定的列声明 ID。用 `RouterTabCatalog.hostDescriptor()` 固定含义，通过 `replaceHost(with:descriptor:context:)` 原子替换拓扑与含义。恢复或替换子树会使旧 scope 权限失效，之后应重新获取。`RouterHost(store:)` 保持不抛错，通过 `validationFailure` 和恢复 UI 报告问题。 `RouterTabHost(AppRoute.self)` 不会抛出错误，并从第一个声明的标签页开始。
 
 用 `@FeatureRoute` 和 `RouterFeatureHost` 组合独立功能枚举。子功能的 `@EnvironmentRouter`、`@EnvironmentRouterState` 共用父 store 的策略、队列、revision 和 commit。功能必须拥有完整子树，混合父子路由值会明确失败。窗口和沉浸式 scene 仍由应用组合根管理。
 
@@ -147,7 +147,7 @@ try await router.finishPresentation(request, returning: true)
 
 ## 恢复与导航历史
 
-稳定持有 `RouterRestorationDriver` 及应用选择的存储，在根节点附加 `routerStateRestoration(_:)`。为 `RouterSnapshotCodec` 设置版本，迁移路由/schema 变更并检查恢复结果。标签目录变化时，`RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)` 和 renderer 应共享同一目录。休眠分支不能成为选中的 renderer。过期恢复不能覆盖新导航。snapshot 默认上限是有限的暂定值，增大前请实测；突然终止不保证最后一次保存。
+稳定持有 `RouterRestorationDriver` 及应用选择的存储，在根节点附加 `routerStateRestoration(_:)`。为 `RouterSnapshotCodec` 设置版本，迁移路由/schema 变更并检查恢复结果。标签目录变化时，`RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)` 和 renderer 应共享同一目录。休眠分支不能成为选中的 renderer。过期恢复不能覆盖新导航。snapshot 默认上限是有限的暂定值，增大前请实测；突然终止不保证最后一次保存。 默认情况下，快照加载期间提交的导航优先。使用 `initialRestorePrecedence: .snapshot` 创建的 driver 会在恢复执行前暂缓新的导航（激活时已有请求在执行或排队的情况除外）；快照恢复后，期间由视图发出的请求会被拒绝，而不会取代快照。没有快照时，等待中的请求会直接执行；其他情况见[导航指南](Docs/Navigation-Guide.md)。
 
 `RouterHistory` 通过精确 plan 和普通策略提供有界的前进、后退及 checkpoint，保留 badge 和 presentation，不打开或关闭 scene。在账户/文档边界调用 `reset(sessionKey:)`；reset 或 stop 会使挂起的移动失效。
 

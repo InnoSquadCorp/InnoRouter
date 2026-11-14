@@ -234,9 +234,9 @@ public struct RouterSplitHost<R: DestinationRoute, SidebarRoot: View, DetailRoot
             for: R.self,
             scope: rootScope,
             handling: linkHandling
-        ) { route, state in
-            try layout.hostShape.validate(RouterStateDraft(state), at: .root, resourceBudget: store.resourceBudget)
-            return try splitHostLinkPlan(route, state, resourceBudget: store.resourceBudget)
+        ) { [shape = layout.hostShape, budget = store.resourceBudget] route, state in
+            try shape.validate(RouterStateDraft(state), at: .root, resourceBudget: budget)
+            return try splitHostLinkPlan(route, state, resourceBudget: budget)
         }
     }
 
@@ -386,9 +386,9 @@ public struct RouterThreeColumnSplitHost<
             for: R.self,
             scope: rootScope,
             handling: linkHandling
-        ) { route, state in
-            try layout.hostShape.validate(RouterStateDraft(state), at: .root, resourceBudget: store.resourceBudget)
-            return try splitHostLinkPlan(route, state, resourceBudget: store.resourceBudget)
+        ) { [shape = layout.hostShape, budget = store.resourceBudget] route, state in
+            try shape.validate(RouterStateDraft(state), at: .root, resourceBudget: budget)
+            return try splitHostLinkPlan(route, state, resourceBudget: budget)
         }
     }
 

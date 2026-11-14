@@ -51,18 +51,12 @@ func renderRouterDeepLinkMembers(
             ) {
                 \(indentEveryLine(mappings, by: 4))
             }
-            if url.user == nil,
-                  url.password == nil,
-                  url.port == nil,
-                  let scheme = url.scheme,
-                  [\(schemes)].contains(where: {
-                      $0.caseInsensitiveCompare(scheme) == .orderedSame
-                  }),
-                  let host = url.host,
-                  [\(hosts)].contains(where: {
-                      $0.caseInsensitiveCompare(host) == .orderedSame
-                  }),
-                  let route = matcher.match(url) {
+            if InnoRouterDeepLink.DeepLinkFeatureRuntime.admitsOrigin(
+                   of: url,
+                   schemes: [\(schemes)],
+                   hosts: [\(hosts)]
+               ),
+               let route = matcher.match(url) {
                 candidates.append(route)
             }
     \(indentEveryLine(featureResolution, by: 8))
@@ -192,17 +186,11 @@ private func renderStandaloneRouterDeepLinkMembers(
         ) {
             \(mappings)
         }
-        guard url.user == nil,
-              url.password == nil,
-              url.port == nil,
-              let scheme = url.scheme,
-              [\(schemes)].contains(where: {
-                  $0.caseInsensitiveCompare(scheme) == .orderedSame
-              }),
-              let host = url.host,
-              [\(hosts)].contains(where: {
-                  $0.caseInsensitiveCompare(host) == .orderedSame
-              }),
+        guard InnoRouterDeepLink.DeepLinkFeatureRuntime.admitsOrigin(
+                  of: url,
+                  schemes: [\(schemes)],
+                  hosts: [\(hosts)]
+              ),
               let route = matcher.match(url) else {
             return nil
         }

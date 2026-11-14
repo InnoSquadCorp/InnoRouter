@@ -10,8 +10,10 @@ public struct DeepLinkOrigin: Sendable, Hashable {
 
     /// Creates an origin, returning `nil` for malformed schemes or hosts.
     public init?(scheme: String, host: String) {
-        let normalizedScheme = scheme.lowercased()
-        let normalizedHost = host.lowercased()
+        // ASCII-only folding: Unicode lowercasing would turn characters such
+        // as the Kelvin sign into ASCII and admit a non-ASCII origin.
+        let normalizedScheme = DeepLinkOriginComparison.asciiLowercased(scheme)
+        let normalizedHost = DeepLinkOriginComparison.asciiLowercased(host)
         guard Self.isValidScheme(normalizedScheme),
               Self.isValidHost(normalizedHost) else {
             return nil

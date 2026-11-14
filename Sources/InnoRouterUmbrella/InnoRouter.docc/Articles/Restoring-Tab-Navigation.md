@@ -20,7 +20,11 @@ Create a `RouterTabCatalog` from the enum's generated `routerTabs`. Use that
 same catalog for `RouterTabRestorationTopology(catalog:)`, the Store's
 `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`,
 and the host. Create the initial current-tab state explicitly; the empty
-`makeRouterStore()` convenience remains a root stack. Retain
+`makeRouterStore()` convenience remains a root stack. From 7.1.0,
+`makeRouterTabHostStore(orphanPolicy: .preserveDormant)` builds the same Store
+from the enum's `routerTabs` when the application does not need the catalog
+value itself; this example keeps one catalog value for the topology, the Store
+descriptor, and the host. Retain
 the store and driver across view updates, as the example does with a session
 held in `@State`. Do not reconstruct them inside `body`.
 
@@ -137,6 +141,21 @@ For a restored result, inspect `outcome.transition`: `.applied`, `.unchanged`,
 not prove that saved navigation was applied. A newer navigation commit can
 make an in-flight restore stale; preserve the newer state rather than retrying
 the old snapshot over it.
+
+From 7.1.0, create the driver with `initialRestorePrecedence: .snapshot` to let
+the snapshot win instead. When no request is running or queued as activation
+starts, the Store then commits nothing until the restore has run; otherwise
+the activation behaves as the default. Once the snapshot is restored, a request
+a view made meanwhile, including a host's deep-link handling and a native
+binding write, was made for a scope the restore replaced and is rejected as an
+expired scope, while a request sent to the Store itself runs after the restore
+and can change it. When there is no snapshot, the load fails, or the driver
+stops, nothing replaced the scopes and the waiting requests run on the current
+state. If a policy or authorization defers or rejects the restoration
+transition, the hold ends with it, and the waiting requests run on the state
+before the snapshot. Navigation is closed for the whole load, decoding, and
+validation, so keep storage bounded and give a validator a
+`validationTimeout`.
 
 The example uses the driver's partial-validation initializer. Decode,
 migration, and validation failures remain visible without silently discarding

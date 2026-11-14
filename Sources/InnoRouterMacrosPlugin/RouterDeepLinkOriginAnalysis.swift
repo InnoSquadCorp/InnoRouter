@@ -54,8 +54,10 @@ func parseDeepLinkOrigin(from attribute: AttributeSyntax) -> RouterDeepLinkOrigi
         }
     }
 
-    let normalizedSchemes = schemes.map { $0.lowercased() }
-    let normalizedHosts = hosts.map { $0.lowercased() }
+    // ASCII-only folding: Unicode lowercasing maps characters such as the
+    // Kelvin sign to ASCII and would hide a non-ASCII declaration.
+    let normalizedSchemes = schemes.map(asciiLowercasedDeepLinkOrigin)
+    let normalizedHosts = hosts.map(asciiLowercasedDeepLinkOrigin)
     guard Set(normalizedSchemes).count == normalizedSchemes.count else {
         return .failure("deepLinkSchemes contains a duplicate after case normalization")
     }

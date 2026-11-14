@@ -193,11 +193,7 @@ public struct DeepLinkRouteCatalog: Hashable, Sendable, Codable {
         inputLimits: DeepLinkInputLimits = .default
     ) -> Bool {
         guard isComplete,
-              url.user == nil, url.password == nil, url.port == nil,
-              let scheme = url.scheme,
-              schemes.contains(where: { $0.caseInsensitiveCompare(scheme) == .orderedSame }),
-              let host = url.host,
-              hosts.contains(where: { $0.caseInsensitiveCompare(host) == .orderedSame }),
+              DeepLinkOriginComparison.admits(url, schemes: schemes, hosts: hosts),
               inputLimits.violation(for: url) == nil else {
             return false
         }
@@ -218,21 +214,21 @@ public struct DeepLinkRouteCatalog: Hashable, Sendable, Codable {
         guard isComplete else {
             return .init(decision: .rejected(.traversalLimitExceeded), attempts: [])
         }
-        guard url.user == nil, url.password == nil else {
+        guard !DeepLinkOriginComparison.carriesCredentials(url) else {
             return .init(decision: .rejected(.credentialsNotAllowed), attempts: [])
         }
         guard url.port == nil else {
             return .init(decision: .rejected(.portNotAllowed), attempts: [])
         }
         guard let scheme = url.scheme,
-              schemes.contains(where: { $0.caseInsensitiveCompare(scheme) == .orderedSame }) else {
+              DeepLinkOriginComparison.contains(schemes, scheme) else {
             return .init(
                 decision: .rejected(.schemeNotAllowed(actual: url.scheme)),
                 attempts: []
             )
         }
         guard let host = url.host,
-              hosts.contains(where: { $0.caseInsensitiveCompare(host) == .orderedSame }) else {
+              DeepLinkOriginComparison.contains(hosts, host) else {
             return .init(
                 decision: .rejected(.hostNotAllowed(actual: url.host)),
                 attempts: []
@@ -293,9 +289,13 @@ public struct DeepLinkRouteCatalog: Hashable, Sendable, Codable {
         )
     }
 
+    /// Removes values equal under ``DeepLinkOriginComparison``: ASCII case
+    /// folded, then compared byte for byte. The key is the folded UTF-8 bytes,
+    /// not a `String`, whose equality would also merge canonically equivalent
+    /// spellings that the comparison keeps apart.
     private static func uniqueCaseInsensitive(_ values: [String]) -> [String] {
-        var observed: Set<String> = []
-        return values.filter { observed.insert($0.lowercased()).inserted }
+        var observed: Set<[UInt8]> = []
+        return values.filter { observed.insert(Array(DeepLinkOriginComparison.asciiLowercased($0).utf8)).inserted }
     }
 
     private enum CodingKeys: String, CodingKey {

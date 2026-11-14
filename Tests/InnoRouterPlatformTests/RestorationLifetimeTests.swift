@@ -175,12 +175,12 @@ struct RestorationLifetimeTests {
         let mount = RestorationMount(AnyView(RestorationLifecycleRoot(driver: driver, phase: phase)))
         defer { mount.close(); driver.stop() }
 
-        try await until {
+        try await until(pumping: mount) {
             if case .failed = driver.status { return true }
             return false
         }
         phase.value = .background
-        try await until { completedFlushes == 1 }
+        try await until(pumping: mount) { completedFlushes == 1 }
         #expect(storage.saveCount == 0)
         #expect(try Data(contentsOf: url) == original)
         #expect(store.revision == 0)
@@ -191,9 +191,9 @@ struct RestorationLifetimeTests {
 
         _ = await store.perform(.push(.current))
         phase.value = .active
-        try await until { phase.rendered == .active }
+        try await until(pumping: mount) { phase.rendered == .active }
         phase.value = .background
-        try await until { completedFlushes == 2 }
+        try await until(pumping: mount) { completedFlushes == 2 }
         #expect(storage.saveCount == 1)
         let codec = try RouterSnapshotCodec<LifetimeRoute>(currentVersion: 1)
         #expect(try codec.decode(Data(contentsOf: url)) == store.state)
@@ -314,11 +314,22 @@ struct RestorationLifetimeTests {
         AnyView(Text(verbatim: "Root").routerStateRestoration(driver))
     }
 
-    private func until(_ condition: () -> Bool) async throws {
+    /// Waits for `condition`, optionally laying out `mount` on every turn.
+    ///
+    /// The mounted window is never ordered on screen, so AppKit schedules no
+    /// display pass for it. A change that reaches SwiftUI only through
+    /// observation (such as the injected scene phase) is therefore rendered
+    /// only when something asks the host to lay out; draining the main queue
+    /// alone leaves the view on its previous value.
+    private func until(
+        pumping mount: RestorationMount? = nil,
+        _ condition: () -> Bool
+    ) async throws {
         let deadline = ContinuousClock.now.advanced(by: .seconds(5))
         while !condition() {
             try Task.checkCancellation()
             guard ContinuousClock.now < deadline else { throw LifetimeTimeout() }
+            mount?.layout()
             await drainUI()
         }
     }
