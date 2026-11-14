@@ -18,12 +18,20 @@ authentication without parsing the URL again.
 
 ## Decision flow
 
-1. Reject disallowed origins and input-limit violations.
+1. Reject disallowed origins and input-limit violations. Origins match the
+   allow-list byte for byte after folding ASCII case only, with no Unicode case
+   mapping or normalization; user information in any form and explicit ports
+   are rejected.
 2. Match a route or a complete plan.
 3. Build the exact target `RouterPlan`.
 4. Return the plan, retain it as pending, or report unhandled input.
 5. Resume a pending plan explicitly after authentication when needed.
 6. Apply an accepted plan through `RouterStore.perform(.apply(plan))`.
+
+Percent-encoding that is not valid UTF-8 is never accepted as a value: a path
+segment a pattern compares or captures makes the URL unmatched, and a typed
+read of such a query value fails, including as `String`. Query items a route
+does not read do not affect the match.
 
 URL parsing never mutates navigation state and never performs authentication,
 networking, analytics, or persistence.

@@ -6,131 +6,141 @@ are bare semver (no leading `v`).
 
 ## Unreleased
 
-Every change below is additive or a fix; no public symbol was removed or
-changed. Behavior changes are marked in bold.
+Every change below is additive or a fix. No public symbol was removed; six
+existing initializers gained a defaulted parameter, which keeps every call
+site compiling. Behavior changes are marked in bold.
+
+### Security
+
+- **Deep-link origins match byte for byte after folding ASCII case only.**
+  Generated resolvers and catalog explanations compared origins with
+  Foundation's case-insensitive comparison, which treats `ß` as `ss`; pipelines
+  used Unicode lowercasing, which maps the Kelvin sign to `k`. A
+  percent-encoded host such as `stra%C3%9Fe.example` or
+  `ban%E2%84%AA.example` was therefore admitted for the allow-list entries
+  `strasse.example` and `bank.example`. Non-ASCII characters in an allow-list
+  entry are now compared without Unicode case mapping or normalization, while
+  ASCII letters still fold. `DeepLinkOrigin` and the `@Router` origin
+  arguments accept ASCII only: a non-ASCII `deepLinkHosts:` entry such as one
+  with the Kelvin sign, which compiled in 7.0.1, is now error
+  `InnoRouterMacro.E019`, and `DeepLinkOrigin(scheme:host:)` returns `nil` for
+  it.
+- **A user or password component that does not percent-decode, such as
+  `https://%FF@host/`, is rejected like any other credential.** `URL.user`
+  reports it as absent, so it passed the credential check.
+- **Percent-encoding that is not valid UTF-8 is never accepted as a value.**
+  `/pay/%FF` reached the route as the literal parameter `"%FF"`, and `?q=%FF`
+  reached a `String` parameter as an empty string. A path segment that a
+  pattern compares or captures now makes the URL unmatched, and a generated
+  route that reads such a query value no longer resolves; a typed parameter
+  was already rejected. A query item the route does not read, or a segment a
+  trailing wildcard swallows, does not affect the match. In hand-written
+  mappings, typed `firstValue(forName:as:)` and `values(forName:as:)` reject or
+  skip such a value, also as `String`; the untyped accessors and
+  `valuesByName` still report the empty string.
 
 ### Added
 
-- `RouterStoreConfiguration.dispatchTiming`. With `.immediateWhenIdle`, a
-  fire-and-forget `RouterActions` request (`go`, `back`, `sheet`, `apply`,
-  `transaction`, ...) commits before the call returns when the Store has no
-  prepare policy and no authorization, no other request is in flight or still
-  on its way from an earlier fire-and-forget call, the call is not made from
-  inside a `RouterEvent` or request observer callback, and the calling task
-  is not cancelled. A surrounding `withAnimation` or `withTransaction` then
-  applies to the navigation change itself. Every other request keeps the
-  existing pipeline, so call order and policy guarantees are unchanged. The
-  default, `.deferred`, is the 7.0 behavior. Requests through a feature
-  projection, and `dismiss()` or `setPresentationDetent(_:)` called from
-  inside presented content, always take the deferred path. A request that
-  application code starts in its own `Task` is invisible to the Store, so an
-  immediate request made later in the same turn commits before it.
-- `RouterRestorationDriver.initialRestorePrecedence` and
-  `RouterRestorationPrecedence`. The default, `.navigation`, is the 7.0
-  behavior: a navigation committed while the initial snapshot loads wins and
-  the snapshot is rejected as stale. With `.snapshot` the driver holds the
-  Store's execution lane during the load, so nothing commits before the
-  snapshot is applied. A request sent to the Store meanwhile then runs on the
-  restored state; a request from a view was written for the scope the restore
+- `RouterDispatchTiming` and `RouterStoreConfiguration.dispatchTiming`, also a
+  parameter of both configuration initializers. With `.immediateWhenIdle`, a
+  fire-and-forget request made through `RouterActions` (`go`, `back`, `sheet`,
+  `apply`, `transaction`, ...) commits before the call returns when the Store
+  has no prepare policy and no authorization, no other request is in flight or
+  still on its way from an earlier fire-and-forget call, the call is not made
+  from inside a `RouterEvent` or request observer callback, and the calling
+  task is not cancelled. A surrounding `withAnimation` or `withTransaction`
+  then applies to the navigation change, and the commit's events, `onEvent`
+  included, are delivered before the call returns. Every other request keeps
+  the deferred pipeline, so call order and policy guarantees are unchanged.
+  The setting covers `RouterActions` only: `RouterStore.dispatch`,
+  `RouterScope.dispatch`, the hosts' native bindings, feature projections,
+  and `dismiss()` or `setPresentationDetent(_:)` from inside presented content
+  always commit on a later turn. A request that application code starts in its
+  own `Task` is invisible to the Store, so an immediate request made later in
+  the same turn commits before it. The default, `.deferred`, is the 7.0
+  behavior. The animation path is verified end to end on macOS only.
+- `RouterRestorationPrecedence` and the `initialRestorePrecedence:` parameter
+  of every `RouterRestorationDriver` initializer, readable afterwards as
+  `initialRestorePrecedence`. The default, `.navigation`, is the 7.0 behavior:
+  a navigation committed while the initial snapshot loads wins, and the
+  snapshot is rejected as stale. With `.snapshot` the driver holds the Store's
+  execution lane from activation until its restore request runs, through
+  loading, decoding, and validation, so nothing commits before the snapshot
+  is applied. Afterwards a request from a view, including a host's deep-link
+  handling and native binding writes, was made for a scope the restore
   replaced and is rejected as an expired scope, so it cannot erase the
-  previous session. A missing snapshot, a failed load, `stop()`, and
-  detaching release the hold at once; a policy that defers the restoration
-  transition ends it with the deferral.
+  previous session; a request sent to the Store itself runs after the restore
+  and can change or replace it. A missing snapshot, a failed load, `stop()`,
+  and the last detach release the hold. A policy or authorization that defers
+  or rejects the restoration transition ends the hold, and the waiting
+  requests then run on the state before the snapshot.
 - `RouterTabHost(_:linkHandling:)`, a nonthrowing initializer for the
   macro-first path that starts on the first declared tab, and
-  `RouterTabHost.validationFailure`. An invalid hand-written `routerTabs` is
-  reported through that property and recovery UI, and its cause is logged.
-- `makeHostedRouterStore()` and
-  `makeHostedTabRouterStore(initial:badges:configuration:)` on route types.
-  They create Stores already declared for `RouterHost(store:)` and
+  `RouterTabHost.validationFailure`. An invalid hand-written `routerTabs`
+  renders recovery UI, is reported through that property, and is logged once;
+  the throwing initializers still return the error.
+- `makeRouterHostStore()`, `makeRouterHostStore(configuration:)`, and
+  `makeRouterTabHostStore(initial:badges:orphanPolicy:configuration:)` on
+  route types. They create Stores already declared for `RouterHost(store:)` and
   `RouterTabHost(store:)`, for when something besides the host needs the
   Store, such as a restoration driver.
-- `DeepLinkFeatureRuntime.admitsOrigin(of:schemes:hosts:)`, the exact origin
-  check used by generated resolvers.
+- `DeepLinkFeatureRuntime.admitsOrigin(of:schemes:hosts:)`, the origin check
+  that generated resolvers call.
 - Macro warning `InnoRouterMacro.W008` with a fix-it: an unqualified
   `Tab(...)` call with a content closure, inside an `@Router` enum that has
   `@TabItem` cases, resolves to the generated nested `Tab`, not SwiftUI's.
-  Write `SwiftUI.Tab`. Calls without a content closure are not diagnosed,
-  nor is code inside a type, function, or closure that declares its own `Tab`.
-- `InnoRouterPerformanceSmoke --profile-store-commit` reports how the cost of
-  one Store commit grows with the size of the whole router tree. It is an
-  attribution mode, not a merge gate.
+  Write `SwiftUI.Tab`. Calls without a content closure are not diagnosed, nor
+  is code inside a type, function, or closure that declares its own `Tab`.
 
 ### Changed
 
-- A Store commit does less repeated work. Observation semantics are unchanged.
-  - `RouterStore` and `RouterScope` are generic observable classes, and a key
-    path written inside generic code is instantiated by the runtime every time
-    it is evaluated. The Store now caches its key path and the commit path
-    uses closures.
-  - A commit that keeps the shape of the graph (the same scopes and
-    presentations, no window or immersive-space change) no longer rebuilds the
-    runtime lifetime tables, and only the scopes whose own subtree changed are
-    re-derived. A push in one tab touches that tab's scope and the root, not
-    every mounted scope.
-
-  Measured in release on one development machine with
-  `--profile-store-commit`; these are local numbers, not CI medians. Against
-  7.0.1, one commit went from about 197 µs to 90 µs on an empty store, from
-  832 µs to 293 µs on a 64-branch store, and from 3,275 µs to 930 µs on a
-  256-branch store. With scopes mounted, where no 7.0.1 figure was taken, a
-  five-tab store with six scopes went from 394 µs after the first of these
-  changes to 172 µs, and a 64-branch store with 65 scopes from 1,995 µs to
-  563 µs.
+- A Store commit does less repeated work, and its cost grows much less with
+  the size of the whole router tree. A commit that keeps the shape of the
+  graph (the same scopes and presentations, no window or immersive-space
+  change) no longer rebuilds the runtime lifetime tables, and only the scopes
+  whose own subtree changed are re-derived, so a push in one tab no longer
+  touches every mounted scope. Observation semantics are unchanged.
 
 ### Fixed
 
-- Deep-link origins are compared exactly, byte for byte after folding ASCII
-  case only. Generated resolvers and catalog explanations used Foundation's
-  case-insensitive comparison, which treats `ß` as `ss`; pipelines used
-  Unicode lowercasing, which maps the Kelvin sign to `k`, and Swift string
-  equality, which treats canonically equivalent spellings as equal. A
-  percent-encoded host such as `stra%C3%9Fe.example` or
-  `ban%E2%84%AA.example` was therefore admitted for the allow-list entries
-  `strasse.example` and `bank.example`. `DeepLinkOrigin` and the `@Router`
-  origin arguments apply the same rule before validation. **A non-ASCII
-  allow-list entry is now matched exactly, without case folding.**
-- A user or password component that does not percent-decode, such as
-  `https://%FF@host/`, is rejected like any other credential. `URL.user`
-  reports it as absent, so it passed the credential check.
-- Percent-encoding that is not valid UTF-8 is never accepted as a value.
-  Previously `/pay/%FF` reached the route as the literal parameter `"%FF"`,
-  and `?q=%FF` reached a `String` parameter as an empty string. **A path
-  segment that a pattern compares or captures now makes the URL unmatched,
-  and a generated route that reads such a query value no longer resolves.**
-  A typed parameter was already rejected. A query item the route does not
-  read, or a segment a trailing wildcard swallows, does not affect the match.
-  In hand-written mappings the typed `firstValue(forName:as:)` and
-  `values(forName:as:)` reject or skip such a value, also for `String`; the
-  untyped accessors and `valuesByName` still report the empty string.
-- A host without `linkHandling` derives its link plan from the state the Store
-  holds when the request executes. The plan was built at URL arrival and
-  applied turns later, so a commit landing in between was silently reverted.
-- A link no host can apply (for example a push while a sheet covers the
-  stack) ends as a rejected Store request, visible through `RouterEvent` and
-  logged. It previously disappeared without a state change or an event. A
-  host that cannot apply a link when it arrives still yields to another host
-  that can, as it did in 7.0. The host is chosen at arrival: one that becomes
-  unable to apply the link before its request runs rejects it, where 7.0
-  applied its stale plan.
+- **A host without `linkHandling` derives its link plan from the state the
+  Store holds when the request executes.** The plan was built at URL arrival
+  and applied turns later, so a commit landing in between was silently
+  reverted.
+- **A link no host can apply (for example a push while a sheet covers the
+  stack) ends as a rejected Store request**, visible through `RouterEvent`
+  with the `.deepLink` source and logged. It previously disappeared without a
+  state change or an event. A host that cannot apply a link when it arrives
+  still yields to another host that can, as it did in 7.0. The host is chosen
+  at arrival: one that becomes unable to apply the link before its request
+  runs rejects it, where 7.0 applied its stale plan.
 - **`RouterActions.transaction` applies its steps to the state the Store holds
   when the request executes.** The plan was built when the call was made and
   applied turns later, so it reverted any commit that landed in between,
   including a fire-and-forget request made just before it. An invalid
-  transaction still throws at the call, and the request's observation no
-  longer carries an expected revision. A transaction made through a feature
-  projection is unchanged.
-- `RouterPlan`'s builder throws `RouterStateValidationError.duplicateWindow`
-  when a `.windows` step repeats an ID and an `.action` step follows. That
-  action step used to trap.
+  transaction still throws at the call; one that becomes invalid before it
+  runs is rejected; and the request's observation no longer carries an
+  expected revision. Use `apply(RouterPlan(state:))` for an exact target. A
+  transaction made through a feature projection is unchanged, and
+  `RouterStore.transaction` still applies an exact plan.
+- `RouterPlan`'s builder no longer traps when a `.windows` step repeats an ID
+  and a later `.action` step removes one of the duplicates. Any action after
+  such a step throws `RouterMutationError.invalidTargetState(.duplicateWindow)`,
+  the error the other actions already threw.
 
 ### Maintenance
 
+- `InnoRouterPerformanceSmoke --profile-store-commit` reports how the cost of
+  one Store commit grows with the size of the whole router tree. It is an
+  attribution mode, not a merge gate. The Store also caches its observation
+  key path and uses closures on the commit path, because a key path written
+  inside generic code is instantiated by the runtime on every evaluation.
 - Two native-host tests no longer depend on how many main-queue turns AppKit
   needs: the same-ID window replacement test waits for its event, and the
   mounted restoration test lays out its off-screen window while waiting.
 - `scripts/performance-smoke.sh` also runs under an open-source toolchain
-  selected through `TOOLCHAINS`, which ships Swift Testing inside the toolchain.
+  selected through `TOOLCHAINS`, which ships Swift Testing inside the
+  toolchain.
 - A manually dispatched `macos-15-runtime` workflow runs the package tests on
   macOS 15, the oldest supported macOS, with the swift.org 6.3 toolchain. It
   is not a required check.

@@ -24,8 +24,8 @@ struct RouterPlanBuilderWindowValidationTests {
                     RouterPlanStep.action(.dismissWindow(id))
                 }
                 exit(EXIT_FAILURE)
-            } catch RouterStateValidationError.duplicateWindow {
-                // Expected: rejected at the step that introduced the duplicate.
+            } catch RouterMutationError.invalidTargetState(.duplicateWindow) {
+                // Expected: the error 7.0 gave the actions that did not trap.
             } catch {
                 exit(EXIT_FAILURE)
             }
@@ -39,6 +39,17 @@ struct RouterPlanBuilderWindowValidationTests {
         #expect(throws: RouterStateValidationError.duplicateWindow) {
             _ = try RouterPlan<RouteFixture> {
                 RouterPlanStep.windows([window, window])
+            }
+        }
+    }
+
+    @Test("An action after duplicate windows throws the error it threw in 7.0")
+    func actionAfterDuplicatesKeepsItsError() {
+        let window = RouterWindow<RouteFixture>(route: .editor)
+        #expect(throws: RouterMutationError.invalidTargetState(.duplicateWindow)) {
+            _ = try RouterPlan<RouteFixture> {
+                RouterPlanStep.windows([window, window])
+                RouterPlanStep.stack([.viewer])
             }
         }
     }

@@ -77,9 +77,8 @@ struct RouterRestorationPrecedenceTests {
         let store = try RouterStore<R>(configuration: .init(schedulingPolicy: scheduling))
         let driver = RouterRestorationDriver(
             store: store, codec: try .init(currentVersion: 1), storage: storage,
-            saveDebounce: .zero
+            saveDebounce: .zero, initialRestorePrecedence: precedence
         )
-        driver.initialRestorePrecedence = precedence
         return Fixture(store: store, storage: storage, driver: driver)
     }
 
@@ -235,9 +234,9 @@ struct RouterRestorationPrecedenceTests {
         }]
         let store = try RouterStore<R>(configuration: configuration)
         let driver = RouterRestorationDriver(
-            store: store, codec: try .init(currentVersion: 1), storage: storage, saveDebounce: .zero
+            store: store, codec: try .init(currentVersion: 1), storage: storage, saveDebounce: .zero,
+            initialRestorePrecedence: .snapshot
         )
-        driver.initialRestorePrecedence = .snapshot
 
         let push = Task { await store.perform(.push(.early)) }
         _ = try await firstElement(from: entered.stream, what: "the policy is evaluating")
@@ -270,9 +269,9 @@ struct RouterRestorationPrecedenceTests {
         configuration.dispatchTiming = timing
         let store = try RouterStore<R>(configuration: configuration)
         let driver = RouterRestorationDriver(
-            store: store, codec: try .init(currentVersion: 1), storage: storage, saveDebounce: .zero
+            store: store, codec: try .init(currentVersion: 1), storage: storage, saveDebounce: .zero,
+            initialRestorePrecedence: .snapshot
         )
-        driver.initialRestorePrecedence = .snapshot
         let scope = store.scope()
         let router = RouterActions(authority: RouterAuthority(scope: scope))
         let activating = Activation { try await driver.activate() }
@@ -420,9 +419,9 @@ struct RouterRestorationPrecedenceTests {
         }]
         let store = try RouterStore<R>(configuration: configuration)
         let driver = RouterRestorationDriver(
-            store: store, codec: try .init(currentVersion: 1), storage: storage, saveDebounce: .zero
+            store: store, codec: try .init(currentVersion: 1), storage: storage, saveDebounce: .zero,
+            initialRestorePrecedence: .snapshot
         )
-        driver.initialRestorePrecedence = .snapshot
         let activating = Activation { try await driver.activate() }
         defer { storage.releaseLoad(); activating.cancel(); driver.stop() }
         _ = try await firstElement(from: storage.loads, what: "the initial load entered")
@@ -447,5 +446,50 @@ struct RouterRestorationPrecedenceTests {
         #expect(store.state.root == .stack(path: [.early]))
         #expect(store.reservedLaneID == nil)
         #expect(store.activeTransitionID == nil)
+
+        // The driver saved what the held request committed, and resuming the
+        // restore with the default strategy is rejected as stale.
+        try await waitUntil("the held request's state was saved") { storage.data != nil }
+        let saved = try RouterSnapshotCodec<R>(currentVersion: 1).decode(try #require(storage.data))
+        #expect(saved.root == .stack(path: [.early]))
+        guard case .rejected(_, _, _, .staleState) = await store.resumeDeferred(deferral) else {
+            Issue.record("Expected the deferred restore to be stale after the held request")
+            return
+        }
+        #expect(store.state.root == .stack(path: [.early]))
+    }
+
+    @Test("A request sent to the Store during the hold runs after the restore and can change it")
+    func storeRequestsRunAfterTheRestore() async throws {
+        let fixture = try makeFixture(.snapshot)
+        let activating = try await beginLoading(fixture)
+        defer { fixture.storage.releaseLoad(); activating.cancel(); fixture.driver.stop() }
+
+        // Not tied to a scope, so the restore does not expire it.
+        let popToRoot = Task { await fixture.store.perform(.popToRoot) }
+        try await waitUntil("the request is queued behind the load") {
+            fixture.store.queuedRequests.count == 1
+        }
+        fixture.storage.releaseLoad()
+
+        guard case .restored(let outcome) = try await activating.value,
+              case .applied = outcome.transition, case .applied = await popToRoot.value else {
+            Issue.record("Expected the restore, then the Store request, to apply")
+            return
+        }
+        #expect(fixture.store.state.root == .stack(path: []))
+        #expect(fixture.store.revision == 2)
+    }
+
+    @Test("The precedence is fixed when the driver is created")
+    func precedenceIsAnInitializerArgument() throws {
+        let store = RouterStore<R>()
+        let codec = try RouterSnapshotCodec<R>(currentVersion: 1)
+        #expect(RouterRestorationDriver(store: store, codec: codec, storage: PrecedenceStorage())
+            .initialRestorePrecedence == .navigation)
+        #expect(RouterRestorationDriver(
+            store: store, codec: codec, storage: PrecedenceStorage(), initialRestorePrecedence: .snapshot
+        ).initialRestorePrecedence == .snapshot)
+        #expect(RouterRestorationPrecedence.snapshot != .navigation)
     }
 }

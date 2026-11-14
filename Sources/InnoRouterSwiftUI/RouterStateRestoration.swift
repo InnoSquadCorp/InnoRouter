@@ -26,8 +26,8 @@ public final class RouterRestorationDriver<R: Route> {
     /// for the final resumed outcome.
     public private(set) var lastPartialRestoration: RouterPartialRestorationOutcome<R>?
     /// Which side wins when navigation is requested while the initial
-    /// snapshot is still loading. Read when an activation starts.
-    @ObservationIgnored public var initialRestorePrecedence: RouterRestorationPrecedence = .navigation
+    /// snapshot is still loading. See ``RouterRestorationPrecedence``.
+    @ObservationIgnored public let initialRestorePrecedence: RouterRestorationPrecedence
     /// The Store lane this driver holds for an initial restore in progress.
     @ObservationIgnored var reservedRestoreLane: RouterTransitionID?
 
@@ -94,10 +94,12 @@ public final class RouterRestorationDriver<R: Route> {
         tabTopology: RouterTabRestorationTopology? = nil,
         validator: RouterPartialRestorationValidator<R>? = nil,
         validationTimeout: Duration? = nil,
-        saveDebounce: Duration
+        saveDebounce: Duration,
+        initialRestorePrecedence: RouterRestorationPrecedence = .navigation
     ) {
         self.store = store
         self.recovery = recovery
+        self.initialRestorePrecedence = initialRestorePrecedence
         self.tabTopology = tabTopology
         self.partialConfiguration = validator.map {
             .init(validator: $0, validationTimeout: validationTimeout)

@@ -527,6 +527,17 @@ final class ShadowedSwiftUITabCallFinder: SyntaxVisitor {
     /// type alias, a function, or a value such as a stored closure.
     private func rebindsTab(_ declarations: [Syntax]) -> Bool {
         declarations.contains { declaration in
+            // A declaration inside any `#if` clause may be the active one;
+            // the macro cannot evaluate build conditions, so it assumes so.
+            if let conditional = declaration.as(IfConfigDeclSyntax.self) {
+                return conditional.clauses.contains { clause in
+                    switch clause.elements {
+                    case .decls(let members): rebindsTab(members.map { Syntax($0.decl) })
+                    case .statements(let items): rebindsTab(items.map { Syntax($0.item) })
+                    default: false
+                    }
+                }
+            }
             if let variable = declaration.as(VariableDeclSyntax.self) {
                 return variable.bindings.contains {
                     $0.pattern.as(IdentifierPatternSyntax.self)?.identifier.text == "Tab"

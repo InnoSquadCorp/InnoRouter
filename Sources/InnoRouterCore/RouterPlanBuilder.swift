@@ -112,14 +112,18 @@ public extension RouterPlan {
         // reports it, as it always did, unless a later `.windows` step
         // replaces the list. An `.action` step cannot wait that long: it
         // reduces from this in-progress state, and the reducer assumes
-        // unique window IDs.
+        // unique window IDs. It throws the error the reducer's own validation
+        // gave most actions in 7.0, instead of reaching the reducer, where an
+        // action that removed a duplicate trapped.
         var hasDuplicateWindows = false
         for step in build() {
             switch step {
             case .root(let root):
                 target.root = root
             case .action(let action):
-                if hasDuplicateWindows { throw RouterStateValidationError.duplicateWindow }
+                if hasDuplicateWindows {
+                    throw RouterMutationError.invalidTargetState(.duplicateWindow)
+                }
                 target = try RouterReducer.reduce(action, from: target, resourceBudget: resourceBudget)
             case .windows(let windows):
                 // A count over the budget is left to the budget checks: it is

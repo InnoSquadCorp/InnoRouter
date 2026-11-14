@@ -63,7 +63,7 @@ struct AppRoot: View {
 
 `RouterState`는 외부에서 읽기 전용입니다. `RouterStateDraft`를 편집하고 `try build(resourceBudget:)`로 검증한 뒤 `RouterPlan(state:)`를 만드세요. plan은 정확한 목표 상태, `RouterAction`은 점진적 변경입니다. 오직 `RouterStore`가 이동을 commit합니다. `RouterScope`는 하위 트리의 읽기 전용 투영과 액션 전달자입니다.
 
-`RouterStore<AppRoute>()`와 `AppRoute.makeRouterStore()`는 nonthrowing입니다. 초기 상태·경로·설정이 있으면 `try`가 필요합니다. 외부 store의 renderer는 명시적인 `hostDescriptor`가 필요하며 아래 코드는 기본 stack root를 선언합니다. 앱 초기 설정에서 오류를 처리하고 복구 UI를 표시하세요. `try!`나 무관한 빈 상태로 오류를 숨기지 마세요. `AppRoute.makeHostedRouterStore()`와 `try AppRoute.makeHostedTabRouterStore()`는 `RouterHost(store:)`와 `RouterTabHost(store:)`용으로 미리 선언된 store를 만듭니다.
+`RouterStore<AppRoute>()`와 `AppRoute.makeRouterStore()`는 nonthrowing입니다. 초기 상태·경로·설정이 있으면 `try`가 필요합니다. 외부 store의 renderer는 명시적인 `hostDescriptor`가 필요하며 아래 코드는 기본 stack root를 선언합니다. 앱 초기 설정에서 오류를 처리하고 복구 UI를 표시하세요. `try!`나 무관한 빈 상태로 오류를 숨기지 마세요. `AppRoute.makeRouterHostStore()`와 `try AppRoute.makeRouterTabHostStore()`는 `RouterHost(store:)`와 `RouterTabHost(store:)`용으로 미리 선언된 store를 만듭니다.
 
 ```swift skip contextual-fragment
 @MainActor
@@ -147,7 +147,7 @@ try await router.finishPresentation(request, returning: true)
 
 ## 복원과 이동 이력
 
-`RouterRestorationDriver`와 앱이 선택한 저장소를 유지하고 안정적인 root에 `routerStateRestoration(_:)`을 붙이세요. `RouterSnapshotCodec`에 버전을 지정하고 route/schema 변경의 migration과 복원 결과를 처리합니다. 탭 변경에는 하나의 catalog를 `RouterTabRestorationTopology`, `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`, renderer에 공통으로 사용합니다. dormant branch는 선택 renderer가 될 수 없습니다. 오래된 복원은 최신 이동을 덮지 못합니다. snapshot 기본 한도는 유한한 잠정값이므로 늘리기 전에 측정하세요. 갑작스러운 종료 직전 저장은 보장되지 않습니다. 기본적으로 snapshot을 읽는 동안 commit된 navigation이 우선합니다. `driver.initialRestorePrecedence = .snapshot`으로 설정하면 snapshot을 먼저 적용하며, 그 사이 view가 보낸 요청은 snapshot을 밀어내지 않고 거절됩니다.
+`RouterRestorationDriver`와 앱이 선택한 저장소를 유지하고 안정적인 root에 `routerStateRestoration(_:)`을 붙이세요. `RouterSnapshotCodec`에 버전을 지정하고 route/schema 변경의 migration과 복원 결과를 처리합니다. 탭 변경에는 하나의 catalog를 `RouterTabRestorationTopology`, `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`, renderer에 공통으로 사용합니다. dormant branch는 선택 renderer가 될 수 없습니다. 오래된 복원은 최신 이동을 덮지 못합니다. snapshot 기본 한도는 유한한 잠정값이므로 늘리기 전에 측정하세요. 갑작스러운 종료 직전 저장은 보장되지 않습니다. 기본적으로 snapshot을 읽는 동안 commit된 navigation이 우선합니다. driver를 `initialRestorePrecedence: .snapshot`으로 만들면 snapshot을 먼저 적용하며, 그 사이 view가 보낸 요청은 snapshot을 밀어내지 않고 거절됩니다.
 
 `RouterHistory`는 exact plan과 일반 정책을 통해 제한된 뒤로/앞으로 이동과 checkpoint를 제공합니다. badge와 presentation을 보존하고 scene을 열거나 닫지 않습니다. 계정·문서 경계에서 `reset(sessionKey:)`을 호출하세요. reset 또는 stop은 중단된 이동을 무효화합니다.
 

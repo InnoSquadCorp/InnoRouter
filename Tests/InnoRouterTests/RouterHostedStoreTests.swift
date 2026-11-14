@@ -65,7 +65,7 @@ struct RouterHostedStoreTests {
 
     @Test("A hosted stack Store satisfies RouterHost(store:) without a descriptor")
     func hostedStackStore() async {
-        let hosted = HostedRoute.makeHostedRouterStore()
+        let hosted = HostedRoute.makeRouterHostStore()
         #expect(RouterHost(store: hosted) { Text("Root") }.validationFailure == nil)
         #expect(hosted.state.root == .stack(path: []))
 
@@ -82,7 +82,7 @@ struct RouterHostedStoreTests {
 
     @Test("A hosted tab Store satisfies RouterTabHost(store:) and selects the first tab")
     func hostedTabStore() throws {
-        let store = try HostedRoute.makeHostedTabRouterStore()
+        let store = try HostedRoute.makeRouterTabHostStore()
         let host = try RouterTabHost(store: store)
         #expect(host.validationFailure == nil)
         #expect(store.scope().observedSelection == "home")
@@ -94,7 +94,7 @@ struct RouterHostedStoreTests {
     func hostedTabStoreInputs() async throws {
         var configuration = RouterStoreConfiguration<HostedRoute>()
         configuration.dispatchTiming = .immediateWhenIdle
-        let store = try HostedRoute.makeHostedTabRouterStore(
+        let store = try HostedRoute.makeRouterTabHostStore(
             initial: .settings, badges: [.home: 3, .settings: 0], configuration: configuration
         )
         _ = try RouterTabHost(store: store)
@@ -103,10 +103,41 @@ struct RouterHostedStoreTests {
         #expect(store.dispatchTiming == .immediateWhenIdle)
     }
 
+    @Test("The stack factory with a configuration declares the default host unless given one")
+    func stackFactoryWithConfiguration() throws {
+        var configuration = RouterStoreConfiguration<HostedRoute>(dispatchTiming: .immediateWhenIdle)
+        let store = try HostedRoute.makeRouterHostStore(configuration: configuration)
+        #expect(RouterHost(store: store) { Text("Root") }.validationFailure == nil)
+        #expect(store.dispatchTiming == .immediateWhenIdle)
+
+        // A descriptor the caller supplies is kept, so a host with another
+        // root declaration ID can be served.
+        configuration.hostDescriptor = .init(
+            root: .stack, rootDeclarations: [.init(meaning: .declarationID("app.home"))]
+        )
+        let custom = try HostedRoute.makeRouterHostStore(configuration: configuration)
+        #expect(RouterHost(store: custom, rootDeclarationID: "app.home") { Text("Home") }.validationFailure == nil)
+        #expect(RouterHost(store: custom) { Text("Root") }.validationFailure != nil)
+    }
+
+    @Test("The tab factory passes its orphan policy to the host declaration")
+    func tabFactoryOrphanPolicy() throws {
+        let preserving = try HostedRoute.makeRouterTabHostStore(orphanPolicy: .preserveDormant)
+        #expect(try RouterTabHost(store: preserving, orphanPolicy: .preserveDormant).validationFailure == nil)
+
+        // A descriptor already in the configuration wins over the argument.
+        let catalog = try RouterTabCatalog(HostedRoute.routerTabs)
+        let keeping = try HostedRoute.makeRouterTabHostStore(
+            orphanPolicy: .preserveDormant,
+            configuration: .init(hostDescriptor: catalog.hostDescriptor())
+        )
+        #expect(try RouterTabHost(store: keeping).validationFailure == nil)
+    }
+
     @Test("An invalid catalog makes the tab Store factory throw")
     func hostedTabStoreRejectsInvalidCatalog() {
         #expect(throws: RouterTabCatalogError.self) {
-            _ = try BrokenTabRoute.makeHostedTabRouterStore()
+            _ = try BrokenTabRoute.makeRouterTabHostStore()
         }
     }
 
@@ -118,7 +149,7 @@ struct RouterHostedStoreTests {
         let storage = RouterFileSnapshotStorage(fileURL: directory.appending(path: "navigation.json"))
         let codec = try RouterSnapshotCodec<HostedRoute>(currentVersion: 1)
 
-        let writerStore = try HostedRoute.makeHostedTabRouterStore()
+        let writerStore = try HostedRoute.makeRouterTabHostStore()
         let writer = RouterRestorationDriver(
             store: writerStore, codec: codec, storage: storage,
             tabTopology: try RouterTabRestorationTopology(of: HostedRoute.self)
@@ -126,7 +157,7 @@ struct RouterHostedStoreTests {
         _ = await writerStore.perform(.scoped("settings", .push(.detail)))
         try await writer.save()
 
-        let store = try HostedRoute.makeHostedTabRouterStore()
+        let store = try HostedRoute.makeRouterTabHostStore()
         let driver = RouterRestorationDriver(
             store: store, codec: codec, storage: storage,
             tabTopology: try RouterTabRestorationTopology(of: HostedRoute.self)

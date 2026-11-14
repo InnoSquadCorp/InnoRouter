@@ -134,11 +134,12 @@ relationship | memberOf | DeepLinkURLBuilder.makeURL(origin:pattern:parameters:)
 relationship | memberOf | DeepLinkURLParameter.init(name:value:) | DeepLinkURLParameter |  |
 relationship | memberOf | DeepLinkURLParameter.name | DeepLinkURLParameter |  |
 relationship | memberOf | DeepLinkURLParameter.value | DeepLinkURLParameter |  |
-relationship | memberOf | DestinationRoute.makeHostedRouterStore() | DestinationRoute |  |
-relationship | memberOf | DestinationRoute.makeHostedTabRouterStore(initial:badges:configuration:) | DestinationRoute |  |
+relationship | memberOf | DestinationRoute.makeRouterHostStore() | DestinationRoute |  |
+relationship | memberOf | DestinationRoute.makeRouterHostStore(configuration:) | DestinationRoute |  |
 relationship | memberOf | DestinationRoute.makeRouterStore() | DestinationRoute |  |
 relationship | memberOf | DestinationRoute.makeRouterStore(configuration:) | DestinationRoute |  |
 relationship | memberOf | DestinationRoute.makeRouterStore(initialState:configuration:) | DestinationRoute |  |
+relationship | memberOf | DestinationRoute.makeRouterTabHostStore(initial:badges:orphanPolicy:configuration:) | DestinationRoute |  |
 relationship | memberOf | EnvironmentMissingPolicy.assertAndLog | EnvironmentMissingPolicy |  |
 relationship | memberOf | EnvironmentMissingPolicy.crash | EnvironmentMissingPolicy |  |
 relationship | memberOf | EnvironmentMissingPolicy.logAndDegrade | EnvironmentMissingPolicy |  |
@@ -1075,10 +1076,10 @@ relationship | memberOf | RouterResourceLimitFailure.maximum | RouterResourceLim
 relationship | memberOf | RouterResourceLimitFailure.minimum | RouterResourceLimitFailure |  |
 relationship | memberOf | RouterResourceLimitFailure.resource | RouterResourceLimitFailure |  |
 relationship | memberOf | RouterRestorationDriver.activate() | RouterRestorationDriver |  |
-relationship | memberOf | RouterRestorationDriver.init(store:codec:storage:recovery:saveDebounce:) | RouterRestorationDriver |  |
-relationship | memberOf | RouterRestorationDriver.init(store:codec:storage:recovery:tabTopology:saveDebounce:) | RouterRestorationDriver |  |
-relationship | memberOf | RouterRestorationDriver.init(store:codec:storage:validator:validationTimeout:tabTopology:saveDebounce:) | RouterRestorationDriver |  |
-relationship | memberOf | RouterRestorationDriver.init(store:graphCodec:storage:tabTopology:validator:validationTimeout:saveDebounce:) | RouterRestorationDriver |  |
+relationship | memberOf | RouterRestorationDriver.init(store:codec:storage:recovery:saveDebounce:initialRestorePrecedence:) | RouterRestorationDriver |  |
+relationship | memberOf | RouterRestorationDriver.init(store:codec:storage:recovery:tabTopology:saveDebounce:initialRestorePrecedence:) | RouterRestorationDriver |  |
+relationship | memberOf | RouterRestorationDriver.init(store:codec:storage:validator:validationTimeout:tabTopology:saveDebounce:initialRestorePrecedence:) | RouterRestorationDriver |  |
+relationship | memberOf | RouterRestorationDriver.init(store:graphCodec:storage:tabTopology:validator:validationTimeout:saveDebounce:initialRestorePrecedence:) | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.initialRestorePrecedence | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.lastActivation | RouterRestorationDriver |  |
 relationship | memberOf | RouterRestorationDriver.lastPartialRestoration | RouterRestorationDriver |  |
@@ -1384,8 +1385,8 @@ relationship | memberOf | RouterStoreConfiguration.deferrals | RouterStoreConfig
 relationship | memberOf | RouterStoreConfiguration.dispatchTiming | RouterStoreConfiguration |  |
 relationship | memberOf | RouterStoreConfiguration.eventBufferingPolicy | RouterStoreConfiguration |  |
 relationship | memberOf | RouterStoreConfiguration.hostDescriptor | RouterStoreConfiguration |  |
-relationship | memberOf | RouterStoreConfiguration.init(hostDescriptor:policies:authorization:schedulingPolicy:maximumPendingRequestCount:requestOverflowStrategy:policyTimeout:maximumActivePolicyOperationCount:maximumActiveRestorationOperationCount:deferrals:eventBufferingPolicy:onEvent:) | RouterStoreConfiguration |  |
-relationship | memberOf | RouterStoreConfiguration.init(resourceBudget:hostDescriptor:policies:authorization:schedulingPolicy:requestOverflowStrategy:deferralOverflowStrategy:eventBufferingPolicy:onEvent:) | RouterStoreConfiguration |  |
+relationship | memberOf | RouterStoreConfiguration.init(hostDescriptor:policies:authorization:schedulingPolicy:dispatchTiming:maximumPendingRequestCount:requestOverflowStrategy:policyTimeout:maximumActivePolicyOperationCount:maximumActiveRestorationOperationCount:deferrals:eventBufferingPolicy:onEvent:) | RouterStoreConfiguration |  |
+relationship | memberOf | RouterStoreConfiguration.init(resourceBudget:hostDescriptor:policies:authorization:schedulingPolicy:dispatchTiming:requestOverflowStrategy:deferralOverflowStrategy:eventBufferingPolicy:onEvent:) | RouterStoreConfiguration |  |
 relationship | memberOf | RouterStoreConfiguration.maximumActivePolicyOperationCount | RouterStoreConfiguration |  |
 relationship | memberOf | RouterStoreConfiguration.maximumActiveRestorationOperationCount | RouterStoreConfiguration |  |
 relationship | memberOf | RouterStoreConfiguration.maximumPendingRequestCount | RouterStoreConfiguration |  |
@@ -1584,7 +1585,6 @@ symbol | swift.enum | RouterContainerStyle | RouterContainerStyle | enum RouterC
 symbol | swift.enum | RouterDeferralOverflowStrategy | RouterDeferralOverflowStrategy | enum RouterDeferralOverflowStrategy | []
 symbol | swift.enum | RouterDeferralResolution | RouterDeferralResolution | enum RouterDeferralResolution | []
 symbol | swift.enum | RouterDeferralResumeStrategy | RouterDeferralResumeStrategy | enum RouterDeferralResumeStrategy | []
-symbol | swift.enum | RouterDispatchTiming | RouterDispatchTiming | enum RouterDispatchTiming | []
 symbol | swift.enum | RouterDragIndicatorVisibility | RouterDragIndicatorVisibility | enum RouterDragIndicatorVisibility | []
 symbol | swift.enum | RouterEvent | RouterEvent | enum RouterEvent<R> where R : Route | []
 symbol | swift.enum | RouterFeatureProjectionError | RouterFeatureProjectionError | enum RouterFeatureProjectionError | []
@@ -1630,7 +1630,6 @@ symbol | swift.enum | RouterRequestCoalescingStrategy | RouterRequestCoalescingS
 symbol | swift.enum | RouterRequestOverflowStrategy | RouterRequestOverflowStrategy | enum RouterRequestOverflowStrategy | []
 symbol | swift.enum | RouterRestorationDriverActivation | RouterRestorationDriverActivation | enum RouterRestorationDriverActivation<R> where R : Route | []
 symbol | swift.enum | RouterRestorationDriverStatus | RouterRestorationDriverStatus | enum RouterRestorationDriverStatus | []
-symbol | swift.enum | RouterRestorationPrecedence | RouterRestorationPrecedence | enum RouterRestorationPrecedence | []
 symbol | swift.enum | RouterRestorationRouteDecision | RouterRestorationRouteDecision | enum RouterRestorationRouteDecision<R> where R : Route | []
 symbol | swift.enum | RouterRestorationRouteRole | RouterRestorationRouteRole | enum RouterRestorationRouteRole | []
 symbol | swift.enum | RouterSceneCatalogError | RouterSceneCatalogError | enum RouterSceneCatalogError | []
@@ -1742,8 +1741,6 @@ symbol | swift.enum.case | RouterDeferralResolution.cancel | RouterDeferralResol
 symbol | swift.enum.case | RouterDeferralResolution.reject(_:) | RouterDeferralResolution.reject(_:) | case reject(String) | []
 symbol | swift.enum.case | RouterDeferralResumeStrategy.rebaseOnCurrentState | RouterDeferralResumeStrategy.rebaseOnCurrentState | case rebaseOnCurrentState | []
 symbol | swift.enum.case | RouterDeferralResumeStrategy.requireUnchangedState | RouterDeferralResumeStrategy.requireUnchangedState | case requireUnchangedState | []
-symbol | swift.enum.case | RouterDispatchTiming.deferred | RouterDispatchTiming.deferred | case deferred | []
-symbol | swift.enum.case | RouterDispatchTiming.immediateWhenIdle | RouterDispatchTiming.immediateWhenIdle | case immediateWhenIdle | []
 symbol | swift.enum.case | RouterDragIndicatorVisibility.automatic | RouterDragIndicatorVisibility.automatic | case automatic | []
 symbol | swift.enum.case | RouterDragIndicatorVisibility.hidden | RouterDragIndicatorVisibility.hidden | case hidden | []
 symbol | swift.enum.case | RouterDragIndicatorVisibility.visible | RouterDragIndicatorVisibility.visible | case visible | []
@@ -1974,8 +1971,6 @@ symbol | swift.enum.case | RouterRestorationDriverStatus.failed(_:) | RouterRest
 symbol | swift.enum.case | RouterRestorationDriverStatus.inactive | RouterRestorationDriverStatus.inactive | case inactive | []
 symbol | swift.enum.case | RouterRestorationDriverStatus.loading | RouterRestorationDriverStatus.loading | case loading | []
 symbol | swift.enum.case | RouterRestorationDriverStatus.saving | RouterRestorationDriverStatus.saving | case saving | []
-symbol | swift.enum.case | RouterRestorationPrecedence.navigation | RouterRestorationPrecedence.navigation | case navigation | []
-symbol | swift.enum.case | RouterRestorationPrecedence.snapshot | RouterRestorationPrecedence.snapshot | case snapshot | []
 symbol | swift.enum.case | RouterRestorationRouteDecision.keep | RouterRestorationRouteDecision.keep | case keep | []
 symbol | swift.enum.case | RouterRestorationRouteDecision.remove(reason:) | RouterRestorationRouteDecision.remove(reason:) | case remove(reason: String) | []
 symbol | swift.enum.case | RouterRestorationRouteDecision.replace(with:reason:) | RouterRestorationRouteDecision.replace(with:reason:) | case replace(with: R, reason: String) | []
@@ -2223,10 +2218,10 @@ symbol | swift.init | RouterRequestObservation.init(id:action:context:expectedRe
 symbol | swift.init | RouterResourceBudget.init(snapshot:maximumPendingRequests:maximumDeferrals:maximumActivePolicyOperations:maximumActiveRestorationOperations:policyTimeout:deferralLifetime:durablePendingLifetime:legacyJSONDepth:scenarioImport:inspectorImport:maximumScenarioSteps:maximumInspectorEntries:maximumRecordedInspectorEntries:maximumInspectorExportBytes:maximumJSONWorkUnits:maximumJSONKeyDecodes:) | init(snapshot:maximumPendingRequests:maximumDeferrals:maximumActivePolicyOperations:maximumActiveRestorationOperations:policyTimeout:deferralLifetime:durablePendingLifetime:legacyJSONDepth:scenarioImport:inspectorImport:maximumScenarioSteps:maximumInspectorEntries:maximumRecordedInspectorEntries:maximumInspectorExportBytes:maximumJSONWorkUnits:maximumJSONKeyDecodes:) | init(snapshot: RouterGraphSnapshotLimits = .provisional, maximumPendingRequests: Int = 256, maximumDeferrals: Int = 64, maximumActivePolicyOperations: Int? = 64, maximumActiveRestorationOperations: Int? = 8, policyTimeout: Duration? = .seconds(30), deferralLifetime: Duration? = .seconds(15 * 60), durablePendingLifetime: Duration? = .seconds(24 * 60 * 60), legacyJSONDepth: Int = 128, scenarioImport: RouterJSONImportBudget = .scenario, inspectorImport: RouterJSONImportBudget = .inspector, maximumScenarioSteps: Int = 2_000, maximumInspectorEntries: Int = 5_000, maximumRecordedInspectorEntries: Int = 500, maximumInspectorExportBytes: Int = 8 * 1_024 * 1_024, maximumJSONWorkUnits: Int? = nil, maximumJSONKeyDecodes: Int? = nil) | []
 symbol | swift.init | RouterResourceLimitFailure.Code.init(rawValue:) | init(rawValue:) | init(rawValue: String) | []
 symbol | swift.init | RouterResourceLimitFailure.init(code:resource:actual:maximum:minimum:) | init(code:resource:actual:maximum:minimum:) | init(code: RouterResourceLimitFailure.Code = .exceeded, resource: String, actual: Int, maximum: Int, minimum: Int? = nil) | []
-symbol | swift.init | RouterRestorationDriver.init(store:codec:storage:recovery:saveDebounce:) | init(store:codec:storage:recovery:saveDebounce:) | @MainActor convenience init(store: RouterStore<R>, codec: RouterSnapshotCodec<R>, storage: any RouterSnapshotStorage, recovery: RouterSnapshotRecoveryPolicy<R> = .fail, saveDebounce: Duration = .milliseconds(250)) where R : Decodable, R : Encodable | []
-symbol | swift.init | RouterRestorationDriver.init(store:codec:storage:recovery:tabTopology:saveDebounce:) | init(store:codec:storage:recovery:tabTopology:saveDebounce:) | @MainActor convenience init(store: RouterStore<R>, codec: RouterSnapshotCodec<R>, storage: any RouterSnapshotStorage, recovery: RouterSnapshotRecoveryPolicy<R> = .fail, tabTopology: RouterTabRestorationTopology, saveDebounce: Duration = .milliseconds(250)) where R : Decodable, R : Encodable | []
-symbol | swift.init | RouterRestorationDriver.init(store:codec:storage:validator:validationTimeout:tabTopology:saveDebounce:) | init(store:codec:storage:validator:validationTimeout:tabTopology:saveDebounce:) | @MainActor convenience init(store: RouterStore<R>, codec: RouterSnapshotCodec<R>, storage: any RouterSnapshotStorage, validator: RouterPartialRestorationValidator<R>, validationTimeout: Duration? = nil, tabTopology: RouterTabRestorationTopology? = nil, saveDebounce: Duration = .milliseconds(250)) where R : Decodable, R : Encodable | []
-symbol | swift.init | RouterRestorationDriver.init(store:graphCodec:storage:tabTopology:validator:validationTimeout:saveDebounce:) | init(store:graphCodec:storage:tabTopology:validator:validationTimeout:saveDebounce:) | @MainActor convenience init(store: RouterStore<R>, graphCodec: RouterGraphSnapshotCodec<R>, storage: any RouterSnapshotStorage, tabTopology: RouterTabRestorationTopology? = nil, validator: RouterPartialRestorationValidator<R>? = nil, validationTimeout: Duration? = nil, saveDebounce: Duration = .milliseconds(250)) | []
+symbol | swift.init | RouterRestorationDriver.init(store:codec:storage:recovery:saveDebounce:initialRestorePrecedence:) | init(store:codec:storage:recovery:saveDebounce:initialRestorePrecedence:) | @MainActor convenience init(store: RouterStore<R>, codec: RouterSnapshotCodec<R>, storage: any RouterSnapshotStorage, recovery: RouterSnapshotRecoveryPolicy<R> = .fail, saveDebounce: Duration = .milliseconds(250), initialRestorePrecedence: RouterRestorationPrecedence = .navigation) where R : Decodable, R : Encodable | []
+symbol | swift.init | RouterRestorationDriver.init(store:codec:storage:recovery:tabTopology:saveDebounce:initialRestorePrecedence:) | init(store:codec:storage:recovery:tabTopology:saveDebounce:initialRestorePrecedence:) | @MainActor convenience init(store: RouterStore<R>, codec: RouterSnapshotCodec<R>, storage: any RouterSnapshotStorage, recovery: RouterSnapshotRecoveryPolicy<R> = .fail, tabTopology: RouterTabRestorationTopology, saveDebounce: Duration = .milliseconds(250), initialRestorePrecedence: RouterRestorationPrecedence = .navigation) where R : Decodable, R : Encodable | []
+symbol | swift.init | RouterRestorationDriver.init(store:codec:storage:validator:validationTimeout:tabTopology:saveDebounce:initialRestorePrecedence:) | init(store:codec:storage:validator:validationTimeout:tabTopology:saveDebounce:initialRestorePrecedence:) | @MainActor convenience init(store: RouterStore<R>, codec: RouterSnapshotCodec<R>, storage: any RouterSnapshotStorage, validator: RouterPartialRestorationValidator<R>, validationTimeout: Duration? = nil, tabTopology: RouterTabRestorationTopology? = nil, saveDebounce: Duration = .milliseconds(250), initialRestorePrecedence: RouterRestorationPrecedence = .navigation) where R : Decodable, R : Encodable | []
+symbol | swift.init | RouterRestorationDriver.init(store:graphCodec:storage:tabTopology:validator:validationTimeout:saveDebounce:initialRestorePrecedence:) | init(store:graphCodec:storage:tabTopology:validator:validationTimeout:saveDebounce:initialRestorePrecedence:) | @MainActor convenience init(store: RouterStore<R>, graphCodec: RouterGraphSnapshotCodec<R>, storage: any RouterSnapshotStorage, tabTopology: RouterTabRestorationTopology? = nil, validator: RouterPartialRestorationValidator<R>? = nil, validationTimeout: Duration? = nil, saveDebounce: Duration = .milliseconds(250), initialRestorePrecedence: RouterRestorationPrecedence = .navigation) | []
 symbol | swift.init | RouterRestorationOperationFailure.init(code:details:) | init(code:details:) | init(code: RouterRestorationOperationFailureCode, details: RouterRestorationOperationFailureDetails = .init()) | []
 symbol | swift.init | RouterRestorationOperationFailureCode.init(rawValue:) | init(rawValue:) | init(rawValue: String) | []
 symbol | swift.init | RouterRestorationOperationFailureDetails.init(maximumCount:activeCount:) | init(maximumCount:activeCount:) | init(maximumCount: Int? = nil, activeCount: Int? = nil) | []
@@ -2269,8 +2264,8 @@ symbol | swift.init | RouterStore.init() | init() | @MainActor convenience init(
 symbol | swift.init | RouterStore.init(configuration:) | init(configuration:) | @MainActor convenience init(configuration: RouterStoreConfiguration<R>) throws | []
 symbol | swift.init | RouterStore.init(initialPath:configuration:) | init(initialPath:configuration:) | @MainActor convenience init(initialPath: [R], configuration: RouterStoreConfiguration<R> = .init()) throws | []
 symbol | swift.init | RouterStore.init(initialState:configuration:) | init(initialState:configuration:) | @MainActor convenience init(initialState: RouterState<R>, configuration: RouterStoreConfiguration<R> = .init()) throws | []
-symbol | swift.init | RouterStoreConfiguration.init(hostDescriptor:policies:authorization:schedulingPolicy:maximumPendingRequestCount:requestOverflowStrategy:policyTimeout:maximumActivePolicyOperationCount:maximumActiveRestorationOperationCount:deferrals:eventBufferingPolicy:onEvent:) | init(hostDescriptor:policies:authorization:schedulingPolicy:maximumPendingRequestCount:requestOverflowStrategy:policyTimeout:maximumActivePolicyOperationCount:maximumActiveRestorationOperationCount:deferrals:eventBufferingPolicy:onEvent:) | init(hostDescriptor: RouterHostDescriptor<R>? = nil, policies: [RouterPolicy<R>] = [], authorization: RouterAuthorizationConfiguration<R>? = nil, schedulingPolicy: RouterSchedulingPolicy = .serialize, maximumPendingRequestCount: Int = 256, requestOverflowStrategy: RouterRequestOverflowStrategy = .rejectNewest, policyTimeout: Duration? = .seconds(30), maximumActivePolicyOperationCount: Int? = 64, maximumActiveRestorationOperationCount: Int? = 8, deferrals: RouterDeferralConfiguration = .init(), eventBufferingPolicy: EventBufferingPolicy = .default, onEvent: (@MainActor (RouterEvent<R>) -> Void)? = nil) | []
-symbol | swift.init | RouterStoreConfiguration.init(resourceBudget:hostDescriptor:policies:authorization:schedulingPolicy:requestOverflowStrategy:deferralOverflowStrategy:eventBufferingPolicy:onEvent:) | init(resourceBudget:hostDescriptor:policies:authorization:schedulingPolicy:requestOverflowStrategy:deferralOverflowStrategy:eventBufferingPolicy:onEvent:) | init(resourceBudget: RouterResourceBudget, hostDescriptor: RouterHostDescriptor<R>? = nil, policies: [RouterPolicy<R>] = [], authorization: RouterAuthorizationConfiguration<R>? = nil, schedulingPolicy: RouterSchedulingPolicy = .serialize, requestOverflowStrategy: RouterRequestOverflowStrategy = .rejectNewest, deferralOverflowStrategy: RouterDeferralOverflowStrategy = .rejectNewest, eventBufferingPolicy: EventBufferingPolicy = .default, onEvent: (@MainActor (RouterEvent<R>) -> Void)? = nil) | []
+symbol | swift.init | RouterStoreConfiguration.init(hostDescriptor:policies:authorization:schedulingPolicy:dispatchTiming:maximumPendingRequestCount:requestOverflowStrategy:policyTimeout:maximumActivePolicyOperationCount:maximumActiveRestorationOperationCount:deferrals:eventBufferingPolicy:onEvent:) | init(hostDescriptor:policies:authorization:schedulingPolicy:dispatchTiming:maximumPendingRequestCount:requestOverflowStrategy:policyTimeout:maximumActivePolicyOperationCount:maximumActiveRestorationOperationCount:deferrals:eventBufferingPolicy:onEvent:) | init(hostDescriptor: RouterHostDescriptor<R>? = nil, policies: [RouterPolicy<R>] = [], authorization: RouterAuthorizationConfiguration<R>? = nil, schedulingPolicy: RouterSchedulingPolicy = .serialize, dispatchTiming: RouterDispatchTiming = .deferred, maximumPendingRequestCount: Int = 256, requestOverflowStrategy: RouterRequestOverflowStrategy = .rejectNewest, policyTimeout: Duration? = .seconds(30), maximumActivePolicyOperationCount: Int? = 64, maximumActiveRestorationOperationCount: Int? = 8, deferrals: RouterDeferralConfiguration = .init(), eventBufferingPolicy: EventBufferingPolicy = .default, onEvent: (@MainActor (RouterEvent<R>) -> Void)? = nil) | []
+symbol | swift.init | RouterStoreConfiguration.init(resourceBudget:hostDescriptor:policies:authorization:schedulingPolicy:dispatchTiming:requestOverflowStrategy:deferralOverflowStrategy:eventBufferingPolicy:onEvent:) | init(resourceBudget:hostDescriptor:policies:authorization:schedulingPolicy:dispatchTiming:requestOverflowStrategy:deferralOverflowStrategy:eventBufferingPolicy:onEvent:) | init(resourceBudget: RouterResourceBudget, hostDescriptor: RouterHostDescriptor<R>? = nil, policies: [RouterPolicy<R>] = [], authorization: RouterAuthorizationConfiguration<R>? = nil, schedulingPolicy: RouterSchedulingPolicy = .serialize, dispatchTiming: RouterDispatchTiming = .deferred, requestOverflowStrategy: RouterRequestOverflowStrategy = .rejectNewest, deferralOverflowStrategy: RouterDeferralOverflowStrategy = .rejectNewest, eventBufferingPolicy: EventBufferingPolicy = .default, onEvent: (@MainActor (RouterEvent<R>) -> Void)? = nil) | []
 symbol | swift.init | RouterStoreConfigurationFailure.Code.init(rawValue:) | init(rawValue:) | init(rawValue: String) | []
 symbol | swift.init | RouterStoreConfigurationFailure.init(code:field:) | init(code:field:) | init(code: RouterStoreConfigurationFailure.Code = .invalidValue, field: String) | []
 symbol | swift.init | RouterTabCatalog.init(_:) | init(_:) | init(_ descriptors: [RouterTabDescriptor<R, R.Tab>]) throws | []
@@ -2835,7 +2830,7 @@ symbol | swift.property | RouterResourceLimitFailure.description | description |
 symbol | swift.property | RouterResourceLimitFailure.maximum | maximum | let maximum: Int | []
 symbol | swift.property | RouterResourceLimitFailure.minimum | minimum | let minimum: Int? | []
 symbol | swift.property | RouterResourceLimitFailure.resource | resource | let resource: String | []
-symbol | swift.property | RouterRestorationDriver.initialRestorePrecedence | initialRestorePrecedence | @MainActor var initialRestorePrecedence: RouterRestorationPrecedence | []
+symbol | swift.property | RouterRestorationDriver.initialRestorePrecedence | initialRestorePrecedence | @MainActor let initialRestorePrecedence: RouterRestorationPrecedence | []
 symbol | swift.property | RouterRestorationDriver.lastActivation | lastActivation | @MainActor var lastActivation: RouterRestorationDriverActivation<R>? { get set } | []
 symbol | swift.property | RouterRestorationDriver.lastPartialRestoration | lastPartialRestoration | @MainActor var lastPartialRestoration: RouterPartialRestorationOutcome<R>? { get set } | []
 symbol | swift.property | RouterRestorationDriver.status | status | @MainActor var status: RouterRestorationDriverStatus { get set } | []
@@ -3044,6 +3039,7 @@ symbol | swift.struct | RouterDeferralID | RouterDeferralID | struct RouterDefer
 symbol | swift.struct | RouterDeferredTransition | RouterDeferredTransition | struct RouterDeferredTransition | []
 symbol | swift.struct | RouterDiagnosticEvent | RouterDiagnosticEvent | struct RouterDiagnosticEvent | []
 symbol | swift.struct | RouterDiagnosticEventKind | RouterDiagnosticEventKind | struct RouterDiagnosticEventKind | []
+symbol | swift.struct | RouterDispatchTiming | RouterDispatchTiming | struct RouterDispatchTiming | []
 symbol | swift.struct | RouterDurablePendingLink | RouterDurablePendingLink | struct RouterDurablePendingLink<R> where R : Route | []
 symbol | swift.struct | RouterFeatureCatalogEntry | RouterFeatureCatalogEntry | struct RouterFeatureCatalogEntry | []
 symbol | swift.struct | RouterFeatureHost | RouterFeatureHost | @MainActor struct RouterFeatureHost<Parent, Child, Content> where Parent : Route, Child : Route, Content : View | []
@@ -3125,6 +3121,7 @@ symbol | swift.struct | RouterRestorationOperationFailure | RouterRestorationOpe
 symbol | swift.struct | RouterRestorationOperationFailureCode | RouterRestorationOperationFailureCode | struct RouterRestorationOperationFailureCode | []
 symbol | swift.struct | RouterRestorationOperationFailureDetails | RouterRestorationOperationFailureDetails | struct RouterRestorationOperationFailureDetails | []
 symbol | swift.struct | RouterRestorationOutcome | RouterRestorationOutcome | struct RouterRestorationOutcome<R> where R : Route | []
+symbol | swift.struct | RouterRestorationPrecedence | RouterRestorationPrecedence | struct RouterRestorationPrecedence | []
 symbol | swift.struct | RouterRestorationRouteLocation | RouterRestorationRouteLocation | struct RouterRestorationRouteLocation | []
 symbol | swift.struct | RouterSceneCatalog | RouterSceneCatalog | struct RouterSceneCatalog<R> where R : RouterSceneRoute | []
 symbol | swift.struct | RouterSceneDescriptor | RouterSceneDescriptor | struct RouterSceneDescriptor<R> where R : Route | []
@@ -3187,11 +3184,12 @@ symbol | swift.type.method | DeepLinkRoute.explainDeepLink(_:inputLimits:) | exp
 symbol | swift.type.method | DeepLinkRoute.resolveDeepLink(_:) | resolveDeepLink(_:) | static func resolveDeepLink(_ url: URL) -> Self? | []
 symbol | swift.type.method | DeepLinkURLBuilder.makeURL(origin:pattern:parameters:) | makeURL(origin:pattern:parameters:) | static func makeURL(origin: DeepLinkOrigin, pattern: String, parameters: [DeepLinkURLParameter] = []) -> URL? | []
 symbol | swift.type.method | DestinationRoute.destination(for:) | destination(for:) | @MainActor @ViewBuilder static func destination(for route: Self) -> Self.Destination | []
-symbol | swift.type.method | DestinationRoute.makeHostedRouterStore() | makeHostedRouterStore() | @MainActor static func makeHostedRouterStore() -> RouterStore<Self> | []
-symbol | swift.type.method | DestinationRoute.makeHostedTabRouterStore(initial:badges:configuration:) | makeHostedTabRouterStore(initial:badges:configuration:) | @MainActor static func makeHostedTabRouterStore(initial: Self.Tab? = nil, badges: [Self.Tab : Int] = [:], configuration: RouterStoreConfiguration<Self> = .init()) throws -> RouterStore<Self> | []
+symbol | swift.type.method | DestinationRoute.makeRouterHostStore() | makeRouterHostStore() | @MainActor static func makeRouterHostStore() -> RouterStore<Self> | []
+symbol | swift.type.method | DestinationRoute.makeRouterHostStore(configuration:) | makeRouterHostStore(configuration:) | @MainActor static func makeRouterHostStore(configuration: RouterStoreConfiguration<Self>) throws -> RouterStore<Self> | []
 symbol | swift.type.method | DestinationRoute.makeRouterStore() | makeRouterStore() | @MainActor static func makeRouterStore() -> RouterStore<Self> | []
 symbol | swift.type.method | DestinationRoute.makeRouterStore(configuration:) | makeRouterStore(configuration:) | @MainActor static func makeRouterStore(configuration: RouterStoreConfiguration<Self>) throws -> RouterStore<Self> | []
 symbol | swift.type.method | DestinationRoute.makeRouterStore(initialState:configuration:) | makeRouterStore(initialState:configuration:) | @MainActor static func makeRouterStore(initialState: RouterState<Self>, configuration: RouterStoreConfiguration<Self> = .init()) throws -> RouterStore<Self> | []
+symbol | swift.type.method | DestinationRoute.makeRouterTabHostStore(initial:badges:orphanPolicy:configuration:) | makeRouterTabHostStore(initial:badges:orphanPolicy:configuration:) | @MainActor static func makeRouterTabHostStore(initial: Self.Tab? = nil, badges: [Self.Tab : Int] = [:], orphanPolicy: RouterHostOrphanPolicy = .reject, configuration: RouterStoreConfiguration<Self> = .init()) throws -> RouterStore<Self> | []
 symbol | swift.type.method | Double.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Double? | []
 symbol | swift.type.method | Float.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Float? | []
 symbol | swift.type.method | Int.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Int? | []
@@ -3293,6 +3291,8 @@ symbol | swift.type.property | RouterDiagnosticEventKind.rejectedStaleState | re
 symbol | swift.type.property | RouterDiagnosticEventKind.rejectedSuperseded | rejectedSuperseded | static let rejectedSuperseded: RouterDiagnosticEventKind | []
 symbol | swift.type.property | RouterDiagnosticEventKind.started | started | static let started: RouterDiagnosticEventKind | []
 symbol | swift.type.property | RouterDiagnosticEventKind.unchanged | unchanged | static let unchanged: RouterDiagnosticEventKind | []
+symbol | swift.type.property | RouterDispatchTiming.deferred | deferred | static let deferred: RouterDispatchTiming | []
+symbol | swift.type.property | RouterDispatchTiming.immediateWhenIdle | immediateWhenIdle | static let immediateWhenIdle: RouterDispatchTiming | []
 symbol | swift.type.property | RouterFilePendingLinkStorage.defaultMaximumByteCount | defaultMaximumByteCount | static let defaultMaximumByteCount: Int | []
 symbol | swift.type.property | RouterFileSnapshotStorage.defaultMaximumByteCount | defaultMaximumByteCount | static let defaultMaximumByteCount: Int | []
 symbol | swift.type.property | RouterGraphSnapshotCodec.formatVersion | formatVersion | static var formatVersion: Int { get } | []
@@ -3375,6 +3375,8 @@ symbol | swift.type.property | RouterResourceBudget.unlimited | unlimited | stat
 symbol | swift.type.property | RouterResourceLimitFailure.Code.exceeded | exceeded | static let exceeded: RouterResourceLimitFailure.Code | []
 symbol | swift.type.property | RouterResourceLimitFailure.Code.invalidConfiguration | invalidConfiguration | static let invalidConfiguration: RouterResourceLimitFailure.Code | []
 symbol | swift.type.property | RouterRestorationOperationFailureCode.capacityExceeded | capacityExceeded | static let capacityExceeded: RouterRestorationOperationFailureCode | []
+symbol | swift.type.property | RouterRestorationPrecedence.navigation | navigation | static let navigation: RouterRestorationPrecedence | []
+symbol | swift.type.property | RouterRestorationPrecedence.snapshot | snapshot | static let snapshot: RouterRestorationPrecedence | []
 symbol | swift.type.property | RouterSceneRoute.routerScenes | routerScenes | static var routerScenes: [RouterSceneDescriptor<Self>] { get } | []
 symbol | swift.type.property | RouterScopePath.root | root | static let root: RouterScopePath | []
 symbol | swift.type.property | RouterSnapshotLimits.provisional | provisional | static let provisional: RouterSnapshotLimits | []

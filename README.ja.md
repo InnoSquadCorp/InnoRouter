@@ -63,7 +63,7 @@ struct AppRoot: View {
 
 `RouterState` は外部から読み取り専用です。`RouterStateDraft` を編集し、`try build(resourceBudget:)` で検証して `RouterPlan(state:)` を作成します。plan は正確な目標、`RouterAction` は増分変更を表し、`RouterStore` だけが commit します。`RouterScope` は部分ツリーの読み取りとアクション転送を担い、別 store は所有しません。
 
-`RouterStore<AppRoute>()` と `AppRoute.makeRouterStore()` は非 throwing です。初期状態・経路・設定を渡す場合は `try` が必要です。外部 store の renderer には明示的な `hostDescriptor` が必要で、以下は標準 stack root の宣言です。初期設定でエラーを処理して復旧 UI を表示し、`try!` や無関係な空状態で隠さないでください。 `AppRoute.makeHostedRouterStore()` と `try AppRoute.makeHostedTabRouterStore()` は、`RouterHost(store:)` と `RouterTabHost(store:)` 向けに宣言済みの store を作成します。
+`RouterStore<AppRoute>()` と `AppRoute.makeRouterStore()` は非 throwing です。初期状態・経路・設定を渡す場合は `try` が必要です。外部 store の renderer には明示的な `hostDescriptor` が必要で、以下は標準 stack root の宣言です。初期設定でエラーを処理して復旧 UI を表示し、`try!` や無関係な空状態で隠さないでください。 `AppRoute.makeRouterHostStore()` と `try AppRoute.makeRouterTabHostStore()` は、`RouterHost(store:)` と `RouterTabHost(store:)` 向けに宣言済みの store を作成します。
 
 ```swift skip contextual-fragment
 @MainActor
@@ -147,7 +147,7 @@ try await router.finishPresentation(request, returning: true)
 
 ## 復元とナビゲーション履歴
 
-`RouterRestorationDriver` と保存先を保持し、安定した root に `routerStateRestoration(_:)` を付けます。`RouterSnapshotCodec` をバージョン管理し、ルート/schema の migration と復元結果を処理します。タブ変更時は `RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)`、renderer で同じ catalog を使います。休止 branch は選択 renderer になれません。古い復元が新しい移動を上書きしないようにします。snapshot の既定上限は有限の暫定値です。増やす前に計測し、突然の終了時の最終保存は保証しないでください。 既定では、snapshot の読み込み中に commit された navigation が優先されます。`driver.initialRestorePrecedence = .snapshot` を設定すると snapshot が先に適用され、その間に view が出したリクエストは snapshot を置き換えずに拒否されます。
+`RouterRestorationDriver` と保存先を保持し、安定した root に `routerStateRestoration(_:)` を付けます。`RouterSnapshotCodec` をバージョン管理し、ルート/schema の migration と復元結果を処理します。タブ変更時は `RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)`、renderer で同じ catalog を使います。休止 branch は選択 renderer になれません。古い復元が新しい移動を上書きしないようにします。snapshot の既定上限は有限の暫定値です。増やす前に計測し、突然の終了時の最終保存は保証しないでください。 既定では、snapshot の読み込み中に commit された navigation が優先されます。`initialRestorePrecedence: .snapshot` で作成した driver は snapshot を先に適用し、その間に view が出したリクエストは snapshot を置き換えずに拒否されます。
 
 `RouterHistory` は exact plan と通常のポリシーで上限付きの前後移動と checkpoint を提供します。badge と presentation を保持し、scene は開閉しません。アカウント・文書の境界で `reset(sessionKey:)` を呼びます。reset または stop は中断された移動を無効にします。
 

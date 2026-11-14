@@ -146,22 +146,11 @@ enum MacroFirstTab {
 }
 
 struct MacroFirstTabsExample: View {
-    private let host: Result<RouterTabHost<MacroFirstTab>, Error>
-
-    init() {
-        do {
-            host = .success(try RouterTabHost(MacroFirstTab.self, initial: .home))
-        } catch {
-            host = .failure(error)
-        }
-    }
-
+    // The macro validated the tab catalog at compile time, so this host needs
+    // no `try` and starts on the first declared tab. Use a throwing
+    // initializer to choose the initial tab, badges, or a configuration.
     var body: some View {
-        switch host {
-        case .success(let host): host
-        case .failure:
-            ContentUnavailableView("Navigation unavailable", systemImage: "exclamationmark.triangle")
-        }
+        RouterTabHost(MacroFirstTab.self)
     }
 }
 

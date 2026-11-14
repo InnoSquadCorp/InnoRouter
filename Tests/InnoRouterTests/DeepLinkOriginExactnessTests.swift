@@ -230,6 +230,27 @@ struct DeepLinkOriginExactnessTests {
         #expect(matcher.match("https://bank.example/files/a/%FF?x=%FF") == "files")
     }
 
+    @Test("An undecodable query value after a path capture of the same name is skipped by position")
+    func undecodablePositionsFollowPathCaptures() throws {
+        let matcher = DeepLinkMatcher<String> {
+            DeepLinkMapping("/pay/:id") { parameters in
+                let first = parameters.firstValue(forName: "id", as: String.self) ?? "<nil>"
+                let all = parameters.values(forName: "id", as: String.self).joined(separator: ",")
+                return "\(first)|\(all)"
+            }
+        }
+        // The path capture comes first; the undecodable query value second.
+        #expect(matcher.match("https://bank.example/pay/1?id=%FF") == "1|1")
+        #expect(matcher.match("https://bank.example/pay/1?id=2&id=%FF") == "1|1,2")
+        // Names are grouped after decoding, so `%71` is the name `q`.
+        let named = DeepLinkMatcher<String> {
+            DeepLinkMapping("/search") { parameters in
+                parameters.values(forName: "q", as: String.self).joined(separator: ",")
+            }
+        }
+        #expect(named.match("https://bank.example/search?%71=%FF&q=ok") == "ok")
+    }
+
     @Test("Undecodable query items still count toward the item limit")
     func undecodableItemsCountTowardLimits() throws {
         let limits = DeepLinkInputLimits(maxQueryItems: 1)

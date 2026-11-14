@@ -106,6 +106,28 @@ struct RouterShadowedTabFinderTests {
         """).isEmpty)
     }
 
+    @Test("A Tab declared inside an #if clause counts as a rebinding")
+    func conditionalRebinding() throws {
+        #expect(try flaggedLines("""
+        enum AppRoute {
+            struct Shell {
+                #if os(iOS)
+                typealias Tab = SwiftUI.Tab
+                #else
+                typealias Tab = SwiftUI.Tab
+                #endif
+                var body: some View { TabView { Tab("a", systemImage: "b") { EmptyView() } } }
+            }
+            func make() -> some View {
+                #if DEBUG
+                let Tab: (() -> Int) -> Int = { $0() }
+                #endif
+                return Text(String(Tab { 1 }))
+            }
+        }
+        """).isEmpty)
+    }
+
     @Test("A nested tab router is recognised through a qualified attribute")
     func qualifiedTabItemAttribute() throws {
         #expect(try flaggedLines("""

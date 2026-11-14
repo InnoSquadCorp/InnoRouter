@@ -7,7 +7,9 @@ import InnoRouterCore
 /// `DestinationRoute` is the route-owned composition boundary used by
 /// ``RouterHost``, ``RouterTabHost``, and ``RouterSplitHost``. Applications
 /// that retain the authority outside a host create it with
-/// ``makeRouterStore(initialState:configuration:)`` and pass it to a host.
+/// ``makeRouterHostStore()``, `makeRouterTabHostStore(...)` for a tab router,
+/// or ``makeRouterStore(initialState:configuration:)`` with an explicit host
+/// descriptor, and pass it to the host.
 ///
 /// The `@Router` macro is the default way to adopt this protocol:
 ///

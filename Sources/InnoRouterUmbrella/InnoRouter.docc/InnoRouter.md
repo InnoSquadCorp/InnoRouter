@@ -27,6 +27,33 @@ and optional testing and Inspector tools. Applications choose their storage,
 recovery, and policy behavior explicitly while the store remains the single
 navigation authority.
 
+### Added in 7.1.0
+
+Version 7.1.0 adds opt-in behaviors and conveniences; the defaults keep the
+7.0 behavior.
+
+- Set `RouterStoreConfiguration.dispatchTiming` to `.immediateWhenIdle` to let
+  a fire-and-forget request made through `RouterActions` (`router.go(_:)` and
+  the other `@EnvironmentRouter` methods) commit before the call returns when
+  nothing is pending, so a surrounding `withAnimation` applies to the
+  navigation change. The Store's and scopes' own `dispatch` methods and the
+  hosts' native bindings keep committing on a later turn.
+- Create a `RouterRestorationDriver` with `initialRestorePrecedence: .snapshot`
+  to keep the Store from committing anything until the initial restore has
+  run, so navigation a view requests while the snapshot loads cannot displace
+  the previous session. <doc:Restoring-Tab-Navigation> describes what happens
+  to requests made meanwhile.
+- `RouterTabHost(AppRoute.self)` builds the tab host of an `@Router` enum
+  without `try`. `validationFailure` reports a hand-written catalog that is
+  invalid.
+- `makeRouterHostStore()`, `makeRouterHostStore(configuration:)`, and
+  `makeRouterTabHostStore(initial:badges:orphanPolicy:configuration:)` create
+  Stores already declared for `RouterHost(store:)` and `RouterTabHost(store:)`.
+
+Deep-link admission is stricter: origins match byte for byte after folding
+ASCII case only, user information is rejected in any form, and percent-encoding
+that is not valid UTF-8 is never accepted as a value.
+
 ### Added in 6.1.0
 
 Version 6.1.0 adds explicit tab-topology restoration for apps whose tab
@@ -92,6 +119,8 @@ struct AppRoot: View {
 - `RouterPendingLinkSlot`
 - `RouterPendingLinkPersistenceDriver`
 - `RouterRestorationDriver`
+- `RouterRestorationPrecedence` (7.1.0+)
+- `RouterDispatchTiming` (7.1.0+)
 - `RouterTabRestorationTopology` (6.1.0+)
 - `RouterTabRestorationChange` (6.1.0+)
 - `RouterPartialRestorationReport`

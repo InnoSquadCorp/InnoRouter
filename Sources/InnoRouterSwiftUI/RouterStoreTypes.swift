@@ -159,13 +159,31 @@ public enum RouterSchedulingPolicy: Sendable {
 
 /// When a fire-and-forget request made through ``RouterActions`` commits.
 ///
-/// `RouterActions` methods such as `go(_:)`, `back()`, and `sheet(_:)` return a
-/// task instead of suspending the caller. This option decides whether the
-/// transition they request is committed before they return.
-public enum RouterDispatchTiming: Sendable, Hashable {
+/// `RouterActions` methods such as `go(_:)`, `back()`, `sheet(_:)`,
+/// `apply(_:)`, and `transaction(_:)` return a task instead of suspending the
+/// caller. This setting decides whether the transition they request is
+/// committed before they return.
+///
+/// It applies to ``RouterActions`` only, which is what views reach through
+/// `@EnvironmentRouter`. ``RouterStore/dispatch(_:context:)``,
+/// ``RouterScope/dispatch(_:context:)``, ``RouterScope/dispatchRoot(_:context:)``,
+/// and the hosts' native bindings (navigation path, tab selection, sheet
+/// dismissal) always commit on a later turn.
+///
+/// The value set is a struct with static members, not an enum, so a later
+/// minor release can add a timing without breaking an exhaustive `switch`.
+public struct RouterDispatchTiming: Sendable, Hashable {
+    enum Kind: Sendable, Hashable {
+        case deferred
+        case immediateWhenIdle
+    }
+
+    let kind: Kind
+
     /// Commit on a later main-actor turn. This is the 7.0 behavior and the
     /// default: the caller never observes the new state before it returns.
-    case deferred
+    public static let deferred = RouterDispatchTiming(kind: .deferred)
+
     /// Commit before the call returns whenever nothing requires waiting, so a
     /// surrounding `withAnimation` or `withTransaction` applies to the
     /// navigation change.
@@ -188,10 +206,12 @@ public enum RouterDispatchTiming: Sendable, Hashable {
     /// (for example `Task { await router.perform(...) }`), so an immediate
     /// request made later in the same turn commits before it.
     ///
+    /// An immediate commit also delivers its `RouterEvent`s, `onEvent`
+    /// included, before the call returns, inside the caller's transaction.
     /// Call from a user-interaction handler such as a button action, not
     /// while a view body is being evaluated: the commit mutates observable
     /// state synchronously.
-    case immediateWhenIdle
+    public static let immediateWhenIdle = RouterDispatchTiming(kind: .immediateWhenIdle)
 }
 
 /// What must be true, besides an idle lane, for a request to commit
@@ -267,8 +287,9 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
     public var authorization: RouterAuthorizationConfiguration<R>?
     public var schedulingPolicy: RouterSchedulingPolicy
     /// When fire-and-forget ``RouterActions`` requests commit. Defaults to
-    /// ``RouterDispatchTiming/deferred``.
-    public var dispatchTiming: RouterDispatchTiming = .deferred
+    /// ``RouterDispatchTiming/deferred``. The Store's and scopes' own
+    /// `dispatch` methods are not affected; see ``RouterDispatchTiming``.
+    public var dispatchTiming: RouterDispatchTiming
     public var maximumPendingRequestCount: Int
     public var requestOverflowStrategy: RouterRequestOverflowStrategy
     /// Deadline for each asynchronous policy or authorization decision. Waiting
@@ -305,6 +326,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
         policies: [RouterPolicy<R>] = [],
         authorization: RouterAuthorizationConfiguration<R>? = nil,
         schedulingPolicy: RouterSchedulingPolicy = .serialize,
+        dispatchTiming: RouterDispatchTiming = .deferred,
         maximumPendingRequestCount: Int = 256,
         requestOverflowStrategy: RouterRequestOverflowStrategy = .rejectNewest,
         policyTimeout: Duration? = .seconds(30),
@@ -319,6 +341,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
         self.policies = policies
         self.authorization = authorization
         self.schedulingPolicy = schedulingPolicy
+        self.dispatchTiming = dispatchTiming
         self.maximumPendingRequestCount = maximumPendingRequestCount
         self.requestOverflowStrategy = requestOverflowStrategy
         self.policyTimeout = policyTimeout
@@ -338,6 +361,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
         policies: [RouterPolicy<R>] = [],
         authorization: RouterAuthorizationConfiguration<R>? = nil,
         schedulingPolicy: RouterSchedulingPolicy = .serialize,
+        dispatchTiming: RouterDispatchTiming = .deferred,
         requestOverflowStrategy: RouterRequestOverflowStrategy = .rejectNewest,
         deferralOverflowStrategy: RouterDeferralOverflowStrategy = .rejectNewest,
         eventBufferingPolicy: EventBufferingPolicy = .default,
@@ -348,6 +372,7 @@ public struct RouterStoreConfiguration<R: Route>: Sendable {
             policies: policies,
             authorization: authorization,
             schedulingPolicy: schedulingPolicy,
+            dispatchTiming: dispatchTiming,
             requestOverflowStrategy: requestOverflowStrategy,
             deferrals: .init(overflowStrategy: deferralOverflowStrategy),
             eventBufferingPolicy: eventBufferingPolicy,

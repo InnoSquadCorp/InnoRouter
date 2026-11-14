@@ -120,25 +120,29 @@ inactive가 될 때 flush합니다. activation 예약 시점에 관찰과 시작
 snapshot load 중 들어온 최신 navigation을 덮지 않습니다. driver가 다음에 저장하는
 것도 그 최신 상태이므로, 밀려난 snapshot은 대체됩니다.
 
-실행 직후의 작업이 이전 session을 밀어내면 안 된다면 `driver.status`가 `.loading`을
-벗어난 뒤에 commit하거나, activation 전에
-`driver.initialRestorePrecedence = .snapshot`으로 설정하세요. 이 옵션에서는 driver가
-초기 snapshot을 읽는 동안 store의 실행 lane을 잡으므로 snapshot이 적용되기 전에는
-아무것도 commit되지 않습니다. 그 사이의 요청은 `.serialize`에서는 대기하고
-`.rejectWhileBusy`에서는 busy로 거절됩니다. 적용 후 store에 직접 보낸 요청은 복원된
-상태 위에서 실행됩니다. view에서 온 요청(router 호출, host의 deep link 처리, SwiftUI
-navigation binding)은 복원이 대체한 scope를 대상으로 작성된 것이므로 다른 복원 뒤와
-마찬가지로 expired scope로 거절됩니다. 따라서 이른 탭이나 실행 직후의 link는 session을
-지우는 대신 관찰 가능한 거절로 끝납니다. 읽는 동안 navigation이 닫혀 있으므로 저장소의
-load 시간을 제한하세요. 복원 transition을 defer하는 policy는 그 시점에 대기를 끝내며,
-대기 중 store에 보낸 exact plan은 실행될 때 복원된 상태를 대체합니다.
+실행 직후의 작업이 이전 session을 밀어내면 안 된다면 driver가 `lastActivation`을 보고한
+뒤에 commit하거나, driver를 `initialRestorePrecedence: .snapshot`으로 만드세요. 이 옵션에서는
+driver가 activation부터 복원 요청이 실행될 때까지(읽기, 디코딩, migration, 검증 전체) store의
+실행 lane을 잡으므로 snapshot이 적용되기 전에는 아무것도 commit되지 않습니다. 그 사이의 요청은
+`.serialize`에서는 대기하고 `.rejectWhileBusy`에서는 busy로 거절됩니다. 이후 view에서 온
+요청(router 호출, host의 deep link 처리, SwiftUI navigation binding)은 복원이 대체한 scope를
+대상으로 만든 것이므로 다른 복원 뒤와 마찬가지로 expired scope로 거절되며, 따라서 이른 탭이나
+실행 직후의 link는 session을 지우는 대신 거절된 요청으로 끝납니다. store에 직접 보낸 요청은
+scope에 묶이지 않으므로 복원 뒤에 실행되어 복원된 상태를 바꾸거나 대체할 수 있습니다. 기본
+plan이 상태 전체를 대체하는 `handle(_:using:)`의 link 처리도 여기에 해당합니다. 그동안
+navigation이 닫히므로 저장소의 load 시간을 제한하고 검증기에는 `validationTimeout`을 주세요.
+policy나 authorization이 복원 transition을 defer하거나 거절하면 대기는 그 결과와 함께 끝나고,
+대기하던 요청은 snapshot 이전 상태에서 실행되어 저장됩니다.
 
 중단된 worker와 caller 소유권은 이후 activation을 변경할 수 없습니다. cloud sync는
 계속 앱이 선택하는 별도 책임입니다.
 
 이 driver처럼 host 외의 대상이 store를 필요로 하면 기본 host용으로 미리 선언된
-store를 만들 수 있습니다. `RouterHost(store:)`에는 `AppRoute.makeHostedRouterStore()`,
-`RouterTabHost(store:)`에는 `try AppRoute.makeHostedTabRouterStore()`를 사용합니다.
+store를 만들 수 있습니다. `RouterHost(store:)`에는 `AppRoute.makeRouterHostStore()`(또는
+`try AppRoute.makeRouterHostStore(configuration:)`), `RouterTabHost(store:)`에는
+`try AppRoute.makeRouterTabHostStore()`를 사용합니다. 복원된 snapshot에 catalog가 더 이상
+선언하지 않는 tab이 남아 있을 수 있다면 tab factory에 `orphanPolicy: .preserveDormant`를,
+host에도 같은 policy를 주세요.
 
 위 바이트 한도는 앱이 선택한 예시입니다. 파일 저장소는 읽는 동안 크기를 제한하고,
 codec은 encoded envelope·decoded payload·각 migration 결과를 별도로 제한합니다.
@@ -221,6 +225,11 @@ let tabHost = try RouterTabHost(AppRoute.self, initial: .home)
 입력이 있는 host는 오류를 처리할 수 있는 초기 설정 단계에서 만듭니다.
 SwiftUI `body`는 nonthrowing으로 유지합니다. tab·split host는 전체 topology를
 보존하고 잘못되거나 한도를 넘은 초기 입력을 오류로 반환합니다.
+7.1.0부터 `RouterTabHost(AppRoute.self)`는 선언된 tab으로 `try` 없이 tab host를 만들므로
+`body`에 바로 쓸 수 있습니다. catalog는 매크로가 이미 검증했고, 손으로 쓴 잘못된 catalog는
+복구 화면과 `validationFailure`로 보고됩니다. enum 안에서 SwiftUI의 tab content는
+`SwiftUI.Tab`으로 쓰세요. 이름만 쓰면 생성된 `AppRoute.Tab`을 뜻합니다(경고
+`InnoRouterMacro.W008`).
 
 `id:`를 생략하면 case 이름이 저장되는 scope ID입니다. tab case 이름을 바꾸기 전에
 명시 ID를 추가하면 저장된 branch를 계속 찾을 수 있습니다. 이 ID는 tab scope만

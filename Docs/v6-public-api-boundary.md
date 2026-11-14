@@ -35,7 +35,7 @@ growth:
 
 | Product | Maximum symbols |
 | --- | ---: |
-| `InnoRouter` | 1,838 |
+| `InnoRouter` | 1,839 |
 | `InnoRouterInspector` | 236 |
 | `InnoRouterTesting` | 275 |
 
@@ -93,21 +93,29 @@ visionOS consumer matrix validates its emitted public interface separately
 through `check-platform-interface.sh`. The macOS product budgets above remain
 unchanged. Routes require no additional Codable conformance.
 
-After 7.0.1 the umbrella grows by thirteen symbols, raising its ceiling from
-1,825 to 1,838:
+After 7.0.1 the umbrella grows by fourteen symbols, raising its ceiling from
+1,825 to 1,839:
 
-- `RouterDispatchTiming` with its two cases and
+- `RouterDispatchTiming` with its two static members and
   `RouterStoreConfiguration.dispatchTiming`;
 - `DeepLinkFeatureRuntime.admitsOrigin(of:schemes:hosts:)`, the origin check
   that generated resolvers call;
-- `RouterRestorationPrecedence` with its two cases and
+- `RouterRestorationPrecedence` with its two static members and
   `RouterRestorationDriver.initialRestorePrecedence`;
 - `RouterTabHost.init(_:linkHandling:)` and `RouterTabHost.validationFailure`;
-- `DestinationRoute.makeHostedRouterStore()` and
-  `DestinationRoute.makeHostedTabRouterStore(initial:badges:configuration:)`.
+- `DestinationRoute.makeRouterHostStore()`,
+  `DestinationRoute.makeRouterHostStore(configuration:)`, and
+  `DestinationRoute.makeRouterTabHostStore(initial:badges:orphanPolicy:configuration:)`.
 
-The diff contained only these additions; it was extracted with the Swift
-6.3.3 open-source toolchain.
+Both new value sets are structs with static members, not enums, so a later
+minor release can add a member without breaking an exhaustive client `switch`.
+Six existing initializers gained a defaulted trailing or interior parameter:
+both `RouterStoreConfiguration` initializers take `dispatchTiming:`, and the four
+public `RouterRestorationDriver` initializers take `initialRestorePrecedence:`.
+Every existing call site still compiles; in the symbol graph each new signature
+replaces its old one. The baseline diff contains only these changes. It was
+extracted locally with the Swift 6.3.3 open-source toolchain, and the CI gates
+job checks it with the pinned Xcode toolchain on every pull request.
 
 Run both checks with:
 

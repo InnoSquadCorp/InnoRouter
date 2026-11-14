@@ -1,6 +1,9 @@
 import Foundation
 import InnoRouterCore
 
+/// Every initializer takes `initialRestorePrecedence`, which decides what
+/// happens to navigation requested while the initial snapshot loads. The
+/// default, ``RouterRestorationPrecedence/navigation``, is the 7.0 behavior.
 public extension RouterRestorationDriver {
     /// Uses the legacy recursive Codable format and its explicit recovery policy.
     convenience init(
@@ -8,11 +11,13 @@ public extension RouterRestorationDriver {
         codec: RouterSnapshotCodec<R>,
         storage: any RouterSnapshotStorage,
         recovery: RouterSnapshotRecoveryPolicy<R> = .fail,
-        saveDebounce: Duration = .milliseconds(250)
+        saveDebounce: Duration = .milliseconds(250),
+        initialRestorePrecedence: RouterRestorationPrecedence = .navigation
     ) where R: Codable {
         self.init(
             store: store, codecExecutor: .init(codec: codec, resourceBudget: store.resourceBudget), storage: storage,
-            recovery: recovery, saveDebounce: saveDebounce
+            recovery: recovery, saveDebounce: saveDebounce,
+            initialRestorePrecedence: initialRestorePrecedence
         )
     }
 
@@ -23,11 +28,13 @@ public extension RouterRestorationDriver {
         storage: any RouterSnapshotStorage,
         recovery: RouterSnapshotRecoveryPolicy<R> = .fail,
         tabTopology: RouterTabRestorationTopology,
-        saveDebounce: Duration = .milliseconds(250)
+        saveDebounce: Duration = .milliseconds(250),
+        initialRestorePrecedence: RouterRestorationPrecedence = .navigation
     ) where R: Codable {
         self.init(
             store: store, codecExecutor: .init(codec: codec, resourceBudget: store.resourceBudget), storage: storage,
-            recovery: recovery, tabTopology: tabTopology, saveDebounce: saveDebounce
+            recovery: recovery, tabTopology: tabTopology, saveDebounce: saveDebounce,
+            initialRestorePrecedence: initialRestorePrecedence
         )
     }
 
@@ -39,12 +46,14 @@ public extension RouterRestorationDriver {
         validator: RouterPartialRestorationValidator<R>,
         validationTimeout: Duration? = nil,
         tabTopology: RouterTabRestorationTopology? = nil,
-        saveDebounce: Duration = .milliseconds(250)
+        saveDebounce: Duration = .milliseconds(250),
+        initialRestorePrecedence: RouterRestorationPrecedence = .navigation
     ) where R: Codable {
         self.init(
             store: store, codecExecutor: .init(codec: codec, resourceBudget: store.resourceBudget), storage: storage,
             tabTopology: tabTopology, validator: validator,
-            validationTimeout: validationTimeout, saveDebounce: saveDebounce
+            validationTimeout: validationTimeout, saveDebounce: saveDebounce,
+            initialRestorePrecedence: initialRestorePrecedence
         )
     }
 
@@ -62,12 +71,14 @@ public extension RouterRestorationDriver {
         tabTopology: RouterTabRestorationTopology? = nil,
         validator: RouterPartialRestorationValidator<R>? = nil,
         validationTimeout: Duration? = nil,
-        saveDebounce: Duration = .milliseconds(250)
+        saveDebounce: Duration = .milliseconds(250),
+        initialRestorePrecedence: RouterRestorationPrecedence = .navigation
     ) {
         self.init(
             store: store, codecExecutor: .init(graphCodec: graphCodec, resourceBudget: store.resourceBudget), storage: storage,
             tabTopology: tabTopology, validator: validator,
-            validationTimeout: validationTimeout, saveDebounce: saveDebounce
+            validationTimeout: validationTimeout, saveDebounce: saveDebounce,
+            initialRestorePrecedence: initialRestorePrecedence
         )
     }
 }

@@ -22,6 +22,15 @@ The canonical runtime consists of:
 
 A host owns its store by default. Retain and inject a store at an application
 boundary only for restoration, policies, inspection, or direct observation.
+From 7.1.0, `makeRouterHostStore()` and `makeRouterTabHostStore(...)` create a
+Store already declared for `RouterHost(store:)` or `RouterTabHost(store:)`.
+
+`RouterActions` methods such as `go(_:)` return a task and, by default, commit
+on a later main-actor turn. From 7.1.0, `RouterStoreConfiguration.dispatchTiming`
+set to `.immediateWhenIdle` commits them before the call returns when the Store
+has no policy or authorization and nothing else is pending, so a surrounding
+`withAnimation` applies to the change. It does not affect `RouterStore` and
+`RouterScope` `dispatch` methods or the hosts' native bindings.
 
 ## Basic host
 
@@ -107,6 +116,12 @@ validates input state and current stack shapes before preparing a candidate.
 Partial reports include payload-free `topologyChanges`; their transition outcome
 determines whether the candidate was applied. Older reports decode with an empty
 change list.
+
+By default a navigation committed while the initial snapshot loads makes that
+restore stale. From 7.1.0, a driver created with
+`initialRestorePrecedence: .snapshot` holds the Store's execution lane until its
+restore request runs; requests from views made meanwhile are then rejected as
+expired scopes, and requests sent to the Store run after the restore.
 
 Automatic restoration can take the same validator, timeout, and optional
 topology. It plans before one policy transition and exposes the initial report

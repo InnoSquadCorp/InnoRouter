@@ -9,6 +9,26 @@ private enum ImmediateRoute: String, Route, Codable {
     case first, second, third
 }
 
+private enum FeatureChildRoute: String, Route, Codable {
+    case home, detail
+}
+
+private enum FeatureParentRoute: Hashable, Route, Codable {
+    case feature(FeatureChildRoute)
+}
+
+private let featureMapping = RouterFeatureMapping<FeatureParentRoute, FeatureChildRoute>(
+    id: "feature",
+    namespace: "FeatureParentRoute.feature",
+    route: .init(
+        embed: FeatureParentRoute.feature,
+        extract: {
+            guard case .feature(let child) = $0 else { return nil }
+            return child
+        }
+    )
+)
+
 @MainActor
 private final class ImmediateEventLog {
     var events: [String] = []
@@ -356,6 +376,52 @@ struct RouterImmediateDispatchTests {
         }
         _ = await presenting.value
         #expect(store.state.root == .stack(path: [.third]))
+    }
+
+    @Test("Dismissing from inside presented content stays on the deferred path")
+    func presentedContentDismissIsDeferred() async throws {
+        let (store, router, _) = try makeStore(.immediateWhenIdle)
+        router.sheet(.first)
+        let handle = try #require(store.presentationHandle())
+        let owner = store.scope()
+        let rendered = store.scope(at: .root.appendingPresentation(handle.id))
+        let presented = RouterActions(authority: .init(
+            scope: rendered,
+            enclosingPresentation: .init(owner: owner, renderedChild: rendered, handle: handle)
+        ))
+
+        let dismissal = presented.dismiss()
+        // Still presented when the call returns: the endpoint always defers.
+        #expect(store.presentationHandle() == handle)
+        #expect(store.dispatchGate.unstartedDispatches == 1)
+        // A request made next in the same handler does not overtake it.
+        let push = router.go(.second)
+        #expect(store.revision == 1)
+
+        guard case .applied = await dismissal.value, case .applied = await push.value else {
+            Issue.record("Expected the dismissal, then the push, to apply")
+            return
+        }
+        #expect(store.state.root == .stack(path: [.second]))
+    }
+
+    @Test("A feature projection's requests stay on the deferred path")
+    func featureProjectionIsDeferred() async throws {
+        var configuration = RouterStoreConfiguration<FeatureParentRoute>()
+        configuration.dispatchTiming = .immediateWhenIdle
+        let store = try RouterStore<FeatureParentRoute>(
+            initialState: .rootStack(path: [.feature(.home)]), configuration: configuration
+        )
+        let feature = RouterFeatureScope(parent: store.scope(), mapping: featureMapping)
+        let router = RouterActions(authority: .init(base: feature))
+
+        let push = router.go(.detail)
+        #expect(store.revision == 0)
+        guard case .applied = await push.value else {
+            Issue.record("The feature push did not apply")
+            return
+        }
+        #expect(store.state.root == .stack(path: [.feature(.home), .feature(.detail)]))
     }
 
     @Test("Every public entry point that defers is counted until it starts")

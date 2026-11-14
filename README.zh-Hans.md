@@ -63,7 +63,7 @@ struct AppRoot: View {
 
 `RouterState` 对外只读。修改 `RouterStateDraft`，调用 `try build(resourceBudget:)` 验证后创建 `RouterPlan(state:)`。plan 表示精确目标，`RouterAction` 表示增量变更，只有 `RouterStore` 能提交导航。`RouterScope` 是子树的只读投影和动作转发器，不是另一个 store。
 
-`RouterStore<AppRoute>()` 和 `AppRoute.makeRouterStore()` 不抛错；提供初始状态、路径或配置时必须使用 `try`。外部 store 的 renderer 需要明确的 `hostDescriptor`；下面声明默认 stack 根节点。在应用初始化阶段处理错误并显示恢复界面，不要用 `try!` 或无关空状态隐藏失败。 `AppRoute.makeHostedRouterStore()` 和 `try AppRoute.makeHostedTabRouterStore()` 会创建已为 `RouterHost(store:)` 和 `RouterTabHost(store:)` 声明好的 store。
+`RouterStore<AppRoute>()` 和 `AppRoute.makeRouterStore()` 不抛错；提供初始状态、路径或配置时必须使用 `try`。外部 store 的 renderer 需要明确的 `hostDescriptor`；下面声明默认 stack 根节点。在应用初始化阶段处理错误并显示恢复界面，不要用 `try!` 或无关空状态隐藏失败。 `AppRoute.makeRouterHostStore()` 和 `try AppRoute.makeRouterTabHostStore()` 会创建已为 `RouterHost(store:)` 和 `RouterTabHost(store:)` 声明好的 store。
 
 ```swift skip contextual-fragment
 @MainActor
@@ -147,7 +147,7 @@ try await router.finishPresentation(request, returning: true)
 
 ## 恢复与导航历史
 
-稳定持有 `RouterRestorationDriver` 及应用选择的存储，在根节点附加 `routerStateRestoration(_:)`。为 `RouterSnapshotCodec` 设置版本，迁移路由/schema 变更并检查恢复结果。标签目录变化时，`RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)` 和 renderer 应共享同一目录。休眠分支不能成为选中的 renderer。过期恢复不能覆盖新导航。snapshot 默认上限是有限的暂定值，增大前请实测；突然终止不保证最后一次保存。 默认情况下，快照加载期间提交的导航优先；设置 `driver.initialRestorePrecedence = .snapshot` 后会先应用快照，期间由视图发出的请求会被拒绝，而不会取代快照。
+稳定持有 `RouterRestorationDriver` 及应用选择的存储，在根节点附加 `routerStateRestoration(_:)`。为 `RouterSnapshotCodec` 设置版本，迁移路由/schema 变更并检查恢复结果。标签目录变化时，`RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)` 和 renderer 应共享同一目录。休眠分支不能成为选中的 renderer。过期恢复不能覆盖新导航。snapshot 默认上限是有限的暂定值，增大前请实测；突然终止不保证最后一次保存。 默认情况下，快照加载期间提交的导航优先；使用 `initialRestorePrecedence: .snapshot` 创建的 driver 会先应用快照，期间由视图发出的请求会被拒绝，而不会取代快照。
 
 `RouterHistory` 通过精确 plan 和普通策略提供有界的前进、后退及 checkpoint，保留 badge 和 presentation，不打开或关闭 scene。在账户/文档边界调用 `reset(sessionKey:)`；reset 或 stop 会使挂起的移动失效。
 

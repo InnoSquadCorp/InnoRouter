@@ -202,6 +202,20 @@ public struct RouterActions<R: Route>: Sendable {
         rootDispatch(.apply(plan), action: "apply(_:)")
     }
 
+    /// Applies several plan steps as one request, built on the state the
+    /// Store holds when the request executes.
+    ///
+    /// The steps are evaluated once, when you call this method, and the plan
+    /// is validated against the current state then: an invalid transaction
+    /// throws here. When the request runs, the steps are applied to the state
+    /// at that moment, so the transaction builds on fire-and-forget requests
+    /// made before it instead of reverting them. If the steps no longer apply
+    /// to that state, the request is rejected with the reducer's reason.
+    ///
+    /// Through a feature projection, the plan built at the call replaces the
+    /// feature's subtree when the request runs, as in 7.0.
+    /// ``RouterStore/transaction(_:)`` builds an exact plan at the call
+    /// instead.
     @MainActor @discardableResult
     public func transaction(
         @RouterPlanBuilder<R> _ build: () -> [RouterPlanStep<R>]

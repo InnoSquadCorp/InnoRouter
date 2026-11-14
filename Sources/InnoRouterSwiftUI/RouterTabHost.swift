@@ -5,6 +5,10 @@ import InnoRouterCore
 
 private let routerTabHostLogger = Logger(subsystem: "io.innosquad.innorouter", category: "tab-host")
 
+/// Route types whose invalid tab declaration has already been logged. The
+/// nonthrowing initializer runs on every evaluation of the parent's body.
+@MainActor private var loggedInvalidTabRouteTypes: Set<ObjectIdentifier> = []
+
 public extension RouterTabCatalog {
     /// Freezes tab root values independently of localized labels and icons.
     func hostRootDeclarations() -> [RouterHostRootDeclaration<R>] {
@@ -53,8 +57,9 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
     /// view's `body`. A `@Router` enum's tabs are checked when it is compiled,
     /// which leaves nothing to fail here. A hand-written `routerTabs` that is
     /// not a valid catalog is reported through ``validationFailure`` and
-    /// visible recovery UI, never a trap; the underlying error is logged, and
-    /// a throwing initializer returns it. Use a throwing initializer to choose
+    /// visible recovery UI, never a trap; the underlying error is logged once
+    /// per route type, and a throwing initializer returns it, so hand-written
+    /// conformances should use one. Use a throwing initializer also to choose
     /// the initial tab, badges, a configuration, or presentations.
     public init(_ routeType: R.Type, linkHandling: RouterLinkHandling<R>? = nil) {
         do {
@@ -67,9 +72,11 @@ public struct RouterTabHost<R: DestinationRoute & RouterTabRoute>: View {
             // it can (no tabs, a repeated scope ID); the Store behind it is an
             // empty stack and never matches. The precise cause is logged,
             // because a throwing initializer is the only way to receive it.
-            routerTabHostLogger.error(
-                "RouterTabHost could not be created from the declared tabs: \(String(describing: error), privacy: .public)"
-            )
+            if loggedInvalidTabRouteTypes.insert(ObjectIdentifier(R.self)).inserted {
+                routerTabHostLogger.error(
+                    "RouterTabHost could not be created from the declared tabs: \(String(describing: error), privacy: .public)"
+                )
+            }
             self.presentations = .stack
             self.tabs = []
             self.shape = .tabs(

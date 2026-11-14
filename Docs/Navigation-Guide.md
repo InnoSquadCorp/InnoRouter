@@ -153,29 +153,35 @@ reserved, so navigation committed while snapshot loading is pending is not
 overwritten. That newer state is also what the driver saves next, so the
 snapshot that lost is replaced.
 
-When launch-time work must not displace the previous session, wait until
-`driver.status` leaves `.loading` before committing it, or set
-`driver.initialRestorePrecedence = .snapshot` before activation. With that
-option the driver holds the store's execution lane while the initial snapshot
-loads, so nothing commits until the snapshot has been applied: requests made
-meanwhile wait under `.serialize` or are rejected as busy under
-`.rejectWhileBusy`. Afterwards a request sent to the store itself runs on the
-restored state. A request from a view—a router call, a host's deep-link
-handling, a SwiftUI navigation binding—was written for the scope the restore
-replaced and is rejected as an expired scope, as after any restore, so an early
-tap or launch link is dropped visibly instead of erasing the session. Keep the
-storage's load bounded, because navigation is closed for its duration. A policy
-that defers the restoration transition ends the hold with the deferral, and an
-exact plan sent to the store during the hold replaces the restored state when
-it runs.
+When launch-time work must not displace the previous session, wait until the
+driver reports `lastActivation` before committing it, or create the driver with
+`initialRestorePrecedence: .snapshot`. With that option the driver holds the
+store's execution lane from activation until its restore request runs, through
+loading, decoding, migration, and validation, so nothing commits before the
+snapshot is applied: requests made meanwhile wait under `.serialize` or are
+rejected as busy under `.rejectWhileBusy`. Afterwards a request from a view—a
+router call, a host's deep-link handling, a SwiftUI navigation binding—was made
+for the scope the restore replaced and is rejected as an expired scope, as
+after any restore, so an early tap or launch link ends as a rejected request
+instead of erasing the session. A request sent to the store itself is not tied
+to a scope: it runs after the restore and can change or replace the restored
+state, including link handling through `handle(_:using:)`, whose default plan
+replaces the whole state. Keep the storage's load bounded and give a
+validator a `validationTimeout`, because navigation is closed for the
+duration. If a policy or authorization defers or rejects the restoration
+transition, the hold ends with that outcome: the waiting requests run on the
+state before the snapshot and are saved.
 
 Stopping a driver invalidates queued workers and caller ownership; a later
 activation cannot be modified by their delayed completion.
 
 A store that something besides its host needs, such as this driver, can be
 created already declared for the default hosts:
-`AppRoute.makeHostedRouterStore()` for `RouterHost(store:)` and
-`try AppRoute.makeHostedTabRouterStore()` for `RouterTabHost(store:)`.
+`AppRoute.makeRouterHostStore()` (or `try AppRoute.makeRouterHostStore(configuration:)`)
+for `RouterHost(store:)`, and `try AppRoute.makeRouterTabHostStore()` for
+`RouterTabHost(store:)`. Pass `orphanPolicy: .preserveDormant` to the tab
+factory, and the same policy to the host, when a restored snapshot may still
+hold a tab the catalog no longer declares.
 
 The byte limits above are application-selected examples. File storage rejects
 oversized input while reading, and the codec independently bounds the encoded
@@ -276,6 +282,12 @@ saved path still requires a snapshot migration. Effective IDs must be unique.
 Create input-bearing hosts in a throwing setup boundary and handle failures
 there; SwiftUI `body` stays nonthrowing. Tab and split hosts preserve their full
 topology and reject invalid or oversized initialization instead of trapping.
+From 7.1.0, `RouterTabHost(AppRoute.self)` builds a tab host from the declared
+tabs without `try`, so it can be written directly in `body`: the macro has
+already validated the catalog, and a hand-written catalog that is invalid
+renders recovery UI and reports `validationFailure`. Inside the enum, write
+`SwiftUI.Tab` for SwiftUI's tab content; the bare name means the generated
+`AppRoute.Tab` (warning `InnoRouterMacro.W008`).
 
 The macro generates stable case-name scope identifiers, so localization or tab
 reordering does not corrupt restored branch history. `@TabItem` can also define
