@@ -17,8 +17,12 @@ private enum DeepLinkAdmissionSource<Output: Sendable>: Sendable {
 /// limits run after those validations so both public pipelines preserve the same
 /// rejection precedence while sharing one parsed URL for matching.
 struct DeepLinkAdmission<Output: Sendable>: Sendable {
-    private let allowedSchemes: Set<String>?
-    private let allowedHosts: Set<String>?
+    /// Kept as given, not folded into a new `Set<String>`: after ASCII
+    /// folding, two spellings that differ in their bytes can become
+    /// canonically equivalent, and a `Set` would keep only one of them.
+    /// ``DeepLinkOriginComparison/matches(_:_:)`` folds both sides.
+    private let allowedSchemes: [String]?
+    private let allowedHosts: [String]?
     private let rejectsNonCanonicalAuthority: Bool
     private let source: DeepLinkAdmissionSource<Output>
     private let inputLimits: DeepLinkInputLimits
@@ -57,8 +61,8 @@ struct DeepLinkAdmission<Output: Sendable>: Sendable {
         matcher: DeepLinkMatcher<Output>,
         inputLimits: DeepLinkInputLimits
     ) {
-        self.allowedSchemes = allowedSchemes?.lowercased
-        self.allowedHosts = allowedHosts?.lowercased
+        self.allowedSchemes = allowedSchemes.map(Array.init)
+        self.allowedHosts = allowedHosts.map(Array.init)
         self.rejectsNonCanonicalAuthority = allowedSchemes != nil || allowedHosts != nil
         self.source = .matcher(matcher)
         self.inputLimits = inputLimits
@@ -70,8 +74,8 @@ struct DeepLinkAdmission<Output: Sendable>: Sendable {
         customResolver: @escaping @Sendable (URL) -> Output?,
         inputLimits: DeepLinkInputLimits
     ) {
-        self.allowedSchemes = allowedSchemes?.lowercased
-        self.allowedHosts = allowedHosts?.lowercased
+        self.allowedSchemes = allowedSchemes.map(Array.init)
+        self.allowedHosts = allowedHosts.map(Array.init)
         self.rejectsNonCanonicalAuthority = allowedSchemes != nil || allowedHosts != nil
         self.source = .customResolver(customResolver)
         self.inputLimits = inputLimits
@@ -138,12 +142,5 @@ private extension DeepLinkOriginPolicy {
         case .trustedInProcess:
             return (nil, nil)
         }
-    }
-}
-
-private extension Set where Element == String {
-    /// Folds ASCII letters only; see ``DeepLinkOriginComparison``.
-    var lowercased: Set<String> {
-        Set(map(DeepLinkOriginComparison.asciiLowercased))
     }
 }

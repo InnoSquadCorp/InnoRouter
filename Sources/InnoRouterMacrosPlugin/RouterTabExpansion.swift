@@ -471,8 +471,9 @@ private func diagnoseRouterTabWarnings(
 /// names the generated type without the warning.
 ///
 /// The walk stops wherever `Tab` is given another meaning (a nested type, a
-/// function body, or a closure that declares its own `Tab`) and at a nested
-/// tab router, whose own expansion reports the calls it contains.
+/// function body, or a closure that declares its own `Tab` type, function, or
+/// value) and at a nested tab router, whose own expansion reports the calls it
+/// contains.
 final class ShadowedSwiftUITabCallFinder: SyntaxVisitor {
     private(set) var references: [DeclReferenceExprSyntax] = []
 
@@ -522,14 +523,21 @@ final class ShadowedSwiftUITabCallFinder: SyntaxVisitor {
         rebindsTab(members.members.map { Syntax($0.decl) }) ? .skipChildren : .visitChildren
     }
 
-    /// Whether one of `declarations` is a type or type alias named `Tab`.
+    /// Whether one of `declarations` declares the name `Tab`: a type, a
+    /// type alias, a function, or a value such as a stored closure.
     private func rebindsTab(_ declarations: [Syntax]) -> Bool {
         declarations.contains { declaration in
+            if let variable = declaration.as(VariableDeclSyntax.self) {
+                return variable.bindings.contains {
+                    $0.pattern.as(IdentifierPatternSyntax.self)?.identifier.text == "Tab"
+                }
+            }
             let name = declaration.as(TypeAliasDeclSyntax.self)?.name
                 ?? declaration.as(StructDeclSyntax.self)?.name
                 ?? declaration.as(ClassDeclSyntax.self)?.name
                 ?? declaration.as(EnumDeclSyntax.self)?.name
                 ?? declaration.as(ActorDeclSyntax.self)?.name
+                ?? declaration.as(FunctionDeclSyntax.self)?.name
             return name?.text == "Tab"
         }
     }

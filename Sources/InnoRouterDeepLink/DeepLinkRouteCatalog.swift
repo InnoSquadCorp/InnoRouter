@@ -289,9 +289,13 @@ public struct DeepLinkRouteCatalog: Hashable, Sendable, Codable {
         )
     }
 
+    /// Removes values equal under ``DeepLinkOriginComparison``: ASCII case
+    /// folded, then compared byte for byte. The key is the folded UTF-8 bytes,
+    /// not a `String`, whose equality would also merge canonically equivalent
+    /// spellings that the comparison keeps apart.
     private static func uniqueCaseInsensitive(_ values: [String]) -> [String] {
-        var observed: Set<String> = []
-        return values.filter { observed.insert(DeepLinkOriginComparison.asciiLowercased($0)).inserted }
+        var observed: Set<[UInt8]> = []
+        return values.filter { observed.insert(Array(DeepLinkOriginComparison.asciiLowercased($0).utf8)).inserted }
     }
 
     private enum CodingKeys: String, CodingKey {

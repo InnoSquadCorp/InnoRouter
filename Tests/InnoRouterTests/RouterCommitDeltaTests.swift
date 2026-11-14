@@ -99,12 +99,22 @@ struct RouterCommitDeltaTests {
         let scope = store.scope(at: ["b"])
         let tokens = store.scopeLifetimes.mapValues { $0.token }
 
-        _ = await store.perform(.scoped("a", .push(.first)))
-        _ = await store.perform(.select("b"))
-        _ = await store.perform(.setBadge(1, for: "a"))
+        for action: RouterAction<R> in [.scoped("a", .push(.first)), .select("b"), .setBadge(1, for: "a")] {
+            guard case .applied = await store.perform(action) else {
+                Issue.record("\(action) did not commit, so the token check would prove nothing")
+                return
+            }
+        }
 
         #expect(store.scopeLifetimes.mapValues { $0.token } == tokens)
         #expect(scope.matchesCurrentLifetime)
+        guard case .container(let container) = store.state.root else {
+            Issue.record("Expected the tab container")
+            return
+        }
+        #expect(container.selection == "b")
+        #expect(container.badges["a"] == 1)
+        #expect(store.state.node(at: ["a"]) == .stack(path: [.first]))
     }
 
     @Test("Presenting and dismissing still rebuild lifetimes and retire the child scope")

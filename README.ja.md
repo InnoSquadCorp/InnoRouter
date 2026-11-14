@@ -89,7 +89,7 @@ case .rejected(_, _, _, let reason): print("Rejected", reason)
 }
 ```
 
-ポリシーは中断を挟んでも不変の候補を検査します。拒否、呼び出し元のキャンセル、古い準備、無効なアクションは確定状態を変えません。`RouterRequestKey` は `keepFirst` / `replacePending` を提供し、無関係なリクエストは FIFO です。待機数、timeout、延期に上限を設定します。`deferRequest` は実行レーンを解放し、明示的な rebase 以外の再開では revision を確認します。キャンセルに協調しないポリシーが遅れて返ってもキャンセルが優先します。`RouterRejectionReason` は overflow、timeout、期限切れ、キャンセルを区別します。 fire-and-forget のリクエストは既定では後続の main-actor ターンで commit されます。`configuration.dispatchTiming = .immediateWhenIdle` を設定すると、保留中のリクエストがなければ呼び出しが返る前に commit されるため、`withAnimation` が変更に適用されます。
+ポリシーは中断を挟んでも不変の候補を検査します。拒否、呼び出し元のキャンセル、古い準備、無効なアクションは確定状態を変えません。`RouterRequestKey` は `keepFirst` / `replacePending` を提供し、無関係なリクエストは FIFO です。待機数、timeout、延期に上限を設定します。`deferRequest` は実行レーンを解放し、明示的な rebase 以外の再開では revision を確認します。キャンセルに協調しないポリシーが遅れて返ってもキャンセルが優先します。`RouterRejectionReason` は overflow、timeout、期限切れ、キャンセルを区別します。 fire-and-forget のリクエストは既定では後続の main-actor ターンで commit されます。`configuration.dispatchTiming = .immediateWhenIdle` を設定すると呼び出しが返る前に commit され、`withAnimation` が変更に適用されますが、それは store に policy も authorization もなく、ほかに保留中のリクエストがない場合だけです。それ以外の場合と[ナビゲーションガイド](Docs/Navigation-Guide.md)に挙げた場合は遅延経路を使います。
 
 ## タブ、分割表示、スコープの寿命
 

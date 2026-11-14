@@ -202,20 +202,20 @@ struct RouterImmediateDispatchTests {
     @Test("A request made while another is committing keeps FIFO order on the deferred path")
     func reentrantRequestIsDeferred() async throws {
         let (store, router, _) = try makeStore(.immediateWhenIdle)
-        var reentrant: Task<RouterOutcome<R>, Never>?
-        var stateSeenByReentrantCall: RouterNode<R>?
+        let reentrant = TestCell<Task<RouterOutcome<R>, Never>?>(nil)
+        let stateSeenByReentrantCall = TestCell<RouterNode<R>?>(nil)
         store.addSynchronousEventObserver { event in
-            guard case .committed = event, reentrant == nil else { return }
+            guard case .committed = event, reentrant.value == nil else { return }
             // The first request still owns the execution lane here.
-            reentrant = router.go(.second)
-            stateSeenByReentrantCall = store.state.root
+            reentrant.value = router.go(.second)
+            stateSeenByReentrantCall.value = store.state.root
         }
 
         router.go(.first)
-        #expect(stateSeenByReentrantCall == .stack(path: [.first]))
+        #expect(stateSeenByReentrantCall.value == .stack(path: [.first]))
         #expect(store.state.root == .stack(path: [.first]))
 
-        guard case .applied = await (try #require(reentrant)).value else {
+        guard case .applied = await (try #require(reentrant.value)).value else {
             Issue.record("The re-entrant request did not apply")
             return
         }

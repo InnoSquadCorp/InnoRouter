@@ -89,7 +89,7 @@ case .rejected(_, _, _, let reason): print("Rejected", reason)
 }
 ```
 
-策略在挂起前后检查不可变候选状态。拒绝、调用者取消、过期准备或无效动作不改变已提交状态。`RouterRequestKey` 支持 `keepFirst` / `replacePending`；无关请求仍按 FIFO 执行。明确限制队列、策略超时和延后请求。`deferRequest` 释放执行通道；恢复时检查 revision，除非显式 rebase。即使策略不配合取消且很晚才返回，取消仍优先。`RouterRejectionReason` 区分溢出、超时、过期与取消。 默认情况下，fire-and-forget 请求会在之后的 main-actor 轮次提交；设置 `configuration.dispatchTiming = .immediateWhenIdle` 后，在没有待处理请求时会在调用返回前提交，因此 `withAnimation` 会作用于这次变更。
+策略在挂起前后检查不可变候选状态。拒绝、调用者取消、过期准备或无效动作不改变已提交状态。`RouterRequestKey` 支持 `keepFirst` / `replacePending`；无关请求仍按 FIFO 执行。明确限制队列、策略超时和延后请求。`deferRequest` 释放执行通道；恢复时检查 revision，除非显式 rebase。即使策略不配合取消且很晚才返回，取消仍优先。`RouterRejectionReason` 区分溢出、超时、过期与取消。 默认情况下，fire-and-forget 请求会在之后的 main-actor 轮次提交。设置 `configuration.dispatchTiming = .immediateWhenIdle` 后，请求会在调用返回前提交，因此 `withAnimation` 会作用于这次变更，但前提是 store 没有策略或授权，且没有其他待处理请求；其他情况以及[导航指南](Docs/Navigation-Guide.md)列出的情况仍走延迟路径。
 
 ## 标签页、分栏与作用域生命周期
 

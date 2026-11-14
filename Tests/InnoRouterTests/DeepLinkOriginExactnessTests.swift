@@ -140,6 +140,37 @@ struct DeepLinkOriginExactnessTests {
         )
     }
 
+    @Test("Allow-list spellings that fold to canonically equivalent strings are all kept")
+    func foldedSpellingsStayDistinct() async throws {
+        // Not equivalent as written (é against É), but after ASCII folding
+        // `CAFE\u{301}` becomes the decomposed spelling of `caf\u{E9}`.
+        let precomposed = try #require(URL(string: "https://caf%C3%A9.example/home"))
+        let decomposed = try #require(URL(string: "https://cafe%CC%81.example/home"))
+        let hosts: Set<String> = ["caf\u{E9}.example", "CAFE\u{301}.example"]
+        #expect(hosts.count == 2)
+        for url in [precomposed, decomposed] {
+            guard case .plan = await pipeline(hosts: hosts).decide(for: url) else {
+                Issue.record("An explicitly allowed spelling was rejected: \(url.absoluteString)")
+                continue
+            }
+        }
+
+        // Catalog merging keeps both spellings for the same reason.
+        let first = DeepLinkRouteCatalog(
+            schemes: ["https"], hosts: ["caf\u{E9}.example"],
+            entries: [.init(routeCase: "home", pattern: "/home")]
+        )
+        let second = DeepLinkRouteCatalog(
+            schemes: ["HTTPS"], hosts: ["cafe\u{301}.example"],
+            entries: [.init(routeCase: "other", pattern: "/other")]
+        )
+        let merged = first.merging(second)
+        #expect(merged.schemes == ["https"])
+        #expect(merged.hosts.count == 2)
+        #expect(merged.supportsPureResolution(of: precomposed))
+        #expect(merged.supportsPureResolution(of: decomposed))
+    }
+
     @Test("Undecodable percent-encoding is never compared, and no typed read accepts it")
     func malformedPercentEncoding() throws {
         let matcher = DeepLinkMatcher<String> {

@@ -90,6 +90,22 @@ struct RouterShadowedTabFinderTests {
         """) == [16])
     }
 
+    @Test("A local value or function named Tab is not mistaken for SwiftUI's Tab")
+    func localValueOrFunction() throws {
+        #expect(try flaggedLines("""
+        enum AppRoute {
+            func value() -> Int {
+                let Tab: (() -> Int) -> Int = { $0() }
+                return Tab { 1 }
+            }
+            func function() -> Int {
+                func Tab(_ body: () -> Int) -> Int { body() }
+                return Tab { 2 }
+            }
+        }
+        """).isEmpty)
+    }
+
     @Test("A nested tab router is recognised through a qualified attribute")
     func qualifiedTabItemAttribute() throws {
         #expect(try flaggedLines("""

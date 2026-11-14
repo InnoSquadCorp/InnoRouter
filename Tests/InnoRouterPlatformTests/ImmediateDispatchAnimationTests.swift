@@ -5,13 +5,15 @@ import Testing
 import InnoRouterCore
 @testable import InnoRouterSwiftUI
 
+// macOS only. On iOS, iPadOS, tvOS, and visionOS the CI simulators never
+// delivered the probe's `.transaction` callbacks to this off-screen,
+// scene-less window, so every case timed out before the first render was
+// observed; the cause lies in the harness, not in the Store. The guarantee
+// these cases check end to end on macOS, that an immediate commit runs inside
+// the caller's transaction, is platform independent and is also asserted by
+// `RouterImmediateDispatchTests.commitInsideTransaction` on every platform.
 #if os(macOS)
 import AppKit
-#elseif canImport(UIKit) && !os(watchOS)
-import UIKit
-#endif
-
-#if os(macOS) || (canImport(UIKit) && !os(watchOS))
 private enum AnimatedRoute: String, DestinationRoute {
     case detail, second
 
@@ -71,16 +73,10 @@ private struct PathProbe: View {
 
 @MainActor
 private final class AnimationMount {
-    #if os(macOS)
     private let host: NSHostingView<AnyView>
     private let window: NSWindow
-    #else
-    private let host: UIHostingController<AnyView>
-    private let window: UIWindow
-    #endif
 
     init(_ content: AnyView) {
-        #if os(macOS)
         host = NSHostingView(rootView: content)
         window = NSWindow(
             contentRect: .init(x: 0, y: 0, width: 320, height: 320),
@@ -88,36 +84,14 @@ private final class AnimationMount {
         )
         window.isReleasedWhenClosed = false
         window.contentView = host
-        #else
-        host = UIHostingController(rootView: content)
-        window = UIWindow(frame: .init(x: 0, y: 0, width: 320, height: 480))
-        window.rootViewController = host
-        window.makeKeyAndVisible()
-        host.loadViewIfNeeded()
-        host.beginAppearanceTransition(true, animated: false)
-        host.endAppearanceTransition()
-        #endif
         layout()
     }
 
-    func layout() {
-        #if os(macOS)
-        host.layoutSubtreeIfNeeded()
-        #else
-        host.view.layoutIfNeeded()
-        #endif
-    }
+    func layout() { host.layoutSubtreeIfNeeded() }
 
     func close() {
-        #if os(macOS)
         window.contentView = nil
         window.orderOut(nil)
-        #else
-        host.beginAppearanceTransition(false, animated: false)
-        host.endAppearanceTransition()
-        window.isHidden = true
-        window.rootViewController = nil
-        #endif
     }
 }
 

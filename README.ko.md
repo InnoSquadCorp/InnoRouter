@@ -89,7 +89,7 @@ case .rejected(_, _, _, let reason): print("Rejected", reason)
 }
 ```
 
-정책은 중단 전후에 불변 후보를 검사합니다. 거절·호출자 취소·오래된 준비·잘못된 액션은 commit 상태를 바꾸지 않습니다. `RouterRequestKey`의 `keepFirst` / `replacePending`을 사용할 수 있으며 무관한 요청은 FIFO입니다. 대기 요청, 정책 timeout, deferral의 한도를 명시하세요. `deferRequest`는 실행 레인을 비우고 재개 시 명시적으로 rebase하지 않으면 revision을 검사합니다. 취소를 무시하는 정책이 늦게 반환해도 취소가 우선합니다. `RouterRejectionReason`은 overflow·timeout·만료·취소를 구별합니다. fire-and-forget 요청은 기본적으로 이후 main-actor turn에 commit됩니다. `configuration.dispatchTiming = .immediateWhenIdle`로 설정하면 대기 중인 요청이 없을 때 호출이 반환되기 전에 commit하므로 `withAnimation`이 변경에 적용됩니다.
+정책은 중단 전후에 불변 후보를 검사합니다. 거절·호출자 취소·오래된 준비·잘못된 액션은 commit 상태를 바꾸지 않습니다. `RouterRequestKey`의 `keepFirst` / `replacePending`을 사용할 수 있으며 무관한 요청은 FIFO입니다. 대기 요청, 정책 timeout, deferral의 한도를 명시하세요. `deferRequest`는 실행 레인을 비우고 재개 시 명시적으로 rebase하지 않으면 revision을 검사합니다. 취소를 무시하는 정책이 늦게 반환해도 취소가 우선합니다. `RouterRejectionReason`은 overflow·timeout·만료·취소를 구별합니다. fire-and-forget 요청은 기본적으로 이후 main-actor turn에 commit됩니다. `configuration.dispatchTiming = .immediateWhenIdle`로 설정하면 호출이 반환되기 전에 commit되어 `withAnimation`이 변경에 적용되지만, store에 policy와 authorization이 없고 대기 중인 다른 요청이 없을 때만 그렇습니다. 그 밖의 경우와 [내비게이션 가이드](Docs/Navigation-Guide.ko.md)에 정리된 경우에는 지연 경로를 사용합니다.
 
 ## 탭, 분할 화면, scope 수명
 
