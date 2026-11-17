@@ -129,6 +129,12 @@ site compiling. Behavior changes are marked in bold.
   and a later `.action` step removes one of the duplicates. Any action after
   such a step throws `RouterMutationError.invalidTargetState(.duplicateWindow)`,
   the error the other actions already threw.
+- `RouterTabHost` and `RouterHostViewDescriptor.tabs` now re-render when the
+  Store rejects a native tab selection, for example through a policy or a busy
+  rejection under `.rejectWhileBusy`. A rejection changes only the scope's
+  `reconciliationRevision`, which neither tab surface read, so `TabView` could
+  keep showing the tapped tab. Both surfaces now read it, as the stack and
+  split hosts already do, and `TabView` re-reads the Store's selection.
 
 ### Maintenance
 
