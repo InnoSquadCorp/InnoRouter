@@ -283,4 +283,65 @@ struct RouterDefaultLinkExecutionTests {
         // builder must not hold the Store back.
         try await waitUntil("the Store was released") { releasedStore == nil }
     }
+
+    @Test("A link resumed with rebase derives its plan from the state at resumption", arguments: [false, true])
+    func rebasedDeferredLinkUsesTheResumeState(dismissesFirst: Bool) async throws {
+        let deferral = RouterDeferralID()
+        let (store, host, _) = try makeFixture(policies: [.init(name: "sign in first") { transition in
+            transition.context.source == .deepLink && transition.context.resumedDeferral == nil
+                ? .deferRequest(deferral) : .allow
+        }])
+        let deferred = TestCell(false)
+        store.addSynchronousEventObserver { event in
+            if case .deferred = event { deferred.value = true }
+        }
+        let arbiter = RouterDeepLinkArbiter()
+        let url = try submit("links://tabs.test/detail", store: store, host: host, arbiter: arbiter)
+        try await deliver(url, arbiter: arbiter) { deferred.value }
+
+        // The app signs the user in on a sheet over the selected tab.
+        await coverWithSheet(store)
+        let covered = store.state
+        if dismissesFirst {
+            guard case .applied = await store.scope(at: ["home"]).perform(.dismissPresentation) else {
+                Issue.record("The sign-in sheet was not dismissed")
+                return
+            }
+        }
+        let resumed = await store.resumeDeferred(deferral, strategy: .rebaseOnCurrentState)
+
+        if dismissesFirst {
+            guard case .applied = resumed else {
+                Issue.record("The resumed link did not apply after the dismissal: \(resumed)")
+                return
+            }
+            #expect(store.scope(at: ["home"]).node == .stack(path: [.detail]))
+        } else {
+            // 7.0 reapplied the plan built at arrival, which removed the sheet.
+            guard case .rejected(_, _, _, .mutation) = resumed else {
+                Issue.record("Expected the resumed link to be rejected under the sheet: \(resumed)")
+                return
+            }
+            #expect(store.state == covered)
+        }
+    }
+
+    @Test("A link no host could apply on arrival applies if a commit made it applicable first")
+    func linkThatBecameApplicableApplies() async throws {
+        let (store, host, log) = try makeFixture()
+        await coverWithSheet(store)
+        let arbiter = RouterDeepLinkArbiter()
+        // Inapplicable when it arrives: the sheet covers the selected stack.
+        let url = try submit("links://tabs.test/detail", store: store, host: host, arbiter: arbiter)
+        // The app's own handling dismisses the sheet before the request runs.
+        guard case .applied = await store.scope(at: ["home"]).perform(.dismissPresentation) else {
+            Issue.record("The sheet was not dismissed")
+            return
+        }
+        let commits = log.commits
+        try await deliver(url, arbiter: arbiter) { log.commits > commits || !log.rejections.isEmpty }
+
+        #expect(log.rejections.isEmpty)
+        #expect(store.scope(at: ["home"]).node == .stack(path: [.detail]))
+    }
 }

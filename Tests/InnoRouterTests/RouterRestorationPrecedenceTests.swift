@@ -481,6 +481,111 @@ struct RouterRestorationPrecedenceTests {
         #expect(fixture.store.revision == 2)
     }
 
+    @Test("A fire-and-forget request made just before activation keeps its place")
+    func unstartedRequestKeepsItsPlace() async throws {
+        let storage = PrecedenceStorage()
+        let store = try RouterStore<R>(configuration: .init())
+        let driver = RouterRestorationDriver(
+            store: store, codec: try .init(currentVersion: 1), storage: storage, saveDebounce: .zero,
+            initialRestorePrecedence: .snapshot
+        )
+        let router = RouterActions(authority: RouterAuthority(scope: store.scope()))
+        defer { driver.stop() }
+        // The load returns at once; only the order on the main actor matters.
+        storage.releaseLoad()
+
+        // Both calls run in this job, so the router's task has not started
+        // when activation decides whether to hold the lane.
+        let routed = router.go(.early)
+        #expect(store.dispatchGate.unstartedDispatches == 1)
+        let activation = try await driver.activate()
+
+        guard case .applied = await routed.value else {
+            Issue.record("The request made before activation did not apply")
+            return
+        }
+        guard case .restored(let outcome) = activation,
+              case .rejected(_, _, _, .staleState) = outcome.transition else {
+            Issue.record("Expected the snapshot to be stale behind the earlier request: \(activation)")
+            return
+        }
+        #expect(store.state.root == .stack(path: [.early]))
+        #expect(store.reservedLaneID == nil)
+    }
+
+    @Test("A recovered fallback is applied like a snapshot and expires the views' requests")
+    func recoveredFallbackActsAsTheSnapshot() async throws {
+        let storage = PrecedenceStorage(.corrupt)
+        let store = try RouterStore<R>(configuration: .init())
+        let driver = RouterRestorationDriver(
+            store: store, codec: try .init(currentVersion: 1), storage: storage,
+            recovery: .use { _ in .rootStack(path: [.later]) }, saveDebounce: .zero,
+            initialRestorePrecedence: .snapshot
+        )
+        let scope = store.scope()
+        let activating = Activation { try await driver.activate() }
+        defer { storage.releaseLoad(); activating.cancel(); driver.stop() }
+        _ = try await firstElement(from: storage.loads, what: "the initial load entered")
+
+        let scoped = Task { await scope.perform(.push(.early)) }
+        try await waitUntil("the request is queued behind the load") {
+            store.queuedRequests.count == 1
+        }
+        storage.releaseLoad()
+
+        guard case .restored(let outcome) = try await activating.value,
+              case .recovered = outcome.decoding, case .applied = outcome.transition else {
+            Issue.record("Expected the recovered fallback to be applied")
+            return
+        }
+        let scopedOutcome = await scoped.value
+        guard case .rejected(_, _, _, .mutation(.expiredScope)) = scopedOutcome else {
+            Issue.record("A view's request made during the hold was not expired: \(scopedOutcome)")
+            return
+        }
+        #expect(store.state.root == .stack(path: [.later]))
+        #expect(store.reservedLaneID == nil)
+    }
+
+    @Test("A policy that rejects the restoration ends the hold with the rejection")
+    func rejectedRestoreEndsTheHold() async throws {
+        let storage = PrecedenceStorage()
+        var configuration = RouterStoreConfiguration<R>()
+        configuration.policies = [RouterPolicy(name: "no restores") { transition in
+            transition.context.source == .restoration ? .reject("not now") : .allow
+        }]
+        let store = try RouterStore<R>(configuration: configuration)
+        let driver = RouterRestorationDriver(
+            store: store, codec: try .init(currentVersion: 1), storage: storage, saveDebounce: .zero,
+            initialRestorePrecedence: .snapshot
+        )
+        let activating = Activation { try await driver.activate() }
+        defer { storage.releaseLoad(); activating.cancel(); driver.stop() }
+        _ = try await firstElement(from: storage.loads, what: "the initial load entered")
+
+        let push = Task { await store.perform(.push(.early)) }
+        try await waitUntil("the request is queued behind the load") {
+            store.queuedRequests.count == 1
+        }
+        storage.releaseLoad()
+
+        guard case .restored(let outcome) = try await activating.value,
+              case .rejected(_, _, _, .policy) = outcome.transition else {
+            Issue.record("Expected the restore to be rejected by the policy")
+            return
+        }
+        guard case .applied = await push.value else {
+            Issue.record("The queued request did not run after the rejection")
+            return
+        }
+        #expect(store.state.root == .stack(path: [.early]))
+        #expect(store.reservedLaneID == nil)
+        #expect(store.activeTransitionID == nil)
+        try await waitUntil("the held request's state was saved") { storage.data != nil }
+        let saved = try RouterSnapshotCodec<R>(currentVersion: 1).decode(try #require(storage.data))
+        #expect(saved.root == .stack(path: [.early]))
+    }
+
     @Test("The precedence is fixed when the driver is created")
     func precedenceIsAnInitializerArgument() throws {
         let store = RouterStore<R>()

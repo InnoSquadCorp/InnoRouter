@@ -12,7 +12,9 @@ extension RouterStore {
     /// admitted meanwhile queues or is rejected as busy under the Store's
     /// scheduling policy. A later `perform` that passes the same transition ID
     /// takes the lane over and runs ahead of what queued behind it. Returns
-    /// `false`, and reserves nothing, when the lane is already in use.
+    /// `false`, and reserves nothing, when the lane is already in use or a
+    /// fire-and-forget request was made whose task has not reached the Store
+    /// yet: that request came first, so it keeps its place.
     ///
     /// The reservation publishes no request or event of its own. The caller
     /// must either run the reserved request or call
@@ -20,7 +22,8 @@ extension RouterStore {
     /// no-op, so an unconditional release at the end of the caller's work is
     /// safe.
     package func reserveExecutionLane(for id: RouterTransitionID) -> Bool {
-        guard activeTransitionID == nil, queuedRequests.isEmpty, queuedSystemRepairs.isEmpty else {
+        guard activeTransitionID == nil, queuedRequests.isEmpty, queuedSystemRepairs.isEmpty,
+              dispatchGate.unstartedDispatches == 0 else {
             return false
         }
         beginExecution(id, rootID: id, requestKey: nil, systemRepairIdentity: nil)

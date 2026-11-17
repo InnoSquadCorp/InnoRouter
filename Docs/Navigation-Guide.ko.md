@@ -122,11 +122,13 @@ snapshot load 중 들어온 최신 navigation을 덮지 않습니다. driver가 
 
 실행 직후의 작업이 이전 session을 밀어내면 안 된다면 driver가 `lastActivation`을 보고한
 뒤에 commit하거나, driver를 `initialRestorePrecedence: .snapshot`으로 만드세요. 이 옵션에서는
-activation 시점에 실행 중이거나 대기 중인 요청이 없으면 driver가 복원 요청이 실행될 때까지(읽기,
+activation 시점에 아직 끝나지 않은 앞선 요청이 없으면 driver가 복원 요청이 실행될 때까지(읽기,
 디코딩, migration, 검증 전체) store의 실행 lane을 잡습니다. 그 사이의 요청은 `.serialize`에서는
-대기하고 `.rejectWhileBusy`에서는 busy로 거절됩니다. 이미 실행 중이거나 대기 중인 요청이 있었다면
-driver는 lane을 잡지 않으며, 그 activation은 기본 방식으로 동작해 앞선 요청이 commit되면 복원은
-stale로 거절됩니다.
+대기하고 `.rejectWhileBusy`에서는 busy로 거절됩니다. 앞선 요청이 남아 있었다면(실행 중이거나,
+대기 중이거나, router 메서드·`dispatch`·SwiftUI binding처럼 결과를 기다리지 않는 호출로 만들어져
+아직 store에 도달하지 않은 경우) driver는 lane을 잡지 않으며, 그 activation은 기본 방식으로 동작해
+앞선 요청이 commit되면 복원은 stale로 거절됩니다. 앱 코드가 직접 만든 `Task` 안의 요청은 store에
+도달한 뒤부터 셉니다.
 
 대기하던 요청이 어떻게 되는지는 대기가 끝나는 방식에 따라 다릅니다.
 
@@ -136,8 +138,10 @@ stale로 거절됩니다.
   실행 직후의 link는 session을 지우는 대신 거절된 요청으로 끝납니다. store에 직접 보낸 요청은
   scope에 묶이지 않으므로 복원 뒤에 실행되어 복원된 상태를 바꾸거나 대체할 수 있습니다. 기본 plan이
   상태 전체를 대체하는 `handle(_:using:)`의 link 처리도 여기에 해당합니다.
-- **snapshot이 없거나, load가 실패하거나, driver가 중단된 경우.** scope가 대체되지 않았으므로
-  대기하던 요청은 현재 상태에서 실행됩니다.
+- **snapshot이 없거나, driver가 중단되었거나, load나 디코딩이 실패했는데 driver의 `recovery`가
+  대체 상태를 주지 않은 경우.** scope가 대체되지 않았으므로 대기하던 요청은 현재 상태에서
+  실행됩니다. `recovery`가 돌려준 대체 상태는 복원된 snapshot처럼 적용되므로 첫 번째 경우에
+  해당합니다.
 - **policy나 authorization이 복원 transition을 defer하거나 거절한 경우.** 대기는 그 결과와 함께
   끝나고, 대기하던 요청은 snapshot 이전 상태에서 실행되며 그 결과가 저장됩니다.
 

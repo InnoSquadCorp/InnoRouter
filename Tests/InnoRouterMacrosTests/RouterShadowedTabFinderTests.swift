@@ -48,6 +48,17 @@ struct RouterShadowedTabFinderTests {
         """).isEmpty)
     }
 
+    @Test("A qualified call with a content closure is not reported")
+    func qualifiedCallsWithContent() throws {
+        #expect(try flaggedLines("""
+        enum AppRoute {
+            static let a = Self.Tab("Home", systemImage: "house") { EmptyView() }
+            static let b = AppRoute.Tab("Home", systemImage: "house") { EmptyView() }
+            var c: some View { TabView { SwiftUI.Tab("Home", systemImage: "house") { EmptyView() } } }
+        }
+        """).isEmpty)
+    }
+
     @Test("A nested type that rebinds Tab is not searched")
     func nestedRebinding() throws {
         #expect(try flaggedLines("""

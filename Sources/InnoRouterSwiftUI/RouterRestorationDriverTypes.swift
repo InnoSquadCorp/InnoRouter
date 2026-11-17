@@ -74,9 +74,11 @@ public struct RouterRestorationPrecedence: Sendable, Hashable {
     /// queues them in order, `.rejectWhileBusy` rejects them as busy, naming
     /// the reserved restore transition.
     ///
-    /// When the storage has no snapshot, the load or decoding fails, or the
-    /// driver stops, nothing replaced the scopes and the queued requests run
-    /// on the current state. After an applied or unchanged restore, they run
+    /// When the storage has no snapshot, the driver stops, or the load or
+    /// decoding fails without a fallback from the driver's `recovery`,
+    /// nothing replaced the scopes and the queued requests run on the current
+    /// state. A fallback state that `recovery` returns is applied like a
+    /// restored snapshot. After an applied or unchanged restore, they run
     /// under the ordinary rules:
     ///
     /// - A request from a `RouterScope` or a view's router, including a
@@ -107,8 +109,10 @@ public struct RouterRestorationPrecedence: Sendable, Hashable {
     ///   on the state before the snapshot, and the driver saves what they
     ///   commit. A deferred restore resumed with the default
     ///   `.requireUnchangedState` is then rejected as stale.
-    /// - A request that was already executing or queued when activation
-    ///   started keeps its place; that activation then behaves as
-    ///   ``navigation``.
+    /// - A request that was already made when activation started keeps its
+    ///   place, whether it was executing, queued, or a fire-and-forget call
+    ///   whose task had not reached the Store yet; that activation then
+    ///   behaves as ``navigation``. A request that app code makes inside its
+    ///   own `Task` counts only once it reaches the Store.
     public static let snapshot = RouterRestorationPrecedence(kind: .snapshot)
 }

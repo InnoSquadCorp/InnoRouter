@@ -286,6 +286,37 @@ struct RouterImmediateDispatchTests {
         #expect(store.revision == 2)
     }
 
+    @Test("A transaction that conflicts with an earlier request never reverts it", arguments: [
+        RouterDispatchTiming.deferred, .immediateWhenIdle,
+    ])
+    func transactionConflictingWithEarlierRequest(timing: RouterDispatchTiming) async throws {
+        let (store, router, _) = try makeStore(timing)
+
+        router.sheet(.first)
+        let outcome: RouterOutcome<R>?
+        do {
+            outcome = await (try router.transaction { RouterPlanStep.action(.push(.second)) }).value
+        } catch {
+            // The sheet already committed, so the call itself rejects the push.
+            outcome = nil
+        }
+        if let outcome {
+            guard case .rejected(_, _, _, .mutation) = outcome else {
+                Issue.record("A push under the earlier sheet was not rejected: \(outcome)")
+                return
+            }
+        } else {
+            #expect(timing == .immediateWhenIdle)
+        }
+        // 7.0 applied a plan built before the sheet committed and removed it.
+        guard case .stack(let stack) = store.state.root else {
+            Issue.record("Expected a root stack")
+            return
+        }
+        #expect(stack.path.isEmpty)
+        #expect(stack.presentation?.route == .first)
+    }
+
     @Test("A request dispatched inside a transaction builder is not reverted")
     func transactionBuilderSideEffectSurvives() async throws {
         let (store, router, _) = try makeStore(.immediateWhenIdle)

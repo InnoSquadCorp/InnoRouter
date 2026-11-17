@@ -8,7 +8,10 @@ are bare semver (no leading `v`).
 
 Every change below is additive or a fix. No public symbol was removed; six
 existing initializers gained a defaulted parameter, which keeps every call
-site compiling. Behavior changes are marked in bold.
+compiling (a reference that spells out an initializer's full argument labels
+must add the new label). The one source incompatibility is a security
+exception: an origin entry containing the Kelvin sign is now an error (see
+Security). Behavior changes are marked in bold.
 
 ### Security
 
@@ -21,10 +24,12 @@ site compiling. Behavior changes are marked in bold.
   `strasse.example` and `bank.example`. Non-ASCII characters in an allow-list
   entry are now compared without Unicode case mapping or normalization, while
   ASCII letters still fold. `DeepLinkOrigin` and the `@Router` origin
-  arguments accept ASCII only: a non-ASCII `deepLinkHosts:` entry such as one
-  with the Kelvin sign, which compiled in 7.0.1, is now error
+  arguments accept ASCII only. 7.0.1 lowercased them with Unicode rules before
+  checking, so a scheme or host containing the Kelvin sign (U+212A), the only
+  character those rules turn into ASCII, was accepted as if it were `k`. Such
+  a `deepLinkSchemes:` or `deepLinkHosts:` entry is now error
   `InnoRouterMacro.E019`, and `DeepLinkOrigin(scheme:host:)` returns `nil` for
-  it.
+  it; write the letter `k` instead.
 - **A user or password component that does not percent-decode, such as
   `https://%FF@host/`, is rejected like any other credential.** `URL.user`
   reports it as absent, so it passed the credential check.
@@ -63,16 +68,19 @@ site compiling. Behavior changes are marked in bold.
   of every `RouterRestorationDriver` initializer, readable afterwards as
   `initialRestorePrecedence`. The default, `.navigation`, is the 7.0 behavior:
   a navigation committed while the initial snapshot loads wins, and the
-  snapshot is rejected as stale. With `.snapshot`, when no request is running
-  or queued as activation starts, the driver holds the Store's execution lane
-  until its restore request runs, through loading, decoding, and validation;
-  otherwise that activation behaves as `.navigation`. Once the snapshot is
+  snapshot is rejected as stale. With `.snapshot`, when no earlier request is
+  still pending as activation starts (running, queued, or a fire-and-forget
+  call whose task has not started), the driver holds the Store's execution
+  lane until its restore request runs, through loading, decoding, and
+  validation; otherwise that activation behaves as `.navigation`. Once the snapshot is
   restored, a request from a view, including a host's deep-link handling and
   native binding writes, was made for a scope the restore replaced and is
   rejected as an expired scope, so it cannot erase the previous session; a
   request sent to the Store itself runs after the restore and can change or
-  replace it. A missing snapshot, a failed load, `stop()`, and the last detach
-  release the hold, and the waiting requests then run on the current state. A
+  replace it. A missing snapshot, a load or decoding failure without a
+  fallback from `recovery`, `stop()`, and the last detach release the hold,
+  and the waiting requests then run on the current state; a fallback state
+  from `recovery` is applied like the snapshot. A
   policy or authorization that defers or rejects the restoration transition
   ends the hold, and the waiting requests then run on the state before the
   snapshot.
@@ -92,7 +100,9 @@ site compiling. Behavior changes are marked in bold.
   `Tab(...)` call with a content closure, inside an `@Router` enum that has
   `@TabItem` cases, resolves to the generated nested `Tab`, not SwiftUI's.
   Write `SwiftUI.Tab`. Calls without a content closure are not diagnosed, nor
-  is code inside a type, function, or closure that declares its own `Tab`.
+  is code inside a type, function, or closure that declares its own `Tab`. A
+  call that deliberately uses an initializer added to the generated `Tab` is
+  diagnosed too; write it as `Self.Tab(...)`.
 
 ### Changed
 
@@ -108,10 +118,20 @@ site compiling. Behavior changes are marked in bold.
 - **A host without `linkHandling` derives its link plan from the state the
   Store holds when the request executes.** The plan was built at URL arrival
   and applied turns later, so a commit landing in between was silently
-  reverted.
-- **A link no host can apply (for example a push while a sheet covers the
-  stack) ends as a rejected Store request**, visible through `RouterEvent`
-  with the `.deepLink` source and logged. It previously disappeared without a
+  reverted. A link that a policy deferred and that is resumed with
+  `.rebaseOnCurrentState` derives its plan again from the state at
+  resumption. 7.0 reapplied the plan built at arrival, which also removed
+  anything presented since, such as a sign-in sheet; a tab host now rejects a
+  link resumed while a presentation still covers the selected stack, so
+  dismiss the presentation before resolving the deferral. Request observers
+  such as the Inspector see the action derived when the request is submitted
+  to the Store; a link that cannot apply then shows as an exact plan of the
+  current state, followed by its rejection.
+- **A link no host can apply when it arrives (for example a push while a
+  sheet covers the stack) is decided when its request executes.** It ends as
+  a rejected Store request, visible through `RouterEvent` with the
+  `.deepLink` source and logged, unless a commit before then made it
+  applicable, in which case it applies. It previously disappeared without a
   state change or an event. A host that cannot apply a link when it arrives
   still yields to another host that can, as it did in 7.0. The host is chosen
   at arrival: one that becomes unable to apply the link before its request
@@ -124,7 +144,9 @@ site compiling. Behavior changes are marked in bold.
   runs is rejected; and the request's observation no longer carries an
   expected revision. Use `apply(RouterPlan(state:))` for an exact target. A
   transaction made through a feature projection is unchanged, and
-  `RouterStore.transaction` still applies an exact plan.
+  `RouterStore.transaction` still applies an exact plan. A deferred
+  transaction resumed with `.rebaseOnCurrentState` likewise applies its steps
+  to the state at resumption.
 - `RouterPlan`'s builder no longer traps when a `.windows` step repeats an ID
   and a later `.action` step removes one of the duplicates. Any action after
   such a step throws `RouterMutationError.invalidTargetState(.duplicateWindow)`,

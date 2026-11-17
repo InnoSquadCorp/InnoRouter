@@ -155,13 +155,16 @@ snapshot that lost is replaced.
 
 When launch-time work must not displace the previous session, wait until the
 driver reports `lastActivation` before committing it, or create the driver with
-`initialRestorePrecedence: .snapshot`. With that option, when no request is
-running or queued as activation starts, the driver holds the store's execution
-lane until its restore request runs, through loading, decoding, migration, and
-validation: requests made meanwhile wait under `.serialize` or are rejected as
-busy under `.rejectWhileBusy`. If a request was already running or queued, the
+`initialRestorePrecedence: .snapshot`. With that option, when no earlier
+request is still pending as activation starts, the driver holds the store's
+execution lane until its restore request runs, through loading, decoding,
+migration, and validation: requests made meanwhile wait under `.serialize` or
+are rejected as busy under `.rejectWhileBusy`. If an earlier request is pending
+(running, queued, or made by a fire-and-forget call such as a router method,
+`dispatch`, or a SwiftUI binding whose task has not reached the store yet), the
 driver holds nothing; that activation behaves as the default, and once the
-earlier request commits, the restore is rejected as stale.
+earlier request commits, the restore is rejected as stale. A request that app
+code makes inside its own `Task` counts only once it reaches the store.
 
 What the waiting requests do depends on how the hold ends:
 
@@ -174,8 +177,11 @@ What the waiting requests do depends on how the hold ends:
   scope: it runs after the restore and can change or replace the restored
   state, including link handling through `handle(_:using:)`, whose default
   plan replaces the whole state.
-- **There is no snapshot, the load fails, or the driver stops.** Nothing
-  replaced the scopes, so the waiting requests run on the current state.
+- **There is no snapshot, the driver stops, or the load or decoding fails and
+  the driver's `recovery` supplies no fallback.** Nothing replaced the scopes,
+  so the waiting requests run on the current state. A fallback state that
+  `recovery` returns is applied like a restored snapshot, so the first case
+  applies instead.
 - **A policy or authorization defers or rejects the restoration transition.**
   The hold ends with that outcome: the waiting requests run on the state
   before the snapshot, and what they commit is saved.

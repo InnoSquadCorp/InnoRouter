@@ -52,7 +52,7 @@ whose explicit declarations are redundant.
 |---|---|---|
 | `InnoRouterMacro.E017` | Error | `@DeepLink` is not attached to an enum case. Move it to one case inside an `@Router` enum. |
 | `InnoRouterMacro.E018` | Error | The nearest enclosing enum does not use `@Router`. Add `@Router` to that enum or remove `@DeepLink`. |
-| `InnoRouterMacro.E019` | Error | `@Router` deep-link argument labels or elements are malformed: for example, an element is an empty or interpolated string, a value is duplicated, or a nonliteral expression is used. Supply unique nonempty literal string elements using only `deepLinkSchemes:` and `deepLinkHosts:`. |
+| `InnoRouterMacro.E019` | Error | `@Router` deep-link argument labels or elements are malformed: for example, an element is an empty or interpolated string, a value is duplicated, a nonliteral expression is used, or an element is not an ASCII URL scheme or an exact ASCII DNS, IPv4, or `localhost` host. Supply unique nonempty literal ASCII string elements using only `deepLinkSchemes:` and `deepLinkHosts:`. |
 | `InnoRouterMacro.E020` | Error | A deep-link case exists while one or both scheme and host allowlist arrays are empty. Add nonempty values to both allowlists so origin checks fail closed. |
 | `InnoRouterMacro.E021` | Error | One case has multiple `@DeepLink` annotations. Keep exactly one mapping. |
 | `InnoRouterMacro.E022` | Error | An annotated declaration contains joined cases. Split it so each `@DeepLink` annotates exactly one case. |
