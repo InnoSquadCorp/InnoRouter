@@ -23,6 +23,8 @@ extension RouterStore {
             semantics: semantics,
             replayLimitationCode: replayLimitationCode
         )
+        dispatchGate.notificationDepth += 1
+        defer { dispatchGate.notificationDepth -= 1 }
         Array(synchronousRequestObservers.values).forEach { $0(observation) }
         requestBroadcaster.broadcast(observation)
     }
@@ -64,6 +66,8 @@ extension RouterStore {
     }
 
     package func emit(_ event: RouterEvent<R>) {
+        dispatchGate.notificationDepth += 1
+        defer { dispatchGate.notificationDepth -= 1 }
         onEvent?(event)
         Array(synchronousEventObservers.values).forEach { $0(event) }
         broadcaster.broadcast(event)
@@ -121,7 +125,8 @@ extension RouterStore {
     func refreshScopes(
         after action: RouterAction<R>?,
         context: RouterTransitionContext,
-        including previousScopes: [WeakRouterScope<R>] = []
+        including previousScopes: [WeakRouterScope<R>] = [],
+        changedPaths: Set<RouterScopePath>? = nil
     ) {
         compactDeadScopes()
         // Synchronous observation may acquire a new incarnation and replace
@@ -129,7 +134,9 @@ extension RouterStore {
         // across that boundary so retained projections are still invalidated.
         // Deduplicate identities to reconcile each native binding only once.
         var refreshed = Set<ObjectIdentifier>()
-        let liveScopes = (previousScopes + Array(scopes.values)).compactMap(\.value)
+        // A closure, not `\.value`: a key-path literal inside this generic
+        // class is instantiated by the runtime on every commit.
+        let liveScopes = (previousScopes + Array(scopes.values)).compactMap { $0.value }
         let reconciliationTarget: RouterScopePath??
         if context.source == .system {
             reconciliationTarget = .some(action?.systemReconciliationTarget())
@@ -147,6 +154,14 @@ extension RouterStore {
             case .some(.some(let path)):
                 shouldReconcile = scope.path == path
             }
+            // With the graph's shape and scenes intact, a scope's projection
+            // can only change with its own subtree. A system binding still
+            // has to re-read canonical state when it is the reconcile target.
+            // A scope that has never been refreshed is not skipped: `init`
+            // fills its scene projection without the lifetime check that
+            // `refresh` applies, so its first refresh can still change it.
+            if let changedPaths, !shouldReconcile, scope.hasRefreshed,
+               !changedPaths.contains(scope.path) { continue }
             scope.refresh(
                 from: state,
                 reconcileSystemBinding: shouldReconcile

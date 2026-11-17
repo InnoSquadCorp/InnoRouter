@@ -37,7 +37,9 @@ RouterHost(AppRoute.self) {
 ```
 
 Use `AppRoute.makeRouterStore()` and `RouterHost(store:)` only when an app
-boundary must retain the authority.
+boundary must retain the authority. From 7.0 a supplied store must also carry
+a host descriptor, or the host renders its recovery UI; see
+<doc:Migrating-To-InnoRouter-7>.
 
 ## Feature metadata namespace
 

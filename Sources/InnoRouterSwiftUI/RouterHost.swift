@@ -144,8 +144,8 @@ public struct RouterHost<R: DestinationRoute, Root: View>: View {
                 for: R.self,
                 scope: scope,
                 handling: linkHandling
-            ) { route, state in
-                let target = try state.replacingNode(.stack(path: [route]), at: .root, resourceBudget: store.resourceBudget)
+            ) { [budget = store.resourceBudget] route, state in
+                let target = try state.replacingNode(.stack(path: [route]), at: .root, resourceBudget: budget)
                 return RouterPlan(state: target)
             }
         }

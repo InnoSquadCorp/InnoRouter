@@ -172,7 +172,7 @@ public struct RouterContainerState<R: Route>: Hashable, Sendable {
         badges: [RouterScopeID: Int] = [:],
         split: RouterSplitState? = nil
     ) throws {
-        let ids = branches.map(\.id)
+        let ids = branches.map { $0.id }
         guard Set(ids).count == ids.count else {
             throw RouterStateValidationError.duplicateScope
         }
@@ -299,7 +299,10 @@ public struct RouterState<R: Route>: Hashable, Sendable {
     public func validate() throws {
         var presentationIDs: Set<UUID> = []
         try Self.validate(node: root, presentationIDs: &presentationIDs)
-        let windowIDs = windows.map(\.id)
+        // Closures, not `\.id`: a key-path literal inside generic code is
+        // instantiated by the runtime on every call, and validation runs on
+        // every commit.
+        let windowIDs = windows.map { $0.id }
         guard Set(windowIDs).count == windowIDs.count else {
             throw RouterStateValidationError.duplicateWindow
         }
@@ -434,7 +437,7 @@ public struct RouterState<R: Route>: Hashable, Sendable {
         container: RouterContainerState<R>,
         presentationIDs: inout Set<UUID>
     ) throws {
-        let ids = container.branches.map(\.id)
+        let ids = container.branches.map { $0.id }
         guard Set(ids).count == ids.count else {
             throw RouterStateValidationError.duplicateScope
         }

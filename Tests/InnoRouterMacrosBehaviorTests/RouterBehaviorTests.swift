@@ -662,3 +662,56 @@ struct RouterBehaviorTests {
 }
 
 #endif
+
+#if canImport(InnoRouterMacrosPlugin)
+
+/// The generated nested `Tab` shadows SwiftUI's `Tab` inside the router enum.
+/// The documented spelling is `SwiftUI.Tab`; this fixture only has to compile.
+@Router
+private enum ShadowedTabRouterRoute {
+    @TabItem("Home", systemImage: "house")
+    case home
+
+    @TabItem("Search", systemImage: "magnifyingglass")
+    case search
+
+    var destination: some View {
+        TabView {
+            SwiftUI.Tab("Inline", systemImage: "star") {
+                Text("Inline")
+            }
+        }
+    }
+
+    /// An initializer an extension adds to the generated type. Unqualified
+    /// `Tab(scope:)` is a legitimate use of that type, not a shadowed SwiftUI
+    /// call, so it must compile without the W008 warning.
+    static func tab(for scope: RouterScopeID) -> Tab? { Tab(scope: scope) }
+}
+
+private extension RouterTab {
+    init?(scope: RouterScopeID) {
+        guard let match = Self.allCases.first(where: { $0.routerScopeID == scope }) else { return nil }
+        self = match
+    }
+}
+
+@Suite("@Router generated Tab and SwiftUI Tab")
+struct RouterGeneratedTabShadowingTests {
+    @Test("SwiftUI.Tab stays usable inside a router that generates its own Tab")
+    @MainActor
+    func qualifiedSwiftUITabCompiles() {
+        // The nested type is still the generated one.
+        #expect(ShadowedTabRouterRoute.Tab(rawValue: "home") == .home)
+        #expect(ShadowedTabRouterRoute.routerTabs.map(\.tab) == [.home, .search])
+        _ = ShadowedTabRouterRoute.destination(for: .home)
+    }
+
+    @Test("An extension initializer of the generated Tab is usable unqualified")
+    func generatedTabExtensionInitializer() {
+        #expect(ShadowedTabRouterRoute.tab(for: "search") == .search)
+        #expect(ShadowedTabRouterRoute.tab(for: "missing") == nil)
+    }
+}
+
+#endif

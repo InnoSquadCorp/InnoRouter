@@ -119,6 +119,12 @@ package struct RoutePattern: Sendable {
         patternParts.firstIndex(of: .wildcard)
     }
 
+    /// How many leading path segments this pattern compares or captures.
+    /// Segments from a wildcard onwards are accepted without being read.
+    var examinedPathPartCount: Int {
+        wildcardIndex ?? patternParts.count
+    }
+
     fileprivate var nonTerminalWildcardIndex: Int? {
         guard let wildcardIndex, wildcardIndex != patternParts.index(before: patternParts.endIndex) else {
             return nil

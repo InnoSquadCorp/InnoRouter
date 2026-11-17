@@ -60,6 +60,20 @@ protocol RouterAuthorityProtocol<R>: AnyObject, Sendable {
         context: RouterTransitionContext,
         expectedRevision: UInt64?
     ) async -> RouterOutcome<R>
+    /// Starts fire-and-forget work on its own task. The owning Store counts
+    /// it until the task begins, so a later immediate request cannot
+    /// overtake it.
+    func startDispatch<Output: Sendable>(
+        _ work: @escaping @MainActor @Sendable () async -> Output
+    ) -> Task<Output, Never>
+    /// Commits before returning when the owning Store allows it. `nil` means
+    /// the request must take the asynchronous path; nothing was submitted.
+    func performImmediately(
+        _ action: RouterAction<R>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?,
+        atRoot: Bool
+    ) -> RouterOutcome<R>?
     func performFeatureAction(
         _ action: RouterAction<R>,
         context: RouterTransitionContext,

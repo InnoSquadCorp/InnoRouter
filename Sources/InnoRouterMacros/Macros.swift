@@ -220,8 +220,9 @@ public macro PresentationResult<Value: Sendable>(
 /// Maps one fail-closed URL path pattern to an `@Router` enum case.
 ///
 /// Add literal scheme and host allowlists to `@Router`. The generated
-/// `DeepLinkRoute` resolver accepts only exact, case-insensitive origin
-/// matches and returns one typed route. Generated mappings prefer literal
+/// `DeepLinkRoute` resolver accepts only origins that match exactly apart from
+/// ASCII case, rejects user information and ports, and returns one typed
+/// route. Origin arguments must be ASCII. Generated mappings prefer literal
 /// paths, then typed parameters, then terminal wildcards, independent of case
 /// declaration order. Macro-first hosts project the resolved route into their
 /// canonical `RouterStore`. Use `RouterLinkPipeline` at the application

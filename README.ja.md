@@ -63,7 +63,7 @@ struct AppRoot: View {
 
 `RouterState` は外部から読み取り専用です。`RouterStateDraft` を編集し、`try build(resourceBudget:)` で検証して `RouterPlan(state:)` を作成します。plan は正確な目標、`RouterAction` は増分変更を表し、`RouterStore` だけが commit します。`RouterScope` は部分ツリーの読み取りとアクション転送を担い、別 store は所有しません。
 
-`RouterStore<AppRoute>()` と `AppRoute.makeRouterStore()` は非 throwing です。初期状態・経路・設定を渡す場合は `try` が必要です。外部 store の renderer には明示的な `hostDescriptor` が必要で、以下は標準 stack root の宣言です。初期設定でエラーを処理して復旧 UI を表示し、`try!` や無関係な空状態で隠さないでください。
+`RouterStore<AppRoute>()` と `AppRoute.makeRouterStore()` は非 throwing です。初期状態・経路・設定を渡す場合は `try` が必要です。外部 store の renderer には明示的な `hostDescriptor` が必要で、以下は標準 stack root の宣言です。初期設定でエラーを処理して復旧 UI を表示し、`try!` や無関係な空状態で隠さないでください。 `AppRoute.makeRouterHostStore()` と `try AppRoute.makeRouterTabHostStore()` は、`RouterHost(store:)` と `RouterTabHost(store:)` 向けに宣言済みの store を作成します。
 
 ```swift skip contextual-fragment
 @MainActor
@@ -89,11 +89,11 @@ case .rejected(_, _, _, let reason): print("Rejected", reason)
 }
 ```
 
-ポリシーは中断を挟んでも不変の候補を検査します。拒否、呼び出し元のキャンセル、古い準備、無効なアクションは確定状態を変えません。`RouterRequestKey` は `keepFirst` / `replacePending` を提供し、無関係なリクエストは FIFO です。待機数、timeout、延期に上限を設定します。`deferRequest` は実行レーンを解放し、明示的な rebase 以外の再開では revision を確認します。キャンセルに協調しないポリシーが遅れて返ってもキャンセルが優先します。`RouterRejectionReason` は overflow、timeout、期限切れ、キャンセルを区別します。
+ポリシーは中断を挟んでも不変の候補を検査します。拒否、呼び出し元のキャンセル、古い準備、無効なアクションは確定状態を変えません。`RouterRequestKey` は `keepFirst` / `replacePending` を提供し、無関係なリクエストは FIFO です。待機数、timeout、延期に上限を設定します。`deferRequest` は実行レーンを解放し、明示的な rebase 以外の再開では revision を確認します。キャンセルに協調しないポリシーが遅れて返ってもキャンセルが優先します。`RouterRejectionReason` は overflow、timeout、期限切れ、キャンセルを区別します。 fire-and-forget のリクエストは既定では後続の main-actor ターンで commit されます。`configuration.dispatchTiming = .immediateWhenIdle` を設定すると呼び出しが返る前に commit され、`withAnimation` が変更に適用されますが、それは store に policy も authorization もなく、ほかに保留中のリクエストがない場合だけです。それ以外の場合と[ナビゲーションガイド](Docs/Navigation-Guide.md)に挙げた場合は遅延経路を使います。
 
 ## タブ、分割表示、スコープの寿命
 
-引数のない root に `@TabItem` を付け、通常の遷移先は同じ enum に置きます。`RouterTabHost` は独立した履歴を保持します。case の改名前に安定した ID を指定し、Codable ルート変更には別途 migration を用意します。入力のある tab/split host は `body` の外で `try` を使って作成します。`RouterSplitHost` と `RouterThreeColumnSplitHost` には安定した列宣言 ID が必要です。`RouterTabCatalog.hostDescriptor()` を使い、構造と意味は `replaceHost(with:descriptor:context:)` で原子的に変更します。部分ツリーの復元・置換で以前の scope 権限は失効するので再取得してください。`RouterHost(store:)` は非 throwing のまま `validationFailure` と復旧 UI を提供します。
+引数のない root に `@TabItem` を付け、通常の遷移先は同じ enum に置きます。`RouterTabHost` は独立した履歴を保持します。case の改名前に安定した ID を指定し、Codable ルート変更には別途 migration を用意します。入力のある tab/split host は `body` の外で `try` を使って作成します。`RouterSplitHost` と `RouterThreeColumnSplitHost` には安定した列宣言 ID が必要です。`RouterTabCatalog.hostDescriptor()` を使い、構造と意味は `replaceHost(with:descriptor:context:)` で原子的に変更します。部分ツリーの復元・置換で以前の scope 権限は失効するので再取得してください。`RouterHost(store:)` は非 throwing のまま `validationFailure` と復旧 UI を提供します。 `RouterTabHost(AppRoute.self)` は throw せず、最初に宣言した tab から始まります。
 
 独立した機能 enum は `@FeatureRoute` と `RouterFeatureHost` で合成します。子の `@EnvironmentRouter` と `@EnvironmentRouterState` も親 store のポリシー・キュー・revision・commit を共有します。機能は部分ツリー全体を所有し、親子のルート値が混在すると明示的に失敗します。window と immersive scene の所有権はアプリの合成 root に置きます。
 
@@ -147,7 +147,7 @@ try await router.finishPresentation(request, returning: true)
 
 ## 復元とナビゲーション履歴
 
-`RouterRestorationDriver` と保存先を保持し、安定した root に `routerStateRestoration(_:)` を付けます。`RouterSnapshotCodec` をバージョン管理し、ルート/schema の migration と復元結果を処理します。タブ変更時は `RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)`、renderer で同じ catalog を使います。休止 branch は選択 renderer になれません。古い復元が新しい移動を上書きしないようにします。snapshot の既定上限は有限の暫定値です。増やす前に計測し、突然の終了時の最終保存は保証しないでください。
+`RouterRestorationDriver` と保存先を保持し、安定した root に `routerStateRestoration(_:)` を付けます。`RouterSnapshotCodec` をバージョン管理し、ルート/schema の migration と復元結果を処理します。タブ変更時は `RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)`、renderer で同じ catalog を使います。休止 branch は選択 renderer になれません。古い復元が新しい移動を上書きしないようにします。snapshot の既定上限は有限の暫定値です。増やす前に計測し、突然の終了時の最終保存は保証しないでください。 既定では、snapshot の読み込み中に commit された navigation が優先されます。`initialRestorePrecedence: .snapshot` で作成した driver は、activation 時にすでに実行中または待機中のリクエストがない限り、復元が実行されるまで新しい navigation を保留します。snapshot が復元されると、その間に view が出したリクエストは snapshot を置き換えずに拒否されます。snapshot がなければ待機中のリクエストはそのまま実行されます。それ以外の結果は[ナビゲーションガイド](Docs/Navigation-Guide.md)を参照してください。
 
 `RouterHistory` は exact plan と通常のポリシーで上限付きの前後移動と checkpoint を提供します。badge と presentation を保持し、scene は開閉しません。アカウント・文書の境界で `reset(sessionKey:)` を呼びます。reset または stop は中断された移動を無効にします。
 

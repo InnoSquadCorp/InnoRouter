@@ -21,7 +21,32 @@ public final class RouterStore<R: Route> {
     /// Frozen host contract committed atomically with the navigation value.
     public var hostDescriptor: RouterHostDescriptor<R>? { committedValue.hostDescriptor }
 
-    var committedValue: RouterCommittedValue<R>
+    /// The one observable value behind `state`, `hostDescriptor`, and
+    /// `revision`.
+    ///
+    /// Written out instead of left to `@Observable` for one reason: the macro's
+    /// accessors spell `\.committedValue` at every use, and a key path inside a
+    /// generic class is instantiated by the runtime each time it is evaluated.
+    /// The request pipeline reads this value dozens of times per transition, and
+    /// that instantiation measured about a third of the cost of a commit. These
+    /// accessors register the same access and mutation with the same key path
+    /// identity; only the repeated instantiation is gone.
+    var committedValue: RouterCommittedValue<R> {
+        get {
+            _$observationRegistrar.access(self, keyPath: committedValueKeyPath)
+            return committedStorage
+        }
+        set {
+            _$observationRegistrar.withMutation(of: self, keyPath: committedValueKeyPath) {
+                committedStorage = newValue
+            }
+        }
+    }
+
+    @ObservationIgnored
+    private var committedStorage: RouterCommittedValue<R>
+    @ObservationIgnored
+    private let committedValueKeyPath: KeyPath<RouterStore<R>, RouterCommittedValue<R>> = \.committedValue
 
     /// Monotonic committed-state revision used for stale-prepare detection.
     public var revision: UInt64 { committedValue.revision }
@@ -37,6 +62,8 @@ public final class RouterStore<R: Route> {
     let authorization: RouterAuthorizationConfiguration<R>?
     @ObservationIgnored
     let schedulingPolicy: RouterSchedulingPolicy
+    @ObservationIgnored
+    let dispatchTiming: RouterDispatchTiming
     @ObservationIgnored
     let maximumPendingRequestCount: Int
     @ObservationIgnored
@@ -65,6 +92,9 @@ public final class RouterStore<R: Route> {
     var synchronousCancellationObservers: [UUID: @MainActor @Sendable (RouterTransitionID) -> Void] = [:]
     @ObservationIgnored
     var activeTransitionID: RouterTransitionID?
+    /// The lane owner that has not started executing yet. See `reserveExecutionLane(for:)`.
+    @ObservationIgnored var reservedLaneID: RouterTransitionID?
+    @ObservationIgnored var dispatchGate = RouterDispatchGate()
     @ObservationIgnored
     var activeRequestRootID: RouterTransitionID?
     @ObservationIgnored
@@ -168,13 +198,14 @@ public final class RouterStore<R: Route> {
         configuration: RouterStoreConfiguration<R>
     ) {
         self.resourceBudget = configuration.resourceBudget
-        self.committedValue = .init(state: initialState, hostDescriptor: configuration.hostDescriptor)
+        self.committedStorage = .init(state: initialState, hostDescriptor: configuration.hostDescriptor)
         let scopeLifetimes = Self.makeScopeLifetimes(in: initialState)
         self.scopeLifetimes = scopeLifetimes
         self.presentationLifetimes = Self.makePresentationLifetimes(in: initialState, scopes: scopeLifetimes)
         self.policies = configuration.policies
         self.authorization = configuration.authorization
         self.schedulingPolicy = configuration.schedulingPolicy
+        self.dispatchTiming = configuration.dispatchTiming
         self.maximumPendingRequestCount = resourceBudget.maximumPendingRequests
         self.requestOverflowStrategy = configuration.requestOverflowStrategy
         self.policyTimeout = resourceBudget.policyTimeout
@@ -248,7 +279,127 @@ enum RouterExecutionAdmission<R: Route> {
     case terminal(RouterOutcome<R>)
 }
 
+/// A request that passed every synchronous admission stage and announced its
+/// transition. Only authorization, policies, and the commit remain.
+@MainActor
+struct RouterStartedExecution<R: Route> {
+    let transition: RouterTransition<R>
+    /// The request precondition combined with any transient-selection fence.
+    let executionPrecondition: RouterRequestPrecondition<R>?
+    let selection: RouterTransientSelectionPreparation<R>?
+}
+
+@MainActor
+enum RouterExecutionStart<R: Route> {
+    case terminal(RouterOutcome<R>)
+    case started(RouterStartedExecution<R>)
+}
+
 extension RouterStore {
+    /// Runs every stage that precedes authorization and policies. All of it is
+    /// synchronous, so the asynchronous and immediate pipelines share it.
+    ///
+    /// A `.started` result transfers ownership of the prepared transient
+    /// selection to the caller, which must clear it when the request ends.
+    private func startExecution(
+        _ action: RouterAction<R>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?,
+        transitionID: RouterTransitionID,
+        requestRootID: RouterTransitionID,
+        authorization: RouterRequestAuthorization<R>?,
+        lifetimeMutation: RouterScopeLifetimeMutation,
+        hostReplacement: RouterHostReplacement<R>?,
+        presentationCompletionOwner: RouterPresentationCompletionOwner,
+        executionPrecondition: RouterRequestPrecondition<R>?,
+        executionPreparation: RouterRequestPreparationBuilder<R>?
+    ) -> RouterExecutionStart<R> {
+        let preparedAction: RouterAction<R>
+        switch admitExecution(
+            action,
+            context: context,
+            expectedRevision: expectedRevision,
+            transitionID: transitionID,
+            executionPrecondition: executionPrecondition,
+            executionPreparation: executionPreparation
+        ) {
+        case .action(let action):
+            preparedAction = action
+        case .terminal(let outcome):
+            return .terminal(outcome)
+        }
+
+        let initialState = state, initialRevision = revision
+        let proposedState: RouterState<R>
+        do {
+            proposedState = try makeProposedState(preparedAction, from: initialState, hostReplacement: hostReplacement)
+        } catch let failure as RouterResourceLimitFailure {
+            return .terminal(reject(transitionID, reason: .resourceLimit(failure), context: context))
+        } catch let failure as RouterHostValidationFailure {
+            return .terminal(reject(transitionID, reason: .hostContract(failure), context: context))
+        } catch let error as RouterMutationError {
+            return .terminal(reject(
+                transitionID,
+                reason: .mutation(error),
+                context: context,
+                action: preparedAction
+            ))
+        } catch {
+            preconditionFailure("RouterReducer surfaced an undocumented error: \(error)")
+        }
+
+        // A pending typed show reserves its ID for its own request lineage.
+        // Descriptor-only or restore requests cannot acquire its result waiter.
+        if let id = pendingPresentationConflict(in: proposedState, requestRootID: requestRootID) {
+            return .terminal(reject(transitionID, reason: .mutation(.presentationIdentityConflict(id)),
+                                    context: context, action: preparedAction))
+        }
+
+        let selection: RouterTransientSelectionPreparation<R>?
+        switch prepareTransientSelection(for: preparedAction, owner: presentationCompletionOwner) {
+        case .none: selection = nil
+        case .ready(let prepared): selection = prepared
+        case .rejected(let reason):
+            return .terminal(reject(transitionID, reason: reason, context: context, action: preparedAction))
+        }
+        var transfersSelection = false
+        defer { if !transfersSelection { selection?.clear() } }
+        let originalPrecondition = executionPrecondition
+        let executionPrecondition: RouterRequestPrecondition<R>? = if let selectedPrecondition = selection?.precondition {
+            { state in originalPrecondition?(state) ?? selectedPrecondition(state) }
+        } else { originalPrecondition }
+        if let reason = executionPrecondition?(state) {
+            return .terminal(reject(transitionID, reason: reason, context: context, action: preparedAction))
+        }
+
+        if proposedState == initialState && hostReplacement == nil && !lifetimeMutation.replacesOwnership
+            && self.authorization == nil && authorization?.configuration == nil {
+            return .terminal(unchangedOutcome(
+                id: transitionID,
+                state: initialState,
+                revision: initialRevision,
+                action: preparedAction,
+                context: context
+            ))
+        }
+
+        let transition = RouterTransition(
+            id: transitionID,
+            action: preparedAction,
+            initialState: initialState,
+            proposedState: proposedState,
+            initialRevision: initialRevision,
+            context: context
+        )
+        emit(.started(transition))
+        transfersSelection = true
+        return .started(.init(
+            transition: transition,
+            executionPrecondition: executionPrecondition,
+            selection: selection
+        ))
+    }
+
     func execute(
         _ action: RouterAction<R>,
         context: RouterTransitionContext,
@@ -269,88 +420,31 @@ extension RouterStore {
     ) async -> RouterOutcome<R> {
         defer { finishExecution(transitionID) }
 
-        let preparedAction: RouterAction<R>
-        switch admitExecution(
+        let started: RouterStartedExecution<R>
+        switch startExecution(
             action,
             context: context,
             expectedRevision: expectedRevision,
             transitionID: transitionID,
+            requestRootID: requestRootID,
+            authorization: authorization,
+            lifetimeMutation: lifetimeMutation,
+            hostReplacement: hostReplacement,
+            presentationCompletionOwner: presentationCompletionOwner,
             executionPrecondition: executionPrecondition,
             executionPreparation: executionPreparation
         ) {
-        case .action(let action):
-            preparedAction = action
-        case .terminal(let outcome):
-            return outcome
+        case .terminal(let outcome): return outcome
+        case .started(let value): started = value
         }
-
-        let initialState = state, initialRevision = revision
-        let proposedState: RouterState<R>
-        do {
-            proposedState = try makeProposedState(preparedAction, from: initialState, hostReplacement: hostReplacement)
-        } catch let failure as RouterResourceLimitFailure {
-            return reject(transitionID, reason: .resourceLimit(failure), context: context)
-        } catch let failure as RouterHostValidationFailure {
-            return reject(transitionID, reason: .hostContract(failure), context: context)
-        } catch let error as RouterMutationError {
-            return reject(
-                transitionID,
-                reason: .mutation(error),
-                context: context,
-                action: preparedAction
-            )
-        } catch {
-            preconditionFailure("RouterReducer surfaced an undocumented error: \(error)")
-        }
-
-        // A pending typed show reserves its ID for its own request lineage.
-        // Descriptor-only or restore requests cannot acquire its result waiter.
-        if let id = pendingPresentationConflict(in: proposedState, requestRootID: requestRootID) {
-            return reject(transitionID, reason: .mutation(.presentationIdentityConflict(id)),
-                          context: context, action: preparedAction)
-        }
-
-        let selection: RouterTransientSelectionPreparation<R>?
-        switch prepareTransientSelection(for: preparedAction, owner: presentationCompletionOwner) {
-        case .none: selection = nil
-        case .ready(let prepared): selection = prepared
-        case .rejected(let reason):
-            return reject(transitionID, reason: reason, context: context, action: preparedAction)
-        }
-        defer { selection?.clear() }
-        let originalPrecondition = executionPrecondition
-        let executionPrecondition: RouterRequestPrecondition<R>? = if let selectedPrecondition = selection?.precondition {
-            { state in originalPrecondition?(state) ?? selectedPrecondition(state) }
-        } else { originalPrecondition }
-        if let reason = executionPrecondition?(state) {
-            return reject(transitionID, reason: reason, context: context, action: preparedAction)
-        }
-
-        if proposedState == initialState && hostReplacement == nil && !lifetimeMutation.replacesOwnership
-            && self.authorization == nil && authorization?.configuration == nil {
-            return unchangedOutcome(
-                id: transitionID,
-                state: initialState,
-                revision: initialRevision,
-                action: preparedAction,
-                context: context
-            )
-        }
-
-        let transition = RouterTransition(
-            id: transitionID,
-            action: preparedAction,
-            initialState: initialState,
-            proposedState: proposedState,
-            initialRevision: initialRevision,
-            context: context
-        )
-        emit(.started(transition))
+        defer { started.selection?.clear() }
+        let transition = started.transition
+        let executionPrecondition = started.executionPrecondition
 
         if let rejection = await prepareAuthorization(
             for: transition, request: authorization, executionPrecondition: executionPrecondition
         ) {
-            return reject(transitionID, reason: rejection, context: context, action: preparedAction)
+            return reject(transitionID, reason: rejection, context: context, action: transition.action)
         }
 
         let preparation = await prepare(
@@ -375,6 +469,60 @@ extension RouterStore {
             lifetimeMutation: lifetimeMutation,
             hostReplacement: hostReplacement,
             executionPrecondition: executionPrecondition
+        )
+    }
+
+    /// The pipeline of ``execute`` for a Store that has no asynchronous stage:
+    /// no policy and no authorization can suspend, so the request commits
+    /// before this call returns.
+    ///
+    /// The caller establishes that precondition through
+    /// ``canCommitImmediately``. Admission, reduction, events, and commit are
+    /// the same code the asynchronous pipeline runs; only the two awaits are
+    /// absent, and with nothing to await they could not have changed the
+    /// outcome.
+    func executeImmediately(
+        _ action: RouterAction<R>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?,
+        transitionID: RouterTransitionID,
+        executionPrecondition: RouterRequestPrecondition<R>?,
+        executionPreparation: RouterRequestPreparationBuilder<R>? = nil
+    ) -> RouterOutcome<R> {
+        defer { finishExecution(transitionID) }
+
+        let owner = RouterPresentationCompletionOwner.transition(transitionID)
+        let started: RouterStartedExecution<R>
+        switch startExecution(
+            action,
+            context: context,
+            expectedRevision: expectedRevision,
+            transitionID: transitionID,
+            requestRootID: transitionID,
+            authorization: nil,
+            lifetimeMutation: .reconcile,
+            hostReplacement: nil,
+            presentationCompletionOwner: owner,
+            executionPrecondition: executionPrecondition,
+            executionPreparation: executionPreparation
+        ) {
+        case .terminal(let outcome): return outcome
+        case .started(let value): started = value
+        }
+        defer { started.selection?.clear() }
+
+        // Mirrors the cancellation check that opens policy preparation.
+        guard !requestCancellationIsPending(transitionID) else {
+            return reject(transitionID, reason: .cancelled, context: context, action: started.transition.action)
+        }
+        return resolvePreparedTransition(
+            .allowed,
+            transition: started.transition,
+            requestRootID: transitionID,
+            presentationCompletionOwner: owner,
+            lifetimeMutation: .reconcile,
+            hostReplacement: nil,
+            executionPrecondition: started.executionPrecondition
         )
     }
 

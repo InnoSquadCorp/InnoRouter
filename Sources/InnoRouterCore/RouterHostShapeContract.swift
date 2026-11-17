@@ -248,9 +248,9 @@ package extension RouterHostShape {
         default:
             throw fail(.kindMismatch, .nodeKind)
         }
-        let declared = branches.map(\.id)
+        let declared = branches.map { $0.id }
         let rendered = Set(declared)
-        let actual = Set(container.branches.map(\.id))
+        let actual = Set(container.branches.map { $0.id })
         for id in declared where !actual.contains(id) {
             throw RouterHostValidationFailure(code: .missingBranch, scope: scope.appending(id), detail: .declaredBranchUnavailable)
         }
@@ -262,7 +262,7 @@ package extension RouterHostShape {
         }
         // Split role mapping determines rendered order independently of storage
         // order. Tabs/custom declare the ordered rendered subsequence explicitly.
-        if matchesOrder, container.branches.map(\.id).filter({ rendered.contains($0) }) != declared {
+        if matchesOrder, container.branches.map({ $0.id }).filter({ rendered.contains($0) }) != declared {
             throw fail(.branchOrderMismatch, .orderedBranches)
         }
     }

@@ -1,5 +1,14 @@
 import Foundation
 
+/// Lowercases ASCII letters and leaves every other scalar untouched.
+func asciiLowercasedDeepLinkOrigin(_ value: String) -> String {
+    String(String.UnicodeScalarView(value.unicodeScalars.map { scalar in
+        (0x41 ... 0x5A).contains(scalar.value)
+            ? Unicode.Scalar(scalar.value | 0x20) ?? scalar
+            : scalar
+    }))
+}
+
 func isValidDeepLinkScheme(_ value: String) -> Bool {
     guard let first = value.unicodeScalars.first, isASCIILetter(first) else { return false }
     return value.unicodeScalars.dropFirst().allSatisfy { scalar in

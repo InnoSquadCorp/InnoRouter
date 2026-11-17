@@ -15,7 +15,10 @@ struct DeepLinkMatchMapping<Output: Sendable>: Sendable {
 
     func match(_ parsed: DeepLinkParser.ParsedURL) -> Output? {
         guard let result = pattern.match(parsed) else { return nil }
-        return handler(DeepLinkParameters(valuesByName: result.parameters))
+        return handler(DeepLinkParameters(
+            valuesByName: result.parameters,
+            undecodableValueIndices: parsed.undecodableValueIndices(inMerged: result.parameters)
+        ))
     }
 }
 

@@ -7,6 +7,20 @@ SWIFTPM_JOBS="${SWIFTPM_JOBS:-2}"
 
 bash "$ROOT_DIR/scripts/verify-json-key-fast-path.sh"
 TESTING_FRAMEWORKS="$(xcrun --sdk macosx --show-sdk-platform-path)/Developer/Library/Frameworks"
+# Xcode ships Swift Testing as a platform framework. An open-source toolchain
+# selected through TOOLCHAINS ships it as a dylib inside the toolchain instead,
+# so the same executable needs that directory on the library path.
+TOOLCHAIN_TESTING_LIBRARIES="$(dirname "$(dirname "$(xcrun --find swift)")")/lib/swift/macosx/testing"
+
+run_performance_executable() {
+  local library_path="${DYLD_LIBRARY_PATH:-}"
+  if [[ -d "$TOOLCHAIN_TESTING_LIBRARIES" ]]; then
+    library_path="$TOOLCHAIN_TESTING_LIBRARIES${library_path:+:$library_path}"
+  fi
+  DYLD_FRAMEWORK_PATH="$TESTING_FRAMEWORKS${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}" \
+    DYLD_LIBRARY_PATH="$library_path" \
+    "$PERFORMANCE_EXECUTABLE" "$@"
+}
 RELEASE_BIN_DIR="$(swift build -c release --jobs "$SWIFTPM_JOBS" --package-path "$ROOT_DIR" --show-bin-path)"
 PERFORMANCE_EXECUTABLE="$RELEASE_BIN_DIR/InnoRouterPerformanceSmoke"
 
@@ -14,8 +28,7 @@ mkdir -p "$(dirname "$OUTPUT_PATH")"
 
 swift build -c release --jobs "$SWIFTPM_JOBS" --package-path "$ROOT_DIR" \
   --product InnoRouterPerformanceSmoke
-DYLD_FRAMEWORK_PATH="$TESTING_FRAMEWORKS${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}" \
-  "$PERFORMANCE_EXECUTABLE" --self-test
+run_performance_executable --self-test
 bash "$ROOT_DIR/scripts/test-validate-performance-report.sh"
 
 TEMP_OUTPUT="$(mktemp "$(dirname "$OUTPUT_PATH")/.performance-smoke.XXXXXX")"
@@ -25,8 +38,7 @@ cleanup() {
 trap cleanup EXIT
 
 set +e
-DYLD_FRAMEWORK_PATH="$TESTING_FRAMEWORKS${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}" \
-  "$PERFORMANCE_EXECUTABLE" --output "$TEMP_OUTPUT"
+run_performance_executable --output "$TEMP_OUTPUT"
 SMOKE_EXIT_CODE=$?
 set -e
 
@@ -49,7 +61,6 @@ echo "[performance-smoke] Canonical runtime baselines passed"
 
 # Attribution is a separate process after the canonical report is validated.
 # A diagnostic crash/failure must neither suppress that report nor change its gate.
-if ! DYLD_FRAMEWORK_PATH="$TESTING_FRAMEWORKS${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}" \
-  "$PERFORMANCE_EXECUTABLE" --profile-json-keys; then
+if ! run_performance_executable --profile-json-keys; then
   echo "[performance-smoke] Warning: optional JSON-key attribution failed" >&2
 fi

@@ -573,6 +573,15 @@ struct RouterThirteenthReviewNativeHostTests {
         _ = await store.perform(.dismissWindow(id))
         _ = await store.perform(.openWindow(.init(id: id, route: .second)))
         await render(host)
+        // `render` waits one main-queue hop, but the scene driver reports the
+        // replacement on a later main-actor turn. Wait for the event itself
+        // rather than assuming how many hops reconciliation takes.
+        _ = await waitUntil {
+            observations.sceneEvents.contains {
+                guard case .openedWindow(let window, _) = $0 else { return false }
+                return window.id == id && window.route == .second
+            }
+        }
 
         #expect(observations.sceneEvents.contains {
             guard case .dismissedWindow(let window, _) = $0 else { return false }

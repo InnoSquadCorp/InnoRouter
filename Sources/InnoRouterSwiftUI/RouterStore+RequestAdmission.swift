@@ -64,7 +64,8 @@ extension RouterStore {
                     action: action
                 )
             }
-            if let activeTransitionID {
+            // The request a lane was reserved for takes that lane over.
+            if let activeTransitionID, reservedLaneID != transitionID {
                 switch schedulingPolicy {
                 case .rejectWhileBusy where !bypassesPolicies:
                     return reject(
@@ -138,6 +139,93 @@ extension RouterStore {
                 self?.cancelRequest(transitionID)
             }
         }
+    }
+
+    /// Whether a plain request can run to its terminal outcome without
+    /// suspending: nothing is in flight, and no policy or authorization exists
+    /// that the asynchronous pipeline would have to await.
+    ///
+    /// A cancelled calling task is excluded as well. The deferred path starts
+    /// a fresh unstructured task, so its request does not inherit the caller's
+    /// cancellation; running inline would, and would reject the request.
+    var canCommitImmediately: Bool {
+        dispatchTiming == .immediateWhenIdle
+            && activeTransitionID == nil
+            && queuedRequests.isEmpty
+            && queuedSystemRepairs.isEmpty
+            && policies.isEmpty
+            && authorization == nil
+            && dispatchGate.isOpen
+            && !Task.isCancelled
+    }
+
+    /// Starts fire-and-forget work on its own task and counts it until that
+    /// task begins, so ``canCommitImmediately`` stays false while an earlier
+    /// request is still on its way to admission.
+    ///
+    /// The count is released at the top of the task, in the same main-actor
+    /// job that admits the request, so nothing can run between the two.
+    func startDispatchTask<Output: Sendable>(
+        _ work: @escaping @MainActor @Sendable () async -> Output
+    ) -> Task<Output, Never> {
+        dispatchGate.unstartedDispatches += 1
+        return Task { @MainActor [weak self] in
+            self?.dispatchGate.unstartedDispatches -= 1
+            return await work()
+        }
+    }
+
+    /// Commits a plain request before returning, or returns `nil` when the
+    /// request has to take the asynchronous pipeline.
+    ///
+    /// This is the synchronous counterpart of ``perform(_:context:)`` for the
+    /// case where that pipeline would never suspend. Input admission, request
+    /// observation, lane ownership, and execution are the same steps in the
+    /// same order.
+    func performImmediately(
+        _ action: RouterAction<R>,
+        context: RouterTransitionContext,
+        expectedRevision: UInt64?,
+        executionPrecondition: RouterRequestPrecondition<R>?,
+        executionPreparation: RouterRequestPreparationBuilder<R>? = nil
+    ) -> RouterOutcome<R>? {
+        guard canCommitImmediately else { return nil }
+        let transitionID = runtimeDependencies.makeTransitionID()
+        if let rejection = requestAdmissionRejection(
+            for: action, context: context, presentationResumeAuthority: nil
+        ) {
+            return reject(transitionID, reason: rejection, context: context)
+        }
+        let replayLimitation = replayLimitationCode(
+            action: action, semantics: .action, authorization: nil,
+            lifetimeMutation: .reconcile,
+            hasPrecondition: executionPrecondition != nil,
+            hasPreparation: executionPreparation != nil
+        )
+        let executionPrecondition = requestExecutionPrecondition(
+            action: action, authorization: nil, existing: executionPrecondition,
+            systemRepairIdentity: nil, isResumed: false
+        )
+        observeRequest(
+            id: transitionID,
+            action: action,
+            context: context,
+            expectedRevision: expectedRevision,
+            semantics: .action,
+            replayLimitationCode: replayLimitation
+        )
+        beginExecution(transitionID, rootID: transitionID,
+                       requestKey: context.requestKey, systemRepairIdentity: nil)
+        dispatchGate.ignoresTaskCancellation = true
+        defer { dispatchGate.ignoresTaskCancellation = false }
+        return executeImmediately(
+            action,
+            context: context,
+            expectedRevision: expectedRevision,
+            transitionID: transitionID,
+            executionPrecondition: executionPrecondition,
+            executionPreparation: executionPreparation
+        )
     }
 
     /// Validates request ownership and input before publishing or scheduling it.

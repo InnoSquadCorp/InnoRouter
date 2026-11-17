@@ -136,11 +136,11 @@ private struct AttributedFixture {
 struct ImmersiveAttributedControlTests {
     @Test("Revocation between appearance claim and effect entry still performs owned cleanup")
     func authorityRevokedAfterClaim() async throws {
-        var generation: UInt64 = 0
-        let fixture = try AttributedFixture(configuration: .init(authorization: .init(generation: { generation }, requiresAuthorization: { _ in true }, authorize: { true })))
+        let generation = TestCell<UInt64>(0)
+        let fixture = try AttributedFixture(configuration: .init(authorization: .init(generation: { generation.value }, requiresAuthorization: { _ in true }, authorize: { true })))
         _ = await fixture.fail()
         let activation = try #require(fixture.box.activation)
-        #expect(await fixture.store.admitAttributedImmersiveAppearance(activation, onRecoveryClaim: { generation += 1 }) == false)
+        #expect(await fixture.store.admitAttributedImmersiveAppearance(activation, onRecoveryClaim: { generation.value += 1 }) == false)
         #expect(fixture.store.state.immersiveSpace == nil)
         #expect(fixture.store.revision == 1)
         #expect(fixture.box.dismissals == 1)
@@ -166,8 +166,8 @@ struct ImmersiveAttributedControlTests {
     @Test("A later restoration attempt cannot borrow an earlier close's continuation", arguments: [RouterDeferralResumeStrategy.requireUnchangedState, .rebaseOnCurrentState])
     func deferralReentry(_ strategy: RouterDeferralResumeStrategy) async throws {
         let id = RouterDeferralID()
-        var result = RouterImmersiveSpaceOpenResult.opened
-        let fixture = try AttributedFixture(configuration: .init(policies: [RouterPolicy(name: "hold") { transition in transition.action == .dismissImmersiveSpace ? .deferRequest(id) : .allow }]), open: { result })
+        let result = TestCell(RouterImmersiveSpaceOpenResult.opened)
+        let fixture = try AttributedFixture(configuration: .init(policies: [RouterPolicy(name: "hold") { transition in transition.action == .dismissImmersiveSpace ? .deferRequest(id) : .allow }]), open: { result.value })
         _ = await synchronizeRouterImmersiveSpaceDisappearance(id: "shared", lifecycleToken: fixture.token, store: fixture.store)
         #expect(await fixture.fail(deferredClose: id))
         #expect(try await fixture.appearance())
@@ -176,7 +176,7 @@ struct ImmersiveAttributedControlTests {
         let reentry = try #require(await synchronizeRouterImmersiveSpaceDisappearance(id: "shared", lifecycleToken: fixture.token, store: fixture.store))
         guard case .rejected = reentry else { Issue.record("Expected duplicate deferral rejection"); return }
         let ticket = try #require(fixture.store.sceneRestorationRegistry.beginImmersiveSpaceRestoration(id: "shared", lifecycleToken: fixture.token))
-        result = .error
+        result.value = .error
         _ = await restoreRouterImmersiveSpaceAfterDeferredClosure(id: "shared", lifecycleToken: fixture.token, ticket: ticket, store: fixture.store, open: { .error }, dismiss: {})
         #expect(try await fixture.appearance())
         #expect(await fixture.store.admitAttributedImmersiveAppearance(previous) == false)
@@ -369,25 +369,25 @@ struct ImmersiveAttributedControlTests {
 
     @Test("Recovery rechecks app authorization instead of borrowing removal-only repair privilege")
     func authorizationDenied() async throws {
-        var allowed = true
-        let fixture = try AttributedFixture(configuration: .init(authorization: .init(requiresAuthorization: { _ in true }, authorize: { allowed })))
+        let allowed = TestCell(true)
+        let fixture = try AttributedFixture(configuration: .init(authorization: .init(requiresAuthorization: { _ in true }, authorize: { allowed.value })))
         _ = await fixture.fail()
-        allowed = false
+        allowed.value = false
         #expect(try await fixture.appearance() == false)
         #expect(fixture.store.state.immersiveSpace == nil)
         #expect(fixture.store.revision == 1)
         #expect(fixture.box.dismissals == 1)
-        allowed = true
+        allowed.value = true
         #expect(try await fixture.appearance() == false)
         #expect(fixture.store.revision == 1)
     }
 
     @Test("Authority generation changes reject a matching transport value")
     func generationChanged() async throws {
-        var generation: UInt64 = 0
-        let fixture = try AttributedFixture(configuration: .init(authorization: .init(generation: { generation }, requiresAuthorization: { _ in true }, authorize: { true })))
+        let generation = TestCell<UInt64>(0)
+        let fixture = try AttributedFixture(configuration: .init(authorization: .init(generation: { generation.value }, requiresAuthorization: { _ in true }, authorize: { true })))
         _ = await fixture.fail()
-        generation += 1
+        generation.value += 1
         #expect(try await fixture.appearance() == false)
         #expect(fixture.store.state.immersiveSpace == nil)
         #expect(fixture.store.revision == 1)

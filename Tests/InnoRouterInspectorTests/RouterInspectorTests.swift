@@ -91,6 +91,22 @@ private enum SideEffectingInspectorRoute {
 @Suite("Router inspector")
 @MainActor
 struct RouterInspectorTests {
+    /// Waits until the recorder's stream consumer has caught up.
+    ///
+    /// The consumer is a separate task, so how many scheduler turns it needs
+    /// is not fixed; a fixed number of yields failed under the address
+    /// sanitizer. The wait is bounded by time and the caller still asserts.
+    private func waitForEntries(
+        in recorder: RouterInspectorRecorder,
+        timeout: Duration = .seconds(5),
+        until isSatisfied: ([RouterInspectorEntry]) -> Bool
+    ) async {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while !isSatisfied(recorder.entries), ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+    }
+
     @Test("Deep-link analysis projects catalog attempts without route payloads")
     func deepLinkAnalysis() throws {
         let valid = try #require(URL(string: "example://app/items/42"))
@@ -454,9 +470,7 @@ struct RouterInspectorTests {
         store.reportPlatformAdaptation(
             .tabBadgeVisualUnavailable(scope: "private-tab-name", count: 2)
         )
-        for _ in 0..<20 where recorder.entries.isEmpty {
-            await Task.yield()
-        }
+        await waitForEntries(in: recorder) { !$0.isEmpty }
 
         #expect(recorder.entries.map(\.name) == ["platform.adapted"])
         #expect(recorder.entries.first?.metadata["adaptation"] == "tab.badge.visualUnavailable")
@@ -478,9 +492,7 @@ struct RouterInspectorTests {
         )
 
         _ = await store.perform(.push(.settings))
-        for _ in 0..<20 where recorder.entries.count < 2 {
-            await Task.yield()
-        }
+        await waitForEntries(in: recorder) { $0.count >= 2 }
 
         #expect(!recorder.entries.isEmpty)
         subscription.cancel()

@@ -128,7 +128,20 @@ extension UUID: DeepLinkParameterValue {
 
 public struct DeepLinkParameters: Sendable, Equatable {
     public let valuesByName: [String: [String]]
+    /// Positions in `valuesByName[name]` that stand for a query value whose
+    /// percent-encoding was not valid UTF-8. The string kept there is empty.
+    let undecodableValueIndices: [String: Set<Int>]
 
+    init(valuesByName: [String: [String]], undecodableValueIndices: [String: Set<Int>] = [:]) {
+        self.valuesByName = valuesByName
+        self.undecodableValueIndices = undecodableValueIndices
+    }
+
+    /// Returns the first captured string for `name`.
+    ///
+    /// A query value whose percent-encoding is not valid UTF-8 is reported as
+    /// the empty string, as it always was. Use the typed overload to have
+    /// such a value treated as invalid input.
     public func firstValue(forName name: String) -> String? {
         valuesByName[name]?.first
     }
@@ -136,13 +149,16 @@ public struct DeepLinkParameters: Sendable, Equatable {
     /// Returns the first captured value for `name` parsed as `Value`.
     ///
     /// Returns `nil` when the parameter is missing or the first captured
-    /// string cannot be represented by `Value`.
+    /// string cannot be represented by `Value`. A query value whose
+    /// percent-encoding is not valid UTF-8 cannot be represented by any
+    /// `Value`, including `String`.
     public func firstValue<Value: DeepLinkParameterValue>(
         forName name: String,
         as type: Value.Type = Value.self
     ) -> Value? {
         _ = type
-        guard let value = firstValue(forName: name) else { return nil }
+        guard let value = firstValue(forName: name),
+              undecodableValueIndices[name]?.contains(0) != true else { return nil }
         return Value.parseDeepLinkParameter(value)
     }
 
@@ -153,12 +169,16 @@ public struct DeepLinkParameters: Sendable, Equatable {
     /// Returns all captured values for `name` that can be parsed as `Value`.
     ///
     /// Missing parameters return an empty array. Individual values that cannot
-    /// be represented by `Value` are skipped.
+    /// be represented by `Value` are skipped, as is a query value whose
+    /// percent-encoding is not valid UTF-8.
     public func values<Value: DeepLinkParameterValue>(
         forName name: String,
         as type: Value.Type = Value.self
     ) -> [Value] {
         _ = type
-        return values(forName: name).compactMap(Value.parseDeepLinkParameter)
+        let undecodable = undecodableValueIndices[name] ?? []
+        return values(forName: name).enumerated().compactMap { index, value in
+            undecodable.contains(index) ? nil : Value.parseDeepLinkParameter(value)
+        }
     }
 }

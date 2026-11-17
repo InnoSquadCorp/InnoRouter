@@ -173,6 +173,10 @@ public extension RouterStore {
     }
 
     /// Builds and applies multiple exact-state changes as one transition.
+    ///
+    /// The plan is built from the state at the call and applied exactly, so
+    /// it replaces any commit that lands before it runs. ``RouterActions``'
+    /// `transaction(_:)` applies its steps to the state at execution instead.
     func transaction(
         @RouterPlanBuilder<R> _ build: () -> [RouterPlanStep<R>]
     ) async throws -> RouterOutcome<R> {

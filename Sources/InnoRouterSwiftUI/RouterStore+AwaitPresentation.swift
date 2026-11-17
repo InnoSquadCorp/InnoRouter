@@ -94,8 +94,17 @@ extension RouterStore {
             }
             return await waiter.wait()
         } onCancel: {
-            Task { @MainActor [weak self] in
+            // Cancellation can arrive on any thread. From the main thread the
+            // dismissal is counted at once, so a request the same handler
+            // makes next cannot commit ahead of it; from any other thread no
+            // order with main-actor calls exists to keep.
+            let dismissal: @MainActor @Sendable () async -> Void = { [weak self] in
                 await self?.cancelPresentation(id: id, at: path, waiterIdentity: identity)
+            }
+            if Thread.isMainThread {
+                MainActor.assumeIsolated { [weak self] in _ = self?.startDispatchTask(dismissal) }
+            } else {
+                Task { @MainActor in await dismissal() }
             }
         }
     }
@@ -109,11 +118,11 @@ extension RouterStore {
         guard presentationWaiters.values.contains(where: {
             $0.activatedToken() == nil && $0.showRequestRootID != requestRootID
         }) else { return nil }
-        var nodes = [proposed.root] + proposed.windows.map(\.node)
+        var nodes = [proposed.root] + proposed.windows.map { $0.node }
         if let space = proposed.immersiveSpace { nodes.append(space.node) }
         while let node = nodes.popLast() {
             switch node {
-            case .container(let container): nodes += container.branches.map(\.node)
+            case .container(let container): nodes += container.branches.map { $0.node }
             case .stack(let stack):
                 guard let family = stack.presentationFamily else { continue }
                 if let waiter = presentationWaiters[family.id], waiter.activatedToken() == nil,

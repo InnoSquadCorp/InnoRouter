@@ -9,6 +9,8 @@ extension RouterStore {
     /// Publishes the same active-lane ownership for immediate and queued requests.
     func beginExecution(_ id: RouterTransitionID, rootID: RouterTransitionID,
                         requestKey: RouterRequestKey?, systemRepairIdentity: RouterSystemRepairIdentity?) {
+        // A reservation ends when its own request starts executing.
+        if reservedLaneID == id { reservedLaneID = nil }
         activeTransitionID = id
         activeRequestRootID = rootID
         activeRequestKey = requestKey
@@ -73,11 +75,12 @@ extension RouterStore {
     /// Explicit Store cancellation has already inserted the request ID and is
     /// therefore not emitted twice.
     func requestCancellationIsPending(_ id: RouterTransitionID) -> Bool {
-        if Task.isCancelled,
+        let taskIsCancelled = !dispatchGate.ignoresTaskCancellation && Task.isCancelled
+        if taskIsCancelled,
            cancelledRequestIDs.insert(id).inserted {
             observeCancellation(id)
         }
-        return Task.isCancelled || cancelledRequestIDs.contains(id)
+        return taskIsCancelled || cancelledRequestIDs.contains(id)
     }
 
     func enqueue(_ request: QueuedRouterRequest<R>) {
