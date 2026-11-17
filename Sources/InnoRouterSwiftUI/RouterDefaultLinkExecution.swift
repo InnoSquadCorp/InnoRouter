@@ -24,8 +24,10 @@ private let routerDefaultLinkLogger = Logger(
 /// - A host that cannot apply the link when it arrives (for example while a
 ///   sheet covers its selected stack) yields to any host that can, exactly as
 ///   it did when it stepped aside in 7.0. When no host can, it still submits
-///   the request, so the link ends as an ordinary rejected request reported
-///   through ``RouterEvent`` and the log instead of disappearing.
+///   the request, which is decided when it executes: it applies if a commit
+///   made it applicable meanwhile, and otherwise ends as an ordinary rejected
+///   request reported through ``RouterEvent`` and the log instead of
+///   disappearing.
 /// - `fallbackPlan` must not capture the Store. The request keeps it for as
 ///   long as it is queued or deferred, and the Store keeps the request.
 @MainActor

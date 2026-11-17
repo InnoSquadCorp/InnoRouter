@@ -309,8 +309,9 @@ type에서 잘못된 값이므로 그 값을 읽는 생성 route는 해석되지
 column으로 보냅니다. exact plan은 요청이 실행되는 시점의 store 상태에서 만들기 때문에
 URL 도착과 실행 사이에 들어온 commit은 보존됩니다. host가 적용할 수 없는 link(예:
 sheet가 stack을 덮은 상태의 push)는 URL이 도착한 시점에 적용할 수 있는 다른 host에
-양보하며, 어떤 host도 적용할 수 없을 때는 조용히 사라지지 않고 `RouterEvent`로 관찰되는
-거절 요청으로 끝납니다. 여러 host가 같은 URL을 적용할 수 있으면 가장 바깥 host가
+양보합니다. 어떤 host도 적용할 수 없을 때도 요청은 제출되고 실행 시점에 결정됩니다. 그사이
+commit으로 link를 적용할 수 있게 되었으면 적용되고, 그렇지 않으면 조용히 사라지지 않고
+`RouterEvent`로 관찰되는 거절 요청으로 끝납니다. 여러 host가 같은 URL을 적용할 수 있으면 가장 바깥 host가
 처리합니다. host는 URL 도착 시점에 정해지므로, 요청이 실행되기 전에 적용할 수 없게 된
 host는 link를 다른 host에 넘기지 않고 거절합니다.
 

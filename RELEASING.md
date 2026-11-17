@@ -138,10 +138,14 @@ and the PR54 carry-forward changelog records the source impact.
 match byte for byte after folding ASCII case only, and the `@Router` origin
 arguments are validated the same way, so an entry containing the Kelvin sign,
 which 7.0 accepted as if it were the letter `k`, is now error
-`InnoRouterMacro.E019`. No other character changes outcome, and the fix is to
-write `k`. An exception like this needs all three: a security reason, input
-that no correct caller depends on, and a `Security` changelog entry that names
-the affected declarations and their replacement.
+`InnoRouterMacro.E019`. For `@Router` origin declarations no other character
+changes the result, and the fix is to write `k`. Runtime matching changed more
+widely, as a behavior change rather than a source incompatibility: a non-ASCII
+character in an allow-list entry, such as `ä`, no longer matches its other
+case, as the `Security` changelog entry states. An exception like this needs
+all three: a security reason, input that no correct caller depends on, and a
+`Security` changelog entry that names the affected declarations and their
+replacement.
 
 ### Toolchain pin
 

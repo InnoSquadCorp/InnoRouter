@@ -380,8 +380,10 @@ tab; split hosts route to the matching column. The exact plan is derived from
 the state the store holds when the request executes, so a commit that lands
 between URL arrival and execution is preserved. A link the host cannot apply—
 for example a push while a sheet covers the stack—yields to another host that
-can apply it when the URL arrives; when no host can, it ends as a rejected
-request visible through `RouterEvent`, not as a silently dropped URL. Where
+can apply it when the URL arrives. When no host can, the request is still
+submitted and decided when it runs: if a commit made the link applicable in
+the meantime, it applies; otherwise it ends as a rejected request visible
+through `RouterEvent`, not as a silently dropped URL. Where
 several hosts can apply the same URL, the outermost one answers it. The host is
 chosen when the URL arrives, so a host that becomes unable to apply the link
 before its request runs rejects it without handing it to another host.
