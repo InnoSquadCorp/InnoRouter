@@ -215,8 +215,10 @@ struct RouterFeatureTransactionTests {
             _ = await transaction.value
             gate.release()
         }
+        let timedOut = TestCell(false)
         let deadline = Task { @MainActor in
             guard (try? await Task.sleep(for: .seconds(10))) != nil else { return }
+            timedOut.value = true
             gate.release()
         }
         _ = await store.perform(
@@ -224,6 +226,9 @@ struct RouterFeatureTransactionTests {
         )
         deadline.cancel()
 
+        // A transaction that queued only after the deadline released the pop
+        // did not show the order this test is about.
+        #expect(!timedOut.value, "The deadline released the pop before the transaction queued")
         // Without queuing, nothing guarantees that the transaction ends.
         guard queued.value else {
             Issue.record("The transaction did not queue behind the pop")
