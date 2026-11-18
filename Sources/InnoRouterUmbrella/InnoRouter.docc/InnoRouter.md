@@ -35,16 +35,21 @@ Version 7.1.0 adds opt-in behaviors and conveniences; the defaults keep the
 - Set `RouterStoreConfiguration.dispatchTiming` to `.immediateWhenIdle` to let
   a fire-and-forget request made through `RouterActions` (`router.go(_:)` and
   the other `@EnvironmentRouter` methods) commit before the call returns when
-  the Store has no policy or authorization and nothing is pending, so a
-  surrounding `withAnimation` applies to the navigation change. The Store's and scopes' own `dispatch` methods and the
-  hosts' native bindings keep committing on a later turn.
+  the Store has no policy or authorization, nothing is pending, the call is
+  not made from an event or request observer callback, and the calling task
+  is not cancelled, so a surrounding `withAnimation` applies to the navigation
+  change. `RouterDispatchTiming.immediateWhenIdle` lists the conditions. The
+  Store's and scopes' own `dispatch` methods and the hosts' native bindings
+  keep committing on a later turn.
 - Create a `RouterRestorationDriver` with `initialRestorePrecedence: .snapshot`
   to keep the Store from committing anything until the initial restore has
   run, unless an earlier request is still pending when activation starts,
-  including a fire-and-forget call that has not reached the Store yet. Once
-  the snapshot is restored, navigation a view requested meanwhile is rejected
-  instead of displacing the previous session. <doc:Restoring-Tab-Navigation>
-  describes the other outcomes.
+  including a fire-and-forget call that has not reached the Store yet.
+  Navigation requested meanwhile waits under the default `.serialize`
+  scheduling and is rejected as busy under `.rejectWhileBusy`. Once the
+  snapshot is restored, a waiting request a view made is rejected instead of
+  displacing the previous session. <doc:Restoring-Tab-Navigation> describes
+  the other outcomes.
 - `RouterTabHost(AppRoute.self)` builds the tab host of an `@Router` enum
   without `try`. `validationFailure` reports a hand-written catalog that is
   invalid.

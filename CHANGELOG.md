@@ -77,12 +77,13 @@ Security). Behavior changes are marked in bold.
   call through `RouterActions`, `dispatch`, or `dispatchRoot` whose task has
   not started), the driver holds the Store's execution lane until its restore
   request runs, through loading, decoding, and validation; otherwise that
-  activation behaves as `.navigation`. Once the snapshot is restored, a
-  request from a view, including a host's deep-link handling and native
-  binding writes, was made for a scope the restore replaced and is rejected
-  as an expired scope, so it cannot erase the previous session; a request
-  sent to the Store itself runs after the restore and can change or replace
-  it. An activation that ends before its restore request runs releases the
+  activation behaves as `.navigation`. Requests made during the hold wait
+  under `.serialize` and are rejected as busy under `.rejectWhileBusy`. Once
+  the snapshot is restored, a waiting request from a view, including a host's
+  deep-link handling and native binding writes, was made for a scope the
+  restore replaced and is rejected as an expired scope, so it cannot erase the
+  previous session; a waiting request sent to the Store itself runs after the
+  restore and can change or replace it. An activation that ends before its restore request runs releases the
   hold, and the waiting requests then run on the current state: a missing
   snapshot, `stop()`, the last detach, or a failure such as a load or
   decoding error without a fallback from `recovery`, a snapshot that cannot be

@@ -31,12 +31,16 @@ extension RouterFeatureScope {
 
     /// Embeds `transform` into the parent route type, so every projection in
     /// the chain is re-derived from the state at execution.
+    ///
+    /// Whether this feature still owns its subtree is decided there too, not
+    /// when the dispatch task starts: a request queued ahead of this one can
+    /// return the subtree to the feature before this one runs.
     func performFeaturePlan(
         transforming transform: @escaping RouterFeatureNodeTransform<Child>,
         context: RouterTransitionContext,
         features childFeatures: [RouterFeatureCatalogEntry]
     ) async -> RouterOutcome<Child> {
-        guard node != nil, let resourceBudget else {
+        guard let resourceBudget else {
             return projectionRejection(.routeMismatch(namespace: mapping.namespace))
         }
         let mapping = self.mapping

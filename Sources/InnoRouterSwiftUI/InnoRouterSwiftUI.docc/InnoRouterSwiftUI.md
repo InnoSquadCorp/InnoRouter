@@ -122,10 +122,12 @@ restore stale. From 7.1.0, a driver created with
 `initialRestorePrecedence: .snapshot` holds the Store's execution lane until its
 restore request runs, unless an earlier request is still pending when
 activation starts: running, queued, or a fire-and-forget call that has not
-reached the Store yet. Once the snapshot is restored, requests from views made
-meanwhile are rejected as expired scopes, and requests sent to the Store run
-after the restore. When activation ends before the restore runs, for example
-with no snapshot or a failed load, they run on the current state.
+reached the Store yet. Requests made meanwhile wait under the default
+`.serialize` scheduling; `.rejectWhileBusy` rejects them as busy, and they do
+not run later. Once the snapshot is restored, waiting requests from views are
+rejected as expired scopes, and waiting requests sent to the Store run after
+the restore. When activation ends before the restore runs, for example with no
+snapshot or a failed load, the waiting requests run on the current state.
 
 Automatic restoration can take the same validator, timeout, and optional
 topology. It plans before one policy transition and exposes the initial report

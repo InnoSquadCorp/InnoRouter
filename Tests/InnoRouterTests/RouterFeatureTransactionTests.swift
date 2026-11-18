@@ -41,6 +41,25 @@ private let parentMapping = RouterFeatureMapping<TransactionOuterRoute, Transact
     )
 )
 
+@MainActor
+private final class PolicyGate {
+    private(set) var entered = false
+    private var released = false
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func wait() async {
+        entered = true
+        guard !released else { return }
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func release() {
+        released = true
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
 /// A transaction made through a feature projection applies its steps to the
 /// feature's subtree as the Store holds it when the request runs. 7.0 built
 /// the subtree when the call was made and replaced it when the request ran,
@@ -94,8 +113,8 @@ struct RouterFeatureTransactionTests {
             RouterPlanStep.action(.push(.detail))
         }
 
-        guard case .rejected(_, _, _, .mutation) = await transaction.value else {
-            Issue.record("A push under the earlier sheet was not rejected")
+        guard case .rejected(_, _, _, .mutation(.blockedByPresentation(.root))) = await transaction.value else {
+            Issue.record("A push under the earlier sheet was not rejected for that sheet")
             return
         }
         guard case .stack(let stack) = store.state.root else {
@@ -151,5 +170,51 @@ struct RouterFeatureTransactionTests {
         }
         #expect(store.state.root == .stack(path: [.feature(.home), .other]))
         #expect(store.revision == 1)
+    }
+
+    @Test("A feature transaction is decided when it runs, not when its task starts")
+    func transactionWaitsForTheRequestAheadOfIt() async throws {
+        let gate = PolicyGate()
+        var configuration = RouterStoreConfiguration<TransactionParentRoute>()
+        configuration.policies = [
+            RouterPolicy(name: "hold") { transition in
+                if case .pop = transition.action { await gate.wait() }
+                return .allow
+            },
+        ]
+        let store = try RouterStore<TransactionParentRoute>(
+            initialState: .rootStack(path: [.feature(.home)]), configuration: configuration
+        )
+        let feature = RouterFeatureScope(parent: store.scope(), mapping: childMapping)
+        let router = RouterActions(authority: .init(base: feature))
+
+        // Valid at the call, while the feature owns the stack.
+        let transaction = try router.transaction {
+            RouterPlanStep.action(.push(.detail))
+        }
+        // Before the transaction's task starts, the stack gains a route the
+        // feature does not own.
+        _ = await store.perform(
+            .push(.other), context: .init(), expectedRevision: nil, bypassesPolicies: true
+        )
+        #expect(store.dispatchGate.unstartedDispatches == 1, "The transaction's task started early")
+        // A pop that returns the stack to the feature holds the lane in its
+        // policy until the transaction's request has queued behind it.
+        let releaser = Task { @MainActor in
+            for _ in 0 ..< 100 where !gate.entered || store.queuedRequests.isEmpty {
+                await Task.yield()
+            }
+            gate.release()
+        }
+        _ = await store.perform(
+            .pop(count: 1), context: .init(), expectedRevision: nil, bypassesPolicies: false
+        )
+        await releaser.value
+
+        guard case .applied = await transaction.value else {
+            Issue.record("The transaction was rejected before the request ahead of it ran")
+            return
+        }
+        #expect(store.state.root == .stack(path: [.feature(.home), .feature(.detail)]))
     }
 }

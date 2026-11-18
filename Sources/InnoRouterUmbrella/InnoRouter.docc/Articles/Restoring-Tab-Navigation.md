@@ -149,11 +149,13 @@ From 7.1.0, create the driver with `initialRestorePrecedence: .snapshot` to let
 the snapshot win instead. When no earlier request is still pending as
 activation starts (running, queued, or a fire-and-forget call that has not
 reached the Store yet), the Store then commits nothing until the restore has
-run; otherwise the activation behaves as the default. Once the snapshot is restored, a request
-a view made meanwhile, including a host's deep-link handling and a native
-binding write, was made for a scope the restore replaced and is rejected as an
-expired scope, while a request sent to the Store itself runs after the restore
-and can change it. When activation ends before the restore runs (there is no
+run; otherwise the activation behaves as the default. Requests made meanwhile
+wait under the default `.serialize` scheduling; under `.rejectWhileBusy` they
+are rejected as busy and do not run later. Once the snapshot is restored, a
+waiting request a view made, including a host's deep-link handling and a
+native binding write, was made for a scope the restore replaced and is
+rejected as an expired scope, while a waiting request sent to the Store itself
+runs after the restore and can change it. When activation ends before the restore runs (there is no
 snapshot, the driver stops or its last attachment detaches, or activation fails
 because the load or decoding fails without a recovery fallback, the snapshot
 cannot be reconciled with the tab topology, or a validator fails or exceeds its
