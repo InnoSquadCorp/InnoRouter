@@ -104,13 +104,15 @@ Security). Behavior changes are marked in bold.
   Store, such as a restoration driver.
 - `DeepLinkFeatureRuntime.admitsOrigin(of:schemes:hosts:)`, the origin check
   that generated resolvers call.
-- Macro warning `InnoRouterMacro.W013` with a fix-it: an unqualified
-  `Tab(...)` call with a content closure, inside an `@Router` enum that has
-  `@TabItem` cases, resolves to the generated nested `Tab`, not SwiftUI's.
-  Write `SwiftUI.Tab`. Calls without a content closure are not diagnosed, nor
-  is code inside a type, function, or closure that declares its own `Tab`. A
-  call that deliberately uses an initializer added to the generated `Tab` is
-  diagnosed too; write it as `Self.Tab(...)`.
+- Macro warning `InnoRouterMacro.W013` with a fix-it flags an unqualified
+  `Tab(...)` call with a content closure inside an `@Router` enum that has
+  `@TabItem` cases, which normally resolves to the generated nested `Tab`, not
+  SwiftUI's. Write `SwiftUI.Tab`. Calls without a content closure are not
+  diagnosed, nor is code inside a type, function, or closure that declares its
+  own `Tab`. The check matches the call's spelling, so a call to a `Tab` bound
+  by a parameter or a pattern is flagged too. A call that deliberately uses an
+  initializer added to the generated `Tab` is diagnosed as well; write it as
+  `Self.Tab(...)`.
 
 ### Changed
 
