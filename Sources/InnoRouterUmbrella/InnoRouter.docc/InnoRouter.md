@@ -35,13 +35,14 @@ Version 7.1.0 adds opt-in behaviors and conveniences; the defaults keep the
 - Set `RouterStoreConfiguration.dispatchTiming` to `.immediateWhenIdle` to let
   a fire-and-forget request made through `RouterActions` (`router.go(_:)` and
   the other `@EnvironmentRouter` methods) commit before the call returns when
-  nothing is pending, so a surrounding `withAnimation` applies to the
-  navigation change. The Store's and scopes' own `dispatch` methods and the
+  the Store has no policy or authorization and nothing is pending, so a
+  surrounding `withAnimation` applies to the navigation change. The Store's and scopes' own `dispatch` methods and the
   hosts' native bindings keep committing on a later turn.
 - Create a `RouterRestorationDriver` with `initialRestorePrecedence: .snapshot`
   to keep the Store from committing anything until the initial restore has
-  run, unless a request is already running or queued when activation starts. Once the
-  snapshot is restored, navigation a view requested meanwhile is rejected
+  run, unless an earlier request is still pending when activation starts,
+  including a fire-and-forget call that has not reached the Store yet. Once
+  the snapshot is restored, navigation a view requested meanwhile is rejected
   instead of displacing the previous session. <doc:Restoring-Tab-Navigation>
   describes the other outcomes.
 - `RouterTabHost(AppRoute.self)` builds the tab host of an `@Router` enum

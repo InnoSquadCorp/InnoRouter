@@ -5,7 +5,7 @@ import Testing
 
 @testable import InnoRouterMacrosPlugin
 
-/// W008 exists to explain one compiler error. It must not warn on code that
+/// W013 exists to explain one compiler error. It must not warn on code that
 /// compiled before the warning existed, because a client that builds with
 /// warnings as errors cannot downgrade a macro diagnostic.
 @Suite("Shadowed SwiftUI Tab finder")

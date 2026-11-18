@@ -38,23 +38,28 @@ state.
 default, commit on a later main-actor turn. Set
 `configuration.dispatchTiming = .immediateWhenIdle` to commit before the call
 returns, so a surrounding `withAnimation` or `withTransaction` applies to the
-navigation change itself. A request commits immediately only when the store has
-no prepare policy and no authorization, no other request is in flight or still
-on its way from an earlier fire-and-forget call, the call is not made from
-inside a `RouterEvent` or request observer callback, and the calling task is not
-cancelled; every other request takes the deferred path, so call order and policy
-guarantees are unchanged. Requests through a feature projection, and
-`dismiss()` or `setPresentationDetent(_:)` called from inside presented content,
-always take the deferred path. The store cannot see a request your own code
-starts in a `Task`, so an immediate request made later in the same turn commits
-before it. Call from a user-interaction handler such as a button action, not
-while a view body is being evaluated.
+navigation change itself. In this release a request commits immediately only
+when the store has no prepare policy and no authorization (even one that would
+not apply to the request), no other request is in flight or still on its way
+from an earlier fire-and-forget call, the call is not made from inside a
+`RouterEvent` or request observer callback, and the calling task is not
+cancelled; every other request takes the asynchronous path, so call order and
+policy guarantees are unchanged. A later release may commit more requests
+immediately. Requests through a feature projection, and `dismiss()` or
+`setPresentationDetent(_:)` called from inside presented content, always take
+the asynchronous path. Fire-and-forget calls through router methods,
+`dispatch`, and `dispatchRoot`, which the hosts' native bindings also use, are
+counted from the moment they are made. The store sees a request your own code
+starts in a `Task`, or that a host's deep-link handling or scene lifecycle
+starts, only once it arrives, so an immediate request made later in the same
+turn commits before it. Call from a user-interaction handler such as a button
+action, not while a view body is being evaluated.
 
 `router.transaction { ... }` applies its steps to the state the store holds
 when the request executes, so it builds on the fire-and-forget requests made
 before it. An invalid transaction still throws at the call. Through a feature
-projection the transaction replaces that feature's subtree with a plan built at
-the call, as before.
+projection the steps apply to that feature's subtree as the store holds it when
+the request executes.
 
 Long-running or bursty producers can bound every retained stage explicitly:
 
@@ -163,8 +168,9 @@ are rejected as busy under `.rejectWhileBusy`. If an earlier request is pending
 (running, queued, or made by a fire-and-forget call such as a router method,
 `dispatch`, or a SwiftUI binding whose task has not reached the store yet), the
 driver holds nothing; that activation behaves as the default, and once the
-earlier request commits, the restore is rejected as stale. A request that app
-code makes inside its own `Task` counts only once it reaches the store.
+earlier request commits, the restore is rejected as stale. A request made
+inside a `Task` of your own, or by a host's deep-link handling or scene
+lifecycle, counts only once it reaches the store.
 
 What the waiting requests do depends on how the hold ends:
 
@@ -177,17 +183,24 @@ What the waiting requests do depends on how the hold ends:
   scope: it runs after the restore and can change or replace the restored
   state, including link handling through `handle(_:using:)`, whose default
   plan replaces the whole state.
-- **There is no snapshot, the driver stops, or the load or decoding fails and
-  the driver's `recovery` supplies no fallback.** Nothing replaced the scopes,
-  so the waiting requests run on the current state. A fallback state that
-  `recovery` returns is applied like a restored snapshot, so the first case
-  applies instead.
+- **Activation ends before the restore request runs.** That happens when there
+  is no snapshot, when the driver stops or its last attachment detaches, and
+  when activation fails: the load or decoding fails and the driver's `recovery`
+  supplies no fallback, the snapshot cannot be reconciled with the tab
+  topology, or a partial-restoration validator fails or exceeds its
+  `validationTimeout`. Nothing replaced the scopes, so the waiting requests run
+  on the current state. A fallback state that `recovery` returns is applied
+  like a restored snapshot, so the first case applies instead.
 - **A policy or authorization defers or rejects the restoration transition.**
   The hold ends with that outcome: the waiting requests run on the state
   before the snapshot, and what they commit is saved.
 
 Keep the storage's load bounded and give a validator a `validationTimeout`,
 because navigation is closed for the duration.
+
+`activate()` returns `.alreadyActive` while another activation is still in
+progress, so that result does not mean the restore has run. Observe the
+driver's `status`, or read `lastActivation` once it settles.
 
 Stopping a driver invalidates queued workers and caller ownership; a later
 activation cannot be modified by their delayed completion.
@@ -304,7 +317,7 @@ tabs without `try`, so it can be written directly in `body`: the macro has
 already validated the catalog, and a hand-written catalog that is invalid
 renders recovery UI and reports `validationFailure`. Inside the enum, write
 `SwiftUI.Tab` for SwiftUI's tab content; the bare name means the generated
-`AppRoute.Tab` (warning `InnoRouterMacro.W008`).
+`AppRoute.Tab` (warning `InnoRouterMacro.W013`).
 
 The macro generates stable case-name scope identifiers, so localization or tab
 reordering does not corrupt restored branch history. `@TabItem` can also define
@@ -375,15 +388,18 @@ value; the untyped accessors report it as the empty string.
 
 A host without `linkHandling` applies a resolved link as one ordinary store
 request. `RouterHost` shows the route directly above its root, replacing the
-previous stack; `RouterTabHost` selects a tab root or pushes onto the selected
-tab; split hosts route to the matching column. The exact plan is derived from
+previous stack and anything presented over it; `RouterTabHost` selects a tab
+root or pushes onto the selected tab; `RouterSplitHost` pushes onto its detail
+column. The exact plan is derived from
 the state the store holds when the request executes, so a commit that lands
 between URL arrival and execution is preserved. A link the host cannot apply—
 for example a push while a sheet covers the stack—yields to another host that
 can apply it when the URL arrives. When no host can, the request is still
 submitted and decided when it runs: if a commit made the link applicable in
-the meantime, it applies; otherwise it ends as a rejected request visible
-through `RouterEvent`, not as a silently dropped URL. Where
+the meantime, it applies; otherwise it ends as a rejected request, not as a
+silently dropped URL. `RouterEvent` observers such as `configuration.onEvent`
+see the rejection with the `.deepLink` source, and the host logs its kind; an
+app that observes no events finds it only in the log. Where
 several hosts can apply the same URL, the outermost one answers it. The host is
 chosen when the URL arrives, so a host that becomes unable to apply the link
 before its request runs rejects it without handing it to another host.

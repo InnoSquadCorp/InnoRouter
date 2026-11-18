@@ -89,7 +89,7 @@ case .rejected(_, _, _, let reason): print("Rejected", reason)
 }
 ```
 
-ポリシーは中断を挟んでも不変の候補を検査します。拒否、呼び出し元のキャンセル、古い準備、無効なアクションは確定状態を変えません。`RouterRequestKey` は `keepFirst` / `replacePending` を提供し、無関係なリクエストは FIFO です。待機数、timeout、延期に上限を設定します。`deferRequest` は実行レーンを解放し、明示的な rebase 以外の再開では revision を確認します。キャンセルに協調しないポリシーが遅れて返ってもキャンセルが優先します。`RouterRejectionReason` は overflow、timeout、期限切れ、キャンセルを区別します。 fire-and-forget のリクエストは既定では後続の main-actor ターンで commit されます。`configuration.dispatchTiming = .immediateWhenIdle` を設定すると呼び出しが返る前に commit され、`withAnimation` が変更に適用されますが、それは store に policy も authorization もなく、ほかに保留中のリクエストがない場合だけです。それ以外の場合と[ナビゲーションガイド](Docs/Navigation-Guide.md)に挙げた場合は遅延経路を使います。
+ポリシーは中断を挟んでも不変の候補を検査します。拒否、呼び出し元のキャンセル、古い準備、無効なアクションは確定状態を変えません。`RouterRequestKey` は `keepFirst` / `replacePending` を提供し、無関係なリクエストは FIFO です。待機数、timeout、延期に上限を設定します。`deferRequest` は実行レーンを解放し、明示的な rebase 以外の再開では revision を確認します。キャンセルに協調しないポリシーが遅れて返ってもキャンセルが優先します。`RouterRejectionReason` は overflow、timeout、期限切れ、キャンセルを区別します。 fire-and-forget のリクエストは既定では後続の main-actor ターンで commit されます。`configuration.dispatchTiming = .immediateWhenIdle` を設定すると呼び出しが返る前に commit され、`withAnimation` が変更に適用されますが、それは store に policy も authorization もなく、ほかに保留中のリクエストがない場合だけです。それ以外の場合と[ナビゲーションガイド](Docs/Navigation-Guide.md)に挙げた場合は非同期経路を使います。
 
 ## タブ、分割表示、スコープの寿命
 
@@ -147,7 +147,7 @@ try await router.finishPresentation(request, returning: true)
 
 ## 復元とナビゲーション履歴
 
-`RouterRestorationDriver` と保存先を保持し、安定した root に `routerStateRestoration(_:)` を付けます。`RouterSnapshotCodec` をバージョン管理し、ルート/schema の migration と復元結果を処理します。タブ変更時は `RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)`、renderer で同じ catalog を使います。休止 branch は選択 renderer になれません。古い復元が新しい移動を上書きしないようにします。snapshot の既定上限は有限の暫定値です。増やす前に計測し、突然の終了時の最終保存は保証しないでください。 既定では、snapshot の読み込み中に commit された navigation が優先されます。`initialRestorePrecedence: .snapshot` で作成した driver は、activation 時にすでに実行中または待機中のリクエストがない限り、復元が実行されるまで新しい navigation を保留します。snapshot が復元されると、その間に view が出したリクエストは snapshot を置き換えずに拒否されます。snapshot がなければ待機中のリクエストはそのまま実行されます。それ以外の結果は[ナビゲーションガイド](Docs/Navigation-Guide.md)を参照してください。
+`RouterRestorationDriver` と保存先を保持し、安定した root に `routerStateRestoration(_:)` を付けます。`RouterSnapshotCodec` をバージョン管理し、ルート/schema の migration と復元結果を処理します。タブ変更時は `RouterTabRestorationTopology`、`catalog.hostDescriptor(orphanPolicy: .preserveDormant)`、renderer で同じ catalog を使います。休止 branch は選択 renderer になれません。古い復元が新しい移動を上書きしないようにします。snapshot の既定上限は有限の暫定値です。増やす前に計測し、突然の終了時の最終保存は保証しないでください。 既定では、snapshot の読み込み中に commit された navigation が優先されます。`initialRestorePrecedence: .snapshot` で作成した driver は、activation 時に先行リクエスト（実行中、待機中、またはまだ store に届いていない fire-and-forget 呼び出し）が残っていない限り、復元が実行されるまで新しい navigation を保留します。snapshot が復元されると、その間に view が出したリクエストは snapshot を置き換えずに拒否されます。snapshot がなければ待機中のリクエストはそのまま実行されます。それ以外の結果は[ナビゲーションガイド](Docs/Navigation-Guide.md)を参照してください。
 
 `RouterHistory` は exact plan と通常のポリシーで上限付きの前後移動と checkpoint を提供します。badge と presentation を保持し、scene は開閉しません。アカウント・文書の境界で `reset(sessionKey:)` を呼びます。reset または stop は中断された移動を無効にします。
 

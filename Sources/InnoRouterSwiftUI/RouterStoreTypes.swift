@@ -184,27 +184,34 @@ public struct RouterDispatchTiming: Sendable, Hashable {
     /// default: the caller never observes the new state before it returns.
     public static let deferred = RouterDispatchTiming(kind: .deferred)
 
-    /// Commit before the call returns whenever nothing requires waiting, so a
-    /// surrounding `withAnimation` or `withTransaction` applies to the
-    /// navigation change.
+    /// Commit before the call returns when the Store can do so without
+    /// waiting, so a surrounding `withAnimation` or `withTransaction` applies
+    /// to the navigation change.
     ///
-    /// A request commits immediately only when all of these hold:
+    /// In this release a request commits immediately only when all of these
+    /// hold; a later release may commit more requests immediately:
     ///
-    /// - the Store has no prepare policy and no authorization;
+    /// - the Store has no prepare policy and no authorization, even one that
+    ///   would not apply to the request;
     /// - no other request is in flight, queued, or still on its way from an
-    ///   earlier fire-and-forget call made through this library;
+    ///   earlier fire-and-forget call made through ``RouterActions``,
+    ///   ``RouterStore/dispatch(_:context:)``, or ``RouterScope``'s `dispatch`
+    ///   and `dispatchRoot`, which the hosts' native bindings also use;
     /// - the call is not made from inside a `RouterEvent` or request
     ///   observer callback;
     /// - the calling task is not cancelled.
     ///
-    /// Otherwise it takes the deferred path, so call order and every policy
-    /// guarantee are unchanged. Three kinds of request always take the
-    /// deferred path: one made through a feature projection, and `dismiss()`
-    /// or `setPresentationDetent(_:)` called from inside presented content.
+    /// Otherwise it takes the asynchronous path, so call order and every
+    /// policy guarantee are unchanged. Three kinds of request always take the
+    /// asynchronous path: one made through a feature projection, and
+    /// `dismiss()` or `setPresentationDetent(_:)` called from inside
+    /// presented content.
     ///
-    /// The Store cannot see a request that your own code starts in a `Task`
-    /// (for example `Task { await router.perform(...) }`), so an immediate
-    /// request made later in the same turn commits before it.
+    /// The Store cannot see a request until it reaches the Store when your own
+    /// code starts it in a `Task` (for example
+    /// `Task { await router.perform(...) }`), and the same holds for a host's
+    /// deep-link handling and scene lifecycle work. An immediate request made
+    /// later in the same turn commits before such a request.
     ///
     /// An immediate commit also delivers its `RouterEvent`s, `onEvent`
     /// included, before the call returns, inside the caller's transaction.

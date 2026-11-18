@@ -685,7 +685,7 @@ private enum ShadowedTabRouterRoute {
 
     /// An initializer an extension adds to the generated type. Unqualified
     /// `Tab(scope:)` is a legitimate use of that type, not a shadowed SwiftUI
-    /// call, so it must compile without the W008 warning.
+    /// call, so it must compile without the W013 warning.
     static func tab(for scope: RouterScopeID) -> Tab? { Tab(scope: scope) }
 }
 

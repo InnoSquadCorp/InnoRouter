@@ -34,6 +34,10 @@ public enum RouterRestorationDriverActivation<R: Route>: Sendable, Hashable {
     case noSnapshot
     case restored(RouterRestorationOutcome<R>)
     case observationResumed
+    /// Observation was already running, or another activation is still in
+    /// progress. The initial restore may not have run yet: observe
+    /// ``RouterRestorationDriver/status`` or read
+    /// ``RouterRestorationDriver/lastActivation`` once it settles.
     case alreadyActive
 }
 
@@ -74,19 +78,24 @@ public struct RouterRestorationPrecedence: Sendable, Hashable {
     /// queues them in order, `.rejectWhileBusy` rejects them as busy, naming
     /// the reserved restore transition.
     ///
-    /// When the storage has no snapshot, the driver stops, or the load or
-    /// decoding fails without a fallback from the driver's `recovery`,
-    /// nothing replaced the scopes and the queued requests run on the current
-    /// state. A fallback state that `recovery` returns is applied like a
-    /// restored snapshot. After an applied or unchanged restore, they run
-    /// under the ordinary rules:
+    /// When activation ends before the restore request runs, nothing replaced
+    /// the scopes and the queued requests run on the current state. That
+    /// happens when the storage has no snapshot, when the driver stops or its
+    /// last attachment detaches, and when activation fails: the load or
+    /// decoding fails without a fallback from the driver's `recovery`, the
+    /// snapshot cannot be reconciled with the tab topology, or a
+    /// partial-restoration validator fails or exceeds its
+    /// `validationTimeout`. A fallback state that `recovery` returns is
+    /// applied like a restored snapshot. After an applied or unchanged
+    /// restore, the queued requests run under the ordinary rules:
     ///
     /// - A request from a `RouterScope` or a view's router, including a
     ///   host's own deep-link handling and SwiftUI's navigation bindings, was
     ///   written for the scope the restore replaced. It is rejected as an
     ///   expired scope, as after any restore, and an awaited presentation is
-    ///   cancelled. A launch deep link handled by a host is therefore dropped,
-    ///   with a rejected `RouterEvent` and a log entry.
+    ///   cancelled. A launch deep link handled by a host is therefore
+    ///   rejected rather than applied; observers of `RouterEvent` see the
+    ///   rejection.
     /// - A request sent to the Store itself is not tied to a scope. It runs
     ///   after the restore and can change or replace the restored state:
     ///   `perform`, `dispatch`, `transaction`, `replaceHost`,
@@ -112,7 +121,12 @@ public struct RouterRestorationPrecedence: Sendable, Hashable {
     /// - A request that was already made when activation started keeps its
     ///   place, whether it was executing, queued, or a fire-and-forget call
     ///   whose task had not reached the Store yet; that activation then
-    ///   behaves as ``navigation``. A request that app code makes inside its
-    ///   own `Task` counts only once it reaches the Store.
+    ///   behaves as ``navigation``. Fire-and-forget calls count from the
+    ///   moment they are made when they go through ``RouterActions``,
+    ///   ``RouterStore/dispatch(_:context:)``, or ``RouterScope``'s
+    ///   `dispatch` and `dispatchRoot`, which the hosts' native bindings also
+    ///   use. A request made inside a `Task` of your own, or by a host's
+    ///   deep-link handling or scene lifecycle, counts only once it reaches
+    ///   the Store.
     public static let snapshot = RouterRestorationPrecedence(kind: .snapshot)
 }

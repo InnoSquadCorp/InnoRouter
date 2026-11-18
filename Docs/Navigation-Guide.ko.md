@@ -34,20 +34,23 @@ policy가 `deferRequest`를 반환하면 외부 결정을 기다리는 동안 �
 이후 main-actor turn에 commit합니다. `configuration.dispatchTiming =
 .immediateWhenIdle`로 설정하면 호출이 반환되기 전에 commit하므로, 감싸고 있는
 `withAnimation`·`withTransaction`이 navigation 변경 자체에 적용됩니다. 즉시 commit은
-store에 prepare policy와 authorization이 없고, 진행 중이거나 앞선 fire-and-forget
-호출에서 아직 도착하지 않은 요청이 없으며, `RouterEvent`·요청 observer callback
-안에서 호출한 것이 아니고, 호출한 task가 취소되지 않았을 때만 일어납니다. 그 밖의
-요청은 기존 경로를 그대로 타므로 호출 순서와 policy 보장은 달라지지 않습니다.
-feature projection을 거친 요청, 그리고 표시된 콘텐츠 안에서 호출한 `dismiss()`와
-`setPresentationDetent(_:)`는 항상 기존 경로를 사용합니다. 앱 코드가 직접 `Task`로
-시작한 요청은 store가 알 수 없으므로, 같은 turn에서 그 뒤에 보낸 즉시 요청이 먼저
-commit됩니다. view body 평가 중이 아니라 버튼 action 같은 사용자 상호작용 handler에서
-호출하세요.
+이번 릴리스에서는 store에 prepare policy와 authorization이 없고(요청에 해당하지 않는
+authorization도 포함), 진행 중이거나 앞선 fire-and-forget 호출에서 아직 도착하지 않은
+요청이 없으며, `RouterEvent`·요청 observer callback 안에서 호출한 것이 아니고, 호출한
+task가 취소되지 않았을 때만 일어납니다. 그 밖의 요청은 비동기 경로를 그대로 타므로 호출
+순서와 policy 보장은 달라지지 않습니다. 이후 릴리스에서는 즉시 commit하는 경우가 늘어날
+수 있습니다. feature projection을 거친 요청, 그리고 표시된 콘텐츠 안에서 호출한
+`dismiss()`와 `setPresentationDetent(_:)`는 항상 비동기 경로를 사용합니다. router
+메서드와 `dispatch`·`dispatchRoot`(host의 native binding도 이것을 사용)로 한
+fire-and-forget 호출은 호출한 순간부터 셉니다. 앱 코드가 직접 `Task`로 시작한 요청과
+host의 deep link 처리·scene lifecycle이 시작한 요청은 store에 도착한 뒤에야 store가 알
+수 있으므로, 같은 turn에서 그 뒤에 보낸 즉시 요청이 먼저 commit됩니다. view body 평가
+중이 아니라 버튼 action 같은 사용자 상호작용 handler에서 호출하세요.
 
 `router.transaction { ... }`은 요청이 실행되는 시점의 store 상태에 step을 적용하므로,
 그보다 먼저 보낸 fire-and-forget 요청 위에 쌓입니다. 잘못된 transaction은 지금처럼
-호출 시점에 throw합니다. feature projection을 거친 transaction은 이전과 같이 호출
-시점에 만든 plan으로 그 feature의 subtree를 대체합니다.
+호출 시점에 throw합니다. feature projection을 거친 transaction은 요청이 실행되는
+시점의 store 상태에서 그 feature의 subtree에 step을 적용합니다.
 
 tab·split 하위 트리는 `RouterScope`로 관찰하고 요청합니다. scope는 안정적인
 projection과 forwarder이며 또 다른 mutable store가 아닙니다.
@@ -127,8 +130,8 @@ activation 시점에 아직 끝나지 않은 앞선 요청이 없으면 driver�
 대기하고 `.rejectWhileBusy`에서는 busy로 거절됩니다. 앞선 요청이 남아 있었다면(실행 중이거나,
 대기 중이거나, router 메서드·`dispatch`·SwiftUI binding처럼 결과를 기다리지 않는 호출로 만들어져
 아직 store에 도달하지 않은 경우) driver는 lane을 잡지 않으며, 그 activation은 기본 방식으로 동작해
-앞선 요청이 commit되면 복원은 stale로 거절됩니다. 앱 코드가 직접 만든 `Task` 안의 요청은 store에
-도달한 뒤부터 셉니다.
+앞선 요청이 commit되면 복원은 stale로 거절됩니다. 앱 코드가 직접 만든 `Task` 안의 요청과 host의
+deep link 처리·scene lifecycle이 만든 요청은 store에 도달한 뒤부터 셉니다.
 
 대기하던 요청이 어떻게 되는지는 대기가 끝나는 방식에 따라 다릅니다.
 
@@ -138,15 +141,21 @@ activation 시점에 아직 끝나지 않은 앞선 요청이 없으면 driver�
   실행 직후의 link는 session을 지우는 대신 거절된 요청으로 끝납니다. store에 직접 보낸 요청은
   scope에 묶이지 않으므로 복원 뒤에 실행되어 복원된 상태를 바꾸거나 대체할 수 있습니다. 기본 plan이
   상태 전체를 대체하는 `handle(_:using:)`의 link 처리도 여기에 해당합니다.
-- **snapshot이 없거나, driver가 중단되었거나, load나 디코딩이 실패했는데 driver의 `recovery`가
-  대체 상태를 주지 않은 경우.** scope가 대체되지 않았으므로 대기하던 요청은 현재 상태에서
-  실행됩니다. `recovery`가 돌려준 대체 상태는 복원된 snapshot처럼 적용되므로 첫 번째 경우에
-  해당합니다.
+- **복원 요청이 실행되기 전에 activation이 끝난 경우.** snapshot이 없거나, driver가
+  중단되었거나 마지막 attachment가 분리되었거나, activation이 실패한 경우입니다. activation은
+  load나 디코딩이 실패했는데 driver의 `recovery`가 대체 상태를 주지 않거나, snapshot을 tab
+  topology에 맞출 수 없거나, 부분 복원 검증기가 실패하거나 `validationTimeout`을 넘기면
+  실패합니다. scope가 대체되지 않았으므로 대기하던 요청은 현재 상태에서 실행됩니다.
+  `recovery`가 돌려준 대체 상태는 복원된 snapshot처럼 적용되므로 첫 번째 경우에 해당합니다.
 - **policy나 authorization이 복원 transition을 defer하거나 거절한 경우.** 대기는 그 결과와 함께
   끝나고, 대기하던 요청은 snapshot 이전 상태에서 실행되며 그 결과가 저장됩니다.
 
 그동안 navigation이 닫히므로 저장소의 load 시간을 제한하고 검증기에는 `validationTimeout`을
 주세요.
+
+다른 activation이 아직 진행 중일 때 `activate()`는 `.alreadyActive`를 반환하므로, 이 결과가
+복원이 끝났다는 뜻은 아닙니다. driver의 `status`를 관찰하거나 끝난 뒤 `lastActivation`을
+읽으세요.
 
 중단된 worker와 caller 소유권은 이후 activation을 변경할 수 없습니다. cloud sync는
 계속 앱이 선택하는 별도 책임입니다.
@@ -243,7 +252,7 @@ SwiftUI `body`는 nonthrowing으로 유지합니다. tab·split host는 전체 t
 `body`에 바로 쓸 수 있습니다. catalog는 매크로가 이미 검증했고, 손으로 쓴 잘못된 catalog는
 복구 화면과 `validationFailure`로 보고됩니다. enum 안에서 SwiftUI의 tab content는
 `SwiftUI.Tab`으로 쓰세요. 이름만 쓰면 생성된 `AppRoute.Tab`을 뜻합니다(경고
-`InnoRouterMacro.W008`).
+`InnoRouterMacro.W013`).
 
 `id:`를 생략하면 case 이름이 저장되는 scope ID입니다. tab case 이름을 바꾸기 전에
 명시 ID를 추가하면 저장된 branch를 계속 찾을 수 있습니다. 이 ID는 tab scope만
@@ -304,14 +313,16 @@ type에서 잘못된 값이므로 그 값을 읽는 생성 route는 해석되지
 지정하지 않는 accessor는 빈 문자열로 보고합니다.
 
 `linkHandling`이 없는 host는 해석한 link를 일반 store 요청 하나로 적용합니다.
-`RouterHost`는 route를 root 바로 위에 표시하며 기존 stack을 대체하고,
-`RouterTabHost`는 tab root를 선택하거나 선택된 tab에 push하며, split host는 해당
-column으로 보냅니다. exact plan은 요청이 실행되는 시점의 store 상태에서 만들기 때문에
+`RouterHost`는 route를 root 바로 위에 표시하며 기존 stack과 그 위에 표시된 화면을
+대체하고, `RouterTabHost`는 tab root를 선택하거나 선택된 tab에 push하며,
+`RouterSplitHost`는 detail column에 push합니다. exact plan은 요청이 실행되는 시점의 store 상태에서 만들기 때문에
 URL 도착과 실행 사이에 들어온 commit은 보존됩니다. host가 적용할 수 없는 link(예:
 sheet가 stack을 덮은 상태의 push)는 URL이 도착한 시점에 적용할 수 있는 다른 host에
 양보합니다. 어떤 host도 적용할 수 없을 때도 요청은 제출되고 실행 시점에 결정됩니다. 그사이
 commit으로 link를 적용할 수 있게 되었으면 적용되고, 그렇지 않으면 조용히 사라지지 않고
-`RouterEvent`로 관찰되는 거절 요청으로 끝납니다. 여러 host가 같은 URL을 적용할 수 있으면 가장 바깥 host가
+거절된 요청으로 끝납니다. `configuration.onEvent` 같은 `RouterEvent` observer는 이 거절을
+`.deepLink` source로 받고, host는 그 종류를 log에 남깁니다. event를 관찰하지 않는 앱에서는
+log에서만 확인할 수 있습니다. 여러 host가 같은 URL을 적용할 수 있으면 가장 바깥 host가
 처리합니다. host는 URL 도착 시점에 정해지므로, 요청이 실행되기 전에 적용할 수 없게 된
 host는 link를 다른 host에 넘기지 않고 거절합니다.
 
