@@ -209,17 +209,26 @@ struct RouterFeatureTransactionTests {
         #expect(store.dispatchGate.unstartedDispatches == 1, "The transaction's task started early")
         // A pop that returns the stack to the feature holds the lane in its
         // policy until the transaction's request has queued behind it. A
-        // transaction that ends without queuing releases it too, and fails.
-        let watchdog = Task { @MainActor in
+        // transaction that ends without queuing releases the pop too, and so
+        // does a deadline, so a regression fails instead of hanging.
+        Task { @MainActor in
             _ = await transaction.value
+            gate.release()
+        }
+        let deadline = Task { @MainActor in
+            guard (try? await Task.sleep(for: .seconds(10))) != nil else { return }
             gate.release()
         }
         _ = await store.perform(
             .pop(count: 1), context: .init(), expectedRevision: nil, bypassesPolicies: false
         )
-        await watchdog.value
+        deadline.cancel()
 
-        #expect(queued.value, "The transaction ended before it queued behind the pop")
+        // Without queuing, nothing guarantees that the transaction ends.
+        guard queued.value else {
+            Issue.record("The transaction did not queue behind the pop")
+            return
+        }
         guard case .applied = await transaction.value else {
             Issue.record("The transaction was rejected before the request ahead of it ran")
             return
