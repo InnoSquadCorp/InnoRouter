@@ -62,7 +62,10 @@ extension RouterScope {
     ///
     /// A feature projection's transaction takes this path, so it builds on
     /// the requests made before it exactly as
-    /// ``dispatchTransaction(_:resourceBudget:)`` does.
+    /// ``dispatchTransaction(_:resourceBudget:)`` does. Like that request, and
+    /// unlike an exact feature plan, it reconciles scope lifetimes instead of
+    /// replacing the subtree's ownership, so the requests made after it
+    /// through the same scopes stay valid.
     func performFeaturePlan(
         transforming transform: @escaping RouterFeatureNodeTransform<R>,
         context: RouterTransitionContext,
@@ -108,7 +111,6 @@ extension RouterScope {
                 node: submittedNode,
                 features: features
             ),
-            lifetimeMutation: .replaceSubtree(path),
             executionPrecondition: combinedExecutionPrecondition(nil),
             executionPreparation: preparation,
             deferredResumePreparation: { state, _ in preparation(state) }

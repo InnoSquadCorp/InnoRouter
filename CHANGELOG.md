@@ -154,9 +154,10 @@ Security). Behavior changes are marked in bold.
   runs is rejected; and the request's observation no longer carries an
   expected revision. Use `apply(RouterPlan(state:))` for an exact target. A
   transaction made through a feature projection applies its steps to that
-  feature's subtree the same way; 7.0 replaced the subtree with the value it
-  had when the call was made. `RouterStore.transaction` still applies an
-  exact plan. A deferred transaction resumed with `.rebaseOnCurrentState`
+  feature's subtree the same way and keeps the feature's scopes alive; 7.0
+  replaced the subtree with the value it had when the call was made, which
+  also expired every request queued after it through the same scope.
+  `RouterStore.transaction` still applies an exact plan. A deferred transaction resumed with `.rebaseOnCurrentState`
   likewise applies its steps to the state at resumption.
 - `RouterPlan`'s builder no longer traps when a `.windows` step repeats an ID
   and a later `.action` step removes one of the duplicates. Any action after

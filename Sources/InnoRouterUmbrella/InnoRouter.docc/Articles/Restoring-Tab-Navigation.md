@@ -147,8 +147,10 @@ the old snapshot over it.
 
 From 7.1.0, create the driver with `initialRestorePrecedence: .snapshot` to let
 the snapshot win instead. When no earlier request is still pending as
-activation starts (running, queued, or a fire-and-forget call that has not
-reached the Store yet), the Store then commits nothing until the restore has
+activation starts (running, queued, or a fire-and-forget call through
+`RouterActions`, `dispatch`, or `dispatchRoot` that has not reached the Store
+yet; a request inside your own `Task` counts only once it arrives), the Store
+then commits nothing until the restore has
 run; otherwise the activation behaves as the default. Requests made meanwhile
 wait under the default `.serialize` scheduling; under `.rejectWhileBusy` they
 are rejected as busy and do not run later. Once the snapshot is restored, a

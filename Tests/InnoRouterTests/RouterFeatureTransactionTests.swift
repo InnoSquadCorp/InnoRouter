@@ -172,10 +172,19 @@ struct RouterFeatureTransactionTests {
         #expect(store.revision == 1)
     }
 
-    @Test("A feature transaction is decided when it runs, not when its task starts")
+    @Test(
+        "A feature transaction is decided when it runs, not when its task starts",
+        .timeLimit(.minutes(1))
+    )
     func transactionWaitsForTheRequestAheadOfIt() async throws {
         let gate = PolicyGate()
+        let queued = TestCell(false)
         var configuration = RouterStoreConfiguration<TransactionParentRoute>()
+        // The only request that can queue is the transaction, behind the pop.
+        configuration.runtimeDependencies.didQueueRequest = { _ in
+            queued.value = true
+            gate.release()
+        }
         configuration.policies = [
             RouterPolicy(name: "hold") { transition in
                 if case .pop = transition.action { await gate.wait() }
@@ -199,22 +208,45 @@ struct RouterFeatureTransactionTests {
         )
         #expect(store.dispatchGate.unstartedDispatches == 1, "The transaction's task started early")
         // A pop that returns the stack to the feature holds the lane in its
-        // policy until the transaction's request has queued behind it.
-        let releaser = Task { @MainActor in
-            for _ in 0 ..< 100 where !gate.entered || store.queuedRequests.isEmpty {
-                await Task.yield()
-            }
+        // policy until the transaction's request has queued behind it. A
+        // transaction that ends without queuing releases it too, and fails.
+        let watchdog = Task { @MainActor in
+            _ = await transaction.value
             gate.release()
         }
         _ = await store.perform(
             .pop(count: 1), context: .init(), expectedRevision: nil, bypassesPolicies: false
         )
-        await releaser.value
+        await watchdog.value
 
+        #expect(queued.value, "The transaction ended before it queued behind the pop")
         guard case .applied = await transaction.value else {
             Issue.record("The transaction was rejected before the request ahead of it ran")
             return
         }
         #expect(store.state.root == .stack(path: [.feature(.home), .feature(.detail)]))
+    }
+
+    @Test("Consecutive feature transactions and a later request all apply")
+    func consecutiveTransactionsKeepTheScopeAlive() async throws {
+        let (store, router) = try makeFeature(.deferred)
+
+        let first = try router.transaction {
+            RouterPlanStep.action(.push(.detail))
+        }
+        let second = try router.transaction {
+            RouterPlanStep.action(.push(.home))
+        }
+        let push = router.go(.detail)
+
+        guard case .applied = await first.value,
+              case .applied = await second.value,
+              case .applied = await push.value else {
+            Issue.record("A feature transaction expired the requests made after it")
+            return
+        }
+        #expect(store.state.root == .stack(path: [
+            .feature(.home), .feature(.detail), .feature(.home), .feature(.detail),
+        ]))
     }
 }
