@@ -45,10 +45,11 @@ Version 7.1.0 adds opt-in behaviors and conveniences; the defaults keep the
   to keep the Store from committing anything until the initial restore has
   run, unless an earlier request is still pending when activation starts,
   including a fire-and-forget call through `RouterActions`, `dispatch`, or
-  `dispatchRoot` that has not reached the Store yet. Navigation requested
-  meanwhile waits under the default `.serialize` scheduling and is rejected as
-  busy under `.rejectWhileBusy`. Once the snapshot is restored, a waiting
-  request a view made is rejected instead of displacing the previous session.
+  `dispatchRoot` that has not reached the Store yet. A request inside your own
+  `Task` counts only once it arrives. Navigation requested meanwhile waits
+  under the default `.serialize` scheduling and is rejected as busy under
+  `.rejectWhileBusy`. Once the snapshot is restored, a waiting request a view
+  made is rejected instead of displacing the previous session.
   <doc:Restoring-Tab-Navigation> describes the other outcomes.
 - `RouterTabHost(AppRoute.self)` builds the tab host of an `@Router` enum
   without `try`. `validationFailure` reports a hand-written catalog that is
