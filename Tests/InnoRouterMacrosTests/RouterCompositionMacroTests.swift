@@ -678,7 +678,7 @@ struct RouterCompositionMacroTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "[InnoRouterMacro.W008] `Tab` inside `AppRoute` names the generated `AppRoute.Tab`, not SwiftUI's tab content; write `SwiftUI.Tab`",
+                    message: "[InnoRouterMacro.W013] `Tab` inside `AppRoute` names the generated `AppRoute.Tab`, not SwiftUI's tab content; write `SwiftUI.Tab`",
                     line: 5,
                     column: 44,
                     severity: .warning,

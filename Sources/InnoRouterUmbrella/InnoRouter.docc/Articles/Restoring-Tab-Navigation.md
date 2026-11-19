@@ -136,6 +136,9 @@ the application's final fallback and is not reconciled again.
 
 Observe `driver.status` for loading, saving, and storage/decoding failures.
 Inspect `driver.lastActivation` for a missing snapshot or the restore result.
+`activate()` returns `.alreadyActive` while another activation is still in
+progress, so read `lastActivation` once `status` settles rather than assuming
+the restore has run.
 For a restored result, inspect `outcome.transition`: `.applied`, `.unchanged`,
 `.rejected`, and `.deferred` have different meanings. A nonthrowing return does
 not prove that saved navigation was applied. A newer navigation commit can
@@ -143,15 +146,23 @@ make an in-flight restore stale; preserve the newer state rather than retrying
 the old snapshot over it.
 
 From 7.1.0, create the driver with `initialRestorePrecedence: .snapshot` to let
-the snapshot win instead. When no request is running or queued as activation
-starts, the Store then commits nothing until the restore has run; otherwise
-the activation behaves as the default. Once the snapshot is restored, a request
-a view made meanwhile, including a host's deep-link handling and a native
-binding write, was made for a scope the restore replaced and is rejected as an
-expired scope, while a request sent to the Store itself runs after the restore
-and can change it. When there is no snapshot, the load fails, or the driver
-stops, nothing replaced the scopes and the waiting requests run on the current
-state. If a policy or authorization defers or rejects the restoration
+the snapshot win instead. When no earlier request is still pending as
+activation starts (running, queued, or a fire-and-forget call through
+`RouterActions`, `dispatch`, or `dispatchRoot` that has not reached the Store
+yet; a request inside your own `Task` counts only once it arrives), the Store
+then commits nothing until the restore has
+run; otherwise the activation behaves as the default. Requests made meanwhile
+wait under the default `.serialize` scheduling; under `.rejectWhileBusy` they
+are rejected as busy and do not run later. Once the snapshot is restored, a
+waiting request a view made, including a host's deep-link handling and a
+native binding write, was made for a scope the restore replaced and is
+rejected as an expired scope, while a waiting request sent to the Store itself
+runs after the restore and can change it. When activation ends before the restore runs (there is no
+snapshot, the driver stops or its last attachment detaches, or activation fails
+because the load or decoding fails without a recovery fallback, the snapshot
+cannot be reconciled with the tab topology, or a validator fails or exceeds its
+timeout), nothing replaced the scopes and the waiting requests run on the
+current state. If a policy or authorization defers or rejects the restoration
 transition, the hold ends with it, and the waiting requests run on the state
 before the snapshot. Navigation is closed for the whole load, decoding, and
 validation, so keep storage bounded and give a validator a

@@ -20,6 +20,12 @@ package typealias RouterRequestPreparationBuilder<R: Route> = @MainActor @Sendab
     RouterState<R>
 ) -> RouterDeferredResumePreparation<R>
 
+/// Derives an authority's replacement node from the node the Store holds when
+/// the request executes.
+typealias RouterFeatureNodeTransform<R: Route> = @MainActor @Sendable (
+    RouterNode<R>
+) throws -> RouterNode<R>
+
 /// Internal behavior shared by a direct store scope and a typed feature
 /// projection. Both paths ultimately execute on one canonical `RouterStore`.
 @MainActor
@@ -88,6 +94,19 @@ protocol RouterAuthorityProtocol<R>: AnyObject, Sendable {
         features: [RouterFeatureCatalogEntry],
         executionPrecondition: RouterRequestPrecondition<R>?
     ) async -> RouterOutcome<R>
+    /// Replaces this authority's node with `transform` applied to the node
+    /// the Store holds when the request executes.
+    func performFeaturePlan(
+        transforming transform: @escaping RouterFeatureNodeTransform<R>,
+        context: RouterTransitionContext,
+        features: [RouterFeatureCatalogEntry]
+    ) async -> RouterOutcome<R>
+    /// Applies `steps` to ``state`` as the Store holds it when the request
+    /// executes, so a transaction builds on the requests made before it.
+    func dispatchTransaction(
+        _ steps: [RouterPlanStep<R>],
+        resourceBudget: RouterResourceBudget
+    ) -> Task<RouterOutcome<R>, Never>
     func present<Value: Sendable>(
         _ route: R,
         style: RouterPresentationStyle,
@@ -164,14 +183,24 @@ package func prepareRouterFeaturePlan<R: Route>(
     do {
         let target = try state.replacingNode(node, at: path, resourceBudget: resourceBudget)
         return .action(.apply(RouterPlan(state: target)))
-    } catch let failure as RouterResourceLimitFailure {
-        return .rejected(.resourceLimit(failure))
-    } catch let error as RouterStateValidationError {
-        return .rejected(.mutation(.invalidTargetState(error)))
-    } catch let error as RouterMutationError {
-        return .rejected(.mutation(error))
     } catch {
-        return .rejected(.mutation(.incompatibleNavigationTopology(path)))
+        return .rejected(routerPreparationRejection(for: error, at: path))
+    }
+}
+
+/// The reason a request is rejected with when deriving its action from the
+/// state at execution throws `error`.
+package func routerPreparationRejection(
+    for error: any Error,
+    at path: RouterScopePath
+) -> RouterRejectionReason {
+    switch error {
+    case let failure as RouterResourceLimitFailure: .resourceLimit(failure)
+    case let failure as RouterHostValidationFailure: .hostContract(failure)
+    case let error as RouterFeatureProjectionError: .featureProjection(error)
+    case let error as RouterStateValidationError: .mutation(.invalidTargetState(error))
+    case let error as RouterMutationError: .mutation(error)
+    default: .mutation(.incompatibleNavigationTopology(path))
     }
 }
 

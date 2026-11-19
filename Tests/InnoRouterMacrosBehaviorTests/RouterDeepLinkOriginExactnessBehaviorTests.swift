@@ -22,11 +22,31 @@ private enum OriginExactnessRoute {
     var destination: some View { EmptyView() }
 }
 
+// Declared in uppercase: the macro folds ASCII letters only.
+@Router(deepLinkSchemes: ["HTTPS"], deepLinkHosts: ["Bank.Example"])
+private enum UppercaseOriginRoute {
+    @DeepLink("/pay/:id")
+    case pay(id: String)
+
+    var destination: some View { EmptyView() }
+}
+
 /// Generated resolvers must stay fail closed for origins and malformed input.
 @Suite("Generated deep-link origin exactness")
 struct RouterDeepLinkOriginExactnessBehaviorTests {
     private func resolve(_ string: String) throws -> OriginExactnessRoute? {
         OriginExactnessRoute.resolveDeepLink(try #require(URL(string: string)))
+    }
+
+    @Test("An uppercase ASCII declaration matches its lowercase origin, and nothing else")
+    func uppercaseDeclarationFoldsASCIIOnly() throws {
+        let lowercase = try #require(URL(string: "https://bank.example/pay/1"))
+        let uppercase = try #require(URL(string: "HTTPS://BANK.EXAMPLE/pay/1"))
+        let kelvin = try #require(URL(string: "https://ban%E2%84%AA.example/pay/1"))
+        #expect(UppercaseOriginRoute.resolveDeepLink(lowercase) == .pay(id: "1"))
+        #expect(UppercaseOriginRoute.resolveDeepLink(uppercase) == .pay(id: "1"))
+        // The Kelvin sign is not the letter k, in a declaration or in a URL.
+        #expect(UppercaseOriginRoute.resolveDeepLink(kelvin) == nil)
     }
 
     @Test("Exact and ASCII-case-varied origins resolve")

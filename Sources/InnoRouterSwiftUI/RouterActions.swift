@@ -212,8 +212,8 @@ public struct RouterActions<R: Route>: Sendable {
     /// made before it instead of reverting them. If the steps no longer apply
     /// to that state, the request is rejected with the reducer's reason.
     ///
-    /// Through a feature projection, the plan built at the call replaces the
-    /// feature's subtree when the request runs, as in 7.0.
+    /// Through a feature projection, the steps are applied to that feature's
+    /// subtree as the Store holds it when the request runs.
     /// ``RouterStore/transaction(_:)`` builds an exact plan at the call
     /// instead.
     @MainActor @discardableResult
@@ -229,19 +229,8 @@ public struct RouterActions<R: Route>: Sendable {
         let steps = build()
         let builder: () -> [RouterPlanStep<R>] = { steps }
         // Building once now keeps an invalid transaction a thrown error.
-        let plan = try RouterPlan(from: state, resourceBudget: resourceBudget, builder)
-        if let scope = authority as? RouterScope<R> {
-            return scope.dispatchTransaction(steps, resourceBudget: resourceBudget)
-        }
-        // A feature projection replaces its own subtree with this plan when
-        // the request runs, and reads the revision then, exactly as in 7.0.
-        return authority.startDispatch {
-            await authority.performRoot(
-                .apply(plan),
-                context: .init(),
-                expectedRevision: authority.authorityRevision
-            )
-        }
+        _ = try RouterPlan(from: state, resourceBudget: resourceBudget, builder)
+        return authority.dispatchTransaction(steps, resourceBudget: resourceBudget)
     }
 
     /// Updates native split-column visibility at the owning store root.

@@ -89,7 +89,7 @@ case .rejected(_, _, _, let reason): print("Rejected", reason)
 }
 ```
 
-정책은 중단 전후에 불변 후보를 검사합니다. 거절·호출자 취소·오래된 준비·잘못된 액션은 commit 상태를 바꾸지 않습니다. `RouterRequestKey`의 `keepFirst` / `replacePending`을 사용할 수 있으며 무관한 요청은 FIFO입니다. 대기 요청, 정책 timeout, deferral의 한도를 명시하세요. `deferRequest`는 실행 레인을 비우고 재개 시 명시적으로 rebase하지 않으면 revision을 검사합니다. 취소를 무시하는 정책이 늦게 반환해도 취소가 우선합니다. `RouterRejectionReason`은 overflow·timeout·만료·취소를 구별합니다. fire-and-forget 요청은 기본적으로 이후 main-actor turn에 commit됩니다. `configuration.dispatchTiming = .immediateWhenIdle`로 설정하면 호출이 반환되기 전에 commit되어 `withAnimation`이 변경에 적용되지만, store에 policy와 authorization이 없고 대기 중인 다른 요청이 없을 때만 그렇습니다. 그 밖의 경우와 [내비게이션 가이드](Docs/Navigation-Guide.ko.md)에 정리된 경우에는 지연 경로를 사용합니다.
+정책은 중단 전후에 불변 후보를 검사합니다. 거절·호출자 취소·오래된 준비·잘못된 액션은 commit 상태를 바꾸지 않습니다. `RouterRequestKey`의 `keepFirst` / `replacePending`을 사용할 수 있으며 무관한 요청은 FIFO입니다. 대기 요청, 정책 timeout, deferral의 한도를 명시하세요. `deferRequest`는 실행 레인을 비우고 재개 시 명시적으로 rebase하지 않으면 revision을 검사합니다. 취소를 무시하는 정책이 늦게 반환해도 취소가 우선합니다. `RouterRejectionReason`은 overflow·timeout·만료·취소를 구별합니다. fire-and-forget 요청은 기본적으로 이후 main-actor turn에 commit됩니다. `configuration.dispatchTiming = .immediateWhenIdle`로 설정하면 호출이 반환되기 전에 commit되어 `withAnimation`이 변경에 적용되지만, store에 policy와 authorization이 없고 대기 중인 다른 요청이 없을 때만 그렇습니다. 그 밖의 경우와 [내비게이션 가이드](Docs/Navigation-Guide.ko.md)에 정리된 경우에는 비동기 경로를 사용합니다.
 
 ## 탭, 분할 화면, scope 수명
 
@@ -147,7 +147,7 @@ try await router.finishPresentation(request, returning: true)
 
 ## 복원과 이동 이력
 
-`RouterRestorationDriver`와 앱이 선택한 저장소를 유지하고 안정적인 root에 `routerStateRestoration(_:)`을 붙이세요. `RouterSnapshotCodec`에 버전을 지정하고 route/schema 변경의 migration과 복원 결과를 처리합니다. 탭 변경에는 하나의 catalog를 `RouterTabRestorationTopology`, `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`, renderer에 공통으로 사용합니다. dormant branch는 선택 renderer가 될 수 없습니다. 오래된 복원은 최신 이동을 덮지 못합니다. snapshot 기본 한도는 유한한 잠정값이므로 늘리기 전에 측정하세요. 갑작스러운 종료 직전 저장은 보장되지 않습니다. 기본적으로 snapshot을 읽는 동안 commit된 navigation이 우선합니다. driver를 `initialRestorePrecedence: .snapshot`으로 만들면 activation 시점에 이미 실행 중이거나 대기 중인 요청이 없는 한 복원이 실행될 때까지 새 navigation을 보류하며, snapshot이 복원되면 그 사이 view가 보낸 요청은 snapshot을 밀어내지 않고 거절됩니다. snapshot이 없으면 대기하던 요청은 그대로 실행되며, 그 밖의 결과는 [내비게이션 가이드](Docs/Navigation-Guide.ko.md)에 정리되어 있습니다.
+`RouterRestorationDriver`와 앱이 선택한 저장소를 유지하고 안정적인 root에 `routerStateRestoration(_:)`을 붙이세요. `RouterSnapshotCodec`에 버전을 지정하고 route/schema 변경의 migration과 복원 결과를 처리합니다. 탭 변경에는 하나의 catalog를 `RouterTabRestorationTopology`, `catalog.hostDescriptor(orphanPolicy: .preserveDormant)`, renderer에 공통으로 사용합니다. dormant branch는 선택 renderer가 될 수 없습니다. 오래된 복원은 최신 이동을 덮지 못합니다. snapshot 기본 한도는 유한한 잠정값이므로 늘리기 전에 측정하세요. 갑작스러운 종료 직전 저장은 보장되지 않습니다. 기본적으로 snapshot을 읽는 동안 commit된 navigation이 우선합니다. driver를 `initialRestorePrecedence: .snapshot`으로 만들면 activation 시점에 끝나지 않은 앞선 요청(실행 중이거나 대기 중이거나, `RouterActions`·`dispatch`·`dispatchRoot`로 보내 아직 store에 도달하지 않은 fire-and-forget 호출)이 없는 한 복원이 실행될 때까지 새 navigation을 보류합니다. 직접 만든 `Task` 안의 요청은 store에 도달한 뒤부터 셉니다. 보류된 요청은 기본 `.serialize` scheduling에서는 대기하고 `.rejectWhileBusy`에서는 busy로 거절되며, snapshot이 복원되면 대기하던 요청 중 view가 보낸 요청은 snapshot을 밀어내지 않고 거절됩니다. snapshot이 없으면 대기하던 요청은 그대로 실행되며, 그 밖의 결과는 [내비게이션 가이드](Docs/Navigation-Guide.ko.md)에 정리되어 있습니다.
 
 `RouterHistory`는 exact plan과 일반 정책을 통해 제한된 뒤로/앞으로 이동과 checkpoint를 제공합니다. badge와 presentation을 보존하고 scene을 열거나 닫지 않습니다. 계정·문서 경계에서 `reset(sessionKey:)`을 호출하세요. reset 또는 stop은 중단된 이동을 무효화합니다.
 

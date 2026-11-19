@@ -187,7 +187,7 @@ struct RouterImmediateDispatchTests {
         #expect(store.scope(at: ["a"]).node == .stack(path: []))
     }
 
-    @Test("A Store with a prepare policy keeps the deferred pipeline")
+    @Test("A Store with a prepare policy keeps the asynchronous path")
     func policyKeepsDeferredPath() async throws {
         let (store, router, log) = try makeStore(.immediateWhenIdle) { configuration in
             configuration.policies = [RouterPolicy(name: "audit") { _ in .allow }]
@@ -204,7 +204,7 @@ struct RouterImmediateDispatchTests {
         #expect(log.events == ["started", "policyPrepared", "committed"])
     }
 
-    @Test("A Store with authorization keeps the deferred pipeline")
+    @Test("A Store with authorization keeps the asynchronous path")
     func authorizationKeepsDeferredPath() async throws {
         let (store, router, _) = try makeStore(.immediateWhenIdle) { configuration in
             configuration.authorization = .init(requiresAuthorization: { _ in true }, authorize: { true })
@@ -219,7 +219,7 @@ struct RouterImmediateDispatchTests {
         #expect(store.state.root == .stack(path: [.first]))
     }
 
-    @Test("A request made while another is committing keeps FIFO order on the deferred path")
+    @Test("A request made while another is committing keeps FIFO order on the asynchronous path")
     func reentrantRequestIsDeferred() async throws {
         let (store, router, _) = try makeStore(.immediateWhenIdle)
         let reentrant = TestCell<Task<RouterOutcome<R>, Never>?>(nil)
@@ -409,7 +409,7 @@ struct RouterImmediateDispatchTests {
         #expect(store.state.root == .stack(path: [.third]))
     }
 
-    @Test("Dismissing from inside presented content stays on the deferred path")
+    @Test("Dismissing from inside presented content stays on the asynchronous path")
     func presentedContentDismissIsDeferred() async throws {
         let (store, router, _) = try makeStore(.immediateWhenIdle)
         router.sheet(.first)
@@ -436,7 +436,7 @@ struct RouterImmediateDispatchTests {
         #expect(store.state.root == .stack(path: [.second]))
     }
 
-    @Test("A feature projection's requests stay on the deferred path")
+    @Test("A feature projection's requests stay on the asynchronous path")
     func featureProjectionIsDeferred() async throws {
         var configuration = RouterStoreConfiguration<FeatureParentRoute>()
         configuration.dispatchTiming = .immediateWhenIdle

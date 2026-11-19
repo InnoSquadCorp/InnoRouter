@@ -466,7 +466,7 @@ public final class RouterScope<R: Route> {
         }
     }
 
-    private static func missingAuthorityOutcome() -> RouterOutcome<R> {
+    static func missingAuthorityOutcome() -> RouterOutcome<R> {
         .rejected(
             id: RouterTransitionID(),
             state: .rootStack,

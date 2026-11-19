@@ -40,7 +40,7 @@ enum RouterTabDiagnostic: DiagnosticMessage {
         case .conditionalCase: return "InnoRouterMacro.E015"
         case .conflictingMember: return "InnoRouterMacro.E016"
         case .redundantRouterTabConformance: return "InnoRouterMacro.W004"
-        case .shadowedSwiftUITab: return "InnoRouterMacro.W008"
+        case .shadowedSwiftUITab: return "InnoRouterMacro.W013"
         }
     }
 

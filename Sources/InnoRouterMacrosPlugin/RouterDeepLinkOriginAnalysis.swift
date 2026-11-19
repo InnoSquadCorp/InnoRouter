@@ -74,7 +74,18 @@ func parseDeepLinkOrigin(from attribute: AttributeSyntax) -> RouterDeepLinkOrigi
                 )
             )
         }
-        return .failure("`\(invalidHost)` is not an exact ASCII DNS, IPv4, or localhost host")
+        return .failure(
+            "`\(invalidHost)` is not an exact ASCII DNS, IPv4, or localhost host\(nonASCIIDetail(invalidHost))"
+        )
     }
-    return .failure("`\(invalidScheme)` is not an RFC-compatible URL scheme")
+    return .failure("`\(invalidScheme)` is not an RFC-compatible URL scheme\(nonASCIIDetail(invalidScheme))")
+}
+
+/// Names the first non-ASCII scalar of a rejected entry. A character such as
+/// the Kelvin sign (U+212A) prints like the ASCII letter it resembles, so the
+/// entry alone does not show why it was rejected.
+private func nonASCIIDetail(_ value: String) -> String {
+    guard let scalar = value.unicodeScalars.first(where: { !$0.isASCII }) else { return "" }
+    let hex = String(scalar.value, radix: 16, uppercase: true)
+    return " (it contains U+\(String(repeating: "0", count: max(0, 4 - hex.count)))\(hex), which is not ASCII)"
 }

@@ -145,9 +145,10 @@ extension RouterStore {
     /// suspending: nothing is in flight, and no policy or authorization exists
     /// that the asynchronous pipeline would have to await.
     ///
-    /// A cancelled calling task is excluded as well. The deferred path starts
-    /// a fresh unstructured task, so its request does not inherit the caller's
-    /// cancellation; running inline would, and would reject the request.
+    /// A cancelled calling task is excluded as well. The asynchronous path
+    /// starts a fresh unstructured task, so its request does not inherit the
+    /// caller's cancellation; running inline would, and would reject the
+    /// request.
     var canCommitImmediately: Bool {
         dispatchTiming == .immediateWhenIdle
             && activeTransitionID == nil

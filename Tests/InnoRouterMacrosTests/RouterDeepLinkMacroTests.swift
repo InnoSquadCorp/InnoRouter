@@ -648,6 +648,20 @@ struct RouterDeepLinkDiagnosticMacroTests {
                 "@Router(deepLinkSchemes: [\"https\"], deepLinkHosts: [\"https://app.example.com\"])",
                 "`https://app.example.com` is not an exact ASCII DNS, IPv4, or localhost host"
             ),
+            // The Kelvin sign (U+212A) lowercases to ASCII "k" under Unicode
+            // rules, which 7.0.1 applied before validating, so it compiled.
+            (
+                "@Router(deepLinkSchemes: [\"https\"], deepLinkHosts: [\"ban\u{212A}.example\"])",
+                "`ban\u{212A}.example` is not an exact ASCII DNS, IPv4, or localhost host (it contains U+212A, which is not ASCII)"
+            ),
+            (
+                "@Router(deepLinkSchemes: [\"ban\u{212A}\"], deepLinkHosts: [\"bank.example\"])",
+                "`ban\u{212A}` is not an RFC-compatible URL scheme (it contains U+212A, which is not ASCII)"
+            ),
+            (
+                "@Router(deepLinkSchemes: [\"https\"], deepLinkHosts: [\"stra\u{00DF}e.example\"])",
+                "`stra\u{00DF}e.example` is not an exact ASCII DNS, IPv4, or localhost host (it contains U+00DF, which is not ASCII)"
+            ),
         ]
     )
     func invalidAllowlist(routerAttribute: String, reason: String) throws {

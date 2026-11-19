@@ -463,7 +463,7 @@ public final class RouterFeatureScope<Parent: Route, Child: Route> {
         return try? mapping.projectState(from: node)
     }
 
-    private func projectionRejection(
+    func projectionRejection(
         _ error: RouterFeatureProjectionError
     ) -> RouterOutcome<Child> {
         map(parent.reject(.featureProjection(error)))

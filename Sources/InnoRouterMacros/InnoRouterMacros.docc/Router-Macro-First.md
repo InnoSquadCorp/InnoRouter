@@ -81,7 +81,7 @@ Render the tabs with `RouterTabHost(AppRoute.self)`, which needs no `try` from
 7.1.0 because the macro has already validated the catalog, or with a throwing
 initializer to choose the initial tab, badges, or a configuration. Inside the
 enum, the name `Tab` means the generated `AppRoute.Tab`; write `SwiftUI.Tab`
-for SwiftUI's tab content, as warning `InnoRouterMacro.W008` suggests.
+for SwiftUI's tab content, as warning `InnoRouterMacro.W013` suggests.
 
 ## Generate typed scenes
 

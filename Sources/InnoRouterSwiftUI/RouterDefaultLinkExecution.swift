@@ -26,8 +26,8 @@ private let routerDefaultLinkLogger = Logger(
 ///   it did when it stepped aside in 7.0. When no host can, it still submits
 ///   the request, which is decided when it executes: it applies if a commit
 ///   made it applicable meanwhile, and otherwise ends as an ordinary rejected
-///   request reported through ``RouterEvent`` and the log instead of
-///   disappearing.
+///   request instead of disappearing: ``RouterEvent`` observers see it, and
+///   this path logs its kind.
 /// - `fallbackPlan` must not capture the Store. The request keeps it for as
 ///   long as it is queued or deferred, and the Store keeps the request.
 @MainActor
@@ -55,16 +55,8 @@ func submitDefaultRouterPlanLink<R: Route>(
     let preparation: RouterRequestPreparationBuilder<R> = { state in
         do {
             return .action(.apply(try fallbackPlan(route, state)))
-        } catch let failure as RouterResourceLimitFailure {
-            return .rejected(.resourceLimit(failure))
-        } catch let failure as RouterHostValidationFailure {
-            return .rejected(.hostContract(failure))
-        } catch let error as RouterStateValidationError {
-            return .rejected(.mutation(.invalidTargetState(error)))
-        } catch let error as RouterMutationError {
-            return .rejected(.mutation(error))
         } catch {
-            return .rejected(.mutation(.incompatibleNavigationTopology(path)))
+            return .rejected(routerPreparationRejection(for: error, at: path))
         }
     }
     context.arbiter.submit(url: url, source: source, depth: context.depth, isApplicable: isApplicable) {
