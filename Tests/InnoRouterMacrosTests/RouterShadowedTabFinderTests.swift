@@ -117,6 +117,22 @@ struct RouterShadowedTabFinderTests {
         """).isEmpty)
     }
 
+    @Test("A generic parameter named Tab is not mistaken for SwiftUI's Tab")
+    func genericParameter() throws {
+        #expect(try flaggedLines("""
+        enum AppRoute {
+            struct Box<Tab: Builder> { let value = Tab { "a" } }
+            final class Holder<Tab: Builder> { let value = Tab { "b" } }
+            actor Worker<Tab: Builder> { func make() -> Tab { Tab { "c" } } }
+            enum Factory<Tab: Builder> { static func make() -> Tab { Tab { "d" } } }
+            static func make<Tab: Builder>(_ type: Tab.Type) -> Tab { Tab { "e" } }
+            init<Tab: Builder>(_ type: Tab.Type) { _ = Tab(content: { "f" }) }
+            subscript<Tab: Builder>(_ type: Tab.Type) -> Tab { Tab { "g" } }
+            static func other<Key>(_ key: Key) -> some View { TabView { Tab("h", systemImage: "i") { EmptyView() } } }
+        }
+        """) == [9])
+    }
+
     @Test("A Tab declared inside an #if clause counts as a rebinding")
     func conditionalRebinding() throws {
         #expect(try flaggedLines("""

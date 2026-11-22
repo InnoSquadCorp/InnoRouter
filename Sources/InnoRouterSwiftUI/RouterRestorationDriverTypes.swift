@@ -113,10 +113,12 @@ public struct RouterRestorationPrecedence: Sendable, Hashable {
     ///   validator must not await navigation on the same Store. A stopped
     ///   activation whose load is still blocking delays the next activation's
     ///   load, and the hold with it.
-    /// - If a policy or authorization defers or rejects the restoration
-    ///   transition, the hold ends with that outcome: the queued requests run
-    ///   on the state before the snapshot, and the driver saves what they
-    ///   commit. A deferred restore resumed with the default
+    /// - If the restoration transition is deferred or rejected, by a policy
+    ///   or authorization or by the Store when it cannot apply the restored
+    ///   state (for example because the state breaks the host contract or
+    ///   exceeds the resource budget), the hold ends with that outcome: the
+    ///   queued requests run on the state before the snapshot, and the driver
+    ///   saves what they commit. A deferred restore resumed with the default
     ///   `.requireUnchangedState` is then rejected as stale.
     /// - A request that was already made when activation started keeps its
     ///   place, whether it was executing, queued, or a fire-and-forget call

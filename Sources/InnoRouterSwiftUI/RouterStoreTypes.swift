@@ -168,7 +168,8 @@ public enum RouterSchedulingPolicy: Sendable {
 /// `@EnvironmentRouter`. ``RouterStore/dispatch(_:context:)``,
 /// ``RouterScope/dispatch(_:context:)``, ``RouterScope/dispatchRoot(_:context:)``,
 /// and the hosts' native bindings (navigation path, tab selection, sheet
-/// dismissal) always commit on a later turn.
+/// dismissal, alert and confirmation-dialog responses) always commit on a
+/// later turn.
 ///
 /// The value set is a struct with static members, not an enum, so a later
 /// minor release can add a timing without breaking an exhaustive `switch`.

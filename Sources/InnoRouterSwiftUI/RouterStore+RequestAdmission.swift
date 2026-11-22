@@ -164,8 +164,11 @@ extension RouterStore {
     /// task begins, so ``canCommitImmediately`` stays false while an earlier
     /// request is still on its way to admission.
     ///
-    /// The count is released at the top of the task, in the same main-actor
-    /// job that admits the request, so nothing can run between the two.
+    /// The count is released at the top of the task. When `work` submits its
+    /// request before it first suspends, as a dispatched action does, that is
+    /// the main-actor job that admits the request, so nothing can run between
+    /// the two. Work that suspends first, such as a presentation cancellation
+    /// waiting for the request it cancels, is not counted while it waits.
     func startDispatchTask<Output: Sendable>(
         _ work: @escaping @MainActor @Sendable () async -> Output
     ) -> Task<Output, Never> {

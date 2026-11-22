@@ -687,6 +687,23 @@ private enum ShadowedTabRouterRoute {
     /// `Tab(scope:)` is a legitimate use of that type, not a shadowed SwiftUI
     /// call, so it must compile without the W013 warning.
     static func tab(for scope: RouterScopeID) -> Tab? { Tab(scope: scope) }
+
+    /// A helper generic over its own `Tab`. The call names that parameter,
+    /// not SwiftUI's tab content, so it must compile without the W013
+    /// warning, whose Fix-It would not compile here.
+    static func built<Tab: ShadowedTabBuilding>(_ type: Tab.Type) -> Tab { Tab { "built" } }
+}
+
+private protocol ShadowedTabBuilding {
+    init(content: () -> String)
+}
+
+private struct ShadowedTabBox: ShadowedTabBuilding {
+    let value: String
+
+    init(content: () -> String) {
+        value = content()
+    }
 }
 
 private extension RouterTab {
@@ -711,6 +728,11 @@ struct RouterGeneratedTabShadowingTests {
     func generatedTabExtensionInitializer() {
         #expect(ShadowedTabRouterRoute.tab(for: "search") == .search)
         #expect(ShadowedTabRouterRoute.tab(for: "missing") == nil)
+    }
+
+    @Test("A generic parameter named Tab is usable unqualified")
+    func genericTabParameter() {
+        #expect(ShadowedTabRouterRoute.built(ShadowedTabBox.self).value == "built")
     }
 }
 

@@ -21,9 +21,10 @@ package typealias RouterRequestPreparationBuilder<R: Route> = @MainActor @Sendab
 ) -> RouterDeferredResumePreparation<R>
 
 /// Derives an authority's replacement node from the node the Store holds when
-/// the request executes.
+/// the request executes, within the Store's resource budget.
 typealias RouterFeatureNodeTransform<R: Route> = @MainActor @Sendable (
-    RouterNode<R>
+    RouterNode<R>,
+    RouterResourceBudget
 ) throws -> RouterNode<R>
 
 /// Internal behavior shared by a direct store scope and a typed feature
@@ -103,9 +104,10 @@ protocol RouterAuthorityProtocol<R>: AnyObject, Sendable {
     ) async -> RouterOutcome<R>
     /// Applies `steps` to ``state`` as the Store holds it when the request
     /// executes, so a transaction builds on the requests made before it.
+    /// An authority that cannot apply them then rejects the request through
+    /// the Store, which reports it like any other rejection.
     func dispatchTransaction(
-        _ steps: [RouterPlanStep<R>],
-        resourceBudget: RouterResourceBudget
+        _ steps: [RouterPlanStep<R>]
     ) -> Task<RouterOutcome<R>, Never>
     func present<Value: Sendable>(
         _ route: R,

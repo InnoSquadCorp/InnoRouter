@@ -28,6 +28,10 @@ private let routerDefaultLinkLogger = Logger(
 ///   made it applicable meanwhile, and otherwise ends as an ordinary rejected
 ///   request instead of disappearing: ``RouterEvent`` observers see it, and
 ///   this path logs its kind.
+/// - A link that reaches a host whose scope was replaced, before the host
+///   renders again (for example right after a restore), is treated the same
+///   way: the host cannot apply it, and its request ends as an expired-scope
+///   rejection unless another host answers.
 /// - `fallbackPlan` must not capture the Store. The request keeps it for as
 ///   long as it is queued or deferred, and the Store keeps the request.
 @MainActor
@@ -41,14 +45,10 @@ func submitDefaultRouterPlanLink<R: Route>(
 ) {
     guard let resolver = routeType as? any DeepLinkRoute.Type,
           let route = resolver.resolveDeepLink(url) as? R else { return }
-    guard let arrivalState = scope.state else {
-        // The scope was replaced; its host is about to leave the hierarchy.
-        routerDefaultLinkLogger.debug("A macro-first host with an expired scope ignored an incoming deep link.")
-        return
-    }
     // Decides only which host answers. Whether the link applies is decided
-    // again, from the state at execution, by the request itself.
-    let isApplicable = (try? fallbackPlan(route, arrivalState)) != nil
+    // again, from the state at execution, by the request itself. An expired
+    // scope has no state to decide from.
+    let isApplicable = scope.state.map { (try? fallbackPlan(route, $0)) != nil } ?? false
     let authorization = RouterRequestAuthorization<R>(matchedRoutes: [route], configuration: nil)
     let executionPrecondition = scope.captureLinkAuthorizationPrecondition(request: authorization)
     let path = scope.path

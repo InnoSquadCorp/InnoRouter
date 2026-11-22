@@ -41,7 +41,7 @@ package struct RoutePattern: Sendable {
         func covers(_ other: Self) -> Bool {
             switch (self, other) {
             case (.literal(let lhs), .literal(let rhs)):
-                return lhs == rhs
+                return RoutePattern.literal(lhs, isIdenticalTo: rhs)
             case (.parameter, .literal), (.parameter, .parameter):
                 return true
             case (.wildcard, _):
@@ -88,7 +88,8 @@ package struct RoutePattern: Sendable {
         for (index, patternPart) in patternParts.enumerated() {
             switch patternPart {
             case .literal(let expected):
-                guard index < pathParts.count, pathParts[index] == expected else { return nil }
+                guard index < pathParts.count,
+                      Self.literal(pathParts[index], isIdenticalTo: expected) else { return nil }
 
             case .parameter(let name):
                 guard index < pathParts.count else { return nil }
@@ -100,6 +101,13 @@ package struct RoutePattern: Sendable {
         }
 
         return MatchResult(parameters: parameters)
+    }
+
+    /// Literals compare by Unicode scalars. `String` equality is canonical
+    /// equivalence, which would let `%E2%84%AAiosk` (KELVIN SIGN) match the
+    /// literal `Kiosk` although the bytes differ.
+    fileprivate static func literal(_ lhs: String, isIdenticalTo rhs: String) -> Bool {
+        lhs.unicodeScalars.elementsEqual(rhs.unicodeScalars)
     }
 
     fileprivate var normalizedPattern: String {
@@ -186,7 +194,8 @@ package struct RoutePattern: Sendable {
         var sawParameterShadow = false
         for (lhs, rhs) in zip(patternParts, other.patternParts) {
             switch (lhs, rhs) {
-            case (.literal(let lhsValue), .literal(let rhsValue)) where lhsValue == rhsValue:
+            case (.literal(let lhsValue), .literal(let rhsValue))
+                where Self.literal(lhsValue, isIdenticalTo: rhsValue):
                 continue
             case (.parameter, .literal):
                 sawParameterShadow = true
@@ -246,7 +255,7 @@ package struct RoutePattern: Sendable {
                     continue
                 }
 
-                if earlier.normalizedPattern == later.normalizedPattern {
+                if Self.literal(earlier.normalizedPattern, isIdenticalTo: later.normalizedPattern) {
                     diagnostics.append(
                         .duplicatePattern(
                             pattern: later.normalizedPattern,

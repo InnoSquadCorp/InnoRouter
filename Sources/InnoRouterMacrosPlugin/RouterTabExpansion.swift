@@ -472,8 +472,9 @@ private func diagnoseRouterTabWarnings(
 ///
 /// The walk stops wherever `Tab` is given another meaning (a nested type, a
 /// function body, or a closure that declares its own `Tab` type, function, or
-/// value) and at a nested tab router, whose own expansion reports the calls it
-/// contains.
+/// value, or a type, function, initializer, or subscript with a generic
+/// parameter named `Tab`) and at a nested tab router, whose own expansion
+/// reports the calls it contains.
 final class ShadowedSwiftUITabCallFinder: SyntaxVisitor {
     private(set) var references: [DeclReferenceExprSyntax] = []
 
@@ -493,15 +494,15 @@ final class ShadowedSwiftUITabCallFinder: SyntaxVisitor {
     }
 
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
-        continuation(for: node.memberBlock)
+        continuation(for: node.memberBlock, genericParameters: node.genericParameterClause)
     }
 
     override func visit(_ node: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
-        continuation(for: node.memberBlock)
+        continuation(for: node.memberBlock, genericParameters: node.genericParameterClause)
     }
 
     override func visit(_ node: ActorDeclSyntax) -> SyntaxVisitorContinueKind {
-        continuation(for: node.memberBlock)
+        continuation(for: node.memberBlock, genericParameters: node.genericParameterClause)
     }
 
     override func visit(_ node: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
@@ -510,7 +511,23 @@ final class ShadowedSwiftUITabCallFinder: SyntaxVisitor {
                 attribute.as(AttributeSyntax.self).flatMap(attributeBaseName) == "TabItem"
             } ?? false
         }
-        return generatesOwnTab ? .skipChildren : continuation(for: node.memberBlock)
+        return generatesOwnTab
+            ? .skipChildren
+            : continuation(for: node.memberBlock, genericParameters: node.genericParameterClause)
+    }
+
+    /// A generic parameter named `Tab` is the meaning of `Tab` in the whole
+    /// declaration: its signature and its body.
+    override func visit(_ node: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {
+        declaresTab(node.genericParameterClause) ? .skipChildren : .visitChildren
+    }
+
+    override func visit(_ node: InitializerDeclSyntax) -> SyntaxVisitorContinueKind {
+        declaresTab(node.genericParameterClause) ? .skipChildren : .visitChildren
+    }
+
+    override func visit(_ node: SubscriptDeclSyntax) -> SyntaxVisitorContinueKind {
+        declaresTab(node.genericParameterClause) ? .skipChildren : .visitChildren
     }
 
     /// Every body is a statement list: functions, closures, and accessors.
@@ -518,9 +535,19 @@ final class ShadowedSwiftUITabCallFinder: SyntaxVisitor {
         rebindsTab(node.map { Syntax($0.item) }) ? .skipChildren : .visitChildren
     }
 
-    /// Skips a type whose own members give `Tab` another meaning.
-    private func continuation(for members: MemberBlockSyntax) -> SyntaxVisitorContinueKind {
-        rebindsTab(members.members.map { Syntax($0.decl) }) ? .skipChildren : .visitChildren
+    /// Skips a type whose generic parameters or own members give `Tab`
+    /// another meaning.
+    private func continuation(
+        for members: MemberBlockSyntax,
+        genericParameters: GenericParameterClauseSyntax?
+    ) -> SyntaxVisitorContinueKind {
+        declaresTab(genericParameters) || rebindsTab(members.members.map { Syntax($0.decl) })
+            ? .skipChildren
+            : .visitChildren
+    }
+
+    private func declaresTab(_ genericParameters: GenericParameterClauseSyntax?) -> Bool {
+        genericParameters?.parameters.contains { $0.name.text == "Tab" } ?? false
     }
 
     /// Whether one of `declarations` declares the name `Tab`: a type, a

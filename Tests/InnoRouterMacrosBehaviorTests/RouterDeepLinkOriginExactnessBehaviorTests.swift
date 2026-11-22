@@ -45,7 +45,8 @@ struct RouterDeepLinkOriginExactnessBehaviorTests {
         let kelvin = try #require(URL(string: "https://ban%E2%84%AA.example/pay/1"))
         #expect(UppercaseOriginRoute.resolveDeepLink(lowercase) == .pay(id: "1"))
         #expect(UppercaseOriginRoute.resolveDeepLink(uppercase) == .pay(id: "1"))
-        // The Kelvin sign is not the letter k, in a declaration or in a URL.
+        // A percent-encoded Kelvin sign is decoded without IDNA mapping, so
+        // it stays the Kelvin sign, which is not the letter k.
         #expect(UppercaseOriginRoute.resolveDeepLink(kelvin) == nil)
     }
 
@@ -63,6 +64,19 @@ struct RouterDeepLinkOriginExactnessBehaviorTests {
         #expect(try resolve("https://stra%C3%9Fe.example/pay/1") == nil)
         // The Kelvin sign lowercases to ASCII "k".
         #expect(try resolve("https://ban%E2%84%AA.example/pay/1") == nil)
+    }
+
+    @Test("A raw non-ASCII host is compared as Foundation's URL reports it")
+    func rawHostIsComparedAfterIDNAMapping() throws {
+        // Written raw, the host is mapped through IDNA before any comparison,
+        // as name resolution maps it: this URL names the host bank.example.
+        let raw = try #require(URL(string: "https://ban\u{212A}.example/pay/1"))
+        #expect(raw.host == "bank.example", "Foundation no longer maps a raw host through IDNA")
+        #expect(OriginExactnessRoute.resolveDeepLink(raw) == .pay(id: "1"))
+        // Percent-encoded, it is only decoded, and stays the Kelvin sign.
+        let encoded = try #require(URL(string: "https://ban%E2%84%AA.example/pay/1"))
+        #expect(encoded.host == "ban\u{212A}.example")
+        #expect(OriginExactnessRoute.resolveDeepLink(encoded) == nil)
     }
 
     @Test("Credentials and ports are rejected")

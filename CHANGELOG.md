@@ -44,6 +44,14 @@ Security). Behavior changes are marked in bold.
   mappings, typed `firstValue(forName:as:)` and `values(forName:as:)` reject or
   skip such a value, also as `String`; the untyped accessors and
   `valuesByName` still report the empty string.
+- **Path literals and query names match by Unicode scalars.** A literal was
+  compared with `String` equality, which is canonical equivalence, so
+  `/%E2%84%AAiosk`, written with the Kelvin sign, matched the pattern literal
+  `/Kiosk`, and a query name spelled with the Kelvin sign was read as `K`. A
+  literal now matches only a segment with the same scalars, and a query name
+  outside canonical composition (NFC) is filed like a name that does not
+  decode, so a route never reads it under the name it resembles. Pattern
+  diagnostics compare literals the same way.
 
 ### Added
 
@@ -83,15 +91,16 @@ Security). Behavior changes are marked in bold.
   deep-link handling and native binding writes, was made for a scope the
   restore replaced and is rejected as an expired scope, so it cannot erase the
   previous session; a waiting request sent to the Store itself runs after the
-  restore and can change or replace it. An activation that ends before its restore request runs releases the
-  hold, and the waiting requests then run on the current state: a missing
-  snapshot, `stop()`, the last detach, or a failure such as a load or
-  decoding error without a fallback from `recovery`, a snapshot that cannot be
-  reconciled with the tab topology, or a partial-restoration validator that
-  fails or exceeds its timeout. A fallback state from `recovery` is applied
-  like the snapshot. A policy or authorization that defers or rejects the
-  restoration transition ends the hold, and the waiting requests then run on
-  the state before the snapshot.
+  restore and can change or replace it. An activation that ends before its
+  restore request runs releases the hold, and the waiting requests then run
+  on the current state: a missing snapshot, `stop()`, the last detach, or a
+  failure such as a load or decoding error without a fallback from
+  `recovery`, a snapshot that cannot be reconciled with the tab topology, or
+  a partial-restoration validator that fails or exceeds its timeout. A
+  fallback state from `recovery` is applied like the snapshot. A restoration
+  transition that is deferred or rejected, by a policy or authorization or by
+  the Store when it cannot apply the restored state, ends the hold, and the
+  waiting requests then run on the state before the snapshot.
 - `RouterTabHost(_:linkHandling:)`, a nonthrowing initializer for the
   macro-first path that starts on the first declared tab, and
   `RouterTabHost.validationFailure`. An invalid hand-written `routerTabs`
@@ -109,10 +118,10 @@ Security). Behavior changes are marked in bold.
   `@TabItem` cases, which normally resolves to the generated nested `Tab`, not
   SwiftUI's. Write `SwiftUI.Tab`. Calls without a content closure are not
   diagnosed, nor is code inside a type, function, or closure that declares its
-  own `Tab`. The check matches the call's spelling, so a call to a `Tab` bound
-  by a parameter or a pattern is flagged too. A call that deliberately uses an
-  initializer added to the generated `Tab` is diagnosed as well; write it as
-  `Self.Tab(...)`.
+  own `Tab`, including as a generic parameter. The check matches the call's
+  spelling, so a call to a `Tab` bound by a parameter or a pattern is flagged
+  too. A call that deliberately uses an initializer added to the generated
+  `Tab` is diagnosed as well; write it as `Self.Tab(...)`.
 
 ### Changed
 
@@ -128,17 +137,18 @@ Security). Behavior changes are marked in bold.
 - **A host without `linkHandling` derives its link plan from the state the
   Store holds when the request executes.** The plan was built at URL arrival
   and applied turns later, so a commit landing in between was silently
-  reverted. A link that a policy deferred and that is resumed with
-  `.rebaseOnCurrentState` derives its plan again from the state at
-  resumption. 7.0 reapplied the plan built at arrival, which also reverted
-  anything committed since, such as a sign-in sheet presented over a tab. A
-  tab or split host now rejects a link resumed while a presentation still
-  covers the stack it pushes onto, so dismiss the presentation before
-  resolving the deferral; `RouterHost` still replaces its whole stack,
-  presentations included. Request observers
-  such as the Inspector see the action derived when the request is submitted
-  to the Store; a link that cannot apply then shows as an exact plan of the
-  current state, followed by its rejection.
+  reverted. `RouterHost` still replaces its whole stack, so from it only what
+  lies outside the stack, such as open windows, survives. A link that a
+  policy deferred and that is resumed with `.rebaseOnCurrentState` derives
+  its plan again from the state at resumption. 7.0 reapplied the plan built
+  at arrival, which also reverted anything committed since, such as a sign-in
+  sheet presented over a tab. A tab or split host now rejects a link resumed
+  while a presentation still covers the stack it pushes onto, so dismiss the
+  presentation before resolving the deferral; `RouterHost` still replaces its
+  whole stack, presentations included. Request observers such as the
+  Inspector see the action derived when the request is submitted to the
+  Store; a link that cannot apply then shows as an exact plan of the current
+  state, followed by its rejection.
 - **A link no host can apply when it arrives (for example a push while a
   sheet covers the stack) is decided when its request executes.** It ends as
   a rejected Store request, unless a commit before then made it applicable,
@@ -159,18 +169,37 @@ Security). Behavior changes are marked in bold.
   feature's subtree the same way and keeps the feature's scopes alive; 7.0
   replaced the subtree with the value it had when the call was made, which
   also expired every request queued after it through the same scope.
-  `RouterStore.transaction` still applies an exact plan. A deferred transaction resumed with `.rebaseOnCurrentState`
-  likewise applies its steps to the state at resumption.
+  `RouterStore.transaction` still applies an exact plan. A deferred
+  transaction resumed with `.rebaseOnCurrentState` likewise applies its steps
+  to the state at resumption.
+- **A transaction made while the router cannot read its state is rejected
+  through the Store.** Through a feature projection whose route does not
+  match, or a scope a restore or replacement has expired, `transaction(_:)`
+  returned a `.missingAuthority` outcome that no `RouterEvent` observer saw.
+  The request is now submitted without validation at the call and decided
+  when it runs, so it ends as a route-mismatch or expired-scope rejection,
+  like the other `RouterActions` requests, unless it can apply by then.
+- **A link that reaches a host whose scope a restore or replacement has
+  expired is rejected through the Store.** Between that commit and the host's
+  next render, the link was dropped with only a debug log. It now ends as an
+  expired-scope rejection that `RouterEvent` observers see, unless another
+  host can apply it.
 - `RouterPlan`'s builder no longer traps when a `.windows` step repeats an ID
-  and a later `.action` step removes one of the duplicates. Any action after
-  such a step throws `RouterMutationError.invalidTargetState(.duplicateWindow)`,
-  the error the other actions already threw.
+  and a later `.action` step removes one of the duplicates. An action after
+  such a step now fails the way the other actions already did, usually with
+  `RouterMutationError.invalidTargetState(.duplicateWindow)`.
 - `RouterTabHost` and `RouterHostViewDescriptor.tabs` now re-render when the
   Store rejects a native tab selection, for example through a policy or a busy
   rejection under `.rejectWhileBusy`. A rejection changes only the scope's
   `reconciliationRevision`, which neither tab surface read, so `TabView` could
-  keep showing the tapped tab. Both surfaces now read it, as the stack and
-  split hosts already do, and `TabView` re-reads the Store's selection.
+  keep showing the tapped tab. Both surfaces now read it, as the stack surface
+  and `RouterSplitHost` already did, and `TabView` re-reads the Store's
+  selection.
+- `RouterHostViewDescriptor.splitTwo` and `.splitThree` now re-render when the
+  Store rejects a native column change, the visibility or the preferred
+  compact column, for the same reason: they did not read the
+  `reconciliationRevision`, so `NavigationSplitView` could keep the rejected
+  columns. `RouterSplitHost` and `RouterThreeColumnSplitHost` already read it.
 
 ### Maintenance
 

@@ -63,14 +63,7 @@ public struct RouterHostViewDescriptor<R: DestinationRoute> {
             sidebar: .init(sidebar.id, shape: sidebar.content.shape),
             detail: .init(detail.id, shape: detail.content.shape)
         ), rootDeclarations: [sidebar, detail].flatMap(\.rootDeclarations)) { scope in
-            AnyView(NavigationSplitView(
-                columnVisibility: splitVisibilityBinding(scope),
-                preferredCompactColumn: preferredCompactColumnBinding(scope)
-            ) {
-                sidebar.render(in: scope)
-            } detail: {
-                detail.render(in: scope)
-            }.routerAuthority(scope, for: R.self))
+            AnyView(RouterDescriptorSplitSurface(scope: scope, sidebar: sidebar, content: nil, detail: detail))
         }
     }
 
@@ -84,16 +77,7 @@ public struct RouterHostViewDescriptor<R: DestinationRoute> {
             content: .init(content.id, shape: content.content.shape),
             detail: .init(detail.id, shape: detail.content.shape)
         ), rootDeclarations: [sidebar, content, detail].flatMap(\.rootDeclarations)) { scope in
-            AnyView(NavigationSplitView(
-                columnVisibility: splitVisibilityBinding(scope),
-                preferredCompactColumn: preferredCompactColumnBinding(scope)
-            ) {
-                sidebar.render(in: scope)
-            } content: {
-                content.render(in: scope)
-            } detail: {
-                detail.render(in: scope)
-            }.routerAuthority(scope, for: R.self))
+            AnyView(RouterDescriptorSplitSurface(scope: scope, sidebar: sidebar, content: content, detail: detail))
         }
     }
     #endif
@@ -336,3 +320,49 @@ struct RouterDescriptorTabsSurface<R: DestinationRoute>: View {
         })
     }
 }
+
+#if !os(watchOS)
+@MainActor
+struct RouterDescriptorSplitSurface<R: DestinationRoute>: View {
+    let scope: RouterScope<R>
+    let sidebar: RouterHostViewBranch<R>
+    /// The middle column of a three-column split; `nil` for two columns.
+    let content: RouterHostViewBranch<R>?
+    let detail: RouterHostViewBranch<R>
+
+    var body: some View {
+        if scope.store != nil, scope.matchesCurrentLifetime {
+            splitView(reconciliationRevision: scope.reconciliationRevision)
+        } else {
+            RouterHostRecoveryView(failure: .init(code: .stale, scope: scope.path))
+        }
+    }
+
+    /// Reading the reconciliation revision rebuilds `NavigationSplitView`
+    /// after a rejected native column change, so its bindings re-read the
+    /// canonical split state.
+    @ViewBuilder
+    private func splitView(reconciliationRevision _: UInt64) -> some View {
+        if let content {
+            NavigationSplitView(columnVisibility: columnVisibility, preferredCompactColumn: preferredCompactColumn) {
+                sidebar.render(in: scope)
+            } content: {
+                content.render(in: scope)
+            } detail: {
+                detail.render(in: scope)
+            }
+            .routerAuthority(scope, for: R.self)
+        } else {
+            NavigationSplitView(columnVisibility: columnVisibility, preferredCompactColumn: preferredCompactColumn) {
+                sidebar.render(in: scope)
+            } detail: {
+                detail.render(in: scope)
+            }
+            .routerAuthority(scope, for: R.self)
+        }
+    }
+
+    var columnVisibility: Binding<NavigationSplitViewVisibility> { splitVisibilityBinding(scope) }
+    var preferredCompactColumn: Binding<NavigationSplitViewColumn> { preferredCompactColumnBinding(scope) }
+}
+#endif

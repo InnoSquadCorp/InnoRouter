@@ -138,6 +138,31 @@ struct RouterDefaultLinkExecutionTests {
         #expect(store.revision == revision)
     }
 
+    @Test("A link that reaches a host before it renders its replaced scope is reported, not dropped")
+    func linkOnExpiredScopeIsReported() async throws {
+        let (store, host, log) = try makeFixture()
+        let replaced = store.scope()
+        // A replaced root gets a new lifetime. The host renders the new scope
+        // on its next update, and a URL can arrive before that.
+        _ = await store.replaceSubtree(with: store.state.root)
+        #expect(replaced.state == nil, "Replacing the root did not expire the host's scope")
+        let before = store.state
+        let revision = store.revision
+
+        let arbiter = RouterDeepLinkArbiter()
+        let url = try #require(URL(string: "links://tabs.test/detail"))
+        submitRouterPlanLink(
+            R.self, url: url, scope: replaced,
+            context: RouterDeepLinkContext(arbiter: arbiter, depth: 0),
+            source: RouterDeepLinkSource(), handling: nil, fallbackPlan: host.defaultLinkPlanBuilder
+        )
+        try await deliver(url, arbiter: arbiter) { !log.rejections.isEmpty }
+
+        #expect(log.rejections == [.mutation(.expiredScope(.root))])
+        #expect(store.state == before)
+        #expect(store.revision == revision)
+    }
+
     @Test("A commit that lands before the link executes is preserved")
     func interveningCommitSurvives() async throws {
         let (store, host, log) = try makeFixture()

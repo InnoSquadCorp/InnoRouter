@@ -263,4 +263,107 @@ struct RouterFeatureTransactionTests {
             .feature(.home), .feature(.detail), .feature(.home), .feature(.detail),
         ]))
     }
+
+    @Test("A transaction made while the feature's route does not match is rejected through the Store")
+    func unmatchedProjectionIsReported() async throws {
+        let store = try RouterStore<TransactionParentRoute>(initialState: .rootStack(path: [.other]))
+        let rejections = TestCell<[RouterRejectionReason]>([])
+        store.addSynchronousEventObserver { event in
+            if case .rejected(_, _, _, let reason, _) = event { rejections.value.append(reason) }
+        }
+        let feature = RouterFeatureScope(parent: store.scope(), mapping: childMapping)
+        let router = RouterActions(authority: .init(base: feature))
+        #expect(feature.state == nil, "The fixture no longer fails the projection at the call")
+
+        let transaction = try router.transaction {
+            RouterPlanStep.action(.push(.detail))
+        }
+
+        guard case .rejected(_, _, _, .featureProjection(.routeMismatch)) = await transaction.value else {
+            Issue.record("Expected a route-mismatch rejection, not an unreported missing authority")
+            return
+        }
+        #expect(rejections.value.count == 1, "The rejection never reached the Store's event observers")
+        #expect(store.state.root == .stack(path: [.other]))
+        #expect(store.revision == 0)
+    }
+
+    @Test("A transaction through an expired scope is rejected through the Store")
+    func expiredScopeIsReported() async throws {
+        let store = try RouterStore<TransactionParentRoute>(initialState: .rootStack(path: [.feature(.home)]))
+        let rejections = TestCell<[RouterRejectionReason]>([])
+        store.addSynchronousEventObserver { event in
+            if case .rejected(_, _, _, let reason, _) = event { rejections.value.append(reason) }
+        }
+        let scope = store.scope()
+        let router = RouterActions(authority: RouterAuthority(scope: scope))
+        _ = await store.replaceSubtree(with: store.state.root)
+        #expect(scope.state == nil, "Replacing the root did not expire the scope")
+        let revision = store.revision
+
+        let transaction = try router.transaction {
+            RouterPlanStep.action(.push(.other))
+        }
+
+        guard case .rejected(_, _, _, .mutation(.expiredScope(.root))) = await transaction.value else {
+            Issue.record("Expected an expired-scope rejection, not an unreported missing authority")
+            return
+        }
+        #expect(rejections.value.count == 1, "The rejection never reached the Store's event observers")
+        #expect(store.revision == revision)
+    }
+
+    @Test(
+        "A deferred transaction resumed with rebase builds on the requests that committed while it waited",
+        arguments: [false, true]
+    )
+    func rebasedTransactionBuildsOnTheResumeState(throughFeature: Bool) async throws {
+        let deferral = RouterDeferralID()
+        var configuration = RouterStoreConfiguration<TransactionParentRoute>()
+        configuration.policies = [
+            RouterPolicy(name: "sign in first") { transition in
+                guard transition.context.resumedDeferral == nil, case .apply = transition.action else {
+                    return .allow
+                }
+                return .deferRequest(deferral)
+            },
+        ]
+        let store = try RouterStore<TransactionParentRoute>(
+            initialState: .rootStack(path: [.feature(.home)]), configuration: configuration
+        )
+        if throughFeature {
+            let feature = RouterFeatureScope(parent: store.scope(), mapping: childMapping)
+            let transaction = try RouterActions(authority: .init(base: feature)).transaction {
+                RouterPlanStep.action(.push(.detail))
+            }
+            guard case .deferred = await transaction.value else {
+                Issue.record("The feature transaction was not deferred")
+                return
+            }
+        } else {
+            let transaction = try RouterActions(authority: RouterAuthority(scope: store.scope())).transaction {
+                RouterPlanStep.action(.push(.feature(.detail)))
+            }
+            guard case .deferred = await transaction.value else {
+                Issue.record("The transaction was not deferred")
+                return
+            }
+        }
+
+        // Commits while the transaction waits.
+        guard case .applied = await store.perform(.push(.feature(.home))) else {
+            Issue.record("The request made while the transaction waited did not apply")
+            return
+        }
+        let resumed = await store.resumeDeferred(deferral, strategy: .rebaseOnCurrentState)
+
+        guard case .applied = resumed else {
+            Issue.record("The rebased transaction did not apply: \(resumed)")
+            return
+        }
+        #expect(
+            store.state.root == .stack(path: [.feature(.home), .feature(.home), .feature(.detail)]),
+            "The resumed transaction reverted the request that committed while it waited"
+        )
+    }
 }

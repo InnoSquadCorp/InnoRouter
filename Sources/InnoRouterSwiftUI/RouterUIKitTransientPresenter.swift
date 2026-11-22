@@ -150,8 +150,9 @@ struct RouterUIKitTransientPresenter: UIViewControllerRepresentable {
         ) {
             guard active === attempt, let command = attempt.settle() else { return }
             isFinishing = true
+            let request = capture.submit(command)
             Task { [weak self] in
-                await capture.submit(command)
+                await request.value
                 self?.finish(attempt)
             }
         }

@@ -31,10 +31,11 @@ extension RouterScope {
     /// executed yet. A plan built when the call was made would either revert
     /// those requests or be rejected as stale because of them.
     func dispatchTransaction(
-        _ steps: [RouterPlanStep<R>],
-        resourceBudget: RouterResourceBudget
+        _ steps: [RouterPlanStep<R>]
     ) -> Task<RouterOutcome<R>, Never> {
+        guard let store else { return Task { Self.missingAuthorityOutcome() } }
         let path = path
+        let resourceBudget = store.resourceBudget
         let preparation: RouterRequestPreparationBuilder<R> = { state in
             let builder: () -> [RouterPlanStep<R>] = { steps }
             do {
@@ -43,7 +44,7 @@ extension RouterScope {
                 return .rejected(routerPreparationRejection(for: error, at: path))
             }
         }
-        if let store, resourceAdmissionRejection == nil, store.canCommitImmediately,
+        if resourceAdmissionRejection == nil, store.canCommitImmediately,
            case .action(let action) = preparation(store.state),
            let outcome = store.performImmediately(
                action, context: .init(), expectedRevision: nil,
@@ -62,7 +63,7 @@ extension RouterScope {
     ///
     /// A feature projection's transaction takes this path, so it builds on
     /// the requests made before it exactly as
-    /// ``dispatchTransaction(_:resourceBudget:)`` does. Like that request, and
+    /// ``dispatchTransaction(_:)`` does. Like that request, and
     /// unlike an exact feature plan, it reconciles scope lifetimes instead of
     /// replacing the subtree's ownership, so the requests made after it
     /// through the same scopes stay valid.
@@ -83,7 +84,7 @@ extension RouterScope {
             }
             do {
                 return prepareRouterFeaturePlan(
-                    node: try transform(current), at: path, in: state, resourceBudget: resourceBudget
+                    node: try transform(current, resourceBudget), at: path, in: state, resourceBudget: resourceBudget
                 )
             } catch {
                 return .rejected(routerPreparationRejection(for: error, at: path))
@@ -93,7 +94,7 @@ extension RouterScope {
         guard let currentNode = store.state.node(at: path) else {
             return store.rejectRequest(reason: .mutation(.incompatibleNavigationTopology(path)), context: context)
         }
-        let submittedNode = (try? transform(currentNode)) ?? currentNode
+        let submittedNode = (try? transform(currentNode, resourceBudget)) ?? currentNode
         let submittedAction: RouterAction<R> = switch prepareRouterFeaturePlan(
             node: submittedNode, at: path, in: store.state, resourceBudget: resourceBudget
         ) {

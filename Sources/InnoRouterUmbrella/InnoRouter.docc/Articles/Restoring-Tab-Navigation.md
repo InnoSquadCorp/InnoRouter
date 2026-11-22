@@ -162,8 +162,10 @@ snapshot, the driver stops or its last attachment detaches, or activation fails
 because the load or decoding fails without a recovery fallback, the snapshot
 cannot be reconciled with the tab topology, or a validator fails or exceeds its
 timeout), nothing replaced the scopes and the waiting requests run on the
-current state. If a policy or authorization defers or rejects the restoration
-transition, the hold ends with it, and the waiting requests run on the state
+current state. If the restoration transition is deferred or rejected, by a
+policy or authorization or by the Store when it cannot apply the restored state
+(for example because the state breaks the host contract or exceeds the resource
+budget), the hold ends with it, and the waiting requests run on the state
 before the snapshot. Navigation is closed for the whole load, decoding, and
 validation, so keep storage bounded and give a validator a
 `validationTimeout`.

@@ -8,7 +8,10 @@ struct RouterTransientPresentationCapture {
     let kind: RouterPresentationFamilyKind
     let content: RouterTransientPresentationContent
     let isCurrent: @MainActor () -> Bool
-    let submit: @MainActor (RouterNativePresentationAttempt.Command) async -> Void
+    /// Starts the Store request for a settled native response. The owning
+    /// Store counts it from this call, as it counts a native binding's write,
+    /// so a request made later in the same turn cannot commit ahead of it.
+    let submit: @MainActor (RouterNativePresentationAttempt.Command) -> Task<Void, Never>
 
     init?<R: Route>(owner: RouterScope<R>) {
         _ = owner.observedPresentationFamily
@@ -25,11 +28,13 @@ struct RouterTransientPresentationCapture {
         self.kind = family.kind
         self.isCurrent = { owner.matchesCurrentLifetime && owner.presentationHandle() == handle }
         self.submit = { command in
-            switch command {
-            case .select(let action, let captured):
-                _ = await owner.selectPresentationAction(action, using: captured, context: .init(source: .system))
-            case .dismiss(let captured):
-                _ = await owner.dismissPresentation(using: captured, context: .init(source: .system))
+            owner.startDispatch {
+                switch command {
+                case .select(let action, let captured):
+                    _ = await owner.selectPresentationAction(action, using: captured, context: .init(source: .system))
+                case .dismiss(let captured):
+                    _ = await owner.dismissPresentation(using: captured, context: .init(source: .system))
+                }
             }
         }
     }
