@@ -12,11 +12,10 @@ extension RouterFeatureScope {
     /// value that predates the fire-and-forget requests made before it, and so
     /// silently revert them.
     func dispatchTransaction(
-        _ steps: [RouterPlanStep<Child>],
-        resourceBudget: RouterResourceBudget
+        _ steps: [RouterPlanStep<Child>]
     ) -> Task<RouterOutcome<Child>, Never> {
         let namespace = mapping.namespace
-        let transform: RouterFeatureNodeTransform<Child> = { node in
+        let transform: RouterFeatureNodeTransform<Child> = { node, resourceBudget in
             let builder: () -> [RouterPlanStep<Child>] = { steps }
             let plan = try RouterPlan(from: RouterState(root: node), resourceBudget: resourceBudget, builder)
             guard plan.state.windows.isEmpty, plan.state.immersiveSpace == nil else {
@@ -40,18 +39,20 @@ extension RouterFeatureScope {
         context: RouterTransitionContext,
         features childFeatures: [RouterFeatureCatalogEntry]
     ) async -> RouterOutcome<Child> {
-        guard let resourceBudget else {
+        // An expired parent is reported as a route mismatch, exactly as the
+        // feature's other requests report it.
+        guard resourceBudget != nil else {
             return projectionRejection(.routeMismatch(namespace: mapping.namespace))
         }
         let mapping = self.mapping
-        let parentTransform: RouterFeatureNodeTransform<Parent> = { node in
+        let parentTransform: RouterFeatureNodeTransform<Parent> = { node, resourceBudget in
             let current: RouterNode<Child>
             do {
                 current = try mapping.projectState(from: node).root
             } catch {
                 throw RouterFeatureProjectionError.routeMismatch(namespace: mapping.namespace)
             }
-            let next = try transform(current)
+            let next = try transform(current, resourceBudget)
             do {
                 let state = try RouterStateDraft(root: next).build(resourceBudget: resourceBudget)
                 return try mapping.embedPlanRoot(RouterPlan(state: state))

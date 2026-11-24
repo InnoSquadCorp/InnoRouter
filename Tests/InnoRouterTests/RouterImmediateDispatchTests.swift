@@ -367,6 +367,33 @@ struct RouterImmediateDispatchTests {
         #expect(store.state.root == .stack(path: [.second]))
     }
 
+    @Test("A native alert response made earlier in the turn still runs first")
+    func earlierNativeAlertResponseKeepsItsPlace() async throws {
+        let (store, router, _) = try makeStore(.immediateWhenIdle)
+        let alert = RouterTransientPresentation(content: .init(title: "Title", actions: [.init(id: "ok", label: "OK")]))
+        guard case .applied = await store.perform(.presentAlert(alert)) else {
+            Issue.record("The alert was not presented")
+            return
+        }
+        let capture = try #require(RouterTransientPresentationCapture(owner: store.scope()))
+        let revision = store.revision
+
+        // What an alert button's handler does once the response is settled.
+        let response = capture.submit(.select("ok", capture.handle))
+        #expect(store.dispatchGate.unstartedDispatches == 1, "The alert response was not counted")
+        // Made later in the same turn: it must not commit under the alert
+        // that the response is about to close.
+        let push = router.go(.second)
+        #expect(store.revision == revision, "The later request committed ahead of the alert response")
+
+        await response.value
+        guard case .applied = await push.value else {
+            Issue.record("The push overtook the alert response and was rejected under the alert")
+            return
+        }
+        #expect(store.state.root == .stack(path: [.second]))
+    }
+
     @Test("Requests keep call order across a re-entrant fallback")
     func callOrderSurvivesReentrantFallback() async throws {
         let (store, router, _) = try makeStore(.immediateWhenIdle)

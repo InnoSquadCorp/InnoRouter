@@ -29,8 +29,10 @@ navigation authority.
 
 ### Added in 7.1.0
 
-Version 7.1.0 adds opt-in behaviors and conveniences; the defaults keep the
-7.0 behavior.
+Version 7.1.0 adds the opt-in behaviors and conveniences below, each off by
+default. Some fixes apply without opting in: `router.transaction` and a host's
+default link handling build on the state the Store holds when their request
+runs, and deep-link admission is stricter, as described after the list.
 
 - Set `RouterStoreConfiguration.dispatchTiming` to `.immediateWhenIdle` to let
   a fire-and-forget request made through `RouterActions` (`router.go(_:)` and
@@ -59,8 +61,10 @@ Version 7.1.0 adds opt-in behaviors and conveniences; the defaults keep the
   Stores already declared for `RouterHost(store:)` and `RouterTabHost(store:)`.
 
 Deep-link admission is stricter: origins match byte for byte after folding
-ASCII case only, user information is rejected in any form, and percent-encoding
-that is not valid UTF-8 is never accepted as a value.
+ASCII case only, user information is rejected in any form, path literals and
+query names match by Unicode scalars, and percent-encoding that is not valid
+UTF-8 is never accepted as a typed value; the untyped parameter accessors
+report it as the empty string.
 
 ### Added in 6.1.0
 

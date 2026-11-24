@@ -21,17 +21,28 @@ authentication without parsing the URL again.
 1. Reject disallowed origins and input-limit violations. Origins match the
    allow-list byte for byte after folding ASCII case only, with no Unicode case
    mapping or normalization; user information in any form and explicit ports
-   are rejected.
+   are rejected. The host compared is the one `URL` reports: a percent-encoded
+   host is only decoded, but a host written with raw non-ASCII characters is
+   first mapped through IDNA, as name resolution maps it, so a raw Kelvin sign
+   arrives as `k`.
 2. Match a route or a complete plan.
 3. Build the exact target `RouterPlan`.
 4. Return the plan, retain it as pending, or report unhandled input.
 5. Resume a pending plan explicitly after authentication when needed.
 6. Apply an accepted plan through `RouterStore.perform(.apply(plan))`.
 
-Percent-encoding that is not valid UTF-8 is never accepted as a value: a path
-segment a pattern compares or captures makes the URL unmatched, and a typed
-read of such a query value fails, including as `String`. Query items a route
-does not read do not affect the match.
+Percent-encoding that is not valid UTF-8 is never accepted as a typed value: a
+path segment a pattern compares or captures makes the URL unmatched, and a
+typed read of such a query value fails, including as `String`. The untyped
+accessors `firstValue(forName:)`, `values(forName:)`, and `valuesByName` report
+it as the empty string, as in 7.0. Query items a route does not read do not
+affect the match.
+
+Path literals and query names compare by Unicode scalars, not by canonical
+equivalence: `/%E2%84%AAiosk`, written with the Kelvin sign, does not match the
+literal `/Kiosk`. A query name outside canonical composition (NFC) is filed
+like a name that does not decode, so it is never read as the name it
+resembles.
 
 URL parsing never mutates navigation state and never performs authentication,
 networking, analytics, or persistence.

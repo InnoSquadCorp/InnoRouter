@@ -212,6 +212,12 @@ public struct RouterActions<R: Route>: Sendable {
     /// made before it instead of reverting them. If the steps no longer apply
     /// to that state, the request is rejected with the reducer's reason.
     ///
+    /// When this router cannot read its state at the call, because its scope
+    /// was replaced or a feature projection's route does not match, nothing
+    /// is validated here. The request is still submitted and decided when it
+    /// runs, so one that still cannot apply ends as a rejected request with a
+    /// ``RouterEvent``, like the other methods' requests.
+    ///
     /// Through a feature projection, the steps are applied to that feature's
     /// subtree as the Store holds it when the request runs.
     /// ``RouterStore/transaction(_:)`` builds an exact plan at the call
@@ -223,14 +229,17 @@ public struct RouterActions<R: Route>: Sendable {
         guard let authority = routerAuthority(action: "transaction(_:)") else {
             return missingAuthorityTask()
         }
-        guard let state = authority.state, let resourceBudget = authority.resourceBudget else {
-            return missingAuthorityTask()
-        }
+        // Read before the builder runs: a request it dispatches is decided
+        // with the transaction when it runs, not by this validation.
+        let state = authority.state
+        let resourceBudget = authority.resourceBudget
         let steps = build()
-        let builder: () -> [RouterPlanStep<R>] = { steps }
-        // Building once now keeps an invalid transaction a thrown error.
-        _ = try RouterPlan(from: state, resourceBudget: resourceBudget, builder)
-        return authority.dispatchTransaction(steps, resourceBudget: resourceBudget)
+        if let state, let resourceBudget {
+            let builder: () -> [RouterPlanStep<R>] = { steps }
+            // Building once now keeps an invalid transaction a thrown error.
+            _ = try RouterPlan(from: state, resourceBudget: resourceBudget, builder)
+        }
+        return authority.dispatchTransaction(steps)
     }
 
     /// Updates native split-column visibility at the owning store root.

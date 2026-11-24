@@ -16,7 +16,9 @@ struct DeepLinkParser: Sendable {
         /// affect the match.
         let malformedPathIndices: Set<Int>
         /// Positions in `queryItems[name]` whose value (or whose name, filed
-        /// under the empty name) does not percent-decode to UTF-8.
+        /// under the empty name) does not percent-decode to UTF-8, or whose
+        /// name is not in Unicode canonical composition (also filed under the
+        /// empty name).
         let undecodableQueryValues: [String: Set<Int>]
 
         /// Positions of those values in a match's merged parameters. Path
@@ -63,10 +65,16 @@ struct DeepLinkParser: Sendable {
             var parsedQueryItems: [String: [String]] = [:]
             var undecodableQueryValues: [String: Set<Int>] = [:]
             for encoded in components?.percentEncodedQueryItems ?? [] {
-                let decodedName = encoded.name.removingPercentEncoding
+                // Names are grouped and read by `String` equality, which is
+                // canonical equivalence: a name spelled with KELVIN SIGN would
+                // be read as `K`. A name outside canonical composition (NFC)
+                // is therefore filed like a name that does not decode.
+                let exactName = encoded.name.removingPercentEncoding.flatMap {
+                    Self.isCanonicallyComposed($0) ? $0 : nil
+                }
                 let decodedValue = encoded.value.map { $0.removingPercentEncoding }
-                let name = decodedName ?? ""
-                var isUndecodable = decodedName == nil
+                let name = exactName ?? ""
+                var isUndecodable = exactName == nil
                 if case .some(nil) = decodedValue { isUndecodable = true }
                 if isUndecodable {
                     undecodableQueryValues[name, default: []].insert(parsedQueryItems[name]?.count ?? 0)
@@ -80,6 +88,11 @@ struct DeepLinkParser: Sendable {
             // grammar matches scheme, host, path, and query only, so a
             // stored fragment would imply matching support that does not
             // exist.
+        }
+
+        private static func isCanonicallyComposed(_ name: String) -> Bool {
+            name.utf8.allSatisfy { $0 < 0x80 }
+                || name.unicodeScalars.elementsEqual(name.precomposedStringWithCanonicalMapping.unicodeScalars)
         }
     }
 

@@ -191,9 +191,11 @@ What the waiting requests do depends on how the hold ends:
   `validationTimeout`. Nothing replaced the scopes, so the waiting requests run
   on the current state. A fallback state that `recovery` returns is applied
   like a restored snapshot, so the first case applies instead.
-- **A policy or authorization defers or rejects the restoration transition.**
-  The hold ends with that outcome: the waiting requests run on the state
-  before the snapshot, and what they commit is saved.
+- **The restoration transition is deferred or rejected**, by a policy or
+  authorization, or by the store itself when it cannot apply the restored
+  state, for example because the state breaks the host contract or exceeds the
+  resource budget. The hold ends with that outcome: the waiting requests run on
+  the state before the snapshot, and what they commit is saved.
 
 Keep the storage's load bounded and give a validator a `validationTimeout`,
 because navigation is closed for the duration.
@@ -377,14 +379,21 @@ in-memory link.
 
 Origins are compared exactly, byte for byte after folding ASCII case only, so a
 percent-encoded host that merely resembles an allowed one after Unicode case
-mapping or normalization is rejected. A user or password component is rejected
+mapping or normalization is rejected. The host compared is the one `URL`
+reports: a percent-encoded host is only decoded, but a host written with raw
+non-ASCII characters is first mapped through IDNA, as name resolution maps it,
+so a raw Kelvin sign arrives as `k`. A user or password component is rejected
 in any form, including one that does not decode. Percent-encoding that is not
 valid UTF-8 is never accepted as a value: a path segment a pattern reads then
 matches nothing, and a query value is invalid for every type, `String` included,
 so a generated route that reads it does not resolve. A query item the route does
 not read, or a segment a trailing wildcard swallows, does not decide the match.
 In a hand-written mapping, the typed `firstValue(forName:as:)` rejects such a
-value; the untyped accessors report it as the empty string.
+value; the untyped accessors report it as the empty string. Path literals and
+query names compare by Unicode scalars, not by canonical equivalence:
+`/%E2%84%AAiosk`, written with the Kelvin sign, does not match the literal
+`/Kiosk`, and a query name outside canonical composition (NFC) is filed like a
+name that does not decode, so it is never read as the name it resembles.
 
 A host without `linkHandling` applies a resolved link as one ordinary store
 request. `RouterHost` shows the route directly above its root, replacing the
@@ -392,7 +401,10 @@ previous stack and anything presented over it; `RouterTabHost` selects a tab
 root or pushes onto the selected tab; `RouterSplitHost` pushes onto its detail
 column. The exact plan is derived from
 the state the store holds when the request executes, so a commit that lands
-between URL arrival and execution is preserved. A link the host cannot apply—
+between URL arrival and execution is not reverted by an outdated plan:
+`RouterTabHost` and `RouterSplitHost` build on it, and `RouterHost` still
+replaces its stack, keeping only what lies outside it, such as open windows. A
+link the host cannot apply—
 for example a push while a sheet covers the stack—yields to another host that
 can apply it when the URL arrives. When no host can, the request is still
 submitted and decided when it runs: if a commit made the link applicable in

@@ -72,8 +72,9 @@ struct RouterWatchTransientPresenter: View {
         ) {
             guard active === attempt, let command = attempt.settle() else { return }
             isPresented = false
+            let request = capture.submit(command)
             Task { [weak self] in
-                await capture.submit(command)
+                await request.value
                 guard let self, self.active === attempt else { return }
                 attempt.retire()
                 self.active = nil

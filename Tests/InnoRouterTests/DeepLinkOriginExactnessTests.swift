@@ -251,6 +251,42 @@ struct DeepLinkOriginExactnessTests {
         #expect(named.match("https://bank.example/search?%71=%FF&q=ok") == "ok")
     }
 
+    @Test("Path literals and query names match by Unicode scalars, not canonical equivalence")
+    func literalsAndQueryNamesAreExact() throws {
+        // `%E2%84%AA` is KELVIN SIGN, which `String ==` treats as `K`.
+        #expect("\u{212A}iosk" == "Kiosk", "The fixture no longer exercises canonical equivalence")
+        let matcher = DeepLinkMatcher<String> {
+            DeepLinkMapping("/Kiosk") { _ in "kiosk" }
+            DeepLinkMapping("/search") { parameters in
+                guard parameters.firstValue(forName: "K") != nil else { return "<none>" }
+                return parameters.values(forName: "K", as: String.self).joined(separator: ",")
+            }
+            DeepLinkMapping("/cafe") { parameters in
+                parameters.firstValue(forName: "caf\u{E9}") ?? "<none>"
+            }
+        }
+
+        #expect(matcher.match("https://bank.example/Kiosk") == "kiosk")
+        #expect(matcher.match("https://bank.example/%E2%84%AAiosk") == nil)
+
+        #expect(matcher.match("https://bank.example/search?K=1") == "1")
+        #expect(matcher.match("https://bank.example/search?%E2%84%AA=1") == "<none>")
+        #expect(matcher.match("https://bank.example/search?%E2%84%AA=1&K=2") == "2")
+        #expect(matcher.match("https://bank.example/search?K=2&%E2%84%AA=1") == "2")
+
+        // A composed name reads; its decomposed spelling is not read as it.
+        #expect(matcher.match("https://bank.example/cafe?caf%C3%A9=1") == "1")
+        #expect(matcher.match("https://bank.example/cafe?cafe%CC%81=1") == "<none>")
+    }
+
+    @Test("Pattern diagnostics compare literals by Unicode scalars")
+    func diagnosticsCompareLiteralsExactly() {
+        let patterns = [RoutePattern("/Kiosk"), RoutePattern("/\u{212A}iosk"), RoutePattern("/Kiosk")]
+        #expect(RoutePattern.makeDiagnostics(for: patterns) == [
+            .duplicatePattern(pattern: "/Kiosk", firstIndex: 0, duplicateIndex: 2),
+        ])
+    }
+
     @Test("Undecodable query items still count toward the item limit")
     func undecodableItemsCountTowardLimits() throws {
         let limits = DeepLinkInputLimits(maxQueryItems: 1)

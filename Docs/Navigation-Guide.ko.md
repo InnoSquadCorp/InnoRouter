@@ -147,8 +147,10 @@ deep link 처리·scene lifecycle이 만든 요청은 store에 도달한 뒤부�
   topology에 맞출 수 없거나, 부분 복원 검증기가 실패하거나 `validationTimeout`을 넘기면
   실패합니다. scope가 대체되지 않았으므로 대기하던 요청은 현재 상태에서 실행됩니다.
   `recovery`가 돌려준 대체 상태는 복원된 snapshot처럼 적용되므로 첫 번째 경우에 해당합니다.
-- **policy나 authorization이 복원 transition을 defer하거나 거절한 경우.** 대기는 그 결과와 함께
-  끝나고, 대기하던 요청은 snapshot 이전 상태에서 실행되며 그 결과가 저장됩니다.
+- **복원 transition이 defer되거나 거절된 경우.** policy나 authorization이 그렇게 할 수도 있고,
+  복원된 상태가 host 계약을 어기거나 resource budget을 넘는 등 store가 적용할 수 없으면 store가
+  거절합니다. 대기는 그 결과와 함께 끝나고, 대기하던 요청은 snapshot 이전 상태에서 실행되며 그
+  결과가 저장됩니다.
 
 그동안 navigation이 닫히므로 저장소의 load 시간을 제한하고 검증기에는 `validationTimeout`을
 주세요.
@@ -304,19 +306,26 @@ plan 전체를 보관합니다. `RouterPendingLinkSlot`은 교체·취소·재�
 
 origin은 ASCII 대소문자만 접은 뒤 byte 단위로 정확히 비교합니다. 따라서 Unicode
 대소문자 변환이나 정규화를 거쳐야 허용 값과 같아지는 percent-encoding host는
-거절합니다. user·password component는 해석할 수 없는 형태를 포함해 모두 거절합니다.
+거절합니다. 비교하는 host는 `URL`이 보고하는 값입니다. percent-encoding host는 디코딩만
+하지만, 비ASCII 문자를 그대로 쓴 host는 이름 해석처럼 IDNA 변환을 먼저 거치므로 그대로 쓴
+Kelvin 기호는 `k`로 도착합니다. user·password component는 해석할 수 없는 형태를 포함해 모두 거절합니다.
 올바른 UTF-8이 아닌 percent-encoding은 값으로 받아들이지 않습니다. pattern이 읽는
 path segment라면 어떤 것과도 일치하지 않고, query 값이라면 `String`을 포함한 모든
 type에서 잘못된 값이므로 그 값을 읽는 생성 route는 해석되지 않습니다. route가 읽지
 않는 query item과 마지막 wildcard가 삼키는 segment는 일치 여부를 좌우하지 않습니다.
 직접 작성한 mapping에서는 typed `firstValue(forName:as:)`가 그런 값을 거절하고, type을
-지정하지 않는 accessor는 빈 문자열로 보고합니다.
+지정하지 않는 accessor는 빈 문자열로 보고합니다. path literal과 query 이름은 정규 등가가
+아니라 Unicode scalar로 비교합니다. Kelvin 기호로 쓴 `/%E2%84%AAiosk`는 literal `/Kiosk`와
+일치하지 않고, 정규 합성형(NFC)이 아닌 query 이름은 디코딩할 수 없는 이름처럼 처리되어 닮은
+이름으로 읽히지 않습니다.
 
 `linkHandling`이 없는 host는 해석한 link를 일반 store 요청 하나로 적용합니다.
 `RouterHost`는 route를 root 바로 위에 표시하며 기존 stack과 그 위에 표시된 화면을
 대체하고, `RouterTabHost`는 tab root를 선택하거나 선택된 tab에 push하며,
 `RouterSplitHost`는 detail column에 push합니다. exact plan은 요청이 실행되는 시점의 store 상태에서 만들기 때문에
-URL 도착과 실행 사이에 들어온 commit은 보존됩니다. host가 적용할 수 없는 link(예:
+URL 도착과 실행 사이에 들어온 commit을 오래된 plan으로 되돌리지 않습니다. `RouterTabHost`와
+`RouterSplitHost`는 그 commit 위에 적용하고, `RouterHost`는 여전히 stack을 대체하므로 열린
+window처럼 stack 밖에 있는 것만 유지됩니다. host가 적용할 수 없는 link(예:
 sheet가 stack을 덮은 상태의 push)는 URL이 도착한 시점에 적용할 수 있는 다른 host에
 양보합니다. 어떤 host도 적용할 수 없을 때도 요청은 제출되고 실행 시점에 결정됩니다. 그사이
 commit으로 link를 적용할 수 있게 되었으면 적용되고, 그렇지 않으면 조용히 사라지지 않고

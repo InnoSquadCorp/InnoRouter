@@ -22,7 +22,7 @@ struct RouterNativeTransientCaptureTests {
         #expect(capture.kind == (dialog ? .confirmationDialog : .alert))
         #expect(capture.content == value.content)
         #expect(capture.isCurrent())
-        await capture.submit(.select("cancel", capture.handle))
+        await capture.submit(.select("cancel", capture.handle)).value
         #expect(!capture.isCurrent())
         #expect(store.state == .rootStack)
         _ = await store.perform(.present(.init(route: .root, style: .sheet)))
@@ -42,10 +42,10 @@ struct RouterNativeTransientCaptureTests {
         #expect(old.handle != current.handle)
         #expect(!old.isCurrent())
         #expect(current.isCurrent())
-        await old.submit(dismiss ? .dismiss(old.handle) : .select("ok", old.handle))
+        await old.submit(dismiss ? .dismiss(old.handle) : .select("ok", old.handle)).value
         #expect(store.revision == revision)
         #expect(current.isCurrent())
-        await current.submit(.select("ok", current.handle))
+        await current.submit(.select("ok", current.handle)).value
         #expect(store.revision == revision + 1)
         #expect(store.state == .rootStack)
     }
@@ -63,7 +63,7 @@ struct RouterNativeTransientCaptureTests {
         old.select("ok")
         let command = try #require(old.settle())
         let revision = store.revision
-        await capture.submit(command)
+        await capture.submit(command).value
         #expect(store.revision == revision)
         #expect(capture.isCurrent())
         old.retire()
@@ -71,7 +71,7 @@ struct RouterNativeTransientCaptureTests {
         shouldReject.value = false
         let fresh = RouterNativePresentationAttempt(handle: capture.handle)
         fresh.select("ok")
-        await capture.submit(try #require(fresh.settle()))
+        await capture.submit(try #require(fresh.settle())).value
         #expect(store.revision == revision + 1)
         #expect(!capture.isCurrent())
     }

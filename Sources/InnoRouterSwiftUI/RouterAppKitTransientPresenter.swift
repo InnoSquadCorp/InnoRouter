@@ -97,8 +97,9 @@ struct RouterAppKitTransientPresenter: NSViewRepresentable {
                 attempt.nativeDismissalObserved()
             }
             guard let command = attempt.settle() else { finish(attempt); return }
+            let request = capture.submit(command)
             Task { [weak self] in
-                await capture.submit(command)
+                await request.value
                 self?.finish(attempt)
             }
         }

@@ -707,6 +707,73 @@ struct RouterCompositionMacroTests {
         )
     }
 
+    @Test("A call to a generic parameter named Tab is not diagnosed")
+    func genericTabParameterIsNotDiagnosed() {
+        // Qualifying these calls as `SwiftUI.Tab` would break them, so W013
+        // must not offer its Fix-It here.
+        assertMacroExpansion(
+            """
+            @Router
+            enum AppRoute {
+                @TabItem("Home", systemImage: "house")
+                case home
+                var destination: some View { EmptyView() }
+                static func make<Tab: Builder>(_ type: Tab.Type) -> Tab { Tab { "built" } }
+                struct Box<Tab: Builder> {
+                    let value = Tab { "boxed" }
+                }
+            }
+            """,
+            expandedSource: """
+            enum AppRoute {
+                case home
+                @Swift.MainActor @SwiftUI.ViewBuilder
+                var destination: some View { EmptyView() }
+                static func make<Tab: Builder>(_ type: Tab.Type) -> Tab { Tab { "built" } }
+                struct Box<Tab: Builder> {
+                    let value = Tab { "boxed" }
+                }
+            }
+
+            extension AppRoute: InnoRouterSwiftUI.DestinationRoute, InnoRouterSwiftUI.RouterTabRoute {
+                @Swift.MainActor
+                @SwiftUI.ViewBuilder
+                internal static func destination(for route: Self) -> some SwiftUI.View {
+                    route.destination
+                }
+
+                internal enum Tab: Swift.String, InnoRouterSwiftUI.RouterTab {
+                    case home
+
+                    internal var title: Foundation.LocalizedStringResource {
+                        switch self {
+                        case .home:
+                            return "Home"
+                        }
+                    }
+
+                    internal var systemImage: Swift.String {
+                        switch self {
+                        case .home:
+                            return "house"
+                        }
+                    }
+
+                    internal var routerScopeID: InnoRouterCore.RouterScopeID {
+                        InnoRouterCore.RouterScopeID(rawValue)
+                    }
+                }
+
+                internal static var routerTabs: [InnoRouterSwiftUI.RouterTabDescriptor<Self, Tab>] {
+                    [.init(tab: .home, root: .home)]
+                }
+            }
+            """,
+            diagnostics: [],
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Duplicate @TabItem offers a removal fix-it")
     func duplicateTabItemFixIt() {
         assertMacroExpansion(

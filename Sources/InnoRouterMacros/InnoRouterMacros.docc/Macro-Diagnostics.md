@@ -8,8 +8,11 @@ Use the stable code printed at the start of an InnoRouter macro diagnostic to
 find the recovery without depending on the compiler's surrounding wording.
 Errors prevent the macro from emitting an incomplete routing contract.
 Warnings identify valid code whose generated behavior is likely surprising or
-whose explicit declarations are redundant. A code is never reused: a missing
-number belongs to a diagnostic that an earlier major release retired.
+whose explicit declarations are redundant. A missing number belongs to a
+diagnostic that an earlier release retired. A retired number can be assigned
+again later: `E009` reported a missing `@TabItem` in 5.x and reports a
+duplicate tab scope ID since 6.1, so read a code against the documentation
+for the release you build with.
 
 ## Enum and case-path declarations
 
@@ -45,7 +48,7 @@ number belongs to a diagnostic that an earlier major release retired.
 | `InnoRouterMacro.E015` | Error | Tab cases or their attributes are declared inside conditional compilation. Declare the same tab set for every build configuration. |
 | `InnoRouterMacro.E016` | Error | A type-level declaration collides with the generated `Tab` type or `routerTabs` catalog: a `static`/`class` property, a nested type, or a case of that name. Rename it or remove all tab annotations. An instance property of the same name is legal and is not reported, and a declaration inside `#if` is left to the compiler. |
 | `InnoRouterMacro.W004` | Warning | `RouterTab` is written explicitly even though `@Router` supplies it when tabs are marked. Remove the conformance. |
-| `InnoRouterMacro.W013` | Warning | The macro diagnoses, by its spelling, an unqualified `Tab(...)` call with a content closure written inside an `@Router` enum with `@TabItem` cases, because such a call normally resolves to the generated nested `Tab`, not SwiftUI's tab content. Write `SwiftUI.Tab`. Calls without a content closure, such as `Tab(rawValue:)`, are not diagnosed, and neither is code inside a type, function, or closure that declares its own `Tab` type, function, or value. Because the check is syntactic, a `Tab` bound by a parameter or by a pattern such as `if let` is not seen, and a call to it is diagnosed too; check what such a call refers to before applying the Fix-It. An initializer with a content closure that you add to the generated type has the same shape and is diagnosed; write `Self.Tab(...)` for it. Calls in extensions of the router are outside the macro's view; qualify them the same way. |
+| `InnoRouterMacro.W013` | Warning | The macro diagnoses, by its spelling, an unqualified `Tab(...)` call with a content closure written inside an `@Router` enum with `@TabItem` cases, because such a call normally resolves to the generated nested `Tab`, not SwiftUI's tab content. Write `SwiftUI.Tab`. Calls without a content closure, such as `Tab(rawValue:)`, are not diagnosed, and neither is code inside a type, function, or closure that declares its own `Tab` type, function, or value, or inside a type, function, initializer, or subscript with a generic parameter named `Tab`. Because the check is syntactic, a `Tab` bound by a parameter or by a pattern such as `if let` is not seen, and a call to it is diagnosed too; check what such a call refers to before applying the Fix-It. An initializer with a content closure that you add to the generated type has the same shape and is diagnosed; write `Self.Tab(...)` for it. Calls in extensions of the router are outside the macro's view; qualify them the same way. |
 
 ## Deep links
 
