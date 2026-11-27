@@ -472,9 +472,13 @@ private func diagnoseRouterTabWarnings(
 ///
 /// The walk stops wherever `Tab` is given another meaning (a nested type, a
 /// function body, or a closure that declares its own `Tab` type, function, or
-/// value, or a type, function, initializer, or subscript with a generic
-/// parameter named `Tab`) and at a nested tab router, whose own expansion
-/// reports the calls it contains.
+/// value, a nested enum with a case named `Tab`, or a type, function,
+/// initializer, or subscript with a generic parameter named `Tab`) and at a
+/// nested tab router, whose own expansion reports the calls it contains.
+///
+/// A `Tab` that a nested type inherits, from a protocol extension, a
+/// superclass, or an extension written elsewhere, is outside the syntax this
+/// walk can see, like one bound by a parameter or a pattern.
 final class ShadowedSwiftUITabCallFinder: SyntaxVisitor {
     private(set) var references: [DeclReferenceExprSyntax] = []
 
@@ -551,7 +555,8 @@ final class ShadowedSwiftUITabCallFinder: SyntaxVisitor {
     }
 
     /// Whether one of `declarations` declares the name `Tab`: a type, a
-    /// type alias, a function, or a value such as a stored closure.
+    /// type alias, a function, an enum case, or a value such as a stored
+    /// closure.
     private func rebindsTab(_ declarations: [Syntax]) -> Bool {
         declarations.contains { declaration in
             // A declaration inside any `#if` clause may be the active one;
@@ -569,6 +574,10 @@ final class ShadowedSwiftUITabCallFinder: SyntaxVisitor {
                 return variable.bindings.contains {
                     $0.pattern.as(IdentifierPatternSyntax.self)?.identifier.text == "Tab"
                 }
+            }
+            // Inside the enum that declares it, `Tab(...)` builds the case.
+            if let enumCase = declaration.as(EnumCaseDeclSyntax.self) {
+                return enumCase.elements.contains { $0.name.text == "Tab" }
             }
             let name = declaration.as(TypeAliasDeclSyntax.self)?.name
                 ?? declaration.as(StructDeclSyntax.self)?.name

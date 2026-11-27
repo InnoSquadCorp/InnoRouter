@@ -21,10 +21,11 @@ authentication without parsing the URL again.
 1. Reject disallowed origins and input-limit violations. Origins match the
    allow-list byte for byte after folding ASCII case only, with no Unicode case
    mapping or normalization; user information in any form and explicit ports
-   are rejected. The host compared is the one `URL` reports: a percent-encoded
-   host is only decoded, but a host written with raw non-ASCII characters is
-   first mapped through IDNA, as name resolution maps it, so a raw Kelvin sign
-   arrives as `k`.
+   are rejected, as are a port delimiter with no port (`host:`) and square
+   brackets around a host that is not an IPv6 address. The host compared is
+   the one `URL` reports: a percent-encoded host is only decoded, but a host
+   written with raw non-ASCII characters is first mapped through IDNA, as name
+   resolution maps it, so a raw Kelvin sign arrives as `k`.
 2. Match a route or a complete plan.
 3. Build the exact target `RouterPlan`.
 4. Return the plan, retain it as pending, or report unhandled input.

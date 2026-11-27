@@ -85,6 +85,24 @@ struct RouterDeepLinkOriginExactnessBehaviorTests {
         #expect(try resolve("https://bank.example:8443/pay/1") == nil)
     }
 
+    @Test("An empty port and a bracketed host name are rejected")
+    func malformedAuthorityIsRejected() throws {
+        // Controls: Foundation reads both as the plain host with no port.
+        let emptyPort = try #require(URL(string: "https://bank.example:/pay/1"))
+        let bracketed = try #require(URL(string: "https://[bank.example]/pay/1"))
+        #expect(emptyPort.host == "bank.example" && emptyPort.port == nil)
+        #expect(bracketed.host == "bank.example")
+
+        #expect(OriginExactnessRoute.resolveDeepLink(emptyPort) == nil)
+        #expect(OriginExactnessRoute.resolveDeepLink(bracketed) == nil)
+        // The explanation gives the same answer as the resolver.
+        #expect(OriginExactnessRoute.explainDeepLink(emptyPort).decision == .rejected(.portNotAllowed))
+        #expect(
+            OriginExactnessRoute.explainDeepLink(bracketed).decision
+                == .rejected(.hostNotAllowed(actual: bracketed.host))
+        )
+    }
+
     @Test("Undecodable userinfo is rejected as credentials")
     func undecodableUserinfoIsRejected() throws {
         #expect(try resolve("https://%FF@bank.example/pay/1") == nil)

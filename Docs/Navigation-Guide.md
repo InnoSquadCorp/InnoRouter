@@ -383,11 +383,14 @@ mapping or normalization is rejected. The host compared is the one `URL`
 reports: a percent-encoded host is only decoded, but a host written with raw
 non-ASCII characters is first mapped through IDNA, as name resolution maps it,
 so a raw Kelvin sign arrives as `k`. A user or password component is rejected
-in any form, including one that does not decode. Percent-encoding that is not
-valid UTF-8 is never accepted as a value: a path segment a pattern reads then
-matches nothing, and a query value is invalid for every type, `String` included,
-so a generated route that reads it does not resolve. A query item the route does
-not read, or a segment a trailing wildcard swallows, does not decide the match.
+in any form, including one that does not decode, and so are a port delimiter
+with no port (`host:`) and square brackets around a host that is not an IPv6
+address, which `URL` would report as the plain host. Percent-encoding that is
+not valid UTF-8 is never accepted as a value: a path segment a pattern reads
+then matches nothing, and a query value is invalid for every type, `String`
+included, so a generated route that reads it does not resolve. A query item the
+route does not read, or a segment a trailing wildcard swallows, does not decide
+the match.
 In a hand-written mapping, the typed `firstValue(forName:as:)` rejects such a
 value; the untyped accessors report it as the empty string. Path literals and
 query names compare by Unicode scalars, not by canonical equivalence:

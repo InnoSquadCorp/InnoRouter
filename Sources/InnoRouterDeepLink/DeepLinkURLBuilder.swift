@@ -94,6 +94,10 @@ public struct DeepLinkURLParameter: Sendable, Hashable {
 /// non-`nil` parameters become query items in declaration order. A terminal
 /// wildcard renders its literal prefix because wildcard input is not captured
 /// by the route declaration.
+///
+/// Query names are written in Unicode canonical composition (NFC), the only
+/// spelling the resolver reads a name in. A name given in another form, such
+/// as a decomposed accent, therefore still reads back from the built URL.
 public enum DeepLinkURLBuilder {
     public static func makeURL(
         origin: DeepLinkOrigin,
@@ -138,7 +142,7 @@ public enum DeepLinkURLBuilder {
                   let value = parameter.value else {
                 return nil
             }
-            return URLQueryItem(name: parameter.name, value: value)
+            return URLQueryItem(name: parameter.name.precomposedStringWithCanonicalMapping, value: value)
         }
         if components.queryItems?.isEmpty == true {
             components.queryItems = nil

@@ -58,6 +58,37 @@ struct DeepLinkURLBuilderTests {
         #expect(url.absoluteString == "https://app.example.com/search?query=a/b&page=2")
     }
 
+    @Test("Builder writes query names in NFC, so a name given in another form reads back")
+    func queryNamesAreComposed() throws {
+        let origin = try #require(
+            DeepLinkOrigin(scheme: "https", host: "app.example.com")
+        )
+        let decomposed = try #require(
+            DeepLinkURLBuilder.makeURL(
+                origin: origin, pattern: "/search", parameters: [.init(name: "cafe\u{301}", value: "x")]
+            )
+        )
+        #expect(decomposed.absoluteString == "https://app.example.com/search?caf%C3%A9=x")
+
+        // A decomposed accent, a composition exclusion, and a singleton: the
+        // resolver files each of these spellings under no name at all.
+        for name in ["cafe\u{301}", "\u{0958}", "\u{212B}"] {
+            let url = try #require(
+                DeepLinkURLBuilder.makeURL(
+                    origin: origin, pattern: "/search", parameters: [.init(name: name, value: "x")]
+                )
+            )
+            // What a generated resolver does: read the label it rendered.
+            let matcher = DeepLinkMatcher<String> {
+                DeepLinkMapping("/search") { parameters in
+                    parameters.firstValue(forName: name, as: String.self) ?? "<none>"
+                }
+            }
+            let scalars = name.unicodeScalars.map { String($0.value, radix: 16) }
+            #expect(matcher.match(url) == "x", "The built URL lost the value of \(scalars)")
+        }
+    }
+
     @Test("Builder rejects a missing path placeholder")
     func missingPathValue() throws {
         let origin = try #require(
