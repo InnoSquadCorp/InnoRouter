@@ -692,6 +692,21 @@ private enum ShadowedTabRouterRoute {
     /// not SwiftUI's tab content, so it must compile without the W013
     /// warning, whose Fix-It would not compile here.
     static func built<Tab: ShadowedTabBuilding>(_ type: Tab.Type) -> Tab { Tab { "built" } }
+
+    /// A nested enum with its own `Tab` case. Inside it the call builds that
+    /// case, so it must compile without the W013 warning, whose Fix-It would
+    /// not compile here either.
+    enum Section {
+        case Tab(Int, () -> String)
+
+        static func make() -> Section { Tab(1) { "section" } }
+
+        var label: String {
+            switch self {
+            case .Tab(_, let label): label()
+            }
+        }
+    }
 }
 
 private protocol ShadowedTabBuilding {
@@ -733,6 +748,11 @@ struct RouterGeneratedTabShadowingTests {
     @Test("A generic parameter named Tab is usable unqualified")
     func genericTabParameter() {
         #expect(ShadowedTabRouterRoute.built(ShadowedTabBox.self).value == "built")
+    }
+
+    @Test("A nested enum's case named Tab is usable unqualified")
+    func nestedEnumCaseNamedTab() {
+        #expect(ShadowedTabRouterRoute.Section.make().label == "section")
     }
 }
 

@@ -217,7 +217,8 @@ public struct DeepLinkRouteCatalog: Hashable, Sendable, Codable {
         guard !DeepLinkOriginComparison.carriesCredentials(url) else {
             return .init(decision: .rejected(.credentialsNotAllowed), attempts: [])
         }
-        guard url.port == nil else {
+        let authorityDefect = DeepLinkOriginComparison.authorityDefect(of: url)
+        guard url.port == nil, authorityDefect != .emptyPort else {
             return .init(decision: .rejected(.portNotAllowed), attempts: [])
         }
         guard let scheme = url.scheme,
@@ -227,7 +228,7 @@ public struct DeepLinkRouteCatalog: Hashable, Sendable, Codable {
                 attempts: []
             )
         }
-        guard let host = url.host,
+        guard let host = url.host, authorityDefect != .bracketedName,
               DeepLinkOriginComparison.contains(hosts, host) else {
             return .init(
                 decision: .rejected(.hostNotAllowed(actual: url.host)),

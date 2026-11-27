@@ -34,6 +34,12 @@ Security). Behavior changes are marked in bold.
 - **A user or password component that does not percent-decode, such as
   `https://%FF@host/`, is rejected like any other credential.** `URL.user`
   reports it as absent, so it passed the credential check.
+- **A port delimiter with no port, and square brackets around a host that is
+  not an IPv6 address, are rejected.** `https://bank.example:/pay` and
+  `https://[bank.example]/pay` were admitted for the entry `bank.example`:
+  `URL.port` reports no port for the first, and `URL.host` removes the
+  brackets of the second. Every admission path now reads the authority as it
+  is written. An IPv6 address keeps its brackets and is still admitted.
 - **Percent-encoding that is not valid UTF-8 is never accepted as a value.**
   `/pay/%FF` reached the route as the literal parameter `"%FF"`, and `?q=%FF`
   reached a `String` parameter as an empty string. A path segment that a
@@ -51,7 +57,9 @@ Security). Behavior changes are marked in bold.
   literal now matches only a segment with the same scalars, and a query name
   outside canonical composition (NFC) is filed like a name that does not
   decode, so a route never reads it under the name it resembles. Pattern
-  diagnostics compare literals the same way.
+  diagnostics compare literals the same way. `DeepLinkURLBuilder` writes query
+  names in NFC, so a URL it builds, including one a generated router renders,
+  still reads back when a name was declared in another form.
 
 ### Added
 
@@ -118,10 +126,11 @@ Security). Behavior changes are marked in bold.
   `@TabItem` cases, which normally resolves to the generated nested `Tab`, not
   SwiftUI's. Write `SwiftUI.Tab`. Calls without a content closure are not
   diagnosed, nor is code inside a type, function, or closure that declares its
-  own `Tab`, including as a generic parameter. The check matches the call's
-  spelling, so a call to a `Tab` bound by a parameter or a pattern is flagged
-  too. A call that deliberately uses an initializer added to the generated
-  `Tab` is diagnosed as well; write it as `Self.Tab(...)`.
+  own `Tab`, including as a generic parameter or an enum case. The check
+  matches the call's spelling, so a call to a `Tab` bound by a parameter or a
+  pattern, or inherited by a nested type, is flagged too. A call that
+  deliberately uses an initializer added to the generated `Tab` is diagnosed
+  as well; write it as `Self.Tab(...)`.
 
 ### Changed
 

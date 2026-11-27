@@ -309,6 +309,8 @@ origin은 ASCII 대소문자만 접은 뒤 byte 단위로 정확히 비교합니
 거절합니다. 비교하는 host는 `URL`이 보고하는 값입니다. percent-encoding host는 디코딩만
 하지만, 비ASCII 문자를 그대로 쓴 host는 이름 해석처럼 IDNA 변환을 먼저 거치므로 그대로 쓴
 Kelvin 기호는 `k`로 도착합니다. user·password component는 해석할 수 없는 형태를 포함해 모두 거절합니다.
+port 없이 구분자만 쓴 형태(`host:`)와 IPv6 주소가 아닌 host를 대괄호로 감싼 형태도 거절합니다. `URL`은
+둘 다 일반 host처럼 보고하기 때문입니다.
 올바른 UTF-8이 아닌 percent-encoding은 값으로 받아들이지 않습니다. pattern이 읽는
 path segment라면 어떤 것과도 일치하지 않고, query 값이라면 `String`을 포함한 모든
 type에서 잘못된 값이므로 그 값을 읽는 생성 route는 해석되지 않습니다. route가 읽지

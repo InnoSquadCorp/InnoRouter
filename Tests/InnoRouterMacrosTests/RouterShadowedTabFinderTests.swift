@@ -133,6 +133,32 @@ struct RouterShadowedTabFinderTests {
         """) == [9])
     }
 
+    @Test("A nested enum's case named Tab is not mistaken for SwiftUI's Tab")
+    func enumCase() throws {
+        #expect(try flaggedLines("""
+        enum AppRoute {
+            enum Section {
+                case Tab(Int, () -> Void)
+                static func make() -> Section { Tab(1) {} }
+            }
+            enum Listed {
+                case header, Tab(Int, () -> Void)
+                static func make() -> Listed { Tab(2) {} }
+            }
+            enum Conditional {
+                #if os(iOS)
+                case Tab(Int, () -> Void)
+                #endif
+                static func make() -> Conditional { Tab(3) {} }
+            }
+            enum Plain {
+                case tab
+                var body: some View { TabView { Tab("a", systemImage: "b") { EmptyView() } } }
+            }
+        }
+        """) == [18])
+    }
+
     @Test("A Tab declared inside an #if clause counts as a rebinding")
     func conditionalRebinding() throws {
         #expect(try flaggedLines("""

@@ -125,6 +125,55 @@ struct DeepLinkOriginExactnessTests {
         }
     }
 
+    @Test("An empty port and a bracketed host name are rejected on every admission path")
+    func malformedAuthorityIsRejected() async throws {
+        let cases: [(String, DeepLinkResolutionFailure)] = [
+            ("https://bank.example:/home", .portNotAllowed),
+            ("https://[bank.example]/home", .hostNotAllowed(actual: "bank.example")),
+            ("https://[bank.example]:/home", .hostNotAllowed(actual: "bank.example")),
+            ("HTTPS://[BANK.example]/home", .hostNotAllowed(actual: "BANK.example")),
+        ]
+        for (string, explained) in cases {
+            let url = try #require(URL(string: string))
+            // Foundation reads each as the plain host with no port, so a
+            // comparison of those two values alone would admit it.
+            #expect(url.port == nil && url.host?.lowercased() == "bank.example", "\(string) no longer reads as a plain host")
+            #expect(
+                !DeepLinkFeatureRuntime.admitsOrigin(of: url, schemes: ["https"], hosts: ["bank.example"]),
+                "\(string) was admitted by a generated resolver"
+            )
+            #expect(
+                await pipeline(hosts: ["bank.example"]).decide(for: url)
+                    == .rejected(reason: .hostNotAllowed(actualHost: url.host)),
+                "\(string) was admitted by the pipeline"
+            )
+            let catalog = DeepLinkRouteCatalog(
+                schemes: ["https"], hosts: ["bank.example"],
+                entries: [.init(routeCase: "home", pattern: "/home")]
+            )
+            #expect(!catalog.supportsPureResolution(of: url))
+            let resolve: (URL) -> RouteFixture? = { _ in .home }
+            #expect(catalog.explain(url, resolve: resolve).decision == .rejected(explained))
+        }
+    }
+
+    @Test("An IPv6 address keeps the brackets a URL needs and is still admitted")
+    func bracketedAddressIsAdmitted() async throws {
+        let url = try #require(URL(string: "https://[::1]/home"))
+        #expect(url.host == "::1")
+        #expect(DeepLinkFeatureRuntime.admitsOrigin(of: url, schemes: ["https"], hosts: ["::1"]))
+        guard case .plan = await pipeline(hosts: ["::1"]).decide(for: url) else {
+            Issue.record("An allowed IPv6 origin was rejected")
+            return
+        }
+        // The address form does not excuse an empty port.
+        let emptyPort = try #require(URL(string: "https://[::1]:/home"))
+        #expect(!DeepLinkFeatureRuntime.admitsOrigin(of: emptyPort, schemes: ["https"], hosts: ["::1"]))
+        // A custom scheme whose host is a routing token is unaffected.
+        let custom = try #require(URL(string: "myapp://product/42"))
+        #expect(DeepLinkFeatureRuntime.admitsOrigin(of: custom, schemes: ["myapp"], hosts: ["product"]))
+    }
+
     @Test("Every admission path compares bytes, not canonically equivalent strings")
     func canonicalEquivalenceIsNotEquality() async throws {
         // The allow-list entry is precomposed (U+00E9); the URL host decodes
